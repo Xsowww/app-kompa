@@ -7,9 +7,10 @@ import { confirmAction } from '../../store/ui';
 import { useSettings } from '../../store/settings';
 import { FOLDER_COLORS } from '../../store/drive';
 import { fmt, fromKey, toKey, fmtDay, todayKey, weekStart } from '../../lib/dates';
-import { daysBetween, periodDays, runsOf, MAX_DAYS, PERIOD_IDEAS, periodColor, periodLabel, periodRange, periodText, periodTint, repeatPeriod, sortPeriods, type Period } from '../../lib/periods';
+import { covers, daysBetween, periodDays, runsOf, MAX_DAYS, PERIOD_IDEAS, periodColor, periodLabel, periodRange, periodText, periodTint, repeatPeriod, sortPeriods, type Period } from '../../lib/periods';
 import { cx, uid } from '../../lib/utils';
 import { useCalendarSource } from './source';
+import { catOf, sortEvents, type CalendarEvent } from '../../store/calendar';
 
 type Draft = { id?: string; title: string; start: string; end: string; color: string; people?: string[]; skip?: string[] };
 
@@ -21,7 +22,15 @@ const near = (key: string, n: number) => toKey(addDays(fromKey(key), n));
  * passes over (or unticks them, when it starts on a ticked day). So « the 5th to the 9th, then the 12th to
  * the 18th », or a few days taken out of the middle. Shift + click ticks everything since the last day.
  */
-function DaysPicker({ days, color, around, onChange }: { days: Set<string>; color: string; around: string; onChange: (next: Set<string>) => void }) {
+function DaysPicker({ days, color, around, others, events, onChange }: {
+  days: Set<string>;
+  color: string;
+  around: string;
+  /** The calendar's other periods and its events, shown on the days (a line, a dot) to see what is already there. */
+  others: Period[];
+  events: CalendarEvent[];
+  onChange: (next: Set<string>) => void;
+}) {
   const today = todayKey();
   const [month, setMonth] = useState(() => startOfMonth(fromKey([...days].sort()[0] ?? around)));
   // The slide in progress: where it started, where it is, ticking or unticking, and the days before it.
@@ -29,6 +38,9 @@ function DaysPicker({ days, color, around, onChange }: { days: Set<string>; colo
   const last = useRef<string | null>(null);
   const first = weekStart(month);
   const grid = Array.from({ length: 42 }, (_, i) => toKey(addDays(first, i)));
+  const eventsOn = new Map<string, CalendarEvent[]>();
+  for (const e of events) if (e.date >= grid[0] && e.date <= grid[41]) eventsOn.set(e.date, [...(eventsOn.get(e.date) ?? []), e]);
+  const shownOthers = others.filter(p => p.start <= grid[41] && p.end >= grid[0]);
   const keyAt = (x: number, y: number) => (document.elementFromPoint(x, y)?.closest('[data-day]') as HTMLElement | null)?.dataset.day;
   const paint = (from: string, to: string, add: boolean, base: Set<string>) => {
     const next = new Set(base);
@@ -93,6 +105,9 @@ function DaysPicker({ days, color, around, onChange }: { days: Set<string>; colo
       >
         {grid.map((key, i) => {
           const on = days.has(key);
+          const dayEvents = (eventsOn.get(key) ?? []).sort(sortEvents);
+          const dayPeriods = shownOthers.filter(p => covers(p, key));
+          const already = [...dayPeriods.map(p => p.title), ...dayEvents.map(e => `${e.start ? `${e.start.replace(':', 'h').replace(/h00$/, 'h').replace(/^0(?=\d)/, '')} ` : ''}${e.title}`)];
           const before = days.has(near(key, -1));
           const after = days.has(near(key, 1));
           const d = fromKey(key);
@@ -102,7 +117,8 @@ function DaysPicker({ days, color, around, onChange }: { days: Set<string>; colo
               type="button"
               data-day={key}
               aria-pressed={on}
-              aria-label={fmt(d, 'EEEE d MMMM yyyy')}
+              aria-label={`${fmt(d, 'EEEE d MMMM yyyy')}${already.length ? ` — déjà : ${already.join(', ')}` : ''}`}
+              title={already.length ? already.join('\n') : undefined}
               // The keyboard has no pointer: Entrée / Espace ticks or unticks the day.
               onKeyDown={e => {
                 if (e.key !== 'Enter' && e.key !== ' ') return;
@@ -111,7 +127,7 @@ function DaysPicker({ days, color, around, onChange }: { days: Set<string>; colo
                 paint(key, key, !on, days);
               }}
               className={cx(
-                'tabular flex h-9 items-center justify-center text-[13px] pointer-coarse:h-10',
+                'tabular relative flex h-10 items-center justify-center pb-1 text-[13px] pointer-coarse:h-11',
                 on ? 'font-semibold' : 'rounded-xl hover:bg-stone-100',
                 // Days in a row join into a band, round at its ends and at the ends of the week.
                 on && (!before || i % 7 === 0) && 'rounded-l-xl',
@@ -123,11 +139,35 @@ function DaysPicker({ days, color, around, onChange }: { days: Set<string>; colo
               style={on ? { background: periodTint({ color }, 22), color: periodText({ color }) } : undefined}
             >
               {d.getDate()}
+              {/* What is already there: a dot per event, a line per other period. */}
+              {dayEvents.length > 0 && (
+                <span className="pointer-events-none absolute bottom-[7px] left-1/2 flex -translate-x-1/2 gap-[2px]" aria-hidden>
+                  {dayEvents.slice(0, 3).map(e => <span key={e.id} className="h-1 w-1 rounded-full" style={{ background: catOf(e.category).color }} />)}
+                </span>
+              )}
+              {dayPeriods.length > 0 && (
+                <span className="pointer-events-none absolute inset-x-1.5 bottom-[2px] flex gap-[2px]" aria-hidden>
+                  {dayPeriods.slice(0, 3).map(p => <span key={p.id} className="h-[3px] flex-1 rounded-full" style={{ background: periodColor(p) }} />)}
+                </span>
+              )}
             </button>
           );
         })}
       </div>
-      <p className="mt-1.5 px-1 text-[12px] text-stone-500">Touche un jour pour le cocher ou le décocher, glisse pour en prendre plusieurs d’un coup.</p>
+      {shownOthers.length > 0 && (
+        <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 px-1 text-[11.5px] font-medium text-stone-600" aria-label="Autres périodes ce mois-ci">
+          {shownOthers.map(p => (
+            <span key={p.id} className="flex items-center gap-1.5">
+              <span className="h-[3px] w-3 rounded-full" style={{ background: periodColor(p) }} aria-hidden />
+              {p.title}
+            </span>
+          ))}
+        </div>
+      )}
+      <p className="mt-1.5 px-1 text-[12px] text-stone-500">
+        Touche un jour pour le cocher ou le décocher, glisse pour en prendre plusieurs d’un coup.
+        {(shownOthers.length > 0 || eventsOn.size > 0) && ' Les traits sont tes autres périodes, les points tes événements.'}
+      </p>
     </div>
   );
 }
@@ -146,6 +186,12 @@ function PeriodForm({ draft, around, onDone }: { draft: Draft; around: string; o
   // The days ticked: one period from the first to the last, the days left out in between are skipped.
   const [days, setDays] = useState(() => new Set(draft.start && draft.end ? daysBetween(draft.start, draft.end).filter(k => !draft.skip?.includes(k)) : []));
   const runs = runsOf(days);
+  // What the chosen days already hold: the calendar's other periods, its events.
+  const others = source.periods.filter(p => p.id !== d.id);
+  const clash = {
+    periods: others.map(p => ({ title: p.title, n: [...days].filter(k => covers(p, k)).length })).filter(c => c.n > 0),
+    events: source.events.filter(e => days.has(e.date)).sort(sortEvents),
+  };
   const [longFrom, setLongFrom] = useState('');
   const [longTo, setLongTo] = useState('');
   const [long, setLong] = useState(false);
@@ -205,7 +251,17 @@ function PeriodForm({ draft, around, onDone }: { draft: Draft; around: string; o
       )}
 
       <p className="eyebrow mt-4">Jours</p>
-      <DaysPicker days={days} color={d.color} around={around} onChange={setDays} />
+      <DaysPicker days={days} color={d.color} around={around} others={others} events={source.events} onChange={setDays} />
+      {(clash.periods.length > 0 || clash.events.length > 0) && (
+        <p className="mt-2 rounded-xl bg-surface px-3 py-2 text-[12.5px] leading-snug text-stone-600 ring-1 ring-inset ring-stone-200" aria-live="polite">
+          <span className="font-semibold text-ink">Déjà sur ces jours : </span>
+          {[
+            ...clash.periods.map(c => `« ${c.title} » (${c.n} jour${c.n > 1 ? 's' : ''})`),
+            ...(clash.events.length ? [`${clash.events.length} événement${clash.events.length > 1 ? 's' : ''} (${clash.events.slice(0, 3).map(e => `${e.title}, ${fmtDay(fromKey(e.date), 'EEE d')}`).join(' ; ')}${clash.events.length > 3 ? '…' : ''})`] : []),
+          ].join(' · ')}
+          . Ils restent visibles : la période se met dessous.
+        </p>
+      )}
       {runs.length > 0 && (
         <div className="mt-2 flex flex-wrap items-center gap-1.5" aria-live="polite">
           {runs.map(r => (
