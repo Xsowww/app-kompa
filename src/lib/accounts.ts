@@ -98,3 +98,7 @@ export function savedAccount(id: string) {
 export const needsCredentials = (a: SavedAccount) => isStale(a) || !!a.signedOut || (cloudEnabled && !a.session);
 
 export const STALE_HINT = `Ce compte n’a pas servi depuis plus de ${STALE_DAYS}\u00a0jours : entre de nouveau ton mot de passe.`;
+
+/** Why a saved account asks for its password again, in the words shown above the field. */
+export const reloginHint = (a: SavedAccount | undefined) =>
+  a?.signedOut ? 'Tu t’es déconnecté de ce compte : entre ton mot de passe pour le rouvrir.' : a && isStale(a) ? STALE_HINT : 'La session de ce compte a expiré : entre de nouveau ton mot de passe.';

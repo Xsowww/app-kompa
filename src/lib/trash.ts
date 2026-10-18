@@ -163,7 +163,15 @@ export function restoreTrash(ids: string[]): RestoreResult {
   if (by('drive').length) useDrive.getState().restore(by('drive'));
   if (by('notes').length) useNotes.getState().restore(by('notes'));
   if (by('calendar').length) useCalendar.getState().restore(by('calendar'));
-  return { names: entries.map(e => e.name), orphan, href: hrefOf(entries[0]) };
+  // Names read again after the restore: one that came back next to a new one of the same name is renamed (« Biologie (2) »).
+  return { names: entries.map(e => nameNow(e) ?? e.name), orphan, href: hrefOf(entries[0]) };
+}
+
+function nameNow(e: TrashEntry): string | undefined {
+  if (e.kind === 'drive') return useDrive.getState().items.find(i => i.id === e.id)?.name;
+  if (e.kind === 'note') return useNotes.getState().notes.find(n => n.id === e.id)?.title;
+  if (e.kind === 'noteFolder') return useNotes.getState().folders.find(f => f.id === e.id)?.name;
+  return undefined;
 }
 
 /** Link to a restored entry. */
@@ -194,6 +202,8 @@ export function emptyAllTrash() {
 
 /** True when this id is a note in the trash (deep links to it go to the trash). */
 export const isTrashedNote = (id: string) => useNotes.getState().trashNotes.some(n => n.id === id);
+/** Same for a Drive file or folder. */
+export const isTrashedDriveItem = (id: string) => useDrive.getState().trash.some(i => i.id === id);
 
 /** Deletes a calendar event (to the trash), with « Annuler » in the toast. */
 export function trashEvent(id: string) {

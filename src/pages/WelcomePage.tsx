@@ -89,7 +89,7 @@ export default function WelcomePage() {
       onMouseDown={e => (moving.current || e.detail > 1) && !(e.target as HTMLElement).closest('input') && e.preventDefault()}
     >
       <Logo />
-      <div className="flex flex-1 justify-center py-8 sm:pt-[8vh]">
+      <main className="flex flex-1 justify-center py-8 sm:pt-[8vh]">
         <div className="enter w-full max-w-[440px]">
           <div className="flex items-center gap-3">
             {/* The place of the back arrow is kept on the first question: the bar doesn't move afterwards. */}
@@ -107,7 +107,7 @@ export default function WelcomePage() {
           </div>
 
           {step === 0 && (
-            <Question title={`Bienvenue${name ? ` ${name}` : ''}\u00a0! Tu vas utiliser Kompaly pour…`} hint="Kompaly adapte ses mots et ton espace à ta réponse.">
+            <Question title={`Bienvenue${name ? `, ${name}` : ''}\u00a0! Tu vas utiliser Kompaly pour…`} hint="Kompaly adapte ses mots et ton espace à ta réponse.">
               {USAGES.map(u => {
                 const Icon = USAGE_ICONS[u.key];
                 return (
@@ -214,7 +214,7 @@ export default function WelcomePage() {
             </button>
           )}
         </div>
-      </div>
+      </main>
     </div>
   );
 }

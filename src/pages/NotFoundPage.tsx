@@ -9,9 +9,11 @@ export default function NotFoundPage() {
   const signedIn = useAuth(s => !!s.user);
   return (
     <div className="flex min-h-dvh flex-col bg-paper px-4 py-6 sm:px-8">
-      <Link to="/" className="self-start rounded-lg" aria-label="Kompaly, accueil">
-        <Logo />
-      </Link>
+      <header>
+        <Link to="/" className="inline-flex rounded-lg" aria-label="Kompaly, accueil">
+          <Logo />
+        </Link>
+      </header>
       <main className="flex flex-1 items-center justify-center py-10">
         <div className="w-full max-w-[440px] rounded-[28px] bg-surface p-7 text-center shadow-card sm:p-9">
           {/* The logo's two dots, the small one gone off on its own. */}

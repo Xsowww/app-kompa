@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Bell, BellOff, Plus, SlidersHorizontal, X } from 'lucide-react';
 import { DateField, Popover, SelectField, TimeField } from './Pickers';
 import { anchorOf, MAX_MINUTES, minutesBefore, reminderLabel, reminderMoment } from '../lib/reminders';
@@ -56,10 +56,15 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
   const [custom, setCustom] = useState<Custom | null>(null);
   const [openedAt] = useState(Date.now); // « now » for the menu (a moment already past isn't offered)
   const check = custom ? customMinutes(custom, date, time, value) : null;
+  const customRef = useRef<HTMLDivElement>(null);
   const openCustom = () => {
-    // Starts one hour before (or at 8:00 the same day for an item without a time).
+    // Starts one hour before (or at 8:00 the same day for an item without a time); when that moment is
+    // already past (an item in less than an hour), « Durée avant » rather than an error before anything is typed.
     const start = date ? new Date(anchorOf(date, time).getTime() - 60 * 60_000) : null;
-    setCustom({ mode: date ? 'moment' : 'duree', day: start ? dayKey(start) : '', at: start ? `${pad(start.getHours())}:${pad(start.getMinutes())}` : '', amount: '1', unit: 'h' });
+    const past = !!start && start.getTime() <= Date.now();
+    setCustom({ mode: date && !past ? 'moment' : 'duree', day: start ? dayKey(start) : '', at: start ? `${pad(start.getHours())}:${pad(start.getMinutes())}` : '', amount: past ? '15' : '1', unit: past ? 'min' : 'h' });
+    // The menu that opened it goes away: the keyboard focus goes into the new panel.
+    requestAnimationFrame(() => customRef.current?.querySelector<HTMLElement>('button, input, select')?.focus());
   };
   const addCustom = () => {
     if (check?.minutes === undefined || check.error) return;
@@ -156,6 +161,7 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
       )}
       {!disabled && custom && (
         <div
+          ref={customRef}
           className="mt-2 rounded-2xl bg-stone-50 p-3"
           role="group"
           aria-label="Rappel personnalisé"

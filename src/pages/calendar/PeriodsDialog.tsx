@@ -18,7 +18,9 @@ function PeriodForm({ draft, onDone }: { draft: Draft; onDone: () => void }) {
   const usage = useSettings(s => s.usage);
   const [d, setD] = useState(draft);
   const [repeat, setRepeat] = useState(false);
-  const [every, setEvery] = useState(4);
+  // As typed (it can be empty for a moment while the number is changed), kept between 1 and 52 for the copies.
+  const [everyText, setEveryText] = useState('4');
+  const every = Math.max(1, Math.min(52, Math.round(Number(everyText)) || 1));
   const [until, setUntil] = useState(() => toKey(addDays(fromKey(draft.start), 7 * 26)));
   const set = (patch: Partial<Draft>) => setD(x => ({ ...x, ...patch }));
   const days = d.start && d.end ? differenceInCalendarDays(fromKey(d.end), fromKey(d.start)) : -1;
@@ -113,7 +115,7 @@ function PeriodForm({ draft, onDone }: { draft: Draft; onDone: () => void }) {
           {repeat && (
             <div className="mt-2 flex flex-wrap items-center gap-2 pl-6 text-[13px]">
               <span>toutes les</span>
-              <input type="number" min={1} max={52} value={every} onChange={e => setEvery(Math.max(1, Math.min(52, Number(e.target.value) || 1)))} aria-label="Nombre de semaines entre deux débuts" className="field h-9 w-16 text-center" />
+              <input type="number" min={1} max={52} value={everyText} onChange={e => setEveryText(e.target.value)} onBlur={() => setEveryText(String(every))} aria-label="Nombre de semaines entre deux débuts" className="field h-9 w-16 text-center" />
               <span>semaines, jusqu’au</span>
               <DateField value={until} min={d.start} onChange={setUntil} label="Dernier début possible" className="h-9 w-40" />
               <span className="w-full text-[12px] text-stone-500">
@@ -125,7 +127,7 @@ function PeriodForm({ draft, onDone }: { draft: Draft; onDone: () => void }) {
       )}
 
       {error && d.start && d.end && <p className="mt-3 text-[12.5px] text-red-600">{error}</p>}
-      <div className="mt-5 flex justify-end gap-2">
+      <div className="mt-5 flex flex-wrap justify-end gap-2">
         <button type="button" className="btn-secondary" onClick={onDone}>Annuler</button>
         <button type="submit" className="btn-primary" disabled={!base.title || !!error}>
           {d.id ? 'Enregistrer' : copies.length > 1 ? `Ajouter ${copies.length} périodes` : 'Ajouter'}
@@ -183,7 +185,7 @@ export default function PeriodsDialog({ day, onClose }: { day: string; onClose: 
       {draft ? (
         <PeriodForm key={draft.id ?? 'nouvelle'} draft={draft} onDone={() => setDraft(null)} />
       ) : (
-        <div className="mt-5 flex justify-between gap-2">
+        <div className="mt-5 flex flex-wrap justify-between gap-2">
           {canEdit ? (
             <button className="btn-secondary" onClick={() => setDraft(fresh())}>
               <Plus size={15} /> Ajouter une période

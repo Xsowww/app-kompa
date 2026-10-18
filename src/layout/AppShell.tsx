@@ -45,6 +45,7 @@ const HIT_ICON: Record<SearchHit['type'], typeof FileText> = {
   note: NotebookText,
   'dossier de notes': Folder,
   événement: CalendarClock,
+  tâche: ListChecks,
 };
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
@@ -117,7 +118,7 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
           }
         }}
         placeholder="Rechercher"
-        aria-label="Rechercher dans tes fichiers, notes et événements"
+        aria-label="Rechercher dans tes fichiers, notes, événements et tâches"
         role="combobox"
         aria-autocomplete="list"
         aria-expanded={open && !!q.trim()}
@@ -449,7 +450,7 @@ export default function AppShell() {
             to={n.to}
             end={n.end}
             // 7 spaces: each takes its share, the label shortened rather than pushed off a narrow screen.
-            className={({ isActive }) => cx('flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-[17px] py-1.5 text-[10px] font-semibold tracking-[-0.01em] transition-colors max-[359px]:text-[9px]', isActive ? 'bg-white text-[#14161f]' : 'text-white/60 hover:text-white')}
+            className={({ isActive }) => cx('flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-[17px] py-1.5 text-[10px] font-semibold tracking-[-0.01em] transition-colors max-[379px]:text-[9px] max-[379px]:tracking-[-0.03em]', isActive ? 'bg-white text-[#14161f]' : 'text-white/60 hover:text-white')}
           >
             {({ isActive }) => (
               <>

@@ -350,6 +350,12 @@ export const FOLDER_COLORS: Record<string, { label: string; color: string }> = {
   gris: { label: 'Gris', color: '#78716c' },
 };
 
+/** Colour of a notes folder icon (outline and a light fill); undefined when the folder has none. */
+export const folderIconStyle = (key?: string) => {
+  const c = key ? FOLDER_COLORS[key]?.color : undefined;
+  return c ? { color: c, fill: `color-mix(in srgb, ${c} 22%, transparent)` } : undefined;
+};
+
 /** A known colour key, else undefined (imported files, rows from the server). */
 export const folderColorKey = (c: unknown) => (typeof c === 'string' && Object.hasOwn(FOLDER_COLORS, c) ? c : undefined);
 

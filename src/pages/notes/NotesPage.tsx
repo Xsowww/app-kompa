@@ -9,13 +9,13 @@ import { useNotes, type Note, type NoteFolder } from '../../store/notes';
 import { askText, toast } from '../../store/ui';
 import { ContextMenu, type MenuItem } from '../../components/Overlays';
 import { FolderColorPicker } from '../../components/FolderColorPicker';
-import { FOLDER_COLORS } from '../../store/drive';
+import { folderIconStyle } from '../../store/drive';
 import { cx, normalize, relativeTime, stripHtml } from '../../lib/utils';
 import NoteEditor from './NoteEditor';
 import { LinkChips, LinkPicker } from './NoteLinks';
 import { noteTemplates, type NoteTemplate } from './templates';
 import { downloadMarkdown, printNote } from './exportNote';
-import { isMenuKey, menuPoint } from '../../lib/a11y';
+import { arrowNav, isMenuKey, menuPoint } from '../../lib/a11y';
 import { flushNoteEditor } from './noteUtils';
 import { isTrashedNote } from '../../lib/trash';
 import NoteMoveDialog, { type NoteMoveTarget } from './NoteMoveDialog';
@@ -56,9 +56,16 @@ export default function NotesPage() {
   // The trash lives on its own page now: old links (and links to a deleted note) go there.
   // Checked when the link changes only, not when the open note is deleted from here.
   const oldTrashLink = params.has('corbeille');
+  const toldGone = useRef<string | null>(null); // once per link (effects run twice in dev)
   useEffect(() => {
     if (oldTrashLink) navigate('/corbeille?type=notes', { replace: true });
     else if (noteId && isTrashedNote(noteId)) navigate(`/corbeille?type=notes&apercu=${noteId}`, { replace: true });
+    else if (noteId && !useNotes.getState().notes.some(n => n.id === noteId)) {
+      // Deleted for good (an old link from Kompaly or a notification): say so instead of a silent page.
+      if (toldGone.current !== noteId) toast('Cette note n’existe plus', 'info');
+      toldGone.current = noteId;
+      navigate('/notes', { replace: true });
+    }
   }, [oldTrashLink, noteId, navigate]);
 
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(folders.map(f => f.id)));
@@ -250,10 +257,13 @@ export default function NotesPage() {
     { label: 'Exporter en Markdown', icon: <FileDown size={15} />, onClick: () => exportMd(n) },
   ];
 
+  // Keyboard shortcuts shown in the menus, not on touch screens.
+  const keyHint = (k: string) => (window.matchMedia('(pointer: coarse)').matches ? undefined : k);
+
   const noteMenu = (n: Note, open = true): MenuItem[] => [
     // Not for the note already open (header menu): it would do nothing.
     ...(open ? [{ label: 'Ouvrir', icon: <FileText size={15} />, onClick: () => openNote(n.id) }] : []),
-    { label: 'Renommer', icon: <Pencil size={15} />, onClick: () => void renameNote(n) },
+    { label: 'Renommer', icon: <Pencil size={15} />, shortcut: keyHint('F2'), onClick: () => void renameNote(n) },
     { label: 'Dupliquer', icon: <CopyPlus size={15} />, onClick: () => { const c = store.duplicateNote(n.id); if (c) openNote(c.id); } },
     { label: n.pinned ? 'Désépingler' : 'Épingler en haut', icon: n.pinned ? <PinOff size={15} /> : <Pin size={15} />, onClick: () => store.updateNote(n.id, { pinned: !n.pinned }) },
     { label: 'Déplacer vers…', icon: <FolderInput size={15} />, onClick: () => setMoving({ kind: 'note', id: n.id, name: n.title, from: n.folderId }) },
@@ -261,24 +271,31 @@ export default function NotesPage() {
     { label: '', divider: true, onClick: () => {} },
     ...exportItems(n),
     { label: '', divider: true, onClick: () => {} },
-    { label: 'Supprimer', icon: <Trash2 size={15} />, danger: true, onClick: () => deleteNote(n) },
+    { label: 'Supprimer', icon: <Trash2 size={15} />, shortcut: keyHint('Suppr'), danger: true, onClick: () => deleteNote(n) },
   ];
 
   const folderMenu = (f: NoteFolder): MenuItem[] => [
     { label: 'Nouvelle note ici', icon: <FilePlus2 size={15} />, onClick: () => newNote(f.id) },
     { label: 'Nouveau sous-dossier', icon: <FolderPlus size={15} />, onClick: () => void newFolder(f.id) },
-    { label: 'Renommer', icon: <Pencil size={15} />, onClick: () => void renameFolder(f) },
+    { label: 'Renommer', icon: <Pencil size={15} />, shortcut: keyHint('F2'), onClick: () => void renameFolder(f) },
     { label: 'Déplacer vers…', icon: <FolderInput size={15} />, onClick: () => setMoving({ kind: 'folder', id: f.id, name: f.name, from: f.parentId }) },
     ...(f.parentId ? [{ label: 'Remonter à la racine', icon: <FolderOpen size={15} />, onClick: () => store.moveFolder(f.id, null) }] : []),
     { label: '', divider: true, onClick: () => {} },
     {
       label: 'Couleur du dossier',
       onClick: () => {},
-      content: <FolderColorPicker value={f.color ?? null} onPick={key => { store.setFolderColor(f.id, key ?? undefined); setMenu(null); }} />,
+      content: <FolderColorPicker value={f.color ?? null} defaultColor="var(--color-stone-500)" onPick={key => { store.setFolderColor(f.id, key ?? undefined); setMenu(null); }} />,
     },
     { label: '', divider: true, onClick: () => {} },
-    { label: 'Supprimer', icon: <Trash2 size={15} />, danger: true, onClick: () => deleteFolder(f) },
+    { label: 'Supprimer', icon: <Trash2 size={15} />, shortcut: keyHint('Suppr'), danger: true, onClick: () => deleteFolder(f) },
   ];
+
+  /** Keys shared by the note and folder rows: arrows move between rows, Suppr puts in the trash, F2 renames. */
+  const rowKeys = (e: React.KeyboardEvent<HTMLElement>, remove: () => void, rename: () => void) => {
+    if (arrowNav(e, e.currentTarget.closest('aside')!, '[data-folder-open], [data-note-open]')) return;
+    if (e.key === 'Delete' || (e.key === 'Backspace' && (e.metaKey || e.ctrlKey))) { e.preventDefault(); remove(); }
+    else if (e.key === 'F2') { e.preventDefault(); rename(); }
+  };
 
   /** A menu opened from a « … » button: under it, right-aligned (clientX is 0 from the keyboard). */
   const menuUnder = (e: React.MouseEvent) => {
@@ -304,7 +321,8 @@ export default function NotesPage() {
       setDropOn(null);
       const nid = e.dataTransfer.getData(DRAG_NOTE);
       const fid = e.dataTransfer.getData(DRAG_FOLDER);
-      if (nid) store.updateNote(nid, { folderId });
+      // Dropped where it already is: nothing changes (not even its « modifiée » date).
+      if (nid && useNotes.getState().notes.find(n => n.id === nid)?.folderId !== folderId) store.updateNote(nid, { folderId });
       if (fid && fid !== folderId) store.moveFolder(fid, folderId);
       if (folderId) setExpanded(s => new Set([...s, folderId]));
     },
@@ -336,6 +354,7 @@ export default function NotesPage() {
         onKeyDown={e => {
           if (isMenuKey(e)) { e.preventDefault(); setMenu({ ...menuPoint(e), items: noteMenu(n) }); }
           else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openNote(n.id); setFocusFolder(null); }
+          else rowKeys(e, () => deleteNote(n), () => void renameNote(n));
         }}
         className="flex h-full min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md"
         style={{ paddingLeft: 10 + depth * 16 }}
@@ -390,16 +409,16 @@ export default function NotesPage() {
             onKeyDown={e => {
               if (isMenuKey(e)) { e.preventDefault(); setMenu({ ...menuPoint(e), items: folderMenu(f) }); }
               else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.currentTarget.click(); }
-              else if (e.key === 'F2') { e.preventDefault(); void renameFolder(f); }
+              else rowKeys(e, () => deleteFolder(f), () => void renameFolder(f));
             }}
             className="flex h-full min-w-0 flex-1 cursor-pointer items-center gap-1.5 rounded-md"
             style={{ paddingLeft: 4 + depth * 16 }}
           >
             <ChevronRight size={13} className={cx('shrink-0 text-stone-400 transition-transform', open && 'rotate-90')} />
             {(() => {
-              const c = f.color ? FOLDER_COLORS[f.color]?.color : undefined;
               const Icon = open ? FolderOpen : Folder;
-              return <Icon size={15} className={cx('shrink-0', !c && 'text-stone-500')} style={c ? { color: c, fill: `color-mix(in srgb, ${c} 22%, transparent)` } : undefined} />;
+              const style = folderIconStyle(f.color);
+              return <Icon size={15} className={cx('shrink-0', !style && 'text-stone-500')} style={style} />;
             })()}
             <span className="flex-1 truncate">{f.name}</span>
           </div>
@@ -444,6 +463,8 @@ export default function NotesPage() {
 
   return (
     <div className="flex h-full gap-4 px-4 pb-4 md:px-8">
+      {/* A note open on a phone hides the list and its title: the page keeps one for screen readers. */}
+      {mainOpen && <h1 className="sr-only md:hidden">Notes</h1>}
       {/* Sidebar */}
       <aside className={cx('w-full shrink-0 flex-col md:flex md:w-[268px]', mainOpen ? 'hidden' : 'flex')}>
         <div className="flex items-center gap-1.5 pb-4 pt-2">

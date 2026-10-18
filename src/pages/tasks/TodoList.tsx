@@ -36,7 +36,7 @@ function DueLabel({ due, short }: { due: string; short?: boolean }) {
 const coarse = () => typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches;
 
 /** Where the keyboard focus goes once a row is removed: the same button on the next (or previous) task, else the add field. */
-function focusAfterRemoval(row: HTMLElement | null) {
+function focusAfterRemoval(row: HTMLElement | null, later = false) {
   const list = row?.closest('[data-todolist]');
   const rows = [...(list?.querySelectorAll('li') ?? [])];
   const i = row ? rows.indexOf(row as HTMLLIElement) : -1;
@@ -45,8 +45,17 @@ function focusAfterRemoval(row: HTMLElement | null) {
     near?.querySelector<HTMLElement>('[data-remove]') ??
     // No keyboard popping up on phones when the list empties.
     (coarse() ? null : list?.querySelector<HTMLElement>('[data-quickadd]'));
-  target?.focus({ preventScroll: true });
+  const go = () => target?.focus({ preventScroll: true });
+  if (later) setTimeout(go, 0); // after a closing dialog has handed the focus back
+  else go();
 }
+
+/** The task's box again once its row moved (ticked, new due day): only when the focus fell to the page. */
+const refocusTodo = (id: string) =>
+  setTimeout(() => {
+    const a = document.activeElement;
+    if (!a || a === document.body) document.querySelector<HTMLElement>(`[data-todo="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });
+  }, 0);
 
 /** A changed due date can move the task to another group (new row): find its date button again after the render. */
 const focusDueButton = (id: string) => setTimeout(() => document.querySelector<HTMLElement>(`[data-due="${id}"]`)?.focus(), 0);
@@ -82,6 +91,7 @@ function TodoRow({ t, editable, preview, now = 0 }: { t: Todo; editable?: boolea
   const [dating, setDating] = useState<HTMLElement | null>(null);
   const [openDialog, setOpenDialog] = useState<'edit' | 'remind' | null>(null);
   const titleRef = useRef<HTMLSpanElement>(null);
+  const rowRef = useRef<HTMLLIElement>(null);
   // A new date can move the task to another group (a new row): the focus follows it there.
   const pickDue = (value: string) => {
     setDating(null);
@@ -105,10 +115,13 @@ function TodoRow({ t, editable, preview, now = 0 }: { t: Todo; editable?: boolea
   };
 
   return (
-    <li className="group flex min-h-9 items-center gap-3 rounded-lg px-1.5 py-1 transition-colors hover:bg-stone-50">
+    <li ref={rowRef} className="group flex min-h-9 items-center gap-2 rounded-lg sm:gap-3 px-1.5 py-1 transition-colors hover:bg-stone-50">
       <button
         data-todo={t.id}
-        onClick={() => toggle(t.id)}
+        onClick={() => {
+          toggle(t.id);
+          refocusTodo(t.id);
+        }}
         className={cx(
           'hit flex h-4 w-4 shrink-0 items-center justify-center rounded-[5px] border-[1.5px] transition-colors',
           justDone ? 'border-emerald-500 bg-emerald-500' : overdue ? 'border-[#d9a19a] hover:border-[#b13428] dark:border-red-300 dark:hover:border-red-600' : 'border-stone-300 hover:border-stone-500',
@@ -185,7 +198,8 @@ function TodoRow({ t, editable, preview, now = 0 }: { t: Todo; editable?: boolea
           onClick={() => setOpenDialog('remind')}
           className={cx(
             'hit flex shrink-0 items-center gap-1 rounded-md text-[11.5px]',
-            hasReminder ? 'px-1 py-0.5 font-medium text-brand-600 hover:bg-stone-100' : 'icon-btn touch-show h-9 w-9 opacity-0 sm:h-6 sm:w-6 group-hover:opacity-100 focus-visible:opacity-100',
+            // On a phone the empty bell, empty date and bin make way for the title: the pencil does all three.
+            hasReminder ? 'px-1 py-0.5 font-medium text-brand-600 hover:bg-stone-100' : 'icon-btn touch-show h-9 w-9 opacity-0 max-sm:hidden sm:h-6 sm:w-6 group-hover:opacity-100 focus-visible:opacity-100',
           )}
           title={hasReminder ? 'Changer le rappel' : 'Me le rappeler'}
           aria-label={hasReminder ? `Changer le rappel de «\u00a0${t.title}\u00a0»` : `Me rappeler «\u00a0${t.title}\u00a0»`}
@@ -198,8 +212,14 @@ function TodoRow({ t, editable, preview, now = 0 }: { t: Todo; editable?: boolea
         <TaskDialog
           todo={t}
           remind={openDialog === 'remind'}
-          onClose={() => setOpenDialog(null)}
-          onDelete={() => removeWithUndo([remove(t.id)].filter(x => !!x))}
+          onClose={() => {
+            setOpenDialog(null);
+            refocusTodo(t.id);
+          }}
+          onDelete={() => {
+            focusAfterRemoval(rowRef.current, true);
+            removeWithUndo([remove(t.id)].filter(x => !!x));
+          }}
         />
       )}
       {/* The tour task has « Lancer » in that column instead (no deadline to give it). */}
@@ -214,7 +234,7 @@ function TodoRow({ t, editable, preview, now = 0 }: { t: Todo; editable?: boolea
             className={cx(
               // Same width with or without a date: the reminder bells stay in one column.
               'hit min-w-[58px] shrink-0 rounded-md',
-              t.due ? 'px-1 py-0.5 text-right hover:bg-stone-100' : 'icon-btn touch-show h-9 w-9 opacity-0 sm:h-6 sm:w-6 group-hover:opacity-100 focus-visible:opacity-100',
+              t.due ? 'px-1 py-0.5 text-right hover:bg-stone-100' : 'icon-btn touch-show h-9 w-9 opacity-0 max-sm:hidden sm:h-6 sm:w-6 group-hover:opacity-100 focus-visible:opacity-100',
             )}
             title={t.due ? 'Changer l’échéance' : 'Ajouter une échéance'}
             aria-label={t.due ? `Changer l’échéance de «\u00a0${t.title}\u00a0» (${dueText(t.due, overdue)})` : `Ajouter une échéance à «\u00a0${t.title}\u00a0»`}
@@ -233,7 +253,7 @@ function TodoRow({ t, editable, preview, now = 0 }: { t: Todo; editable?: boolea
           removeWithUndo([remove(t.id)].filter(x => !!x));
           focusAfterRemoval(row);
         }}
-        className="icon-btn touch-show h-9 w-9 opacity-0 sm:h-6 sm:w-6 group-hover:opacity-100 focus-visible:opacity-100 hover:text-red-600" title="Supprimer" aria-label={`Supprimer « ${t.title} »`}>
+        className="icon-btn touch-show h-9 w-9 opacity-0 max-sm:hidden sm:h-6 sm:w-6 group-hover:opacity-100 focus-visible:opacity-100 hover:text-red-600" title="Supprimer" aria-label={`Supprimer « ${t.title} »`}>
         <Trash2 size={13} />
       </button>}
     </li>
@@ -281,7 +301,7 @@ function QuickAdd() {
         aria-label={due ? `Échéance : ${fmtDay(fromKey(due), 'EEEE d MMMM')}` : 'Ajouter une échéance'}
       >
         <CalendarPlus size={15} />
-        <span className="first-letter:uppercase max-[380px]:sr-only">{due ? fmtDay(fromKey(due), 'EEE d MMM') : 'Échéance'}</span>
+        <span className="first-letter:uppercase max-sm:sr-only">{due ? fmtDay(fromKey(due), 'EEE d MMM') : 'Échéance'}</span>
       </button>
       {dueMenu && (
         <DatePopover
@@ -299,7 +319,7 @@ function QuickAdd() {
         />
       )}
       <button type="button" onClick={submit} disabled={!title.trim()} className="btn h-10 shrink-0 bg-tile-blue px-4 text-white hover:brightness-110 disabled:opacity-50">
-        <Plus size={15} strokeWidth={2.4} aria-hidden /> <span className="max-[380px]:sr-only">Ajouter</span>
+        <Plus size={15} strokeWidth={2.4} aria-hidden /> <span className="max-sm:sr-only">Ajouter</span>
       </button>
     </div>
   );
@@ -332,8 +352,8 @@ export default function TodoList({ limit, grouped }: { limit?: number; grouped?:
   const open = todos.filter(t => !t.done).sort(sortOpen);
   // Ticked, at the bottom: the first ticked first, the order they were done in.
   const ticked = todos.filter(t => settling(t, now)).sort((a, b) => a.doneAt!.localeCompare(b.doneAt!));
-  // The home preview keeps room for the last two ticks, so a tick made there shows green instead of vanishing.
-  const tickedShown = limit ? ticked.slice(-2) : ticked;
+  // The home preview keeps room for at least the last two ticks (more when places are free), so a tick made there shows green.
+  const tickedShown = limit ? ticked.slice(-Math.max(2, limit - open.length)) : ticked;
   const openShown = limit ? open.slice(0, Math.max(0, limit - tickedShown.length)) : open;
   const today = todayKey();
 
@@ -358,9 +378,9 @@ export default function TodoList({ limit, grouped }: { limit?: number; grouped?:
           {groups.map(g => (
             <div key={g.label} className={cx(g.label && 'mt-3 first:mt-1')}>
               {g.label && (
-                <h3 className={cx('eyebrow mb-0.5 px-1.5', g.label === 'Faites' && 'text-emerald-700 dark:text-emerald-400')} style={g.label === 'En retard' ? { color: OVERDUE } : undefined}>
+                <h2 className={cx('eyebrow mb-0.5 px-1.5', g.label === 'Faites' && 'text-emerald-700 dark:text-emerald-400')} style={g.label === 'En retard' ? { color: OVERDUE } : undefined}>
                   {g.label}
-                </h3>
+                </h2>
               )}
               <ul className="-mx-1.5">
                 {g.items.map(t => (

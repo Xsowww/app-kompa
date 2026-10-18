@@ -411,6 +411,15 @@ h1:not(.prose-note h1) {
   letter-spacing: -0.02em;
 }
 
+/* A loading screen that appears only when the wait lasts (no flash on a fast load). */
+@keyframes late-show {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.late-show {
+  animation: late-show 0.2s ease-out 0.4s both;
+}
+
 /* lib/flash: the item a shortcut led to lights up once, softly: a light brand veil and a thin ring
    drawn over its own background (a coloured chip keeps its colour) and its own corners, then fading. */
 @keyframes flash-target {
@@ -428,6 +437,20 @@ h1:not(.prose-note h1) {
 }
 .flash-target {
   animation: flash-target 1.6s ease-out both;
+}
+/* Less motion asked: the same light veil, shown still for its moment instead of fading. */
+@media (prefers-reduced-motion: reduce) {
+  .flash-target {
+    animation: none !important;
+    box-shadow:
+      inset 0 0 0 1.5px color-mix(in srgb, var(--color-brand-500) 32%, transparent),
+      inset 0 0 0 100vmax color-mix(in srgb, var(--color-brand-500) 8%, transparent);
+  }
+}
+.reduce-motion .flash-target {
+  box-shadow:
+    inset 0 0 0 1.5px color-mix(in srgb, var(--color-brand-500) 32%, transparent),
+    inset 0 0 0 100vmax color-mix(in srgb, var(--color-brand-500) 8%, transparent);
 }
 
 /* No blinking text cursor on what isn't typed into (a click on a card, a row, a title). */

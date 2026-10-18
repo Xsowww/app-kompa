@@ -21,9 +21,11 @@ export const userStorage = createJSONStorage(() => ({
     if (!currentUserId) return;
     try {
       localStorage.setItem(`cop:${currentUserId}:${name}`, value);
+      failing.delete(name);
     } catch {
       // Browser storage full (usually many images pasted in notes). Without this, the error
       // would surface in whatever action changed the store and break it halfway.
+      failing.add(name);
       warnFull();
     }
   },
@@ -32,14 +34,21 @@ export const userStorage = createJSONStorage(() => ({
   },
 }));
 
-let warnedFull = false;
+// Stores whose last save failed (a small store saved fine meanwhile doesn't mean the notes are).
+const failing = new Set<string>();
+let warnedAt = 0;
+/** Local mode: a store could not be saved (browser storage full), so what changes now is lost at the next visit. */
+export const localSavesFailing = () => failing.size > 0 && !cloudEnabled;
+
 function warnFull() {
-  if (warnedFull) return;
-  warnedFull = true;
+  // Online nothing is lost: once is enough. Local mode: again while saves keep failing (each key typed
+  // fails, hence at most every 20 s), or the changes made after the first message are lost silently.
+  if (warnedAt && (cloudEnabled || Date.now() - warnedAt < 20_000)) return;
+  warnedAt = Date.now();
   useUi.getState().toast(
     cloudEnabled
       ? 'Mémoire du navigateur pleine : tout reste enregistré en ligne, mais plus hors ligne sur cet appareil. Allège les images de tes notes.'
-      : 'Mémoire du navigateur pleine : les dernières modifications risquent de ne pas être gardées. Allège les images de tes notes ou exporte une sauvegarde.',
+      : 'Mémoire du navigateur pleine : tes dernières modifications ne sont pas enregistrées. Retire des images de tes notes ou exporte une sauvegarde.',
     'error',
   );
 }

@@ -12,7 +12,7 @@ import { cx } from '../../lib/utils';
 import { NewCategory } from './CategoriesDialog';
 import ReminderPicker from '../../components/ReminderPicker';
 import { DateField, TimeField } from '../../components/Pickers';
-import { adaptReminders, eventReminders } from '../../lib/reminders';
+import { eventReminders, followMoments } from '../../lib/reminders';
 
 interface Props {
   event?: CalendarEvent;
@@ -107,7 +107,16 @@ export default function EventForm({ event, date, start: initialStart, end: initi
         <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
           <div className="col-span-2 sm:col-span-1">
             <span className="mb-1.5 block text-[12px] font-medium text-stone-600">Jour</span>
-            <DateField value={day} onChange={setDay} label="Jour de l’événement" className="w-full" />
+            <DateField
+              value={day}
+              onChange={v => {
+                // « La veille à 9h » follows the event to its new day.
+                if (chosen && day && v) setChosen(followMoments(chosen, { date: day, time: start || undefined }, { date: v, time: start || undefined }, chosen));
+                setDay(v);
+              }}
+              label="Jour de l’événement"
+              className="w-full"
+            />
           </div>
           <div>
             <span className="mb-1.5 block text-[12px] font-medium text-stone-600">Début</span>
@@ -118,8 +127,8 @@ export default function EventForm({ event, date, start: initialStart, end: initi
               clearable
               invalid={!!end && !start}
               onChange={v => {
-                // With or without a time, the reminders don't mean the same: keep those that still fit.
-                if (!!v !== !!start && chosen) setChosen(adaptReminders(chosen, !!v, v ? defaults : [0]));
+                // « 15 min avant » follows the new time, « La veille à 9h » stays at 9:00 (lib/reminders).
+                if (chosen && day && v !== start) setChosen(followMoments(chosen, { date: day, time: start || undefined }, { date: day, time: v || undefined }, v ? defaults : [0]));
                 setStart(v);
               }}
               className="w-full"

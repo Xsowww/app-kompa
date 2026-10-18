@@ -29,6 +29,10 @@ describe('withProtocol', () => {
     expect(withProtocol('a@b.fr')).toBe('mailto:a@b.fr');
     expect(withProtocol('#titre')).toBe('#titre');
   });
+  it('never keeps a script or data link', () => {
+    expect(withProtocol('javascript://x%0aalert(1)')).toBe('https://javascript://x%0aalert(1)');
+    expect(withProtocol('data://text/html,x')).toMatch(/^https:\/\//);
+  });
 });
 
 describe('moveFolder', () => {

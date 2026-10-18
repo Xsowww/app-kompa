@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { adaptReminders, anchorOf, cleanReminders, offsetLabel, reminderBody, reminderLabel, upcomingReminders } from '../src/lib/reminders';
+import { anchorOf, followMoments, minutesBefore, cleanReminders, offsetLabel, reminderBody, reminderLabel, upcomingReminders } from '../src/lib/reminders';
 
 const now = new Date(2026, 9, 16, 10, 0); // jeudi 16 octobre 2026, 10:00
 
@@ -76,8 +76,17 @@ describe('rappels', () => {
     expect(offsetLabel(2 * 1440 + 240)).toBe('2 j 4 h avant');
   });
 
-  it('un rappel personnalisé reste quand on retire l’heure', () => {
-    expect(adaptReminders([15, 1050], false, [0])).toEqual([1050]);
-    expect(adaptReminders([15], false, [0])).toEqual([0]);
+  it('un rappel à heure fixe garde son heure quand l’événement bouge', () => {
+    const eve = minutesBefore('2026-10-21', '14:30', '2026-10-20', '09:00');
+    const at = (l: number[], date: string, time?: string) => l.map(m => reminderLabel(m, !!time, date, time));
+    // nouvelle heure : « La veille à 9h » reste, « 15 min avant » suit
+    expect(at(followMoments([eve, 15], { date: '2026-10-21', time: '14:30' }, { date: '2026-10-21', time: '10:00' }, []), '2026-10-21', '10:00')).toEqual(['La veille à 9h', '15 min avant']);
+    // autre jour : la veille du nouveau jour, toujours à 9h
+    expect(at(followMoments([eve], { date: '2026-10-21', time: '14:30' }, { date: '2026-10-24', time: '14:30' }, []), '2026-10-24', '14:30')).toEqual(['La veille à 9h']);
+    // plus d’heure : « 15 min avant » n’a plus de sens, la veille à 9h reste
+    expect(at(followMoments([eve, 15], { date: '2026-10-21', time: '14:30' }, { date: '2026-10-21' }, [0]), '2026-10-21')).toEqual(['La veille à 9h']);
+    expect(followMoments([15], { date: '2026-10-21', time: '14:30' }, { date: '2026-10-21' }, [0])).toEqual([0]);
+    // une heure ajoutée : « La veille à 18h » reste à 18h
+    expect(at(followMoments([900], { date: '2026-10-21' }, { date: '2026-10-21', time: '14:00' }, [15]), '2026-10-21', '14:00')).toEqual(['La veille à 18h']);
   });
 });

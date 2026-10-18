@@ -30,11 +30,11 @@ describe('ma semaine', () => {
     expect(r.left.map(x => x.id)).toEqual(['g', 'f', 'a', 'e']);
   });
   it('says what is left, and celebrates', () => {
-    expect(cheer(0, 0)).toMatch(/Aucune tâche/);
+    expect(cheer(0, 0)).toMatch(/Rien à faire/);
     expect(cheer(0, 6)).toBe('C’est parti : 6 tâches à faire cette semaine.');
     expect(cheer(1, 6)).toBe('Plus que 2 pour passer la moitié.');
     expect(cheer(4, 6)).toBe('Plus que 2, tu y es presque.');
     expect(cheer(5, 6)).toBe('Plus qu’une, tu y es presque !');
-    expect(cheer(6, 6)).toBe('Semaine bouclée, bravo !');
+    expect(cheer(6, 6)).toBe('Toutes tes tâches de la semaine sont faites, bravo !');
   });
 });

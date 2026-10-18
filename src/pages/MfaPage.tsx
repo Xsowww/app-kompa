@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Loader2, ShieldCheck, Smartphone } from 'lucide-react';
 import { useAuth, type MfaEnrollment } from '../store/auth';
 import { loadUserData, useWelcome } from '../store/session';
+import { takeAfterLogin } from '../lib/afterLogin';
 import Logo from '../components/Logo';
 import { toast } from '../store/ui';
 
@@ -56,7 +57,7 @@ export default function MfaPage() {
       await submitMfaCode(code, enrollment?.factorId);
       await loadUserData();
       // Straight to the right page: going through « / » first left a blank screen when the questionnaire was due.
-      navigate(useWelcome.getState().pending ? '/bienvenue' : '/', { replace: true });
+      navigate(useWelcome.getState().pending ? '/bienvenue' : takeAfterLogin(), { replace: true });
     } catch (err) {
       submitting.current = false;
       const msg = (err as Error).message;
@@ -100,7 +101,7 @@ export default function MfaPage() {
                   </p>
                   {user?.email && (
                     <p className="mt-2 rounded-md bg-amber-50 px-2.5 py-2 text-[12.5px] leading-relaxed text-amber-900">
-                      Ce QR code est celui du compte <strong className="break-all">{user.email}</strong>. Si ton iPhone propose une autre adresse, ne la choisis pas : range le code dans l’identifiant {user.email} (ou crée-le), sinon le code de l’autre compte serait remplacé.
+                      Ce QR code est celui du compte <strong className="[overflow-wrap:anywhere]">{user.email}</strong>. Si ton iPhone propose une autre adresse, ne la choisis pas : range le code dans l’identifiant {user.email} (ou crée-le), sinon le code de l’autre compte serait remplacé.
                     </p>
                   )}
                   <div className="mt-3 flex h-[180px] w-[180px] items-center justify-center rounded-xl border border-stone-200 bg-surface p-2.5">

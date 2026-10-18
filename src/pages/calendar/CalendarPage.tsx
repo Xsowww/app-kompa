@@ -20,7 +20,7 @@ import { isIcsFile } from '../../lib/ics';
 import { useEventDrag, type DropTarget } from './useEventDrag';
 import { exportIcs } from '../../lib/backup';
 import { flashWhenReady } from '../../lib/flash';
-import { eventReminders, reminderLabel } from '../../lib/reminders';
+import { eventReminders, followMoments, reminderLabel } from '../../lib/reminders';
 
 type Mode = 'week' | 'month' | 'day';
 const MODES: { id: Mode; label: string }[] = [
@@ -68,8 +68,8 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
   const defaults = useSettings(s => s.defaultReminders);
   const reminders = shared ? [] : eventReminders(ev, defaults);
   return (
-    <div className="group enter flex items-stretch gap-4">
-      <div className="tabular w-12 shrink-0 pt-3 text-right text-[12px]">
+    <div className="group enter flex items-stretch gap-2 sm:gap-4">
+      <div className="tabular w-10 shrink-0 pt-3 text-right text-[12px] sm:w-12">
         {ev.start ? (
           <>
             <p className="font-medium">{ev.start}</p>
@@ -114,7 +114,7 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
           {ev.details && <p className="mt-1.5 whitespace-pre-line text-[13px] text-stone-600 [overflow-wrap:anywhere]">{ev.details}</p>}
         </button>
         {!readOnly && <div className="touch-show flex shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-          <button className="icon-btn" title="Modifier" aria-label={`Modifier « ${ev.title} »`} onClick={onEdit}>
+          <button className="icon-btn pointer-coarse:max-sm:hidden" title="Modifier" aria-label={`Modifier « ${ev.title} »`} onClick={onEdit}>
             <Pencil size={14} />
           </button>
           <button
@@ -384,7 +384,9 @@ export default function CalendarPage() {
     const dayChanged = patch.date !== ev.date;
     const timeChanged = patch.start !== undefined && patch.start !== ev.start;
     if (!dayChanged && !timeChanged) return;
-    const before = { date: ev.date, start: ev.start, end: ev.end };
+    // A reminder at a set moment (« La veille à 9h ») keeps its hour on the new day.
+    if (ev.reminders) patch.reminders = followMoments(ev.reminders, { date: ev.date, time: ev.start }, { date: patch.date!, time: patch.start ?? ev.start }, ev.reminders);
+    const before = { date: ev.date, start: ev.start, end: ev.end, reminders: ev.reminders };
     const { update } = source;
     update(ev.id, patch);
     const label = dayChanged ? `Déplacé au ${fmt(fromKey(target.day), 'EEEE d MMM')}${timeChanged ? ` à ${patch.start}` : ''}` : `Déplacé à ${patch.start}`;
@@ -507,7 +509,7 @@ export default function CalendarPage() {
             <CalendarArrowDown size={16} />
           </button>
           {/* Not on phones, where the header would wrap for it: Profil › Données exports too. */}
-          <button className="icon-btn hidden h-8 w-8 disabled:opacity-40 sm:inline-flex" disabled={!events.length} onClick={() => exportIcs()} title="Exporter le calendrier (.ics)" aria-label="Exporter le calendrier (.ics)">
+          <button className="icon-btn hidden h-8 w-8 disabled:opacity-40 sm:inline-flex" disabled={!events.length} onClick={() => (exportIcs(), toast('Calendrier exporté', 'success'))} title="Exporter le calendrier (.ics)" aria-label="Exporter le calendrier (.ics)">
             <CalendarArrowUp size={16} />
           </button>
           </div>}
@@ -671,9 +673,6 @@ export default function CalendarPage() {
                             {dayPeriods.slice(0, 3).map(p => <span key={p.id} className="h-[3px]" style={{ background: periodColor(p) }} />)}
                           </span>
                         )}
-                        {named.slice(0, 2).map(p => (
-                          <span key={p.id} className="hidden truncate px-1 text-[10px] font-semibold leading-tight @md:block" style={{ color: periodText(p) }}>{label(p)}</span>
-                        ))}
                         <span
                           className={cx(
                             'tabular mb-0.5 flex h-6 w-6 items-center justify-center self-center rounded-full text-[12px] font-medium @md:self-start',
@@ -682,6 +681,10 @@ export default function CalendarPage() {
                         >
                           {fmt(d, 'd')}
                         </span>
+                        {/* Under the number: every day number stays on the same line, with or without a period. */}
+                        {named.slice(0, 2).map(p => (
+                          <span key={p.id} className="hidden truncate px-1 text-[10px] font-semibold leading-tight @md:block" style={{ color: periodText(p) }}>{label(p)}</span>
+                        ))}
                         {evs.slice(0, 2).map(e => (
                           <span
                             key={e.id}
@@ -708,9 +711,9 @@ export default function CalendarPage() {
                 {monthBands.length > 0 && (
                   <div className="mt-2.5 flex flex-wrap gap-1.5" aria-label="Périodes du mois">
                     {monthBands.slice(0, 8).map(p => (
-                      <button key={p.id} onClick={() => setPeriodsOpen(true)} className="flex h-6 items-center gap-1.5 rounded-full px-2.5 text-[11.5px] font-semibold" style={{ background: periodTint(p, 16), color: periodText(p) }}>
-                        <span className="h-2 w-2 rounded-full" style={{ background: periodColor(p) }} aria-hidden />
-                        {label(p)} <span className="font-medium opacity-80">{periodRange(p, fmtDay)}</span>
+                      <button key={p.id} onClick={() => setPeriodsOpen(true)} className="flex h-6 min-w-0 max-w-full items-center gap-1.5 rounded-full px-2.5 text-[11.5px] font-semibold" style={{ background: periodTint(p, 16), color: periodText(p) }}>
+                        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: periodColor(p) }} aria-hidden />
+                        <span className="min-w-0 truncate">{label(p)}</span> <span className="shrink-0 font-medium">{periodRange(p, fmtDay)}</span>
                       </button>
                     ))}
                     {monthBands.length > 8 && <span className="self-center text-[11.5px] text-stone-500">+{monthBands.length - 8}</span>}
@@ -732,7 +735,7 @@ export default function CalendarPage() {
                     title={`${label(p)} · ${periodRange(p, fmtDay)}`}
                   >
                     <span className="min-w-0 truncate">{label(p)}</span>
-                    {p.end !== selected && <span className="shrink-0 font-medium opacity-80 max-sm:hidden">· jusqu’au {fmtDay(fromKey(p.end), 'd MMM')}</span>}
+                    {p.end !== selected && <span className="shrink-0 font-medium max-sm:hidden">· jusqu’au {fmtDay(fromKey(p.end), 'd MMM')}</span>}
                   </button>
                 ))}
                 {!readOnly && <button className="btn-ghost ml-auto h-8 text-[12px]" onClick={() => setForm({ date: selected })}>

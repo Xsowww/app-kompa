@@ -8,7 +8,7 @@ import { relativeTime } from '../lib/utils';
  * The accounts saved on this device (except `currentId`): a click opens one, the cross forgets it here
  * and ends its kept session (the account itself is not touched). `onPick` gets the account; the caller switches or asks for its password.
  */
-export default function AccountList({ currentId, onPick, busy }: { currentId?: string; onPick: (a: SavedAccount) => void; busy?: string | null }) {
+export default function AccountList({ currentId, onPick, busy, onEmpty }: { currentId?: string; onPick: (a: SavedAccount) => void; busy?: string | null; onEmpty?: () => void }) {
   const [list, setList] = useState(() => savedAccounts().filter(a => a.id !== currentId));
   if (!list.length) return null;
   return (
@@ -44,7 +44,9 @@ export default function AccountList({ currentId, onPick, busy }: { currentId?: s
               aria-label={`Retirer le compte ${a.email} de cet appareil`}
               onClick={() => {
                 useAuth.getState().removeAccount(a.id);
-                setList(l => l.filter(x => x.id !== a.id));
+                const rest = list.filter(x => x.id !== a.id);
+                setList(rest);
+                if (!rest.length) onEmpty?.();
               }}
             >
               <X size={14} />

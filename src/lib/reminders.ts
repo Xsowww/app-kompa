@@ -166,10 +166,23 @@ export function upcomingReminders(items: ReminderSource[], now = new Date(), hor
   return out.sort((a, b) => a.fireAt.getTime() - b.fireAt.getTime());
 }
 
-/** When an item gains or loses its time: the reminders that still make sense (custom ones stay), else `fallback`. */
-export function adaptReminders(list: number[], timed: boolean, fallback: number[]): number[] {
-  const valid = new Set(reminderOptions(timed).map(o => o.minutes));
-  const before = new Set(reminderOptions(!timed).map(o => o.minutes));
-  const kept = list.filter(m => valid.has(m) || !before.has(m));
+/**
+ * An item moved (another day, another time, or no time any more): « 15 min avant » stays 15 min before, but a
+ * reminder at a set moment (« La veille à 9h », a custom one, every reminder of an all-day item) keeps its hour
+ * and moves with the day. Reminders that can't follow are dropped; none left of a non-empty list: `fallback`.
+ */
+export function followMoments(list: number[], from: { date: string; time?: string }, to: { date: string; time?: string }, fallback: number[]): number[] {
+  const relative = new Set(from.time ? TIMED_OPTIONS.map(o => o.minutes) : []);
+  const shift = Math.round((anchorOf(to.date).getTime() - anchorOf(from.date).getTime()) / 86_400_000);
+  const moved = list.flatMap(m => {
+    if (relative.has(m)) return to.time ? [m] : [];
+    const at = reminderMoment(from.date, from.time, m);
+    const day = new Date(at.getFullYear(), at.getMonth(), at.getDate() + shift);
+    const key = `${day.getFullYear()}-${pad(day.getMonth() + 1)}-${pad(day.getDate())}`;
+    const next = minutesBefore(to.date, to.time, key, `${pad(at.getHours())}:${pad(at.getMinutes())}`);
+    return next >= 0 && next <= MAX_MINUTES ? [next] : [];
+  });
+  const kept = cleanReminders(moved) ?? [];
   return kept.length || !list.length ? kept : fallback;
 }
+

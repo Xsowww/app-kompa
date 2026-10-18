@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ChevronDown, ChevronRight, ClipboardPaste, Copy, CopyPlus, Download, Eye, FolderInput, FolderPlus, FolderUp, HardDrive, LayoutGrid,
   List, Pencil, Scissors, Star, Trash2, Upload, Clock, ArrowUpDown, ArrowUp, ArrowDown, X, MousePointer2, Search, Tag, Link2, Check, Palette,
@@ -23,6 +23,7 @@ import ShareDialog from './ShareDialog';
 import TagDialog, { TagPill } from './TagDialog';
 import { filesFromDrop, filesFromInput, uploadPending } from './upload';
 import { isMenuKey, menuPoint } from '../../lib/a11y';
+import { isTrashedDriveItem } from '../../lib/trash';
 import { StorageError } from '../../lib/blobStore';
 
 type Tab = 'all' | 'starred' | 'recent';
@@ -82,6 +83,7 @@ const alreadyThere = (n: number) => (n > 1 ? 'Ces éléments sont déjà dans ce
 
 export default function DrivePage() {
   const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
   const folderId = params.get('dossier');
   const previewId = params.get('fichier');
   const drive = useDrive();
@@ -212,10 +214,12 @@ export default function DrivePage() {
     [setParams],
   );
 
-  // Select the file targeted by a link (e.g. from search or Kompaly).
+  // Select the file targeted by a link (e.g. from search or Kompaly). A link to a file now in the
+  // trash goes to its preview there, like notes (checked when the link changes only).
   useEffect(() => {
-    if (previewId) setSelected(new Set([previewId]));
-  }, [previewId]);
+    if (previewId && isTrashedDriveItem(previewId)) navigate(`/corbeille?type=drive&apercu=${previewId}`, { replace: true });
+    else if (previewId) setSelected(new Set([previewId]));
+  }, [previewId, navigate]);
 
   // "Importer" shortcut from the dashboard.
   const handledImport = useRef(false);
@@ -313,6 +317,12 @@ export default function DrivePage() {
     if (moved) toast(`${moved} élément${moved > 1 ? 's' : ''} déplacé${moved > 1 ? 's' : ''}`, 'success');
     else toast(alreadyThere(ids.length), 'info');
   }, []);
+
+  /** A menu opened from a button of the selection bar: under the button, not over it (and the bar). */
+  const under = (e: React.MouseEvent) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    return { x: Math.round(r.left), y: Math.round(r.bottom + 6) };
+  };
 
   // ── Selection ─────────────────────────────────────────────────────────────
   const onItemClick = (e: React.MouseEvent, item: DriveItem) => {
@@ -437,6 +447,8 @@ export default function DrivePage() {
     setDragging(false);
     if (isInternal(e)) {
       const ids: string[] = JSON.parse(e.dataTransfer.getData(DRAG_MIME) || '[]');
+      // A folder dropped back on itself (a small slip while clicking): nothing to do, no error.
+      if (target && ids.includes(target)) return;
       if (e.altKey) {
         // Alt + drop = copy instead of move
         if (pasteForbidden(useDrive.getState().items, ids, target)) return toast(CANT_COPY_INTO_ITSELF, 'error');
@@ -465,7 +477,8 @@ export default function DrivePage() {
     },
     onDragLeave: (e: React.DragEvent) => {
       e.stopPropagation();
-      if (dropTarget === key) setDropTarget(tabAll ? 'here' : null);
+      // Back to the frame of the whole page only for files from the computer (dropping there uploads them).
+      if (dropTarget === key) setDropTarget(tabAll && isExternal(e) ? 'here' : null);
     },
     onDrop: (e: React.DragEvent) => void dropOn(e, target),
   });
@@ -541,7 +554,12 @@ export default function DrivePage() {
   const itemProps = (item: DriveItem) => ({
     draggable: true,
     onDragStart: (e: React.DragEvent) => onDragStart(e, item),
-    onDragEnd: () => setDragging(false),
+    // Dropped outside any target (or cancelled): no highlight left behind.
+    onDragEnd: () => {
+      setDragging(false);
+      setDropTarget(null);
+      dragDepth.current = 0;
+    },
     onClick: (e: React.MouseEvent) => onItemClick(e, item),
     onDoubleClick: () => openItem(item),
     onContextMenu: (e: React.MouseEvent) => onItemContext(e, item),
@@ -736,7 +754,7 @@ export default function DrivePage() {
               ...(single ? [{ icon: Pencil, label: 'Renommer', fn: () => void rename(single) }] : []),
               ...(single?.kind === 'file' ? [{ icon: Download, label: 'Télécharger', fn: () => downloadItem(single), more: true }] : []),
               { icon: Tag, label: 'Étiquettes', fn: () => setTagIds(selectedIds) },
-              ...(selectedFolders.length === selectedIds.length ? [{ icon: Palette, label: 'Couleur', fn: (e: React.MouseEvent) => setColorMenu(menuPoint(e)) }] : []),
+              ...(selectedFolders.length === selectedIds.length ? [{ icon: Palette, label: 'Couleur', fn: (e: React.MouseEvent) => setColorMenu(under(e)) }] : []),
               { icon: Trash2, label: 'Corbeille', fn: () => remove(selectedIds) },
             ].map(a => (
               <button
@@ -753,7 +771,7 @@ export default function DrivePage() {
               </button>
             ))}
             <button
-              onClick={e => setMenu({ ...menuPoint(e), target: selectedIds[0] })}
+              onClick={e => setMenu({ ...under(e), target: selectedIds[0] })}
               className="flex h-9 min-w-9 shrink-0 items-center justify-center rounded-md text-on-inverse/85 hover:bg-on-inverse/10 sm:hidden"
               title="Plus d’actions"
               aria-label="Plus d’actions"

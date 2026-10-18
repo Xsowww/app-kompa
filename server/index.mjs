@@ -104,7 +104,7 @@ async function serveStatic(req, res) {
     }
     file = join(DIST, 'index.html'); // single-page app: every route is the page
     // …but an address the app doesn't have says so (the page shows « introuvable »; search engines drop it).
-    if (!APP_ROUTES.has(path.replace(/(.)\/+$/, '$1'))) res.statusCode = 404;
+    if (!APP_ROUTES.has(path.replace(/(.)\/+$/, '$1').toLowerCase())) res.statusCode = 404;
   }
   let entry = files.get(file);
   if (!entry) {
@@ -156,8 +156,8 @@ async function serveErrorReport(req, res) {
   reported.set(ip, count);
   let body = '';
   for await (const chunk of req) {
-    body += chunk;
-    if (body.length > 8192) break;
+    body += String(chunk).slice(0, 8192 - body.length); // never more than 8 KB kept
+    if (body.length >= 8192) break;
   }
   if (count <= 50) {
     try {

@@ -1,6 +1,8 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from './store/auth';
+import { peekAfterLogin, rememberAfterLogin } from './lib/afterLogin';
+import { cx } from './lib/utils';
 import { loadUserData, useWelcome } from './store/session';
 import { toast } from './store/ui';
 import AuthPage from './pages/AuthPage';
@@ -55,7 +57,7 @@ function PageTitle() {
   const { pathname } = useLocation();
   const guest = useAuth(s => !s.user);
   useEffect(() => {
-    const page = TITLES[pathname.replace(/(.)\/+$/, '$1')]; // « /taches/ » too
+    const page = TITLES[pathname.replace(/(.)\/+$/, '$1').toLowerCase()]; // « /taches/ » and « /Taches » too
     // A visitor on « / » sees the public home page: the full name, as in index.html (search results).
     document.title = guest && pathname === '/' ? 'Kompaly · Agenda, notes, fichiers et tâches au même endroit' : page ? `${page} · Kompaly` : 'Page introuvable · Kompaly';
     // Search engines: only the public pages (home, sign-in, sign-up, legal) belong in their results.
@@ -81,7 +83,8 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   if (!user) {
     // An invitation link opened signed out: kept for after sign-in (AppShell opens it).
     if (/[?&](rejoindre|invitation)=/.test(search)) sessionStorage.setItem(PENDING_INVITE, pathname + search);
-    return pathname === '/' ? <Suspense fallback={null}><LandingPage /></Suspense> : <Navigate to="/connexion" replace />;
+    else if (pathname !== '/') rememberAfterLogin(pathname + search); // the page asked for, opened once signed in
+    return pathname === '/' ? <Suspense fallback={<Loading full />}><LandingPage /></Suspense> : <Navigate to="/connexion" replace />;
   }
   if (mfaStep) return <Navigate to="/securite" replace />;
   return welcome ? <Navigate to="/bienvenue" replace /> : children;
@@ -100,8 +103,20 @@ function WelcomeOnly({ children }: { children: React.ReactNode }) {
 function GuestOnly({ children }: { children: React.ReactNode }) {
   const user = useAuth(s => s.user);
   const mfaStep = useAuth(s => s.mfaStep);
-  return user ? <Navigate to={mfaStep ? '/securite' : '/'} replace /> : children;
+  return user ? <Navigate to={mfaStep ? '/securite' : peekAfterLogin()} replace /> : children;
 }
+
+/** While a page's code arrives (slow network): the name pulsing, shown only after a short moment. */
+function Loading({ full }: { full?: boolean }) {
+  return (
+    <div className={cx('late-show flex items-center justify-center', full ? 'min-h-dvh bg-paper' : 'h-full min-h-40')} role="status" aria-label="Chargement">
+      <span className="animate-pulse text-[15px] font-semibold tracking-tight text-stone-500">kompaly</span>
+    </div>
+  );
+}
+
+/** « de Léa », « d’Admin » */
+const ofName = (n: string) => (/^[aeiouyàâäéèêëîïôöûüùh]/i.test(n) ? `d’${n}` : `de ${n}`);
 
 export default function App() {
   const [ready, setReady] = useState(false);
@@ -117,11 +132,11 @@ export default function App() {
           sessionStorage.removeItem('cop-own-switch');
           sessionStorage.removeItem('cop-account-switched');
           const name = useAuth.getState().user?.name;
-          if (name) toast(`Tu es sur le compte de ${name}`, 'success');
+          if (name) toast(`Tu es sur le compte ${ofName(name)}`, 'success');
         } else if (sessionStorage.getItem('cop-account-switched')) {
           sessionStorage.removeItem('cop-account-switched');
           const name = useAuth.getState().user?.name;
-          toast(`Un autre compte s’est connecté dans un autre onglet${name ? ` : tu es maintenant sur le compte de ${name}` : ''}. Tu peux passer d’un compte à l’autre depuis le menu de ton profil.`);
+          toast(`Un autre compte s’est connecté dans un autre onglet${name ? ` : tu es maintenant sur le compte ${ofName(name)}` : ''}. Tu peux passer d’un compte à l’autre depuis le menu de ton profil.`);
         }
       });
   }, []);
@@ -137,29 +152,29 @@ export default function App() {
     <BrowserRouter>
       <PageTitle />
       <Routes>
-        <Route path="/connexion" element={<GuestOnly><AuthPage mode="login" /></GuestOnly>} />
-        <Route path="/inscription" element={<GuestOnly><AuthPage mode="register" /></GuestOnly>} />
-        <Route path="/mot-de-passe-oublie" element={<GuestOnly><AuthPage mode="forgot" /></GuestOnly>} />
-        <Route path="/reinitialisation" element={<AuthPage mode="reset" />} />
+        <Route path="/connexion" element={<GuestOnly><AuthPage key="login" mode="login" /></GuestOnly>} />
+        <Route path="/inscription" element={<GuestOnly><AuthPage key="register" mode="register" /></GuestOnly>} />
+        <Route path="/mot-de-passe-oublie" element={<GuestOnly><AuthPage key="forgot" mode="forgot" /></GuestOnly>} />
+        <Route path="/reinitialisation" element={<AuthPage key="reset" mode="reset" />} />
         <Route path="/securite" element={<MfaPage />} />
-        <Route path="/bienvenue" element={<WelcomeOnly><Suspense fallback={null}><WelcomePage /></Suspense></WelcomeOnly>} />
-        <Route path="/mentions-legales" element={<Suspense fallback={null}><LegalPage doc="mentions" /></Suspense>} />
-        <Route path="/confidentialite" element={<Suspense fallback={null}><LegalPage doc="confidentialite" /></Suspense>} />
-        <Route path="/conditions" element={<Suspense fallback={null}><LegalPage doc="conditions" /></Suspense>} />
-        <Route element={<RequireAuth><Suspense fallback={null}><AppShell /></Suspense></RequireAuth>}>
-          <Route index element={<Suspense fallback={null}><Dashboard /></Suspense>} />
-          <Route path="drive" element={<Suspense fallback={null}><DrivePage /></Suspense>} />
-          <Route path="calendrier" element={<Suspense fallback={null}><CalendarPage /></Suspense>} />
-          <Route path="notes" element={<Suspense fallback={null}><NotesPage /></Suspense>} />
-          <Route path="taches" element={<Suspense fallback={null}><TasksPage /></Suspense>} />
+        <Route path="/bienvenue" element={<WelcomeOnly><Suspense fallback={<Loading full />}><WelcomePage /></Suspense></WelcomeOnly>} />
+        <Route path="/mentions-legales" element={<Suspense fallback={<Loading full />}><LegalPage doc="mentions" /></Suspense>} />
+        <Route path="/confidentialite" element={<Suspense fallback={<Loading full />}><LegalPage doc="confidentialite" /></Suspense>} />
+        <Route path="/conditions" element={<Suspense fallback={<Loading full />}><LegalPage doc="conditions" /></Suspense>} />
+        <Route element={<RequireAuth><Suspense fallback={<Loading full />}><AppShell /></Suspense></RequireAuth>}>
+          <Route index element={<Suspense fallback={<Loading />}><Dashboard /></Suspense>} />
+          <Route path="drive" element={<Suspense fallback={<Loading />}><DrivePage /></Suspense>} />
+          <Route path="calendrier" element={<Suspense fallback={<Loading />}><CalendarPage /></Suspense>} />
+          <Route path="notes" element={<Suspense fallback={<Loading />}><NotesPage /></Suspense>} />
+          <Route path="taches" element={<Suspense fallback={<Loading />}><TasksPage /></Suspense>} />
           <Route path="progression" element={<Navigate to="/taches" replace />} />
-          <Route path="groupes" element={<Suspense fallback={null}><GroupsPage /></Suspense>} />
-          <Route path="agendas" element={<Suspense fallback={null}><AgendasPage /></Suspense>} />
-          <Route path="corbeille" element={<Suspense fallback={null}><TrashPage /></Suspense>} />
-          <Route path="profil" element={<Suspense fallback={null}><ProfilePage /></Suspense>} />
-          <Route path="admin" element={<Suspense fallback={null}><AdminPage /></Suspense>} />
+          <Route path="groupes" element={<Suspense fallback={<Loading />}><GroupsPage /></Suspense>} />
+          <Route path="agendas" element={<Suspense fallback={<Loading />}><AgendasPage /></Suspense>} />
+          <Route path="corbeille" element={<Suspense fallback={<Loading />}><TrashPage /></Suspense>} />
+          <Route path="profil" element={<Suspense fallback={<Loading />}><ProfilePage /></Suspense>} />
+          <Route path="admin" element={<Suspense fallback={<Loading />}><AdminPage /></Suspense>} />
         </Route>
-        <Route path="*" element={<Suspense fallback={null}><NotFoundPage /></Suspense>} />
+        <Route path="*" element={<Suspense fallback={<Loading full />}><NotFoundPage /></Suspense>} />
       </Routes>
       <Toasts />
       <DialogHost />

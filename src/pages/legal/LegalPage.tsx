@@ -6,7 +6,7 @@ import { LEGAL_LINKS } from './links';
 
 export type LegalDoc = 'mentions' | 'confidentialite' | 'conditions';
 
-const UPDATED = '16 octobre 2026';
+const UPDATED = '18 octobre 2026';
 const CONTACT = 'contact@kompaly.com';
 
 type Section = { title: string; body: string[] };
@@ -88,7 +88,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
         title: 'Durée de conservation',
         body: [
           'Tant que ton compte existe. Ce que tu mets à la corbeille est supprimé définitivement au bout de 30 jours.',
-          '« Supprimer mon compte » (Profil › Compte) efface immédiatement ton compte, tes contenus et tes fichiers en ligne. Un rappel est effacé de nos serveurs une semaine après son envoi ; un appareil cesse d’en recevoir dès que tu désactives les notifications, que tu te déconnectes sans « Rester connecté » ou que tu le retires. Les journaux d’erreurs sont gardés au plus 12 mois, les messages « Avis ou bug » et les signalements au plus 2 ans (sans ton nom ni ton e-mail une fois ton compte supprimé).',
+          '« Supprimer définitivement mon compte » (Profil › Compte) efface immédiatement ton compte, tes contenus et tes fichiers en ligne. Un rappel est effacé de nos serveurs une semaine après son envoi ; un appareil cesse d’en recevoir dès que tu désactives les notifications, que tu te déconnectes sans « Garder la session ouverte sur cet appareil » ou que tu le retires. Les journaux d’erreurs sont gardés au plus 12 mois, les messages « Avis ou bug » et les signalements au plus 2 ans (sans ton nom ni ton e-mail une fois ton compte supprimé).',
         ],
       },
       {
@@ -96,7 +96,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
         body: [
           'Kompaly garde une copie de tes données dans ton navigateur pour fonctionner vite et hors ligne, et pour rester connecté. Il s’agit uniquement de stockage nécessaire au service : aucun cookie publicitaire ni de mesure d’audience, donc pas de bandeau de consentement.',
           'Pour savoir combien de personnes utilisent Kompaly et si les pages s’affichent vite, nous comptons les visites avec Cloudflare Web Analytics : la page vue, le site d’où tu viens, ton pays, le type d’appareil et de navigateur, le temps d’affichage. Sans cookie, sans rien enregistrer sur ton appareil et sans identifiant : une visite ne peut pas être reliée à toi ni à tes visites suivantes, et rien n’est utilisé pour de la publicité.',
-          'Avec « Rester connecté », ton compte reste proposé sur la page de connexion de cet appareil (prénom, e-mail et session) pour l’ouvrir en un clic, même après une déconnexion ; au bout de 14 jours sans l’ouvrir, le mot de passe est redemandé. « Retirer de cet appareil » (la croix à côté du compte) l’efface et ferme sa session. Sans « Rester connecté », la déconnexion efface la copie et la session.',
+          'Avec « Garder la session ouverte sur cet appareil » (case de la page de connexion), ton compte reste proposé sur la page de connexion de cet appareil (prénom, e-mail et session) pour l’ouvrir en un clic, même après une déconnexion ; au bout de 14 jours sans l’ouvrir, le mot de passe est redemandé. « Retirer de cet appareil » (la croix à côté du compte) l’efface et ferme sa session. Sans cette case, la déconnexion efface la copie et la session.',
         ],
       },
       {
@@ -175,6 +175,7 @@ export default function LegalPage({ doc }: { doc: LegalDoc }) {
       <Link to="/" aria-label="Accueil" className="inline-flex rounded-md pointer-coarse:py-1">
         <Logo />
       </Link>
+      <main>
       <article className="mx-auto max-w-[680px] py-10">
         <h1 className="text-[26px] font-semibold tracking-[-0.02em]">{title}</h1>
         <p className="mt-1 text-[12px] text-stone-500">Mise à jour&nbsp;: {UPDATED}</p>
@@ -206,6 +207,7 @@ export default function LegalPage({ doc }: { doc: LegalDoc }) {
           ))}
         </nav>
       </article>
+      </main>
     </div>
   );
 }

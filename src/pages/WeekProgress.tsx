@@ -49,7 +49,7 @@ export default function WeekProgress({ from, to }: { from: string; to: string })
           {done}
           <span className="text-[16px] font-bold text-stone-500"> / {total}</span>
         </span>
-        <span className="mt-1 block text-[13px] font-medium text-stone-500">tâches faites cette semaine</span>
+        <span className="mt-1 block text-[13px] font-medium text-stone-500">{total > 1 ? 'tâches faites' : 'tâche faite'} cette semaine</span>
         <span className={cx('mt-2.5 block text-[13px] font-semibold leading-snug', full ? 'text-emerald-700 dark:text-emerald-400' : 'text-ink')}>{cheer(done, total)}</span>
       </span>
     </div>

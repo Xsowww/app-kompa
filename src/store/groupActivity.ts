@@ -3,6 +3,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { fetchGroups, sessionUserId, type Group } from '../lib/groups';
 import { canNotify, notify } from '../lib/notify';
+import { pushActive } from '../lib/push';
 import { getSettings, useSettings } from './settings';
 import { toast } from './ui';
 import { goTo } from '../copilot/actions';
@@ -144,7 +145,8 @@ export const useGroupActivity = create<ActivityState>((set, get) => ({
       }
     }
 
-    if (counted) {
+    // This device already gets the server's notification for each of them: the badges are enough then.
+    if (counted && !(await pushActive())) {
       const before = get().unread;
       for (const [gid, c] of Object.entries(unread)) {
         const more: Counts = {};

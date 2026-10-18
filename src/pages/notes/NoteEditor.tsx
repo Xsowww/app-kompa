@@ -16,11 +16,14 @@ import { askText, toast } from '../../store/ui';
 import { cx } from '../../lib/utils';
 import { compressImage, imageFiles } from './images';
 import { registerEditorFlush, withProtocol } from './noteUtils';
+import { localSavesFailing } from '../../lib/userStorage';
 import './notes.css';
 
 /** Compresses then inserts images at `pos` (drop) or at the selection (paste, toolbar). */
 async function insertImages(view: EditorView, files: File[], pos?: number) {
   for (const file of files) {
+    // Browser storage full (local mode): the image would show but be gone at the next visit.
+    if (localSavesFailing()) return toast('Mémoire du navigateur pleine : image non ajoutée. Retire des images de tes notes ou exporte une sauvegarde.', 'error');
     try {
       const src = await compressImage(file);
       if (view.isDestroyed) return;
@@ -178,6 +181,10 @@ export default function NoteEditor({ note, readOnly = false, inset = 'px-4 py-6 
       },
     },
     onUpdate: ({ editor: ed }) => {
+      // The editor tidying what it was given (an empty line added at the end of a template), not typing:
+      // nothing to save, the note stays « modifiée » when it really was.
+      const bare = (h: string) => h.replace(/(<p><\/p>)+$/, '');
+      if (bare(ed.getHTML()) === bare(known.current)) return;
       unsaved.current = true;
       clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(() => save(ed.getHTML()), 350);

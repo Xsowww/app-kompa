@@ -3,7 +3,7 @@ import { Trash2 } from 'lucide-react';
 import { DateField, TimeField } from '../../components/Pickers';
 import { Modal } from '../../components/Overlays';
 import ReminderPicker from '../../components/ReminderPicker';
-import { adaptReminders, reminderMoment } from '../../lib/reminders';
+import { followMoments, reminderMoment } from '../../lib/reminders';
 import { useTodos, type Todo } from '../../store/todos';
 import { toast } from '../../store/ui';
 
@@ -21,7 +21,9 @@ export default function TaskDialog({ todo, onClose, remind, onDelete }: { todo: 
     if (todo.reminders) return todo.reminders;
     if (!remind) return [];
     const first = todo.time ? 15 : 900;
-    return !todo.due || reminderMoment(todo.due, todo.time, first).getTime() > Date.now() ? [first] : [0];
+    // Never a moment already gone (a task due today, opened after 9:00): the next one still ahead, else none.
+    const ahead = (m: number) => reminderMoment(todo.due!, todo.time, m).getTime() > Date.now();
+    return !todo.due || ahead(first) ? [first] : ahead(0) ? [0] : [];
   });
 
   const submit = (e: FormEvent) => {
@@ -43,7 +45,17 @@ export default function TaskDialog({ todo, onClose, remind, onDelete }: { todo: 
         <div className="mt-3 grid grid-cols-2 gap-2">
           <div>
             <span className="mb-1.5 block text-[12px] font-medium text-stone-600">Échéance</span>
-            <DateField value={due} onChange={setDue} label="Échéance" clearable className="w-full" />
+            <DateField
+              value={due}
+              onChange={v => {
+                // « La veille à 9h » follows the task to its new day.
+                if (due && v) setReminders(r => followMoments(r, { date: due, time: time || undefined }, { date: v, time: time || undefined }, r));
+                setDue(v);
+              }}
+              label="Échéance"
+              clearable
+              className="w-full"
+            />
           </div>
           <div>
             <span className="mb-1.5 block text-[12px] font-medium text-stone-600">Heure (facultatif)</span>
@@ -54,7 +66,7 @@ export default function TaskDialog({ todo, onClose, remind, onDelete }: { todo: 
               label="Heure de l’échéance"
               placeholder="Dans la journée"
               onChange={v => {
-                if (!!v !== !!time) setReminders(r => adaptReminders(r, !!v, v ? [15] : [900]));
+                if (due && v !== time) setReminders(r => followMoments(r, { date: due, time: time || undefined }, { date: due, time: v || undefined }, v ? [15] : [900]));
                 setTime(v);
               }}
               className="w-full"
@@ -62,7 +74,7 @@ export default function TaskDialog({ todo, onClose, remind, onDelete }: { todo: 
           </div>
         </div>
         <ReminderPicker value={reminders} onChange={setReminders} timed={!!time} date={due || undefined} time={time || undefined} disabled={due ? undefined : 'Choisis d’abord une échéance.'} />
-        <div className="mt-5 flex items-center justify-end gap-2">
+        <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
           {onDelete && (
             <button type="button" className="btn-ghost mr-auto text-red-600 hover:text-red-700" onClick={() => (onClose(), onDelete())}>
               <Trash2 size={15} /> Supprimer

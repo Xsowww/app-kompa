@@ -345,12 +345,24 @@ function contextBlock(): string {
 /** Questions kept in the browser (the server trims further to what the AI accepts). */
 const KEEP_QUESTIONS = 20;
 
+/** The AI stopped halfway: what it had already done (and its links), with the error that stopped it. */
+export class PartlyDone extends Error {
+  readonly reason: unknown;
+  readonly links: CopilotLink[];
+  constructor(reason: unknown, links: CopilotLink[]) {
+    super((reason as Error)?.message ?? String(reason));
+    this.reason = reason;
+    this.links = links;
+  }
+}
+
 export async function claudeReply(text: string, userName: string): Promise<BotReply> {
   const links: CopilotLink[] = [];
   const offers: CopilotOffer[] = [];
   const starts = history.flatMap((m, i) => (m.role === 'user' && Array.isArray(m.content) && m.content.some(b => b.type === 'text') ? [i] : []));
   if (starts.length >= KEEP_QUESTIONS) history = history.slice(starts[starts.length - KEEP_QUESTIONS + 1]);
   const before = history.length;
+  let acted = false; // a tool already changed something: on a later error the simple mode must not do it again
   history.push({ role: 'user', content: [{ type: 'text', text: contextBlock() }, { type: 'text', text }] });
   try {
     for (let step = 0; step < 10; step++) {
@@ -371,6 +383,7 @@ export async function claudeReply(text: string, userName: string): Promise<BotRe
       }
       const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];
       for (const tu of toolUses) {
+        acted = true;
         try {
           const out = await runTool(tu.name, (tu.input ?? {}) as Record<string, unknown>, links, offers);
           results.push({ type: 'tool_result', tool_use_id: tu.id, content: JSON.stringify(out) });
@@ -383,7 +396,7 @@ export async function claudeReply(text: string, userName: string): Promise<BotRe
     return { text: 'J’ai fait plusieurs choses, jette un œil.', links, offers };
   } catch (e) {
     history = history.slice(0, before); // keep the conversation valid for the next try
-    throw e;
+    throw acted ? new PartlyDone(e, links.filter((l, i) => links.findIndex(x => x.to === l.to) === i).slice(0, 4)) : e;
   }
 }
 

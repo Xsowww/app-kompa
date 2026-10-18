@@ -162,7 +162,7 @@ export default function ShareButton({ group, onNote, onFiles }: { group: Group; 
           items={[
             { label: 'Une de mes notes', icon: <FileText />, onClick: () => setDialog('note') },
             { label: 'Un fichier de mon Drive', icon: <HardDrive />, onClick: () => setDialog('drive') },
-            { label: 'Un fichier de l’ordinateur', icon: <Monitor />, onClick: () => input.current?.click() },
+            { label: 'Un fichier de l’appareil', icon: <Monitor />, onClick: () => input.current?.click() },
           ]}
         />
       )}

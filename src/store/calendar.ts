@@ -168,7 +168,8 @@ export const useCalendar = create<CalendarState>()(
       add(e) {
         // A new event with a time gets the usual reminder (Profil › Notifications), unless it says otherwise
         // or comes from elsewhere (imported agenda, a group).
-        const reminders = e.reminders ?? (e.start && !e.externalId && getSettings().defaultReminders?.length ? [...getSettings().defaultReminders] : undefined);
+        // (« Aucun » as the usual one: [] kept, so changing the usual reminder later doesn't add one to it.)
+        const reminders = e.reminders ?? (e.start && !e.externalId ? [...(getSettings().defaultReminders ?? [])] : undefined);
         const ev: CalendarEvent = { ...e, ...(reminders && { reminders }), id: uid(), done: false, createdAt: nowIso() };
         set(s => ({ events: [...s.events, ev] }));
         return ev;

@@ -72,6 +72,10 @@ function SubjectPicker({ onStart, onCancel }: { onStart: (subject: string) => vo
 }
 
 /** Compact Pomodoro timer shown in the sidebar. */
+/** The button that replaces the one just used (the panel changes): the keyboard focus goes to it, not to the page. */
+const focusLater = (selector: string) =>
+  setTimeout(() => [...document.querySelectorAll<HTMLElement>(selector)].find(el => el.offsetParent !== null)?.focus(), 0);
+
 export default function FocusTimer() {
   const focus = useFocus();
   const { focusMinutes, breakMinutes } = useSettings();
@@ -94,15 +98,20 @@ export default function FocusTimer() {
     if (picking)
       return (
         <SubjectPicker
-          onCancel={() => setPicking(false)}
+          onCancel={() => {
+            setPicking(false);
+            focusLater('[data-focus-start]');
+          }}
           onStart={subject => {
             setPicking(false);
             focus.start(subject.trim());
+            focusLater('[data-focus-pause]');
           }}
         />
       );
     return (
       <button
+        data-focus-start
         onClick={() => setPicking(true)}
         className="mb-2 flex h-9 w-full items-center gap-2.5 rounded-lg border border-dashed border-stone-300 px-2.5 text-[13px] text-stone-600 transition-colors hover:border-brand-500 hover:bg-brand-50 hover:text-brand-700"
         title={`${focusMinutes} min de travail, ${breakMinutes} min de pause`}
@@ -133,10 +142,15 @@ export default function FocusTimer() {
         <div className={cx('h-full rounded-full', focus.phase === 'focus' ? 'bg-brand-500' : 'bg-emerald-500')} style={{ width: `${done}%` }} />
       </div>
       <div className="mt-2 flex gap-1">
-        <button onClick={paused ? focus.resume : focus.pause} className="flex h-7 flex-1 items-center justify-center gap-1 rounded-md bg-surface pointer-coarse:h-9 text-[12px] font-medium text-stone-700 shadow-card hover:text-ink">
+        <button data-focus-pause onClick={paused ? focus.resume : focus.pause} className="flex h-7 flex-1 items-center justify-center gap-1 rounded-md bg-surface pointer-coarse:h-9 text-[12px] font-medium text-stone-700 shadow-card hover:text-ink">
           {paused ? <Play size={12} /> : <Pause size={12} />} {paused ? 'Reprendre' : focus.phase === 'break' ? 'Suspendre' : 'Pause'}
         </button>
-        <button onClick={focus.stop} className="flex h-7 w-8 items-center justify-center rounded-md bg-surface pointer-coarse:h-9 pointer-coarse:w-10 text-stone-500 shadow-card hover:text-red-600" title="Arrêter" aria-label="Arrêter">
+        <button
+          onClick={() => {
+            focus.stop();
+            focusLater('[data-focus-start]');
+          }}
+          className="flex h-7 w-8 items-center justify-center rounded-md bg-surface pointer-coarse:h-9 pointer-coarse:w-10 text-stone-500 shadow-card hover:text-red-600" title="Arrêter" aria-label="Arrêter">
           <Square size={11} />
         </button>
       </div>

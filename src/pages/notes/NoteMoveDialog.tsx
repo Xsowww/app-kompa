@@ -3,6 +3,7 @@ import { FolderOpen, NotebookPen } from 'lucide-react';
 import { Modal } from '../../components/Overlays';
 import { useNotes, folderDescendants } from '../../store/notes';
 import { cx } from '../../lib/utils';
+import { folderIconStyle } from '../../store/drive';
 
 /** What to move: a note, or a folder (never into itself or one of its sub-folders). */
 export type NoteMoveTarget = { kind: 'note'; id: string; name: string; from: string | null } | { kind: 'folder'; id: string; name: string; from: string | null };
@@ -20,7 +21,7 @@ export default function NoteMoveDialog({ target, onClose }: { target: NoteMoveTa
       .map(f => (
         <div key={f.id}>
           <Choice selected={dest === f.id} depth={depth} onClick={() => setDest(f.id)}>
-            <FolderOpen size={15} className="shrink-0 text-stone-500" />
+            <FolderOpen size={15} className={cx('shrink-0', !f.color && 'text-stone-500')} style={folderIconStyle(f.color)} />
             <span className="truncate">{f.name}</span>
           </Choice>
           {level(f.id, depth + 1)}

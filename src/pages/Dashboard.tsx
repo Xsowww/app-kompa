@@ -143,7 +143,7 @@ export default function Dashboard() {
                   <Link key={p.id} to="/calendrier" className="flex h-7 items-center gap-1.5 rounded-full px-3 text-[12.5px] font-semibold" style={{ background: periodTint(p, 18), color: periodText(p) }}>
                     <span className="h-2 w-2 rounded-full" style={{ background: periodColor(p) }} aria-hidden />
                     {p.title}
-                    {p.end !== today && <span className="font-medium opacity-80">· jusqu’au {fmtDay(fromKey(p.end), 'd MMM')}</span>}
+                    {p.end !== today && <span className="font-medium">· jusqu’au {fmtDay(fromKey(p.end), 'd MMM')}</span>}
                   </Link>
                 ))}
               </div>
@@ -180,13 +180,13 @@ export default function Dashboard() {
             {nowEvent ? (
               <span className="flex items-end justify-between gap-4">
                 <span className="min-w-0">
-                  <span className="line-clamp-2 block text-[22px] font-extrabold leading-tight tracking-[-0.03em] [overflow-wrap:anywhere] sm:text-[26px]">{nowEvent.title}</span>
+                  <span className="line-clamp-2 text-[22px] font-extrabold leading-tight tracking-[-0.03em] [overflow-wrap:anywhere] sm:text-[26px]">{nowEvent.title}</span>
                   {nowEvent.details && <span className="block truncate text-[14px] text-white/90">{nowEvent.details.split('\n')[0]}</span>}
                 </span>
                 <span className="tabular shrink-0 text-[34px] font-extrabold leading-none tracking-[-0.04em] sm:text-[40px]">{nowEvent.start}</span>
               </span>
             ) : (
-              <span className="text-[22px] font-extrabold tracking-[-0.02em]">Plus rien de prévu aujourd’hui. Ajouter quelque chose ?</span>
+              <span className="text-[22px] font-extrabold tracking-[-0.02em]">{todayEvents.length ? 'Plus rien de prévu aujourd’hui.' : 'Rien de prévu aujourd’hui.'} Ajouter quelque chose ?</span>
             )}
           </Link>
 
@@ -198,7 +198,7 @@ export default function Dashboard() {
                   <span className="flex items-baseline gap-3">
                     {examDays === 0 ? (
                       // A word, not a number: « j » goes below the line, so no 0.8 line height here.
-                      <span className="text-[52px] font-extrabold leading-none tracking-[-0.045em] text-urgent">Aujourd’hui</span>
+                      <span className="text-[clamp(36px,11vw,52px)] font-extrabold leading-none tracking-[-0.045em] text-urgent lg:text-[clamp(36px,3.6vw,52px)]">Aujourd’hui</span>
                     ) : (
                       <span className="tabular text-[112px] font-extrabold leading-[0.8] tracking-[-0.06em] text-urgent">{examDays}</span>
                     )}

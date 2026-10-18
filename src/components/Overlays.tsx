@@ -25,6 +25,7 @@ function ToastRow({ t }: { t: Toast }) {
               if (!now || now === document.body) document.getElementById('contenu')?.focus({ preventScroll: true });
             }, 0);
           }}
+          title={t.action.label === 'Annuler' ? 'Annuler (Ctrl+Z)' : undefined}
         >
           {t.action.label}
         </button>
@@ -36,6 +37,22 @@ function ToastRow({ t }: { t: Toast }) {
 /** Toasts are read out by screen readers: errors right away, everything else politely. */
 export function Toasts() {
   const toasts = useUi(s => s.toasts).slice(-3);
+  // Ctrl+Z (⌘Z) undoes what the last toast offers to undo: from the keyboard, its button is far down the Tab order.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== 'z' || !(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return;
+      const at = document.activeElement as HTMLElement | null;
+      if (at && (at.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(at.tagName))) return; // the field's own undo
+      const { toasts: all, dismissToast } = useUi.getState();
+      const last = [...all].reverse().find(t => t.action?.label === 'Annuler');
+      if (!last) return;
+      e.preventDefault();
+      dismissToast(last.id);
+      last.action!.run();
+    };
+    addEventListener('keydown', onKey);
+    return () => removeEventListener('keydown', onKey);
+  }, []);
   return (
     // Full width minus 16 px each side: centred with left-1/2 alone, the toast shrank to half the screen on phones.
     <div className="pointer-events-none fixed inset-x-4 bottom-[calc(6.5rem+env(safe-area-inset-bottom))] z-[70] flex flex-col items-center gap-2 lg:bottom-6">
@@ -210,7 +227,11 @@ export function ContextMenu({ x, y, items, onClose, label }: { x: number; y: num
       el.style.left = '0px';
       const r = el.getBoundingClientRect();
       el.style.left = left;
-      setPos({ x: Math.max(8, Math.min(x, window.innerWidth - r.width - 8)), y: Math.max(8, Math.min(y, window.innerHeight - r.height - 8)) });
+      // No room right of / below the point: the menu opens on the other side of it (its corner at the
+      // point, like everywhere else), so the pointer is not left in the middle of the menu.
+      const fx = x + r.width > window.innerWidth - 8 ? x - r.width : x;
+      const fy = y + r.height > window.innerHeight - 8 ? y - r.height : y;
+      setPos({ x: Math.max(8, Math.min(fx, window.innerWidth - r.width - 8)), y: Math.max(8, Math.min(fy, window.innerHeight - r.height - 8)) });
     }
     const close = () => closeRef.current();
     const onKey = (e: KeyboardEvent) => {

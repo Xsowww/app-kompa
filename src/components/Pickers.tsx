@@ -26,7 +26,8 @@ export function Popover({ anchor, onClose, label, children, className }: { ancho
       const el = ref.current;
       if (!el) return;
       const a = anchor.getBoundingClientRect();
-      const r = el.getBoundingClientRect();
+      // Its size without the opening zoom (a scale animation makes the box smaller for a moment).
+      const r = { width: el.offsetWidth, height: el.offsetHeight };
       let top = a.bottom + 6;
       if (top + r.height > innerHeight - 8 && a.top - 6 - r.height > 8) top = a.top - 6 - r.height;
       setPos({ left: Math.max(8, Math.min(a.left, innerWidth - r.width - 8)), top: Math.max(8, Math.min(top, innerHeight - r.height - 8)) });
@@ -153,7 +154,8 @@ function MonthGrid({ value, min, max, onPick }: { value: string; min?: string; m
       </div>
       <div
         ref={grid}
-        role="grid"
+        role="group"
+        aria-label="Jours du mois"
         className="grid grid-cols-7 gap-0.5"
         onKeyDown={e => {
           const step = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[e.key];
@@ -180,7 +182,7 @@ function MonthGrid({ value, min, max, onPick }: { value: string; min?: string; m
               className={cx(
                 'tabular flex h-9 items-center justify-center rounded-xl text-[13px] transition-colors disabled:pointer-events-none disabled:opacity-30',
                 sel ? 'bg-ink font-bold text-paper' : key === today ? 'font-bold text-brand-600 ring-1 ring-inset ring-brand-200 hover:bg-stone-100' : 'hover:bg-stone-100',
-                !isSameMonth(d, month) && !sel && 'text-stone-400',
+                !isSameMonth(d, month) && !sel && 'text-stone-500',
               )}
             >
               {d.getDate()}
@@ -256,7 +258,7 @@ export function DateField({ value, onChange, min, max, label, placeholder = 'Cho
   return (
     <>
       <FieldButton buttonRef={btn} open={open} onOpen={() => setOpen(o => !o)} icon={<CalendarDays size={15} />} placeholder={placeholder} className={className} label={`${label}${shown ? ` : ${fmt(fromKey(shown), 'EEEE d MMMM yyyy')}` : ''}`} invalid={invalid} disabled={disabled}>
-        {shown && <span className="first-letter:uppercase">{fmtDay(fromKey(shown), 'EEE d MMM')}</span>}
+        {shown && <span className="inline-block first-letter:uppercase">{fmtDay(fromKey(shown), 'EEE d MMM')}</span>}
       </FieldButton>
       {anchor && <DatePopover anchor={anchor} value={value} min={min} max={max} label={label} clearable={clearable} onPick={pick} onClose={() => setOpen(false)} />}
     </>
@@ -279,6 +281,21 @@ function TimePanel({ value, onPick, clearable }: { value: string; onPick: (v: st
     }
   }, []);
   const typed = parseTime(text);
+  // A time typed and then left (Tab, a click elsewhere) is kept, not lost; Échap still cancels it.
+  const leave = useRef({ typed, value, onPick, escaped: false });
+  useEffect(() => {
+    leave.current = { ...leave.current, typed, value, onPick };
+  });
+  useEffect(() => {
+    // Before the panel's own Échap (child effects are set up first).
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && (leave.current.escaped = true);
+    addEventListener('keydown', onKey, true);
+    return () => {
+      removeEventListener('keydown', onKey, true);
+      const l = leave.current;
+      if (!l.escaped && l.typed && l.typed !== l.value) l.onPick(l.typed, false);
+    };
+  }, []);
   const pickFromList = (v: string, done: boolean) => {
     setText(v.replace(':', 'h'));
     onPick(v, done);
@@ -299,6 +316,8 @@ function TimePanel({ value, onPick, clearable }: { value: string; onPick: (v: st
           value={text}
           onChange={e => setText(e.target.value)}
           inputMode="numeric"
+          spellCheck={false}
+          autoComplete="off"
           placeholder="14h30"
           aria-label="Heure, à taper (14h30, 9h…)"
           className={cx('field h-9 min-w-0 flex-1 text-center text-[14px] font-semibold', text && !typed && 'border-red-400')}

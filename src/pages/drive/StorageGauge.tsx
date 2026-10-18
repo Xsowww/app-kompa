@@ -34,7 +34,7 @@ export default function StorageGauge() {
         <span className="font-medium text-ink">{formatBytes(used)}</span> {agree(used, 'utilisé')} sur {formatBytes(SPACE)} · {formatBytes(left)} {agree(left, 'libre')}
         {inTrash > 0 && <> · dont {formatBytes(inTrash)} dans la corbeille</>}
       </span>
-      {share >= 0.8 && <span className={share >= 0.95 ? 'text-red-600' : 'text-amber-600'}>Bientôt plein : vide la corbeille ou supprime des fichiers.</span>}
+      {share >= 0.8 && <span className={share >= 0.95 ? 'text-red-600' : 'text-amber-600'}>{share >= 1 ? 'Plein' : 'Bientôt plein'} : vide la corbeille ou supprime des fichiers.</span>}
     </div>
   );
 }

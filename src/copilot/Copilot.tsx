@@ -206,7 +206,11 @@ export default function Copilot() {
   useEffect(() => {
     if (pose !== 'open') return;
     const t = setTimeout(() => inputRef.current?.focus(), 200);
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setPose('hidden');
+    // Échap closes Kompaly, unless it was meant for something opened over it (the search…).
+    const onKey = (e: KeyboardEvent) => {
+      const at = document.activeElement;
+      if (e.key === 'Escape' && (!at || at === document.body || panelRef.current?.contains(at))) setPose('hidden');
+    };
     window.addEventListener('keydown', onKey);
     const panel = panelRef.current;
     const character = charRef.current;
@@ -222,6 +226,8 @@ export default function Copilot() {
   const go = (to: string) => {
     navigate(to);
     clearBubble();
+    // On a phone the panel covers the page the link opens: out of the way.
+    if (matchMedia('(max-width: 639px)').matches) setPose('hidden');
   };
 
   const speak = (text: string) => {
@@ -261,8 +267,14 @@ export default function Copilot() {
       try {
         reply = await (await brain()).claudeReply(clean, user?.name ?? '');
       } catch (e) {
-        const local = localReply(clean);
-        reply = { text: `${(await brain()).describeApiError(e)} ${local.text}`, links: local.links };
+        const b = await brain();
+        if (e instanceof b.PartlyDone) {
+          // Something was already created: doing the question again in simple mode would make it twice.
+          reply = { text: `${b.describeApiError(e.reason)} Ce que j’avais déjà fait est bien enregistré.`, links: e.links };
+        } else {
+          const local = localReply(clean);
+          reply = { text: `${b.describeApiError(e)} ${local.text}`, links: local.links };
+        }
       }
     } else {
       await new Promise(r => setTimeout(r, 350 + Math.random() * 350));

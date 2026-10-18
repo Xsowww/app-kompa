@@ -280,7 +280,7 @@ function morningBrief(): boolean {
   const todays = events.filter(e => e.date === today).sort(sortEvents);
   const todos = useTodos.getState().todos.filter(t => !t.done);
   const dueTodos = todos.filter(t => t.due && t.due <= today);
-  const nextExam = events.filter(e => big(e) && !e.done && e.date >= today).sort(sortEvents)[0];
+  const nextExam = events.filter(e => big(e) && !e.done && e.date >= today && !isOver(e)).sort(sortEvents)[0];
   // Discreet mode: only when there is something worth saying.
   if (settings.chattiness === 'calme' && !todays.length && !dueTodos.length && !(nextExam && daysUntil(nextExam.date) <= 7)) return false;
 

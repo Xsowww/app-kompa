@@ -29,10 +29,13 @@ export default function AgendasPage() {
 
 function Offline() {
   return (
-    <div className="flex h-full flex-col items-center justify-center px-4 text-center">
-      <CloudOff size={26} strokeWidth={1.5} className="text-stone-300" />
-      <p className="mt-3 text-[14px] font-medium">Disponible dans la version en ligne</p>
-      <p className="mt-1 max-w-sm text-[13px] text-stone-500">Ici, tes données restent dans ce navigateur : un agenda partagé a besoin d’un compte en ligne.</p>
+    <div className="flex h-full flex-col px-4 pb-10 md:px-8">
+      <h1 className="pb-4 pt-2 text-[24px] font-semibold tracking-[-0.02em]">Agendas partagés</h1>
+      <div className="flex flex-1 flex-col items-center justify-center text-center">
+        <CloudOff size={26} strokeWidth={1.5} className="text-stone-300" />
+        <p className="mt-3 text-[14px] font-medium">Disponible dans la version en ligne</p>
+        <p className="mt-1 max-w-sm text-[13px] text-stone-500">Ici, tes données restent dans ce navigateur : un agenda partagé a besoin d’un compte en ligne.</p>
+      </div>
     </div>
   );
 }

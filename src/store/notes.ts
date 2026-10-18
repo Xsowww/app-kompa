@@ -135,8 +135,12 @@ export const useNotes = create<NotesState>()(
         return note;
       },
 
+      // Pinning is not an edit: the « modifiée » date (and the order of the list) stays. The sync still sends
+      // it: the server keeps a version whose date is equal to its own (keep_newest only refuses older ones).
       updateNote: (id, patch) =>
-        set(s => ({ notes: s.notes.map(n => (n.id === id ? { ...n, ...patch, updatedAt: nowIso() } : n)) })),
+        set(s => ({
+          notes: s.notes.map(n => (n.id === id ? { ...n, ...patch, updatedAt: Object.keys(patch).every(k => k === 'pinned') ? n.updatedAt : nowIso() } : n)),
+        })),
 
       removeNote: id =>
         set(s => {

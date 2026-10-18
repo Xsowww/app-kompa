@@ -6,7 +6,8 @@ const CLASS = 'flash-target';
 /** Brings the element into view and lights it up (again, if it already was). */
 export function flash(el: Element | null | undefined) {
   if (!(el instanceof HTMLElement)) return;
-  el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches || document.documentElement.classList.contains('reduce-motion');
+  el.scrollIntoView({ block: 'center', behavior: still ? 'auto' : 'smooth' });
   el.classList.remove(CLASS);
   void el.offsetWidth; // restart the animation
   el.classList.add(CLASS);

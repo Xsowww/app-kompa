@@ -3,7 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuth } from '../store/auth';
 import AccountList from '../components/AccountList';
-import { needsCredentials, savedAccounts, STALE_HINT, type SavedAccount } from '../lib/accounts';
+import { needsCredentials, reloginHint, savedAccounts, type SavedAccount } from '../lib/accounts';
+import { takeAfterLogin } from '../lib/afterLogin';
 import { toast } from '../store/ui';
 import { loadUserData, markLocalWelcome } from '../store/session';
 import { cloudEnabled, linkError, setRememberMe } from '../lib/supabase';
@@ -111,9 +112,9 @@ export default function AuthPage({ mode }: { mode: Mode }) {
   const [oldEnough, setOldEnough] = useState(false);
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState(mode === 'login' ? (linkError ?? '') : '');
-  const [info, setInfo] = useState(askedEmail ? 'La session de ce compte a expiré : entre de nouveau ton mot de passe.' : '');
+  const [info, setInfo] = useState(askedEmail ? reloginHint(savedAccounts().find(a => a.email.toLowerCase() === askedEmail.toLowerCase())) : '');
   const [switching, setSwitching] = useState<string | null>(null);
-  const [hasSaved] = useState(() => savedAccounts().length > 0);
+  const [hasSaved, setHasSaved] = useState(() => savedAccounts().length > 0);
   const [canResend, setCanResend] = useState(mode === 'login' && !!linkError);
   const [busy, setBusy] = useState(false);
   const isRegister = mode === 'register';
@@ -172,7 +173,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
         const user = await register(name, email, password);
         if (!user) {
           setInfo(
-            `Presque fini ! Un e-mail vient de partir à ${email.trim()}. Ouvre-le sur cet ordinateur (en laissant ce site ouvert) et clique sur le lien : la connexion se fera automatiquement.`,
+            `Presque fini ! Un e-mail vient de partir à ${email.trim()}. Ouvre-le sur cet appareil (en laissant ce site ouvert) et clique sur le lien : la connexion se fera automatiquement.`,
           );
           setCanResend(true);
           setPassword('');
@@ -187,7 +188,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
         if (useAuth.getState().mfaStep) return navigate('/securite');
         await loadUserData();
       }
-      navigate('/');
+      navigate(takeAfterLogin());
     } catch (err) {
       const message = (err as Error).message;
       // The button was disabled while waiting, so the focus fell out of the form: back to the field at fault.
@@ -207,7 +208,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
     setBusy(true);
     try {
       await resendConfirmation(email);
-      setInfo('Nouvel e-mail envoyé. Ouvre-le sur cet ordinateur pendant que le site est lancé, et clique sur le lien une seule fois.');
+      setInfo('Nouvel e-mail envoyé. Ouvre-le sur cet appareil, dans ce navigateur, et clique sur le lien une seule fois.');
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -235,7 +236,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
       setInfo(msg);
       setTimeout(() => passwordRef.current?.focus(), 0);
     };
-    if (needsCredentials(a)) return askPassword(STALE_HINT);
+    if (needsCredentials(a)) return askPassword(reloginHint(a));
     setSwitching(a.id);
     try {
       if ((await useAuth.getState().switchAccount(a.id)) === 'credentials') askPassword('La session de ce compte a expiré : entre de nouveau ton mot de passe.');
@@ -260,7 +261,14 @@ export default function AuthPage({ mode }: { mode: Mode }) {
                 <h2 id="comptes-appareil" className="eyebrow mb-2">
                   Comptes sur cet appareil
                 </h2>
-                <AccountList onPick={a => void pick(a)} busy={switching} />
+                <AccountList
+                  onPick={a => void pick(a)}
+                  busy={switching}
+                  onEmpty={() => {
+                    setHasSaved(false);
+                    setTimeout(() => refs.current.email?.focus(), 0); // the list went away with the focus
+                  }}
+                />
                 <p className="mt-5 flex items-center gap-3 text-[12px] text-stone-500">
                   <span className="h-px flex-1 bg-stone-200" />
                   ou un autre compte

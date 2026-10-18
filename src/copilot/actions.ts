@@ -30,7 +30,7 @@ export const linkToNote = (id: string) => `/notes?note=${id}`;
 export const linkToDay = (date: string, eventId?: string) => `/calendrier?jour=${date}${eventId ? `&evt=${eventId}` : ''}`;
 
 export interface SearchHit {
-  type: 'dossier' | 'fichier' | 'note' | 'dossier de notes' | 'événement';
+  type: 'dossier' | 'fichier' | 'note' | 'dossier de notes' | 'événement' | 'tâche';
   id: string;
   title: string;
   where: string;
@@ -79,6 +79,11 @@ export function search(query: string, limit = 8): SearchHit[] {
   for (const e of useCalendar.getState().events) {
     const s = score(e.title, q);
     if (s) hits.push({ s, type: 'événement', id: e.id, title: e.title, where: fmtDay(fromKey(e.date), 'EEEE d MMMM'), to: linkToDay(e.date, e.id) });
+  }
+  // Tasks still to do (a ticked one leaves the list: nothing to open there).
+  for (const t of useTodos.getState().todos) {
+    const s = t.done ? 0 : score(t.title, q);
+    if (s) hits.push({ s, type: 'tâche', id: t.id, title: t.title, where: t.due ? `Tâches · ${fmtDay(fromKey(t.due), 'EEEE d MMMM')}` : 'Tâches', to: `/taches?tache=${t.id}` });
   }
   return hits.sort((a, b) => b.s - a.s).slice(0, limit).map(({ s: _s, ...h }) => h);
 }
@@ -248,21 +253,22 @@ export function textToHtml(text: string): string {
       close();
       continue;
     }
-    const task = line.match(/^[-*]?\s*\[( |x)\]\s+(.*)$/i);
+    // The line is trimmed: an empty « [ ] » or « - » (a plan to fill in) has no space left after it.
+    const task = line.match(/^[-*]?\s*\[( |x)\](?:\s+(.*))?$/i);
     if (task) {
       if (list !== 'task') {
         close();
         out.push('<ul data-type="taskList">');
         list = 'task';
       }
-      out.push(`<li data-type="taskItem" data-checked="${task[1].toLowerCase() === 'x'}"><p>${inline(task[2])}</p></li>`);
-    } else if (/^[-*•]\s+/.test(line)) {
+      out.push(`<li data-type="taskItem" data-checked="${task[1].toLowerCase() === 'x'}"><p>${inline(task[2] ?? '')}</p></li>`);
+    } else if (/^[-*•](?:\s+|$)/.test(line)) {
       if (list !== 'ul') {
         close();
         out.push('<ul>');
         list = 'ul';
       }
-      out.push(`<li><p>${inline(line.replace(/^[-*•]\s+/, ''))}</p></li>`);
+      out.push(`<li><p>${inline(line.replace(/^[-*•]\s*/, ''))}</p></li>`);
     } else if (/^#{1,3}\s+/.test(line)) {
       close();
       out.push(`<h2>${inline(line.replace(/^#{1,3}\s+/, ''))}</h2>`);
@@ -285,6 +291,11 @@ export function appendToNote(id: string, text: string) {
 /** The upcoming exam named in `query` (id, title words, day), or the next one when `query` names none. */
 export function findExam(query: string) {
   return pickExam(query, useCalendar.getState().events, todayKey(), !studying());
+}
+
+/** An upcoming event of any kind whose title has every word of `query` (« la réunion client »). */
+export function eventNamed(query: string) {
+  return pickExam(query, useCalendar.getState().events.map(e => ({ ...e, important: true })), todayKey(), true);
 }
 
 const revisionTitle = (examTitle: string) => `${studying() ? 'Révision' : 'Préparation'} · ${examTitle}`;

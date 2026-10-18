@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Eye, FileText, Folder, MoreHorizontal, RotateCcw, Trash2, X } from 'lucide-react';
 import { parseISO } from 'date-fns';
-import { categoryOf, FOLDER_COLORS, type DriveItem } from '../../store/drive';
+import { categoryOf, FOLDER_COLORS, folderIconStyle, type DriveItem } from '../../store/drive';
 import { catOf } from '../../store/calendar';
 import { confirmAction, toast, useUi } from '../../store/ui';
 import { ContextMenu, Modal, type MenuItem } from '../../components/Overlays';
@@ -46,7 +46,8 @@ function EntryIcon({ entry, size = 28 }: { entry: TrashEntry; size?: number }) {
   const Icon = entry.kind === 'noteFolder' ? Folder : FileText;
   return (
     <span className={box} style={{ width: size, height: size }} aria-hidden>
-      <Icon size={Math.round(size * 0.52)} />
+      {/* A coloured notes folder keeps its colour here, like in the notes. */}
+      <Icon size={Math.round(size * 0.52)} style={entry.kind === 'noteFolder' ? folderIconStyle(entry.folder.color) : undefined} />
     </span>
   );
 }
@@ -63,7 +64,8 @@ function PreviewDialog({ entry, onClose, onRestore, onPurge }: { entry: TrashEnt
   const content = useMemo(() => folderContent(entry), [entry]);
   const isFolder = entry.kind === 'noteFolder' || (entry.kind === 'drive' && entry.item.kind === 'folder');
   return (
-    <Modal open onClose={onClose} width={entry.kind === 'note' ? 720 : 520}>
+    // 560: the date and both buttons on one line (at 520 « Restaurer » fell alone on a second line).
+    <Modal open onClose={onClose} width={entry.kind === 'note' ? 720 : 560}>
       <div className="flex items-start gap-3">
         <EntryIcon entry={entry} size={34} />
         <div className="min-w-0 flex-1">

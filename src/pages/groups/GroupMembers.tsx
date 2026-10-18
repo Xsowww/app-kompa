@@ -42,7 +42,7 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
   };
 
   const kick = async (m: GroupMember) => {
-    if (!(await confirmAction(`Retirer ${m.name} ${w.of} ?`, `${agenda ? 'Ses événements restent' : 'Ses notes partagées restent'} dans ${w.the}. Il pourra revenir seulement avec ${agenda ? 'le lien' : 'le code'}.`, 'Retirer'))) return;
+    if (!(await confirmAction(`Retirer ${m.name} ${w.of} ?`, `${agenda ? 'Ses événements restent' : 'Ses notes partagées restent'} dans ${w.the}. ${m.name} pourra revenir seulement avec ${agenda ? 'le lien' : 'le code'}.`, 'Retirer'))) return;
     await run(async () => {
       await removeMember(group.id, m.userId);
       await useGroups.getState().refresh(group.id, ['members']);
@@ -60,7 +60,7 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
   const leave = async () => {
     const alone = (members?.length ?? 1) <= 1;
     const message = alone
-      ? `Il n’y a que toi, donc tout sera supprimé : ${w.the}${agenda ? '' : ', ses notes'} et ses ${w.meet.many}.`
+      ? `Il n’y a que toi, donc tout sera supprimé : ${w.the}${agenda ? '' : ', ses notes, ses fichiers'} et ses ${w.meet.many}.`
       : isOwner
         ? `Le membre le plus ancien deviendra propriétaire. Tu pourras revenir avec ${agenda ? 'le lien' : 'le code'}.`
         : `${agenda ? 'Tes événements restent' : 'Tes notes partagées restent'} dans ${w.the}. Tu pourras revenir avec ${agenda ? 'le lien' : 'le code'}.`;
@@ -74,7 +74,7 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
   };
 
   const destroy = async () => {
-    if (!(await confirmAction(`Supprimer « ${group.name} » ?`, `${w.The}${agenda ? '' : ', ses notes partagées'} et ses ${w.meet.many} : tout sera supprimé pour tous les membres. Action définitive.`, `Supprimer ${w.the}`))) return;
+    if (!(await confirmAction(`Supprimer « ${group.name} » ?`, `${w.The}${agenda ? '' : ', ses notes partagées, ses fichiers'} et ses ${w.meet.many} : tout sera supprimé pour tous les membres. Action définitive.`, `Supprimer ${w.the}`))) return;
     await run(async () => {
       await deleteGroup(group.id);
       await useGroups.getState().loadGroups();
@@ -121,7 +121,7 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
           </div>
         </div>
       ) : (
-        code === null && <p className="card px-4 py-3 text-[13px] text-stone-500">Seul le propriétaire peut inviter dans {w.this}.</p>
+        code === null && <p className="card px-4 py-3 text-[13px] text-stone-500">Tu n’as pas le droit d’inviter dans {w.this} : demande au propriétaire.</p>
       )}
       {!isOwner && mine && (
         <p className="mt-3 text-[13px] text-stone-500">

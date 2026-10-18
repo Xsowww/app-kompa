@@ -362,7 +362,7 @@ function CopilotTab() {
     <div className="space-y-5">
       <Section label="Kompaly">
         <div className="flex items-center gap-3 px-5 py-4">
-          <span className={cx('h-2 w-2 rounded-full', !aiEnabled ? 'bg-stone-400' : paused ? 'bg-amber-500' : 'bg-emerald-500')} />
+          <span className={cx('h-2 w-2 shrink-0 rounded-full', !aiEnabled ? 'bg-stone-400' : paused ? 'bg-amber-500' : 'bg-emerald-500')} />
           <p className="text-[13px]">
             {paused ? (
               <>

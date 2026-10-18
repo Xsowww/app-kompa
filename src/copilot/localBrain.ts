@@ -26,7 +26,7 @@ import {
 import { useNotes } from '../store/notes';
 import { useCopilot } from '../store/copilot';
 import { runOffer } from './offers';
-import { alreadyPlanned, examLabel, findExam, hasRevisionPlan, planRevisions, openNoteLabel } from './actions';
+import { alreadyPlanned, eventNamed, examLabel, findExam, hasRevisionPlan, planRevisions, openNoteLabel } from './actions';
 import { subjectStart } from './revisionPlan';
 import { askedDay, askedPeriod } from './dayQuestion';
 import { getSettings } from '../store/settings';
@@ -127,6 +127,10 @@ function moreCommands(input: string, q: string): BotReply | null {
   }
 
   // ── To-dos ──
+  // « Ajoute une tâche » with nothing after it (or dictation sent too soon): ask, rather than make an event « Tâche ».
+  if (/^(?:ajoute|rajoute|cree|mets|note)\s+(?:moi\s+)?(?:une?\s+|la\s+)?(?:tache|todo|to-do|chose a faire)\s*[.!?]*$/.test(q)) {
+    return { text: 'Quelle tâche ? Dis par exemple « Ajoute la tâche appeler la banque demain ».' };
+  }
   g = grab(/^(?:ajoute|rajoute|note|cree|mets)\s+(?:moi\s+)?(?:une?\s+|la\s+)?(?:tache|todo|to-do|chose a faire)\s*:?\s+(.+)$/d) ?? grab(/^(?:a faire|todo)\s*:\s*(.+)$/d);
   if (g) {
     const parsed = parseQuickAdd(g(1));
@@ -338,11 +342,21 @@ export function localReply(raw: string): BotReply {
   }
 
   // ── Plan revisions ────────────────────────────────────────────────────────
-  if (/(planifi|organis|prepar|cale|programm).*(revision|revis)|(revision|reviser).*(planifi|organis)|(bloqu|planifi|cale|organis).*(temps|creneau|preparation).*prepar|planifie (ma|la) preparation/.test(q)) {
+  if (/(planifi|organis|prepar|cale|programm).*(revision|revis)|(revision|reviser).*(planifi|organis)|(bloqu|planifi|cale|organis).*(temps|creneau|preparation).*prepar|planifie (ma|la) preparation|^(?:aide[- ]moi a )?prepar(?:e|er)\s+(?!(?:moi\s+)?(?:une?|la|le|ma|mon)\s+(?:note|fiche|tache|liste)\b)\S/.test(q)) {
     const w = words();
     // « … pour le contrôle de maths du 10 novembre », « … pour préparer lancement »: the words after the request.
     const subject = unquote(input.slice(subjectStart(q)).replace(/[\s?!.]+$/, ''));
     const exam = findExam(subject);
+    // Named, in the calendar, but not something Kompaly prepares for (not an exam, not marked important).
+    const named = !exam && subject ? eventNamed(subject) : undefined;
+    if (named) {
+      return {
+        text: getSettings().usage === 'etudes'
+          ? `« ${named.title} » n’est pas un examen dans ton calendrier : passe-le en catégorie « Examen » (ou marque-le important ★) et je planifie tes révisions.`
+          : `« ${named.title} » n’est pas marqué important : marque-le ★ dans le calendrier et je bloque du temps pour le préparer.`,
+        links: [{ label: 'Voir le jour', to: linkToDay(named.date, named.id) }],
+      };
+    }
     if (!exam && subject && findExam('')) {
       return { text: `Je ne trouve pas « ${subject} » parmi ${w.upcoming.replace(/^Tes/, 'tes')}. Donne-moi son nom tel qu’il est dans le calendrier ?`, links: [{ label: 'Calendrier', to: '/calendrier' }] };
     }

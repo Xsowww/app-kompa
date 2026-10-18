@@ -227,6 +227,8 @@ function Groups() {
 
   return (
     <div className="flex h-full gap-4 px-4 pb-4 md:px-8">
+      {/* A group open on a phone hides the list and its title: the page keeps one for screen readers. */}
+      {active && <h1 className="sr-only md:hidden">{w.Groups}</h1>}
       {/* Liste des groupes */}
       <aside className={cx('w-full shrink-0 flex-col md:flex md:w-[248px]', active ? 'hidden' : 'flex')}>
         <div className="flex items-center gap-1.5 pb-4 pt-2">
@@ -325,6 +327,8 @@ function Groups() {
                   key={t.id}
                   role="tab"
                   aria-selected={tab === t.id}
+                  // On a phone the row scrolls: the chosen tab is brought fully into view.
+                  ref={tab === t.id ? el => el?.scrollIntoView({ inline: 'nearest', block: 'nearest' }) : undefined}
                   onClick={() => go(active.id, t.id)}
                   className={cx(
                     '-mb-px flex h-9 shrink-0 items-center gap-1.5 border-b-2 px-2.5 text-[13px] font-medium transition-[color]',

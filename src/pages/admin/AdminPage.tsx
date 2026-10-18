@@ -154,7 +154,7 @@ export default function AdminPage() {
       setInboxMissing(box.missing);
     }
     if (err) {
-      setError(err.message.includes('mfa') ? 'Reconnecte-toi avec ton code de sécurité pour voir ces chiffres.' : 'Impossible de charger les statistiques.');
+      setError(err.message.includes('mfa') ? 'Reconnecte-toi avec ton code de sécurité pour voir ces chiffres.' : boxFailed ? 'Impossible d’actualiser : les chiffres et la liste affichés ne sont peut-être pas à jour.' : 'Impossible de charger les statistiques.');
       return;
     }
     setError(boxFailed ? 'Impossible d’actualiser les signalements à traiter : la liste affichée n’est peut-être pas à jour.' : '');
@@ -204,11 +204,12 @@ export default function AdminPage() {
           <div className="mr-auto">
             <h1 className="text-[24px] font-semibold tracking-[-0.02em]">Administration</h1>
             <p className="mt-0.5 flex items-center gap-1.5 text-[12px] text-stone-500">
+              {/* Green and pulsing only while the figures are fresh. */}
               <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                {!error && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />}
+                <span className={cx('relative inline-flex h-2 w-2 rounded-full', error ? 'bg-stone-400' : 'bg-emerald-500')} />
               </span>
-              En direct · {stats ? `mis à jour à ${fmt(new Date(stats.generated_at), 'HH:mm:ss')}` : 'chargement…'} · visible par toi uniquement
+              {error ? 'Pas à jour' : 'En direct'} · {stats ? `mis à jour à ${fmt(new Date(stats.generated_at), 'HH:mm:ss')}` : 'chargement…'} · visible par toi uniquement
             </p>
           </div>
           <button className="btn-secondary h-8" onClick={() => void load()} disabled={loading}>
@@ -223,6 +224,7 @@ export default function AdminPage() {
                 key={v.key}
                 type="button"
                 aria-current={view === v.key ? 'page' : undefined}
+                ref={view === v.key ? el => el?.scrollIntoView({ inline: 'nearest', block: 'nearest' }) : undefined}
                 onClick={() => show(v.key)}
                 className={cx(
                   '-mb-px flex h-10 items-center gap-2 border-b-2 px-3 text-[13.5px] transition-colors',
@@ -434,7 +436,7 @@ function Categories({ stats }: { stats: Stats }) {
           <ul className="mt-3 divide-y divide-stone-100 text-[13px]">
             {customs.map(c => (
               <li key={c.label} className="flex items-baseline gap-2 py-1.5">
-                <span className="min-w-0 flex-1 truncate">{c.label}</span>
+                <span className="min-w-0 flex-1 truncate" title={c.label}>{c.label}</span>
                 <span className="tabular shrink-0 text-[12px] text-stone-500">
                   {c.events} événement{c.events > 1 ? 's' : ''} · {c.users} compte{c.users > 1 ? 's' : ''}
                 </span>

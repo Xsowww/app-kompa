@@ -52,7 +52,7 @@ export const periodColor = (p: Pick<Period, 'color'>) => FOLDER_COLORS[p.color]?
 /** Soft fill for the days (readable under the events, light and dark). */
 export const periodTint = (p: Pick<Period, 'color'>, strength = 14) => `color-mix(in srgb, ${periodColor(p)} ${strength}%, transparent)`;
 /** Text in the period's colour, dark enough to read on its tint. */
-export const periodText = (p: Pick<Period, 'color'>) => `color-mix(in srgb, ${periodColor(p)} 72%, var(--color-ink))`;
+export const periodText = (p: Pick<Period, 'color'>) => `color-mix(in srgb, ${periodColor(p)} 55%, var(--color-ink))`;
 
 export const sortPeriods = (list: Period[]) => [...list].sort((a, b) => a.start.localeCompare(b.start) || a.end.localeCompare(b.end) || a.title.localeCompare(b.title));
 
@@ -106,7 +106,8 @@ export function repeatPeriod(first: Omit<Period, 'id'>, everyWeeks: number, unti
 export function periodRange(p: Pick<Period, 'start' | 'end'>, fmtDay: (d: Date, pattern: string) => string): string {
   if (p.start === p.end) return fmtDay(fromKey(p.start), 'd MMM');
   const sameMonth = p.start.slice(0, 7) === p.end.slice(0, 7);
-  return `du ${fmtDay(fromKey(p.start), sameMonth ? 'd' : 'd MMM')} au ${fmtDay(fromKey(p.end), 'd MMM')}`;
+  // Same month: the day alone (« du 5 au 16 avr. 2027 » ; fmtDay would add the year to a bare day number).
+  return `du ${sameMonth ? fromKey(p.start).getDate() : fmtDay(fromKey(p.start), 'd MMM')} au ${fmtDay(fromKey(p.end), 'd MMM')}`;
 }
 
 /**
