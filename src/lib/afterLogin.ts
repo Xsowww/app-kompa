@@ -1,8 +1,19 @@
 // A page of the app opened signed out (a bookmark, a link): back to it once signed in, not to the home page.
 
 const KEY = 'cop-after-login';
+/** Signing out on purpose from a page: that page isn't one « asked for » (the next account starts at home). */
+let signingOut = false;
+export function forgetAfterLogin() {
+  signingOut = true;
+  try {
+    sessionStorage.removeItem(KEY);
+  } catch {
+    /* nothing kept */
+  }
+}
 
 export function rememberAfterLogin(path: string) {
+  if (signingOut) return;
   try {
     sessionStorage.setItem(KEY, path);
   } catch {
@@ -23,6 +34,7 @@ export function peekAfterLogin(): string {
 
 /** The same, used once. */
 export function takeAfterLogin(): string {
+  signingOut = false;
   const p = peekAfterLogin();
   try {
     sessionStorage.removeItem(KEY);

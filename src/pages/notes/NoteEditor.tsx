@@ -126,6 +126,9 @@ function Toolbar({ editor }: { editor: Editor }) {
   );
 }
 
+/** The same note, give or take the empty line the editor adds at the end. */
+const sameContent = (a: string, b: string) => a.replace(/(<p><\/p>)+$/, '') === b.replace(/(<p><\/p>)+$/, '');
+
 export default function NoteEditor({ note, readOnly = false, inset = 'px-4 py-6 md:px-12' }: { note: Note; readOnly?: boolean; inset?: string }) {
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   /** Typing not saved yet in the store. */
@@ -183,8 +186,7 @@ export default function NoteEditor({ note, readOnly = false, inset = 'px-4 py-6 
     onUpdate: ({ editor: ed }) => {
       // The editor tidying what it was given (an empty line added at the end of a template), not typing:
       // nothing to save, the note stays « modifiée » when it really was.
-      const bare = (h: string) => h.replace(/(<p><\/p>)+$/, '');
-      if (bare(ed.getHTML()) === bare(known.current)) return;
+      if (sameContent(ed.getHTML(), known.current)) return;
       unsaved.current = true;
       clearTimeout(saveTimer.current);
       saveTimer.current = setTimeout(() => save(ed.getHTML()), 350);
@@ -207,7 +209,7 @@ export default function NoteEditor({ note, readOnly = false, inset = 'px-4 py-6 
         const html = editor.getHTML();
         const saved = useNotes.getState().notes.find(n => n.id === note.id);
         // Gone (e.g. moved to the trash): nothing to save.
-        if (saved && html !== saved.content && html !== known.current) save(html);
+        if (saved && !sameContent(html, saved.content) && !sameContent(html, known.current)) save(html);
       }
     };
     window.addEventListener('pagehide', flush);

@@ -75,6 +75,8 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
   // before (or 8:00 the same day without a time). Then « Personnaliser… ».
   const usable = (minutes: number) => !!date && !value.includes(minutes) && reminderMoment(date, time, minutes).getTime() > openedAt;
   const eve = date ? minutesBefore(date, time, date, '09:00') + 1440 : -1;
+  // The item's own moment is past (an all-day event today after 9:00, a time gone by): no reminder can ring any more.
+  const over = !!date && anchorOf(date, time).getTime() <= openedAt;
   const left = [
     usable(eve) ? { minutes: eve, label: 'La veille à 9h' } : usable(60) ? { minutes: 60, label: timed ? '1 h avant' : 'Le jour même à 8h' } : null,
   ].filter((o): o is { minutes: number; label: string } => !!o);
@@ -112,8 +114,9 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
               </button>
             </span>
           ))}
-          {!value.length && <span className="mr-1 text-[13px] text-stone-500">Aucun</span>}
-          {value.length < 10 && !custom && (
+          {!value.length && !over && <span className="mr-1 text-[13px] text-stone-500">Aucun</span>}
+          {over && !custom && <span className="text-[12.5px] text-stone-500">{value.length ? 'Ce moment est passé.' : 'Ce moment est déjà passé : plus de rappel possible.'}</span>}
+          {value.length < 10 && !custom && !over && (
             <button
               type="button"
               aria-haspopup="menu"

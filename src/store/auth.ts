@@ -4,6 +4,7 @@ import { setStorageUser } from '../lib/userStorage';
 import { flushNow, stopSync, updateCloudProfile } from '../lib/cloudSync';
 import { supabase, checkPassword, remembered, authStorageKey, revokeSession } from '../lib/supabase';
 import { captchaToken } from '../lib/captcha';
+import { forgetAfterLogin } from '../lib/afterLogin';
 import { rememberAccount, updateSession, forgetAccount, lockAccount, savedAccount, needsCredentials } from '../lib/accounts';
 import type { AuthError, User as SupabaseUser } from '@supabase/supabase-js';
 
@@ -322,6 +323,7 @@ export const useAuth = create<AuthState>((set, get) => ({
   },
 
   async logout() {
+    forgetAfterLogin(); // the page signed out from isn't one to come back to
     const user = get().user;
     const userId = user?.id;
     let sent = false;

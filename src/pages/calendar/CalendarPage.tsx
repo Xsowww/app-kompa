@@ -95,7 +95,7 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
           {ev.done && <Check size={11} strokeWidth={3} className="text-paper" />}
         </button>}
         <button className={cx('min-w-0 flex-1 text-left pointer-coarse:py-2', readOnly && 'cursor-default')} onClick={readOnly ? undefined : onEdit}>
-          <p className={cx('text-[14px] font-medium leading-snug [overflow-wrap:anywhere]', ev.done && 'text-stone-500 line-through')}>
+          <p className={cx('text-[14px] font-medium leading-snug hyphens-auto [overflow-wrap:anywhere]', ev.done && 'text-stone-500 line-through')}>
             {ev.important && <Flag size={12} className="mr-1 inline-block -translate-y-px fill-amber-500 text-amber-500" aria-label="Important" />}
             {ev.title}
           </p>
@@ -113,8 +113,9 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
           </p>
           {ev.details && <p className="mt-1.5 whitespace-pre-line text-[13px] text-stone-600 [overflow-wrap:anywhere]">{ev.details}</p>}
         </button>
-        {!readOnly && <div className="touch-show flex shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-          <button className="icon-btn pointer-coarse:max-sm:hidden" title="Modifier" aria-label={`Modifier « ${ev.title} »`} onClick={onEdit}>
+        {/* On a phone the card itself opens the form (with « Supprimer »): the title keeps the width. */}
+        {!readOnly && <div className="touch-show flex shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:max-sm:hidden">
+          <button className="icon-btn" title="Modifier" aria-label={`Modifier « ${ev.title} »`} onClick={onEdit}>
             <Pencil size={14} />
           </button>
           <button

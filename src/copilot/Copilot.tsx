@@ -206,11 +206,8 @@ export default function Copilot() {
   useEffect(() => {
     if (pose !== 'open') return;
     const t = setTimeout(() => inputRef.current?.focus(), 200);
-    // Échap closes Kompaly, unless it was meant for something opened over it (the search…).
-    const onKey = (e: KeyboardEvent) => {
-      const at = document.activeElement;
-      if (e.key === 'Escape' && (!at || at === document.body || panelRef.current?.contains(at))) setPose('hidden');
-    };
+    // Échap closes Kompaly, unless what was opened over it took the key (the search, a dialog…).
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !e.defaultPrevented && setPose('hidden');
     window.addEventListener('keydown', onKey);
     const panel = panelRef.current;
     const character = charRef.current;

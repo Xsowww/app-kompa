@@ -145,12 +145,14 @@ export const useGroupActivity = create<ActivityState>((set, get) => ({
       }
     }
 
-    // This device already gets the server's notification for each of them: the badges are enough then.
-    if (counted && !(await pushActive())) {
+    // New files and meetings: a device that gets the server's notifications already heard of them (the
+    // badges are enough). Notes stay announced: the server only tells of new ones, not of changes.
+    if (counted) {
+      const told = (await pushActive()) ? new Set<ActivityTab>(['fichiers', 'revisions']) : new Set<ActivityTab>();
       const before = get().unread;
       for (const [gid, c] of Object.entries(unread)) {
         const more: Counts = {};
-        for (const t of TABLES) if ((c[t.tab] ?? 0) > (before[gid]?.[t.tab] ?? 0)) more[t.tab] = (c[t.tab] ?? 0) - (before[gid]?.[t.tab] ?? 0);
+        for (const t of TABLES) if (!told.has(t.tab) && (c[t.tab] ?? 0) > (before[gid]?.[t.tab] ?? 0)) more[t.tab] = (c[t.tab] ?? 0) - (before[gid]?.[t.tab] ?? 0);
         if (Object.keys(more).length) announce(gid, more);
       }
     }

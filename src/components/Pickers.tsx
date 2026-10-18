@@ -281,8 +281,9 @@ function TimePanel({ value, onPick, clearable }: { value: string; onPick: (v: st
     }
   }, []);
   const typed = parseTime(text);
-  // A time typed and then left (Tab, a click elsewhere) is kept, not lost; Échap still cancels it.
-  const leave = useRef({ typed, value, onPick, escaped: false });
+  // A time typed and then left (Tab, a click elsewhere) is kept, not lost; Échap still cancels it, and a
+  // pick made after typing (a minute in the list, « OK », « Sans heure ») is the one that counts.
+  const leave = useRef({ typed, value, onPick, escaped: false, typing: false });
   useEffect(() => {
     leave.current = { ...leave.current, typed, value, onPick };
   });
@@ -293,11 +294,16 @@ function TimePanel({ value, onPick, clearable }: { value: string; onPick: (v: st
     return () => {
       removeEventListener('keydown', onKey, true);
       const l = leave.current;
-      if (!l.escaped && l.typed && l.typed !== l.value) l.onPick(l.typed, false);
+      if (!l.escaped && l.typing && l.typed && l.typed !== l.value) l.onPick(l.typed, false);
     };
   }, []);
+  const pick = (v: string, done: boolean) => {
+    leave.current.typing = false;
+    onPick(v, done);
+  };
   const pickFromList = (v: string, done: boolean) => {
     setText(v.replace(':', 'h'));
+    leave.current.typing = false;
     onPick(v, done);
   };
   const minutes = m && !MINUTES.includes(m) ? [...MINUTES, m].sort() : MINUTES;
@@ -308,13 +314,16 @@ function TimePanel({ value, onPick, clearable }: { value: string; onPick: (v: st
         onSubmit={e => {
           e.preventDefault();
           e.stopPropagation();
-          if (typed) onPick(typed, true);
+          if (typed) pick(typed, true);
         }}
       >
         <input
           autoFocus
           value={text}
-          onChange={e => setText(e.target.value)}
+          onChange={e => {
+            leave.current.typing = true;
+            setText(e.target.value);
+          }}
           inputMode="numeric"
           spellCheck={false}
           autoComplete="off"
@@ -329,8 +338,8 @@ function TimePanel({ value, onPick, clearable }: { value: string; onPick: (v: st
       <div ref={lists} className="mt-1 grid grid-cols-2 gap-1 border-t border-stone-100 pt-1">
         {[
           // The hour keeps the panel open (the minutes come next) and shows in the box above, where « OK » takes it.
-          { list: HOURS, current: h, label: 'Heure', pick: (v: string) => pickFromList(`${v}:${m || '00'}`, false) },
-          { list: minutes, current: m, label: 'Minutes', pick: (v: string) => pickFromList(`${h || '08'}:${v}`, true) },
+          { list: HOURS, current: h, label: 'Heure' },
+          { list: minutes, current: m, label: 'Minutes' },
         ].map(col => (
           <div key={col.label} data-col role="group" aria-label={col.label} className="max-h-52 space-y-0.5 overflow-y-auto overscroll-contain p-0.5">
             {col.list.map(v => (
@@ -339,7 +348,7 @@ function TimePanel({ value, onPick, clearable }: { value: string; onPick: (v: st
                 type="button"
                 data-v={v}
                 aria-pressed={v === col.current}
-                onClick={() => col.pick(v)}
+                onClick={() => (col.label === 'Heure' ? pickFromList(`${v}:${m || '00'}`, false) : pickFromList(`${h || '08'}:${v}`, true))}
                 className={cx('tabular flex h-8 w-full items-center justify-center rounded-lg text-[13.5px] transition-colors pointer-coarse:h-9', v === col.current ? 'bg-ink font-bold text-paper' : 'hover:bg-stone-100')}
               >
                 {col.label === 'Heure' ? `${Number(v)} h` : v}
@@ -349,7 +358,7 @@ function TimePanel({ value, onPick, clearable }: { value: string; onPick: (v: st
         ))}
       </div>
       {clearable && value && (
-        <button type="button" onClick={() => onPick('', true)} className="mt-1 flex h-8 w-full items-center justify-center gap-1 rounded-lg text-[12.5px] font-semibold text-stone-500 transition-colors hover:bg-stone-100 hover:text-ink">
+        <button type="button" onClick={() => pick('', true)} className="mt-1 flex h-8 w-full items-center justify-center gap-1 rounded-lg text-[12.5px] font-semibold text-stone-500 transition-colors hover:bg-stone-100 hover:text-ink">
           <X size={13} /> Sans heure
         </button>
       )}

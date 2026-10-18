@@ -2440,6 +2440,7 @@ begin
     from public.reminders r
     join public.group_members m on m.user_id = r.user_id and m.group_id = new.group_id
     where r.key like 'fichiers:' || new.group_id || ':' || auth.uid() || ':%' and r.sent_at is null
+      and r.fire_at > now() -- still to leave (one stuck after an outage is never joined)
     order by r.fire_at desc limit 1;
   if v_key is null then
     since := now();
