@@ -7,11 +7,11 @@ import { confirmAction } from '../../store/ui';
 import { useSettings } from '../../store/settings';
 import { FOLDER_COLORS } from '../../store/drive';
 import { fmt, fromKey, toKey, fmtDay, todayKey, weekStart } from '../../lib/dates';
-import { daysBetween, runsOf, MAX_DAYS, PERIOD_IDEAS, periodColor, periodLabel, periodRange, periodText, periodTint, repeatPeriod, sortPeriods, type Period } from '../../lib/periods';
+import { daysBetween, periodDays, runsOf, MAX_DAYS, PERIOD_IDEAS, periodColor, periodLabel, periodRange, periodText, periodTint, repeatPeriod, sortPeriods, type Period } from '../../lib/periods';
 import { cx, uid } from '../../lib/utils';
 import { useCalendarSource } from './source';
 
-type Draft = { id?: string; title: string; start: string; end: string; color: string; people?: string[] };
+type Draft = { id?: string; title: string; start: string; end: string; color: string; people?: string[]; skip?: string[] };
 
 const WEEKDAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 const near = (key: string, n: number) => toKey(addDays(fromKey(key), n));
@@ -143,16 +143,20 @@ function PeriodForm({ draft, around, onDone }: { draft: Draft; around: string; o
   const [until, setUntil] = useState(() => toKey(addDays(fromKey(draft.start || around), 7 * 26)));
   const set = (patch: Partial<Draft>) => setD(x => ({ ...x, ...patch }));
   // The days ticked: each run of days in a row is saved as one period.
-  const [days, setDays] = useState(() => new Set(draft.start && draft.end ? daysBetween(draft.start, draft.end) : []));
+  // The days ticked: one period from the first to the last, the days left out in between are skipped.
+  const [days, setDays] = useState(() => new Set(draft.start && draft.end ? daysBetween(draft.start, draft.end).filter(k => !draft.skip?.includes(k)) : []));
   const runs = runsOf(days);
   const [longFrom, setLongFrom] = useState('');
   const [longTo, setLongTo] = useState('');
   const [long, setLong] = useState(false);
-  const error = !runs.length ? 'Choisis au moins un jour.' : runs.some(r => differenceInCalendarDays(fromKey(r.end), fromKey(r.start)) > MAX_DAYS) ? 'Une période dure au plus un peu plus d’un an.' : '';
+  const span = runs.length ? { start: runs[0].start, end: runs[runs.length - 1].end } : null;
+  const error = !span ? 'Choisis au moins un jour.' : differenceInCalendarDays(fromKey(span.end), fromKey(span.start)) > MAX_DAYS ? 'Une période dure au plus un peu plus d’un an.' : '';
+  const skip = span && !error ? daysBetween(span.start, span.end).filter(k => !days.has(k)) : [];
   const people = source.shared ? d.people ?? [] : [];
   const base = { title: d.title.trim(), color: d.color, ...(people.length && { people }) };
   const togglePerson = (id: string) => set({ people: people.includes(id) ? people.filter(x => x !== id) : [...people, id] });
-  const copies = runs.flatMap(r => (!d.id && repeat && !error ? repeatPeriod({ ...base, ...r }, every, until) : [{ ...base, ...r }]));
+  const one = { ...base, start: span?.start ?? '', end: span?.end ?? '', ...(skip.length && { skip }) };
+  const copies = !d.id && repeat && !error ? repeatPeriod(one, every, until) : [one];
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -221,7 +225,7 @@ function PeriodForm({ draft, around, onDone }: { draft: Draft; around: string; o
               </button>
             </span>
           ))}
-          <span className="text-[12px] text-stone-500">{days.size} jour{days.size > 1 ? 's' : ''}{runs.length > 1 ? ` · ${runs.length} périodes` : ''}</span>
+          <span className="text-[12px] text-stone-500">{days.size} jour{days.size > 1 ? 's' : ''}{runs.length > 1 ? ` en ${runs.length} morceaux, une seule période` : ''}</span>
         </div>
       )}
       {long ? (
@@ -330,7 +334,7 @@ export default function PeriodsDialog({ day, onClose }: { day: string; onClose: 
               <span className="h-8 w-1.5 shrink-0 rounded-full" style={{ background: periodColor(p) }} aria-hidden />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[13.5px] font-semibold">{periodLabel(p, source.shared?.nameOf)}</span>
-                <span className="block text-[12px] text-stone-500">{periodRange(p, fmtDay)}</span>
+                <span className="block text-[12px] text-stone-500">{periodRange(p, fmtDay)}{p.skip?.length ? ` · ${periodDays(p)} jours` : ''}</span>
               </span>
               {canEdit && (
                 <>

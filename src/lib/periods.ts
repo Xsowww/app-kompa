@@ -17,7 +17,12 @@ export interface Period {
   color: string;
   /** Shared calendar: the members it is about (user ids); none: everyone. */
   people?: string[];
+  /** Days between `start` and `end` that aren't part of it: one period in pieces (two weeks of class, a week off…). */
+  skip?: string[];
 }
+
+/** Is `key` one of the period's days (inside its dates and not skipped)? */
+export const covers = (p: Pick<Period, 'start' | 'end' | 'skip'>, key: string) => p.start <= key && key <= p.end && !p.skip?.includes(key);
 
 /** Longest period (a school year and a bit): a typo like 2062 doesn't paint forty years. */
 export const MAX_DAYS = 400;
@@ -57,7 +62,7 @@ export const periodText = (p: Pick<Period, 'color'>) => `color-mix(in srgb, ${pe
 export const sortPeriods = (list: Period[]) => [...list].sort((a, b) => a.start.localeCompare(b.start) || a.end.localeCompare(b.end) || a.title.localeCompare(b.title));
 
 /** The periods covering a day, oldest start first. */
-export const periodsOn = (list: Period[], key: string) => sortPeriods(list.filter(p => p.start <= key && key <= p.end));
+export const periodsOn = (list: Period[], key: string) => sortPeriods(list.filter(p => covers(p, key)));
 
 /** The periods touching [from, to] (a week, a month). */
 export const periodsBetween = (list: Period[], from: string, to: string) => sortPeriods(list.filter(p => p.start <= to && p.end >= from));
@@ -72,7 +77,9 @@ export function cleanPeriod(x: unknown): Period | null {
   if (!title || !start || !end || end < start) return null;
   if (differenceInCalendarDays(fromKey(end), fromKey(start)) > MAX_DAYS) return null;
   const people = Array.isArray(r.people) ? [...new Set(r.people.filter((x): x is string => typeof x === 'string' && UUID.test(x)))].slice(0, 50) : [];
-  return { id: typeof r.id === 'string' && r.id ? r.id : uid(), title, start, end, color: folderColorKey(r.color) ?? 'bleu', ...(people.length && { people }) };
+  // Skipped days: only real days strictly inside the period (its first and last days are always in it).
+  const skip = Array.isArray(r.skip) ? [...new Set(r.skip.map(k => validKey(typeof k === 'string' ? k : null)).filter((k): k is string => !!k && k > start && k < end))].sort().slice(0, MAX_DAYS) : [];
+  return { id: typeof r.id === 'string' && r.id ? r.id : uid(), title, start, end, color: folderColorKey(r.color) ?? 'bleu', ...(people.length && { people }), ...(skip.length && { skip }) };
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -95,9 +102,10 @@ export function repeatPeriod(first: Omit<Period, 'id'>, everyWeeks: number, unti
   if (!(everyWeeks >= 1) || until <= first.start) return out;
   const length = differenceInCalendarDays(fromKey(first.end), fromKey(first.start));
   for (let i = 1; out.length < MAX_REPEATS; i++) {
-    const start = toKey(addDays(fromKey(first.start), i * 7 * everyWeeks));
+    const shift = i * 7 * everyWeeks;
+    const start = toKey(addDays(fromKey(first.start), shift));
     if (start > until) break;
-    out.push({ ...first, start, end: toKey(addDays(fromKey(start), length)) });
+    out.push({ ...first, start, end: toKey(addDays(fromKey(start), length)), ...(first.skip && { skip: first.skip.map(k => toKey(addDays(fromKey(k), shift))) }) });
   }
   return out;
 }
@@ -121,17 +129,23 @@ export function periodsFill(list: Pick<Period, 'color'>[], strength = 14): strin
   return `linear-gradient(to bottom, ${stops.join(', ')})`;
 }
 
-/** Bands of a week: each period on the first row where it fits, from its own first day to its last. */
+/**
+ * Bands of a week: each period on the first row where it fits, from its own first day to its last (one band
+ * per piece when days are skipped in between).
+ */
 export function weekLanes(list: Period[], keys: string[]): { period: Period; from: number; to: number; lane: number }[] {
   const ends: number[] = [];
   return sortPeriods(list)
-    .map(period => {
-      const from = keys.findIndex(k => k >= period.start);
-      let to = -1;
-      keys.forEach((k, i) => k <= period.end && (to = i));
-      return { period, from, to };
+    .flatMap(period => {
+      const pieces: { period: Period; from: number; to: number }[] = [];
+      keys.forEach((k, i) => {
+        if (!covers(period, k)) return;
+        const last = pieces[pieces.length - 1];
+        if (last && last.to === i - 1) last.to = i;
+        else pieces.push({ period, from: i, to: i });
+      });
+      return pieces;
     })
-    .filter(b => b.from >= 0 && b.to >= b.from)
     .map(b => {
       let lane = ends.findIndex(end => end < b.from);
       if (lane < 0) lane = ends.length;
@@ -139,6 +153,9 @@ export function weekLanes(list: Period[], keys: string[]): { period: Period; fro
       return { ...b, lane };
     });
 }
+
+/** How many days the period really has (skipped ones left out). */
+export const periodDays = (p: Pick<Period, 'start' | 'end' | 'skip'>) => differenceInCalendarDays(fromKey(p.end), fromKey(p.start)) + 1 - (p.skip?.length ?? 0);
 
 /** Every day from `a` to `b` (either order, both included), at most MAX_DAYS + 1 of them. */
 export function daysBetween(a: string, b: string): string[] {

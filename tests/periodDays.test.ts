@@ -22,3 +22,28 @@ describe('jours choisis d’une période', () => {
     expect(runsOf([])).toEqual([]);
   });
 });
+
+const { cleanPeriod, covers, periodsOn, periodDays, repeatPeriod, weekLanes } = await import('../src/lib/periods');
+
+describe('une période en plusieurs morceaux (jours sautés)', () => {
+  const p = cleanPeriod({ id: 'a', title: 'En entreprise', start: '2026-10-05', end: '2026-10-18', color: 'orange', skip: ['2026-10-10', '2026-10-11', '2026-10-05', 'bidon', '2026-10-30', '2026-10-10'] })!;
+  it('garde seulement les vrais jours sautés à l’intérieur', () => {
+    expect(p.skip).toEqual(['2026-10-10', '2026-10-11']);
+    expect(periodDays(p)).toBe(12);
+  });
+  it('les jours sautés ne sont pas dans la période', () => {
+    expect(covers(p, '2026-10-09')).toBe(true);
+    expect(covers(p, '2026-10-10')).toBe(false);
+    expect(periodsOn([p], '2026-10-11')).toEqual([]);
+  });
+  it('une bande par morceau dans la semaine', () => {
+    const week = ['2026-10-05', '2026-10-06', '2026-10-07', '2026-10-08', '2026-10-09', '2026-10-10', '2026-10-11'];
+    const q = { ...p, skip: ['2026-10-07'] };
+    expect(weekLanes([q], week).map(b => [b.from, b.to])).toEqual([[0, 1], [3, 6]]);
+  });
+  it('la répétition décale aussi les jours sautés', () => {
+    const [, next] = repeatPeriod({ title: 'x', start: '2026-10-05', end: '2026-10-18', color: 'bleu', skip: ['2026-10-10'] }, 4, '2026-12-31');
+    expect(next.start).toBe('2026-11-02');
+    expect(next.skip).toEqual(['2026-11-07']);
+  });
+});

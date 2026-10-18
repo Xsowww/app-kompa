@@ -10,7 +10,7 @@ import { useSettings } from '../../store/settings';
 import { WORDS } from '../../lib/usage';
 import CategoriesDialog from './CategoriesDialog';
 import PeriodsDialog from './PeriodsDialog';
-import { periodColor, periodLabel, periodsFill, weekLanes, periodRange, periodText, periodTint, periodsBetween, periodsOn, type Period } from '../../lib/periods';
+import { covers, periodColor, periodLabel, periodsFill, weekLanes, periodRange, periodText, periodTint, periodsBetween, periodsOn, type Period } from '../../lib/periods';
 import { cx } from '../../lib/utils';
 import EventForm from './EventForm';
 import { useCalendarSource } from './source';
@@ -583,7 +583,7 @@ export default function CalendarPage() {
                   {weekLanes(weekBands, weekKeys).filter(b => b.lane < 3).map(({ period: p, from, to, lane }) => {
                     return (
                       <button
-                        key={p.id}
+                        key={`${p.id}-${from}`}
                         onClick={() => setPeriodsOpen(true)}
                         title={`${label(p)} · ${periodRange(p, fmtDay)}`}
                         className="flex h-6 min-w-0 items-center gap-1.5 truncate rounded-md px-2 text-left text-[11.5px] font-semibold"
@@ -651,8 +651,8 @@ export default function CalendarPage() {
                     const isSel = key === selected;
                     const dayPeriods = periodsOn(periods, key);
                     const tint = dayPeriods[0];
-                    // Each name where its period starts, and again at the start of each week row.
-                    const named = dayPeriods.filter(p => p.start === key || i % 7 === 0);
+                    // Each name where its period starts (or starts again after skipped days), and at the start of each week row.
+                    const named = dayPeriods.filter(p => i % 7 === 0 || !covers(p, toKey(addDays(d, -1))));
                     return (
                       <button
                         key={key}

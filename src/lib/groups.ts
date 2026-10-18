@@ -344,13 +344,14 @@ export async function createEvent(groupId: string, e: NewGroupEvent): Promise<Gr
 
 /** Shared calendars: any editor changes any event (the database checks it). */
 // ── Périodes d'un agenda partagé (« En entreprise », « Vacances »…) ─────────────
-const toPeriod = (r: Row): Period | null => cleanPeriod({ id: String(r.id), title: r.title, start: r.start_date, end: r.end_date, color: r.color, people: r.people });
+const toPeriod = (r: Row): Period | null => cleanPeriod({ id: String(r.id), title: r.title, start: r.start_date, end: r.end_date, color: r.color, people: r.people, skip: r.skip });
 
 /** A shared calendar's periods; none on a server without the table yet (migration 2026-10-20). */
 export async function fetchPeriods(groupId: string): Promise<Period[]> {
   const read = (cols: string) => db().from('group_periods').select(cols).eq('group_id', groupId).order('start_date');
-  let res = await read('id, title, start_date, end_date, color, people');
-  // Table made before « pour qui » (no people column): the periods without it.
+  let res = await read('id, title, start_date, end_date, color, people, skip');
+  // Table made before the skipped days (migration 2026-10-23), or before « pour qui »: the periods without them.
+  if (res.error?.code === '42703') res = await read('id, title, start_date, end_date, color, people');
   if (res.error?.code === '42703') res = await read('id, title, start_date, end_date, color');
   if (res.error && /group_periods|42P01|PGRST205/.test(`${res.error.code} ${res.error.message}`)) return [];
   return (check(res) as unknown as Row[]).map(toPeriod).filter((p): p is Period => !!p);
@@ -358,10 +359,15 @@ export async function fetchPeriods(groupId: string): Promise<Period[]> {
 
 /** Adds or changes periods (several at once: a repeated one). */
 export async function savePeriods(groupId: string, list: Period[]) {
-  const rows = list.map(p => ({ id: p.id, group_id: groupId, title: p.title, start_date: p.start, end_date: p.end, color: p.color, people: p.people ?? [] }));
+  const rows = list.map(p => ({ id: p.id, group_id: groupId, title: p.title, start_date: p.start, end_date: p.end, color: p.color, people: p.people ?? [], skip: p.skip ?? [] }));
   let res = await db().from('group_periods').upsert(rows);
+  // Table made before the skipped days: a period in one piece is saved without them; one in pieces can't be.
+  if (res.error?.code === 'PGRST204' && /skip/.test(res.error.message)) {
+    if (list.some(p => p.skip?.length)) throw new Refused('Une période en plusieurs morceaux demande une mise à jour du serveur (migration 2026-10-23). En attendant, choisis des jours qui se suivent.');
+    res = await db().from('group_periods').upsert(rows.map(({ skip: _s, ...r }) => r));
+  }
   // Table made before « pour qui »: saved for everyone rather than refused.
-  if (res.error?.code === 'PGRST204' && /people/.test(res.error.message)) res = await db().from('group_periods').upsert(rows.map(({ people: _p, ...r }) => r));
+  if (res.error?.code === 'PGRST204' && /people/.test(res.error.message)) res = await db().from('group_periods').upsert(rows.map(({ people: _p, skip: _s, ...r }) => r));
   check(res);
 }
 
