@@ -81,6 +81,8 @@ export interface GroupEvent {
   details: string | null;
   createdBy: string | null;
   createdAt: string;
+  /** Shared calendars: the members it is about (« pour qui »); empty: everyone. */
+  people: string[];
 }
 
 export interface Attendance {
@@ -88,7 +90,7 @@ export interface Attendance {
   userId: string;
 }
 
-export type NewGroupEvent = Pick<GroupEvent, 'title' | 'date' | 'start' | 'end' | 'place'> & Partial<Pick<GroupEvent, 'category' | 'details'>>;
+export type NewGroupEvent = Pick<GroupEvent, 'title' | 'date' | 'start' | 'end' | 'place'> & Partial<Pick<GroupEvent, 'category' | 'details' | 'people'>>;
 
 type Row = Record<string, unknown>;
 const s = (v: unknown) => (v == null ? null : String(v));
@@ -126,6 +128,7 @@ export const toEvent = (r: Row): GroupEvent => ({
   details: s(r.details),
   createdBy: s(r.created_by),
   createdAt: String(r.created_at),
+  people: Array.isArray(r.people) ? r.people.map(String) : [],
 });
 
 function db(): SupabaseClient {
@@ -331,15 +334,19 @@ export async function fetchEvents(groupId: string, fromDate: string): Promise<{ 
   };
 }
 
+/** « Pour qui » needs the column of migration 2026-10-24: without it, a clear message rather than the server's. */
+const PEOPLE_MISSING = 'Choisir pour qui est un événement demande une mise à jour du serveur (migration 2026-10-24). En attendant, laisse « Tout le monde ».';
+const noPeopleColumn = (e: { code?: string; message?: string } | null) => e?.code === 'PGRST204' && /people/.test(e.message ?? '');
+
 export async function createEvent(groupId: string, e: NewGroupEvent): Promise<GroupEvent> {
-  const row = check(
-    await db()
-      .from('group_events')
-      .insert({ group_id: groupId, title: e.title, date: e.date, start_time: e.start, end_time: e.end, place: e.place, ...(e.category !== undefined && { category: e.category }), ...(e.details !== undefined && { details: e.details }) })
-      .select('*')
-      .single(),
-  );
-  return toEvent(row as Row);
+  const res = await db()
+    .from('group_events')
+    // « people » only when chosen: a server without the column still takes the others.
+    .insert({ group_id: groupId, title: e.title, date: e.date, start_time: e.start, end_time: e.end, place: e.place, ...(e.category !== undefined && { category: e.category }), ...(e.details !== undefined && { details: e.details }), ...(e.people?.length && { people: e.people }) })
+    .select('*')
+    .single();
+  if (noPeopleColumn(res.error)) throw new Refused(PEOPLE_MISSING);
+  return toEvent(check(res) as Row);
 }
 
 /** Shared calendars: any editor changes any event (the database checks it). */
@@ -384,7 +391,14 @@ export async function updateEvent(id: string, patch: Partial<NewGroupEvent>) {
   if (patch.place !== undefined) row.place = patch.place;
   if (patch.category !== undefined) row.category = patch.category;
   if (patch.details !== undefined) row.details = patch.details;
-  changed(await db().from('group_events').update(row).eq('id', id).select('id'), 'Tu peux seulement consulter cet agenda.');
+  if (patch.people !== undefined) row.people = patch.people;
+  let res = await db().from('group_events').update(row).eq('id', id).select('id');
+  if (noPeopleColumn(res.error)) {
+    if (patch.people?.length) throw new Refused(PEOPLE_MISSING);
+    delete row.people;
+    res = await db().from('group_events').update(row).eq('id', id).select('id');
+  }
+  changed(res, 'Tu peux seulement consulter cet agenda.');
 }
 
 export async function deleteEvent(id: string) {

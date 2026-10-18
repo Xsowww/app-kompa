@@ -3,6 +3,7 @@ import { Plus } from 'lucide-react';
 import { catOf, type CalendarEvent } from '../../store/calendar';
 import { fromMinutes, toMinutes } from '../../lib/dates';
 import { cx } from '../../lib/utils';
+import { eventTitle, useCalendarSource } from './source';
 import type { DragState } from './useEventDrag';
 
 const HOUR_PX = 52;
@@ -67,6 +68,7 @@ interface Props {
 }
 
 export default function DayView({ date, isToday, events, drag, onDragStart, onEdit, onCreate }: Props) {
+  const { shared } = useCalendarSource();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [now, setNow] = useState(nowMinutes);
   const [hover, setHover] = useState<number | null>(null);
@@ -124,7 +126,7 @@ export default function DayView({ date, isToday, events, drag, onDragStart, onEd
                 style={{ background: c.soft, color: c.text }}
               >
                 <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: c.color }} />
-                <span className="truncate">{ev.title}</span>
+                <span className="truncate">{eventTitle(ev, shared)}</span>
               </button>
             );
           })}
@@ -204,14 +206,14 @@ export default function DayView({ date, isToday, events, drag, onDragStart, onEd
                 >
                   {compact ? (
                     <span className="truncate text-[12px] leading-tight">
-                      <span className={cx('font-medium text-ink', ev.done && 'line-through')}>{ev.title}</span>
+                      <span className={cx('font-medium text-ink', ev.done && 'line-through')}>{eventTitle(ev, shared)}</span>
                       <span className="tabular ml-1.5" style={{ color: c.text }}>
                         {ev.start}
                       </span>
                     </span>
                   ) : (
                     <>
-                      <span className={cx('shrink-0 text-[12.5px] font-medium leading-snug text-ink', oneLine ? 'truncate' : 'line-clamp-2', ev.done && 'line-through')}>{ev.title}</span>
+                      <span className={cx('shrink-0 text-[12.5px] font-medium leading-snug text-ink', oneLine ? 'truncate' : 'line-clamp-2', ev.done && 'line-through')}>{eventTitle(ev, shared)}</span>
                       <span className="tabular mt-0.5 truncate text-[11px]" style={{ color: c.text }}>
                         {ev.start}
                         {ev.end && ` – ${ev.end}`}

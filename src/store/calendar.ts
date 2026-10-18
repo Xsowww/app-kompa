@@ -60,6 +60,8 @@ export interface CalendarEvent {
   createdAt: string;
   /** Set while the event is in the trash. */
   deletedAt?: string;
+  /** Shared calendar: the members it is about (user ids); none: everyone. */
+  people?: string[];
 }
 
 export type NewEvent = Omit<CalendarEvent, 'id' | 'done' | 'createdAt'>;

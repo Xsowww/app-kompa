@@ -10,6 +10,7 @@ import { fmt, fromKey, toKey, fmtDay, todayKey, weekStart } from '../../lib/date
 import { covers, daysBetween, periodDays, runsOf, MAX_DAYS, PERIOD_IDEAS, periodColor, periodLabel, periodRange, periodText, periodTint, repeatPeriod, sortPeriods, type Period } from '../../lib/periods';
 import { cx, uid } from '../../lib/utils';
 import { useCalendarSource } from './source';
+import PeoplePicker from './PeoplePicker';
 import { catOf, sortEvents, type CalendarEvent } from '../../store/calendar';
 
 type Draft = { id?: string; title: string; start: string; end: string; color: string; people?: string[]; skip?: string[] };
@@ -200,7 +201,6 @@ function PeriodForm({ draft, around, onDone }: { draft: Draft; around: string; o
   const skip = span && !error ? daysBetween(span.start, span.end).filter(k => !days.has(k)) : [];
   const people = source.shared ? d.people ?? [] : [];
   const base = { title: d.title.trim(), color: d.color, ...(people.length && { people }) };
-  const togglePerson = (id: string) => set({ people: people.includes(id) ? people.filter(x => x !== id) : [...people, id] });
   const one = { ...base, start: span?.start ?? '', end: span?.end ?? '', ...(skip.length && { skip }) };
   const copies = !d.id && repeat && !error ? repeatPeriod(one, every, until) : [one];
 
@@ -229,26 +229,7 @@ function PeriodForm({ draft, around, onDone }: { draft: Draft; around: string; o
         ))}
       </div>
 
-      {source.shared && source.shared.people.length > 1 && (
-        <div className="mt-4">
-          <p className="eyebrow">Pour qui</p>
-          <div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-label="Pour qui">
-            <button type="button" aria-pressed={people.length === 0} onClick={() => set({ people: [] })} className={cx('h-8 rounded-full px-3 text-[12.5px] font-semibold transition-colors pointer-coarse:h-9', people.length === 0 ? 'bg-ink text-paper' : 'bg-surface text-stone-600 ring-1 ring-inset ring-stone-200 hover:text-ink')}>
-              Tout le monde
-            </button>
-            {source.shared.people.map(m => {
-              const on = people.includes(m.id);
-              return (
-                <button key={m.id} type="button" aria-pressed={on} onClick={() => togglePerson(m.id)} className={cx('flex h-8 items-center gap-1.5 rounded-full px-3 text-[12.5px] font-semibold transition-colors pointer-coarse:h-9', on ? 'bg-ink text-paper' : 'bg-surface text-stone-600 ring-1 ring-inset ring-stone-200 hover:text-ink')}>
-                  {on && <Check size={12} strokeWidth={3} aria-hidden />}
-                  {m.name}
-                </button>
-              );
-            })}
-          </div>
-          <p className="mt-1.5 text-[12px] text-stone-500">{people.length ? 'Son nom s’affiche avec la période, pour que tout le monde sache qui est concerné.' : 'La période concerne tout l’agenda.'}</p>
-        </div>
-      )}
+      {source.shared && source.shared.people.length > 1 && <PeoplePicker people={source.shared.people} value={people} onChange={ids => set({ people: ids })} what="la période" />}
 
       <p className="eyebrow mt-4">Jours</p>
       <DaysPicker days={days} color={d.color} around={around} others={others} events={source.events} onChange={setDays} />

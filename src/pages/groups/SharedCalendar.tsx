@@ -22,6 +22,7 @@ const toCalendar = (e: GroupEvent): CalendarEvent => ({
   details: [e.place, e.details].filter(Boolean).join('\n') || undefined,
   done: false,
   createdAt: e.createdAt,
+  ...(e.people.length && { people: e.people }),
 });
 
 const toRow = (p: Partial<CalendarEvent>): Partial<NewGroupEvent> => ({
@@ -32,6 +33,7 @@ const toRow = (p: Partial<CalendarEvent>): Partial<NewGroupEvent> => ({
   ...(p.category !== undefined && { category: builtin(p.category) }),
   // The notes now hold the place too: it isn't kept twice.
   ...('details' in p && { details: p.details ?? null, place: null }),
+  ...('people' in p && { people: p.people ?? [] }),
 });
 
 // Removed events wait for the end of the « Annuler » toast before leaving the server: undoing gives back
@@ -76,7 +78,7 @@ export default function SharedCalendar({ group }: { group: Group }) {
       },
       events: list.map(toCalendar),
       add: e => {
-        void createEvent(group.id, { title: e.title, date: e.date, start: e.start ?? null, end: e.end ?? null, place: null, category: builtin(e.category), details: e.details ?? null })
+        void createEvent(group.id, { title: e.title, date: e.date, start: e.start ?? null, end: e.end ?? null, place: null, category: builtin(e.category), details: e.details ?? null, people: e.people ?? [] })
           .then(reload)
           .catch(fail);
       },

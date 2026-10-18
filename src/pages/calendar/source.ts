@@ -57,3 +57,10 @@ export function useCalendarSource(): CalendarSource {
   }, [events, periods]);
   return shared ?? mine;
 }
+
+/** « Léa · Dentiste » on a shared calendar when the event is for some members (« pour qui »), else its title. */
+export function eventTitle(ev: Pick<CalendarEvent, 'title' | 'people'>, shared: CalendarSource['shared']): string {
+  if (!shared || !ev.people?.length) return ev.title;
+  const names = ev.people.map(shared.nameOf);
+  return `${names.length > 2 ? `${names.slice(0, 2).join(', ')} +${names.length - 2}` : names.join(' et ')} · ${ev.title}`;
+}

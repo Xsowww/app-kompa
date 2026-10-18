@@ -13,7 +13,7 @@ import PeriodsDialog from './PeriodsDialog';
 import { covers, periodColor, periodLabel, periodsFill, weekLanes, periodRange, periodText, periodTint, periodsBetween, periodsOn, type Period } from '../../lib/periods';
 import { cx } from '../../lib/utils';
 import EventForm from './EventForm';
-import { useCalendarSource } from './source';
+import { eventTitle, useCalendarSource } from './source';
 import DayView from './DayView';
 import ImportIcsDialog, { type IcsSource } from './ImportIcsDialog';
 import { isIcsFile } from '../../lib/ics';
@@ -101,6 +101,7 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
           </p>
           <p className="mt-0.5 text-[12px] text-stone-500">
             <span style={{ color: c.text }}>{c.label}</span>
+            {shared && ev.people?.length ? ` · pour ${ev.people.map(shared.nameOf).join(', ')}` : ''}
             {shared && ` · par ${shared.author(ev.id)}`}
             {isBigEvent(ev) && !ev.done && ` · ${countdownLabel(ev.date)}`}
             {!ev.done && reminders.length > 0 && (
@@ -701,7 +702,7 @@ export default function CalendarPage() {
                             style={{ textDecoration: e.done ? 'line-through' : undefined }}
                           >
                             <Dot color={catOf(e.category).color} size={6} />
-                            <span className="truncate">{e.title}</span>
+                            <span className="truncate">{eventTitle(e, shared)}</span>
                           </span>
                         ))}
                         {evs.length > 0 && (
@@ -789,7 +790,7 @@ export default function CalendarPage() {
                       <button onClick={() => showEvent(e)} className="flex w-full items-center gap-3 rounded-lg px-1.5 py-1.5 text-left transition-colors hover:bg-stone-50">
                         <span className={cx('tabular w-9 shrink-0 text-[13px] font-semibold', n <= 3 ? 'font-extrabold text-urgent-text' : 'text-ink')}>{n === 0 ? 'Auj.' : `J-${n}`}</span>
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[13px] font-medium">{e.title}</span>
+                          <span className="block truncate text-[13px] font-medium">{eventTitle(e, shared)}</span>
                           <span className="block text-[12px] first-letter:uppercase text-stone-500">
                             {fmtDay(fromKey(e.date), 'EEE d MMM')}
                             {e.start && ` · ${e.start}`}
@@ -817,7 +818,7 @@ export default function CalendarPage() {
                         <span className="min-w-0 flex-1">
                           <span className="flex min-w-0 items-center gap-1.5 text-[13px] font-medium">
                             <Dot color={catOf(e.category).color} size={6} />
-                            <span className="truncate">{e.title}</span>
+                            <span className="truncate">{eventTitle(e, shared)}</span>
                           </span>
                           <span className="block text-[12px] first-letter:uppercase text-stone-500">
                             {toHandIn ? `${words.markDone === 'rendu' ? 'À rendre' : 'À faire'} · ` : ''}

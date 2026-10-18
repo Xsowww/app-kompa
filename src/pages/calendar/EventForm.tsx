@@ -5,6 +5,7 @@ import { Modal } from '../../components/Overlays';
 import { useNotes } from '../../store/notes';
 import { catOf, allCategories, guessCategory, type CalendarEvent, type EventCategory } from '../../store/calendar';
 import { useCalendarSource } from './source';
+import PeoplePicker from './PeoplePicker';
 import { useSettings } from '../../store/settings';
 import { toast } from '../../store/ui';
 import { WORDS } from '../../lib/usage';
@@ -35,6 +36,8 @@ export default function EventForm({ event, date, start: initialStart, end: initi
   const [category, setCategory] = useState<EventCategory | null>(event?.category ?? null);
   const [details, setDetails] = useState(event?.details ?? '');
   const [important, setImportant] = useState(!!event?.important);
+  // Shared calendar: who it is for (none: everyone).
+  const [people, setPeople] = useState<string[]>(event?.people ?? []);
   // undefined = not chosen: the usual reminder (Profil › Notifications) for an event with a time.
   const [chosen, setChosen] = useState<number[] | undefined>(event?.reminders);
   const defaults = useSettings(s => s.defaultReminders);
@@ -52,7 +55,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
     e.preventDefault();
     if (!title.trim() || !day || (end && !start) || timeError) return;
     // An end without a start can't be sent: the start field is required then (see below).
-    const data = { title: title.trim(), date: day, start: start || undefined, end: start && end ? end : undefined, category: effective, details: details.trim() || undefined, important: important || undefined, reminders: chosen };
+    const data = { title: title.trim(), date: day, start: start || undefined, end: start && end ? end : undefined, category: effective, details: details.trim() || undefined, important: important || undefined, reminders: chosen, ...(shared && { people }) };
     if (event) update(event.id, data);
     else add(data);
     toast(`${event ? 'Enregistré' : 'Ajouté'} : ${data.title}`, 'success');
@@ -159,6 +162,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
 
         {!shared && <ReminderPicker value={reminders} onChange={setChosen} timed={!!start} date={day || undefined} time={start || undefined} />}
 
+        {shared && shared.people.length > 1 && <PeoplePicker people={shared.people} value={people} onChange={setPeople} what="l’événement" />}
         <textarea value={details} onChange={e => setDetails(e.target.value)} placeholder={`Notes (${words.notesExample})`} aria-label="Notes" rows={3} className="field mt-3 h-auto w-full resize-none py-2" />
 
         {linked.length > 0 && (
