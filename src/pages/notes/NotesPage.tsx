@@ -6,7 +6,7 @@ import {
   Paperclip, Printer, FileDown, BookOpenCheck, FlaskConical, ScrollText, GraduationCap, Presentation,
 } from 'lucide-react';
 import { useNotes, type Note, type NoteFolder } from '../../store/notes';
-import { askText, toast } from '../../store/ui';
+import { askText, confirmAction, toast } from '../../store/ui';
 import { ContextMenu, type MenuItem } from '../../components/Overlays';
 import { FolderColorPicker } from '../../components/FolderColorPicker';
 import { folderIconStyle } from '../../store/drive';
@@ -194,7 +194,8 @@ export default function NotesPage() {
     setTimeout(() => document.querySelector<HTMLElement>(kind === 'note' ? `[data-note-open="${id}"]` : `[data-folder-open="${id}"]`)?.focus({ preventScroll: true }), 0);
   };
 
-  const deleteFolder = (f: NoteFolder) => {
+  const deleteFolder = async (f: NoteFolder) => {
+    if (!(await confirmAction(`Mettre le dossier « ${f.name} » à la corbeille ?`, 'Ses notes et sous-dossiers partent avec lui. Tu pourras les récupérer dans la corbeille.', 'Mettre à la corbeille'))) return;
     if (active?.folderId && isInside(active.folderId, f.id)) {
       flushNoteEditor();
       openNote(null);
@@ -225,7 +226,8 @@ export default function NotesPage() {
     }, 0);
   };
 
-  const deleteNote = (n: Note) => {
+  const deleteNote = async (n: Note) => {
+    if (!(await confirmAction(`Mettre « ${n.title.trim() || 'Sans titre'} » à la corbeille ?`, 'Tu pourras la récupérer dans la corbeille pendant 30 jours.', 'Mettre à la corbeille'))) return;
     focusNeighbour(n.id);
     if (n.id === noteId) {
       flushNoteEditor();
@@ -271,7 +273,7 @@ export default function NotesPage() {
     { label: '', divider: true, onClick: () => {} },
     ...exportItems(n),
     { label: '', divider: true, onClick: () => {} },
-    { label: 'Supprimer', icon: <Trash2 size={15} />, shortcut: keyHint('Suppr'), danger: true, onClick: () => deleteNote(n) },
+    { label: 'Supprimer', icon: <Trash2 size={15} />, shortcut: keyHint('Suppr'), danger: true, onClick: () => void deleteNote(n) },
   ];
 
   const folderMenu = (f: NoteFolder): MenuItem[] => [
@@ -287,7 +289,7 @@ export default function NotesPage() {
       content: <FolderColorPicker value={f.color ?? null} defaultColor="var(--color-stone-500)" onPick={key => { store.setFolderColor(f.id, key ?? undefined); setMenu(null); }} />,
     },
     { label: '', divider: true, onClick: () => {} },
-    { label: 'Supprimer', icon: <Trash2 size={15} />, shortcut: keyHint('Suppr'), danger: true, onClick: () => deleteFolder(f) },
+    { label: 'Supprimer', icon: <Trash2 size={15} />, shortcut: keyHint('Suppr'), danger: true, onClick: () => void deleteFolder(f) },
   ];
 
   /** Keys shared by the note and folder rows: arrows move between rows, Suppr puts in the trash, F2 renames. */
@@ -354,7 +356,7 @@ export default function NotesPage() {
         onKeyDown={e => {
           if (isMenuKey(e)) { e.preventDefault(); setMenu({ ...menuPoint(e), items: noteMenu(n) }); }
           else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openNote(n.id); setFocusFolder(null); }
-          else rowKeys(e, () => deleteNote(n), () => void renameNote(n));
+          else rowKeys(e, () => void deleteNote(n), () => void renameNote(n));
         }}
         className="flex h-full min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md"
         style={{ paddingLeft: 10 + depth * 16 }}
@@ -409,7 +411,7 @@ export default function NotesPage() {
             onKeyDown={e => {
               if (isMenuKey(e)) { e.preventDefault(); setMenu({ ...menuPoint(e), items: folderMenu(f) }); }
               else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.currentTarget.click(); }
-              else rowKeys(e, () => deleteFolder(f), () => void renameFolder(f));
+              else rowKeys(e, () => void deleteFolder(f), () => void renameFolder(f));
             }}
             className="flex h-full min-w-0 flex-1 cursor-pointer items-center gap-1.5 rounded-md"
             style={{ paddingLeft: 4 + depth * 16 }}

@@ -6,7 +6,7 @@ import { useTodos, type Todo } from '../../store/todos';
 import { countdownLabel, daysUntil, fmt, fmtDay, fromKey, todayKey } from '../../lib/dates';
 import { cx } from '../../lib/utils';
 import { isTourTodo, startTour } from '../../store/tour';
-import { toast } from '../../store/ui';
+import { confirmAction, toast } from '../../store/ui';
 import TaskDialog from './TaskDialog';
 import { DatePopover } from '../../components/Pickers';
 
@@ -59,6 +59,8 @@ const refocusTodo = (id: string) =>
 
 /** A changed due date can move the task to another group (new row): find its date button again after the render. */
 const focusDueButton = (id: string) => setTimeout(() => document.querySelector<HTMLElement>(`[data-due="${id}"]`)?.focus(), 0);
+
+const confirmRemove = (t: Todo) => confirmAction(`Supprimer « ${t.title} » ?`, 'Tu pourras encore l’annuler juste après.', 'Supprimer');
 
 /** Removes tasks with a way back: a single tap on the bin must not lose one for good. */
 function removeWithUndo(gone: Todo[]) {
@@ -216,7 +218,8 @@ function TodoRow({ t, editable, preview, now = 0 }: { t: Todo; editable?: boolea
             setOpenDialog(null);
             refocusTodo(t.id);
           }}
-          onDelete={() => {
+          onDelete={async () => {
+            if (!(await confirmRemove(t))) return refocusTodo(t.id);
             focusAfterRemoval(rowRef.current, true);
             removeWithUndo([remove(t.id)].filter(x => !!x));
           }}
@@ -248,10 +251,11 @@ function TodoRow({ t, editable, preview, now = 0 }: { t: Todo; editable?: boolea
       )}
       {!preview && <button
         data-remove
-        onClick={e => {
+        onClick={async e => {
           const row = e.currentTarget.closest('li');
+          if (!(await confirmRemove(t))) return;
           removeWithUndo([remove(t.id)].filter(x => !!x));
-          focusAfterRemoval(row);
+          focusAfterRemoval(row, true);
         }}
         className="icon-btn touch-show h-9 w-9 opacity-0 max-sm:hidden sm:h-6 sm:w-6 group-hover:opacity-100 focus-visible:opacity-100 hover:text-red-600" title="Supprimer" aria-label={`Supprimer « ${t.title} »`}>
         <Trash2 size={13} />

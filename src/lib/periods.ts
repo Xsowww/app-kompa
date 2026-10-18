@@ -179,3 +179,11 @@ export function runsOf(days: Iterable<string>): { start: string; end: string }[]
   }
   return runs;
 }
+
+/** The same period on two calendars: same name (case aside), same days. */
+export const samePeriod = (a: Period, b: Period) =>
+  a.title.trim().toLowerCase() === b.title.trim().toLowerCase() && a.start === b.start && a.end === b.end && [...(a.skip ?? [])].sort().join() === [...(b.skip ?? [])].sort().join();
+
+/** Copies for another calendar: new ids, and « pour qui » set for that calendar (its members aren't the same). */
+export const copyPeriods = (list: Period[], people: string[], newId: () => string): Period[] =>
+  list.map(({ people: _p, ...p }) => ({ ...p, id: newId(), ...(people.length && { people }) }));

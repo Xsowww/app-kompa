@@ -23,7 +23,7 @@ describe('jours choisis d’une période', () => {
   });
 });
 
-const { cleanPeriod, covers, periodsOn, periodDays, repeatPeriod, weekLanes } = await import('../src/lib/periods');
+const { cleanPeriod, covers, periodsOn, periodDays, repeatPeriod, weekLanes, samePeriod, copyPeriods } = await import('../src/lib/periods');
 
 describe('une période en plusieurs morceaux (jours sautés)', () => {
   const p = cleanPeriod({ id: 'a', title: 'En entreprise', start: '2026-10-05', end: '2026-10-18', color: 'orange', skip: ['2026-10-10', '2026-10-11', '2026-10-05', 'bidon', '2026-10-30', '2026-10-10'] })!;
@@ -45,5 +45,20 @@ describe('une période en plusieurs morceaux (jours sautés)', () => {
     const [, next] = repeatPeriod({ title: 'x', start: '2026-10-05', end: '2026-10-18', color: 'bleu', skip: ['2026-10-10'] }, 4, '2026-12-31');
     expect(next.start).toBe('2026-11-02');
     expect(next.skip).toEqual(['2026-11-07']);
+  });
+});
+
+describe('importer des périodes', () => {
+  const p = { id: 'a', title: 'En entreprise', start: '2026-11-02', end: '2026-11-13', color: 'bleu', skip: ['2026-11-07', '2026-11-08'] };
+  it('reconnaît la même période (nom sans casse, mêmes jours)', () => {
+    expect(samePeriod(p, { ...p, id: 'b', title: ' en Entreprise ', skip: ['2026-11-08', '2026-11-07'] })).toBe(true);
+    expect(samePeriod(p, { ...p, id: 'b', skip: [] })).toBe(false);
+    expect(samePeriod(p, { ...p, id: 'b', end: '2026-11-14' })).toBe(false);
+  });
+  it('copie avec un nouvel id et « pour qui » de l’agenda d’arrivée', () => {
+    let n = 0;
+    const [c] = copyPeriods([{ ...p, people: ['léa'] }], ['moi'], () => `n${++n}`);
+    expect(c).toEqual({ ...p, id: 'n1', people: ['moi'] });
+    expect(copyPeriods([{ ...p, people: ['léa'] }], [], () => 'x')[0]).not.toHaveProperty('people');
   });
 });

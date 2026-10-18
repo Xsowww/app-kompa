@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { KeyRound, X } from 'lucide-react';
 import { needsCredentials, savedAccounts, type SavedAccount } from '../lib/accounts';
 import { useAuth } from '../store/auth';
+import { confirmAction } from '../store/ui';
 import { relativeTime } from '../lib/utils';
 
 /**
@@ -42,7 +43,8 @@ export default function AccountList({ currentId, onPick, busy, onEmpty }: { curr
               className="icon-btn h-7 w-7 shrink-0 pointer-coarse:h-9 pointer-coarse:w-9"
               title="Retirer de cet appareil"
               aria-label={`Retirer le compte ${a.email} de cet appareil`}
-              onClick={() => {
+              onClick={async () => {
+                if (!(await confirmAction(`Retirer ${a.email} de cet appareil ?`, 'Sa session se ferme ici. Ses données restent sur ton compte : tu pourras t’y reconnecter avec ton mot de passe.', 'Retirer'))) return;
                 useAuth.getState().removeAccount(a.id);
                 const rest = list.filter(x => x.id !== a.id);
                 setList(rest);

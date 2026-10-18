@@ -9,7 +9,7 @@ import {
   useDrive, childrenOf, pathOf, categoryOf, folderSize, FOLDER_COLORS, type DriveItem,
   pasteForbidden,
 } from '../../store/drive';
-import { askText, toast, useUi } from '../../store/ui';
+import { askText, confirmAction, toast, useUi } from '../../store/ui';
 import { formatBytes, relativeTime, cx } from '../../lib/utils';
 import { fold, highlightParts, searchFileContents, startTextIndexing } from '../../lib/textIndex';
 import FileIcon from '../../components/FileIcon';
@@ -265,9 +265,14 @@ export default function DrivePage() {
     if (name !== null && name.trim() && name !== item.name) useDrive.getState().rename(item.id, name);
   }, []);
 
-  // No confirmation: items go to the trash and the toast offers to undo.
-  const remove = useCallback((ids: string[]) => {
+  // Asked first, then the toast still offers to undo (and the trash keeps them 30 days).
+  const remove = useCallback(async (ids: string[]) => {
     if (!ids.length) return;
+    const items = useDrive.getState().items.filter(i => ids.includes(i.id));
+    const one = items.length === 1 ? items[0] : null;
+    const title = one ? `Mettre « ${one.name} » à la corbeille ?` : `Mettre ${ids.length} éléments à la corbeille ?`;
+    const body = items.some(i => i.kind === 'folder') ? 'Les dossiers partent avec tout leur contenu. Tu pourras les récupérer dans la corbeille.' : 'Tu pourras les récupérer dans la corbeille.';
+    if (!(await confirmAction(title, body, 'Mettre à la corbeille'))) return;
     useDrive.getState().remove(ids);
     setSelected(new Set());
     toast(ids.length > 1 ? `${ids.length} éléments mis à la corbeille` : 'Mis à la corbeille', 'info', {
@@ -412,7 +417,7 @@ export default function DrivePage() {
         void duplicate(selectedIds);
       } else if (e.key === 'Delete' || (e.key === 'Backspace' && (isMac || mod))) {
         e.preventDefault();
-        remove(selectedIds);
+        void remove(selectedIds);
       } else if (e.key === 'F2' && single) {
         e.preventDefault();
         void rename(single);
@@ -542,7 +547,7 @@ export default function DrivePage() {
       ...(one && item.kind === 'file' ? [{ label: 'Partager le lien…', icon: <Link2 size={15} />, onClick: () => setShareItem(item) }] : []),
       ...palette,
       { label: '', divider: true, onClick: () => {} },
-      { label: 'Mettre à la corbeille', icon: <Trash2 size={15} />, shortcut: 'Suppr', danger: true, onClick: () => remove(ids) },
+      { label: 'Mettre à la corbeille', icon: <Trash2 size={15} />, shortcut: 'Suppr', danger: true, onClick: () => void remove(ids) },
     ];
     return list;
   }, [menu, selectedIds, items, clipboard, tabAll, parentId, visible, newFolder, paste, openItem, copy, cut, duplicate, rename, remove]);
@@ -755,7 +760,7 @@ export default function DrivePage() {
               ...(single?.kind === 'file' ? [{ icon: Download, label: 'Télécharger', fn: () => downloadItem(single), more: true }] : []),
               { icon: Tag, label: 'Étiquettes', fn: () => setTagIds(selectedIds) },
               ...(selectedFolders.length === selectedIds.length ? [{ icon: Palette, label: 'Couleur', fn: (e: React.MouseEvent) => setColorMenu(under(e)) }] : []),
-              { icon: Trash2, label: 'Corbeille', fn: () => remove(selectedIds) },
+              { icon: Trash2, label: 'Corbeille', fn: () => void remove(selectedIds) },
             ].map(a => (
               <button
                 key={a.label}

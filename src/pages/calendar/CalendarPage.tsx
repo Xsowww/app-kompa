@@ -13,7 +13,7 @@ import PeriodsDialog from './PeriodsDialog';
 import { covers, periodColor, periodLabel, periodsFill, weekLanes, periodRange, periodText, periodTint, periodsBetween, periodsOn, type Period } from '../../lib/periods';
 import { cx } from '../../lib/utils';
 import EventForm from './EventForm';
-import { eventTitle, useCalendarSource } from './source';
+import { confirmRemoveEvent, eventTitle, useCalendarSource } from './source';
 import DayView from './DayView';
 import ImportIcsDialog, { type IcsSource } from './ImportIcsDialog';
 import { isIcsFile } from '../../lib/ics';
@@ -122,7 +122,7 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
           <button
             className="icon-btn hover:text-red-600"
             title="Supprimer" aria-label={`Supprimer « ${ev.title} »`}
-            onClick={() => remove(ev.id)}
+            onClick={async () => (await confirmRemoveEvent(ev, shared)) && remove(ev.id)}
           >
             <Trash2 size={14} />
           </button>
@@ -698,6 +698,12 @@ export default function CalendarPage() {
                           <span
                             key={e.id}
                             onPointerDown={p => startDrag(e, p)}
+                            // A double click on an event opens it; on the rest of the day, a new event.
+                            onDoubleClick={x => {
+                              x.stopPropagation();
+                              setForm({ event: e, date: e.date });
+                            }}
+                            title={readOnly ? eventTitle(e, shared) : `${eventTitle(e, shared)} · double-clic pour modifier`}
                             className={cx('mb-0.5 hidden cursor-grab select-none items-center gap-1 truncate rounded px-1 text-[11px] text-stone-700 hover:bg-stone-100 @md:flex', drag?.ev.id === e.id && 'opacity-40')}
                             style={{ textDecoration: e.done ? 'line-through' : undefined }}
                           >

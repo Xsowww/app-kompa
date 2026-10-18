@@ -4,7 +4,7 @@ import { FileText, Flag, Plus, Trash2 } from 'lucide-react';
 import { Modal } from '../../components/Overlays';
 import { useNotes } from '../../store/notes';
 import { catOf, allCategories, guessCategory, type CalendarEvent, type EventCategory } from '../../store/calendar';
-import { useCalendarSource } from './source';
+import { confirmRemoveEvent, useCalendarSource } from './source';
 import PeoplePicker from './PeoplePicker';
 import { useSettings } from '../../store/settings';
 import { toast } from '../../store/ui';
@@ -186,7 +186,8 @@ export default function EventForm({ event, date, start: initialStart, end: initi
             <button
               type="button"
               className="btn-ghost text-red-600 hover:bg-red-50 hover:text-red-700"
-              onClick={() => {
+              onClick={async () => {
+                if (!(await confirmRemoveEvent(event, shared))) return;
                 remove(event.id);
                 onClose();
               }}

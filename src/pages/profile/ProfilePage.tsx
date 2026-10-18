@@ -185,7 +185,7 @@ function ProfileTab() {
                 />
               ))}
               {settings.avatarImage && (
-                <button className="ml-2 text-[12px] text-stone-500 underline underline-offset-2 hover:text-ink" onClick={() => settings.set({ avatarImage: null })}>
+                <button className="ml-2 text-[12px] text-stone-500 underline underline-offset-2 hover:text-ink" onClick={async () => (await confirmAction('Retirer ta photo ?', 'Ton avatar reprend ta couleur et tes initiales.', 'Retirer')) && settings.set({ avatarImage: null })}>
                   Retirer la photo
                 </button>
               )}
@@ -456,7 +456,8 @@ function CopilotTab() {
         <Row label="Conversation" hint={`${messages} message${messages > 1 ? 's' : ''} enregistré${messages > 1 ? 's' : ''}.`}>
           <button
             className="btn-secondary h-8"
-            onClick={() => {
+            onClick={async () => {
+              if (!(await confirmAction('Effacer la conversation ?', 'Tous les messages échangés avec Kompaly sur cet appareil seront supprimés.', 'Effacer'))) return;
               useCopilot.getState().clearHistory();
               resetClaudeHistory();
               toast('Conversation effacée', 'success');

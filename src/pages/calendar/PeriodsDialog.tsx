@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { DateField } from '../../components/Pickers';
 import { addDays, addMonths, differenceInCalendarDays, isSameMonth, startOfMonth } from 'date-fns';
-import { Check, ChevronLeft, ChevronRight, Pencil, Plus, Repeat, Trash2, X } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Import, Pencil, Plus, Repeat, Trash2, X } from 'lucide-react';
 import { Modal } from '../../components/Overlays';
 import { confirmAction } from '../../store/ui';
 import { useSettings } from '../../store/settings';
@@ -9,8 +9,11 @@ import { FOLDER_COLORS } from '../../store/drive';
 import { fmt, fromKey, toKey, fmtDay, todayKey, weekStart } from '../../lib/dates';
 import { covers, daysBetween, periodDays, runsOf, MAX_DAYS, PERIOD_IDEAS, periodColor, periodLabel, periodRange, periodText, periodTint, repeatPeriod, sortPeriods, type Period } from '../../lib/periods';
 import { cx, uid } from '../../lib/utils';
-import { useCalendarSource } from './source';
+import { useCalendarSource, useImportSources } from './source';
 import PeoplePicker from './PeoplePicker';
+import ImportPeriods from './ImportPeriods';
+import { useGroups } from '../../store/groups';
+import { cloudEnabled } from '../../lib/supabase';
 import { catOf, sortEvents, type CalendarEvent } from '../../store/calendar';
 
 type Draft = { id?: string; title: string; start: string; end: string; color: string; people?: string[]; skip?: string[] };
@@ -183,7 +186,6 @@ function PeriodForm({ draft, around, onDone }: { draft: Draft; around: string; o
   const every = Math.max(1, Math.min(52, Math.round(Number(everyText)) || 1));
   const [until, setUntil] = useState(() => toKey(addDays(fromKey(draft.start || around), 7 * 26)));
   const set = (patch: Partial<Draft>) => setD(x => ({ ...x, ...patch }));
-  // The days ticked: each run of days in a row is saved as one period.
   // The days ticked: one period from the first to the last, the days left out in between are skipped.
   const [days, setDays] = useState(() => new Set(draft.start && draft.end ? daysBetween(draft.start, draft.end).filter(k => !draft.skip?.includes(k)) : []));
   const runs = runsOf(days);
@@ -352,6 +354,12 @@ export default function PeriodsDialog({ day, onClose }: { day: string; onClose: 
   // A new period starts with no day ticked: the days are picked on the month.
   const fresh = (): Draft => ({ title: '', start: '', end: '', color: 'bleu' });
   const [draft, setDraft] = useState<Draft | null>(() => (list.length === 0 && canEdit ? fresh() : null));
+  const [importing, setImporting] = useState(false);
+  const sources = useImportSources();
+  // From my own calendar, the shared ones to import from (the list may not be read yet).
+  useEffect(() => {
+    if (cloudEnabled && canEdit && !useGroups.getState().loaded) void useGroups.getState().loadGroups();
+  }, [canEdit]);
 
   const remove = async (p: Period) => {
     if (await confirmAction(`Supprimer « ${p.title} » ?`, `La période ${periodRange(p, fmtDay)} disparaît du calendrier ; les événements restent.`, 'Supprimer')) source.removePeriod(p.id);
@@ -389,14 +397,28 @@ export default function PeriodsDialog({ day, onClose }: { day: string; onClose: 
       )}
       {list.length === 0 && !draft && <p className="mt-4 text-[13px] text-stone-500">Aucune période pour l’instant.</p>}
 
+      {draft && !draft.id && list.length === 0 && sources.length > 0 && (
+        <button type="button" className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-semibold text-brand-600 hover:underline" onClick={() => (setDraft(null), setImporting(true))}>
+          <Import size={14} aria-hidden /> Importer celles d’un autre agenda
+        </button>
+      )}
       {draft ? (
         <PeriodForm key={draft.id ?? 'nouvelle'} draft={draft} around={day} onDone={() => setDraft(null)} />
+      ) : importing ? (
+        <ImportPeriods onDone={() => setImporting(false)} />
       ) : (
         <div className="mt-5 flex flex-wrap justify-between gap-2">
           {canEdit ? (
-            <button className="btn-secondary" onClick={() => setDraft(fresh())}>
-              <Plus size={15} /> Ajouter une période
-            </button>
+            <span className="flex flex-wrap gap-2">
+              <button className="btn-secondary" onClick={() => setDraft(fresh())}>
+                <Plus size={15} /> Ajouter une période
+              </button>
+              {sources.length > 0 && (
+                <button className="btn-secondary" onClick={() => setImporting(true)} title="Copier ici des périodes de ton agenda perso ou d’un autre agenda partagé">
+                  <Import size={15} /> Importer
+                </button>
+              )}
+            </span>
           ) : <span />}
           <button className="btn-primary" onClick={onClose}>Terminé</button>
         </div>

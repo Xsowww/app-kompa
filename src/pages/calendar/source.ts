@@ -7,6 +7,8 @@ import { trashEvent } from '../../lib/trash';
 import type { Group } from '../../lib/groups';
 import { useSettings } from '../../store/settings';
 import { sortPeriods, type Period } from '../../lib/periods';
+import { confirmAction } from '../../store/ui';
+import { useGroups } from '../../store/groups';
 
 export interface CalendarSource {
   /** null: my calendar. A shared calendar has no « fait », reminders, import or custom categories. */
@@ -63,4 +65,24 @@ export function eventTitle(ev: Pick<CalendarEvent, 'title' | 'people'>, shared: 
   if (!shared || !ev.people?.length) return ev.title;
   const names = ev.people.map(shared.nameOf);
   return `${names.length > 2 ? `${names.slice(0, 2).join(', ')} +${names.length - 2}` : names.join(' et ')} · ${ev.title}`;
+}
+
+/** Asked before an event goes: on a shared calendar, it goes for every member. */
+export function confirmRemoveEvent(ev: Pick<CalendarEvent, 'title'>, shared: CalendarSource['shared']): Promise<boolean> {
+  return confirmAction(
+    `Supprimer « ${ev.title} » ?`,
+    shared ? `L’événement disparaît pour tous les membres de « ${shared.group.name} ».` : 'Tu pourras le récupérer dans la corbeille.',
+    'Supprimer',
+  );
+}
+
+/** Where periods can be imported from: my own calendar (« perso »), my other shared calendars. */
+export const PERSO = 'perso';
+export function useImportSources(): { id: string; name: string }[] {
+  const here = useContext(CalendarSourceContext)?.shared?.group.id ?? PERSO;
+  const groups = useGroups(s => s.groups);
+  return useMemo(
+    () => [...(here === PERSO ? [] : [{ id: PERSO, name: 'Mon agenda perso' }]), ...groups.filter(g => g.kind === 'agenda' && g.id !== here).map(g => ({ id: g.id, name: g.name }))],
+    [here, groups],
+  );
 }
