@@ -139,3 +139,26 @@ export function weekLanes(list: Period[], keys: string[]): { period: Period; fro
       return { ...b, lane };
     });
 }
+
+/** Every day from `a` to `b` (either order, both included), at most MAX_DAYS + 1 of them. */
+export function daysBetween(a: string, b: string): string[] {
+  const [from, to] = a < b ? [a, b] : [b, a];
+  const out: string[] = [];
+  for (let d = fromKey(from); out.length <= MAX_DAYS; d = addDays(d, 1)) {
+    const k = toKey(d);
+    if (k > to) break;
+    out.push(k);
+  }
+  return out;
+}
+
+/** Chosen days → the runs of days in a row (each one a period): 5, 6, 7, 12 → 5–7 and 12. */
+export function runsOf(days: Iterable<string>): { start: string; end: string }[] {
+  const runs: { start: string; end: string }[] = [];
+  for (const k of [...new Set(days)].sort()) {
+    const last = runs[runs.length - 1];
+    if (last && toKey(addDays(fromKey(last.end), 1)) === k) last.end = k;
+    else runs.push({ start: k, end: k });
+  }
+  return runs;
+}

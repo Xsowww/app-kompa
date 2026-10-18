@@ -1,54 +1,56 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { DateField } from '../../components/Pickers';
 import { addDays, addMonths, differenceInCalendarDays, isSameMonth, startOfMonth } from 'date-fns';
-import { Check, ChevronLeft, ChevronRight, Pencil, Plus, Repeat, Trash2 } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Pencil, Plus, Repeat, Trash2, X } from 'lucide-react';
 import { Modal } from '../../components/Overlays';
 import { confirmAction } from '../../store/ui';
 import { useSettings } from '../../store/settings';
 import { FOLDER_COLORS } from '../../store/drive';
 import { fmt, fromKey, toKey, fmtDay, todayKey, weekStart } from '../../lib/dates';
-import { MAX_DAYS, PERIOD_IDEAS, periodColor, periodLabel, periodRange, periodTint, repeatPeriod, sortPeriods, type Period } from '../../lib/periods';
+import { daysBetween, runsOf, MAX_DAYS, PERIOD_IDEAS, periodColor, periodLabel, periodRange, periodText, periodTint, repeatPeriod, sortPeriods, type Period } from '../../lib/periods';
 import { cx, uid } from '../../lib/utils';
 import { useCalendarSource } from './source';
 
 type Draft = { id?: string; title: string; start: string; end: string; color: string; people?: string[] };
 
 const WEEKDAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
-const lo = (a: string, b: string) => (a < b ? a : b);
-const hi = (a: string, b: string) => (a < b ? b : a);
+const near = (key: string, n: number) => toKey(addDays(fromKey(key), n));
 
 /**
- * The period's days picked right on a month: a tap on the first day, a tap on the last (or a slide from one to
- * the other, finger or mouse). The range fills in the period's colour as it is chosen.
+ * The period's days, ticked right on the month: a tap ticks or unticks a day, a slide ticks every day it
+ * passes over (or unticks them, when it starts on a ticked day). So « the 5th to the 9th, then the 12th to
+ * the 18th », or a few days taken out of the middle. Shift + click ticks everything since the last day.
  */
-function RangeCalendar({ start, end, color, onChange }: { start: string; end: string; color: string; onChange: (start: string, end: string) => void }) {
+function DaysPicker({ days, color, around, onChange }: { days: Set<string>; color: string; around: string; onChange: (next: Set<string>) => void }) {
   const today = todayKey();
-  const [month, setMonth] = useState(() => startOfMonth(fromKey(start || today)));
-  // The first day tapped, waiting for the last one.
-  const [pending, setPending] = useState<string | null>(null);
-  const [hover, setHover] = useState<string | null>(null);
-  const drag = useRef<{ from: string; moved: boolean } | null>(null);
-  // The first day changed in the fields below (a date far away): the month follows it.
-  const [shownStart, setShownStart] = useState(start);
-  if (start !== shownStart) {
-    setShownStart(start);
-    if (start && !isSameMonth(fromKey(start), month)) setMonth(startOfMonth(fromKey(start)));
-  }
+  const [month, setMonth] = useState(() => startOfMonth(fromKey([...days].sort()[0] ?? around)));
+  // The slide in progress: where it started, where it is, ticking or unticking, and the days before it.
+  const drag = useRef<{ from: string; to: string; add: boolean; base: Set<string> } | null>(null);
+  const last = useRef<string | null>(null);
   const first = weekStart(month);
-  const days = Array.from({ length: 42 }, (_, i) => toKey(addDays(first, i)));
-  // While the last day is being chosen, the range follows the pointer.
-  const [from, to] = pending && hover ? [lo(pending, hover), hi(pending, hover)] : [start, end];
-  const keyAt = (x: number, y: number) => (document.elementFromPoint(x, y)?.closest('[data-range-day]') as HTMLElement | null)?.dataset.rangeDay;
-
-  const tap = (key: string) => {
-    if (pending) {
-      onChange(lo(pending, key), hi(pending, key));
-      setPending(null);
-    } else {
-      onChange(key, key);
-      setPending(key);
+  const grid = Array.from({ length: 42 }, (_, i) => toKey(addDays(first, i)));
+  const keyAt = (x: number, y: number) => (document.elementFromPoint(x, y)?.closest('[data-day]') as HTMLElement | null)?.dataset.day;
+  const paint = (from: string, to: string, add: boolean, base: Set<string>) => {
+    const next = new Set(base);
+    for (const k of daysBetween(from, to)) {
+      if (add) next.add(k);
+      else next.delete(k);
     }
+    onChange(next);
   };
+  // A slide that ends outside the month still ends.
+  useEffect(() => {
+    const end = () => {
+      if (drag.current) last.current = drag.current.to;
+      drag.current = null;
+    };
+    addEventListener('pointerup', end);
+    addEventListener('pointercancel', end);
+    return () => {
+      removeEventListener('pointerup', end);
+      removeEventListener('pointercancel', end);
+    };
+  }, []);
 
   return (
     <div className="mt-1.5 select-none rounded-2xl bg-surface p-2 ring-1 ring-inset ring-stone-200">
@@ -66,78 +68,71 @@ function RangeCalendar({ start, end, color, onChange }: { start: string; end: st
       </div>
       <div
         role="group"
-        aria-label="Jours de la période : le premier puis le dernier"
+        aria-label="Jours de la période"
         className="grid touch-none grid-cols-7 gap-y-0.5"
         onPointerDown={e => {
           const key = keyAt(e.clientX, e.clientY);
           if (!key || e.button > 0) return;
           e.preventDefault();
-          (e.target as HTMLElement).releasePointerCapture?.(e.pointerId); // the finger slides over the other days
-          drag.current = { from: pending ?? key, moved: false };
-          if (!pending) onChange(key, key);
+          // A finger is held by the day it touched first: let it go, it slides over the other days.
+          const el = e.target as HTMLElement;
+          if (el.hasPointerCapture?.(e.pointerId)) el.releasePointerCapture(e.pointerId);
+          if (e.shiftKey && last.current) return paint(last.current, key, true, days);
+          const add = !days.has(key);
+          drag.current = { from: key, to: key, add, base: new Set(days) };
+          paint(key, key, add, days);
         }}
         onPointerMove={e => {
-          const key = keyAt(e.clientX, e.clientY);
-          if (!key) return;
           const d = drag.current;
-          if (!d) return setHover(key);
-          if (key !== d.from || d.moved) {
-            d.moved = true;
-            onChange(lo(d.from, key), hi(d.from, key));
-          }
-        }}
-        onPointerUp={e => {
-          const d = drag.current;
-          drag.current = null;
+          if (!d) return;
           const key = keyAt(e.clientX, e.clientY);
-          if (!d || !key) return;
-          if (d.moved) setPending(null); // a slide gives both days at once
-          else tap(key);
+          if (!key || key === d.to) return;
+          d.to = key;
+          paint(d.from, key, d.add, d.base);
         }}
-        onPointerLeave={() => setHover(null)}
-        onPointerCancel={() => (drag.current = null)}
       >
-        {days.map((key, i) => {
-          const inRange = !!from && !!to && key >= from && key <= to;
-          const edge = key === from || key === to;
+        {grid.map((key, i) => {
+          const on = days.has(key);
+          const before = days.has(near(key, -1));
+          const after = days.has(near(key, 1));
+          const edge = on && (!before || !after);
           const d = fromKey(key);
           return (
             <button
               key={key}
               type="button"
-              data-range-day={key}
-              aria-pressed={inRange}
+              data-day={key}
+              aria-pressed={on}
               aria-label={fmt(d, 'EEEE d MMMM yyyy')}
-              // The keyboard has no pointer: Entrée / Espace on a day does the same as a tap (the pointer has its own handlers).
+              // The keyboard has no pointer: Entrée / Espace ticks or unticks the day.
               onKeyDown={e => {
                 if (e.key !== 'Enter' && e.key !== ' ') return;
                 e.preventDefault();
-                tap(key);
+                last.current = key;
+                paint(key, key, !on, days);
               }}
               className={cx(
-                'tabular relative flex h-9 items-center justify-center text-[13px] transition-colors pointer-coarse:h-10',
-                inRange ? 'font-semibold' : 'rounded-xl hover:bg-stone-100',
-                // Each row of the range has round ends, like a band across the week.
-                inRange && (key === from || i % 7 === 0) && 'rounded-l-xl',
-                inRange && (key === to || i % 7 === 6) && 'rounded-r-xl',
-                !isSameMonth(d, month) && !inRange && 'text-stone-500',
+                'tabular flex h-9 items-center justify-center text-[13px] pointer-coarse:h-10',
+                on ? 'font-semibold' : 'rounded-xl hover:bg-stone-100',
+                // Days in a row join into a band, round at its ends and at the ends of the week.
+                on && (!before || i % 7 === 0) && 'rounded-l-xl',
+                on && (!after || i % 7 === 6) && 'rounded-r-xl',
+                !isSameMonth(d, month) && !on && 'text-stone-500',
                 key === today && !edge && 'text-brand-600',
               )}
-              style={inRange ? { background: edge ? periodColor({ color }) : periodTint({ color }, 22), color: edge ? '#fff' : undefined } : undefined}
+              style={on ? { background: edge ? periodColor({ color }) : periodTint({ color }, 22), color: edge ? '#fff' : undefined } : undefined}
             >
               {d.getDate()}
             </button>
           );
         })}
       </div>
-      <p className="mt-1.5 px-1 text-[12px] text-stone-500" aria-live="polite">
-        {pending ? 'Choisis le dernier jour.' : 'Touche le premier jour puis le dernier, ou fais glisser de l’un à l’autre.'}
-      </p>
+      <p className="mt-1.5 px-1 text-[12px] text-stone-500">Touche un jour pour le cocher ou le décocher, glisse pour en prendre plusieurs d’un coup.</p>
     </div>
   );
 }
 
-function PeriodForm({ draft, onDone }: { draft: Draft; onDone: () => void }) {
+function PeriodForm({ draft, around, onDone }: { draft: Draft; around: string; onDone: () => void }) {
   const source = useCalendarSource();
   const usage = useSettings(s => s.usage);
   const [d, setD] = useState(draft);
@@ -145,14 +140,19 @@ function PeriodForm({ draft, onDone }: { draft: Draft; onDone: () => void }) {
   // As typed (it can be empty for a moment while the number is changed), kept between 1 and 52 for the copies.
   const [everyText, setEveryText] = useState('4');
   const every = Math.max(1, Math.min(52, Math.round(Number(everyText)) || 1));
-  const [until, setUntil] = useState(() => toKey(addDays(fromKey(draft.start), 7 * 26)));
+  const [until, setUntil] = useState(() => toKey(addDays(fromKey(draft.start || around), 7 * 26)));
   const set = (patch: Partial<Draft>) => setD(x => ({ ...x, ...patch }));
-  const days = d.start && d.end ? differenceInCalendarDays(fromKey(d.end), fromKey(d.start)) : -1;
-  const error = !d.start || !d.end ? 'Choisis le premier et le dernier jour.' : days < 0 ? 'Le dernier jour est avant le premier.' : days > MAX_DAYS ? 'Une période dure au plus un peu plus d’un an.' : '';
+  // The days ticked: each run of days in a row is saved as one period.
+  const [days, setDays] = useState(() => new Set(draft.start && draft.end ? daysBetween(draft.start, draft.end) : []));
+  const runs = runsOf(days);
+  const [longFrom, setLongFrom] = useState('');
+  const [longTo, setLongTo] = useState('');
+  const [long, setLong] = useState(false);
+  const error = !runs.length ? 'Choisis au moins un jour.' : runs.some(r => differenceInCalendarDays(fromKey(r.end), fromKey(r.start)) > MAX_DAYS) ? 'Une période dure au plus un peu plus d’un an.' : '';
   const people = source.shared ? d.people ?? [] : [];
-  const base = { title: d.title.trim(), start: d.start, end: d.end, color: d.color, ...(people.length && { people }) };
+  const base = { title: d.title.trim(), color: d.color, ...(people.length && { people }) };
   const togglePerson = (id: string) => set({ people: people.includes(id) ? people.filter(x => x !== id) : [...people, id] });
-  const copies = !d.id && repeat && !error ? repeatPeriod(base, every, until) : [base];
+  const copies = runs.flatMap(r => (!d.id && repeat && !error ? repeatPeriod({ ...base, ...r }, every, until) : [{ ...base, ...r }]));
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -201,17 +201,57 @@ function PeriodForm({ draft, onDone }: { draft: Draft; onDone: () => void }) {
       )}
 
       <p className="eyebrow mt-4">Jours</p>
-      <RangeCalendar start={d.start} end={d.end} color={d.color} onChange={(start, end) => set({ start, end })} />
-      <div className="mt-3 grid grid-cols-2 gap-3">
-        <div>
-          <span className="eyebrow">Du</span>
-          <DateField value={d.start} onChange={start => set({ start, ...(start > d.end && { end: start }) })} label="Premier jour" className="mt-1.5 w-full" />
+      <DaysPicker days={days} color={d.color} around={around} onChange={setDays} />
+      {runs.length > 0 && (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5" aria-live="polite">
+          {runs.map(r => (
+            <span key={r.start} className="flex h-7 items-center gap-1 rounded-full pl-2.5 pr-1 text-[12px] font-semibold pointer-coarse:h-9" style={{ background: periodTint(d, 18), color: periodText(d) }}>
+              {periodRange(r, fmtDay)}
+              <button
+                type="button"
+                className="hit-sm flex h-5 w-5 items-center justify-center rounded-full hover:bg-black/10"
+                aria-label={`Retirer les jours ${periodRange(r, fmtDay)}`}
+                onClick={() => {
+                  const next = new Set(days);
+                  for (const k of daysBetween(r.start, r.end)) next.delete(k);
+                  setDays(next);
+                }}
+              >
+                <X size={12} strokeWidth={2.5} />
+              </button>
+            </span>
+          ))}
+          <span className="text-[12px] text-stone-500">{days.size} jour{days.size > 1 ? 's' : ''}{runs.length > 1 ? ` · ${runs.length} périodes` : ''}</span>
         </div>
-        <div>
-          <span className="eyebrow">Au (inclus)</span>
-          <DateField value={d.end} min={d.start} onChange={end => set({ end })} label="Dernier jour" className="mt-1.5 w-full" />
+      )}
+      {long ? (
+        <div className="mt-3 flex flex-wrap items-end gap-2">
+          <div className="min-w-[8.5rem] flex-1">
+            <span className="eyebrow">Du</span>
+            <DateField value={longFrom} onChange={setLongFrom} label="Premier jour à ajouter" className="mt-1.5 w-full" />
+          </div>
+          <div className="min-w-[8.5rem] flex-1">
+            <span className="eyebrow">Au (inclus)</span>
+            <DateField value={longTo} min={longFrom || undefined} onChange={setLongTo} label="Dernier jour à ajouter" className="mt-1.5 w-full" />
+          </div>
+          <button
+            type="button"
+            className="btn-secondary"
+            disabled={!longFrom || !longTo}
+            onClick={() => {
+              setDays(new Set([...days, ...daysBetween(longFrom, longTo)]));
+              setLongFrom('');
+              setLongTo('');
+            }}
+          >
+            <Plus size={15} /> Ajouter ces jours
+          </button>
         </div>
-      </div>
+      ) : (
+        <button type="button" className="mt-2 text-[12.5px] font-semibold text-brand-600 hover:text-brand-700" onClick={() => setLong(true)}>
+          Sur plusieurs mois ? Choisir le premier et le dernier jour
+        </button>
+      )}
 
       <p className="eyebrow mt-4">Couleur</p>
       <div className="mt-2 flex flex-wrap gap-1.5" role="radiogroup" aria-label="Couleur">
@@ -243,7 +283,7 @@ function PeriodForm({ draft, onDone }: { draft: Draft; onDone: () => void }) {
               <span>toutes les</span>
               <input type="number" min={1} max={52} value={everyText} onChange={e => setEveryText(e.target.value)} onBlur={() => setEveryText(String(every))} aria-label="Nombre de semaines entre deux débuts" className="field h-9 w-16 text-center" />
               <span>semaines, jusqu’au</span>
-              <DateField value={until} min={d.start} onChange={setUntil} label="Dernier début possible" className="h-9 w-40" />
+              <DateField value={until} min={runs[0]?.start} onChange={setUntil} label="Dernier début possible" className="h-9 w-40" />
               <span className="w-full text-[12px] text-stone-500">
                 {copies.length > 1 ? `${copies.length} périodes, la dernière ${periodRange(copies[copies.length - 1], fmtDay)}.` : 'Une seule période avec ces dates.'}
               </span>
@@ -252,7 +292,7 @@ function PeriodForm({ draft, onDone }: { draft: Draft; onDone: () => void }) {
         </div>
       )}
 
-      {error && d.start && d.end && <p className="mt-3 text-[12.5px] text-red-600">{error}</p>}
+      {error && runs.length > 0 && <p className="mt-3 text-[12.5px] text-red-600">{error}</p>}
       <div className="mt-5 flex flex-wrap justify-end gap-2">
         <button type="button" className="btn-secondary" onClick={onDone}>Annuler</button>
         <button type="submit" className="btn-primary" disabled={!base.title || !!error}>
@@ -268,8 +308,8 @@ export default function PeriodsDialog({ day, onClose }: { day: string; onClose: 
   const source = useCalendarSource();
   const canEdit = !source.shared || source.shared.canEdit;
   const list = sortPeriods(source.periods);
-  const monday = weekStart(fromKey(day));
-  const fresh = (): Draft => ({ title: '', start: toKey(monday), end: toKey(addDays(monday, 6)), color: 'bleu' });
+  // A new period starts with no day ticked: the days are picked on the month.
+  const fresh = (): Draft => ({ title: '', start: '', end: '', color: 'bleu' });
   const [draft, setDraft] = useState<Draft | null>(() => (list.length === 0 && canEdit ? fresh() : null));
 
   const remove = async (p: Period) => {
@@ -309,7 +349,7 @@ export default function PeriodsDialog({ day, onClose }: { day: string; onClose: 
       {list.length === 0 && !draft && <p className="mt-4 text-[13px] text-stone-500">Aucune période pour l’instant.</p>}
 
       {draft ? (
-        <PeriodForm key={draft.id ?? 'nouvelle'} draft={draft} onDone={() => setDraft(null)} />
+        <PeriodForm key={draft.id ?? 'nouvelle'} draft={draft} around={day} onDone={() => setDraft(null)} />
       ) : (
         <div className="mt-5 flex flex-wrap justify-between gap-2">
           {canEdit ? (
