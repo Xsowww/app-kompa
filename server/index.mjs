@@ -72,6 +72,12 @@ const SECURITY = {
 const COMPRESSIBLE = new Set(['.html', '.js', '.mjs', '.css', '.svg', '.json', '.txt', '.webmanifest']);
 /** Built files never change while the server runs: read and compressed once. */
 const files = new Map();
+/**
+ * Cloudflare Web Analytics, the visit counter without cookies: its script in the page when the site's token
+ * is set (CF_ANALYTICS_TOKEN, public: it shows in the page anyway). `spa`: the app's page changes count too.
+ */
+const CF_TOKEN = /^[a-f0-9]{32}$/i.test(process.env.CF_ANALYTICS_TOKEN ?? '') ? process.env.CF_ANALYTICS_TOKEN : '';
+const BEACON = CF_TOKEN ? `<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token":"${CF_TOKEN}","spa":true}'></script>` : '';
 /** The app's pages (src/App.tsx): any other address gets the page with a 404 status. */
 const APP_ROUTES = new Set(['/', '/connexion', '/inscription', '/mot-de-passe-oublie', '/reinitialisation', '/securite', '/bienvenue', '/mentions-legales', '/confidentialite', '/conditions', '/drive', '/calendrier', '/notes', '/taches', '/progression', '/groupes', '/agendas', '/corbeille', '/profil', '/admin']);
 
@@ -102,7 +108,8 @@ async function serveStatic(req, res) {
   }
   let entry = files.get(file);
   if (!entry) {
-    const raw = await readFile(file);
+    let raw = await readFile(file);
+    if (BEACON && file.endsWith('index.html')) raw = Buffer.from(raw.toString('utf8').replace('</body>', `${BEACON}\n  </body>`));
     entry = { raw, gzip: COMPRESSIBLE.has(extname(file)) && raw.length > 1024 ? gzipSync(raw) : null };
     files.set(file, entry);
   }
