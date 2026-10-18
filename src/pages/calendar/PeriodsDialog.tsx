@@ -95,7 +95,6 @@ function DaysPicker({ days, color, around, onChange }: { days: Set<string>; colo
           const on = days.has(key);
           const before = days.has(near(key, -1));
           const after = days.has(near(key, 1));
-          const edge = on && (!before || !after);
           const d = fromKey(key);
           return (
             <button
@@ -118,9 +117,10 @@ function DaysPicker({ days, color, around, onChange }: { days: Set<string>; colo
                 on && (!before || i % 7 === 0) && 'rounded-l-xl',
                 on && (!after || i % 7 === 6) && 'rounded-r-xl',
                 !isSameMonth(d, month) && !on && 'text-stone-500',
-                key === today && !edge && 'text-brand-600',
+                key === today && !on && 'text-brand-600',
               )}
-              style={on ? { background: edge ? periodColor({ color }) : periodTint({ color }, 22), color: edge ? '#fff' : undefined } : undefined}
+              // Every ticked day the same soft tint (no solid ends): the band reads as one.
+              style={on ? { background: periodTint({ color }, 22), color: periodText({ color }) } : undefined}
             >
               {d.getDate()}
             </button>
