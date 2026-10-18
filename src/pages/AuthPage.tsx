@@ -38,7 +38,7 @@ function Showcase() {
           <div className="mt-3 grid grid-cols-5 gap-1.5 text-center">
             {days.map(x => (
               <div key={x.n} className={x.active ? 'rounded-xl bg-tile-blue py-1.5 text-white' : 'py-1.5'}>
-                <p className={x.active ? 'text-[10px] text-white/75' : 'text-[10px] text-stone-500'}>{x.d}</p>
+                <p className={x.active ? 'text-[10px] text-white/90' : 'text-[10px] text-stone-500'}>{x.d}</p>
                 <p className="tabular text-[14px] font-semibold">{x.n}</p>
                 <span className="mx-auto mt-1 block h-1 w-1 rounded-full" style={{ background: x.dot ?? 'transparent' }} />
               </div>

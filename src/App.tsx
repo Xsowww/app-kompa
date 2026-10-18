@@ -12,6 +12,7 @@ const AppShell = lazy(() => import('./layout/AppShell'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const DrivePage = lazy(() => import('./pages/drive/DrivePage'));
 const LegalPage = lazy(() => import('./pages/legal/LegalPage'));
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 const CalendarPage = lazy(() => import('./pages/calendar/CalendarPage'));
 const NotesPage = lazy(() => import('./pages/notes/NotesPage'));
 const ProfilePage = lazy(() => import('./pages/profile/ProfilePage'));
@@ -54,9 +55,9 @@ function PageTitle() {
   const { pathname } = useLocation();
   const guest = useAuth(s => !s.user);
   useEffect(() => {
-    const page = TITLES[pathname];
+    const page = TITLES[pathname.replace(/(.)\/+$/, '$1')]; // « /taches/ » too
     // A visitor on « / » sees the public home page: the full name, as in index.html (search results).
-    document.title = guest && pathname === '/' ? 'Kompaly · Agenda, notes, fichiers et tâches au même endroit' : page ? `${page} · Kompaly` : 'Kompaly';
+    document.title = guest && pathname === '/' ? 'Kompaly · Agenda, notes, fichiers et tâches au même endroit' : page ? `${page} · Kompaly` : 'Page introuvable · Kompaly';
     // Search engines: only the public pages (home, sign-in, sign-up, legal) belong in their results.
     let robots = document.querySelector<HTMLMetaElement>('meta[name="robots"]');
     if (!robots) {
@@ -158,7 +159,7 @@ export default function App() {
           <Route path="profil" element={<Suspense fallback={null}><ProfilePage /></Suspense>} />
           <Route path="admin" element={<Suspense fallback={null}><AdminPage /></Suspense>} />
         </Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Suspense fallback={null}><NotFoundPage /></Suspense>} />
       </Routes>
       <Toasts />
       <DialogHost />

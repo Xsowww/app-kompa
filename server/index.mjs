@@ -45,13 +45,14 @@ const SUPABASE = (() => {
 })();
 const CSP = [
   "default-src 'self'",
-  // pdf.js decodes some images with WebAssembly; Cloudflare Turnstile: the anti-robot check at sign-in.
-  "script-src 'self' 'wasm-unsafe-eval' https://challenges.cloudflare.com",
+  // pdf.js decodes some images with WebAssembly; Cloudflare Turnstile: the anti-robot check at sign-in;
+  // Cloudflare Web Analytics: the visit counter without cookies (its script, then where it sends the counts).
+  "script-src 'self' 'wasm-unsafe-eval' https://challenges.cloudflare.com https://static.cloudflareinsights.com",
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self' data:",
   "img-src 'self' data: blob: https:",
   "media-src 'self' blob:",
-  `connect-src 'self' blob: data:${SUPABASE ? ` ${SUPABASE} ${SUPABASE.replace(/^https:/, 'wss:')}` : ''}`,
+  `connect-src 'self' blob: data: https://cloudflareinsights.com${SUPABASE ? ` ${SUPABASE} ${SUPABASE.replace(/^https:/, 'wss:')}` : ''}`,
   "worker-src 'self' blob:",
   "frame-src 'self' blob: https://challenges.cloudflare.com", // file previews; Turnstile's box
   "frame-ancestors 'none'",
@@ -71,6 +72,8 @@ const SECURITY = {
 const COMPRESSIBLE = new Set(['.html', '.js', '.mjs', '.css', '.svg', '.json', '.txt', '.webmanifest']);
 /** Built files never change while the server runs: read and compressed once. */
 const files = new Map();
+/** The app's pages (src/App.tsx): any other address gets the page with a 404 status. */
+const APP_ROUTES = new Set(['/', '/connexion', '/inscription', '/mot-de-passe-oublie', '/reinitialisation', '/securite', '/bienvenue', '/mentions-legales', '/confidentialite', '/conditions', '/drive', '/calendrier', '/notes', '/taches', '/progression', '/groupes', '/agendas', '/corbeille', '/profil', '/admin']);
 
 async function serveStatic(req, res) {
   if (req.method !== 'GET' && req.method !== 'HEAD') {
@@ -94,6 +97,8 @@ async function serveStatic(req, res) {
       return res.end('Introuvable');
     }
     file = join(DIST, 'index.html'); // single-page app: every route is the page
+    // …but an address the app doesn't have says so (the page shows « introuvable »; search engines drop it).
+    if (!APP_ROUTES.has(path.replace(/(.)\/+$/, '$1'))) res.statusCode = 404;
   }
   let entry = files.get(file);
   if (!entry) {

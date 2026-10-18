@@ -59,10 +59,10 @@ function HeroDemo() {
                 <span className="ml-px inline-block h-4 w-px translate-y-0.5 animate-pulse bg-ink" />
               </>
             ) : (
-              <span className="text-stone-400">Ajouter un événement…</span>
+              <span className="text-stone-500">Ajouter un événement…</span>
             )}
           </span>
-          <span className={cx('flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors', step === 0 && typed === PHRASE.length ? 'bg-ink text-paper' : 'text-stone-400')}>
+          <span className={cx('flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors', step === 0 && typed === PHRASE.length ? 'bg-ink text-paper' : 'text-stone-500')}>
             Ajouter <CornerDownLeft size={11} />
           </span>
         </div>
@@ -72,7 +72,7 @@ function HeroDemo() {
             <div className="grid grid-cols-5 gap-1.5 text-center">
               {days.map(x => (
                 <div key={x.n} className={x.today ? 'rounded-xl bg-tile-blue py-1.5 text-white' : 'py-1.5'}>
-                  <p className={x.today ? 'text-[10px] text-white/75' : 'text-[10px] text-stone-500'}>{x.d}</p>
+                  <p className={x.today ? 'text-[10px] text-white/90' : 'text-[10px] text-stone-500'}>{x.d}</p>
                   <p className="tabular text-[14px] font-semibold">{x.n}</p>
                   <span className="mx-auto mt-1 block h-1 w-1 rounded-full transition-colors" style={{ background: x.dot ?? 'transparent' }} />
                 </div>

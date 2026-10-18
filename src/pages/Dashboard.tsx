@@ -173,7 +173,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
           {/* Now (blue tile) */}
           <Link to={nowEvent ? linkToDay(today, nowEvent.id) : '/calendrier?ajout=1'} className="enter flex min-h-[150px] flex-col justify-between rounded-[24px] bg-tile-blue p-6 text-white transition-[filter] hover:brightness-110 lg:col-start-1 lg:row-start-1">
-            <span className="flex justify-between text-[13px] font-semibold text-white/80">
+            <span className="flex justify-between text-[13px] font-semibold text-white/90">
               <span>{nowEvent && minutesTo <= 0 ? 'En ce moment' : 'Ensuite aujourd’hui'}</span>
               {nowEvent && minutesTo > 0 && <span>{minutesTo < 60 ? `dans ${minutesTo} min` : `dans ${Math.floor(minutesTo / 60)} h ${String(minutesTo % 60).padStart(2, '0')}`}</span>}
             </span>
@@ -181,7 +181,7 @@ export default function Dashboard() {
               <span className="flex items-end justify-between gap-4">
                 <span className="min-w-0">
                   <span className="line-clamp-2 block text-[22px] font-extrabold leading-tight tracking-[-0.03em] [overflow-wrap:anywhere] sm:text-[26px]">{nowEvent.title}</span>
-                  {nowEvent.details && <span className="block truncate text-[14px] text-white/80">{nowEvent.details.split('\n')[0]}</span>}
+                  {nowEvent.details && <span className="block truncate text-[14px] text-white/90">{nowEvent.details.split('\n')[0]}</span>}
                 </span>
                 <span className="tabular shrink-0 text-[34px] font-extrabold leading-none tracking-[-0.04em] sm:text-[40px]">{nowEvent.start}</span>
               </span>
@@ -248,7 +248,7 @@ export default function Dashboard() {
                       <p className="flex items-center gap-1.5 text-[12px] text-white/65">
                         <Check size={13} className="text-emerald-400" /> {words.planned}
                         {revisionSessions(nextExam)[0] && (
-                          <Link to={linkToDay(revisionSessions(nextExam)[0].date, revisionSessions(nextExam)[0].id)} className="ml-auto font-semibold text-white/80 underline-offset-2 hover:text-white hover:underline">
+                          <Link to={linkToDay(revisionSessions(nextExam)[0].date, revisionSessions(nextExam)[0].id)} className="ml-auto font-semibold text-white/90 underline-offset-2 hover:text-white hover:underline">
                             Voir les créneaux
                           </Link>
                         )}

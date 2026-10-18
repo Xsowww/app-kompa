@@ -64,7 +64,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
         body: [
           'Fournir le service que tu demandes en créant ton compte (exécution du contrat) : stocker et synchroniser tes contenus, les partager dans les groupes que tu rejoins, sécuriser ton compte.',
           'Garder le service sûr et fiable (intérêt légitime) : limites anti-abus, vérification anti-robot à l’inscription et à la connexion, journaux d’erreurs, traitement des signalements.',
-          'Améliorer Kompaly (intérêt légitime) : lire les avis et corriger les bugs que tu nous envoies.',
+          'Améliorer Kompaly (intérêt légitime) : lire les avis et corriger les bugs que tu nous envoies, et compter les visites de façon anonyme (voir « Stockage sur ton appareil »).',
         ],
       },
       {
@@ -80,7 +80,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
         body: [
           'Personne d’autre que toi pour ton espace personnel. Les membres d’un groupe voient ce qui est partagé dans ce groupe.',
           'L’administrateur du site (l’éditeur) voit la liste des comptes pour faire fonctionner le service : prénom, e-mail, dates d’inscription et de dernière connexion, double authentification activée ou non, nombre de notes, d’événements et de fichiers, espace utilisé, noms des catégories que tu crées (sans tes événements). Il lit aussi les messages « Avis ou bug » et les signalements, avec la copie du contenu signalé. Jamais le reste du contenu de tes notes, fichiers ou événements.',
-          'Nos sous-traitants techniques les traitent uniquement pour faire fonctionner le service : Render (hébergement du site, serveurs à Francfort, Allemagne), Supabase (comptes, données et fichiers, serveurs en Irlande), Resend (envoi des e-mails du compte : confirmation, mot de passe oublié ; reçoit ton adresse e-mail, serveurs en Irlande) Cloudflare (vérification anti-robot Turnstile à l’inscription et à la connexion : reçoit ton adresse IP et des informations sur ton navigateur le temps de la vérification, sans pistage publicitaire ; contrat de traitement et clauses contractuelles types) et le fournisseur d’IA indiqué plus haut.',
+          'Nos sous-traitants techniques les traitent uniquement pour faire fonctionner le service : Render (hébergement du site, serveurs à Francfort, Allemagne), Supabase (comptes, données et fichiers, serveurs en Irlande), Resend (envoi des e-mails du compte : confirmation, mot de passe oublié ; reçoit ton adresse e-mail, serveurs en Irlande), Cloudflare (vérification anti-robot Turnstile à l’inscription et à la connexion : reçoit ton adresse IP et des informations sur ton navigateur le temps de la vérification, sans pistage publicitaire ; et mesure d’audience anonyme ; contrat de traitement et clauses contractuelles types) et le fournisseur d’IA indiqué plus haut.',
           'Les notifications passent par le service de notifications de ton navigateur ou de ton téléphone (Google pour Chrome et Android, Apple pour Safari et iPhone, Mozilla pour Firefox, Microsoft pour Edge) : le message est chiffré de bout en bout, ce service ne peut pas le lire, il le transmet seulement à ton appareil.',
         ],
       },
@@ -95,6 +95,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
         title: 'Stockage sur ton appareil',
         body: [
           'Kompaly garde une copie de tes données dans ton navigateur pour fonctionner vite et hors ligne, et pour rester connecté. Il s’agit uniquement de stockage nécessaire au service : aucun cookie publicitaire ni de mesure d’audience, donc pas de bandeau de consentement.',
+          'Pour savoir combien de personnes utilisent Kompaly et si les pages s’affichent vite, nous comptons les visites avec Cloudflare Web Analytics : la page vue, le site d’où tu viens, ton pays, le type d’appareil et de navigateur, le temps d’affichage. Sans cookie, sans rien enregistrer sur ton appareil et sans identifiant : une visite ne peut pas être reliée à toi ni à tes visites suivantes, et rien n’est utilisé pour de la publicité.',
           'Avec « Rester connecté », ton compte reste proposé sur la page de connexion de cet appareil (prénom, e-mail et session) pour l’ouvrir en un clic, même après une déconnexion ; au bout de 14 jours sans l’ouvrir, le mot de passe est redemandé. « Retirer de cet appareil » (la croix à côté du compte) l’efface et ferme sa session. Sans « Rester connecté », la déconnexion efface la copie et la session.',
         ],
       },
