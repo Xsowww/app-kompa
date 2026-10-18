@@ -353,7 +353,14 @@ export default function CalendarPage() {
     );
   };
 
-  const shift = (dir: 1 | -1) => selectDay(toKey(mode === 'day' ? addDays(selDate, dir) : mode === 'week' ? addDays(selDate, 7 * dir) : addMonths(selDate, dir)));
+  // Another week or month: today when it is in it, else its first day (not the same date number every month,
+  // which looked like « today » in blue on the 18th of each month).
+  const shift = (dir: 1 | -1) => {
+    if (mode === 'day') return selectDay(toKey(addDays(selDate, dir)));
+    const first = mode === 'week' ? addDays(weekStart(selDate), 7 * dir) : addMonths(startOfMonth(selDate), dir);
+    const last = mode === 'week' ? addDays(first, 6) : endOfMonth(first);
+    selectDay(today >= toKey(first) && today <= toKey(last) ? today : toKey(first));
+  };
 
   // ← / → move one day (↑ / ↓ one week outside the day view), like a desktop agenda.
   const keysRef = useRef<(e: KeyboardEvent) => void>(() => undefined);
