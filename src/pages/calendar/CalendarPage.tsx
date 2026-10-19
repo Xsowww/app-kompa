@@ -191,7 +191,7 @@ function CalendarFilter({ categories, shown, importantOnly, onToggle, onImportan
       </button>
       {open && (
         <div id="filtre-calendrier" role="group" aria-label="Filtrer les événements" className="pop absolute right-0 top-10 z-[60] w-64 rounded-xl border border-stone-200 bg-surface p-2 shadow-pop max-sm:left-0 max-sm:right-auto">
-          <p className="px-2 pb-1 pt-0.5 text-[12px] text-stone-500">{count ? 'Seuls les éléments cochés sont affichés.' : 'Tout est affiché. Coche pour n’afficher que certains éléments.'}</p>
+          <p className="px-2 pb-1 pt-0.5 text-[12px] text-stone-500">Afficher seulement :</p>
           {onImportant && (
             <>
               <label className={row}>
@@ -352,7 +352,7 @@ export default function CalendarPage() {
     setQuick('');
     showSaved({ date, category: parsedCat!, important: parsed.important });
     toast(
-      parsed.weekly ? `Ajouté pour ${fmt(fromKey(date), 'EEEE d MMMM')}, seulement celui-ci : la répétition chaque semaine n’existe pas encore.` : `Ajouté : ${parsed.title}`,
+      parsed.weekly ? `Ajouté pour ${fmt(fromKey(date), 'EEEE d MMMM')}, une seule fois (pas encore de répétition)` : `Ajouté : ${parsed.title}`,
       'success',
     );
   };
@@ -531,7 +531,7 @@ export default function CalendarPage() {
         {/* Quick add */}
         {/* Keyboard focus: a brand ring (the shadow alone was invisible on the dark theme). */}
         {readOnly ? (
-          <p className="card px-4 py-3 text-[13px] text-stone-500">Tu peux consulter cet agenda ; seuls ses éditeurs peuvent le modifier.</p>
+          <p className="card px-4 py-3 text-[13px] text-stone-500">Agenda en lecture seule.</p>
         ) : (
         <form onSubmit={submitQuick} className="card flex flex-col px-3 transition-shadow focus-within:border-stone-300 focus-within:shadow-pop has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-focus">
           <div className="flex h-12 items-center gap-2.5">
@@ -579,7 +579,7 @@ export default function CalendarPage() {
                   </span>
                 </>
               )}
-              {parsed.weekly && <span className="w-full text-stone-500">Seulement celui-ci&nbsp;: la répétition chaque semaine n’existe pas encore.</span>}
+              {parsed.weekly && <span className="w-full text-stone-500">Une seule fois&nbsp;: pas encore de répétition.</span>}
             </div>
           )}
         </form>
@@ -895,7 +895,7 @@ export default function CalendarPage() {
           <div className="pop flex flex-col items-center rounded-2xl border-2 border-dashed border-brand-500 bg-surface/95 px-10 py-8 text-center shadow-pop">
             <CalendarArrowDown size={26} className="text-brand-600" />
             <p className="mt-2 text-[15px] font-semibold">Dépose ton {words.timetable}</p>
-            <p className="mt-0.5 text-[13px] text-stone-500">Fichier .ics exporté depuis {words.icsFrom}</p>
+            <p className="mt-0.5 text-[13px] text-stone-500">Fichier .ics</p>
           </div>
         </div>
       )}

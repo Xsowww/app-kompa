@@ -4,6 +4,7 @@ import { uid, nowIso, uniqueName } from '../lib/utils';
 import { userStorage, blobKey, trashBlobKey } from '../lib/userStorage';
 import { blobStore, MAX_FILE, QUOTA, StorageError } from '../lib/blobStore';
 import { cloudEnabled } from '../lib/supabase';
+import { t, locale } from '../i18n';
 
 export type DriveKind = 'folder' | 'file';
 
@@ -62,7 +63,7 @@ interface DriveState {
 export const childrenOf = (items: DriveItem[], parentId: string | null) =>
   items
     .filter(i => i.parentId === parentId)
-    .sort((a, b) => (a.kind === b.kind ? a.name.localeCompare(b.name, 'fr') : a.kind === 'folder' ? -1 : 1));
+    .sort((a, b) => (a.kind === b.kind ? a.name.localeCompare(b.name, locale()) : a.kind === 'folder' ? -1 : 1));
 
 /** ids + all their descendants */
 export function withDescendants(items: DriveItem[], ids: string[]): string[] {
@@ -136,7 +137,7 @@ function cloneTree(items: DriveItem[], ids: string[], targetId: string | null, k
 
 function copyName(name: string) {
   const dot = name.lastIndexOf('.');
-  return dot > 0 ? `${name.slice(0, dot)} - copie${name.slice(dot)}` : `${name} - copie`;
+  return dot > 0 ? `${t('{name} - copie', { name: name.slice(0, dot) })}${name.slice(dot)}` : t('{name} - copie', { name });
 }
 
 export const useDrive = create<DriveState>()(
@@ -150,7 +151,7 @@ export const useDrive = create<DriveState>()(
         const time = nowIso();
         const folder: DriveItem = {
           id: uid(),
-          name: uniqueName(name.trim() || 'Nouveau dossier', siblingNames(get().items, parentId)),
+          name: uniqueName(name.trim() || t('Nouveau dossier'), siblingNames(get().items, parentId)),
           kind: 'folder',
           parentId,
           createdAt: time,
@@ -162,12 +163,12 @@ export const useDrive = create<DriveState>()(
 
       async uploadFiles(files, parentId) {
         const big = files.find(f => f.size > MAX_FILE);
-        if (big) throw new StorageError(`« ${big.name} » est trop lourd : 50 Mo maximum par fichier.`);
+        if (big) throw new StorageError(t('« {name} » est trop lourd : 50 Mo maximum par fichier.', { name: big.name }));
         if (cloudEnabled && QUOTA) {
           const used = [...get().items, ...get().trash].reduce((s, i) => s + (i.kind === 'file' ? (i.size ?? 0) : 0), 0);
           const adding = files.reduce((s, f) => s + f.size, 0);
           if (used + adding > QUOTA)
-            throw new StorageError(`Plus assez de place : ${Math.max(0, Math.floor((QUOTA - used) / 1048576))} Mo libres sur ${Math.round(QUOTA / 1048576)} Mo. Vide la corbeille ou supprime des fichiers.`);
+            throw new StorageError(t('Plus assez de place : {free} Mo libres sur {total} Mo. Vide la corbeille ou supprime des fichiers.', { free: Math.max(0, Math.floor((QUOTA - used) / 1048576)), total: Math.round(QUOTA / 1048576) }));
         }
         const created: DriveItem[] = [];
         for (const file of files) {
@@ -340,14 +341,14 @@ export const trashRoots = (trash: DriveItem[]) =>
 
 /** Colours a folder can wear. */
 export const FOLDER_COLORS: Record<string, { label: string; color: string }> = {
-  bleu: { label: 'Bleu', color: '#3b6fd8' },
-  rouge: { label: 'Rouge', color: '#d9483b' },
-  orange: { label: 'Orange', color: '#e8613c' },
-  jaune: { label: 'Jaune', color: '#d48a17' },
-  vert: { label: 'Vert', color: '#2f9e6b' },
-  violet: { label: 'Violet', color: '#7a5ad6' },
-  rose: { label: 'Rose', color: '#d6457a' },
-  gris: { label: 'Gris', color: '#78716c' },
+  bleu: { label: t('Bleu'), color: '#3b6fd8' },
+  rouge: { label: t('Rouge'), color: '#d9483b' },
+  orange: { label: t('Orange'), color: '#e8613c' },
+  jaune: { label: t('Jaune'), color: '#d48a17' },
+  vert: { label: t('Vert'), color: '#2f9e6b' },
+  violet: { label: t('Violet'), color: '#7a5ad6' },
+  rose: { label: t('Rose'), color: '#d6457a' },
+  gris: { label: t('Gris'), color: '#78716c' },
 };
 
 /** Colour of a notes folder icon (outline and a light fill); undefined when the folder has none. */

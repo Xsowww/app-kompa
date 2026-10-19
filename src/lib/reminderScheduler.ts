@@ -19,6 +19,7 @@ import { goTo } from '../copilot/actions';
 import { useAgendaNews, viewingAgenda } from '../store/agendaNews';
 import { useAuth } from '../store/auth';
 import { savedAccount, savedAccounts } from './accounts';
+import { t } from '../i18n';
 
 /** Push on this device: the server's notification comes first; the app shows it only if it didn't come. */
 const FALLBACK_DELAY = 45_000;
@@ -84,7 +85,7 @@ function fire(r: DueReminder) {
   else {
     // Same last line as the server's notifications when this device holds several accounts (public/sw.js).
     const account = savedAccounts().length > 1 && userId ? accountLabels()[userId] : undefined;
-    void showSystemNotification(r.title, account ? `${r.body}\nCompte ${account}` : r.body, r.key, r.url).then(ok => ok || showInApp(r));
+    void showSystemNotification(r.title, account ? `${r.body}\n${t('Compte {account}', { account })}` : r.body, r.key, r.url).then(ok => ok || showInApp(r));
   }
 }
 
@@ -165,7 +166,16 @@ function openFor(url: string, user?: string) {
     .getState()
     .switchAccount(user, url)
     .then(r => {
-      if (r === 'credentials') useUi.getState().toast(`Cette notification vient du compte ${accountLabels()[user] ?? 'enregistré sur cet appareil'} : reconnecte-toi à ce compte pour la voir.`, 'info');
+      if (r !== 'credentials') return;
+      const account = accountLabels()[user];
+      useUi
+        .getState()
+        .toast(
+          account
+            ? t('Cette notification vient du compte {account} : reconnecte-toi à ce compte pour la voir.', { account })
+            : t('Cette notification vient du compte enregistré sur cet appareil : reconnecte-toi à ce compte pour la voir.'),
+          'info',
+        );
     });
 }
 

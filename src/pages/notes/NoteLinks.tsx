@@ -137,7 +137,6 @@ function PickerBody({ note, onClose }: { note: Note; onClose: () => void }) {
         <h3 className="text-[15px] font-semibold">Lier la note</h3>
         <span className="text-[12px] text-stone-500">{links.length ? `${links.length} lien${links.length > 1 ? 's' : ''}` : ''}</span>
       </div>
-      <p className="mt-0.5 text-[13px] text-stone-500">Rattache des fichiers du Drive et des événements du calendrier à « {note.title} ».</p>
       <div className="relative mt-4">
         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
         <input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder="Rechercher un fichier ou un événement" aria-label="Rechercher un fichier ou un événement" className="field w-full pl-8" />

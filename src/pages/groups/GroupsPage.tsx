@@ -40,7 +40,7 @@ export function GroupForm({ group, onDone }: { group?: Group; onDone: (g?: Group
     try {
       setPhoto(await imageToAvatar(f, 256));
     } catch {
-      toast('Cette image ne peut pas être lue. Essaie une photo JPEG ou PNG.', 'error');
+      toast('Image illisible : essaie une photo JPEG ou PNG.', 'error');
     }
   };
   const submit = async (e: FormEvent) => {
@@ -68,7 +68,6 @@ export function GroupForm({ group, onDone }: { group?: Group; onDone: (g?: Group
   return (
     <form onSubmit={submit}>
       <h3 className="text-[15px] font-semibold">{group ? `Paramètres ${w.of}` : `Créer ${w.a}`}</h3>
-      {!group && <p className="mt-1 text-[13px] text-stone-500">Tu recevras un lien d’invitation à envoyer à {w.mates}.</p>}
       <label className="eyebrow mt-4 block" htmlFor="group-name">Nom</label>
       <input id="group-name" autoFocus value={name} maxLength={60} onChange={e => setName(e.target.value)} placeholder={w.namePlaceholder} className="field mt-1.5 w-full" />
       <p className="eyebrow mt-4">Photo</p>
@@ -109,7 +108,7 @@ function JoinForm({ onDone }: { onDone: () => void }) {
     try {
       const id = await joinGroup(clean);
       if (!id) {
-        setError(`${w.none} avec ce code. Vérifie-le auprès de la personne qui te l’a donné.`);
+        setError(`${w.none} avec ce code : vérifie-le.`);
         setBusy(false);
         return;
       }
@@ -125,7 +124,7 @@ function JoinForm({ onDone }: { onDone: () => void }) {
   return (
     <form onSubmit={submit}>
       <h3 className="text-[15px] font-semibold">Rejoindre {w.a}</h3>
-      <p className="mt-1 text-[13px] text-stone-500">Saisis le code à 6 caractères qu’un membre {w.of} t’a donné.</p>
+      <p className="mt-1 text-[13px] text-stone-500">Le code à 6 caractères reçu d’un membre.</p>
       <input
         autoFocus
         value={code}
@@ -156,7 +155,6 @@ function Intro({ onCreate, onJoin }: { onCreate: () => void; onJoin: () => void 
         <button className="btn-primary" onClick={onCreate}><Plus size={15} /> Créer {w.a}</button>
         <button className="btn-secondary" onClick={onJoin}><LogIn size={15} /> J’ai un code</button>
       </div>
-      <p className="mt-6 text-[12px] text-stone-500">Les membres voient ton prénom, jamais ton adresse e-mail.</p>
     </div>
   );
 }
@@ -169,7 +167,7 @@ function OfflineNotice() {
       <div className="flex flex-1 flex-col items-center justify-center text-center">
         <CloudOff size={26} strokeWidth={1.5} className="text-stone-300" />
         <p className="mt-3 text-[14px] font-medium">Disponible dans la version en ligne</p>
-        <p className="mt-1 max-w-sm text-[13px] text-stone-500">Ici, tes données restent dans ce navigateur. Connecte-toi en ligne pour partager des notes avec {w.others}.</p>
+        <p className="mt-1 max-w-sm text-[13px] text-stone-500">Ici, tes données restent dans ce navigateur.</p>
       </div>
     </div>
   );
@@ -357,7 +355,6 @@ function Groups() {
           <div className="card flex flex-1 flex-col items-center justify-center p-8 text-center">
             <Users size={28} strokeWidth={1.5} className="text-stone-300" />
             <p className="mt-3 text-[14px] font-medium">Choisis {w.a}</p>
-            <p className="mt-1 text-[13px] text-stone-500">Ses notes partagées, ses {w.meet.many} et ses membres s’affichent ici.</p>
           </div>
         )}
       </section>

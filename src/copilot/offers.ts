@@ -7,11 +7,12 @@ import type { Note } from '../store/notes';
 import { alreadyPlanned, createRevisionNote, hasRevisionPlan, planRevisions, goTo, linkToNote, linkToDay, deleteEvent, trashItems, openNoteLabel } from './actions';
 import { fmt, fromKey } from '../lib/dates';
 import { getSettings } from '../store/settings';
+import { t, tn } from '../i18n';
 
 type OfferResult = { text: string; links?: CopilotLink[] };
 const studying = () => (getSettings().usage ?? 'etudes') === 'etudes';
 
-const gone = () => `Je ne retrouve plus ${studying() ? 'cet examen' : 'cet événement'}, il a peut-être été supprimé.`;
+const gone = () => (studying() ? t('Je ne retrouve plus cet examen.') : t('Je ne retrouve plus cet événement.'));
 
 /** What the student did with buttons since the AI last spoke (it doesn't see the clicks otherwise). */
 export const offerLog: string[] = [];
@@ -27,8 +28,8 @@ export function runOffer(offer: CopilotOffer): OfferResult {
 function tooLate(note: Note | null): OfferResult {
   return {
     text: studying()
-      ? 'Plus le temps de caler une séance avant l’examen. Je t’ai quand même préparé une fiche pour une dernière relecture.'
-      : 'Plus le temps de bloquer un créneau avant. Je t’ai quand même préparé une note « À préparer » pour ne rien oublier.',
+      ? t('Plus le temps de caler une séance avant l’examen : voici une fiche pour une dernière relecture.')
+      : t('Plus le temps de bloquer un créneau avant : voici une note pour ne rien oublier.'),
     links: note ? [{ label: openNoteLabel(), to: linkToNote(note.id) }] : [],
   };
 }
@@ -46,46 +47,46 @@ function run(offer: CopilotOffer): OfferResult {
       const days = res.created.map(e => fmt(fromKey(e.date), 'EEEE d')).join(', ');
       return {
         text: studying()
-          ? `C’est calé : ${res.created.length} séance${res.created.length > 1 ? 's' : ''} de révision (${days}) et une fiche « ${res.note?.title} » pour t’organiser. Tu me remercieras le jour J.`
-          : `C’est calé : ${res.created.length} créneau${res.created.length > 1 ? 'x' : ''} pour préparer (${days}) et une note « ${res.note?.title} » pour ne rien oublier.`,
+          ? tn(res.created.length, 'C’est calé : {n} séance de révision ({days}) et une fiche « {title} » pour t’organiser.', 'C’est calé : {n} séances de révision ({days}) et une fiche « {title} » pour t’organiser.', { days, title: res.note?.title ?? '' })
+          : tn(res.created.length, 'C’est calé : {n} créneau pour préparer ({days}) et une note « {title} » pour ne rien oublier.', 'C’est calé : {n} créneaux pour préparer ({days}) et une note « {title} » pour ne rien oublier.', { days, title: res.note?.title ?? '' }),
         links: [
-          { label: 'Voir le planning', to: linkToDay(res.created[0].date) },
+          { label: t('Voir le planning'), to: linkToDay(res.created[0].date) },
           ...(res.note ? [{ label: openNoteLabel(), to: linkToNote(res.note.id) }] : []),
         ],
       };
     }
     case 'revision_note': {
       const note = createRevisionNote(p.eventId);
-      if (!note) return { text: studying() ? 'Je ne retrouve plus cet examen.' : 'Je ne retrouve plus cet événement.' };
+      if (!note) return { text: studying() ? t('Je ne retrouve plus cet examen.') : t('Je ne retrouve plus cet événement.') };
       return {
-        text: `${studying() ? 'Fiche' : 'Note'} « ${note.title} » prête, avec une structure pour aller à l’essentiel.`,
+        text: studying() ? t('Fiche « {title} » prête.', { title: note.title }) : t('Note « {title} » prête.', { title: note.title }),
         links: [{ label: openNoteLabel(), to: linkToNote(note.id) }],
       };
     }
     case 'mark_done': {
       const ev = useCalendar.getState().events.find(e => e.id === p.eventId);
-      if (!ev) return { text: 'Introuvable, il a dû être supprimé.' };
+      if (!ev) return { text: t('Introuvable, il a dû être supprimé.') };
       if (!ev.done) useCalendar.getState().toggleDone(ev.id);
-      return { text: `« ${ev.title} » coché. Un de moins !` };
+      return { text: t('« {title} » coché. Un de moins !', { title: ev.title }) };
     }
     case 'open':
       goTo(p.to ?? '/');
-      return { text: 'C’est ouvert.' };
+      return { text: t('C’est ouvert.') };
     case 'confirm_delete': {
       // Deletions asked to the AI only happen here, on the student's click (or « oui »).
       const ids = (p.ids ?? '').split(',').filter(Boolean);
       if (p.what === 'event') {
         const ev = deleteEvent(ids[0]);
-        return ev ? { text: `« ${ev.title} » est dans la corbeille, récupérable 30 jours.`, links: [{ label: 'Corbeille', to: '/corbeille?type=calendrier' }] } : { text: 'Introuvable, il a déjà dû être supprimé.' };
+        return ev ? { text: t('« {title} » est dans la corbeille, récupérable 30 jours.', { title: ev.title }), links: [{ label: t('Corbeille'), to: '/corbeille?type=calendrier' }] } : { text: t('Introuvable, il a déjà dû être supprimé.') };
       }
       if (p.what === 'todo') {
-        const t = useTodos.getState().todos.find(x => x.id === ids[0]);
-        if (!t) return { text: 'Introuvable, elle a déjà dû être supprimée.' };
-        useTodos.getState().remove(t.id);
-        return { text: `Tâche « ${t.title} » supprimée.` };
+        const todo = useTodos.getState().todos.find(x => x.id === ids[0]);
+        if (!todo) return { text: t('Introuvable, elle a déjà dû être supprimée.') };
+        useTodos.getState().remove(todo.id);
+        return { text: t('Tâche « {title} » supprimée.', { title: todo.title }) };
       }
       const res = trashItems(ids);
-      return res.done.length ? { text: `Mis à la corbeille : ${res.done.join(', ')}. Récupérable 30 jours.`, links: [{ label: 'Corbeille', to: '/corbeille' }] } : { text: 'Introuvable, déjà supprimé.' };
+      return res.done.length ? { text: t('Mis à la corbeille : {names}. Récupérable 30 jours.', { names: res.done.join(', ') }), links: [{ label: t('Corbeille'), to: '/corbeille' }] } : { text: t('Introuvable, déjà supprimé.') };
     }
   }
 }

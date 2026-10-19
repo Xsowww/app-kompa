@@ -40,7 +40,7 @@ export default function AdminInbox({ inbox, missing, reload }: { inbox: Inbox | 
   if (missing) {
     return (
       <p className="card p-5 text-[13px] text-stone-500">
-        Applique la migration 2026-10-16b_signalements_avis.sql dans Supabase pour recevoir ici les signalements des groupes et les messages « Avis ou bug ».
+        Applique la migration 2026-10-16b_signalements_avis.sql dans Supabase pour recevoir les signalements et les avis.
       </p>
     );
   }

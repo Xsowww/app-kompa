@@ -34,7 +34,7 @@ function Offline() {
       <div className="flex flex-1 flex-col items-center justify-center text-center">
         <CloudOff size={26} strokeWidth={1.5} className="text-stone-300" />
         <p className="mt-3 text-[14px] font-medium">Disponible dans la version en ligne</p>
-        <p className="mt-1 max-w-sm text-[13px] text-stone-500">Ici, tes données restent dans ce navigateur : un agenda partagé a besoin d’un compte en ligne.</p>
+        <p className="mt-1 max-w-sm text-[13px] text-stone-500">Ici, tes données restent dans ce navigateur.</p>
       </div>
     </div>
   );
@@ -146,7 +146,7 @@ function Agendas() {
             <CalendarRange size={26} strokeWidth={1.6} className="text-brand-600" />
             <h2 className="mt-3 text-[18px] font-semibold tracking-[-0.01em]">Un agenda à plusieurs</h2>
             <p className="mt-1.5 text-[13px] leading-relaxed text-stone-600">
-              Un calendrier commun, séparé du tien : chacun y ajoute, modifie ou supprime des événements, et les autres sont prévenus. On le rejoint seulement avec son lien d’invitation.
+              Un calendrier commun, séparé du tien. On le rejoint avec son lien d’invitation.
             </p>
             <button className="btn-primary mt-5" onClick={() => setDialog('create')}>
               <Plus size={15} /> Créer un agenda partagé

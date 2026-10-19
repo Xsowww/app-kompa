@@ -1,5 +1,8 @@
 import { addDays, format, isValid, parseISO, startOfWeek, differenceInCalendarDays } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { de, enGB, es, fr, it } from 'date-fns/locale';
+import { lang, t } from '../i18n';
+
+const DATE_LOCALE = { fr, en: enGB, es, de, it }[lang];
 
 export const toKey = (d: Date) => format(d, 'yyyy-MM-dd');
 export const fromKey = (k: string) => parseISO(k);
@@ -11,19 +14,19 @@ export const validKey = (k: string | null | undefined): string | null => {
   return isValid(d) && toKey(d) === k ? k : null;
 };
 export const weekStart = (d: Date) => startOfWeek(d, { weekStartsOn: 1 });
-/** date-fns in French; « 1er novembre », not « 1 novembre » (the day token right before a month name). */
-export const fmt = (d: Date, pattern: string) => format(d, d.getDate() === 1 ? pattern.replace(/(^|[^d'])d(?=\s+M)/, "$1d'er'") : pattern, { locale: fr });
+/** date-fns in the site's language; in French « 1er novembre », not « 1 novembre » (the day token right before a month name). */
+export const fmt = (d: Date, pattern: string) => format(d, lang === 'fr' && d.getDate() === 1 ? pattern.replace(/(^|[^d'])d(?=\s+M)/, "$1d'er'") : pattern, { locale: DATE_LOCALE });
 /** Like fmt, with the year when it isn't this one (a deadline next year doesn't look close). */
 export const fmtDay = (d: Date, pattern: string) => fmt(d, d.getFullYear() === new Date().getFullYear() ? pattern : `${pattern} yyyy`);
 export const daysUntil = (key: string) => differenceInCalendarDays(fromKey(key), new Date());
 
 export function countdownLabel(key: string): string {
   const n = daysUntil(key);
-  if (n === 0) return 'Aujourd’hui';
-  if (n === 1) return 'Demain';
-  if (n === -1) return 'Hier';
-  if (n < 0) return `Il y a ${-n} j`;
-  return `J-${n}`;
+  if (n === 0) return t('Aujourd’hui');
+  if (n === 1) return t('Demain');
+  if (n === -1) return t('Hier');
+  if (n < 0) return t('Il y a {n} j', { n: -n });
+  return t('J-{n}', { n });
 }
 
 const WEEKDAYS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];

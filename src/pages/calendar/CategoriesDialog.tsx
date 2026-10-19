@@ -38,9 +38,9 @@ export function NewCategory({ onCreated, autoFocus }: { onCreated: (c: CustomCat
     const name = label.trim().replace(/\s+/g, ' ');
     if (!name) return;
     const builtin = builtinLabel(name);
-    if (builtin === 'current') return toast(`« ${name} » existe déjà dans les catégories de base.`, 'error');
+    if (builtin === 'current') return toast(`« ${name} » existe déjà.`, 'error');
     // A name kept for the other usages (« Cours » in a work account): it would come back twice after switching.
-    if (builtin === 'other') return toast(`« ${name} » est réservé à une catégorie de base de Kompaly.`, 'error');
+    if (builtin === 'other') return toast(`« ${name} » est réservé par Kompaly.`, 'error');
     if (customNamed(name)) return toast(`Tu as déjà une catégorie « ${customNamed(name)!.label} ».`, 'error');
     onCreated(createCategory(label, color));
     setLabel('');
@@ -97,7 +97,7 @@ function Row({ cat }: { cat: CustomCategory }) {
               return setLabel(label.trim().replace(/\s+/g, ' ')); // the name as saved
             }
             if (label.trim() && label.trim() !== cat.label) {
-              toast(builtinLabel(label) === 'other' ? `« ${label.trim()} » est réservé à une catégorie de base de Kompaly.` : `Une catégorie s’appelle déjà « ${label.trim()} ».`, 'error');
+              toast(builtinLabel(label) === 'other' ? `« ${label.trim()} » est réservé par Kompaly.` : `Une catégorie s’appelle déjà « ${label.trim()} ».`, 'error');
             }
             setLabel(cat.label);
           }}
@@ -157,13 +157,13 @@ export default function CategoriesDialog({ onClose }: { onClose: () => void }) {
           ))}
         </ul>
       ) : (
-        <p className="mt-1.5 text-[13px] text-stone-500">Aucune pour l’instant. Crée-en une ci-dessous.</p>
+        <p className="mt-1.5 text-[13px] text-stone-500">Aucune pour l’instant.</p>
       )}
 
       <div className="mt-4 rounded-lg bg-stone-50 p-3">
         <NewCategory onCreated={() => undefined} />
       </div>
-      <p className="mt-2 text-[12px] text-stone-500">Astuce&nbsp;: écris son nom dans le titre d’un événement («&nbsp;{words.categoryHint}&nbsp;») et Kompaly la choisit tout seul.</p>
+      <p className="mt-2 text-[12px] text-stone-500">Écris son nom dans un titre («&nbsp;{words.categoryHint}&nbsp;»)&nbsp;: elle est choisie toute seule.</p>
 
       <div className="mt-5 flex justify-end">
         <button className="btn-primary" onClick={onClose}>

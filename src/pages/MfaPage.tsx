@@ -63,7 +63,7 @@ export default function MfaPage() {
       const msg = (err as Error).message;
       setError(
         mfaStep === 'setup' && msg.startsWith('Code incorrect')
-          ? 'Code refusé. Tape le code de l’entrée Kompaly que tu viens d’ajouter (celle d’un ancien compte supprimé ne marche plus), et vérifie que l’heure de ton téléphone est réglée sur automatique.'
+          ? 'Code refusé. Tape le code de l’entrée Kompaly que tu viens d’ajouter, et vérifie que l’heure de ton téléphone est en automatique.'
           : msg,
       );
       setCode('');
@@ -86,8 +86,8 @@ export default function MfaPage() {
           <h1 className="mt-4 text-[22px] font-semibold tracking-[-0.015em]">{isSetup ? 'Sécurise ton compte' : 'Code de sécurité'}</h1>
           <p className="mt-1 text-[13px] leading-relaxed text-stone-500">
             {isSetup
-              ? 'Dernière étape : associe ton téléphone. Même si quelqu’un découvre ton mot de passe, il ne pourra pas entrer sans lui.'
-              : 'Ouvre l’app où tu as ajouté Kompaly et tape le code à 6 chiffres affiché.'}
+              ? 'Dernière étape : associe ton téléphone pour protéger ton compte.'
+              : 'Tape le code à 6 chiffres affiché dans ton app d’authentification.'}
           </p>
 
           {isSetup && (
@@ -101,7 +101,7 @@ export default function MfaPage() {
                   </p>
                   {user?.email && (
                     <p className="mt-2 rounded-md bg-amber-50 px-2.5 py-2 text-[12.5px] leading-relaxed text-amber-900">
-                      Ce QR code est celui du compte <strong className="[overflow-wrap:anywhere]">{user.email}</strong>. Si ton iPhone propose une autre adresse, ne la choisis pas : range le code dans l’identifiant {user.email} (ou crée-le), sinon le code de l’autre compte serait remplacé.
+                      QR code du compte <strong className="[overflow-wrap:anywhere]">{user.email}</strong>. Si ton iPhone propose une autre adresse, choisis plutôt celle-ci (ou crée-la) : sinon le code de l’autre compte serait remplacé.
                     </p>
                   )}
                   <div className="mt-3 flex h-[180px] w-[180px] items-center justify-center rounded-xl border border-stone-200 bg-surface p-2.5">
@@ -126,7 +126,7 @@ export default function MfaPage() {
                 <div className="min-w-0 flex-1">
                   <p className="font-medium">Garde ta clé de secours</p>
                   <p className="mt-0.5 text-stone-500">
-                    Si tu perds ton téléphone, cette clé permet de réinstaller tes codes sur un nouveau (option « Saisir une clé » de l’app). Sans elle, le compte reste bloqué.
+                    Elle sert si tu perds ton téléphone. Sans elle, ton compte reste bloqué.
                   </p>
                   {enrollment && (
                     <>
@@ -137,7 +137,7 @@ export default function MfaPage() {
                             if (!navigator.clipboard) return failed();
                             navigator.clipboard.writeText(enrollment.secret).then(() => {
                               setKeptKey(true);
-                              toast('Clé copiée. Colle-la dans un endroit sûr (gestionnaire de mots de passe, note privée).', 'success');
+                              toast('Clé copiée : colle-la dans un endroit sûr.', 'success');
                             }, failed);
                           }}>
                           Copier
@@ -148,7 +148,7 @@ export default function MfaPage() {
                       </div>
                       <label className="mt-2 flex cursor-pointer items-center gap-2 text-[12.5px] text-stone-600">
                         <input type="checkbox" checked={keptKey} onChange={e => setKeptKey(e.target.checked)} className="h-4 w-4 shrink-0 accent-[var(--color-ink)]" />
-                        Je l’ai gardée en lieu sûr (gestionnaire de mots de passe, papier…)
+                        Je l’ai gardée en lieu sûr
                       </label>
                     </>
                   )}
@@ -192,11 +192,11 @@ export default function MfaPage() {
           </p>
           {!isSetup && (
             <p className="mt-2 text-center text-[12px] leading-relaxed text-stone-500">
-              Avec ta clé de secours, ajoute Kompaly dans l’app d’authentification de ton nouveau téléphone (« Saisir une clé »), puis tape le code. Sinon, écris au support depuis la page{' '}
+              Avec ta clé de secours : « Saisir une clé » dans l’app de ton nouveau téléphone, puis tape le code. Sinon, écris au support (page{' '}
               <a href="/mentions-legales" className="underline decoration-stone-300 underline-offset-2">
                 Mentions légales
               </a>
-              .
+              ).
             </p>
           )}
         </form>

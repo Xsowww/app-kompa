@@ -202,7 +202,7 @@ export async function copyInviteLink(secret: string, kind: GroupKind) {
   const link = inviteLink(secret, kind);
   try {
     await navigator.clipboard.writeText(link);
-    toast('Lien d’invitation copié : envoie-le à qui tu veux', 'success');
+    toast('Lien d’invitation copié', 'success');
   } catch {
     toast(`Lien d’invitation : ${link}`);
   }
@@ -402,7 +402,7 @@ export async function updateEvent(id: string, patch: Partial<NewGroupEvent>) {
 }
 
 export async function deleteEvent(id: string) {
-  changed(await db().from('group_events').delete().eq('id', id).select('id'), 'Seul l’auteur de la séance ou le propriétaire peut l’annuler.');
+  changed(await db().from('group_events').delete().eq('id', id).select('id'), 'Seul l’auteur ou le propriétaire peut le faire.');
 }
 
 export async function setAttendance(groupId: string, eventId: string, coming: boolean) {

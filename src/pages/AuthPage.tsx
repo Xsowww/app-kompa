@@ -12,6 +12,9 @@ import { prefetchCaptcha } from '../lib/captcha';
 import Character from '../copilot/Character';
 import Logo from '../components/Logo';
 import FileIcon from '../components/FileIcon';
+import OAuthButtons from '../components/OAuthButtons';
+import PasswordStrength from '../components/PasswordStrength';
+import LanguagePicker from '../components/LanguagePicker';
 import { LEGAL_LINKS } from './legal/links';
 
 function Showcase() {
@@ -29,7 +32,6 @@ function Showcase() {
         <h2 className="mt-2 text-[32px] font-extrabold leading-[1.05] tracking-[-0.035em]">
           Ton agenda, tes notes et tes fichiers, enfin au même endroit.
         </h2>
-        <p className="mt-3 text-[14px] leading-relaxed text-stone-500">Un espace calme pour t’organiser, et Kompaly pour te rappeler ce qui compte.</p>
       </div>
 
       {/* Product preview */}
@@ -92,11 +94,11 @@ function Showcase() {
 type Mode = 'login' | 'register' | 'forgot' | 'reset';
 type Field = 'name' | 'email' | 'password' | 'code' | 'agreed' | 'age';
 
-const COPY: Record<Mode, { title: string; subtitle: string; submit: string }> = {
-  login: { title: 'Connexion', subtitle: 'Retrouve ton espace là où tu l’as laissé.', submit: 'Se connecter' },
-  register: { title: 'Créer un compte', subtitle: 'Gratuit, et prêt en quelques secondes.', submit: 'Créer mon compte' },
-  forgot: { title: 'Mot de passe oublié', subtitle: 'On t’envoie un lien pour en choisir un nouveau.', submit: 'Envoyer le lien' },
-  reset: { title: 'Nouveau mot de passe', subtitle: 'Choisis ton nouveau mot de passe.', submit: 'Enregistrer' },
+const COPY: Record<Mode, { title: string; subtitle?: string; submit: string }> = {
+  login: { title: 'Connexion', submit: 'Se connecter' },
+  register: { title: 'Créer un compte', subtitle: 'Gratuit, prêt en quelques secondes.', submit: 'Créer mon compte' },
+  forgot: { title: 'Mot de passe oublié', subtitle: 'On t’envoie un lien pour le changer.', submit: 'Envoyer le lien' },
+  reset: { title: 'Nouveau mot de passe', submit: 'Enregistrer' },
 };
 
 export default function AuthPage({ mode }: { mode: Mode }) {
@@ -148,17 +150,17 @@ export default function AuthPage({ mode }: { mode: Mode }) {
     if (isRegister && name.trim().length < 2) return fail('name', 'Ton prénom doit contenir au moins 2 caractères.');
     if (needsEmail && !/^\S+@\S+\.\S+$/.test(email)) return fail('email', email.trim() ? 'Adresse e-mail invalide.' : 'Entre ton adresse e-mail.');
     if ((isRegister || mode === 'reset') && (password.length < 8 || !/\p{L}/u.test(password) || !/\d/.test(password))) {
-      return fail('password', 'Le mot de passe doit contenir au moins 8 caractères, avec des lettres et des chiffres.');
+      return fail('password', 'Au moins 8 caractères, avec des lettres et des chiffres.');
     }
-    if (mode === 'reset' && needsCode && !/^\d{6}$/.test(code.replace(/\s/g, ''))) return fail('code', 'Entre le code à 6 chiffres affiché sur ton téléphone.');
-    if (isRegister && !agreed) return fail('agreed', 'Accepte les conditions d’utilisation pour créer ton compte.');
-    if (isRegister && !oldEnough) return fail('age', 'Kompaly est ouvert dès 15 ans. Avant, il faut l’accord d’un parent.');
+    if (mode === 'reset' && needsCode && !/^\d{6}$/.test(code.replace(/\s/g, ''))) return fail('code', 'Entre le code à 6 chiffres de ton téléphone.');
+    if (isRegister && !agreed) return fail('agreed', 'Accepte les conditions pour continuer.');
+    if (isRegister && !oldEnough) return fail('age', 'Kompaly est ouvert dès 15 ans, ou avant avec l’accord d’un parent.');
     if (mode === 'login' && !password) return fail('password', 'Entre ton mot de passe.');
     setBusy(true);
     try {
       if (mode === 'forgot') {
         await requestPasswordReset(email);
-        setInfo('Si un compte existe avec cette adresse, un e-mail vient de partir. Pense à regarder dans les spams.');
+        setInfo('Si un compte existe, un e-mail vient de partir (regarde aussi les spams).');
         return;
       }
       if (mode === 'reset') {
@@ -172,9 +174,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
         setRememberMe(true); // a new account stays signed in on the device it was created on
         const user = await register(name, email, password);
         if (!user) {
-          setInfo(
-            `Presque fini ! Un e-mail vient de partir à ${email.trim()}. Ouvre-le sur cet appareil (en laissant ce site ouvert) et clique sur le lien : la connexion se fera automatiquement.`,
-          );
+          setInfo(`Presque fini ! Ouvre l’e-mail envoyé à ${email.trim()} sur cet appareil et clique sur le lien.`);
           setCanResend(true);
           setPassword('');
           return;
@@ -204,11 +204,11 @@ export default function AuthPage({ mode }: { mode: Mode }) {
   async function resend() {
     setError('');
     setInfo('');
-    if (!/^\S+@\S+\.\S+$/.test(email)) return setError('Entre ton adresse e-mail ci-dessus, puis clique à nouveau sur « Renvoyer l’e-mail ».');
+    if (!/^\S+@\S+\.\S+$/.test(email)) return setError('Entre ton e-mail ci-dessus, puis réessaie.');
     setBusy(true);
     try {
       await resendConfirmation(email);
-      setInfo('Nouvel e-mail envoyé. Ouvre-le sur cet appareil, dans ce navigateur, et clique sur le lien une seule fois.');
+      setInfo('E-mail renvoyé. Ouvre-le sur cet appareil et clique sur le lien.');
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -239,9 +239,9 @@ export default function AuthPage({ mode }: { mode: Mode }) {
     if (needsCredentials(a)) return askPassword(reloginHint(a));
     setSwitching(a.id);
     try {
-      if ((await useAuth.getState().switchAccount(a.id)) === 'credentials') askPassword('La session de ce compte a expiré : entre de nouveau ton mot de passe.');
+      if ((await useAuth.getState().switchAccount(a.id)) === 'credentials') askPassword('Session expirée : entre ton mot de passe.');
     } catch {
-      askPassword('Impossible d’ouvrir ce compte directement : entre ton mot de passe.');
+      askPassword('Entre ton mot de passe pour ouvrir ce compte.');
     } finally {
       setSwitching(null);
     }
@@ -250,11 +250,14 @@ export default function AuthPage({ mode }: { mode: Mode }) {
   return (
     <div className="flex h-full overflow-y-auto">
       <main className="flex flex-1 flex-col px-6 py-6 sm:px-10">
-        <Logo />
+        <div className="flex items-center justify-between">
+          <Logo />
+          <LanguagePicker />
+        </div>
         <div className="flex flex-1 items-center justify-center py-10">
           <form onSubmit={onSubmit} noValidate className="enter w-full max-w-[340px]">
             <h1 className="text-[30px] font-extrabold tracking-[-0.035em]">{adding ? 'Ajouter un compte' : copy.title}</h1>
-            <p className="mt-1 text-[13px] text-stone-500">{adding ? 'Connecte-toi à un autre compte : tu pourras passer de l’un à l’autre en un clic.' : copy.subtitle}</p>
+            {(adding || copy.subtitle) && <p className="mt-1 text-[13px] text-stone-500">{adding ? 'Tu passeras de l’un à l’autre en un clic.' : copy.subtitle}</p>}
 
             {mode === 'login' && hasSaved && (
               <section aria-labelledby="comptes-appareil" className="mt-6">
@@ -277,6 +280,18 @@ export default function AuthPage({ mode }: { mode: Mode }) {
               </section>
             )}
 
+            {cloudEnabled && !adding && (mode === 'login' || isRegister) && (
+              <OAuthButtons remember={isRegister || remember} onError={m => fail(null, m)}>
+                <p className="mt-2 text-[11.5px] leading-snug text-stone-500">
+                  En continuant, tu acceptes les{' '}
+                  <Link to="/conditions" target="_blank" className="underline decoration-stone-300 underline-offset-2 hover:text-ink">
+                    conditions
+                  </Link>{' '}
+                  et confirmes avoir 15&nbsp;ans ou plus.
+                </p>
+              </OAuthButtons>
+            )}
+
             <div className="mt-7 space-y-3.5">
               {isRegister && (
                 <label className="block">
@@ -296,7 +311,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
                 // A div, not a label: the eye button and « Oublié ? » must not end up in the field's name.
                 <div>
                   <span className="mb-1.5 flex items-center text-[12px] font-medium text-stone-600">
-                    <label htmlFor="auth-password">{mode === 'reset' ? 'Nouveau mot de passe' : 'Mot de passe'}</label>
+                    <label htmlFor="auth-password">Mot de passe</label>
                     {mode === 'login' && cloudEnabled && (
                       <Link to="/mot-de-passe-oublie" className="ml-auto font-normal text-stone-500 hover:text-ink">
                         Oublié ?
@@ -309,6 +324,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
                         passwordRef.current = el;
                         refs.current.password = el;
                       }}
+                      aria-describedby={mode === 'login' ? undefined : 'password-strength'}
                       {...invalid('password')}
                       id="auth-password"
                       className="field w-full pr-10"
@@ -316,13 +332,13 @@ export default function AuthPage({ mode }: { mode: Mode }) {
                       value={password}
                       onChange={e => setPassword(e.target.value)}
                       autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                      placeholder={mode === 'login' ? undefined : '8 caractères, lettres et chiffres'}
                       autoFocus={mode === 'reset' || !!askedEmail}
                     />
                     <button type="button" onClick={() => setShow(s => !s)} className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center justify-center rounded p-1.5 text-stone-500 hover:text-stone-700 pointer-coarse:h-9 pointer-coarse:w-9" title={show ? 'Masquer le mot de passe' : 'Afficher le mot de passe'} aria-label={show ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}>
                       {show ? <EyeOff size={15} /> : <Eye size={15} />}
                     </button>
                   </span>
+                  {mode !== 'login' && <PasswordStrength id="password-strength" password={password} avoid={[name, email.split('@')[0]]} />}
                   {errAt('password')}
                 </div>
               )}
@@ -342,7 +358,6 @@ export default function AuthPage({ mode }: { mode: Mode }) {
                     onChange={e => setCode(e.target.value)}
                     placeholder="123456"
                   />
-                  <span className="mt-1 block text-[11.5px] text-stone-500">Ton compte est protégé par la double authentification : le code du téléphone est aussi demandé.</span>
                   {errAt('code')}
                 </label>
               )}
@@ -352,8 +367,8 @@ export default function AuthPage({ mode }: { mode: Mode }) {
               <label className="mt-4 flex cursor-pointer items-center gap-2.5 text-[12.5px] text-stone-600">
                 <input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} className="h-4 w-4 shrink-0 accent-[var(--color-ink)]" />
                 <span>
-                  Garder la session ouverte sur cet appareil
-                  <span className="block text-[11.5px] text-stone-500">Décoche sur un ordinateur partagé : la session se fermera avec l’onglet.</span>
+                  Rester connecté
+                  <span className="block text-[11.5px] text-stone-500">Décoche sur un ordinateur partagé.</span>
                 </span>
               </label>
             )}
@@ -408,7 +423,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
           </form>
         </div>
         <p className="text-[11px] text-stone-500">
-          {cloudEnabled ? 'Tes données sont chiffrées en transit et protégées : personne d’autre que toi n’y a accès.' : 'Tes données restent enregistrées sur cet appareil.'}
+          {cloudEnabled ? 'Tes données sont chiffrées et protégées.' : 'Tes données restent sur cet appareil.'}
           {LEGAL_LINKS.map(l => (
             <span key={l.to}>
               {'\u00a0· '}

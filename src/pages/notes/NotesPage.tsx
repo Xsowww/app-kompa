@@ -195,7 +195,7 @@ export default function NotesPage() {
   };
 
   const deleteFolder = async (f: NoteFolder) => {
-    if (!(await confirmAction(`Mettre le dossier « ${f.name} » à la corbeille ?`, 'Ses notes et sous-dossiers partent avec lui. Tu pourras les récupérer dans la corbeille.', 'Mettre à la corbeille'))) return;
+    if (!(await confirmAction(`Mettre le dossier « ${f.name} » à la corbeille ?`, 'Avec ses notes et sous-dossiers. Tu pourras les récupérer dans la corbeille.', 'Mettre à la corbeille'))) return;
     if (active?.folderId && isInside(active.folderId, f.id)) {
       flushNoteEditor();
       openNote(null);

@@ -2,6 +2,7 @@
 
 import { accessToken } from '../supabase';
 import { getSettings } from '../../store/settings';
+import { lang } from '../../i18n';
 
 export class CoursError extends Error {
   /** disabled | daily_limit | site_limit | rate_limited | unauthorized | network | timeout | … */
@@ -42,7 +43,7 @@ export interface Heard {
 
 /** One piece of sound (WAV) → what was said, times from the start of the piece. `hint`: words to expect, the end of what came before. */
 export const transcribe = (wav: Blob, hint: string) =>
-  call<{ segments: Heard[] }>('transcrire', { method: 'POST', headers: { 'Content-Type': 'audio/wav', 'X-Indice': encodeURIComponent(hint.slice(0, 600)) }, body: wav }, 60_000).then(r => r.segments ?? []);
+  call<{ segments: Heard[] }>('transcrire', { method: 'POST', headers: { 'Content-Type': 'audio/wav', 'X-Indice': encodeURIComponent(hint.slice(0, 600)), 'X-Langue': lang }, body: wav }, 60_000).then(r => r.segments ?? []);
 
 export interface WrittenPart {
   title: string;
@@ -58,7 +59,7 @@ export const alertOtherDevices = (body: { title: string; body: string; except?: 
 export const serverState = () => call<{ transcription: boolean; redaction: boolean }>('etat', { method: 'GET' }, 10_000);
 
 function json(body: unknown): RequestInit {
-  return { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
+  return { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...(body as object), lang }) };
 }
 
 /** Waits until the server accepts again (rate limit), or `ms`, but stops early when `cancelled()`. */

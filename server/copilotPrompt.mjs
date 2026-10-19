@@ -86,8 +86,17 @@ function personaBlock(body) {
   return parts.join('\n\n');
 }
 
+const LANGUAGES = { en: 'English', es: 'español', de: 'Deutsch', it: 'italiano' };
+export const LANG_CODES = ['fr', ...Object.keys(LANGUAGES)];
+
+/** The site is in another language than French: the AI answers in it (the prompts stay in French). */
+export function languageLine(lang) {
+  const name = Object.hasOwn(LANGUAGES, lang) ? LANGUAGES[lang] : null;
+  return name ? `\n\nLangue : l'utilisateur lit le site en ${name}. Écris toute ta réponse en ${name} (garde tels quels les marqueurs techniques demandés, en majuscules).` : '';
+}
+
 export function chatSystem(body) {
-  return `${BASE}\n\n${personaBlock(body)}`;
+  return `${BASE}\n\n${personaBlock(body)}${languageLine(body?.lang)}`;
 }
 
 const NUDGE_TASKS = {
@@ -98,7 +107,7 @@ const NUDGE_TASKS = {
 
 export function nudgeSystem(body) {
   const task = NUDGE_TASKS[body?.kind] ?? NUDGE_TASKS.remark;
-  return `${BASE}\n\n${personaBlock(body)}\n\n${task}`;
+  return `${BASE}\n\n${personaBlock(body)}\n\n${task}${languageLine(body?.lang)}`;
 }
 
 export const NUDGE_MAX_CHARS = { remark: 320, brief: 520, review: 640 };

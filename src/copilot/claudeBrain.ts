@@ -5,6 +5,7 @@
 
 import type Anthropic from '@anthropic-ai/sdk';
 import { fmt, todayKey } from '../lib/dates';
+import { lang } from '../i18n';
 import { useCopilot, type CopilotLink, type CopilotOffer } from '../store/copilot';
 import { useCalendar, CATEGORIES, CATEGORY_LABELS, guessCategory, type EventCategory } from '../store/calendar';
 import type { Usage } from '../lib/usage';
@@ -52,7 +53,7 @@ export { aiPausedUntil } from './aiPause';
 /** Personality and preferences, sent with every request (the server builds the prompt). */
 function persona() {
   const { persona, personaNotes } = getSettings();
-  return { persona, personaNotes: personaNotes.slice(0, 600) };
+  return { persona, personaNotes: personaNotes.slice(0, 600), lang };
 }
 
 async function post<T>(path: string, body: unknown, timeoutMs = 90_000): Promise<T> {
@@ -430,18 +431,18 @@ export function describeApiError(e: unknown): string {
     const minutes = Math.max(1, Math.ceil((until - Date.now()) / 60_000));
     const pause = minutes === 1 ? 'une minute' : minutes === 2 ? 'deux minutes' : minutes === 3 ? 'trois minutes' : `${minutes} minutes`;
     return until - Date.now() > 10 * 60_000
-      ? `L’IA gratuite a atteint sa limite pour l’instant : je passe en mode simple jusqu’à ${fmt(new Date(until), "HH'h'mm")}.`
+      ? `L’IA gratuite a atteint sa limite : je passe en mode simple jusqu’à ${fmt(new Date(until), "HH'h'mm")}.`
       : `L’IA gratuite est très demandée : je passe en mode simple ${until ? pause : 'un instant'}.`;
   }
-  if (code === 'daily_limit') return 'Tu as utilisé toutes tes questions à l’IA pour aujourd’hui : je passe en mode simple jusqu’à minuit.';
-  if (code === 'site_limit') return 'L’IA gratuite a atteint sa limite du jour pour tout le site : je passe en mode simple jusqu’à minuit.';
-  if (code === 'too_large') return 'C’est trop long pour l’IA gratuite d’un coup : demande-moi une partie précise, ou ouvre une nouvelle conversation.';
+  if (code === 'daily_limit') return 'Tu as utilisé tes questions à l’IA du jour : je passe en mode simple jusqu’à minuit.';
+  if (code === 'site_limit') return 'L’IA gratuite a atteint sa limite du jour : je passe en mode simple jusqu’à minuit.';
+  if (code === 'too_large') return 'C’est trop long pour l’IA d’un coup : demande une partie précise ou ouvre une nouvelle conversation.';
   // The AI doesn't answer: simple mode for a while instead of the same apology at every message.
   if (code === 'bad_key') {
     pauseAi(30 * 60, 'error');
-    return 'Ma clé d’accès à l’IA ne marche pas (à vérifier dans la configuration du serveur) : je passe en mode simple.';
+    return 'Ma clé d’accès à l’IA ne marche pas (à vérifier sur le serveur) : je passe en mode simple.';
   }
   pauseAi(2 * 60, 'error');
   if (code === 'network' || code === 'timeout') return 'J’ai perdu la connexion à l’IA : je passe en mode simple deux minutes.';
-  return 'L’IA a un petit souci technique : je passe en mode simple deux minutes.';
+  return 'L’IA a un souci technique : je passe en mode simple deux minutes.';
 }

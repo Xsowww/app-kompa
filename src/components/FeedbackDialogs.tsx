@@ -27,7 +27,7 @@ function FeedbackForm({ initial }: { initial: FeedbackKind }) {
     try {
       const how = await sendFeedback(kind, text);
       close();
-      toast(how === 'mail' ? 'Ton application d’e-mail s’ouvre avec le message prêt à partir.' : 'Merci ! Ton message est bien arrivé.', 'success');
+      toast(how === 'mail' ? 'Ton application d’e-mail s’ouvre avec le message prêt.' : 'Merci ! Ton message est bien arrivé.', 'success');
     } catch (err) {
       toast((err as Error).message, 'error');
       setBusy(false);
@@ -62,9 +62,6 @@ function FeedbackForm({ initial }: { initial: FeedbackKind }) {
       <label htmlFor="feedback-text" className="mt-4 block text-[13px] font-medium">
         {bug ? 'Que s’est-il passé ?' : 'Ton message'}
       </label>
-      <p className="mt-0.5 text-[12px] text-stone-500">
-        {bug ? 'Ce que tu faisais, ce que tu attendais, et ce qui s’est passé à la place.' : 'Ce qui te plaît, ce qui manque, ce qui te gêne : tout est utile.'}
-      </p>
       <textarea
         id="feedback-text"
         autoFocus
@@ -74,7 +71,7 @@ function FeedbackForm({ initial }: { initial: FeedbackKind }) {
         onChange={e => setText(e.target.value)}
         placeholder={bug ? 'J’ai ajouté un fichier dans le Drive, il n’apparaît pas…' : 'J’aimerais pouvoir…'}
       />
-      <p className="mt-2 text-[11.5px] text-stone-500">On joint la page ouverte et le type d’appareil (navigateur, système, taille d’écran), rien d’autre.</p>
+      <p className="mt-2 text-[11.5px] text-stone-500">On joint la page ouverte et le type d’appareil, rien d’autre.</p>
       <div className="mt-5 flex justify-end gap-2">
         <button type="button" className="btn-secondary" onClick={close}>
           Annuler
@@ -115,7 +112,7 @@ function ReportForm({ target, onClose }: { target: ReportTarget; onClose: () => 
     try {
       await reportGroupItem(target.kind, target.id, reason, text);
       onClose();
-      toast('Merci, le signalement est envoyé. Il sera examiné rapidement.', 'success');
+      toast('Merci, signalement envoyé.', 'success');
     } catch (err) {
       toast((err as Error).message, 'error');
       setBusy(false);
@@ -146,7 +143,7 @@ function ReportForm({ target, onClose }: { target: ReportTarget; onClose: () => 
         value={text}
         onChange={e => setText(e.target.value)}
       />
-      <p className="mt-2 text-[11.5px] text-stone-500">Les autres membres ne savent pas qui a signalé. L’administrateur voit ton signalement et une copie du contenu concerné.</p>
+      <p className="mt-2 text-[11.5px] text-stone-500">Les membres ne savent pas qui a signalé. L’administrateur voit une copie du contenu.</p>
       <div className="mt-5 flex justify-end gap-2">
         <button type="button" className="btn-secondary" onClick={onClose}>
           Annuler

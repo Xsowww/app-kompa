@@ -1,16 +1,17 @@
 import type { FileCategory } from '../store/drive';
+import { t } from '../i18n';
 
 const BADGE: Record<Exclude<FileCategory, 'folder'>, { label: string; color: string }> = {
   image: { label: 'IMG', color: '#c2417a' },
   pdf: { label: 'PDF', color: '#d9483b' },
   video: { label: 'VID', color: '#7a5ad6' },
-  audio: { label: 'SON', color: '#1f8fa8' },
+  audio: { label: t('SON'), color: '#1f8fa8' },
   text: { label: 'TXT', color: '#6f6c66' },
   doc: { label: 'DOC', color: '#3b6fd8' },
   sheet: { label: 'XLS', color: '#2f9e6b' },
   slides: { label: 'PPT', color: '#e0702f' },
   archive: { label: 'ZIP', color: '#b08417' },
-  other: { label: 'FIC', color: '#8a867e' },
+  other: { label: t('FIC'), color: '#8a867e' },
 };
 
 /** Blend a #rrggbb colour with white (t = share of white). */

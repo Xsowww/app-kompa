@@ -5,11 +5,10 @@ import { useGroups } from '../../store/groups';
 import { toast } from '../../store/ui';
 import { createNote, groupError, summary, type Group, type GroupNote } from '../../lib/groups';
 import { cx, relativeTime } from '../../lib/utils';
-import { useGroupWords, useMemberName, useRights } from './util';
+import { useMemberName, useRights } from './util';
 import GroupNoteEditor from './GroupNoteEditor';
 
 export default function GroupNotes({ group }: { group: Group }) {
-  const w = useGroupWords();
   const [params, setParams] = useSearchParams();
   const notes = useGroups(s => s.notes[group.id]);
   const nameOf = useMemberName(group.id);
@@ -89,12 +88,7 @@ export default function GroupNotes({ group }: { group: Group }) {
         {notes && notes.length === 0 && (
           <div className="card flex flex-col items-center px-6 py-12 text-center">
             <FileText size={26} strokeWidth={1.5} className="text-stone-300" />
-            <p className="mt-3 text-[14px] font-medium">Pas encore de note dans {w.this}</p>
-            <p className="mt-1 max-w-[380px] text-[13px] text-stone-500">
-              {canEdit
-                ? w.notesHint
-                : `Les notes écrites par les éditeurs ${w.of} apparaîtront ici.`}
-            </p>
+            <p className="mt-3 text-[14px] font-medium">Aucune note pour l’instant.</p>
           </div>
         )}
         {notes && notes.length > 0 && (

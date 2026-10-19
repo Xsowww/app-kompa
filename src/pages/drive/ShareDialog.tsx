@@ -59,11 +59,11 @@ export default function ShareDialog({ item, onClose }: { item: DriveItem; onClos
 
       {!cloudEnabled ? (
         <p className="mt-4 rounded-lg bg-stone-50 px-3.5 py-3 text-[13px] leading-relaxed text-stone-600">
-          Tes fichiers sont enregistrés uniquement dans ce navigateur. Le partage par lien a besoin de la version en ligne de Kompaly, où les fichiers sont stockés sur le serveur.
+          Le partage par lien n’existe que dans la version en ligne de Kompaly.
         </p>
       ) : (
         <>
-          <p className="mt-4 text-[13px] text-stone-600">Toute personne qui a le lien pourra télécharger ce fichier, sans compte, jusqu’à son expiration.</p>
+          <p className="mt-4 text-[13px] text-stone-600">Toute personne qui a le lien pourra télécharger ce fichier, sans compte.</p>
           <p className="eyebrow mt-4">Le lien expire dans</p>
           <div className="mt-1.5 flex h-9 w-fit items-center rounded-lg bg-stone-100 p-0.5 text-[13px] pointer-coarse:h-10">
             {DURATIONS.map(d => (
@@ -85,7 +85,7 @@ export default function ShareDialog({ item, onClose }: { item: DriveItem; onClos
                 </button>
               </div>
               <p className="mt-1.5 text-[12px] text-stone-500">
-                Valable {link.days === 1 ? '24 heures' : `${link.days} jours`}. Mettre le fichier à la corbeille coupe le lien (en une minute au plus) ; le restaurer avant la date de fin le rouvre.
+                Valable {link.days === 1 ? '24 heures' : `${link.days} jours`}. Mettre le fichier à la corbeille coupe le lien.
               </p>
             </div>
           )}

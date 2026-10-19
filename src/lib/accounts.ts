@@ -7,6 +7,7 @@
 // STALE_DAYS asks for its credentials again: its session is dropped and only the e-mail is remembered.
 
 import { cloudEnabled } from './supabase';
+import { t } from '../i18n';
 
 const KEY = 'cop:accounts';
 export const STALE_DAYS = 14;
@@ -97,8 +98,8 @@ export function savedAccount(id: string) {
 /** Can it be opened with a click, or does it need its password again (unused too long, session gone)? */
 export const needsCredentials = (a: SavedAccount) => isStale(a) || !!a.signedOut || (cloudEnabled && !a.session);
 
-export const STALE_HINT = `Ce compte n’a pas servi depuis plus de ${STALE_DAYS}\u00a0jours : entre de nouveau ton mot de passe.`;
+export const STALE_HINT = t('Ce compte n’a pas servi depuis plus de {n}\u00a0jours : entre de nouveau ton mot de passe.', { n: STALE_DAYS });
 
 /** Why a saved account asks for its password again, in the words shown above the field. */
 export const reloginHint = (a: SavedAccount | undefined) =>
-  a?.signedOut ? 'Tu t’es déconnecté de ce compte : entre ton mot de passe pour le rouvrir.' : a && isStale(a) ? STALE_HINT : 'La session de ce compte a expiré : entre de nouveau ton mot de passe.';
+  a?.signedOut ? t('Tu t’es déconnecté de ce compte : entre ton mot de passe pour le rouvrir.') : a && isStale(a) ? STALE_HINT : t('La session de ce compte a expiré : entre de nouveau ton mot de passe.');

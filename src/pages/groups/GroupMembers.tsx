@@ -33,16 +33,16 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
   const agenda = group.kind === 'agenda';
   const newCode = async () => {
     const what = agenda ? 'lien' : 'code';
-    if (!(await confirmAction(`Créer un nouveau ${what} ?`, `L’ancien ${what} ne fonctionnera plus. Les membres actuels restent dans ${w.the}.`, `Nouveau ${what}`, false))) return;
+    if (!(await confirmAction(`Créer un nouveau ${what} ?`, `L’ancien ${what} ne marchera plus. Les membres restent.`, `Nouveau ${what}`, false))) return;
     await run(async () => {
       await (agenda ? regenerateAgendaToken(group.id) : regenerateCode(group.id));
       await useGroups.getState().refresh(group.id, ['members']);
-      toast(agenda ? 'Nouveau lien créé : l’ancien ne marche plus' : 'Nouveau code créé', 'success');
+      toast(agenda ? 'Nouveau lien créé' : 'Nouveau code créé', 'success');
     });
   };
 
   const kick = async (m: GroupMember) => {
-    if (!(await confirmAction(`Retirer ${m.name} ${w.of} ?`, `${agenda ? 'Ses événements restent' : 'Ses notes partagées restent'} dans ${w.the}. ${m.name} pourra revenir seulement avec ${agenda ? 'le lien' : 'le code'}.`, 'Retirer'))) return;
+    if (!(await confirmAction(`Retirer ${m.name} ${w.of} ?`, `${agenda ? 'Ses événements restent' : 'Ses notes restent'}. ${m.name} pourra revenir avec ${agenda ? 'le lien' : 'le code'}.`, 'Retirer'))) return;
     await run(async () => {
       await removeMember(group.id, m.userId);
       await useGroups.getState().refresh(group.id, ['members']);
@@ -60,10 +60,10 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
   const leave = async () => {
     const alone = (members?.length ?? 1) <= 1;
     const message = alone
-      ? `Il n’y a que toi, donc tout sera supprimé : ${w.the}${agenda ? '' : ', ses notes, ses fichiers'} et ses ${w.meet.many}.`
+      ? `Il n’y a que toi : tout sera supprimé (${w.the}${agenda ? '' : ', ses notes, ses fichiers'} et ses ${w.meet.many}).`
       : isOwner
         ? `Le membre le plus ancien deviendra propriétaire. Tu pourras revenir avec ${agenda ? 'le lien' : 'le code'}.`
-        : `${agenda ? 'Tes événements restent' : 'Tes notes partagées restent'} dans ${w.the}. Tu pourras revenir avec ${agenda ? 'le lien' : 'le code'}.`;
+        : `${agenda ? 'Tes événements restent' : 'Tes notes restent'}. Tu pourras revenir avec ${agenda ? 'le lien' : 'le code'}.`;
     if (!(await confirmAction(`Quitter « ${group.name} » ?`, message, 'Quitter'))) return;
     await run(async () => {
       await leaveGroup(group.id, alone);
@@ -74,7 +74,7 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
   };
 
   const destroy = async () => {
-    if (!(await confirmAction(`Supprimer « ${group.name} » ?`, `${w.The}${agenda ? '' : ', ses notes partagées, ses fichiers'} et ses ${w.meet.many} : tout sera supprimé pour tous les membres. Action définitive.`, `Supprimer ${w.the}`))) return;
+    if (!(await confirmAction(`Supprimer « ${group.name} » ?`, `${w.The}${agenda ? '' : ', ses notes, ses fichiers'} et ses ${w.meet.many} seront supprimés pour tous les membres, définitivement.`, `Supprimer ${w.the}`))) return;
     await run(async () => {
       await deleteGroup(group.id);
       await useGroups.getState().loadGroups();
@@ -89,7 +89,7 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
         <div className="card flex flex-wrap items-center gap-3 p-4">
           <div className="min-w-[220px] flex-1">
             <p className="text-[14px] font-medium">Inviter quelqu’un</p>
-            <p className="mt-0.5 text-[13px] text-stone-500">Envoie le lien : en cliquant dessus, la personne rejoint {w.the} (après s’être connectée). Tu recevras une notification.</p>
+            <p className="mt-0.5 text-[13px] text-stone-500">Envoie-lui le lien.</p>
           </div>
           <div className="flex gap-1.5">
             <button className="btn-primary h-8 px-3" onClick={() => void copyInviteLink(code, 'agenda')}>
@@ -106,7 +106,7 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
         <div className="card flex flex-wrap items-center gap-4 p-4">
           <div className="min-w-[220px] flex-1">
             <p className="text-[14px] font-medium">Inviter quelqu’un</p>
-            <p className="mt-0.5 text-[13px] text-stone-500">Donne ce code : il suffit de le saisir dans «&nbsp;Rejoindre {w.a}&nbsp;».</p>
+            <p className="mt-0.5 text-[13px] text-stone-500">À saisir dans «&nbsp;Rejoindre {w.a}&nbsp;».</p>
           </div>
           <span className="rounded-lg border border-dashed border-stone-300 bg-stone-50 px-3 py-1.5 font-mono text-[20px] font-semibold tracking-[0.25em]">{code}</span>
           <div className="flex gap-1.5">
@@ -121,11 +121,11 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
           </div>
         </div>
       ) : (
-        code === null && <p className="card px-4 py-3 text-[13px] text-stone-500">Tu n’as pas le droit d’inviter dans {w.this} : demande au propriétaire.</p>
+        code === null && <p className="card px-4 py-3 text-[13px] text-stone-500">Pour inviter quelqu’un, demande au propriétaire.</p>
       )}
       {!isOwner && mine && (
         <p className="mt-3 text-[13px] text-stone-500">
-          Tu es {mine.role === 'lecteur' ? `lecteur dans ${w.this} : tu peux ${agenda ? 'tout consulter' : `tout lire et dire si tu viens aux ${w.meet.many}`}` : `éditeur dans ${w.this} : tu peux ajouter, modifier et supprimer ${agenda ? 'des' : 'notes, fichiers et'} ${w.meet.many}`}.
+          {mine.role === 'lecteur' ? 'Tu es lecteur : tu vois tout, sans rien modifier.' : 'Tu es éditeur : tu peux ajouter, modifier et supprimer.'}
         </p>
       )}
 

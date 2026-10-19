@@ -95,7 +95,11 @@ create policy "mon drive" on public.drive_items for all to authenticated
 create or replace function public.handle_new_user() returns trigger
 language plpgsql security definer set search_path = '' as $$
 begin
-  insert into public.profiles (id, name) values (new.id, coalesce(new.raw_user_meta_data ->> 'name', ''));
+  -- Google gives full_name, Apple sometimes nothing: the first name only, like the sign-up form.
+  insert into public.profiles (id, name) values (new.id, left(coalesce(
+    nullif(btrim(new.raw_user_meta_data ->> 'name'), ''),
+    split_part(coalesce(new.raw_user_meta_data ->> 'full_name', new.raw_user_meta_data ->> 'given_name', ''), ' ', 1)
+  ), 60));
   return new;
 end;
 $$;

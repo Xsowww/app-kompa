@@ -1,6 +1,7 @@
 import { Ban, Check } from 'lucide-react';
 import { FOLDER_COLORS } from '../store/drive';
 import { cx } from '../lib/utils';
+import { t } from '../i18n';
 
 /**
  * Row of colour dots for folders (Drive and notes); `value` undefined when the selected folders differ.
@@ -9,11 +10,11 @@ import { cx } from '../lib/utils';
 export function FolderColorPicker({ value, onPick, defaultColor = '#9dbdec' }: { value: string | null | undefined; onPick: (key: string | null) => void; defaultColor?: string }) {
   return (
     <div className="px-2 pb-1.5 pt-1">
-      <p className="text-[11px] font-medium text-stone-500">Couleur du dossier</p>
+      <p className="text-[11px] font-medium text-stone-500">{t('Couleur du dossier')}</p>
       <div className="mt-1.5 flex flex-wrap items-center gap-1">
         {[null, ...Object.keys(FOLDER_COLORS)].map(key => {
           const on = value === key;
-          const label = key ? FOLDER_COLORS[key].label : 'Par défaut';
+          const label = key ? FOLDER_COLORS[key].label : t('Par défaut');
           return (
             <button
               key={key ?? 'none'}

@@ -189,7 +189,7 @@ export default function Dashboard() {
                 <span className="tabular shrink-0 text-[34px] font-extrabold leading-none tracking-[-0.04em] sm:text-[40px]">{nowEvent.start}</span>
               </span>
             ) : (
-              <span className="text-[22px] font-extrabold tracking-[-0.02em]">{todayEvents.length ? 'Plus rien de prévu aujourd’hui.' : 'Rien de prévu aujourd’hui.'} Ajouter quelque chose ?</span>
+              <span className="text-[22px] font-extrabold tracking-[-0.02em]">{todayEvents.length ? 'Plus rien de prévu.' : 'Rien de prévu.'} Ajouter quelque chose ?</span>
             )}
           </Link>
 
@@ -279,7 +279,7 @@ export default function Dashboard() {
               <div className="py-1.5 text-[13px] text-white/65">
                 <p>{words.noBig}</p>
                 <p className="mt-1 flex items-center gap-1 text-[12px]">
-                  <Flag size={12} className="shrink-0" /> Marque un événement comme important pour le voir ici.
+                  <Flag size={12} className="shrink-0" /> Marque un événement important pour le voir ici.
                 </p>
               </div>
             )}

@@ -1,3 +1,5 @@
+import { locale, t } from '../i18n';
+
 export function uid(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -17,8 +19,8 @@ export function normalize(s: string): string {
 }
 
 export function formatBytes(bytes = 0): string {
-  if (bytes < 1024) return `${bytes} o`;
-  const units = ['Ko', 'Mo', 'Go', 'To'];
+  if (bytes < 1024) return t('{n} o', { n: bytes });
+  const units = [t('Ko'), t('Mo'), t('Go'), t('To')];
   let v = bytes / 1024;
   let i = 0;
   while (v >= 1024 && i < units.length - 1) {
@@ -30,7 +32,9 @@ export function formatBytes(bytes = 0): string {
     v /= 1024;
     i++;
   }
-  return `${v.toFixed(v < 10 ? 1 : 0).replace(/\.0$/, '').replace('.', ',')} ${units[i]}`;
+  // The language's decimal mark (« 1,5 Mo », « 1.5 MB »).
+  const n = v.toFixed(v < 10 ? 1 : 0).replace(/\.0$/, '').replace('.', (1.5).toLocaleString(locale()).charAt(1));
+  return t('{n} {unit}', { n, unit: units[i] });
 }
 
 /** Plain text of some HTML, entities decoded (« & », not « &amp; »). Only for text, never to put back as HTML. */
@@ -63,12 +67,12 @@ export function uniqueName(name: string, taken: string[]): string {
 export function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const min = Math.round(diff / 60000);
-  if (min < 1) return 'à l’instant';
-  if (min < 60) return `il y a ${min} min`;
+  if (min < 1) return t('à l’instant');
+  if (min < 60) return t('il y a {n} min', { n: min });
   const h = Math.round(min / 60);
-  if (h < 24) return `il y a ${h} h`;
+  if (h < 24) return t('il y a {n} h', { n: h });
   const d = Math.round(h / 24);
-  if (d === 1) return 'hier';
-  if (d < 7) return `il y a ${d} jours`;
-  return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  if (d === 1) return t('hier');
+  if (d < 7) return t('il y a {n} jours', { n: d });
+  return new Date(iso).toLocaleDateString(locale(), { day: 'numeric', month: 'short' });
 }

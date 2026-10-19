@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { uid } from '../lib/utils';
+import { t } from '../i18n';
 
 export interface Toast {
   id: string;
@@ -72,13 +73,13 @@ export const useUi = create<UiState>((set, get) => ({
 
 export const toast = (text: string, tone?: Toast['tone'], action?: ToastAction) => useUi.getState().toast(text, tone, action);
 
-export function askText(title: string, defaultValue = '', confirmLabel = 'Valider', options: { fileName?: boolean; url?: boolean } = {}): Promise<string | null> {
+export function askText(title: string, defaultValue = '', confirmLabel = t('Valider'), options: { fileName?: boolean; url?: boolean } = {}): Promise<string | null> {
   return new Promise(resolve =>
     useUi.setState({ dialog: { kind: 'prompt', title, defaultValue, confirmLabel, ...options, resolve: v => resolve(typeof v === 'string' ? v : null) } }),
   );
 }
 
-export function confirmAction(title: string, message?: string, confirmLabel = 'Supprimer', danger = true): Promise<boolean> {
+export function confirmAction(title: string, message?: string, confirmLabel = t('Supprimer'), danger = true): Promise<boolean> {
   return new Promise(resolve =>
     useUi.setState({ dialog: { kind: 'confirm', title, message, confirmLabel, danger, resolve: v => resolve(v === true) } }),
   );

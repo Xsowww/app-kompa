@@ -297,7 +297,7 @@ function Running({ s }: { s: Session }) {
         ) : finishing ? (
           <Progress step={live.step} progress={live.progress} waiting={live.waiting} />
         ) : elsewhere ? (
-          <Banner tone="info">Cet enregistrement tourne dans un autre onglet de ce navigateur.</Banner>
+          <Banner tone="info">Enregistrement en cours dans un autre onglet.</Banner>
         ) : !live.hearing ? (
           <Banner tone="warn">
             <span className="min-w-48 flex-1">{live.problem ?? 'L’écoute s’est arrêtée.'} Rien n’est perdu.</span>
@@ -354,7 +354,6 @@ function Status({ s }: { s: Session }) {
   const bits: string[] = [];
   if (s.transcriptionOff) bits.push(s.transcriptionOff + (s.source === 'micro' && live.quickLane ? ' La suite est écrite par le navigateur.' : ''));
   else if (live.waiting) bits.push(`Le serveur est occupé : reprise dans ${live.waiting} s.`);
-  else if (live.queue > 1) bits.push(`${live.queue} morceaux en cours d’écriture.`);
   if (s.aiOff) bits.push(s.aiOff);
   else if (s.parts.length) bits.push(`${s.parts.length} partie${s.parts.length > 1 ? 's' : ''} ${w.ofDoc} déjà rédigée${s.parts.length > 1 ? 's' : ''}.`);
   if (!bits.length) return null;

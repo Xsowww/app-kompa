@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { uid, nowIso } from '../lib/utils';
 import { setStorageUser } from '../lib/userStorage';
 import { flushNow, stopSync, updateCloudProfile } from '../lib/cloudSync';
-import { supabase, checkPassword, remembered, authStorageKey, revokeSession } from '../lib/supabase';
+import { supabase, checkPassword, remembered, authStorageKey, revokeSession, OAUTH_KEY, type OAuthProvider } from '../lib/supabase';
 import { captchaToken } from '../lib/captcha';
 import { forgetAfterLogin } from '../lib/afterLogin';
 import { rememberAccount, updateSession, forgetAccount, lockAccount, savedAccount, needsCredentials } from '../lib/accounts';
@@ -19,6 +19,8 @@ export interface User {
   name: string;
   email: string;
   createdAt: string;
+  /** Signed up with Google or Apple and never chose a password. */
+  noPassword?: boolean;
 }
 
 interface StoredUser extends User {
@@ -88,6 +90,8 @@ interface AuthState {
   /** Returns null when the account must first be confirmed by e-mail (cloud mode). */
   register: (name: string, email: string, password: string) => Promise<User | null>;
   login: (email: string, password: string) => Promise<User>;
+  /** Leaves for Google or Apple, which come back to /connexion signed in. */
+  loginWith: (provider: OAuthProvider) => Promise<void>;
   logout: () => Promise<void>;
   /** Opens another account saved on this device; 'credentials' when its session is gone (unused too long, revoked…). */
   /** `to`: the page to open once switched (a notification of that account). */
@@ -139,11 +143,15 @@ function clearLocalCache(userId: string) {
 // ── Cloud mode helpers ──────────────────────────────────────────────────────
 
 function fromSupabase(u: SupabaseUser): User {
+  const meta = u.user_metadata ?? {};
+  const providers = (u.app_metadata?.providers as string[] | undefined) ?? ['email'];
+  const first = (meta.name as string | undefined) || ((meta.full_name ?? meta.given_name) as string | undefined)?.split(' ')[0];
   return {
     id: u.id,
     email: u.email ?? '',
-    name: (u.user_metadata?.name as string | undefined) || (u.email ?? '').split('@')[0],
+    name: first || (u.email ?? '').split('@')[0],
     createdAt: u.created_at,
+    ...(!providers.includes('email') && !meta.has_password && { noPassword: true }),
   };
 }
 
@@ -301,6 +309,16 @@ export const useAuth = create<AuthState>((set, get) => ({
     return user;
   },
 
+  async loginWith(provider) {
+    if (!supabase) return;
+    try {
+      sessionStorage.setItem(OAUTH_KEY, '1');
+    } catch {
+      /* storage blocked: an error on the way back reads as a link error */
+    }
+    await cloud(supabase.auth.signInWithOAuth({ provider, options: { redirectTo: `${location.origin}/connexion` } }));
+  },
+
   async login(email, password) {
     const mail = email.trim().toLowerCase();
     if (supabase) {
@@ -372,6 +390,8 @@ export const useAuth = create<AuthState>((set, get) => ({
 
   async verifyPassword(password) {
     const user = get().user;
+    // Google or Apple account: nothing to check, the session already needed the phone's code.
+    if (supabase && user?.noPassword) return;
     if (supabase) {
       const ok = await checkPassword(user?.email ?? '', password).catch((e: AuthError) => {
         throw new Error(authMessage(e));
@@ -389,7 +409,7 @@ export const useAuth = create<AuthState>((set, get) => ({
       throw (e as Error).message === 'Mot de passe incorrect.' ? new Error('Mot de passe actuel incorrect.') : e;
     }
     if (supabase) {
-      await cloud(supabase.auth.updateUser({ password: next }));
+      await cloud(supabase.auth.updateUser({ password: next, data: { has_password: true } }));
       return;
     }
     const users = readUsers();
@@ -501,7 +521,7 @@ export const useAuth = create<AuthState>((set, get) => ({
         if (error) throw new Error(/rate|too many/i.test(error.message) ? 'Trop de tentatives, attends un peu.' : 'Code incorrect. Tape le code Kompaly affiché en ce moment sur ton téléphone.');
       }
     }
-    await cloud(supabase.auth.updateUser({ password }));
+    await cloud(supabase.auth.updateUser({ password, data: { has_password: true } }));
     // Signed in for good now (the link plus, when needed, the phone's code).
     const mfaStep = await nextMfaStep();
     const user = get().user;

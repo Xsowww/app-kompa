@@ -23,7 +23,7 @@ const nav = (path: string) => `nav[aria-label="Navigation principale"] a[href="$
 const STEPS: Step[] = [
   {
     title: 'Bienvenue sur Kompaly',
-    text: () => 'En une minute, voici où trouver chaque chose. Tu peux passer l’intro à tout moment.',
+    text: () => 'Voici où trouver chaque chose, en une minute.',
   },
   {
     target: nav('/'),
@@ -39,12 +39,12 @@ const STEPS: Step[] = [
   {
     target: nav('/taches'),
     title: 'Les tâches',
-    text: () => 'Ta liste de choses à faire, avec une échéance si tu veux. Coche-les quand c’est fait.',
+    text: () => 'Ta liste de choses à faire. Coche-les quand c’est fait.',
   },
   {
     target: nav('/notes'),
     title: 'Les notes',
-    text: () => 'Prends tes notes, range-les en dossiers et relie-les à tes fichiers ou à tes événements.',
+    text: () => 'Prends tes notes et range-les en dossiers.',
   },
   {
     target: nav('/drive'),
@@ -64,7 +64,7 @@ const STEPS: Step[] = [
   {
     target: nav('/groupes'),
     title: 'Le travail à plusieurs',
-    text: u => `Crée ${u === 'travail' ? 'une équipe' : 'un groupe'} ou un agenda partagé, partage le code, et vous partagez notes, fichiers et rendez-vous.`,
+    text: u => `Crée ${u === 'travail' ? 'une équipe' : 'un groupe'} ou un agenda partagé, puis invite avec un code.`,
   },
   {
     target: 'input[aria-label^="Rechercher dans tes fichiers"], button[aria-label="Rechercher"]',
@@ -76,7 +76,7 @@ const STEPS: Step[] = [
     target: '[aria-controls="copilot-panel"] svg rect',
     enter: () => useCopilot.getState().pose === 'hidden' && useCopilot.getState().setPose('peek'),
     title: 'Kompaly, ton ami',
-    text: (_, touch) => `${touch ? 'Touche-le' : 'Clique sur lui'} pour discuter\u00a0: il répond, ajoute des événements et t’aide à t’organiser.`,
+    text: (_, touch) => `${touch ? 'Touche-le' : 'Clique sur lui'} pour discuter\u00a0: il t’aide à t’organiser.`,
   },
   {
     target: 'a[href="/profil"]',

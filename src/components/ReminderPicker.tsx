@@ -89,7 +89,7 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
     if (next === 'on') {
       void devicePushChanged();
       toast('Notifications activées sur cet appareil', 'success');
-    } else if (next === 'denied') toast('Notifications bloquées : autorise-les dans les réglages du site de ton navigateur.', 'error');
+    } else if (next === 'denied') toast('Notifications bloquées : autorise-les dans les réglages de ton navigateur.', 'error');
   };
 
   return (
@@ -253,9 +253,9 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
           ) : state === 'install' ? (
             <span>Sur iPhone, ajoute Kompaly à l’écran d’accueil (Partager › Sur l’écran d’accueil) pour recevoir les notifications.</span>
           ) : state === 'denied' ? (
-            <span>Notifications bloquées sur cet appareil : autorise-les dans les réglages du site de ton navigateur.</span>
+            <span>Notifications bloquées : autorise-les dans les réglages de ton navigateur.</span>
           ) : (
-            <span>Ce navigateur n’affiche pas de notifications : le rappel apparaîtra dans Kompaly quand il est ouvert.</span>
+            <span>Ce navigateur n’affiche pas de notifications : le rappel s’affichera seulement dans Kompaly.</span>
           )}
         </p>
       )}

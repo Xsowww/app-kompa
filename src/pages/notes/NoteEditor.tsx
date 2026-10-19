@@ -99,7 +99,7 @@ function Toolbar({ editor }: { editor: Editor }) {
           {btn('Séparateur', Minus, false, () => c().setHorizontalRule().run())}
           <label
         key="image"
-        title="Image (tu peux aussi la coller ou la glisser dans la note)"
+        title="Image (ou colle-la dans la note)"
         onMouseDown={e => e.preventDefault()}
         className={cx(btnClass, 'cursor-pointer text-stone-500 hover:bg-stone-100 hover:text-ink')}
       >

@@ -1,12 +1,10 @@
 import { Link, useLocation } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import Logo from '../components/Logo';
-import { useAuth } from '../store/auth';
 
 /** An address that leads nowhere (a typo, an old link): say so, and one way back. */
 export default function NotFoundPage() {
   const { pathname } = useLocation();
-  const signedIn = useAuth(s => !!s.user);
   return (
     <div className="flex min-h-dvh flex-col bg-paper px-4 py-6 sm:px-8">
       <header>
@@ -24,10 +22,6 @@ export default function NotFoundPage() {
           </svg>
           <p className="eyebrow mt-6">Erreur 404</p>
           <h1 className="mt-1.5 text-[26px] leading-tight">Cette page est introuvable</h1>
-          <p className="mt-3 text-[14px] leading-relaxed text-stone-600">
-            Le lien est peut-être incomplet, ou la page a changé d’adresse.
-            {signedIn && ' Tes notes, fichiers et tâches sont toujours là.'}
-          </p>
           <p className="mt-3 truncate rounded-lg bg-stone-50 px-3 py-1.5 font-mono text-[12px] text-stone-500" title={pathname}>
             kompaly.com{pathname}
           </p>

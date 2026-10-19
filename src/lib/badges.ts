@@ -38,14 +38,15 @@ import { getStorageUser } from './userStorage';
 import { toKey, todayKey, fromKey, weekStart } from './dates';
 import { normalize } from './utils';
 import type { Usage } from './usage';
+import { t } from '../i18n';
 
 export type BadgeFamily = 'regularite' | 'focus' | 'organisation' | 'contenu';
 
 export const FAMILIES: Record<BadgeFamily, { label: string; color: string }> = {
-  regularite: { label: 'Régularité', color: '#e8613c' },
-  focus: { label: 'Concentration', color: '#2f9e6b' },
-  organisation: { label: 'Organisation', color: '#d9483b' },
-  contenu: { label: 'Contenu', color: '#3b6fd8' },
+  regularite: { label: t('Régularité'), color: '#e8613c' },
+  focus: { label: t('Concentration'), color: '#2f9e6b' },
+  organisation: { label: t('Organisation'), color: '#d9483b' },
+  contenu: { label: t('Contenu'), color: '#3b6fd8' },
 };
 
 export interface Badge {
@@ -152,9 +153,9 @@ function examPrepared(events: CalendarEvent[]) {
 /* ── Definitions ─────────────────────────────────────────────── */
 
 const PREPARED: Record<Usage, string> = {
-  etudes: 'Des révisions planifiées avant un examen.',
-  travail: 'Du temps bloqué pour préparer une échéance.',
-  perso: 'Du temps bloqué pour préparer un grand jour.',
+  etudes: t('Des révisions planifiées avant un examen.'),
+  travail: t('Du temps bloqué pour préparer une échéance.'),
+  perso: t('Du temps bloqué pour préparer un grand jour.'),
 };
 
 export function computeBadges(d: BadgeData, seen: string[] = []): Badge[] {
@@ -188,55 +189,55 @@ export function computeBadges(d: BadgeData, seen: string[] = []): Badge[] {
   });
 
   const list: Omit<Badge, 'earned'>[] = [
-    streakBadge(3, 'Lancé', 'Une série de 3 jours avec au moins un élément du calendrier fait.', Sprout),
-    streakBadge(7, 'Semaine pleine', 'Une série de 7 jours d’affilée.', Flame),
-    streakBadge(30, 'Inarrêtable', 'Une série de 30 jours. Rien que ça.', Mountain),
-    focusBadge(1, 'Première session', 'Terminer une première session focus.', Timer),
-    focusBadge(10, 'Dans le rythme', '10 sessions focus terminées.', Hourglass),
-    focusBadge(50, 'Concentré', '50 sessions focus terminées.', Brain),
-    focusBadge(100, 'Moine copiste', '100 sessions focus terminées.', Gem),
+    streakBadge(3, t('Lancé'), t('Une série de 3 jours avec au moins un élément du calendrier fait.'), Sprout),
+    streakBadge(7, t('Semaine pleine'), t('Une série de 7 jours d’affilée.'), Flame),
+    streakBadge(30, t('Inarrêtable'), t('Une série de 30 jours. Rien que ça.'), Mountain),
+    focusBadge(1, t('Première session'), t('Terminer une première session focus.'), Timer),
+    focusBadge(10, t('Dans le rythme'), t('10 sessions focus terminées.'), Hourglass),
+    focusBadge(50, t('Concentré'), t('50 sessions focus terminées.'), Brain),
+    focusBadge(100, t('Moine copiste'), t('100 sessions focus terminées.'), Gem),
     {
-      id: 'heures-10', title: '10 heures', description: '10 heures de travail cumulées en sessions focus.', icon: Clock, family: 'focus',
+      id: 'heures-10', title: t('10 heures'), description: t('10 heures de travail cumulées en sessions focus.'), icon: Clock, family: 'focus',
       current: Math.floor(totalMinutes / 60), target: 10, earnedAt: minutesAt(600),
     },
     {
-      id: 'matinal', title: 'Lève-tôt', description: 'Une session focus commencée avant 8 h.', icon: Sunrise, family: 'focus',
+      id: 'matinal', title: t('Lève-tôt'), description: t('Une session focus commencée avant 8 h.'), icon: Sunrise, family: 'focus',
       current: early ? 1 : 0, target: 1, earnedAt: early?.startedAt,
     },
     {
-      id: 'nocturne', title: 'Oiseau de nuit', description: 'Une session focus commencée après 22 h.', icon: Moon, family: 'focus',
+      id: 'nocturne', title: t('Oiseau de nuit'), description: t('Une session focus commencée après 22 h.'), icon: Moon, family: 'focus',
       current: late ? 1 : 0, target: 1, earnedAt: late?.startedAt,
     },
     {
-      id: 'evenements-10', title: 'Bien tenu', description: '10 éléments du calendrier marqués comme faits.', icon: CalendarCheck, family: 'organisation',
+      id: 'evenements-10', title: t('Bien tenu'), description: t('10 éléments du calendrier marqués comme faits.'), icon: CalendarCheck, family: 'organisation',
       current: doneEvents, target: 10,
     },
     {
-      id: 'taches-10', title: 'Liste rayée', description: '10 tâches cochées dans ta liste.', icon: ListChecks, family: 'organisation',
+      id: 'taches-10', title: t('Liste rayée'), description: t('10 tâches cochées dans ta liste.'), icon: ListChecks, family: 'organisation',
       current: doneTodos.length, target: 10, earnedAt: nth(doneTodos, 10)?.doneAt,
     },
     {
-      id: 'semaine-complete', title: 'Semaine bouclée', description: 'Tout ce qui était prévu dans une semaine est fait (au moins 3 éléments).', icon: CheckCheck, family: 'organisation',
+      id: 'semaine-complete', title: t('Semaine bouclée'), description: t('Tout ce qui était prévu dans une semaine est fait (au moins 3 éléments).'), icon: CheckCheck, family: 'organisation',
       current: week.current, target: week.target, earnedAt: week.at,
     },
     {
-      id: 'examen-prepare', title: 'Coup d’avance', description: PREPARED[d.usage ?? 'etudes'] ?? PREPARED.etudes, icon: (d.usage ?? 'etudes') === 'etudes' ? GraduationCap : CalendarClock, family: 'organisation',
+      id: 'examen-prepare', title: t('Coup d’avance'), description: PREPARED[d.usage ?? 'etudes'] ?? PREPARED.etudes, icon: (d.usage ?? 'etudes') === 'etudes' ? GraduationCap : CalendarClock, family: 'organisation',
       current: prepared ? 1 : 0, target: 1, earnedAt: prepared,
     },
     {
-      id: 'note-1', title: 'Première note', description: 'Écrire une première note.', icon: NotebookPen, family: 'contenu',
+      id: 'note-1', title: t('Première note'), description: t('Écrire une première note.'), icon: NotebookPen, family: 'contenu',
       current: notes.length, target: 1, earnedAt: nth(notes, 1)?.createdAt,
     },
     {
-      id: 'notes-25', title: 'Bibliothèque', description: '25 notes rédigées.', icon: Library, family: 'contenu',
+      id: 'notes-25', title: t('Bibliothèque'), description: t('25 notes rédigées.'), icon: Library, family: 'contenu',
       current: notes.length, target: 25, earnedAt: nth(notes, 25)?.createdAt,
     },
     {
-      id: 'fichier-1', title: 'Premier fichier', description: 'Importer un premier fichier dans le Drive.', icon: FileUp, family: 'contenu',
+      id: 'fichier-1', title: t('Premier fichier'), description: t('Importer un premier fichier dans le Drive.'), icon: FileUp, family: 'contenu',
       current: files.length, target: 1, earnedAt: nth(files, 1)?.createdAt,
     },
     {
-      id: 'fichiers-50', title: 'Archiviste', description: '50 fichiers dans ton Drive.', icon: Archive, family: 'contenu',
+      id: 'fichiers-50', title: t('Archiviste'), description: t('50 fichiers dans ton Drive.'), icon: Archive, family: 'contenu',
       current: files.length, target: 50, earnedAt: nth(files, 50)?.createdAt,
     },
   ];
@@ -313,9 +314,9 @@ function evaluate() {
   settings.set({ badgesSeen: [...seen, ...fresh.map(b => b.id)] });
   const text =
     fresh.length === 1
-      ? `Nouveau badge : « ${fresh[0].title} ». ${fresh[0].description}`
-      : `${fresh.length} nouveaux badges : ${fresh.map(b => `« ${b.title} »`).join(', ')}.`;
-  useCopilot.getState().say({ text, mood: 'happy', links: [{ label: 'Voir mes badges', to: '/profil#badges' }] });
+      ? t('Nouveau badge : « {title} ». {description}', { title: fresh[0].title, description: fresh[0].description })
+      : t('{n} nouveaux badges : {list}.', { n: fresh.length, list: fresh.map(b => t('« {title} »', { title: b.title })).join(', ') });
+  useCopilot.getState().say({ text, mood: 'happy', links: [{ label: t('Voir mes badges'), to: '/profil#badges' }] });
 }
 
 /** Watches the data stores and announces newly earned badges (debounced). Safe to call several times. */

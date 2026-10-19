@@ -5,6 +5,7 @@
 
 import { resolveProvider, parseWait, mapStatus, ProviderError } from './aiProviders.mjs';
 import { authenticate, chat, ipOf, overQuota, rateLimited, readJson, secondsToParisMidnight, send } from './copilot.mjs';
+import { LANG_CODES, languageLine } from './copilotPrompt.mjs';
 
 const MAX_AUDIO = 3_000_000; // bytes: 90 s of 16 kHz 16-bit mono, a piece is 15-35 s
 const BYTES_PER_SECOND = 32_000;
@@ -104,11 +105,11 @@ function readBody(req, max) {
   });
 }
 
-async function transcribe(t, wav, hint) {
+async function transcribe(t, wav, hint, language = 'fr') {
   const form = new FormData();
   form.append('file', new Blob([wav], { type: 'audio/wav' }), 'morceau.wav');
   form.append('model', t.model);
-  form.append('language', 'fr');
+  form.append('language', language);
   form.append('response_format', 'verbose_json');
   form.append('temperature', '0');
   if (hint) form.append('prompt', hint);
@@ -299,7 +300,8 @@ export async function handleCours(req, res, env = process.env) {
       } catch {
         /* badly encoded: no hint */
       }
-      send(res, 200, { segments: await transcribe(t, wav, hint) });
+      const language = String(req.headers['x-langue'] ?? '');
+      send(res, 200, { segments: await transcribe(t, wav, hint, LANG_CODES.includes(language) ? language : 'fr') });
       return true;
     }
 
@@ -313,7 +315,7 @@ export async function handleCours(req, res, env = process.env) {
     const limit = overQuota(who, false, provider, env);
     if (limit) return (send(res, 429, { error: limit, retryAfter: secondsToParisMidnight() }), true);
     const response = await chat(provider, {
-      system: SYSTEMS[usage][task],
+      system: SYSTEMS[usage][task] + languageLine(body.lang),
       messages: [{ role: 'user', content: userMessage(task, body) }],
       maxTokens: MAX_TOKENS[task],
       timeoutMs: 90_000,

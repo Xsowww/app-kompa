@@ -6,6 +6,7 @@ import { FOLDER_COLORS, folderColorKey } from '../store/drive';
 import type { Usage } from './usage';
 import { fmtDay, fromKey, toKey, validKey } from './dates';
 import { uid } from './utils';
+import { t } from '../i18n';
 
 export interface Period {
   id: string;
@@ -32,24 +33,24 @@ export const MAX_REPEATS = 60;
 /** Names offered in the form, by what the account is for. */
 export const PERIOD_IDEAS: Record<Usage, { title: string; color: string }[]> = {
   etudes: [
-    { title: 'En cours', color: 'bleu' },
-    { title: 'En entreprise', color: 'orange' },
-    { title: 'Stage', color: 'violet' },
-    { title: 'Partiels', color: 'rouge' },
-    { title: 'Vacances', color: 'vert' },
+    { title: t('En cours'), color: 'bleu' },
+    { title: t('En entreprise'), color: 'orange' },
+    { title: t('Stage'), color: 'violet' },
+    { title: t('Partiels'), color: 'rouge' },
+    { title: t('Vacances'), color: 'vert' },
   ],
   travail: [
-    { title: 'Congés', color: 'vert' },
-    { title: 'Télétravail', color: 'bleu' },
-    { title: 'Déplacement', color: 'orange' },
-    { title: 'Formation', color: 'violet' },
-    { title: 'Coup de feu', color: 'rouge' },
+    { title: t('Congés'), color: 'vert' },
+    { title: t('Télétravail'), color: 'bleu' },
+    { title: t('Déplacement'), color: 'orange' },
+    { title: t('Formation'), color: 'violet' },
+    { title: t('Coup de feu'), color: 'rouge' },
   ],
   perso: [
-    { title: 'Vacances', color: 'vert' },
-    { title: 'Déplacement', color: 'orange' },
-    { title: 'Garde des enfants', color: 'violet' },
-    { title: 'Travaux', color: 'jaune' },
+    { title: t('Vacances'), color: 'vert' },
+    { title: t('Déplacement'), color: 'orange' },
+    { title: t('Garde des enfants'), color: 'violet' },
+    { title: t('Travaux'), color: 'jaune' },
   ],
 };
 
@@ -88,7 +89,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function periodLabel(p: Pick<Period, 'title' | 'people'>, nameOf?: (userId: string) => string): string {
   if (!p.people?.length || !nameOf) return p.title;
   const names = p.people.map(nameOf);
-  return `${names.length > 2 ? `${names.slice(0, 2).join(', ')} +${names.length - 2}` : names.join(' et ')} · ${p.title}`;
+  const who = names.length > 2 ? `${names.slice(0, 2).join(', ')} +${names.length - 2}` : names.length === 2 ? t('{a} et {b}', { a: names[0], b: names[1] }) : names.join('');
+  return `${who} · ${p.title}`;
 }
 
 export const cleanPeriods = (list: unknown): Period[] => (Array.isArray(list) ? list.map(cleanPeriod).filter((p): p is Period => !!p) : []);
@@ -115,7 +117,7 @@ export function periodRange(p: Pick<Period, 'start' | 'end'>, fmtDay: (d: Date, 
   if (p.start === p.end) return fmtDay(fromKey(p.start), 'd MMM');
   const sameMonth = p.start.slice(0, 7) === p.end.slice(0, 7);
   // Same month: the day alone (« du 5 au 16 avr. 2027 » ; fmtDay would add the year to a bare day number).
-  return `du ${sameMonth ? fromKey(p.start).getDate() : fmtDay(fromKey(p.start), 'd MMM')} au ${fmtDay(fromKey(p.end), 'd MMM')}`;
+  return t('du {start} au {end}', { start: sameMonth ? fromKey(p.start).getDate() : fmtDay(fromKey(p.start), 'd MMM'), end: fmtDay(fromKey(p.end), 'd MMM') });
 }
 
 /**
@@ -207,6 +209,6 @@ export function pieceAround(p: Pick<Period, 'start' | 'end' | 'skip'>, key: stri
 /** « jusqu’au 24 oct. » on a day of a period (to the next gap), « dernier jour · reprend le 3 nov. » on the day before one. */
 export function periodUntil(p: Pick<Period, 'start' | 'end' | 'skip'>, key: string): string | null {
   const { end, next } = pieceAround(p, key);
-  if (end !== key) return `jusqu’au ${fmtDay(fromKey(end), 'd MMM')}`;
-  return next ? `dernier jour · reprend le ${fmtDay(fromKey(next), 'd MMM')}` : null;
+  if (end !== key) return t('jusqu’au {day}', { day: fmtDay(fromKey(end), 'd MMM') });
+  return next ? t('dernier jour · reprend le {day}', { day: fmtDay(fromKey(next), 'd MMM') }) : null;
 }

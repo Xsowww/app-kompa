@@ -1,5 +1,6 @@
 // Talking to Kompaly: dictation with the browser's speech recognition (optional, depends on the browser).
 
+import { locale, t } from '../i18n';
 import { useEffect, useRef, useState } from 'react';
 
 // Minimal typing of the Web Speech API (not in TypeScript's DOM library yet).
@@ -50,7 +51,7 @@ export function useDictation(onInterim: (text: string) => void, onFinal: (text: 
     const Ctor = recognitionCtor();
     if (!Ctor || listening) return;
     const r = new Ctor();
-    r.lang = 'fr-FR';
+    r.lang = locale();
     r.interimResults = true;
     r.continuous = false;
     let finalText = '';
@@ -64,8 +65,8 @@ export function useDictation(onInterim: (text: string) => void, onFinal: (text: 
       cb.current.onInterim((finalText + interim).trim());
     };
     r.onerror = e => {
-      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') setError("Micro refusé : autorise-le dans les réglages du navigateur.");
-      else if (e.error !== 'no-speech' && e.error !== 'aborted') setError('Je n’ai pas réussi à t’entendre.');
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') setError(t('Micro refusé : autorise-le dans les réglages du navigateur.'));
+      else if (e.error !== 'no-speech' && e.error !== 'aborted') setError(t('Je n’ai pas réussi à t’entendre.'));
     };
     r.onend = () => {
       setListening(false);

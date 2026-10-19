@@ -2,6 +2,7 @@
 
 import type { Todo } from '../store/todos';
 import { toKey } from './dates';
+import { t, tn } from '../i18n';
 
 /**
  * What counts for « ma semaine », among the tasks (Tâches): everything still to do by the end of the week
@@ -20,11 +21,11 @@ export function weekItems(todos: Todo[], from: string, to: string) {
 
 /** A sentence that pulls toward the next tick. */
 export function cheer(done: number, total: number): string {
-  if (!total) return 'Rien à faire d’ici dimanche. Ajoute une tâche pour la suivre ici.';
+  if (!total) return t('Rien à faire d’ici dimanche.');
   const left = total - done;
-  if (!left) return 'Toutes tes tâches de la semaine sont faites, bravo !';
-  if (!done) return `C’est parti : ${total === 1 ? 'une tâche' : `${total} tâches`} à faire cette semaine.`;
+  if (!left) return t('Toutes tes tâches de la semaine sont faites, bravo !');
+  if (!done) return tn(total, 'C’est parti : une tâche à faire cette semaine.', 'C’est parti : {n} tâches à faire cette semaine.');
   const toHalf = Math.ceil(total / 2) - done;
-  if (toHalf > 0 && left > 1) return `Plus que ${toHalf} pour passer la moitié.`;
-  return left === 1 ? 'Plus qu’une, tu y es presque !' : `Plus que ${left}, tu y es presque.`;
+  if (toHalf > 0 && left > 1) return t('Plus que {n} pour passer la moitié.', { n: toHalf });
+  return left === 1 ? t('Plus qu’une, tu y es presque !') : t('Plus que {n}, tu y es presque.', { n: left });
 }

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Bot, CalendarDays, CornerDownLeft, Download, Flag, FolderClosed, ListChecks, Lock, Mic, NotebookText, Server, ShieldCheck, Users } from 'lucide-react';
 import Logo from '../components/Logo';
+import LanguagePicker from '../components/LanguagePicker';
 import FileIcon from '../components/FileIcon';
 import Character from '../copilot/Character';
 import { USAGES, WORDS, type Usage } from '../lib/usage';
@@ -123,16 +124,16 @@ function HeroDemo() {
 }
 
 const FEATURES = [
-  { icon: CalendarDays, title: 'Calendrier', text: 'Écris « Dentiste mardi 17h30 » : l’événement se range tout seul. Marque ce qui est important, ajoute des périodes (vacances, stage, mission), importe ton agenda existant (.ics).' },
-  { icon: ListChecks, title: 'Tâches', text: 'La liste du jour, des sessions de concentration chronométrées et des badges pour garder le rythme.' },
-  { icon: NotebookText, title: 'Notes', text: 'Des notes rangées en dossiers, des modèles prêts à remplir, l’export en PDF.' },
-  { icon: FolderClosed, title: 'Drive', text: 'Tes fichiers au même endroit, une recherche qui lit jusque dans les PDF, un lien pour partager. Un clic droit sur un document, et Kompaly en fait une fiche.' },
-  { icon: Users, title: 'Groupes et agendas partagés', text: 'Notes, fichiers et rendez-vous partagés avec un simple code d’invitation. Un agenda commun pour l’équipe, la coloc ou la famille, avec des événements pour tous ou pour certains.' },
-  { icon: Bot, title: 'Kompaly', text: 'Demande-lui d’ajouter un rendez-vous, de retrouver un fichier ou de préparer un planning. Il te prévient avant les grands jours.' },
+  { icon: CalendarDays, title: 'Calendrier', text: 'Écris « Dentiste mardi 17h30 » : l’événement se range tout seul. Importe ton agenda existant (.ics).' },
+  { icon: ListChecks, title: 'Tâches', text: 'La liste du jour, des sessions de concentration et des badges.' },
+  { icon: NotebookText, title: 'Notes', text: 'Rangées en dossiers, avec des modèles et l’export PDF.' },
+  { icon: FolderClosed, title: 'Drive', text: 'Une recherche qui lit jusque dans les PDF. Un clic droit, et Kompaly fait une fiche du document.' },
+  { icon: Users, title: 'Groupes et agendas partagés', text: 'Notes, fichiers et agenda communs pour l’équipe, la coloc ou la famille, avec un simple code d’invitation.' },
+  { icon: Bot, title: 'Kompaly', text: 'Il ajoute tes rendez-vous, retrouve tes fichiers et te prévient avant les grands jours.' },
   {
     icon: Mic,
     title: 'Enregistrer',
-    text: 'Enregistre un cours ou une réunion : Kompaly écrit tout en direct, te prévient quand un mot important est prononcé (même sur ton téléphone) et range le cours ou le compte rendu dans ton Drive, avec une fiche de révision ou un résumé.',
+    text: 'Kompaly écrit ton cours ou ta réunion en direct, te prévient des mots-clés, puis range le tout dans ton Drive avec une fiche ou un résumé.',
     wide: true,
   },
 ] as const;
@@ -159,7 +160,7 @@ function Usages() {
             Pour tes études, ton travail ou ta vie perso.
           </h2>
           <p className="mt-4 text-[15px] leading-relaxed text-stone-600">
-            Tu choisis à quoi te sert Kompaly en créant ton compte. L’appli adapte ses mots et ses exemples, et Kompaly ses conseils.
+            L’appli adapte ses mots et ses conseils à ton usage.
           </p>
           <div className="mt-6 inline-flex rounded-xl bg-stone-100 p-1" role="radiogroup" aria-label="Kompaly sert pour">
             {USAGES.map(u => (
@@ -215,19 +216,19 @@ function Usages() {
 }
 
 const TRUST = [
-  { icon: ShieldCheck, text: 'Double authentification pour chaque compte : un code de ton téléphone en plus du mot de passe.' },
-  { icon: Server, text: 'Tes données sont hébergées dans l’Union européenne, en Irlande et en Allemagne.' },
+  { icon: ShieldCheck, text: 'Double authentification : un code de ton téléphone en plus du mot de passe.' },
+  { icon: Server, text: 'Données hébergées dans l’Union européenne (Irlande, Allemagne).' },
   { icon: Lock, text: 'Ni publicité, ni revente de données, ni pistage publicitaire.' },
-  { icon: Download, text: 'Tu exportes tout ou tu supprimes ton compte quand tu veux, en un clic.' },
+  { icon: Download, text: 'Exporte tout ou supprime ton compte en un clic.' },
 ] as const;
 
 const FAQ = [
-  { q: 'C’est gratuit ?', a: 'Oui. Les limites actuelles : 50 Mo par fichier, 1 Go d’espace, un nombre de questions par jour à Kompaly en mode intelligent et quelques heures d’enregistrement par jour.' },
-  { q: 'Ça marche sur téléphone ?', a: 'Oui. Ouvre kompaly.com et installe l’appli sur ton écran d’accueil (iPhone : Partager, puis Sur l’écran d’accueil ; Android : Installer l’application). Tout se synchronise entre tes appareils, et l’essentiel marche même hors connexion.' },
+  { q: 'C’est gratuit ?', a: 'Oui. Limites : 50 Mo par fichier, 1 Go d’espace, un nombre de questions par jour à Kompaly en mode intelligent et quelques heures d’enregistrement par jour.' },
+  { q: 'Ça marche sur téléphone ?', a: 'Oui. Ouvre kompaly.com et ajoute-le à ton écran d’accueil (iPhone : Partager › Sur l’écran d’accueil ; Android : Installer l’application). Tout se synchronise, et l’essentiel marche hors connexion.' },
   { q: 'Qui peut voir mes notes et mes fichiers ?', a: 'Toi seul. Dans un groupe, les membres voient seulement ce que tu y partages.' },
   { q: 'Que devient ce que je demande à Kompaly ?', a: 'En mode intelligent, ta question est envoyée à notre fournisseur d’IA, qui ne la conserve pas. Le mode simple fonctionne sans rien envoyer.' },
-  { q: 'Le son de mes enregistrements est-il gardé ?', a: 'Non, Kompaly ne garde pas le son : il est envoyé par petits morceaux pour être écrit en texte, puis effacé. Seuls le texte et les documents rangés dans ton Drive restent. Demande l’accord des personnes que tu enregistres.' },
-  { q: 'J’ai un compte perso et un compte travail.', a: 'Ajoute les deux sur ton appareil : tu passes de l’un à l’autre en un clic, sans retaper tes identifiants.' },
+  { q: 'Le son de mes enregistrements est-il gardé ?', a: 'Non. Le son est envoyé par petits morceaux pour être écrit en texte, puis effacé : seuls le texte et les documents restent. Demande l’accord des personnes que tu enregistres.' },
+  { q: 'J’ai un compte perso et un compte travail.', a: 'Ajoute les deux sur ton appareil et passe de l’un à l’autre en un clic.' },
   { q: 'À partir de quel âge ?', a: 'Dès 15 ans. Avant, il faut l’accord d’un parent.' },
 ] as const;
 
@@ -247,6 +248,7 @@ export default function LandingPage() {
             <a href="#questions" className="inline-flex h-9 items-center hover:text-ink">Questions</a>
           </nav>
           <div className="ml-auto flex items-center gap-2">
+            <LanguagePicker className="mr-1 h-9" />
             <Link to="/connexion" className="btn-secondary h-9">
               Se connecter
             </Link>
@@ -263,7 +265,7 @@ export default function LandingPage() {
           <div>
             <h1 className="max-w-[13ch] text-[42px] font-extrabold leading-[1.0] tracking-[-0.045em] md:text-[60px]">Ton agenda, tes notes et tes fichiers, enfin au même endroit.</h1>
             <p className="mt-6 max-w-[46ch] text-[16.5px] leading-relaxed text-stone-600">
-              Kompaly réunit calendrier, tâches, notes et fichiers dans une seule appli, pour les études, le travail ou la vie perso. Et Kompaly, ton ami, te rappelle ce qui compte.
+              Calendrier, tâches, notes et fichiers dans une seule appli. Et Kompaly, ton ami, te rappelle ce qui compte.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link to="/inscription" className="btn-primary h-11 px-5 text-[15px]">
@@ -285,7 +287,7 @@ export default function LandingPage() {
               <h2 id="fonctions-title" className="text-[30px] font-extrabold leading-[1.05] tracking-[-0.035em] md:text-[36px]">
                 Sept outils qui se parlent.
               </h2>
-              <p className="mt-4 text-[15px] leading-relaxed text-stone-600">Un rendez-vous ajouté dans le calendrier apparaît sur ton accueil, Kompaly le voit, et ton groupe aussi si tu le partages.</p>
+              <p className="mt-4 text-[15px] leading-relaxed text-stone-600">Un rendez-vous ajouté apparaît sur ton accueil, chez Kompaly et dans ton groupe si tu le partages.</p>
             </div>
             <ul className="grid gap-x-10 gap-y-9 sm:grid-cols-2">
               {FEATURES.map(f => (
@@ -312,7 +314,7 @@ export default function LandingPage() {
                 Tes affaires restent les tiennes.
               </h2>
               <p className="mt-4 text-[15px] leading-relaxed text-paper/70">
-                Kompaly garde seulement ce qu’il faut pour faire marcher ton espace. Tout est expliqué, sans jargon, dans la{' '}
+                Kompaly garde seulement le nécessaire. Tout est expliqué, sans jargon, dans la{' '}
                 <Link to="/confidentialite" className="underline decoration-paper/40 underline-offset-4 hover:decoration-paper">
                   politique de confidentialité
                 </Link>
@@ -355,7 +357,7 @@ export default function LandingPage() {
           <div className="flex flex-col items-start gap-6 rounded-3xl border border-stone-200 bg-surface p-8 md:flex-row md:items-center md:p-12">
             <div className="flex-1">
               <h2 className="text-[26px] font-extrabold leading-tight tracking-[-0.03em] md:text-[30px]">Range tout au même endroit, dès aujourd’hui.</h2>
-              <p className="mt-2 text-[15px] text-stone-600">Une minute pour créer ton compte, et Kompaly te fait faire le tour.</p>
+              <p className="mt-2 text-[15px] text-stone-600">Une minute pour créer ton compte.</p>
             </div>
             <Link to="/inscription" className="btn-primary h-11 shrink-0 px-5 text-[15px]">
               Créer mon compte

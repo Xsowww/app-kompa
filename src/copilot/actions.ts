@@ -137,17 +137,17 @@ export function calendarReport(): { text: string; links: CopilotLink[] } {
   const lines: string[] = [];
   lines.push(
     a.today.length
-      ? `Aujourd’hui tu as ${a.today.length} chose${a.today.length > 1 ? 's' : ''} : ${a.today.map(e => e.title).join(', ')}.`
-      : 'Rien de prévu aujourd’hui, profites-en.',
+      ? `Aujourd’hui : ${a.today.map(e => e.title).join(', ')}.`
+      : 'Rien de prévu aujourd’hui.',
   );
   lines.push(`Cette semaine : ${a.weekCount} événement${a.weekCount > 1 ? 's' : ''}, ${a.weekDone} déjà fait${a.weekDone > 1 ? 's' : ''}.`);
   if (a.busiestDay && a.busiestDay.count > 1) {
-    lines.push(`Ta journée la plus chargée : ${fmt(fromKey(a.busiestDay.date), 'EEEE')} (${a.busiestDay.count} trucs).`);
+    lines.push(`Jour le plus chargé : ${fmt(fromKey(a.busiestDay.date), 'EEEE')} (${a.busiestDay.count} événements).`);
   }
   if (a.exams.length) {
     lines.push(`${w.bigMany.charAt(0).toUpperCase()}${w.bigMany.slice(1)} à venir : ${a.exams.map(e => `${e.title} (${inSentence(countdownLabel(e.date))})`).join(', ')}.`);
     const soon = a.exams.find(e => daysUntil(e.date) <= 7);
-    if (soon) lines.push(`Conseil : commence à ${studying() ? 'réviser' : 'préparer'} « ${soon.title} » dès maintenant, un peu chaque jour.`);
+    if (soon) lines.push(`Conseil : ${studying() ? 'révise' : 'prépare'} « ${soon.title} » un peu chaque jour, dès maintenant.`);
   }
   const late = a.lateHomework;
   if (late.length) {

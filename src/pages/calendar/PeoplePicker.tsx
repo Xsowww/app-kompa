@@ -24,7 +24,7 @@ export default function PeoplePicker({ people, value, onChange, what }: { people
           );
         })}
       </div>
-      <p className="mt-1.5 text-[12px] text-stone-500">{value.length ? `Son nom s’affiche avec ${what}, pour que tout le monde sache qui est concerné.` : `${what.replace(/^./, c => c.toUpperCase())} concerne tout l’agenda.`}</p>
+      {value.length > 0 && <p className="mt-1.5 text-[12px] text-stone-500">{value.length > 1 ? 'Leurs noms s’affichent' : 'Son nom s’affiche'} avec {what}.</p>}
     </div>
   );
 }

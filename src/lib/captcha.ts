@@ -6,6 +6,8 @@
 // (Authentication › Attack Protection) only AFTER the site with the key is online, or sign-ins fail.
 // Test period: captcha off in Supabase first, then VITE_CAPTCHA_OFF=1 on Render; back on in the other order.
 
+import { lang, t } from '../i18n';
+
 const SITE_KEY = (import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined)?.trim() ?? '';
 // Switched off for a test period with VITE_CAPTCHA_OFF=1 on the host (Render), together with the captcha in Supabase.
 const OFF = /^(1|true|oui)$/i.test(String(import.meta.env.VITE_CAPTCHA_OFF ?? '').trim());
@@ -38,7 +40,7 @@ function load(): Promise<Turnstile> {
   return script;
 }
 
-const FAILED = 'La vérification anti-robot n’a pas abouti. Vérifie ta connexion et réessaie.';
+const FAILED = t('La vérification anti-robot n’a pas abouti. Vérifie ta connexion et réessaie.');
 
 function solve(): Promise<string> {
   return load().then(
@@ -47,7 +49,7 @@ function solve(): Promise<string> {
         // Shown only if Cloudflare asks for a click (appearance « interaction-only »).
         const host = document.createElement('div');
         host.setAttribute('role', 'dialog');
-        host.setAttribute('aria-label', 'Vérification anti-robot');
+        host.setAttribute('aria-label', t('Vérification anti-robot'));
         host.className = 'fixed bottom-6 left-1/2 z-[80] -translate-x-1/2 empty:hidden';
         document.body.appendChild(host);
         let id = '';
@@ -65,7 +67,7 @@ function solve(): Promise<string> {
         id = ts.render(host, {
           sitekey: SITE_KEY,
           appearance: 'interaction-only',
-          language: 'fr',
+          language: lang,
           callback: (token: string) => done(() => resolve(token)),
           'error-callback': () => done(() => reject(new Error(FAILED))),
           'expired-callback': () => done(() => reject(new Error(FAILED))),

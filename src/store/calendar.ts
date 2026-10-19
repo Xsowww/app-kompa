@@ -5,6 +5,7 @@ import { userStorage } from '../lib/userStorage';
 import { TRASH_DAYS } from './drive';
 import { getSettings, useSettings } from './settings';
 import type { Usage } from '../lib/usage';
+import { t } from '../i18n';
 
 export type BuiltinCategory = 'cours' | 'examen' | 'devoir' | 'perso' | 'sport';
 /** A built-in category, or one the student created (`c-…`, its name and colour live in the settings). */
@@ -28,18 +29,18 @@ export const CATEGORY_COLORS = ['#3b6fd8', '#d9483b', '#d48a17', '#2f9e6b', '#7a
 
 /** Colours: `color` is a plain hex; `soft`/`text` are CSS variables (light and dark values in index.css). */
 export const CATEGORIES: Record<BuiltinCategory, CategoryInfo> = {
-  cours: { label: 'Cours', color: '#3b6fd8', soft: 'var(--cat-cours-soft)', text: 'var(--cat-cours-text)' },
-  examen: { label: 'Examen', color: '#d9483b', soft: 'var(--cat-examen-soft)', text: 'var(--cat-examen-text)' },
-  devoir: { label: 'Devoir', color: '#d48a17', soft: 'var(--cat-devoir-soft)', text: 'var(--cat-devoir-text)' },
-  perso: { label: 'Perso', color: '#2f9e6b', soft: 'var(--cat-perso-soft)', text: 'var(--cat-perso-text)' },
-  sport: { label: 'Sport', color: '#7a5ad6', soft: 'var(--cat-sport-soft)', text: 'var(--cat-sport-text)' },
+  cours: { label: t('Cours'), color: '#3b6fd8', soft: 'var(--cat-cours-soft)', text: 'var(--cat-cours-text)' },
+  examen: { label: t('Examen'), color: '#d9483b', soft: 'var(--cat-examen-soft)', text: 'var(--cat-examen-text)' },
+  devoir: { label: t('Devoir'), color: '#d48a17', soft: 'var(--cat-devoir-soft)', text: 'var(--cat-devoir-text)' },
+  perso: { label: t('Perso'), color: '#2f9e6b', soft: 'var(--cat-perso-soft)', text: 'var(--cat-perso-text)' },
+  sport: { label: t('Sport'), color: '#7a5ad6', soft: 'var(--cat-sport-soft)', text: 'var(--cat-sport-text)' },
 };
 
 /** Names of the five built-in categories for each usage of the account (applied by lib/usage). */
 export const CATEGORY_LABELS: Record<Usage, Record<BuiltinCategory, string>> = {
-  etudes: { cours: 'Cours', examen: 'Examen', devoir: 'Devoir', perso: 'Perso', sport: 'Sport' },
-  travail: { cours: 'Réunion', examen: 'Échéance', devoir: 'Devis', perso: 'Perso', sport: 'Sport' },
-  perso: { cours: 'Rendez-vous', examen: 'Grand jour', devoir: 'À faire', perso: 'Perso', sport: 'Sport' },
+  etudes: { cours: t('Cours'), examen: t('Examen'), devoir: t('Devoir'), perso: t('Perso'), sport: t('Sport') },
+  travail: { cours: t('Réunion'), examen: t('Échéance'), devoir: t('Devis'), perso: t('Perso'), sport: t('Sport') },
+  perso: { cours: t('Rendez-vous'), examen: t('Grand jour'), devoir: t('À faire'), perso: t('Perso'), sport: t('Sport') },
 };
 
 export interface CalendarEvent {

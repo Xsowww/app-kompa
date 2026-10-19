@@ -39,13 +39,13 @@ function NotePicker({ group, onPicked, onClose }: { group: Group; onPicked: (id:
   return (
     <div>
       <h3 className="text-[15px] font-semibold">Partager une de mes notes</h3>
-      <p className="mt-1 text-[13px] text-stone-500">Une copie est ajoutée à « {group.name} ». Ta note d’origine reste privée et ne change pas.</p>
+      <p className="mt-1 text-[13px] text-stone-500">Une copie est ajoutée à « {group.name} » ; ta note reste privée.</p>
       <div className="relative mt-4">
         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
         <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Rechercher une note" aria-label="Rechercher une note" className="field w-full pl-8" />
       </div>
       <div className="mt-2 max-h-[320px] overflow-y-auto">
-        {list.length === 0 && <p className="p-6 text-center text-[13px] text-stone-500">{notes.length ? 'Aucune note trouvée' : 'Tu n’as pas encore de note personnelle.'}</p>}
+        {list.length === 0 && <p className="p-6 text-center text-[13px] text-stone-500">{notes.length ? 'Aucune note trouvée' : 'Tu n’as pas encore de note.'}</p>}
         {list.map(n => (
           <button
             key={n.id}
@@ -103,13 +103,13 @@ function DrivePicker({ group, onDone, onClose }: { group: Group; onDone: () => v
   return (
     <div>
       <h3 className="text-[15px] font-semibold">Partager depuis mon Drive</h3>
-      <p className="mt-1 text-[13px] text-stone-500">Une copie est ajoutée à « {group.name} ». Tes fichiers restent privés. 50 Mo au maximum par fichier.</p>
+      <p className="mt-1 text-[13px] text-stone-500">Une copie est ajoutée à « {group.name} » ; tes fichiers restent privés.</p>
       <div className="relative mt-4">
         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
         <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Rechercher un fichier ou un dossier" aria-label="Rechercher dans mon Drive" className="field w-full pl-8" />
       </div>
       <div className="mt-2 max-h-[320px] overflow-y-auto" role="group" aria-label="Fichiers de mon Drive">
-        {files.length === 0 && <p className="p-6 text-center text-[13px] text-stone-500">{items.some(i => i.kind === 'file') ? 'Aucun fichier trouvé' : 'Ton Drive ne contient pas encore de fichier.'}</p>}
+        {files.length === 0 && <p className="p-6 text-center text-[13px] text-stone-500">{items.some(i => i.kind === 'file') ? 'Aucun fichier trouvé' : 'Ton Drive est vide.'}</p>}
         {files.map(({ item, where }) => {
           const tooBig = (item.size ?? 0) > MAX_GROUP_FILE;
           const on = picked.has(item.id);

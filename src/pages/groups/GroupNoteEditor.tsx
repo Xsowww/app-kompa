@@ -68,7 +68,6 @@ type Status = 'saved' | 'pending' | 'saving' | 'error';
 /** Charge la note, puis affiche l'éditeur. */
 /** `fresh` : la note qu'on vient de créer (pas de rechargement) et le titre déjà tapé pendant sa création. */
 export default function GroupNoteEditor({ noteId, onClose, readOnly = false, fresh }: { noteId: string; onClose: () => void; readOnly?: boolean; fresh?: { note: GroupNote; title: { current: string } } }) {
-  const w = useGroupWords();
   const preset = fresh?.note.id === noteId ? fresh : undefined;
   const [note, setNote] = useState<GroupNote | null | undefined>(preset?.note);
   useEffect(() => {
@@ -89,7 +88,6 @@ export default function GroupNoteEditor({ noteId, onClose, readOnly = false, fre
     return (
       <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
         <p className="text-[14px] font-medium">Cette note n’existe plus</p>
-        <p className="mt-1 text-[13px] text-stone-500">Un membre {w.of} l’a peut-être supprimée.</p>
         <button className="btn-secondary mt-4" onClick={onClose}>Retour à la liste</button>
       </div>
     );
@@ -193,7 +191,7 @@ function LoadedEditor({ initial, onClose, readOnly, startTitle }: { initial: Gro
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ link: { openOnClick: false, autolink: true } }),
-      Placeholder.configure({ placeholder: 'Écris ici, les autres membres verront tes ajouts…' }),
+      Placeholder.configure({ placeholder: 'Écris ici…' }),
       Highlight,
       TiptapImage.configure({ allowBase64: true }), // notes partagées depuis ses notes perso
       TaskList,
@@ -263,7 +261,7 @@ function LoadedEditor({ initial, onClose, readOnly, startTitle }: { initial: Gro
   }, [save]);
 
   const remove = async () => {
-    if (!(await confirmAction(`Supprimer cette note pour ${w.all} ?`, 'Tous les membres la perdront. Cette action est définitive.'))) return;
+    if (!(await confirmAction(`Supprimer cette note pour ${w.all} ?`, 'C’est définitif.'))) return;
     try {
       blocked.current = true;
       await deleteNote(id);

@@ -5,9 +5,15 @@ import { normalize } from '../lib/utils';
 import { fmt, fromKey, parseQuickAdd } from '../lib/dates';
 import { sortEvents, type CalendarEvent } from '../store/calendar';
 import type { Note } from '../store/notes';
+import { t } from '../i18n';
 
-const SESSION_PREFIXES = ['Révision · ', 'Préparation · '];
-const NOTE_PREFIXES = ['Fiche · ', 'À préparer · '];
+/** Prefixes of the titles Kompaly gives, in the current language (« Révision · Contrôle de maths »). */
+export const sessionPrefix = (studying: boolean) => (studying ? t('Révision · {title}', { title: '' }) : t('Préparation · {title}', { title: '' }));
+export const notePrefix = (studying: boolean) => (studying ? t('Fiche · {title}', { title: '' }) : t('À préparer · {title}', { title: '' }));
+
+// Titles are read back: the French ones (made before the translation, or in French) and the current language's.
+const SESSION_PREFIXES = [...new Set(['Révision · ', 'Préparation · ', sessionPrefix(true), sessionPrefix(false)])];
+const NOTE_PREFIXES = [...new Set(['Fiche · ', 'À préparer · ', notePrefix(true), notePrefix(false)])];
 
 /** Mark of the sessions planned for an exam, kept in `externalId` (like the meetings added from a group). */
 export const planTag = (examId: string) => `revision:${examId}`;
@@ -32,7 +38,7 @@ export function noteFor(exam: CalendarEvent, notes: Note[], events: CalendarEven
   const linked = notes.find(n => NOTE_PREFIXES.some(p => n.title.startsWith(p)) && n.links?.some(l => l.kind === 'event' && l.id === exam.id));
   if (linked) return linked;
   const twins = twinsOf(exam, events);
-  const old = notes.find(n => NOTE_PREFIXES.some(p => n.title === p + exam.title) && !n.links?.some(l => l.kind === 'event' && twins.some(t => t.id === l.id)));
+  const old = notes.find(n => NOTE_PREFIXES.some(p => n.title === p + exam.title) && !n.links?.some(l => l.kind === 'event' && twins.some(x => x.id === l.id)));
   if (!old) return undefined;
   // Two exams with that title: the old note goes with the old sessions' exam, or else the first one.
   const first = events.filter(e => isOldSession(e, exam.title)).sort(sortEvents)[0];

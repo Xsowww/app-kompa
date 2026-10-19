@@ -1,6 +1,8 @@
 // A small Markdown subset (what the AI writes for a course) turned into a real Word file, and into safe HTML for the preview.
 // jszip and mammoth are only downloaded when a document is written or read.
 
+import { locale } from '../i18n';
+
 export type Block =
   | { kind: 'title'; text: string }
   | { kind: 'h1'; text: string }
@@ -362,7 +364,7 @@ export async function markdownToDocx(md: string, meta: { title?: string; author?
     'docProps/core.xml',
     `${HEAD}<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" ` +
       'xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">' +
-      `<dc:title>${xml(title)}</dc:title><dc:creator>${xml(author)}</dc:creator><cp:lastModifiedBy>${xml(author)}</cp:lastModifiedBy><dc:language>fr-FR</dc:language>` +
+      `<dc:title>${xml(title)}</dc:title><dc:creator>${xml(author)}</dc:creator><cp:lastModifiedBy>${xml(author)}</cp:lastModifiedBy><dc:language>${locale()}</dc:language>` +
       `<dcterms:created xsi:type="dcterms:W3CDTF">${now}</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">${now}</dcterms:modified>` +
       '</cp:coreProperties>',
   );

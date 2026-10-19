@@ -78,7 +78,6 @@ export default function ImportPeriods({ onDone }: { onDone: () => void }) {
   return (
     <div className="mt-4 rounded-2xl bg-stone-50 p-4">
       <p className="text-[14px] font-semibold">Importer des périodes</p>
-      <p className="mt-0.5 text-[12.5px] text-stone-500">Une copie arrive ici : la période d’origine ne change pas.</p>
 
       <p className="eyebrow mt-4">Depuis</p>
       <div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-label="Importer depuis">

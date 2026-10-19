@@ -22,9 +22,6 @@ export function JoinedDialog() {
           <Icon size={22} />
         </span>
         <h3 className="mt-3 text-[16px] font-semibold [overflow-wrap:anywhere]">{joined.already ? `Tu fais déjà partie de ${name}` : `Tu as rejoint ${name}`}</h3>
-        <p className="mt-1.5 text-[13px] text-stone-500">
-          À retrouver dans {w.Groups}.
-        </p>
       </div>
       <div className="mt-6 grid grid-cols-2 gap-2">
         <button type="button" className="btn-secondary justify-center" onClick={close}>

@@ -882,26 +882,14 @@ export default function DrivePage() {
             <p className="mt-3 text-[14px] font-medium">
               {filtering ? 'Aucun résultat' : tab === 'starred' ? 'Aucun favori' : tab === 'recent' ? 'Aucun fichier récent' : 'Ce dossier est vide'}
             </p>
-            <p className="mt-1 max-w-xs text-[13px] text-stone-500">
-              {filtering
-                ? 'Essaie un autre mot : les noms et le texte des documents sont cherchés.'
-                : tab === 'all'
-                  ? (
-                      // Fingers can't drop files on the page, nor right-click (a long press opens the menu).
-                      <>
-                        <span className="pointer-coarse:hidden">Dépose des fichiers ici, ou utilise Importer.</span>
-                        <span className="hidden pointer-coarse:inline">Ajoute des fichiers avec le bouton Importer.</span>
-                      </>
-                    )
-                  : tab === 'starred'
-                    ? (
-                        <>
-                          <span className="pointer-coarse:hidden">Ajoute un favori avec un clic droit sur un élément.</span>
-                          <span className="hidden pointer-coarse:inline">Ajoute un favori en appuyant longuement sur un élément.</span>
-                        </>
-                      )
-                    : 'Tes derniers fichiers apparaîtront ici.'}
-            </p>
+            {/* Fingers can't drop files on the page, nor right-click (a long press opens the menu). */}
+            {!filtering && tab === 'all' && <p className="mt-1 max-w-xs text-[13px] text-stone-500 pointer-coarse:hidden">Dépose des fichiers ici.</p>}
+            {!filtering && tab === 'starred' && (
+              <p className="mt-1 max-w-xs text-[13px] text-stone-500">
+                <span className="pointer-coarse:hidden">Ajoute un favori avec un clic droit sur un élément.</span>
+                <span className="hidden pointer-coarse:inline">Ajoute un favori en appuyant longuement sur un élément.</span>
+              </p>
+            )}
           </div>
         ) : view === 'grid' && !q ? (
           <div role="listbox" aria-label="Contenu du dossier" aria-multiselectable="true" className="grid grid-cols-[repeat(auto-fill,minmax(124px,1fr))] gap-1.5">

@@ -4,6 +4,8 @@
 // A reminder is a number of minutes before the item's moment: its start time, or 9:00 that day for an
 // event without a time or a task without a time (« la veille, 18 h » = 15 h before 9:00).
 
+import { lang, locale, t } from '../i18n';
+
 export interface ReminderOption {
   minutes: number;
   label: string;
@@ -11,30 +13,31 @@ export interface ReminderOption {
 
 /** For an item with a time. */
 export const TIMED_OPTIONS: ReminderOption[] = [
-  { minutes: 0, label: 'À l’heure' },
-  { minutes: 5, label: '5 min avant' },
-  { minutes: 15, label: '15 min avant' },
-  { minutes: 30, label: '30 min avant' },
-  { minutes: 60, label: '1 h avant' },
-  { minutes: 120, label: '2 h avant' },
-  { minutes: 1440, label: '1 jour avant' },
-  { minutes: 2880, label: '2 jours avant' },
-  { minutes: 10080, label: '1 semaine avant' },
+  { minutes: 0, label: t('À l’heure') },
+  { minutes: 5, label: t('5 min avant') },
+  { minutes: 15, label: t('15 min avant') },
+  { minutes: 30, label: t('30 min avant') },
+  { minutes: 60, label: t('1 h avant') },
+  { minutes: 120, label: t('2 h avant') },
+  { minutes: 1440, label: t('1 jour avant') },
+  { minutes: 2880, label: t('2 jours avant') },
+  { minutes: 10080, label: t('1 semaine avant') },
 ];
 
 /** For an item without a time (all day): relative to 9:00 that day. */
 export const DAY_OPTIONS: ReminderOption[] = [
-  { minutes: 0, label: 'Le jour même à 9h' },
-  { minutes: 900, label: 'La veille à 18h' },
-  { minutes: 2880, label: '2 jours avant à 9h' },
-  { minutes: 10080, label: '1 semaine avant à 9h' },
+  { minutes: 0, label: t('Le jour même à 9h') },
+  { minutes: 900, label: t('La veille à 18h') },
+  { minutes: 2880, label: t('2 jours avant à 9h') },
+  { minutes: 10080, label: t('1 semaine avant à 9h') },
 ];
 
 export const DAY_ANCHOR = '09:00';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 /** « 9h », « 14h30 ». */
-const hhmm = (d: Date) => `${d.getHours()}h${pad(d.getMinutes())}`.replace(/h00$/, 'h');
+const hhmm = (d: Date) =>
+  lang === 'fr' ? `${d.getHours()}h${pad(d.getMinutes())}`.replace(/h00$/, 'h') : new Intl.DateTimeFormat(locale(), { hour: 'numeric', minute: '2-digit' }).format(d);
 /** 4 weeks: the furthest a reminder can be before its item. */
 export const MAX_MINUTES = 10080 * 4;
 
@@ -46,12 +49,12 @@ export const eventReminders = (e: { reminders?: number[]; start?: string; extern
 
 /** « 45 min avant », « 3 h 30 avant », « 2 j 4 h avant ». */
 export function offsetLabel(minutes: number): string {
-  if (minutes === 0) return 'À l’heure';
+  if (minutes === 0) return t('À l’heure');
   const d = Math.floor(minutes / 1440);
   const h = Math.floor((minutes % 1440) / 60);
   const m = minutes % 60;
-  const parts = [d && `${d} j`, h && `${h} h`, m && (h ? String(m).padStart(2, '0') : `${m} min`)].filter(Boolean);
-  return `${parts.join(' ')} avant`;
+  const parts = [d && t('{n} j', { n: d }), h && t('{n} h', { n: h }), m && (h ? String(m).padStart(2, '0') : t('{n} min', { n: m }))].filter(Boolean);
+  return t('{time} avant', { time: parts.join(' ') });
 }
 
 /**
@@ -78,11 +81,11 @@ export function reminderLabel(minutes: number, timed: boolean, date?: string, ti
   const at = reminderMoment(date, time, minutes);
   const day = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
   const days = Math.round((day(anchorOf(date, time)) - day(at)) / 86_400_000);
-  const when = days === 0 ? 'Le jour même' : days === 1 ? 'La veille' : `${WEEKDAYS[at.getDay()]} ${at.getDate()} ${MONTHS[at.getMonth()]}`;
-  return `${when} à ${hhmm(at)}`;
+  const when = days === 0 ? t('Le jour même') : days === 1 ? t('La veille') : t('{weekday} {day} {month}', { weekday: WEEKDAYS[at.getDay()], day: at.getDate(), month: MONTHS[at.getMonth()] });
+  return t('{when} à {time}', { when, time: hhmm(at) });
 }
-const WEEKDAYS = ['Dim.', 'Lun.', 'Mar.', 'Mer.', 'Jeu.', 'Ven.', 'Sam.'];
-const MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+const WEEKDAYS = [t('Dim.'), t('Lun.'), t('Mar.'), t('Mer.'), t('Jeu.'), t('Ven.'), t('Sam.')];
+const MONTHS = [t('janv.'), t('févr.'), t('mars'), t('avr.'), t('mai'), t('juin'), t('juil.'), t('août'), t('sept.'), t('oct.'), t('nov.'), t('déc.')];
 
 /** Keeps valid, distinct values, sorted (biggest first). [] = « no reminder » chosen; undefined = never chosen. */
 export function cleanReminders(list: unknown): number[] | undefined {
@@ -119,7 +122,7 @@ export interface DueReminder {
 }
 
 
-const WEEKDAY_NAMES = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+const WEEKDAY_NAMES = [t('dimanche'), t('lundi'), t('mardi'), t('mercredi'), t('jeudi'), t('vendredi'), t('samedi')];
 
 /**
  * What a notification says under its title, as seen when it fires — line 1: when (« Dans 15 min · 14h – 15h30 »,
@@ -131,18 +134,19 @@ export function reminderBody(src: ReminderSource, fireAt: Date): string {
   const day = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
   const days = Math.round((day(at) - day(fireAt)) / 86_400_000);
   const task = src.kind === 'task';
-  const dayName = days <= 0 ? 'aujourd’hui' : days === 1 ? 'demain' : `${WEEKDAY_NAMES[at.getDay()].toLowerCase()} ${at.getDate()} ${MONTHS[at.getMonth()]}`;
+  const dayName =
+    days <= 0 ? t('aujourd’hui') : days === 1 ? t('demain') : t('{weekday} {day} {month}', { weekday: WEEKDAY_NAMES[at.getDay()], day: at.getDate(), month: MONTHS[at.getMonth()] });
   let when: string;
   if (src.time) {
     const end = src.end && /^\d{2}:\d{2}$/.test(src.end) && src.end > src.time ? ` – ${hhmm(anchorOf(src.date!, src.end))}` : '';
     const hours = `${hhmm(at)}${end}`;
-    const rel = minutes <= 0 ? 'maintenant' : minutes < 60 ? `dans ${minutes} min` : dayName;
-    when = `${task ? 'À faire ' : ''}${rel} · ${hours}`;
+    const rel = minutes <= 0 ? t('maintenant') : minutes < 60 ? t('dans {n} min', { n: minutes }) : dayName;
+    when = `${task ? t('À faire {when}', { when: rel }) : rel} · ${hours}`;
   } else {
-    when = task ? `À faire ${dayName}` : dayName;
+    when = task ? t('À faire {when}', { when: dayName }) : dayName;
   }
   const line1 = when.charAt(0).toUpperCase() + when.slice(1);
-  return `${line1}\n${task ? 'Tâches' : 'Agenda'}`;
+  return `${line1}\n${task ? t('Tâches') : t('Agenda')}`;
 }
 
 /** The reminders still to come, from now up to `horizonDays`, soonest first. */
@@ -157,7 +161,7 @@ export function upcomingReminders(items: ReminderSource[], now = new Date(), hor
       out.push({
         key: `${src.kind}:${src.id}:${m}:${src.date}T${src.time ?? DAY_ANCHOR}`,
         fireAt,
-        title: src.title.trim().slice(0, 200) || (src.kind === 'task' ? 'Tâche' : 'Événement'),
+        title: src.title.trim().slice(0, 200) || (src.kind === 'task' ? t('Tâche') : t('Événement')),
         body: reminderBody(src, fireAt).slice(0, 300),
         url: src.kind === 'task' ? '/taches' : `/calendrier?jour=${src.date}`,
       });

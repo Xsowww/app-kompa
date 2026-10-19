@@ -13,6 +13,7 @@ import { useSettings, DEFAULT_SETTINGS, type Settings } from '../store/settings'
 import { useUi } from '../store/ui';
 import { useTodos, type Todo } from '../store/todos';
 import { useFocusLog, type FocusSession } from '../store/focusLog';
+import { t } from '../i18n';
 
 type Row = Record<string, unknown>;
 type Table = 'events' | 'note_folders' | 'notes' | 'drive_items' | 'todos' | 'focus_sessions';
@@ -297,7 +298,7 @@ async function upsertRows(table: Table, rows: Row[]) {
       ({ error: e } = await supabase!.from(table).upsert({ ...r, category: 'perso' }));
       if (!e && !warnedCategories) {
         warnedCategories = true;
-        useUi.getState().toast('Les catégories personnelles ne sont pas encore activées sur le serveur : cet événement est enregistré en ligne comme « Perso ».', 'error');
+        useUi.getState().toast(t('Les catégories personnelles ne sont pas encore activées sur le serveur : cet événement est enregistré en ligne comme « Perso ».'), 'error');
       }
     }
     if (e && !permanent(e)) throw e;
@@ -339,7 +340,7 @@ async function send() {
         }
         if ((await upsertRows(table, rows)) && !warnedDrop) {
           warnedDrop = true;
-          useUi.getState().toast('Un élément n’a pas pu être enregistré en ligne (il a peut-être été supprimé sur un autre appareil).', 'error');
+          useUi.getState().toast(t('Un élément n’a pas pu être enregistré en ligne (il a peut-être été supprimé sur un autre appareil).'), 'error');
         }
         for (const r of rows) if (p.upserts.get(r.id as string) === r) p.upserts.delete(r.id as string);
       }
@@ -358,7 +359,7 @@ async function send() {
     console.error('[sync]', e);
     if (!warned) {
       warned = true;
-      useUi.getState().toast('Synchronisation impossible pour le moment, nouvel essai automatique…', 'error');
+      useUi.getState().toast(t('Synchronisation impossible pour le moment, nouvel essai automatique…'), 'error');
     }
     schedule(8000);
   } finally {

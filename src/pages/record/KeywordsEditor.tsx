@@ -32,7 +32,7 @@ export default function KeywordsEditor() {
               className="hit-sm flex h-6 w-6 items-center justify-center rounded-full hover:bg-black/5"
               aria-pressed={k.notify}
               aria-label={k.notify ? `« ${k.word} » : notification activée` : `« ${k.word} » : seulement marqué`}
-              title={k.notify ? 'Notification quand ce mot est entendu (cliquer pour seulement le marquer)' : 'Seulement marqué dans le texte (cliquer pour être aussi notifié)'}
+              title={k.notify ? 'Notification activée' : 'Seulement surligné'}
               onClick={() => set(keywords.map(x => (x.word === k.word ? { ...x, notify: !x.notify } : x)))}
             >
               {k.notify ? <Bell size={13} /> : <BellOff size={13} className="text-stone-400" />}
@@ -64,11 +64,10 @@ export default function KeywordsEditor() {
           <Plus size={15} /> Ajouter
         </button>
       </div>
-      <p className="mt-2 text-[12px] leading-relaxed text-stone-500">
-        « {w.plural[0]} » attrape aussi « {w.plural[1]} ».
+      <p className="mt-2 text-[12px] leading-relaxed">
         <button
           type="button"
-          className="ml-1 inline-flex items-center gap-1 font-medium text-brand-600 hover:underline"
+          className="inline-flex items-center gap-1 font-medium text-brand-600 hover:underline"
           onClick={async () => (await confirmAction('Remettre la liste par défaut ?', 'Tes mots-clés ajoutés seront retirés.', 'Remettre', false)) && set(KEYWORDS_BY_USAGE[usage] ?? KEYWORDS_BY_USAGE.etudes)}
         >
           <RotateCcw size={11} aria-hidden /> Liste par défaut

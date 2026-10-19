@@ -2,6 +2,7 @@
 // Supabase Storage in cloud mode.
 
 import { supabase } from './supabase';
+import { t } from '../i18n';
 
 const DB_NAME = 'cop-pilot';
 const STORE = 'blobs';
@@ -41,7 +42,7 @@ export const QUOTA: number | null = null; // personal use for now: to set before
  * Supabase's free plan gives the whole project (with one account today, that is the real ceiling).
  */
 export const SPACE = QUOTA ?? 1024 * 1024 * 1024;
-export const quotaLabel = () => (QUOTA ? `${Math.round(QUOTA / 1048576)} Mo` : '');
+export const quotaLabel = () => (QUOTA ? t('{size} Mo', { size: Math.round(QUOTA / 1048576) }) : '');
 
 /** A failure the student can act on: its message is meant to be shown as is. */
 export class StorageError extends Error {}
@@ -49,15 +50,15 @@ export class StorageError extends Error {}
 /** Turns Supabase Storage's technical errors into something the student understands. */
 export function storageError(e: { message?: string; statusCode?: string | number } | null): StorageError {
   const m = `${e?.statusCode ?? ''} ${e?.message ?? ''}`;
-  if (/413|maximum allowed size|too large/i.test(m)) return new StorageError('Fichier trop lourd : 50 Mo maximum.');
-  if (/403|row-level security|unauthorized/i.test(m)) return new StorageError(`Plus de place : ton espace en ligne${QUOTA ? ` (${quotaLabel()})` : ''} est plein. Vide la corbeille ou supprime des fichiers.`);
-  return new StorageError('L’envoi a échoué. Vérifie ta connexion et réessaie.');
+  if (/413|maximum allowed size|too large/i.test(m)) return new StorageError(t('Fichier trop lourd : 50 Mo maximum.'));
+  if (/403|row-level security|unauthorized/i.test(m)) return new StorageError(QUOTA ? t('Plus de place : ton espace en ligne ({quota}) est plein. Vide la corbeille ou supprime des fichiers.', { quota: quotaLabel() }) : t('Plus de place : ton espace en ligne est plein. Vide la corbeille ou supprime des fichiers.'));
+  return new StorageError(t('L’envoi a échoué. Vérifie ta connexion et réessaie.'));
 }
 
 const local = {
   put: (key: string, blob: Blob) =>
     run('readwrite', s => s.put(blob, key)).catch(() => {
-      throw new StorageError('Le stockage du navigateur est plein : supprime des fichiers ou vide la corbeille.');
+      throw new StorageError(t('Le stockage du navigateur est plein : supprime des fichiers ou vide la corbeille.'));
     }),
   get: (key: string) => run<Blob | undefined>('readonly', s => s.get(key)),
   delete: (key: string) => run('readwrite', s => s.delete(key)),

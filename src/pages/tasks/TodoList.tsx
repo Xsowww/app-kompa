@@ -60,7 +60,7 @@ const refocusTodo = (id: string) =>
 /** A changed due date can move the task to another group (new row): find its date button again after the render. */
 const focusDueButton = (id: string) => setTimeout(() => document.querySelector<HTMLElement>(`[data-due="${id}"]`)?.focus(), 0);
 
-const confirmRemove = (t: Todo) => confirmAction(`Supprimer « ${t.title} » ?`, 'Tu pourras encore l’annuler juste après.', 'Supprimer');
+const confirmRemove = (t: Todo) => confirmAction(`Supprimer « ${t.title} » ?`, 'Tu pourras l’annuler juste après.', 'Supprimer');
 
 /** Removes tasks with a way back: a single tap on the bin must not lose one for good. */
 function removeWithUndo(gone: Todo[]) {
@@ -170,7 +170,7 @@ function TodoRow({ t, editable, preview, now = 0 }: { t: Todo; editable?: boolea
           })}
           // As tall as the row on touch screens (36 px), the clamped text inside.
           className={cx('flex min-w-0 flex-1 items-center rounded text-[13px] pointer-coarse:-my-1 pointer-coarse:self-stretch pointer-coarse:py-1', 'text-ink')}
-          title={canEdit ? 'Double-clic (ou Entrée) pour renommer ; le crayon pour tout modifier' : t.title}
+          title={canEdit ? 'Double-clic pour renommer' : t.title}
         >
           <span className="min-w-0">
             <span className={cx('line-clamp-2 break-words', justDone && 'text-stone-500 line-through decoration-emerald-500/70')}>{t.title}</span>
@@ -188,7 +188,7 @@ function TodoRow({ t, editable, preview, now = 0 }: { t: Todo; editable?: boolea
           type="button"
           onClick={() => setOpenDialog('edit')}
           className="icon-btn touch-show h-9 w-9 shrink-0 opacity-0 sm:h-6 sm:w-6 group-hover:opacity-100 focus-visible:opacity-100"
-          title="Modifier (titre, échéance, rappel)"
+          title="Modifier"
           aria-label={`Modifier «\u00a0${t.title}\u00a0»`}
         >
           <Pencil size={13} />

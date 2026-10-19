@@ -108,7 +108,7 @@ export default function WelcomePage() {
           </div>
 
           {step === 0 && (
-            <Question title={`Bienvenue${name ? `, ${name}` : ''}\u00a0! Tu vas utiliser Kompaly pour…`} hint="Kompaly adapte ses mots et ton espace à ta réponse.">
+            <Question title={`Bienvenue${name ? `, ${name}` : ''}\u00a0! Tu vas utiliser Kompaly pour…`}>
               {USAGES.map(u => {
                 const Icon = USAGE_ICONS[u.key];
                 return (
@@ -137,7 +137,7 @@ export default function WelcomePage() {
           )}
 
           {step === 2 && (
-            <Question title={a.usage === 'etudes' ? 'Où étudies-tu\u00a0?' : a.usage === 'travail' ? 'Où travailles-tu\u00a0?' : 'Un peu plus sur toi'} hint="Facultatif&nbsp;: Kompaly s’en sert pour mieux t’aider.">
+            <Question title={a.usage === 'etudes' ? 'Où étudies-tu\u00a0?' : a.usage === 'travail' ? 'Où travailles-tu\u00a0?' : 'Un peu plus sur toi'} hint="Facultatif.">
               <label className="block text-[13px] font-medium">
                 {words.school}
                 <input className="field mt-1 h-10 w-full" value={a.school} placeholder={words.schoolHint} onChange={e => set({ school: e.target.value }, false)} onKeyDown={e => e.key === 'Enter' && go(3)} />

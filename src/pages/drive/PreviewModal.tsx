@@ -157,7 +157,7 @@ export default function PreviewModal({
       <div className="flex min-h-0 flex-1 items-center justify-center p-4 md:p-8">
         <div className="flex max-h-full max-w-full items-center justify-center" onMouseDown={e => e.stopPropagation()}>
           {missing ? (
-            <p className="max-w-sm text-center text-white/70">Impossible d’afficher ce fichier pour le moment. Vérifie ta connexion internet, puis réessaie.</p>
+            <p className="max-w-sm text-center text-white/70">Impossible d’afficher ce fichier. Vérifie ta connexion, puis réessaie.</p>
           ) : !url ? (
             <Loader2 className="animate-spin text-white/70" />
           ) : cat === 'image' ? (

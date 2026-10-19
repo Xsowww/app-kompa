@@ -25,7 +25,7 @@ async function joinAndAnnounce(kind: GroupKind, secret: string) {
     const before = await fetchGroups().catch(() => []);
     const id = kind === 'agenda' ? await joinAgenda(secret) : await joinGroup(secret);
     if (!id) {
-      toast(kind === 'agenda' ? 'Ce lien d’invitation ne marche plus : demande un nouveau lien à la personne qui te l’a envoyé.' : 'Ce lien d’invitation ne marche plus : demandes-en un nouveau.', 'error');
+      toast('Ce lien d’invitation ne marche plus : demandes-en un nouveau.', 'error');
       return;
     }
     const after = await fetchGroups().catch(() => before);

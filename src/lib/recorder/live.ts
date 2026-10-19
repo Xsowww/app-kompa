@@ -2,6 +2,7 @@
 // (about 1 s late) and spots the keywords at once. The text kept comes from the precise lane (the server).
 // Absent in Firefox: only the precise lane then, about 20 s late.
 
+import { locale } from '../../i18n';
 import { recognitionCtor } from '../../copilot/voice';
 
 export const canHearLive = () => typeof window !== 'undefined' && recognitionCtor() !== null;
@@ -21,7 +22,7 @@ export function startLive(onText: (text: string, final: boolean) => void, onFata
   const run = () => {
     if (stopped) return;
     const r = new Ctor();
-    r.lang = 'fr-FR';
+    r.lang = locale();
     r.interimResults = true;
     r.continuous = true;
     r.onresult = e => {

@@ -4,6 +4,7 @@ import { needsCredentials, savedAccounts, type SavedAccount } from '../lib/accou
 import { useAuth } from '../store/auth';
 import { confirmAction } from '../store/ui';
 import { relativeTime } from '../lib/utils';
+import { t } from '../i18n';
 
 /**
  * The accounts saved on this device (except `currentId`): a click opens one, the cross forgets it here
@@ -28,10 +29,10 @@ export default function AccountList({ currentId, onPick, busy, onEmpty }: { curr
               </span>
               <span className="flex shrink-0 items-center gap-1 text-[11.5px] text-stone-500">
                 {busy === a.id ? (
-                  'Ouverture…'
+                  t('Ouverture…')
                 ) : locked ? (
                   <>
-                    <KeyRound size={12} aria-hidden /> Mot de passe
+                    <KeyRound size={12} aria-hidden /> {t('Mot de passe')}
                   </>
                 ) : (
                   relativeTime(new Date(a.lastActive).toISOString())
@@ -41,10 +42,10 @@ export default function AccountList({ currentId, onPick, busy, onEmpty }: { curr
             <button
               type="button"
               className="icon-btn h-7 w-7 shrink-0 pointer-coarse:h-9 pointer-coarse:w-9"
-              title="Retirer de cet appareil"
-              aria-label={`Retirer le compte ${a.email} de cet appareil`}
+              title={t('Retirer de cet appareil')}
+              aria-label={t('Retirer le compte {email} de cet appareil', { email: a.email })}
               onClick={async () => {
-                if (!(await confirmAction(`Retirer ${a.email} de cet appareil ?`, 'Sa session se ferme ici. Ses données restent sur ton compte : tu pourras t’y reconnecter avec ton mot de passe.', 'Retirer'))) return;
+                if (!(await confirmAction(t('Retirer {email} de cet appareil ?', { email: a.email }), t('Ses données ne sont pas supprimées : tu pourras t’y reconnecter.'), t('Retirer')))) return;
                 useAuth.getState().removeAccount(a.id);
                 const rest = list.filter(x => x.id !== a.id);
                 setList(rest);

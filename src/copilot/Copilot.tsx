@@ -86,7 +86,7 @@ export default function Copilot() {
   const usage = useSettings(s => s.usage ?? 'etudes');
   const studying = usage === 'etudes';
   const hello = () =>
-    greet(`Salut ${user?.name ?? ''} ! Moi c’est Kompaly. Je peux retrouver tes fichiers, ${studying ? 'organiser tes révisions' : 'organiser ton agenda'}, créer des notes… ou juste discuter. Dis-moi.`);
+    greet(`Salut ${user?.name ?? ''} ! Je peux retrouver tes fichiers, ${studying ? 'organiser tes révisions' : 'organiser ton agenda'}, créer des notes… Dis-moi.`);
 
   const [look, setLook] = useState({ x: -1, y: 0 });
   const [blink, setBlink] = useState(false);
@@ -269,7 +269,7 @@ export default function Copilot() {
         const b = await brain();
         if (e instanceof b.PartlyDone) {
           // Something was already created: doing the question again in simple mode would make it twice.
-          reply = { text: `${b.describeApiError(e.reason)} Ce que j’avais déjà fait est bien enregistré.`, links: e.links };
+          reply = { text: `${b.describeApiError(e.reason)} Ce que j’avais déjà fait est enregistré.`, links: e.links };
         } else {
           const local = localReply(clean);
           reply = { text: `${b.describeApiError(e)} ${local.text}`, links: local.links };

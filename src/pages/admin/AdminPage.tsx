@@ -154,10 +154,10 @@ export default function AdminPage() {
       setInboxMissing(box.missing);
     }
     if (err) {
-      setError(err.message.includes('mfa') ? 'Reconnecte-toi avec ton code de sécurité pour voir ces chiffres.' : boxFailed ? 'Impossible d’actualiser : les chiffres et la liste affichés ne sont peut-être pas à jour.' : 'Impossible de charger les statistiques.');
+      setError(err.message.includes('mfa') ? 'Reconnecte-toi avec ton code de sécurité pour voir ces chiffres.' : boxFailed ? 'Impossible d’actualiser : les chiffres affichés ne sont peut-être pas à jour.' : 'Impossible de charger les statistiques.');
       return;
     }
-    setError(boxFailed ? 'Impossible d’actualiser les signalements à traiter : la liste affichée n’est peut-être pas à jour.' : '');
+    setError(boxFailed ? 'Impossible d’actualiser les signalements.' : '');
     setStats(data as Stats);
   }, []);
 
@@ -209,7 +209,7 @@ export default function AdminPage() {
                 {!error && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />}
                 <span className={cx('relative inline-flex h-2 w-2 rounded-full', error ? 'bg-stone-400' : 'bg-emerald-500')} />
               </span>
-              {error ? 'Pas à jour' : 'En direct'} · {stats ? `mis à jour à ${fmt(new Date(stats.generated_at), 'HH:mm:ss')}` : 'chargement…'} · visible par toi uniquement
+              {error ? 'Pas à jour' : 'En direct'} · {stats ? `mis à jour à ${fmt(new Date(stats.generated_at), 'HH:mm:ss')}` : 'chargement…'}
             </p>
           </div>
           <button className="btn-secondary h-8" onClick={() => void load()} disabled={loading}>
@@ -312,7 +312,6 @@ export default function AdminPage() {
                 </div>
                 <div className="card p-4">
                   <h3 className="text-[13px] font-medium text-stone-600">Inscriptions</h3>
-                  <p className="text-[12px] text-stone-500">Nouveaux comptes par jour</p>
                   <div className="mt-3">
                     <DailyColumns data={stats.days} valueKey="signups" label="inscriptions" labelOne="inscription" color="#3b6fd8" />
                   </div>
@@ -328,9 +327,6 @@ export default function AdminPage() {
           <Categories stats={stats} />
         )}
 
-        <p className="mt-6 text-[11px] text-stone-500">
-          Ici, seulement des chiffres et la liste des comptes : le contenu des notes, des événements et des fichiers n’est jamais visible, sauf la copie d’un contenu de groupe signalé.
-        </p>
       </div>
     </div>
   );
@@ -418,7 +414,6 @@ function Categories({ stats }: { stats: Stats }) {
     <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-2">
       <section className="card p-4" aria-labelledby="admin-cats">
         <h2 id="admin-cats" className="text-[13px] font-medium text-stone-600">Événements par catégorie</h2>
-        <p className="text-[12px] text-stone-500">Tous les comptes confondus</p>
         <div className="mt-4 space-y-2">
           {categories.map(({ key, n }) => row(key, CATEGORIES[key].label, n, CATEGORIES[key].color))}
           {row('autres', 'Autres', others, 'var(--color-stone-400)')}
@@ -429,7 +424,7 @@ function Categories({ stats }: { stats: Stats }) {
           Autres : catégories créées par les utilisateurs{customs ? ` (${customs.length})` : ''}
         </h2>
         {!customs ? (
-          <p className="mt-2 text-[12px] text-stone-500">Le détail s’affichera une fois la migration 2026-10-16 appliquée sur Supabase.</p>
+          <p className="mt-2 text-[12px] text-stone-500">Disponible après la migration 2026-10-16 sur Supabase.</p>
         ) : customs.length === 0 ? (
           <p className="mt-2 text-[12px] text-stone-500">Aucune catégorie personnelle pour l’instant.</p>
         ) : (

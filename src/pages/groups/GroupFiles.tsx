@@ -11,15 +11,12 @@ import { downloadItem } from '../drive/download';
 import { deleteFile, downloadFile, groupError, type Group, type GroupFile } from '../../lib/groups';
 import { cx, formatBytes, relativeTime } from '../../lib/utils';
 import { shareFiles, useGroupWords, useMemberName, useRights } from './util';
-import { useSettings } from '../../store/settings';
-import { usageWords } from '../../lib/usage';
 
 /** Un fichier du groupe vu comme un élément du Drive (pour l'aperçu et le téléchargement). */
 const asItem = (f: GroupFile): DriveItem => ({ id: f.id, name: f.name, kind: 'file', parentId: null, mime: f.mime ?? undefined, size: f.size, createdAt: f.createdAt, updatedAt: f.createdAt });
 
 export default function GroupFiles({ group }: { group: Group }) {
   const w = useGroupWords();
-  const examples = usageWords(useSettings(s => s.usage)).sharedFiles;
   const files = useGroups(s => s.files[group.id]);
   const nameOf = useMemberName(group.id);
   const { canEdit } = useRights(group);
@@ -54,7 +51,7 @@ export default function GroupFiles({ group }: { group: Group }) {
   };
 
   const remove = async (f: GroupFile) => {
-    if (!(await confirmAction(`Supprimer « ${f.name} » ?`, `Le fichier disparaît pour tous les membres ${w.of}. Les copies déjà faites dans les Drives restent.`))) return;
+    if (!(await confirmAction(`Supprimer « ${f.name} » ?`, `Il disparaît pour tous les membres ${w.of}.`))) return;
     try {
       await deleteFile(f);
       await useGroups.getState().refresh(group.id, ['files']);
@@ -88,16 +85,11 @@ export default function GroupFiles({ group }: { group: Group }) {
         {files && files.length === 0 && (
           <div className="card flex flex-col items-center px-6 py-12 text-center">
             <Paperclip size={26} strokeWidth={1.5} className="text-stone-300" />
-            <p className="mt-3 text-[14px] font-medium">Aucun fichier partagé</p>
-            {canEdit ? (
-              <>
-                <p className="mt-1 text-[13px] text-stone-500">{examples} dépose-les ici ou choisis-les dans ton Drive.</p>
-                <button className="btn-secondary mt-4 h-8 px-3" onClick={() => input.current?.click()}>
-                  <Paperclip size={14} /> Ajouter un fichier
-                </button>
-              </>
-            ) : (
-              <p className="mt-1 text-[13px] text-stone-500">Les fichiers ajoutés par les éditeurs apparaîtront ici.</p>
+            <p className="mt-3 text-[14px] font-medium">Aucun fichier pour l’instant.</p>
+            {canEdit && (
+              <button className="btn-secondary mt-4 h-8 px-3" onClick={() => input.current?.click()} title="Ou dépose-les ici">
+                <Paperclip size={14} /> Ajouter un fichier
+              </button>
             )}
           </div>
         )}

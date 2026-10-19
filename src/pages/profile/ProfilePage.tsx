@@ -7,10 +7,11 @@ import {
 } from 'lucide-react';
 import { openFeedback } from '../../lib/feedback';
 import AccountList from '../../components/AccountList';
+import PasswordStrength from '../../components/PasswordStrength';
 import { needsCredentials, STALE_DAYS } from '../../lib/accounts';
 import { useAuth } from '../../store/auth';
 import { useFocusLog } from '../../store/focusLog';
-import { useSettings, ACCENTS, AVATAR_COLORS, applyAppearance, type AccentKey, type ThemeMode, type Chattiness, type PersonaKey } from '../../store/settings';
+import { useSettings, ACCENTS, AVATAR_COLORS, applyAppearance, type AccentKey, type ThemeMode, type Chattiness } from '../../store/settings';
 import { useCopilot } from '../../store/copilot';
 import { useDrive } from '../../store/drive';
 import { useNotes } from '../../store/notes';
@@ -54,19 +55,6 @@ const TABS = [
 type TabKey = (typeof TABS)[number]['key'];
 
 const USAGE_ICONS: Record<Usage, typeof GraduationCap> = { etudes: GraduationCap, travail: Briefcase, perso: House };
-
-/** The personality examples speak of exams and sheets: other words for work and personal life. */
-const PERSONA_EXAMPLES: Partial<Record<Usage, Partial<Record<PersonaKey, string>>>> = {
-  travail: {
-    pote: '«\u00a0Livraison jeudi\u00a0? On bloque trois créneaux et tu gères.\u00a0»',
-    taquin: '«\u00a0Douze onglets ouverts et zéro note. Audacieux.\u00a0»',
-  },
-  perso: {
-    pote: '«\u00a0Déménagement samedi\u00a0? On bloque trois créneaux et c’est réglé.\u00a0»',
-    taquin: '«\u00a0Douze onglets ouverts et zéro note. Audacieux.\u00a0»',
-  },
-};
-
 
 // ── Profile ─────────────────────────────────────────────────────────────────
 
@@ -185,7 +173,7 @@ function ProfileTab() {
                 />
               ))}
               {settings.avatarImage && (
-                <button className="ml-2 text-[12px] text-stone-500 underline underline-offset-2 hover:text-ink" onClick={async () => (await confirmAction('Retirer ta photo ?', 'Ton avatar reprend ta couleur et tes initiales.', 'Retirer')) && settings.set({ avatarImage: null })}>
+                <button className="ml-2 text-[12px] text-stone-500 underline underline-offset-2 hover:text-ink" onClick={async () => (await confirmAction('Retirer ta photo ?', undefined, 'Retirer')) && settings.set({ avatarImage: null })}>
                   Retirer la photo
                 </button>
               )}
@@ -237,7 +225,7 @@ function ProfileTab() {
         </Row>
       </Section>
 
-      <Section title="Statistiques" description="Depuis ton inscription.">
+      <Section title="Statistiques">
         <div className="grid grid-cols-2 md:grid-cols-3">
           <Stat value={stats.streak} label={`jour${stats.streak > 1 ? 's' : ''} d’affilée`} />
           <Stat value={stats.done} label={plural(stats.done, 'élément coché', 'éléments cochés')} />
@@ -254,7 +242,7 @@ function ProfileTab() {
 
       <BadgesSection />
 
-      <Section title="Ton avis compte" description="Une idée, un manque, un bug : le message arrive directement à l’équipe de Kompaly.">
+      <Section title="Ton avis compte">
         <div className="flex flex-wrap gap-2 px-5 py-4">
           <button className="btn-secondary h-9" onClick={() => openFeedback('idea')}>
             <Lightbulb size={14} /> Donner mon avis
@@ -282,7 +270,7 @@ function AppearanceTab() {
   };
   return (
     <Section label="Apparence">
-      <Row label="Thème" hint="Automatique suit ton appareil.">
+      <Row label="Thème">
         <Segmented
           label="Thème"
           value={settings.theme}
@@ -368,28 +356,28 @@ function CopilotTab() {
               <>
                 <span className="font-medium">Mode simple pour l’instant.</span>{' '}
                 <span className="text-stone-500">
-                  {aiPauseReason() === 'error' ? 'L’IA ne répond pas' : 'L’IA gratuite a atteint sa limite'}, elle revient dans <span className="tabular">{clock}</span>. En attendant, il comprend les commandes courantes (chercher, planifier, créer…).
+                  {aiPauseReason() === 'error' ? 'L’IA ne répond pas' : 'L’IA gratuite a atteint sa limite'}, retour dans <span className="tabular">{clock}</span>.
                 </span>
               </>
             ) : aiEnabled ? (
               <>
                 <span className="font-medium">Mode intelligent activé.</span>{' '}
-                <span className="text-stone-500">Il répond à toutes tes questions et peut agir sur ton espace{provider ? ` (IA\u00a0: ${provider})` : ''}.</span>
+                {provider && <span className="text-stone-500">{`IA\u00a0: ${provider}`}</span>}
               </>
             ) : (
               <>
-                <span className="font-medium">Mode simple.</span> <span className="text-stone-500">Il comprend les commandes courantes (chercher, planifier, créer…).</span>
+                <span className="font-medium">Mode simple.</span> <span className="text-stone-500">Il comprend les commandes courantes.</span>
               </>
             )}
           </p>
         </div>
-        <Row label="Afficher Kompaly" hint="Masqué, il ne fait plus aucune remarque.">
+        <Row label="Afficher Kompaly">
           <Toggle label="Afficher Kompaly" checked={s.copilotVisible} onChange={v => s.set({ copilotVisible: v })} />
         </Row>
-        <Row label="Initiatives" hint={s.usage === 'etudes' ? 'Propose de planifier des révisions, rappelle les rendus.' : 'Propose de bloquer du temps pour préparer, rappelle les échéances.'}>
+        <Row label="Initiatives" hint={s.usage === 'etudes' ? 'Propose des révisions, rappelle les rendus.' : 'Propose du temps de préparation, rappelle les échéances.'}>
           <Toggle label="Initiatives" checked={s.proactive} onChange={v => s.set({ proactive: v })} />
         </Row>
-        <Row label="Bavardage" hint="Il se tait toujours pendant une session focus.">
+        <Row label="Bavardage">
           <Segmented<Chattiness> label="Bavardage"
             value={s.chattiness}
             onChange={v => s.set({ chattiness: v })}
@@ -405,7 +393,7 @@ function CopilotTab() {
         </Row>
       </Section>
 
-      <Section title="Personnalité" description="Sa façon de te parler.">
+      <Section title="Personnalité">
         <div className="grid gap-2 px-5 py-4 sm:grid-cols-2">
           {PERSONAS.map(p => (
             <button
@@ -422,7 +410,6 @@ function CopilotTab() {
                 {s.persona === p.key && <Check size={14} className="text-brand-600" />}
               </span>
               <span className="mt-0.5 block text-[12px] text-stone-500">{p.description}</span>
-              <span className="mt-1.5 block text-[12px] italic text-stone-600">{PERSONA_EXAMPLES[s.usage]?.[p.key] ?? p.example}</span>
             </button>
           ))}
         </div>
@@ -430,7 +417,6 @@ function CopilotTab() {
           <label htmlFor="persona-notes" className="text-[13px] font-medium">
             Tes instructions pour Kompaly
           </label>
-          <p className="mt-0.5 text-[12px] text-stone-500">Un surnom, tes centres d’intérêt, le ton que tu préfères.</p>
           <textarea
             id="persona-notes"
             className="field mt-2.5 h-auto! min-h-[84px] w-full resize-y py-2 leading-relaxed"
@@ -444,10 +430,10 @@ function CopilotTab() {
       </Section>
 
       <Section title="Rendez-vous">
-        <Row label="Point du matin" hint="Ta journée en 3 lignes, avant midi.">
+        <Row label="Point du matin">
           <Toggle label="Point du matin" checked={s.morningBrief} onChange={v => s.set({ morningBrief: v })} />
         </Row>
-        <Row label="Bilan du dimanche" hint={'Le dimanche à partir de 17\u00a0h.'}>
+        <Row label="Bilan du dimanche">
           <Toggle label="Bilan du dimanche" checked={s.weeklyReview} onChange={v => s.set({ weeklyReview: v })} />
         </Row>
       </Section>
@@ -457,7 +443,7 @@ function CopilotTab() {
           <button
             className="btn-secondary h-8"
             onClick={async () => {
-              if (!(await confirmAction('Effacer la conversation ?', 'Tous les messages échangés avec Kompaly sur cet appareil seront supprimés.', 'Effacer'))) return;
+              if (!(await confirmAction('Effacer la conversation ?', 'Sur cet appareil.', 'Effacer'))) return;
               useCopilot.getState().clearHistory();
               resetClaudeHistory();
               toast('Conversation effacée', 'success');
@@ -466,7 +452,7 @@ function CopilotTab() {
             Effacer
           </button>
         </Row>
-        <Row label="Remarques déjà faites" hint="Il oublie ce qu’il t’a déjà signalé et pourra te le redire.">
+        <Row label="Remarques déjà faites" hint="Il pourra te les refaire.">
           <button className="btn-secondary h-8" onClick={() => { useCopilot.setState({ memory: {} }); toast('Mémoire réinitialisée', 'success'); }}>
             Réinitialiser
           </button>
@@ -488,7 +474,7 @@ function StudiesTab() {
   const focus = useFocus();
   return (
     <div className="space-y-5">
-      <Section title="Sessions focus" description="Minuteur Pomodoro, en bas de la barre latérale sur ordinateur et dans Tâches.">
+      <Section title="Sessions focus">
         <Row label="Durée de travail">
           <Segmented<number> label="Durée de travail" value={s.focusMinutes} onChange={v => s.set({ focusMinutes: v })} options={[15, 25, 45, 50].map(v => ({ value: v, label: `${v} min` }))} />
         </Row>
@@ -501,7 +487,7 @@ function StudiesTab() {
           </button>
           <Toggle label="Son" checked={s.focusSound} onChange={v => s.set({ focusSound: v })} />
         </Row>
-        <Row label="Lancer une session maintenant" hint={focus.phase ? 'Une session est déjà en cours.' : `${s.focusMinutes} min de travail, puis ${s.breakMinutes} min de pause.`}>
+        <Row label="Lancer une session" hint={focus.phase ? 'Une session est déjà en cours.' : undefined}>
           <button
             className="btn-primary h-8"
             disabled={!!focus.phase}
@@ -515,7 +501,7 @@ function StudiesTab() {
         </Row>
       </Section>
 
-      <Section title={s.usage === 'etudes' ? 'Planification des révisions' : 'Temps de préparation'} description={s.usage === 'etudes' ? 'Quand Kompaly prépare tes révisions avant un examen.' : 'Quand Kompaly bloque du temps pour préparer un moment important.'}>
+      <Section title={s.usage === 'etudes' ? 'Planification des révisions' : 'Temps de préparation'}>
         <Row label="Nombre de séances">
           <Stepper label="Nombre de séances" value={s.revisionSessions} min={1} max={6} onChange={v => s.set({ revisionSessions: v })} />
         </Row>
@@ -638,7 +624,7 @@ function NotificationsTab() {
       if (on) {
         const next = await enableDevice();
         setState(next);
-        if (next === 'denied') toast('Notifications bloquées : autorise-les dans les réglages du site de ton navigateur.', 'error');
+        if (next === 'denied') toast('Notifications bloquées : autorise-les dans les réglages du navigateur.', 'error');
       } else {
         await disableDevice();
         setState(deviceState());
@@ -652,39 +638,35 @@ function NotificationsTab() {
   const testClosed = async () => {
     const r = await sendTestPush(10);
     if (r === 'ok') toast('Ferme ou quitte Kompaly : la notification arrive dans 10 secondes.', 'success');
-    else toast(r === 'unavailable' ? 'L’envoi site fermé n’est pas encore activé sur le serveur.' : 'L’essai n’a pas pu partir, réessaie dans un instant.', 'error');
+    else toast(r === 'unavailable' ? 'Pas encore disponible.' : 'L’essai n’a pas pu partir, réessaie dans un instant.', 'error');
   };
 
   const hint =
     state === 'on'
       ? push
-        ? 'Activées : tu reçois les rappels même quand Kompaly est fermé.'
+        ? 'Même quand Kompaly est fermé.'
         : push === false && cloudEnabled
-          ? 'Activées quand Kompaly est ouvert, même dans un autre onglet ou une autre fenêtre.'
-          : 'Activées sur cet appareil.'
+          ? 'Seulement quand Kompaly est ouvert.'
+          : undefined
       : state === 'denied'
-        ? 'Bloquées par ton navigateur : autorise-les dans les réglages du site (le cadenas à gauche de l’adresse), puis recharge la page.'
+        ? 'Bloquées par le navigateur : autorise-les via le cadenas à gauche de l’adresse, puis recharge la page.'
         : state === 'install'
-          ? 'Sur iPhone et iPad : ajoute d’abord Kompaly à l’écran d’accueil (bouton Partager › « Sur l’écran d’accueil »), ouvre-le depuis son icône, puis reviens ici.'
+          ? 'Sur iPhone et iPad : ajoute d’abord Kompaly à l’écran d’accueil (Partager › « Sur l’écran d’accueil »), puis ouvre-le depuis son icône.'
           : state === 'unsupported'
-            ? 'Ce navigateur n’affiche pas de notifications : les rappels apparaissent dans Kompaly quand il est ouvert.'
-            : 'Désactivées sur cet appareil : les rappels n’apparaissent que dans Kompaly, quand il est ouvert.';
+            ? 'Non disponibles dans ce navigateur.'
+            : undefined;
 
   const defaultValue = s.defaultReminders[0] ?? -1;
   return (
     <div className="space-y-5">
-      <Section title="Sur cet appareil" description="Un rappel s’affiche dans Kompaly si tu es dessus, sinon en notification sur l’ordinateur ou le téléphone.">
+      <Section title="Sur cet appareil">
         <Row label="Notifications" hint={hint}>
           {(state === 'on' || state === 'off') && <Toggle label="Notifications sur cet appareil" checked={state === 'on'} onChange={v => !busy && void toggle(v)} />}
         </Row>
         {!installed() && (canInstall || macSafari()) && (
           <Row
-            label="Installer Kompaly sur cet appareil"
-            hint={
-              canInstall
-                ? 'Ses notifications porteront alors le nom et le logo de Kompaly (au lieu de ceux du navigateur), et il s’ouvrira dans sa propre fenêtre.'
-                : 'Dans Safari : menu Fichier › Ajouter au Dock. Ses notifications porteront alors le nom et le logo de Kompaly.'
-            }
+            label="Installer Kompaly"
+            hint={canInstall ? 'Il s’ouvre dans sa propre fenêtre.' : 'Dans Safari : menu Fichier › Ajouter au Dock.'}
           >
             {canInstall && (
               <button className="btn-primary h-8" onClick={() => void install().then(ok => ok && toast('Kompaly est installé', 'success'))}>
@@ -694,12 +676,12 @@ function NotificationsTab() {
           </Row>
         )}
         {state === 'on' && (
-          <Row label="Tester" hint={push ? '« Site fermé » : ferme ou quitte Kompaly juste après, la notification arrive 10 secondes plus tard.' : undefined}>
+          <Row label="Tester">
             <button className="btn-secondary h-8" onClick={() => void showSystemNotification('Notifications activées', 'Tes rappels Kompaly arriveront ici.\nEssai', 'test', '/profil?onglet=notifications')}>
               <Bell size={14} /> Essayer
             </button>
             {push && (
-              <button className="btn-secondary h-8" onClick={() => void testClosed()}>
+              <button className="btn-secondary h-8" title="Ferme Kompaly juste après : la notification arrive 10 secondes plus tard." onClick={() => void testClosed()}>
                 Site fermé
               </button>
             )}
@@ -707,7 +689,7 @@ function NotificationsTab() {
         )}
       </Section>
       <Section title="Rappels">
-        <Row label="Rappel par défaut" hint="Pour chaque événement qui a une heure. Tu peux en mettre d’autres, ou aucun, dans l’événement lui-même.">
+        <Row label="Rappel par défaut" hint="Pour les événements avec une heure.">
           <SelectField<number>
             value={defaultValue}
             onChange={v => s.set({ defaultReminders: v < 0 ? [] : [v] })}
@@ -716,7 +698,6 @@ function NotificationsTab() {
             options={[{ value: -1, label: 'Aucun' }, ...TIMED_OPTIONS.map(o => ({ value: o.minutes, label: o.label }))]}
           />
         </Row>
-        <Row label="Tâches" hint="Dans Tâches, la cloche d’une tâche lui donne une heure et un ou plusieurs rappels (la veille à 18h, le jour même…)." />
       </Section>
     </div>
   );
@@ -739,7 +720,7 @@ function DataTab() {
 
   const onImport = async (f?: File) => {
     if (!f) return;
-    if (!(await confirmAction('Restaurer cette sauvegarde ?', 'Les notes, événements, tâches et dossiers absents d’ici seront ajoutés. Rien d’actuel n’est remplacé, sauf tes préférences (thème, ton de Kompaly…).', 'Restaurer', false))) return;
+    if (!(await confirmAction('Restaurer cette sauvegarde ?', 'Ce qui manque sera ajouté. Rien n’est remplacé, sauf tes préférences.', 'Restaurer', false))) return;
     try {
       const r = await importBackup(f);
       const parts = [
@@ -751,7 +732,7 @@ function DataTab() {
         .filter(([n]) => n)
         .map(([n, word]) => `${n} ${word}${(n as number) > 1 ? 's' : ''}`);
       const list = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} et ${parts.at(-1)}` : parts[0];
-      const trash = r.inTrash ? ` ${r.inTrash > 1 ? `${r.inTrash} éléments de la sauvegarde sont` : 'Un élément de la sauvegarde est'} dans la corbeille : restaure-${r.inTrash > 1 ? 'les' : 'le'} depuis la Corbeille.` : '';
+      const trash = r.inTrash ? ` ${r.inTrash > 1 ? `${r.inTrash} éléments sont` : 'Un élément est'} dans la corbeille.` : '';
       toast(list ? `Récupéré : ${list}.${trash}` : r.inTrash ? `Rien de plus à récupérer.${trash}` : 'Rien à récupérer : tout est déjà là.', list || !r.inTrash ? 'success' : 'info');
     } catch (e) {
       toast((e as Error).message, 'error');
@@ -760,8 +741,8 @@ function DataTab() {
 
   return (
     <div className="space-y-5">
-      <Section title="Sauvegarde" description={cloudEnabled ? 'Tes données sont enregistrées dans ton compte en ligne.' : 'Tes données sont enregistrées sur cet appareil.'}>
-        <Row label="Exporter mes données" hint="Fichier .json, sans le contenu des fichiers du Drive.">
+      <Section title="Sauvegarde" description={cloudEnabled ? undefined : 'Tes données sont enregistrées sur cet appareil.'}>
+        <Row label="Exporter mes données" hint="Sans les fichiers du Drive.">
           <button
             className="btn-secondary h-8"
             onClick={() => {
@@ -778,7 +759,7 @@ function DataTab() {
           </button>
           <input ref={importRef} type="file" accept="application/json,.json" hidden onChange={e => { void onImport(e.target.files?.[0]); e.target.value = ''; }} />
         </Row>
-        <Row label="Exporter le calendrier" hint="Format .ics (Google Agenda, Apple Calendrier, Outlook).">
+        <Row label="Exporter le calendrier" hint="Fichier .ics (Google Agenda, Outlook…).">
           <button
             className="btn-secondary h-8"
             disabled={!events}
@@ -798,7 +779,7 @@ function DataTab() {
             <div className="flex items-center gap-2 text-[13px]">
               <HardDrive size={15} className="text-stone-400" />
               <span className="tabular font-medium">{formatBytes(usage.used)}</span>
-              <span className="text-stone-500">utilisés sur {formatBytes(usage.quota)} disponibles dans ce navigateur</span>
+              <span className="text-stone-500">utilisés sur {formatBytes(usage.quota)}</span>
             </div>
             <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-stone-100">
               <div className="h-full rounded-full bg-[#3b6fd8]" style={{ width: `${Math.max(1, (usage.used / usage.quota) * 100)}%` }} />
@@ -808,11 +789,11 @@ function DataTab() {
       )}
 
       <Section title="Zone sensible" danger>
-        <Row label="Effacer toutes mes données" hint={`Fichiers du Drive, notes, événements, tâches, historique et conversation avec Kompaly, corbeilles comprises. Ton compte, tes réglages et tes ${groupWords(useSettings.getState().usage).groups} restent.`}>
+        <Row label="Effacer toutes mes données" hint={`Drive, notes, événements, tâches et conversation, corbeilles comprises. Ton compte, tes réglages et tes ${groupWords(useSettings.getState().usage).groups} restent.`}>
           <button
             className="btn-danger h-8"
             onClick={async () => {
-              if (!(await confirmAction('Tout effacer ?', `Tous tes fichiers, notes, événements et tâches seront supprimés définitivement${cloudEnabled ? ' sur tous tes appareils' : ''}, ainsi que ta conversation avec Kompaly sur cet appareil. Pense à exporter une sauvegarde avant si tu veux les garder.`, 'Tout effacer'))) return;
+              if (!(await confirmAction('Tout effacer ?', `Fichiers, notes, événements et tâches seront supprimés définitivement${cloudEnabled ? ' sur tous tes appareils' : ''}. Exporte une sauvegarde avant si tu veux les garder.`, 'Tout effacer'))) return;
               try {
                 await wipeUserData();
                 toast('Données effacées', 'success');
@@ -840,20 +821,22 @@ function AccountTab() {
   const [deletePw, setDeletePw] = useState('');
   const [busy, setBusy] = useState(false);
   const userId = useAuth(s => s.user?.id);
+  // Signed up with Google or Apple: no password yet, so none to ask for.
+  const noPassword = useAuth(s => !!s.user?.noPassword);
   const [switching, setSwitching] = useState<string | null>(null);
 
   const onChange = async (e: FormEvent) => {
     e.preventDefault();
-    if (next.length < 8 || !/\p{L}/u.test(next) || !/\d/.test(next)) return toast('Le nouveau mot de passe doit faire au moins 8 caractères, avec des lettres et des chiffres.', 'error');
+    if (next.length < 8 || !/\p{L}/u.test(next) || !/\d/.test(next)) return toast('Au moins 8 caractères, avec des lettres et des chiffres.', 'error');
     if (next !== confirmPw) return toast('Les deux mots de passe ne correspondent pas', 'error');
-    if (next === current) return toast('Choisis un mot de passe différent de l’actuel.', 'error');
+    if (!noPassword && next === current) return toast('Choisis un mot de passe différent de l’actuel.', 'error');
     setBusy(true);
     try {
       await changePassword(current, next);
       setCurrent('');
       setNext('');
       setConfirmPw('');
-      toast('Mot de passe modifié', 'success');
+      toast(noPassword ? 'Mot de passe enregistré' : 'Mot de passe modifié', 'success');
     } catch (err) {
       toast((err as Error).message, 'error');
     } finally {
@@ -871,16 +854,16 @@ function AccountTab() {
     <div className="space-y-5">
       {cloudEnabled && (
         <Section title="Double authentification">
-          <Row label="Activée" hint="Un code de ton téléphone à chaque nouvelle connexion.">
+          <Row label="Activée">
             <span className="flex items-center gap-1.5 text-[13px] font-medium text-emerald-700">
               <ShieldCheck size={15} /> Protégé
             </span>
           </Row>
-          <Row label="Changer de téléphone" hint="Affiche un nouveau QR code à scanner, avec une nouvelle clé de secours à garder. L’ancien téléphone est retiré dès que le nouveau marche.">
+          <Row label="Changer de téléphone">
             <button
               className="btn-secondary h-8"
               onClick={async () => {
-                if (!(await confirmAction('Changer de téléphone ?', 'Tu scanneras un nouveau QR code juste après. Dès que le nouveau téléphone donne un bon code, l’ancien ne sert plus.', 'Continuer', false))) return;
+                if (!(await confirmAction('Changer de téléphone ?', 'Tu scanneras un nouveau QR code. L’ancien téléphone ne servira plus.', 'Continuer', false))) return;
                 try {
                   await useAuth.getState().resetMfa();
                   navigate('/securite');
@@ -889,7 +872,7 @@ function AccountTab() {
                 }
               }}
             >
-              <Smartphone size={14} /> Associer un autre téléphone
+              <Smartphone size={14} /> Changer
             </button>
           </Row>
         </Section>
@@ -897,12 +880,17 @@ function AccountTab() {
 
       <Section title="Mot de passe">
         <form onSubmit={onChange} className="grid gap-3 px-5 py-4 sm:grid-cols-3">
-          <input type="password" className="field" placeholder="Mot de passe actuel" aria-label="Mot de passe actuel" value={current} onChange={e => setCurrent(e.target.value)} autoComplete="current-password" />
-          <input type="password" className="field" placeholder="Nouveau mot de passe" aria-label="Nouveau mot de passe" value={next} onChange={e => setNext(e.target.value)} autoComplete="new-password" />
+          {!noPassword && <input type="password" className="field" placeholder="Mot de passe actuel" aria-label="Mot de passe actuel" value={current} onChange={e => setCurrent(e.target.value)} autoComplete="current-password" />}
+          <input type="password" className="field" placeholder="Nouveau mot de passe" aria-label="Nouveau mot de passe" aria-describedby="profile-strength" value={next} onChange={e => setNext(e.target.value)} autoComplete="new-password" />
           <input type="password" className="field" placeholder="Confirmer" aria-label="Confirmer le nouveau mot de passe" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} autoComplete="new-password" />
+          {next && (
+            <div className="sm:col-span-3 sm:-mt-1">
+              <PasswordStrength id="profile-strength" password={next} />
+            </div>
+          )}
           <div className="sm:col-span-3">
-            <button className="btn-primary h-8" disabled={busy || !current || !next}>
-              Modifier le mot de passe
+            <button className="btn-primary h-8" disabled={busy || (!noPassword && !current) || !next}>
+              {noPassword ? 'Choisir un mot de passe' : 'Modifier le mot de passe'}
             </button>
           </div>
         </form>
@@ -911,7 +899,7 @@ function AccountTab() {
       <Section title="Comptes sur cet appareil">
         <div className="space-y-3 px-5 py-4">
           <p className="text-[12.5px] text-stone-500">
-            Un compte perso et un compte travail ? Ajoute-les ici pour passer de l’un à l’autre en un clic. Un compte inutilisé pendant {STALE_DAYS}&nbsp;jours redemande son mot de passe.
+            Après {STALE_DAYS}&nbsp;jours sans utilisation, le mot de passe est redemandé.
           </p>
           <AccountList
             currentId={userId}
@@ -934,13 +922,7 @@ function AccountTab() {
       <Section title="Session">
         <Row
           label="Se déconnecter"
-          hint={
-            !cloudEnabled
-              ? 'Tes données restent sur cet appareil, tu les retrouveras en te reconnectant.'
-              : remembered()
-                ? `Ton compte reste proposé en un clic sur la page de connexion de cet appareil (${STALE_DAYS}\u00a0jours sans l’ouvrir et le mot de passe est redemandé). Pour l’en retirer, utilise la croix à côté de son nom.`
-                : 'Tes données restent en sécurité dans ton compte.'
-          }
+          hint={!cloudEnabled ? 'Tes données restent sur cet appareil.' : remembered() ? 'Ton compte reste proposé sur la page de connexion.' : undefined}
         >
           <button className="btn-secondary h-8" onClick={() => void logout().then(leave)}>
             <LogOut size={14} /> Se déconnecter
@@ -949,11 +931,11 @@ function AccountTab() {
       </Section>
 
       <Section title="Supprimer le compte" danger>
-        <Row label="Supprimer définitivement mon compte" hint="Tout sera effacé. Pense à exporter une sauvegarde avant.">
-          <input type="password" className="field w-44" placeholder="Mot de passe" aria-label="Mot de passe, pour confirmer la suppression" value={deletePw} onChange={e => setDeletePw(e.target.value)} />
+        <Row label="Supprimer définitivement mon compte" hint="Tout sera effacé. Exporte une sauvegarde avant.">
+          {!noPassword && <input type="password" className="field w-44" placeholder="Mot de passe" aria-label="Mot de passe, pour confirmer la suppression" value={deletePw} onChange={e => setDeletePw(e.target.value)} />}
           <button
             className="btn-danger h-8"
-            disabled={!deletePw}
+            disabled={!noPassword && !deletePw}
             onClick={async () => {
               if (!(await confirmAction('Supprimer ton compte ?', 'Cette action est irréversible.', 'Supprimer'))) return;
               try {

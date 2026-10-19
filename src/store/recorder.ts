@@ -286,7 +286,7 @@ async function runPump() {
 }
 
 function offReason(e: CoursError) {
-  if (e.code === 'disabled') return 'La transcription n’est pas activée sur le serveur de Kompaly.';
+  if (e.code === 'disabled') return 'La transcription n’est pas activée sur le serveur.';
   if (e.code === 'site_limit') return 'Kompaly a atteint sa limite de transcription pour aujourd’hui.';
   if (e.code === 'daily_limit') return 'Tu as atteint ta limite de transcription pour aujourd’hui.';
   return 'La transcription ne répond plus.';
@@ -335,7 +335,7 @@ async function runParts(all: boolean) {
         part = { title: w.title, text: w.text, points: w.points, until: next.until };
       } catch (e) {
         // Kept as heard; the next parts too if the AI is out for today.
-        if (isFinal(e)) patch(() => ({ aiOff: 'L’IA de Kompaly n’est pas disponible pour le moment.' }));
+        if (isFinal(e)) patch(() => ({ aiOff: 'L’IA n’est pas disponible pour le moment.' }));
         part = rawPart(s.segments, s.partsUpTo, next.until, `Partie ${s.parts.length + 1}`);
       } finally {
         live({ waiting: null });
@@ -356,7 +356,7 @@ function check() {
     if (!warned.sound) {
       warned.sound = true;
       live({ problem: 'Plus aucun son depuis 1 min' });
-      void alertUser('⚠️ Plus aucun son', 'Le son partagé est silencieux depuis 1 minute : la visio est peut-être finie ou en pause.', true);
+      void alertUser('⚠️ Plus aucun son', 'Aucun son depuis 1 min : la visio est peut-être finie.', true);
     }
   } else if (warned.sound) {
     warned.sound = false;
@@ -396,7 +396,7 @@ async function listen(kind: SourceKind, offset: number) {
       capture = null;
       stopQuick();
       live({ hearing: false, problem: kind === 'onglet' ? 'Le partage du son s’est arrêté' : 'Le micro s’est coupé', interim: '' });
-      void alertUser('⚠️ Écoute arrêtée', kind === 'onglet' ? 'Le partage du son s’est arrêté. Clique sur « Reprendre l’écoute » pour continuer.' : 'Le micro s’est coupé. Clique sur « Reprendre l’écoute ».', true);
+      void alertUser('⚠️ Écoute arrêtée', kind === 'onglet' ? 'Le partage du son s’est arrêté. Clique sur « Reprendre l’écoute ».' : 'Le micro s’est coupé. Clique sur « Reprendre l’écoute ».', true);
     },
   });
   lastAudible = lastText = Date.now();
@@ -653,7 +653,7 @@ async function saveDocuments() {
   patch(() => ({ phase: 'done', ...(failed.length && { failed }) }));
   live({ step: null, progress: null });
   notify(`${words().docDone} est prêt`, `« ${done.title} » est rangé dans ton Drive.`);
-  if (failed.length) toast(`Pas pu créer : ${failed.map(f => words().long[f].toLowerCase()).join(' et ')}. Réessaie depuis la liste en bas de la page.`, 'error');
+  if (failed.length) toast(`Impossible de créer : ${failed.map(f => words().long[f].toLowerCase()).join(' et ')}. Tu peux réessayer.`, 'error');
 }
 
 /** The essentials of the class: the AI's points per part (or, when it couldn't write the parts, asked now). */
@@ -717,7 +717,7 @@ export function openInDrive(id: string) {
 
 export function errorText(e: unknown): string {
   if (e instanceof CoursError) {
-    if (e.code === 'disabled') return 'L’IA de Kompaly n’est pas activée sur le serveur.';
+    if (e.code === 'disabled') return 'L’IA n’est pas activée sur le serveur.';
     if (e.code === 'daily_limit') return 'Tu as utilisé toutes tes demandes à l’IA pour aujourd’hui : réessaie demain.';
     if (e.code === 'site_limit') return 'L’IA gratuite de Kompaly a atteint sa limite du jour : réessaie demain.';
     if (e.code === 'network' || e.code === 'timeout') return 'Pas de connexion au serveur : réessaie dans un instant.';

@@ -1,10 +1,14 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { captchaToken } from './captcha';
+import { t } from '../i18n';
 
 // When VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set (see .env.example), accounts and
 // data live in Supabase. Otherwise the app keeps working fully offline in this browser.
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+
+/** Set just before leaving for Google or Apple: an error on the way back is theirs, not an e-mail link's. */
+export const OAUTH_KEY = 'cop-oauth';
 
 /**
  * Error carried back by a Supabase e-mail link (expired or already used link…).
@@ -12,12 +16,22 @@ const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
  */
 export const linkError: string | null = (() => {
   const params = new URLSearchParams(location.hash.replace(/^#/, ''));
-  const code = params.get('error_code') ?? params.get('error');
-  if (!code) return null;
-  if (code === 'otp_expired') {
-    return "Ce lien a expiré ou a déjà été utilisé. Si tu avais déjà cliqué dessus, ton compte est peut-être déjà activé : essaie de te connecter. Sinon, renvoie un e-mail de confirmation.";
+  const query = new URLSearchParams(location.search);
+  let oauth = false;
+  try {
+    oauth = !!sessionStorage.getItem(OAUTH_KEY);
+    sessionStorage.removeItem(OAUTH_KEY);
+  } catch {
+    /* storage blocked */
   }
-  return 'Ce lien n’est pas valide. Essaie de te connecter ou demande un nouvel e-mail.';
+  const code = params.get('error_code') ?? params.get('error') ?? query.get('error');
+  if (!code) return null;
+  // Back from Google or Apple without an account.
+  if (oauth || query.has('error')) return code === 'access_denied' ? t('Connexion annulée.') : t('La connexion n’a pas abouti. Réessaie.');
+  if (code === 'otp_expired') {
+    return t('Ce lien a expiré ou a déjà servi. Essaie de te connecter, ou renvoie l’e-mail de confirmation.');
+  }
+  return t('Ce lien n’est pas valide. Essaie de te connecter ou demande un nouvel e-mail.');
 })();
 
 // « Rester connecté » : the session is kept in localStorage (still there when the browser reopens, on this
@@ -72,6 +86,18 @@ export async function checkPassword(email: string, password: string): Promise<bo
   return !error;
 }
 export const cloudEnabled = supabase !== null;
+
+export type OAuthProvider = 'google' | 'apple';
+let providers: Promise<OAuthProvider[]> | null = null;
+/** Google and Apple sign-in buttons show only once they are switched on in Supabase (Authentication › Providers). */
+export function oauthProviders(): Promise<OAuthProvider[]> {
+  if (!url || !key) return Promise.resolve([]);
+  providers ??= fetch(`${url}/auth/v1/settings`, { headers: { apikey: key } })
+    .then(r => (r.ok ? r.json() : {}))
+    .then((s: { external?: Record<string, boolean> }) => (['google', 'apple'] as const).filter(p => s.external?.[p] === true))
+    .catch(() => []);
+  return providers;
+}
 
 /** Ends a session kept for an account that is not the one in use (« Retirer de cet appareil »). */
 export async function revokeSession(session: { access_token: string; refresh_token: string }, before?: (client: SupabaseClient) => Promise<unknown>) {

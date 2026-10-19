@@ -8,6 +8,7 @@ import { useDrive, pathOf, trashRoots, withDescendants, TRASH_DAYS, type DriveIt
 import { useNotes, notesTrashRoots, folderDescendants, type Note, type NoteFolder } from '../store/notes';
 import { useCalendar, type CalendarEvent } from '../store/calendar';
 import { toast } from '../store/ui';
+import { locale, t } from '../i18n';
 
 export type TrashType = 'notes' | 'drive' | 'calendar';
 
@@ -19,9 +20,9 @@ export type TrashEntry = { id: string; type: TrashType; name: string; deletedAt:
 );
 
 export const TRASH_TYPES: { key: TrashType; label: string }[] = [
-  { key: 'notes', label: 'Notes' },
-  { key: 'drive', label: 'Drive' },
-  { key: 'calendar', label: 'Calendrier' },
+  { key: 'notes', label: t('Notes') },
+  { key: 'drive', label: t('Drive') },
+  { key: 'calendar', label: t('Calendrier') },
 ];
 
 interface Sources {
@@ -42,16 +43,16 @@ const current = (): Sources => {
 export const eventDay = (date: string) => fmt(parseISO(date), 'EEE d MMM').replace(/^./, c => c.toUpperCase());
 
 function notesPlace(folders: NoteFolder[], parentId: string | null) {
-  if (!parentId) return { place: 'Notes', placeGone: false };
+  if (!parentId) return { place: t('Notes'), placeGone: false };
   const names: string[] = [];
   for (let f = folders.find(x => x.id === parentId); f; f = folders.find(x => x.id === f!.parentId)) names.unshift(f.name);
-  return names.length ? { place: ['Notes', ...names].join(' › '), placeGone: false } : { place: 'Notes · dossier supprimé', placeGone: true };
+  return names.length ? { place: [t('Notes'), ...names].join(' › '), placeGone: false } : { place: t('Notes · dossier supprimé'), placeGone: true };
 }
 
 function drivePlace(items: DriveItem[], parentId: string | null) {
-  if (!parentId) return { place: 'Drive', placeGone: false };
+  if (!parentId) return { place: t('Drive'), placeGone: false };
   const path = pathOf(items, parentId);
-  return path.length ? { place: ['Drive', ...path.map(p => p.name)].join(' › '), placeGone: false } : { place: 'Drive · dossier supprimé', placeGone: true };
+  return path.length ? { place: [t('Drive'), ...path.map(p => p.name)].join(' › '), placeGone: false } : { place: t('Drive · dossier supprimé'), placeGone: true };
 }
 
 /** Top-level deleted things of every space, newest first. */
@@ -68,11 +69,11 @@ export function collectTrash(s: Sources = current()): TrashEntry[] {
       event: e,
       name: e.title,
       deletedAt: e.deletedAt ?? '',
-      place: `Calendrier · ${eventDay(e.date)}${e.start ? ` · ${e.start}` : ''}`,
+      place: t('Calendrier · {day}', { day: eventDay(e.date) }) + (e.start ? ` · ${e.start}` : ''),
       placeGone: false,
     })),
   ];
-  return out.sort((a, b) => b.deletedAt.localeCompare(a.deletedAt) || a.name.localeCompare(b.name, 'fr'));
+  return out.sort((a, b) => b.deletedAt.localeCompare(a.deletedAt) || a.name.localeCompare(b.name, locale()));
 }
 
 /** The trash, kept up to date. */
@@ -116,7 +117,7 @@ export function folderContent(entry: TrashEntry): { id: string; name: string; de
     const walk = (parent: string, depth: number) => {
       const kids = trash
         .filter(t => t.parentId === parent && ids.has(t.id))
-        .sort((a, b) => (a.kind === b.kind ? a.name.localeCompare(b.name, 'fr') : a.kind === 'folder' ? -1 : 1));
+        .sort((a, b) => (a.kind === b.kind ? a.name.localeCompare(b.name, locale()) : a.kind === 'folder' ? -1 : 1));
       for (const k of kids) {
         out.push({ id: k.id, name: k.name, depth, folder: k.kind === 'folder', item: k });
         if (k.kind === 'folder') walk(k.id, depth + 1);
@@ -131,11 +132,11 @@ export function folderContent(entry: TrashEntry): { id: string; name: string; de
     const folders = new Set(folderDescendants(trashFolders, entry.id).filter(id => trashFolders.some(f => f.id === id && same(f))));
     const out: ReturnType<typeof folderContent> = [];
     const walk = (parent: string, depth: number) => {
-      for (const f of trashFolders.filter(x => x.parentId === parent && folders.has(x.id)).sort((a, b) => a.name.localeCompare(b.name, 'fr'))) {
+      for (const f of trashFolders.filter(x => x.parentId === parent && folders.has(x.id)).sort((a, b) => a.name.localeCompare(b.name, locale()))) {
         out.push({ id: f.id, name: f.name, depth, folder: true });
         walk(f.id, depth + 1);
       }
-      for (const n of trashNotes.filter(x => x.folderId === parent && same(x)).sort((a, b) => a.title.localeCompare(b.title, 'fr'))) {
+      for (const n of trashNotes.filter(x => x.folderId === parent && same(x)).sort((a, b) => a.title.localeCompare(b.title, locale()))) {
         out.push({ id: n.id, name: n.title, depth, folder: false });
       }
     };
@@ -208,5 +209,5 @@ export const isTrashedDriveItem = (id: string) => useDrive.getState().trash.some
 /** Deletes a calendar event (to the trash), with « Annuler » in the toast. */
 export function trashEvent(id: string) {
   useCalendar.getState().remove(id);
-  toast('Mis à la corbeille', 'info', { label: 'Annuler', run: () => useCalendar.getState().restore([id]) });
+  toast(t('Mis à la corbeille'), 'info', { label: t('Annuler'), run: () => useCalendar.getState().restore([id]) });
 }

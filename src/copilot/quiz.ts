@@ -3,6 +3,7 @@
 
 import { normalize } from '../lib/utils';
 import type { Note } from '../store/notes';
+import { t } from '../i18n';
 
 export interface QuizQuestion {
   q: string;
@@ -43,7 +44,7 @@ function blocksOf(el: Element): string[] {
   const leaves = [el, ...el.querySelectorAll('p, li, td, th, pre, blockquote')].filter(b => !b.querySelector('p, li, td, th, pre, blockquote'));
   return leaves
     .map(b => (b.textContent ?? '').replace(/\s+/g, ' ').trim())
-    .filter(t => t && !/^[^:]{1,60}:$/.test(t) && !/^(\[ ?\]|-)$/.test(t));
+    .filter(s => s && !/^[^:]{1,60}:$/.test(s) && !/^(\[ ?\]|-)$/.test(s));
 }
 
 /** Builds up to `max` questions from a note's HTML. */
@@ -65,7 +66,7 @@ export function buildQuiz(note: Note, max = 6): Quiz | null {
     for (let el = h.nextElementSibling; el && !/^H[1-3]$/.test(el.tagName); el = el.nextElementSibling) parts.push(...blocksOf(el));
     const body = parts.join(' ').replace(/\s+/g, ' ').trim();
     const title = (h.textContent ?? '').trim();
-    if (title && keywords(body).length >= 2) add({ q: `Que sais-tu sur « ${title} » ?`, answer: clip(body), mode: 'keywords' });
+    if (title && keywords(body).length >= 2) add({ q: t('Que sais-tu sur « {title} » ?', { title }), answer: clip(body), mode: 'keywords' });
   }
 
   // 2. "Terme : définition" (or "Terme — définition") in list items and paragraphs.
@@ -73,7 +74,7 @@ export function buildQuiz(note: Note, max = 6): Quiz | null {
     if (el.querySelector('li')) continue;
     const text = (el.textContent ?? '').replace(/\s+/g, ' ').trim();
     const m = text.match(/^(.{2,60}?)\s*(?::|—|–| - |=)\s*(.{3,})$/);
-    if (m && !/^\d{1,2}$/.test(m[1])) add({ q: `Que signifie « ${m[1].trim()} » ?`, answer: clip(m[2].trim()), mode: keywords(m[2]).length > 2 ? 'keywords' : 'exact' });
+    if (m && !/^\d{1,2}$/.test(m[1])) add({ q: t('Que signifie « {term} » ?', { term: m[1].trim() }), answer: clip(m[2].trim()), mode: keywords(m[2]).length > 2 ? 'keywords' : 'exact' });
   }
 
   // 3. Bold words → sentence with a blank to fill.
@@ -82,7 +83,7 @@ export function buildQuiz(note: Note, max = 6): Quiz | null {
     const block = b.closest('p, li, h1, h2, h3');
     const sentence = (block?.textContent ?? '').replace(/\s+/g, ' ').trim();
     if (!term || term.length > 50 || sentence.length < term.length + 12 || /^H/.test(block?.tagName ?? '')) continue;
-    add({ q: `Complète : « ${clip(sentence.replace(term, '_____'), 220)} »`, answer: term, mode: 'exact' });
+    add({ q: t('Complète : « {sentence} »', { sentence: clip(sentence.replace(term, '_____'), 220) }), answer: term, mode: 'exact' });
   }
 
   if (!questions.length) return null;

@@ -17,6 +17,7 @@ import { useTodos } from '../store/todos';
 import { isTourTodo } from '../store/tour';
 import { useFocusLog } from '../store/focusLog';
 import { useCopilot } from '../store/copilot';
+import { t } from '../i18n';
 
 function download(name: string, content: string, type: string) {
   const url = URL.createObjectURL(new Blob([content], { type }));
@@ -43,7 +44,7 @@ export function exportBackup() {
     notes: { folders: useNotes.getState().folders, notes: useNotes.getState().notes },
     driveFolders: useDrive.getState().items.filter(i => i.kind === 'folder'),
   };
-  download(`kompaly-sauvegarde-${stamp()}.json`, JSON.stringify(data, null, 2), 'application/json');
+  download(t('kompaly-sauvegarde-{day}.json', { day: stamp() }), JSON.stringify(data, null, 2), 'application/json');
 }
 
 /** What the backup has and this account doesn't (anywhere, trash included). Nothing current is replaced. */
@@ -80,9 +81,9 @@ export async function importBackup(file: File): Promise<{ notes: number; events:
   try {
     data = JSON.parse(await file.text());
   } catch {
-    throw new Error('Ce fichier n’est pas une sauvegarde Kompaly.');
+    throw new Error(t('Ce fichier n’est pas une sauvegarde Kompaly.'));
   }
-  if (data?.app !== 'cop-pilot' || !Array.isArray(data.calendar) || !data.notes) throw new Error('Ce fichier n’est pas une sauvegarde Kompaly.');
+  if (data?.app !== 'cop-pilot' || !Array.isArray(data.calendar) || !data.notes) throw new Error(t('Ce fichier n’est pas une sauvegarde Kompaly.'));
   const cal = useCalendar.getState();
   const nb0 = useNotes.getState();
   const drive0 = useDrive.getState();
@@ -149,7 +150,7 @@ export function exportIcs(events: CalendarEvent[] = useCalendar.getState().event
     lines.push('END:VEVENT');
   }
   lines.push('END:VCALENDAR');
-  download(`kompaly-calendrier-${stamp()}.ics`, lines.map(foldLine).join('\r\n'), 'text/calendar');
+  download(t('kompaly-calendrier-{day}.ics', { day: stamp() }), lines.map(foldLine).join('\r\n'), 'text/calendar');
 }
 
 /** The account's own tables (group content lives in separate tables and is left alone). */
@@ -182,7 +183,7 @@ export async function wipeUserData() {
     // By owner, not by the ids this device knows: rows added on another device since the last pull go too.
     for (const table of OWN_TABLES) {
       const { error } = await supabase!.from(table).delete().eq('user_id', user);
-      if (error) throw new Error('L’effacement n’a pas pu se faire, réessaie dans un instant.');
+      if (error) throw new Error(t('L’effacement n’a pas pu se faire, réessaie dans un instant.'));
     }
     // Every file under the account's folder, even those this device doesn't know about.
     await blobStore.removeFolder(user);
@@ -222,7 +223,7 @@ export function imageToAvatar(file: File, size = 160): Promise<string> {
       URL.revokeObjectURL(url);
       resolve(canvas.toDataURL('image/jpeg', 0.85));
     };
-    img.onerror = () => reject(new Error('Image illisible'));
+    img.onerror = () => reject(new Error(t('Image illisible')));
     img.src = url;
   });
 }

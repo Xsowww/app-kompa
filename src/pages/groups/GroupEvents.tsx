@@ -172,7 +172,7 @@ function EventCard({ group, ev }: { group: Group; ev: GroupEvent }) {
           )}
           <span className="truncate text-[12px] text-stone-500">{who.charAt(0).toUpperCase() + who.slice(1)}</span>
         </div>
-        <p className="mt-1 text-[11px] text-stone-500">Proposée par {nameOf(ev.createdBy)}</p>
+        <p className="mt-1 text-[11px] text-stone-500">{w.meet.a.startsWith('une ') ? 'Proposée' : 'Proposé'} par {nameOf(ev.createdBy)}</p>
       </div>
       <div className="flex shrink-0 basis-full items-center gap-1.5 pl-[68px] sm:basis-auto sm:pl-0">
         <button
@@ -226,11 +226,6 @@ export default function GroupEvents({ group }: { group: Group }) {
           <div className="card flex flex-col items-center px-6 py-12 text-center">
             <CalendarPlus size={26} strokeWidth={1.5} className="text-stone-300" />
             <p className="mt-3 text-[14px] font-medium">{w.meet.none}</p>
-            <p className="mt-1 max-w-[380px] text-[13px] text-stone-500">
-              {canEdit
-                ? w.meet.hint
-                : `Les ${w.meet.many} ${w.meet.proposedMany} par les éditeurs ${w.of} apparaîtront ici.`}
-            </p>
           </div>
         )}
         <div className="flex flex-col gap-2">

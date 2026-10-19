@@ -6,6 +6,8 @@
  * No dependency on purpose: it must run in the browser and in a bare node script.
  */
 
+import { t } from '../i18n';
+
 export interface IcsEvent {
   /** UID of the event, or `${UID}_${YYYYMMDD}` for one occurrence of a recurring (or multi-day) event. */
   externalId: string;
@@ -359,7 +361,7 @@ export function parseIcs(text: string, opts: ParseOptions = {}): IcsEvent[] {
     const start = e.start!;
     const allDay = start.allDay;
     const durationMs = e.end ? e.end.date.getTime() - start.date.getTime() : (e.durationMs ?? (allDay ? DAY_MS : 0));
-    const base = { title: e.summary || 'Sans titre', details: detailsOf(e) };
+    const base = { title: e.summary || t('Sans titre'), details: detailsOf(e) };
 
     if (e.recurrenceId) {
       out.push(...toEvents(e, start.date, durationMs, allDay, () => `${e.uid}_${e.recurrenceId}`, base));

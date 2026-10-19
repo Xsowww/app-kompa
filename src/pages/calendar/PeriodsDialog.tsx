@@ -168,10 +168,7 @@ function DaysPicker({ days, color, around, others, events, onChange }: {
           ))}
         </div>
       )}
-      <p className="mt-1.5 px-1 text-[12px] text-stone-500">
-        Touche un jour pour le cocher ou le décocher, glisse pour en prendre plusieurs d’un coup.
-        {(shownOthers.length > 0 || eventsOn.size > 0) && ' Les traits sont tes autres périodes, les points tes événements.'}
-      </p>
+      <p className="mt-1.5 px-1 text-[12px] text-stone-500">Touche ou glisse pour cocher les jours.</p>
     </div>
   );
 }
@@ -242,7 +239,7 @@ function PeriodForm({ draft, around, onDone }: { draft: Draft; around: string; o
             ...clash.periods.map(c => `« ${c.title} » (${c.n} jour${c.n > 1 ? 's' : ''})`),
             ...(clash.events.length ? [`${clash.events.length} événement${clash.events.length > 1 ? 's' : ''} (${clash.events.slice(0, 3).map(e => `${e.title}, ${fmtDay(fromKey(e.date), 'EEE d')}`).join(' ; ')}${clash.events.length > 3 ? '…' : ''})`] : []),
           ].join(' · ')}
-          . Ils restent visibles : la période se met dessous.
+          . Ils restent visibles.
         </p>
       )}
       {runs.length > 0 && (
@@ -264,7 +261,7 @@ function PeriodForm({ draft, around, onDone }: { draft: Draft; around: string; o
               </button>
             </span>
           ))}
-          <span className="text-[12px] text-stone-500">{days.size} jour{days.size > 1 ? 's' : ''}{runs.length > 1 ? ` en ${runs.length} morceaux, une seule période` : ''}</span>
+          <span className="text-[12px] text-stone-500">{days.size} jour{days.size > 1 ? 's' : ''}{runs.length > 1 ? ` en ${runs.length} morceaux` : ''}</span>
         </div>
       )}
       {long ? (
@@ -292,7 +289,7 @@ function PeriodForm({ draft, around, onDone }: { draft: Draft; around: string; o
         </div>
       ) : (
         <button type="button" className="mt-2 text-[12.5px] font-semibold text-brand-600 hover:text-brand-700" onClick={() => setLong(true)}>
-          Sur plusieurs mois ? Choisir le premier et le dernier jour
+          Sur plusieurs mois ? Choisir les dates
         </button>
       )}
 
@@ -364,15 +361,13 @@ export default function PeriodsDialog({ day, onClose }: { day: string; onClose: 
   }, [canEdit]);
 
   const remove = async (p: Period) => {
-    if (await confirmAction(`Supprimer « ${p.title} » ?`, `La période ${periodRange(p, fmtDay)} disparaît du calendrier ; les événements restent.`, 'Supprimer')) source.removePeriod(p.id);
+    if (await confirmAction(`Supprimer « ${p.title} » ?`, 'Les événements restent.', 'Supprimer')) source.removePeriod(p.id);
   };
 
   return (
     <Modal open onClose={onClose} width={500}>
       <h3 className="text-[18px]">Périodes</h3>
-      <p className="mt-1 text-[13px] text-stone-500">
-        Des semaines qui comptent : {periodIdeas(usage)}… Les jours concernés sont teintés et la période est nommée au-dessus, sans cacher les événements.
-      </p>
+      <p className="mt-1 text-[13px] text-stone-500 first-letter:uppercase">{periodIdeas(usage)}…</p>
 
       {list.length > 0 && (
         <ul className="mt-4 max-h-[38vh] space-y-1 overflow-y-auto pr-1">
@@ -416,7 +411,7 @@ export default function PeriodsDialog({ day, onClose }: { day: string; onClose: 
                 <Plus size={15} /> Ajouter une période
               </button>
               {sources.length > 0 && (
-                <button className="btn-secondary" onClick={() => setImporting(true)} title="Copier ici des périodes de ton agenda perso ou d’un autre agenda partagé">
+                <button className="btn-secondary" onClick={() => setImporting(true)} title="Copier des périodes d’un autre agenda">
                   <Import size={15} /> Importer
                 </button>
               )}

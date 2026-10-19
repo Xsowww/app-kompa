@@ -136,19 +136,18 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
             <p className="eyebrow">Où trouver ce fichier&nbsp;?</p>
             {usage === 'etudes' || !usage ? (
               <p>
-                <span className="font-medium text-ink">ENT de ta fac ou de ton école</span>&nbsp;: ouvre ton emploi du temps (ADE, Hyperplanning…), puis cherche
-                «&nbsp;Exporter&nbsp;», «&nbsp;Synchroniser&nbsp;» ou «&nbsp;Export iCal&nbsp;» et télécharge le fichier <span className="font-mono text-[12px]">.ics</span>.
+                <span className="font-medium text-ink">ENT</span> (ADE, Hyperplanning…)&nbsp;: cherche «&nbsp;Exporter&nbsp;» ou «&nbsp;Export iCal&nbsp;».
               </p>
             ) : (
               <p>
-                <span className="font-medium text-ink">Outlook</span>&nbsp;: Fichier › Enregistrer le calendrier, au format <span className="font-mono text-[12px]">.ics</span>.{' '}
+                <span className="font-medium text-ink">Outlook</span>&nbsp;: Fichier › Enregistrer le calendrier.{' '}
                 <span className="font-medium text-ink">Apple Calendrier</span>&nbsp;: Fichier › Exporter › Exporter.
               </p>
             )}
             <p>
-              <span className="font-medium text-ink">Google Agenda</span>&nbsp;: Paramètres › Importer et exporter › Exporter, puis décompresse le .zip reçu.
+              <span className="font-medium text-ink">Google Agenda</span>&nbsp;: Paramètres › Importer et exporter › Exporter (puis décompresse le .zip).
             </p>
-            <p className="text-[12px] text-stone-500">Les liens d’abonnement (URL) ne peuvent pas être lus directement&nbsp;: télécharge le fichier.</p>
+            <p className="text-[12px] text-stone-500">Un lien d’abonnement (URL) ne marche pas&nbsp;: télécharge le fichier.</p>
           </div>
 
           <div className="mt-5 flex justify-end">
@@ -163,8 +162,7 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
 
           {!parsed?.length ? (
             <div className="mt-4 rounded-lg border border-dashed border-stone-200 py-8 text-center">
-              <p className="text-[14px] font-medium">Aucun événement trouvé</p>
-              <p className="mt-1 text-[13px] text-stone-500">Ce fichier ne contient pas d’événement lisible.</p>
+              <p className="text-[14px] font-medium">Aucun événement lisible dans ce fichier</p>
             </div>
           ) : (
             plan && (
@@ -216,7 +214,7 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
                   <p className="mt-2 text-[12px] text-stone-600">
                     {words.timetable.charAt(0).toUpperCase() + words.timetable.slice(1)} mis à jour&nbsp;:{' '}
                     {[
-                      plan.updates.length && `${plan.updates.length} ${plan.updates.length > 1 ? words.slots : words.slot} modifié${plan.updates.length > 1 ? 's' : ''} (horaire, salle…)`,
+                      plan.updates.length && `${plan.updates.length} ${plan.updates.length > 1 ? words.slots : words.slot} modifié${plan.updates.length > 1 ? 's' : ''}`,
                       plan.removals.length && `${plan.removals.length} ${plan.removals.length > 1 ? words.slots : words.slot} annulé${plan.removals.length > 1 ? 's' : ''}, mis à la corbeille`,
                     ]
                       .filter(Boolean)
@@ -226,7 +224,7 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
                 )}
                 {plan.duplicates > 0 && (
                   <p className="mt-2 text-[12px] text-stone-500">
-                    {plan.duplicates} événement{plan.duplicates > 1 ? 's' : ''} déjà dans ton calendrier ne {plan.duplicates > 1 ? 'seront' : 'sera'} pas ajouté{plan.duplicates > 1 ? 's' : ''} en double.
+                    {plan.duplicates} déjà dans ton calendrier, ignoré{plan.duplicates > 1 ? 's' : ''}.
                   </p>
                 )}
               </>

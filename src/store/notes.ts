@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { uid, nowIso, uniqueName } from '../lib/utils';
 import { userStorage } from '../lib/userStorage';
 import { TRASH_DAYS } from './drive';
+import { t } from '../i18n';
 
 export interface NoteFolder {
   id: string;
@@ -83,7 +84,7 @@ export const useNotes = create<NotesState>()(
 
       createFolder(name, parentId) {
         const taken = get().folders.filter(f => f.parentId === parentId).map(f => f.name);
-        const folder: NoteFolder = { id: uid(), name: uniqueName(name.trim() || 'Nouveau dossier', taken), parentId, createdAt: nowIso() };
+        const folder: NoteFolder = { id: uid(), name: uniqueName(name.trim() || t('Nouveau dossier'), taken), parentId, createdAt: nowIso() };
         set(s => ({ folders: [...s.folders, folder] }));
         return folder;
       },
@@ -125,7 +126,7 @@ export const useNotes = create<NotesState>()(
         const time = nowIso();
         const note: Note = {
           id: uid(),
-          title: data.title?.trim() || 'Sans titre',
+          title: data.title?.trim() || t('Sans titre'),
           content: data.content ?? '',
           folderId: data.folderId ?? null,
           createdAt: time,
@@ -215,7 +216,7 @@ export const useNotes = create<NotesState>()(
       duplicateNote(id) {
         const src = get().notes.find(n => n.id === id);
         if (!src) return null;
-        return get().createNote({ title: `${src.title} - copie`, content: src.content, folderId: src.folderId });
+        return get().createNote({ title: t('{name} - copie', { name: src.title }), content: src.content, folderId: src.folderId });
       },
     }),
     { name: 'notes', storage: userStorage, skipHydration: true },
