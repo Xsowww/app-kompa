@@ -7,7 +7,7 @@ import { useAuth } from '../store/auth';
 import Copilot from '../copilot/Copilot';
 import Tour from '../components/Tour';
 import { startProactive } from '../copilot/proactive';
-import { registerNavigate, search, type SearchHit } from '../copilot/actions';
+import { HIT_LABEL, registerNavigate, search, type SearchHit } from '../copilot/actions';
 import Logo from '../components/Logo';
 import Avatar from '../components/Avatar';
 import FocusTimer from '../components/FocusTimer';
@@ -50,16 +50,6 @@ const HIT_ICON: Record<SearchHit['type'], typeof FileText> = {
   'dossier de notes': Folder,
   événement: CalendarClock,
   tâche: ListChecks,
-};
-
-/** The kind of a result, as shown (the keys are codes). */
-const HIT_TYPE: Record<SearchHit['type'], string> = {
-  dossier: t('dossier'),
-  fichier: t('fichier'),
-  note: t('note'),
-  'dossier de notes': t('dossier de notes'),
-  événement: t('événement'),
-  tâche: t('tâche'),
 };
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
@@ -165,7 +155,7 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
                   <span className="block truncate text-[13px] font-medium">{h.title}</span>
                   <span className="block truncate text-[12px] text-stone-500">{h.where}</span>
                 </span>
-                <span className="inline-block shrink-0 text-[11px] text-stone-500 first-letter:uppercase">{HIT_TYPE[h.type]}</span>
+                <span className="inline-block shrink-0 text-[11px] text-stone-500 first-letter:uppercase">{HIT_LABEL[h.type]}</span>
               </button>
             );
           })}
