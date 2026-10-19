@@ -218,7 +218,7 @@ function Usages() {
 }
 
 const TRUST = [
-  { icon: ShieldCheck, text: t('Double authentification : un code de ton téléphone en plus du mot de passe.') },
+  { icon: ShieldCheck, text: t('Double authentification au choix : un code de ton téléphone en plus du mot de passe.') },
   { icon: Server, text: t('Données hébergées dans l’Union européenne (Irlande, Allemagne).') },
   { icon: Lock, text: t('Ni publicité, ni revente de données, ni pistage publicitaire.') },
   { icon: Download, text: t('Exporte tout ou supprime ton compte en un clic.') },

@@ -824,6 +824,11 @@ function AccountTab() {
   const [deletePw, setDeletePw] = useState('');
   const [busy, setBusy] = useState(false);
   const userId = useAuth(s => s.user?.id);
+  // Two-factor is optional: on or off, read from Supabase (null while loading).
+  const [mfaOn, setMfaOn] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (cloudEnabled) void useAuth.getState().hasMfa().then(setMfaOn);
+  }, []);
   // Signed up with Google or Apple: no password yet, so none to ask for.
   const noPassword = useAuth(s => !!s.user?.noPassword);
   const [switching, setSwitching] = useState<string | null>(null);
@@ -857,27 +862,60 @@ function AccountTab() {
     <div className="space-y-5">
       {cloudEnabled && (
         <Section title={t('Double authentification')}>
-          <Row label={t('Activée')}>
-            <span className="flex items-center gap-1.5 text-[13px] font-medium text-emerald-700">
-              <ShieldCheck size={15} /> {t('Protégé')}
-            </span>
-          </Row>
-          <Row label={t('Changer de téléphone')}>
-            <button
-              className="btn-secondary h-8"
-              onClick={async () => {
-                if (!(await confirmAction(t('Changer de téléphone ?'), t('Tu scanneras un nouveau QR code. L’ancien téléphone ne servira plus.'), t('Continuer'), false))) return;
-                try {
-                  await useAuth.getState().resetMfa();
+          <Row label={mfaOn ? t('Activée') : t('Désactivée')} hint={mfaOn === false ? t('Un code de ton téléphone en plus, à chaque connexion.') : undefined}>
+            {mfaOn ? (
+              <span className="flex items-center gap-1.5 text-[13px] font-medium text-emerald-700">
+                <ShieldCheck size={15} /> {t('Protégé')}
+              </span>
+            ) : mfaOn === false ? (
+              <button
+                className="btn-primary h-8"
+                onClick={() => {
+                  useAuth.getState().enableMfa();
                   navigate('/securite');
-                } catch (e) {
-                  toast((e as Error).message, 'error');
-                }
-              }}
-            >
-              <Smartphone size={14} /> {t('Changer')}
-            </button>
+                }}
+              >
+                <ShieldCheck size={14} /> {t('Activer')}
+              </button>
+            ) : null}
           </Row>
+          {mfaOn && (
+            <Row label={t('Changer de téléphone')}>
+              <button
+                className="btn-secondary h-8"
+                onClick={async () => {
+                  if (!(await confirmAction(t('Changer de téléphone ?'), t('Tu scanneras un nouveau QR code. L’ancien téléphone ne servira plus.'), t('Continuer'), false))) return;
+                  try {
+                    await useAuth.getState().resetMfa();
+                    navigate('/securite');
+                  } catch (e) {
+                    toast((e as Error).message, 'error');
+                  }
+                }}
+              >
+                <Smartphone size={14} /> {t('Changer')}
+              </button>
+            </Row>
+          )}
+          {mfaOn && (
+            <Row label={t('Désactiver la double authentification')}>
+              <button
+                className="btn-secondary h-8"
+                onClick={async () => {
+                  if (!(await confirmAction(t('Désactiver la double authentification ?'), t('Plus aucun code ne sera demandé à la connexion.'), t('Désactiver')))) return;
+                  try {
+                    await useAuth.getState().disableMfa();
+                    setMfaOn(false);
+                    toast(t('Double authentification désactivée'), 'success');
+                  } catch (e) {
+                    toast((e as Error).message, 'error');
+                  }
+                }}
+              >
+                {t('Désactiver')}
+              </button>
+            </Row>
+          )}
         </Section>
       )}
 

@@ -9,9 +9,9 @@ import { toast } from '../store/ui';
 import { t } from '../i18n';
 
 /**
- * Second factor: the student scans a QR code with their phone camera (or an authenticator
- * app), the phone then shows a 6-digit code that changes every 30 s, to type here.
- * Shown once when the account is created, then at each new login.
+ * Second factor, optional: turned on from Profile › Account, where the student scans a QR code with
+ * their phone camera (or an authenticator app); the phone then shows a 6-digit code that changes
+ * every 30 s, asked here at each new sign-in.
  */
 /** The key as a small text file, to keep with the student's documents or password manager. */
 function downloadKey(secret: string, email: string) {
@@ -25,7 +25,7 @@ function downloadKey(secret: string, email: string) {
 
 export default function MfaPage() {
   const navigate = useNavigate();
-  const { user, mfaStep, startMfaSetup, submitMfaCode, logout } = useAuth();
+  const { user, mfaStep, startMfaSetup, submitMfaCode, cancelMfaSetup, logout } = useAuth();
   const [enrollment, setEnrollment] = useState<MfaEnrollment | null>(null);
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
@@ -55,8 +55,13 @@ export default function MfaPage() {
     setError('');
     submitting.current = true;
     try {
+      const pairing = mfaStep === 'setup';
       await submitMfaCode(code, enrollment?.factorId);
       await loadUserData();
+      if (pairing) {
+        toast(t('Double authentification activée'), 'success');
+        return navigate('/profil?onglet=compte', { replace: true });
+      }
       // Straight to the right page: going through « / » first left a blank screen when the questionnaire was due.
       navigate(useWelcome.getState().pending ? '/bienvenue' : takeAfterLogin(), { replace: true });
     } catch (err) {
@@ -87,7 +92,7 @@ export default function MfaPage() {
           <h1 className="mt-4 text-[22px] font-semibold tracking-[-0.015em]">{isSetup ? t('Sécurise ton compte') : t('Code de sécurité')}</h1>
           <p className="mt-1 text-[13px] leading-relaxed text-stone-500">
             {isSetup
-              ? t('Dernière étape : associe ton téléphone pour protéger ton compte.')
+              ? t('Associe ton téléphone : un code te sera demandé à chaque connexion.')
               : t('Tape le code à 6 chiffres affiché dans ton app d’authentification.')}
           </p>
 
@@ -178,11 +183,24 @@ export default function MfaPage() {
 
           <button type="submit" disabled={busy || (isSetup && !enrollment)} className="btn-primary mt-4 w-full">
             {busy && <Loader2 size={15} className="animate-spin" />}
-            {isSetup ? t('Activer et entrer') : t('Valider')}
+            {isSetup ? t('Activer') : t('Valider')}
           </button>
 
+          {isSetup ? (
+            <button
+              type="button"
+              onClick={() => {
+                submitting.current = true; // this button chooses where to go, not the effect above
+                cancelMfaSetup();
+                navigate('/profil?onglet=compte', { replace: true });
+              }}
+              className="btn-secondary mt-2 w-full"
+            >
+              {t('Annuler')}
+            </button>
+          ) : (
           <p className="mt-5 text-center text-[13px] text-stone-500">
-            {isSetup ? t('Pas le bon compte ?') : t('Tu n’as plus accès à ton téléphone ?')}{' '}
+            {t('Tu n’as plus accès à ton téléphone ?')}{' '}
             <button
               type="button"
               onClick={() => void logout().then(() => navigate('/connexion', { replace: true }))}
@@ -191,6 +209,7 @@ export default function MfaPage() {
               {t('Se déconnecter')}
             </button>
           </p>
+          )}
           {!isSetup && (
             <p className="mt-2 text-center text-[12px] leading-relaxed text-stone-500">
               {t('Avec ta clé de secours : « Saisir une clé » dans l’app de ton nouveau téléphone, puis tape le code. Sinon, écris au support (page')}{' '}

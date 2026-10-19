@@ -96,6 +96,14 @@ interface AuthState {
   submitMfaCode: (code: string, factorId?: string) => Promise<void>;
   /** Removes the current authenticator so a new phone can be set up. */
   resetMfa: () => Promise<void>;
+  /** A phone is paired (two-factor on). */
+  hasMfa: () => Promise<boolean>;
+  /** From the Profile: opens the QR code page. */
+  enableMfa: () => void;
+  /** Back from the QR code page without pairing (two-factor is optional). */
+  cancelMfaSetup: () => void;
+  /** Unpairs the phone: no code asked at sign-in any more. */
+  disableMfa: () => Promise<void>;
   /** Restores the session when the app starts. */
   init: () => Promise<void>;
   /** Returns null when the account must first be confirmed by e-mail (cloud mode). */
@@ -200,8 +208,8 @@ async function nextMfaStep(): Promise<MfaStep> {
   const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
   if (error || !data) return null;
   if (data.currentLevel === 'aal2') return null;
-  if (data.nextLevel === 'aal2') return 'verify';
-  return 'setup'; // every online account is protected by an authenticator app
+  // A phone is paired: its code is asked at each sign-in. Without one, nothing to do (two-factor is optional, Profile › Account).
+  return data.nextLevel === 'aal2' ? 'verify' : null;
 }
 
 /** Saves the account in use on this device (with its session in cloud mode, if « Rester connecté »). */
@@ -305,7 +313,8 @@ export const useAuth = create<AuthState>((set, get) => ({
       if (data.user && !data.user.identities?.length) throw new Error(AUTH_MSG.accountExistsSignIn);
       if (!data.session || !data.user) return null; // confirmation e-mail sent
       const user = fromSupabase(data.user);
-      set({ user, mfaStep: 'setup' }); // the account is finished once the phone is paired
+      setStorageUser(user.id);
+      set({ user, mfaStep: null });
       return user;
     }
     const users = readUsers();
@@ -620,6 +629,36 @@ export const useAuth = create<AuthState>((set, get) => ({
     if (user) setStorageUser(user.id);
     set({ mfaStep: null });
     void rememberCurrent(user); // fully signed in: saved for quick switching
+  },
+
+  async hasMfa() {
+    if (!supabase) return false;
+    const { data } = await supabase.auth.mfa.listFactors();
+    return !!data?.totp.some(f => f.status === 'verified');
+  },
+
+  enableMfa() {
+    if (!supabase) return;
+    setStorageUser(null);
+    set({ mfaStep: 'setup' });
+  },
+
+  cancelMfaSetup() {
+    const user = get().user;
+    if (!user) return;
+    setStorageUser(user.id);
+    set({ mfaStep: null });
+  },
+
+  async disableMfa() {
+    if (!supabase) return;
+    // Only from a session already confirmed with the code (Supabase refuses otherwise).
+    const { data } = await supabase.auth.mfa.listFactors();
+    for (const f of data?.all ?? []) {
+      const { error } = await supabase.auth.mfa.unenroll({ factorId: f.id });
+      if (error) throw new Error(t('Désactivation impossible : reconnecte-toi avec le code de ton téléphone, puis réessaie.'));
+    }
+    await supabase.auth.refreshSession();
   },
 
   async resetMfa() {

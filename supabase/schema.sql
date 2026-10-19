@@ -1021,7 +1021,8 @@ declare
   v_author uuid;
   v_snap jsonb;
 begin
-  if auth.uid() is null or coalesce(auth.jwt() ->> 'aal', '') <> 'aal2' then
+  -- Avec un téléphone associé, le code est exigé (mfa_ok) ; la double authentification est facultative.
+  if auth.uid() is null or not public.mfa_ok() then
     raise exception 'mfa required';
   end if;
   -- 20 signalements par jour et par compte : assez pour un vrai problème, pas pour inonder.
