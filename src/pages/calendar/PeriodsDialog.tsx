@@ -9,7 +9,7 @@ import { FOLDER_COLORS } from '../../store/drive';
 import { fmt, fromKey, toKey, fmtDay, todayKey, weekStart } from '../../lib/dates';
 import { covers, daysBetween, periodDays, runsOf, MAX_DAYS, PERIOD_IDEAS, periodColor, periodLabel, periodRange, periodText, periodTint, repeatPeriod, sortPeriods, type Period } from '../../lib/periods';
 import { cx, uid } from '../../lib/utils';
-import { useCalendarSource, useImportSources } from './source';
+import { periodIdeas, useCalendarSource, useImportSources } from './source';
 import PeoplePicker from './PeoplePicker';
 import ImportPeriods from './ImportPeriods';
 import { useGroups } from '../../store/groups';
@@ -317,9 +317,10 @@ function PeriodForm({ draft, around, onDone }: { draft: Draft; around: string; o
 
       {!d.id && (
         <div className="mt-4">
-          <label className="flex items-center gap-2 text-[13px] font-medium">
-            <input type="checkbox" checked={repeat} onChange={e => setRepeat(e.target.checked)} className="check-hit h-4 w-4 accent-[var(--color-ink)]" />
-            <Repeat size={14} className="text-stone-500" aria-hidden /> Se répète (alternance, garde…)
+          {/* The whole line is the tap target (check-hit's negative margin put the box over the icon). */}
+          <label className="flex min-h-9 cursor-pointer items-center gap-2 text-[13px] font-medium">
+            <input type="checkbox" checked={repeat} onChange={e => setRepeat(e.target.checked)} className="h-4 w-4 shrink-0 accent-[var(--color-ink)]" />
+            <Repeat size={14} className="shrink-0 text-stone-500" aria-hidden /> Se répète (alternance, garde…)
           </label>
           {repeat && (
             <div className="mt-2 flex flex-wrap items-center gap-2 pl-6 text-[13px]">
@@ -349,6 +350,7 @@ function PeriodForm({ draft, around, onDone }: { draft: Draft; around: string; o
 /** « Périodes » : weeks that mean something (en cours / en entreprise, vacances…), tinted on the calendar. */
 export default function PeriodsDialog({ day, onClose }: { day: string; onClose: () => void }) {
   const source = useCalendarSource();
+  const usage = useSettings(s => s.usage);
   const canEdit = !source.shared || source.shared.canEdit;
   const list = sortPeriods(source.periods);
   // A new period starts with no day ticked: the days are picked on the month.
@@ -369,7 +371,7 @@ export default function PeriodsDialog({ day, onClose }: { day: string; onClose: 
     <Modal open onClose={onClose} width={500}>
       <h3 className="text-[18px]">Périodes</h3>
       <p className="mt-1 text-[13px] text-stone-500">
-        Des semaines qui comptent : en cours, en entreprise, en vacances… Les jours concernés sont teintés et la période est nommée au-dessus, sans cacher les événements.
+        Des semaines qui comptent : {periodIdeas(usage)}… Les jours concernés sont teintés et la période est nommée au-dessus, sans cacher les événements.
       </p>
 
       {list.length > 0 && (
@@ -378,7 +380,7 @@ export default function PeriodsDialog({ day, onClose }: { day: string; onClose: 
             <li key={p.id} className="flex items-center gap-3 rounded-xl px-2.5 py-2" style={{ background: periodTint(p, 10) }}>
               <span className="h-8 w-1.5 shrink-0 rounded-full" style={{ background: periodColor(p) }} aria-hidden />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[13.5px] font-semibold">{periodLabel(p, source.shared?.nameOf)}</span>
+                <span className="line-clamp-2 text-[13.5px] font-semibold [overflow-wrap:anywhere]">{periodLabel(p, source.shared?.nameOf)}</span>
                 <span className="block text-[12px] text-stone-500">{periodRange(p, fmtDay)}{p.skip?.length ? ` · ${periodDays(p)} jours` : ''}</span>
               </span>
               {canEdit && (

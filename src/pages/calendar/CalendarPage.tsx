@@ -7,13 +7,13 @@ import { catOf, allCategories, guessCategory, isDeliverable, isBigEvent, sortEve
 import { parseQuickAdd, toKey, fromKey, todayKey, validKey, fmt, fmtDay, weekStart, countdownLabel, daysUntil, toMinutes, fromMinutes, isOver } from '../../lib/dates';
 import { toast } from '../../store/ui';
 import { useSettings } from '../../store/settings';
-import { WORDS } from '../../lib/usage';
+import { AGENDA_EXAMPLES, WORDS } from '../../lib/usage';
 import CategoriesDialog from './CategoriesDialog';
 import PeriodsDialog from './PeriodsDialog';
 import { covers, periodColor, periodUntil, periodLabel, periodsFill, weekLanes, periodRange, periodText, periodTint, periodsBetween, periodsOn, type Period } from '../../lib/periods';
 import { cx } from '../../lib/utils';
 import EventForm from './EventForm';
-import { confirmRemoveEvent, eventTitle, useCalendarSource } from './source';
+import { confirmRemoveEvent, eventTitle, periodIdeas, useCalendarSource } from './source';
 import DayView from './DayView';
 import ImportIcsDialog, { type IcsSource } from './ImportIcsDialog';
 import { isIcsFile } from '../../lib/ics';
@@ -154,6 +154,8 @@ function CalendarFilter({ categories, shown, importantOnly, onToggle, onImportan
   const count = shown.size + (importantOnly ? 1 : 0);
   useEffect(() => {
     if (!open) return;
+    // Lower on the page (shared agenda on a phone) it went under the tab bar: the page scrolls to show it whole.
+    rootRef.current?.querySelector('#filtre-calendrier')?.scrollIntoView({ block: 'nearest' });
     const onDown = (e: MouseEvent | TouchEvent) => !rootRef.current?.contains(e.target as Node) && setOpen(false);
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
@@ -246,7 +248,8 @@ export default function CalendarPage() {
   const filtering = shown.size > 0 || importantOnly;
   const mine = useSettings(s => s.customCategories);
   const custom = shared ? [] : mine; // a shared calendar: the built-in categories only (mine aren't the others')
-  const words = WORDS[useSettings(s => s.usage)] ?? WORDS.etudes;
+  const usage = useSettings(s => s.usage);
+  const words = { ...(WORDS[usage] ?? WORDS.etudes), ...(shared && AGENDA_EXAMPLES) };
   const wide = useWide();
   const [allExams, setAllExams] = useState(false);
   const [managing, setManaging] = useState(false);
@@ -489,7 +492,7 @@ export default function CalendarPage() {
           {/* Filter and import wrap together: on a phone the import icon was left alone on its own line. */}
           <div className="flex items-center gap-2">
           {(!readOnly || periods.length > 0) && (
-            <button className="btn-secondary h-8 px-2.5" onClick={() => setPeriodsOpen(true)} title="Périodes : en cours, en entreprise, vacances…" aria-label="Périodes">
+            <button className="btn-secondary h-8 px-2.5" onClick={() => setPeriodsOpen(true)} title={`Périodes : ${periodIdeas(usage)}…`} aria-label="Périodes">
               <CalendarRange size={15} /> <span className="max-sm:sr-only">Périodes</span>
             </button>
           )}
@@ -582,7 +585,8 @@ export default function CalendarPage() {
         </form>
         )}
 
-        <div className="mt-4 grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
+        {/* Two columns from 1280 px: at 1024 px (with the sidebar) the calendar was left ~370 px, the month without titles. */}
+        <div className="mt-4 grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
           <section className="card min-w-0 p-4 md:p-5">
             {mode !== 'month' ? (
               <>
@@ -594,7 +598,7 @@ export default function CalendarPage() {
                         key={`${p.id}-${from}`}
                         onClick={() => setPeriodsOpen(true)}
                         title={`${label(p)} · ${periodRange(p, fmtDay)}`}
-                        className="flex h-6 min-w-0 items-center gap-1.5 truncate rounded-md px-2 text-left text-[11.5px] font-semibold"
+                        className="hit-sm flex h-6 min-w-0 items-center gap-1.5 rounded-md px-2 text-left text-[11.5px] font-semibold"
                         style={{ gridColumn: `${from + 1} / ${to + 2}`, gridRow: lane + 1, background: periodTint(p, 20), color: periodText(p) }}
                       >
                         <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: periodColor(p) }} aria-hidden />
@@ -726,7 +730,7 @@ export default function CalendarPage() {
                 {monthBands.length > 0 && (
                   <div className="mt-2.5 flex flex-wrap gap-1.5" aria-label="Périodes du mois">
                     {monthBands.slice(0, 8).map(p => (
-                      <button key={p.id} onClick={() => setPeriodsOpen(true)} className="flex h-6 min-w-0 max-w-full items-center gap-1.5 rounded-full px-2.5 text-[11.5px] font-semibold" style={{ background: periodTint(p, 16), color: periodText(p) }}>
+                      <button key={p.id} onClick={() => setPeriodsOpen(true)} className="hit-sm flex h-6 min-w-0 max-w-full items-center gap-1.5 rounded-full px-2.5 text-[11.5px] font-semibold" style={{ background: periodTint(p, 16), color: periodText(p) }}>
                         <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: periodColor(p) }} aria-hidden />
                         <span className="min-w-0 truncate">{label(p)}</span> <span className="shrink-0 font-medium">{periodRange(p, fmtDay)}</span>
                       </button>
@@ -745,7 +749,7 @@ export default function CalendarPage() {
                   <button
                     key={p.id}
                     onClick={() => setPeriodsOpen(true)}
-                    className="flex h-6 min-w-0 max-w-[16rem] items-center gap-1 self-center rounded-full px-2.5 text-[12px] font-semibold"
+                    className="hit-sm flex h-6 min-w-0 max-w-[16rem] items-center gap-1 self-center rounded-full px-2.5 text-[12px] font-semibold"
                     style={{ background: periodTint(p, 18), color: periodText(p) }}
                     title={`${label(p)} · ${periodRange(p, fmtDay)}`}
                   >

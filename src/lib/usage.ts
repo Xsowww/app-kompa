@@ -136,6 +136,9 @@ export const GROUP_WORDS: Record<Usage, GroupWords> = {
 };
 
 /** « Agendas partagés » : a shared calendar is a group of another kind (lib/groups › GroupKind), same screens. */
+/** A shared calendar (coloc, famille…) is not about classes or work: its own examples in the event form and the quick add. */
+export const AGENDA_EXAMPLES = { titleExample: 'Dîner chez Léa', notesExample: 'adresse, choses à apporter…', quickExample: 'Dîner chez Léa samedi 20h' };
+
 export const AGENDA_WORDS: GroupWords = {
   Groups: 'Agendas partagés', groups: 'agendas partagés', a: 'un agenda partagé', the: 'l’agenda', The: 'L’agenda', of: 'de l’agenda', this: 'cet agenda', all: 'tout l’agenda',
   none: 'Aucun agenda partagé', yours: 'un de tes agendas', created: 'Agenda créé', deleted: 'Agenda supprimé',

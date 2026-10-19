@@ -6,9 +6,13 @@ import { useCalendar, type CalendarEvent, type NewEvent } from '../../store/cale
 import { trashEvent } from '../../lib/trash';
 import type { Group } from '../../lib/groups';
 import { useSettings } from '../../store/settings';
-import { sortPeriods, type Period } from '../../lib/periods';
+import { PERIOD_IDEAS, sortPeriods, type Period } from '../../lib/periods';
+import type { Usage } from '../../lib/usage';
 import { confirmAction } from '../../store/ui';
 import { useGroups } from '../../store/groups';
+
+/** Examples of periods that fit the account (« en cours, en entreprise » is for students): « congés, télétravail, déplacement ». */
+export const periodIdeas = (usage?: Usage) => (PERIOD_IDEAS[usage ?? 'etudes'] ?? PERIOD_IDEAS.etudes).slice(0, 3).map(i => i.title.toLowerCase()).join(', ');
 
 export interface CalendarSource {
   /** null: my calendar. A shared calendar has no « fait », reminders, import or custom categories. */

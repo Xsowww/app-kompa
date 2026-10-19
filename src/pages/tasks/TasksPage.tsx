@@ -64,7 +64,7 @@ function WorkTime() {
 
         {sessions.length > 0 && (
           <div className="mt-4 border-t border-stone-100 pt-3">
-            <button onClick={() => setOpen(v => !v)} aria-expanded={open} aria-controls="travail-detail" className="flex items-center gap-1 rounded px-0.5 text-[12px] text-stone-500 hover:text-ink">
+            <button onClick={() => setOpen(v => !v)} aria-expanded={open} aria-controls="travail-detail" className="flex items-center gap-1 rounded px-0.5 text-[12px] text-stone-500 hover:text-ink pointer-coarse:min-h-9">
               <ChevronRight size={13} className={cx('transition-transform', open && 'rotate-90')} />
               Voir le détail
             </button>
@@ -79,7 +79,7 @@ function WorkTime() {
                           key={r.key}
                           onClick={() => setRange(r.key)}
                           aria-pressed={range === r.key}
-                          className={cx('h-7 rounded-md px-2.5 text-[12px] font-medium transition-colors', range === r.key ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
+                          className={cx('h-7 rounded-md px-2.5 text-[12px] font-medium transition-colors pointer-coarse:h-9', range === r.key ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
                         >
                           {r.label}
                         </button>

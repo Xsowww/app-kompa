@@ -20,7 +20,7 @@ export function SubjectBars({ rows }: { rows: { subject: string; minutes: number
         <li
           key={r.subject}
           onMouseEnter={() => setHover(i)}
-          className="relative grid grid-cols-[minmax(72px,30%)_1fr_auto] items-center gap-3 rounded-md px-1 py-1.5 text-[13px]"
+          className="relative grid grid-cols-[minmax(72px,40%)_1fr_auto] items-center gap-3 rounded-md px-1 py-1.5 text-[13px]"
         >
           <span className="truncate text-stone-600" title={r.subject}>
             {r.subject}
@@ -35,7 +35,7 @@ export function SubjectBars({ rows }: { rows: { subject: string; minutes: number
           {hover === i && (
             <span
               className="pointer-events-none absolute bottom-full z-10 mb-1 rounded-md bg-inverse px-2.5 py-1.5 text-[12px] whitespace-nowrap text-on-inverse shadow-pop"
-              style={{ left: `clamp(0px, calc(30% + ${(r.minutes / max) * 50}%), calc(100% - 170px))` }}
+              style={{ left: `clamp(0px, calc(40% + ${(r.minutes / max) * 40}%), calc(100% - 170px))` }}
             >
               <span className="block text-on-inverse/60">{r.subject}</span>
               <span className="tabular font-medium">

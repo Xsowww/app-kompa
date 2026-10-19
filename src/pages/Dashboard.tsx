@@ -140,7 +140,7 @@ export default function Dashboard() {
             {nowPeriods.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {nowPeriods.map(p => (
-                  <Link key={p.id} to="/calendrier" className="flex h-7 items-center gap-1.5 rounded-full px-3 text-[12.5px] font-semibold" style={{ background: periodTint(p, 18), color: periodText(p) }}>
+                  <Link key={p.id} to="/calendrier" className="hit-sm flex h-7 items-center gap-1.5 rounded-full px-3 text-[12.5px] font-semibold" style={{ background: periodTint(p, 18), color: periodText(p) }}>
                     <span className="h-2 w-2 rounded-full" style={{ background: periodColor(p) }} aria-hidden />
                     {p.title}
                     {periodUntil(p, today) && <span className="font-medium">· {periodUntil(p, today)}</span>}
@@ -149,8 +149,8 @@ export default function Dashboard() {
               </div>
             )}
           </div>
-          {/* Together: when the title is long, both shortcuts go to the next line, not just one. */}
-          <div className="flex gap-2">
+          {/* Together: when the title is long, both shortcuts go to the next line, not just one (at 320 px « Enregistrer » wraps alone). */}
+          <div className="flex flex-wrap gap-2">
             {/* The page takes ~0.5 s to show up: what is typed meanwhile is kept and lands in the new note's title. */}
             <button
               onPointerEnter={preloadNotes}
@@ -230,7 +230,8 @@ export default function Dashboard() {
                               <span className={cx('tabular w-9 shrink-0 font-bold', d <= 3 ? 'text-urgent' : 'text-white/70')}>{d === 0 ? 'Auj.' : `J-${d}`}</span>
                               <span className="min-w-0 truncate group-hover:underline">{e.title}</span>
                               <span className="ml-auto shrink-0 text-[12px] text-white/55">
-                                {fmtDay(fromKey(e.date), 'EEE d MMM').replace(/^./, c => c.toUpperCase())}
+                                {/* The week day is enough within 7 days (the column is narrow on a 1024 px screen). */}
+                                {fmtDay(fromKey(e.date), d < 7 ? 'EEE d' : 'EEE d MMM').replace(/^./, c => c.toUpperCase())}
                                 {e.start && ` · ${e.start}`}
                               </span>
                             </Link>

@@ -42,7 +42,8 @@ export default function TaskDialog({ todo, onClose, remind, onDelete }: { todo: 
           <span className="mb-1.5 block text-[12px] font-medium text-stone-600">Tâche</span>
           <input autoFocus={!remind} value={title} maxLength={160} onChange={e => setTitle(e.target.value)} aria-label="Titre de la tâche" className="field w-full" />
         </label>
-        <div className="mt-3 grid grid-cols-2 gap-2">
+        {/* One under the other at 320 px, where « Lun. 19 oct. » was cut. */}
+        <div className="mt-3 grid grid-cols-1 gap-2 min-[360px]:grid-cols-2">
           <div>
             <span className="mb-1.5 block text-[12px] font-medium text-stone-600">Échéance</span>
             <DateField

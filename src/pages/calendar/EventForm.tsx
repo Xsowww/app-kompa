@@ -8,7 +8,7 @@ import { confirmRemoveEvent, useCalendarSource } from './source';
 import PeoplePicker from './PeoplePicker';
 import { useSettings } from '../../store/settings';
 import { toast } from '../../store/ui';
-import { WORDS } from '../../lib/usage';
+import { AGENDA_EXAMPLES, WORDS } from '../../lib/usage';
 import { cx } from '../../lib/utils';
 import { NewCategory } from './CategoriesDialog';
 import ReminderPicker from '../../components/ReminderPicker';
@@ -44,7 +44,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
   const reminders = eventReminders({ reminders: chosen, start, externalId: event?.externalId }, defaults);
   const mine = useSettings(s => s.customCategories);
   const custom = shared ? [] : mine;
-  const words = WORDS[useSettings(s => s.usage)] ?? WORDS.etudes;
+  const words = { ...(WORDS[useSettings(s => s.usage)] ?? WORDS.etudes), ...(shared && AGENDA_EXAMPLES) };
   const [creating, setCreating] = useState(false);
   const effective = category ?? guessCategory(title, !!start);
   const notes = useNotes(s => s.notes);
@@ -107,8 +107,9 @@ export default function EventForm({ event, date, start: initialStart, end: initi
           </div>
         )}
 
-        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-          <div className="col-span-2 sm:col-span-1">
+        {/* At 320 px one field per line: « Sans heure » was cut in two columns. */}
+        <div className="mt-4 grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-3">
+          <div className="min-[360px]:col-span-2 sm:col-span-1">
             <span className="mb-1.5 block text-[12px] font-medium text-stone-600">Jour</span>
             <DateField
               value={day}

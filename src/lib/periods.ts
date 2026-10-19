@@ -43,7 +43,7 @@ export const PERIOD_IDEAS: Record<Usage, { title: string; color: string }[]> = {
     { title: 'Télétravail', color: 'bleu' },
     { title: 'Déplacement', color: 'orange' },
     { title: 'Formation', color: 'violet' },
-    { title: 'Rush', color: 'rouge' },
+    { title: 'Coup de feu', color: 'rouge' },
   ],
   perso: [
     { title: 'Vacances', color: 'vert' },

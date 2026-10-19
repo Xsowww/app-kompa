@@ -102,7 +102,7 @@ export default function ImportPeriods({ onDone }: { onDone: () => void }) {
       <div className="mt-4 flex items-baseline justify-between gap-2">
         <p className="eyebrow">Périodes</p>
         {free.length > 1 && (
-          <button type="button" className="text-[12.5px] font-semibold text-brand-600 hover:underline" onClick={() => setPicked(all ? new Set() : new Set(free.map(p => p.id)))}>
+          <button type="button" className="text-[12.5px] font-semibold text-brand-600 hover:underline pointer-coarse:-my-2 pointer-coarse:py-2" onClick={() => setPicked(all ? new Set() : new Set(free.map(p => p.id)))}>
             {all ? 'Tout décocher' : 'Tout cocher'}
           </button>
         )}
@@ -121,7 +121,7 @@ export default function ImportPeriods({ onDone }: { onDone: () => void }) {
                   <input type="checkbox" className="h-4 w-4 shrink-0 accent-[var(--color-ink)]" checked={!dup && picked.has(p.id)} disabled={dup} onChange={() => toggle(p.id)} />
                   <span className="h-7 w-1.5 shrink-0 rounded-full" style={{ background: periodColor(p) }} aria-hidden />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[13.5px] font-semibold">{periodLabel(p, fromPerso ? undefined : nameIn(from))}</span>
+                    <span className="line-clamp-2 text-[13.5px] font-semibold [overflow-wrap:anywhere]">{periodLabel(p, fromPerso ? undefined : nameIn(from))}</span>
                     <span className="block text-[12px] text-stone-500">
                       {periodRange(p, fmtDay)}
                       {p.skip?.length ? ` · ${periodDays(p)} jours` : ''}

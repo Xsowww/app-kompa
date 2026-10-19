@@ -134,7 +134,7 @@ function TodoRow({ t, editable, preview, now = 0 }: { t: Todo; editable?: boolea
         {t.done && <Check size={10} strokeWidth={3} className="pop text-white" />}
       </button>
       {preview ? (
-        <Link to={`/taches?tache=${t.id}`} className="min-w-0 flex-1 rounded text-[13px] hover:underline pointer-coarse:py-1" title="Ouvrir dans Tâches">
+        <Link to={`/taches?tache=${t.id}`} className="min-w-0 flex-1 rounded text-[13px] hover:underline pointer-coarse:-my-1 pointer-coarse:py-2" title="Ouvrir dans Tâches">
           <span className={cx('line-clamp-2 break-words', justDone ? 'text-stone-500 line-through decoration-emerald-500/70' : 'text-ink')}>{t.title}</span>
           {justDone && <GoesIn minutes={minutesLeft} />}
         </Link>
@@ -394,7 +394,7 @@ export default function TodoList({ limit, grouped }: { limit?: number; grouped?:
             </div>
           ))}
           {limit && open.length > openShown.length && (
-            <Link to="/taches" className="mt-1 inline-flex items-center gap-0.5 px-0.5 text-[12px] text-stone-500 hover:text-ink">
+            <Link to="/taches" className="mt-1 inline-flex items-center gap-0.5 px-0.5 text-[12px] text-stone-500 hover:text-ink pointer-coarse:min-h-9">
               {open.length - openShown.length} autre{open.length - openShown.length > 1 ? 's' : ''} <ChevronRight size={13} />
             </Link>
           )}
