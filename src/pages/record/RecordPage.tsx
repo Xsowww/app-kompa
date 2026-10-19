@@ -313,6 +313,7 @@ function Running({ s }: { s: Session }) {
           segments={s.segments}
           keywords={s.keywords}
           liveText={liveText}
+          writing={live.hearing && (live.speaking || live.queue > 0)}
           follow
           empty={live.hearing ? 'J’écoute…' : 'Rien d’écrit pour l’instant.'}
         />

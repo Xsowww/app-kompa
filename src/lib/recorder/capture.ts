@@ -20,7 +20,6 @@ export interface Capture {
 
 export class CaptureError extends Error {}
 
-const MAX_PIECE = 35; // seconds: past this, the piece is cut even without a pause
 
 /** The computer's sound: only Chrome and Edge (and the Kompaly app installed from them) share it, on a computer. */
 export const canShareComputer = () =>
@@ -79,18 +78,27 @@ export function noSoundHelp(surface: string | undefined, mac = isMac()): string 
  */
 export async function startCapture(
   kind: SourceKind,
-  opts: { offset: number; target: number; onPiece: (p: Piece) => void; onLevel?: (peak: number) => void; onEnded: () => void },
+  opts: { offset: number; target: () => number; onPiece: (p: Piece) => void; onLevel?: (peak: number) => void; onEnded: () => void },
 ): Promise<Capture> {
-  const stream = await openStream(kind);
+  // Made right away, while the click still counts: iPhone and Safari only let sound start from a click.
+  const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!Ctx) throw new CaptureError('Ce navigateur ne sait pas traiter le son : mets-le à jour.');
+  const ctx = new Ctx();
+  let stream: MediaStream;
+  try {
+    stream = await openStream(kind);
+  } catch (e) {
+    void ctx.close().catch(() => undefined);
+    throw e;
+  }
   const audio = stream.getAudioTracks()[0];
-  const ctx = new AudioContext();
   try {
     // A real file (public/tap-worklet.js): the site's security rules refuse a module given inline.
     await ctx.audioWorklet.addModule('/tap-worklet.js');
   } catch {
     stream.getTracks().forEach(t => t.stop());
     void ctx.close();
-    throw new CaptureError('Ce navigateur ne sait pas traiter le son en direct : essaie avec Chrome, Edge ou Firefox à jour.');
+    throw new CaptureError('Ce navigateur ne sait pas traiter le son en direct : mets-le à jour.');
   }
   const source = ctx.createMediaStreamSource(new MediaStream([audio]));
   const tap = new AudioWorkletNode(ctx, 'kompaly-tap');
@@ -100,7 +108,7 @@ export async function startCapture(
   if (ctx.state === 'suspended') await ctx.resume().catch(() => undefined);
 
   const resampler = new Resampler(ctx.sampleRate);
-  const buf = new Float32Array(RATE * (MAX_PIECE + 5));
+  const buf = new Float32Array(RATE * 60);
   let n = 0;
   let emitted = 0; // samples already handed out, since this capture started
   let stopped = false;
@@ -122,8 +130,10 @@ export async function startCapture(
     if (n + block.length > buf.length) emit(n); // never happens with findCut's force, kept as a guard
     buf.set(block, n);
     n += block.length;
-    if (n >= opts.target * RATE) {
-      const cut = findCut(buf.subarray(0, n), opts.target, n >= MAX_PIECE * RATE);
+    const target = opts.target();
+    if (n >= target * RATE) {
+      // Cut in a pause; past 1.7 × the length, cut anyway.
+      const cut = findCut(buf.subarray(0, n), target, n >= Math.max(target + 6, target * 1.7) * RATE);
       if (cut !== null) emit(cut);
     }
   };

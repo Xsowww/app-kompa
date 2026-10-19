@@ -19,7 +19,7 @@ import { encodeWav, isSilent } from '../lib/recorder/audio';
 import { startCapture, CaptureError, type Capture, type Piece, type SourceKind } from '../lib/recorder/capture';
 import { startLive, type LiveLane } from '../lib/recorder/live';
 import { CoursError, alertOtherDevices, isFinal, listPoints, transcribe, withRetry, writeDoc, writePart } from '../lib/recorder/api';
-import { baseName, chunkText, courseMarkdown, essentialsOf, excerpt, makeSegment, momentLines, nextPart, rawPart, type Alert, type Part, type Segment } from '../lib/recorder/course';
+import { baseName, chunkText, clock, courseMarkdown, essentialsOf, excerpt, makeSegment, momentLines, nextPart, rawPart, type Alert, type Part, type Segment } from '../lib/recorder/course';
 
 export type Make = 'fiche' | 'examen';
 
@@ -102,6 +102,8 @@ interface LiveState {
   progress: [number, number] | null;
   /** A revision sheet or an exam being made from the list or the Drive: its file (or past class) id. */
   making: { id: string; kind: Make } | null;
+  /** Someone spoke in the last few seconds (its text is on its way). */
+  speaking: boolean;
   /** Why the last start failed (shown on the form, which is shown again after the failed start). */
   startError: string;
 }
@@ -118,6 +120,7 @@ export const useRecLive = create<LiveState>()(() => ({
   step: null,
   progress: null,
   making: null,
+  speaking: false,
   startError: '',
 }));
 
@@ -143,7 +146,11 @@ const lastAlert = new Map<string, number>();
 /** Seconds since the start of the class. */
 export const elapsed = (s: Session | null = session()) => (s ? ((s.endedAt ?? Date.now()) - s.startedAt) / 1000 : 0);
 
-const PIECE_SECONDS: Record<SourceKind, number> = { micro: 22, onglet: 18 };
+// Length of a piece of sound sent to be written: short, so the text follows closely (~10 s); longer when the
+// browser already shows the words as they're said (the micro in Chrome, Edge, Safari), to spare the day's allowance.
+const pieceSeconds = () => (quick && Date.now() - quickHeardAt < 30_000 ? 20 : 10);
+let quickHeardAt = 0;
+let lastLoud = 0;
 const MAX_WAITING = 45;
 
 function onBeforeUnload(e: BeforeUnloadEvent) {
@@ -362,7 +369,7 @@ function check() {
 async function listen(kind: SourceKind, offset: number) {
   capture = await startCapture(kind, {
     offset,
-    target: PIECE_SECONDS[kind],
+    target: pieceSeconds,
     onPiece: p => {
       // Nobody speaking: nothing to send (it also saves the day's allowance).
       if (isSilent(p.samples)) return;
@@ -374,8 +381,11 @@ async function listen(kind: SourceKind, offset: number) {
       void pump();
     },
     onLevel: p => {
-      if (p > 0.0003) lastAudible = Date.now();
-      live({ level: p });
+      const now = Date.now();
+      if (p > 0.0003) lastAudible = now;
+      if (p > 0.02) lastLoud = now;
+      const speaking = now - lastLoud < 3000;
+      live(speaking === useRecLive.getState().speaking ? { level: p } : { level: p, speaking });
     },
     onEnded: () => {
       capture = null;
@@ -387,10 +397,12 @@ async function listen(kind: SourceKind, offset: number) {
   lastAudible = lastText = Date.now();
   warned = { sound: false, silence: false };
   live({ hearing: true, problem: null, label: capture.label });
+  markTitle(true);
   if (kind === 'micro') {
     quick = startLive(
       (text, final) => {
         if (!text) return live({ interim: '' });
+        quickHeardAt = Date.now();
         heardSomething();
         const t = elapsed();
         spot(text, t);
@@ -417,6 +429,20 @@ async function listen(kind: SourceKind, offset: number) {
   void keepAwake();
 }
 
+// The window's title says it too (« ● 12:34 · Notes – Kompaly »): seen from any page, and in the Dock / tab bar.
+const TITLE_MARK = /^● [\d:]+ · /;
+let titleTimer: ReturnType<typeof setInterval> | null = null;
+function markTitle(on: boolean) {
+  if (titleTimer) clearInterval(titleTimer);
+  titleTimer = null;
+  const set = () => {
+    const base = document.title.replace(TITLE_MARK, '');
+    document.title = on ? `● ${clock(elapsed())} · ${base}` : base;
+  };
+  set();
+  if (on) titleTimer = setInterval(set, 1000);
+}
+
 function stopQuick() {
   quick?.stop();
   quick = null;
@@ -424,6 +450,7 @@ function stopQuick() {
 }
 
 function release() {
+  markTitle(false);
   if (watchdog) clearInterval(watchdog);
   watchdog = null;
   stopQuick();

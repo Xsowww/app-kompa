@@ -27,13 +27,13 @@ function Marked({ text, keywords }: { text: string; keywords: readonly Keyword[]
  * What has been said, passage by passage (the precise lane), then what the browser is hearing right now (grey).
  * Follows the end of the text, unless the student scrolled up to read.
  */
-export default function Transcript({ segments, keywords, liveText, follow, empty }: { segments: readonly Segment[]; keywords: readonly Keyword[]; liveText: string; follow: boolean; empty: string }) {
+export default function Transcript({ segments, keywords, liveText, follow, empty, writing = false }: { segments: readonly Segment[]; keywords: readonly Keyword[]; liveText: string; follow: boolean; empty: string; writing?: boolean }) {
   const box = useRef<HTMLDivElement>(null);
   const stuck = useRef(true);
   useEffect(() => {
     const el = box.current;
     if (el && follow && stuck.current) el.scrollTop = el.scrollHeight;
-  }, [segments.length, liveText, follow]);
+  }, [segments.length, liveText, follow, writing]);
 
   return (
     <div
@@ -45,7 +45,7 @@ export default function Transcript({ segments, keywords, liveText, follow, empty
       className="max-h-[min(62vh,640px)] min-h-[220px] overflow-y-auto pr-1"
       aria-live="off"
     >
-      {!segments.length && !liveText && <p className="py-10 text-center text-[13.5px] text-stone-500">{empty}</p>}
+      {!segments.length && !liveText && !writing && <p className="py-10 text-center text-[13.5px] text-stone-500">{empty}</p>}
       <ol className="space-y-2.5">
         {segments.map(s => {
           const flagged = s.starred || s.hits.length > 0;
@@ -66,6 +66,15 @@ export default function Transcript({ segments, keywords, liveText, follow, empty
           );
         })}
       </ol>
+      {/* Someone is speaking, its text is on its way (a few seconds). */}
+      {writing && !liveText && (
+        <p className="mt-2.5 flex items-center gap-3 px-2 text-[14px] text-stone-500" role="status">
+          <span className="w-[62px] shrink-0 text-[11px] font-semibold uppercase tracking-wide text-red-500">en direct</span>
+          <span className="flex gap-1" aria-label="Texte en cours d’écriture">
+            {[0, 1, 2].map(i => <span key={i} className="h-1.5 w-1.5 animate-pulse rounded-full bg-stone-400" style={{ animationDelay: `${i * 0.2}s` }} />)}
+          </span>
+        </p>
+      )}
       {liveText && (
         <p className="mt-2.5 flex gap-3 px-2 text-[14.5px] italic leading-relaxed text-stone-500">
           <span className="w-[62px] shrink-0 pt-0.5 text-[11px] font-semibold not-italic uppercase tracking-wide text-red-500">en direct</span>

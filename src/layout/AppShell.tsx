@@ -23,7 +23,7 @@ import { WORDS } from '../lib/usage';
 import { ContextMenu, ReminderAlerts } from '../components/Overlays';
 import { PENDING_INVITE } from '../App';
 import { JoinedDialog } from '../pages/groups/Joined';
-import RecPill from '../pages/record/RecPill';
+import RecPill, { RecBadge } from '../pages/record/RecPill';
 import { useInvitations } from '../pages/groups/join';
 import { needsCredentials, savedAccounts, type SavedAccount } from '../lib/accounts';
 
@@ -310,6 +310,7 @@ export default function AppShell() {
                 <>
                   <n.icon size={18} strokeWidth={1.9} style={{ color: isActive ? n.color : undefined }} />
                   {label(n)}
+                  {n.to === '/enregistrer' && <RecBadge />}
                   {news(n.to) > 0 && (
                     <span
                       className={cx('ml-auto rounded-full px-1.5 text-[11px] font-semibold leading-[18px] tabular', n.to === '/agendas' ? 'bg-red-500 text-white' : 'bg-brand-solid text-on-brand')}
