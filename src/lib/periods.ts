@@ -4,7 +4,7 @@
 import { addDays, differenceInCalendarDays } from 'date-fns';
 import { FOLDER_COLORS, folderColorKey } from '../store/drive';
 import type { Usage } from './usage';
-import { fromKey, toKey, validKey } from './dates';
+import { fmtDay, fromKey, toKey, validKey } from './dates';
 import { uid } from './utils';
 
 export interface Period {
@@ -187,3 +187,26 @@ export const samePeriod = (a: Period, b: Period) =>
 /** Copies for another calendar: new ids, and « pour qui » set for that calendar (its members aren't the same). */
 export const copyPeriods = (list: Period[], people: string[], newId: () => string): Period[] =>
   list.map(({ people: _p, ...p }) => ({ ...p, id: newId(), ...(people.length && { people }) }));
+
+/**
+ * The days in a row of a period around `key` (a day it covers): « jusqu'au » is the last day before
+ * the next gap (a weekend, a week off), not the period's very last day; `next` is when it starts again.
+ */
+export function pieceAround(p: Pick<Period, 'start' | 'end' | 'skip'>, key: string): { end: string; next: string | null } {
+  let end = key;
+  for (let k = toKey(addDays(fromKey(end), 1)); k <= p.end && covers(p, k); k = toKey(addDays(fromKey(k), 1))) end = k;
+  let next: string | null = null;
+  for (let k = toKey(addDays(fromKey(end), 1)); k <= p.end; k = toKey(addDays(fromKey(k), 1)))
+    if (covers(p, k)) {
+      next = k;
+      break;
+    }
+  return { end, next };
+}
+
+/** « jusqu’au 24 oct. » on a day of a period (to the next gap), « dernier jour · reprend le 3 nov. » on the day before one. */
+export function periodUntil(p: Pick<Period, 'start' | 'end' | 'skip'>, key: string): string | null {
+  const { end, next } = pieceAround(p, key);
+  if (end !== key) return `jusqu’au ${fmtDay(fromKey(end), 'd MMM')}`;
+  return next ? `dernier jour · reprend le ${fmtDay(fromKey(next), 'd MMM')}` : null;
+}

@@ -15,7 +15,7 @@ import TodoList from './tasks/TodoList';
 import { useSettings } from '../store/settings';
 import { WORDS } from '../lib/usage';
 import { startTitleBuffer } from './notes/titleBuffer';
-import { periodColor, periodText, periodTint, periodsOn } from '../lib/periods';
+import { periodColor, periodText, periodTint, periodUntil, periodsOn } from '../lib/periods';
 import WeekProgress from './WeekProgress';
 
 /** A bento tile: white by default, `dark` for the big day (the strongest tile of the page). */
@@ -143,7 +143,7 @@ export default function Dashboard() {
                   <Link key={p.id} to="/calendrier" className="flex h-7 items-center gap-1.5 rounded-full px-3 text-[12.5px] font-semibold" style={{ background: periodTint(p, 18), color: periodText(p) }}>
                     <span className="h-2 w-2 rounded-full" style={{ background: periodColor(p) }} aria-hidden />
                     {p.title}
-                    {p.end !== today && <span className="font-medium">· jusqu’au {fmtDay(fromKey(p.end), 'd MMM')}</span>}
+                    {periodUntil(p, today) && <span className="font-medium">· {periodUntil(p, today)}</span>}
                   </Link>
                 ))}
               </div>

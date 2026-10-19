@@ -23,7 +23,7 @@ describe('jours choisis d’une période', () => {
   });
 });
 
-const { cleanPeriod, covers, periodsOn, periodDays, repeatPeriod, weekLanes, samePeriod, copyPeriods } = await import('../src/lib/periods');
+const { cleanPeriod, covers, periodsOn, periodDays, repeatPeriod, weekLanes, samePeriod, copyPeriods, pieceAround, periodUntil } = await import('../src/lib/periods');
 
 describe('une période en plusieurs morceaux (jours sautés)', () => {
   const p = cleanPeriod({ id: 'a', title: 'En entreprise', start: '2026-10-05', end: '2026-10-18', color: 'orange', skip: ['2026-10-10', '2026-10-11', '2026-10-05', 'bidon', '2026-10-30', '2026-10-10'] })!;
@@ -60,5 +60,21 @@ describe('importer des périodes', () => {
     const [c] = copyPeriods([{ ...p, people: ['léa'] }], ['moi'], () => `n${++n}`);
     expect(c).toEqual({ ...p, id: 'n1', people: ['moi'] });
     expect(copyPeriods([{ ...p, people: ['léa'] }], [], () => 'x')[0]).not.toHaveProperty('people');
+  });
+});
+
+describe('« jusqu’au » s’arrête au prochain trou', () => {
+  // Lundi 2 au vendredi 13 novembre 2026, sans le week-end du 7-8.
+  const p = { start: '2026-11-02', end: '2026-11-13', skip: ['2026-11-07', '2026-11-08'] };
+  it('donne la fin du morceau et la reprise', () => {
+    expect(pieceAround(p, '2026-11-03')).toEqual({ end: '2026-11-06', next: '2026-11-09' });
+    expect(pieceAround(p, '2026-11-06')).toEqual({ end: '2026-11-06', next: '2026-11-09' });
+    expect(pieceAround(p, '2026-11-10')).toEqual({ end: '2026-11-13', next: null });
+  });
+  it('le texte affiché', () => {
+    expect(periodUntil(p, '2026-11-03')).toMatch(/^jusqu’au 6 nov\./);
+    expect(periodUntil(p, '2026-11-06')).toMatch(/^dernier jour · reprend le 9 nov\./);
+    expect(periodUntil(p, '2026-11-13')).toBeNull();
+    expect(periodUntil({ start: '2026-11-02', end: '2026-11-13' }, '2026-11-03')).toMatch(/^jusqu’au 13 nov\./);
   });
 });

@@ -10,7 +10,7 @@ import { useSettings } from '../../store/settings';
 import { WORDS } from '../../lib/usage';
 import CategoriesDialog from './CategoriesDialog';
 import PeriodsDialog from './PeriodsDialog';
-import { covers, periodColor, periodLabel, periodsFill, weekLanes, periodRange, periodText, periodTint, periodsBetween, periodsOn, type Period } from '../../lib/periods';
+import { covers, periodColor, periodUntil, periodLabel, periodsFill, weekLanes, periodRange, periodText, periodTint, periodsBetween, periodsOn, type Period } from '../../lib/periods';
 import { cx } from '../../lib/utils';
 import EventForm from './EventForm';
 import { confirmRemoveEvent, eventTitle, useCalendarSource } from './source';
@@ -750,7 +750,7 @@ export default function CalendarPage() {
                     title={`${label(p)} · ${periodRange(p, fmtDay)}`}
                   >
                     <span className="min-w-0 truncate">{label(p)}</span>
-                    {p.end !== selected && <span className="shrink-0 font-medium max-sm:hidden">· jusqu’au {fmtDay(fromKey(p.end), 'd MMM')}</span>}
+                    {periodUntil(p, selected) && <span className="shrink-0 font-medium max-sm:hidden">· {periodUntil(p, selected)}</span>}
                   </button>
                 ))}
                 {!readOnly && <button className="btn-ghost ml-auto h-8 text-[12px]" onClick={() => setForm({ date: selected })}>
