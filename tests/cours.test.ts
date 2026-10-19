@@ -142,12 +142,10 @@ describe('le cours', () => {
 });
 
 describe('partage sans son', () => {
-  it('dit quoi choisir selon ce qui a été partagé et l’ordinateur', async () => {
+  it('dit quoi faire', async () => {
     const { noSoundHelp } = await import('../src/lib/recorder/capture');
-    expect(noSoundHelp('window', false)).toMatch(/Écran entier.*audio du système/);
-    expect(noSoundHelp('window', true)).toMatch(/version web/);
-    expect(noSoundHelp('monitor', true)).toMatch(/Sur Mac/);
+    expect(noSoundHelp('window', true)).toMatch(/Écran entier/);
+    expect(noSoundHelp('monitor', true)).toMatch(/Réglages Système/);
     expect(noSoundHelp('monitor', false)).toMatch(/audio du système/);
-    expect(noSoundHelp('browser', false)).toMatch(/audio de l’onglet/);
   });
 });

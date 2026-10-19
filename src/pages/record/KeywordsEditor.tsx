@@ -61,7 +61,7 @@ export default function KeywordsEditor() {
         </button>
       </div>
       <p className="mt-2 text-[12px] leading-relaxed text-stone-500">
-        Majuscules et accents ne comptent pas, et « examen » attrape aussi « examens ». La cloche : une notification quand le mot est entendu ; barrée : il est seulement surligné.
+        « examen » attrape aussi « examens ».
         <button
           type="button"
           className="ml-1 inline-flex items-center gap-1 font-medium text-brand-600 hover:underline"

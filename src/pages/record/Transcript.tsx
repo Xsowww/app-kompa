@@ -80,7 +80,7 @@ export default function Transcript({ segments, keywords, liveText, follow, empty
 
 /** The moments: keywords heard, and the ones marked by hand. A click shows the passage. */
 export function Alerts({ alerts, segments }: { alerts: readonly Alert[]; segments: readonly Segment[] }) {
-  if (!alerts.length) return <p className="text-[13px] leading-relaxed text-stone-500">Les mots-clés entendus et les moments marqués s’affichent ici.</p>;
+  if (!alerts.length) return <p className="text-[13px] leading-relaxed text-stone-500">Aucune alerte pour l’instant.</p>;
   const show = (time: number) => {
     const seg = [...segments].reverse().find(s => s.start <= time + 1) ?? segments[0];
     const el = seg && document.getElementById(`passage-${seg.id}`);

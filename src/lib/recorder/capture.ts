@@ -22,7 +22,9 @@ export class CaptureError extends Error {}
 
 const MAX_PIECE = 35; // seconds: past this, the piece is cut even without a pause
 
-export const canShareTab = () => typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getDisplayMedia && !/Android|iPhone|iPad/i.test(navigator.userAgent);
+/** The computer's sound: only Chrome and Edge (and the Kompaly app installed from them) share it, on a computer. */
+export const canShareComputer = () =>
+  typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getDisplayMedia && /Chrome|Chromium|Edg\//.test(navigator.userAgent) && !/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
 export const canUseMic = () => typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia;
 
 async function openStream(kind: SourceKind): Promise<MediaStream> {
@@ -37,12 +39,13 @@ async function openStream(kind: SourceKind): Promise<MediaStream> {
       );
     }
   }
-  if (!canShareTab()) throw new CaptureError('Le son d’un onglet ou de l’ordinateur ne peut être écouté que sur ordinateur, dans Chrome ou Edge.');
+  if (!canShareComputer()) throw new CaptureError('Le son de l’ordinateur s’enregistre avec Chrome ou Edge, sur ordinateur.');
   let stream: MediaStream;
   try {
     stream = await navigator.mediaDevices.getDisplayMedia({
-      // The picture isn't used: as small as the browser allows (a whole screen would cost for nothing).
-      video: { frameRate: 1, width: { max: 640 }, height: { max: 360 } },
+      // « Écran entier » chosen first: the only choice that carries the computer's whole sound.
+      // The picture isn't used: as small as the browser allows.
+      video: { displaySurface: 'monitor', frameRate: 1, width: { max: 640 }, height: { max: 360 } } as MediaTrackConstraints,
       audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, suppressLocalAudioPlayback: false } as MediaTrackConstraints,
       // Chrome: tabs first, never this one, keep listening if the student switches tab in the share bar,
       // the computer's sound with a whole screen (Windows), a window's own sound where Chrome can.
@@ -61,18 +64,13 @@ async function openStream(kind: SourceKind): Promise<MediaStream> {
 
 const isMac = () => /Mac/.test(navigator.userAgent) && !/iPhone|iPad/.test(navigator.userAgent);
 
-/** The share came without sound: what to choose instead, depending on what was chosen and the computer. */
+/** The share came without sound: what to do instead. */
 export function noSoundHelp(surface: string | undefined, mac = isMac()): string {
-  const tab = 'choisis l’onglet « Onglet Chrome » (ou Edge) de ton cours et laisse cochée « Partager aussi l’audio de l’onglet »';
-  if (surface === 'window')
-    return mac
-      ? `Une fenêtre ne transmet pas son son. Ouvre plutôt ton cours dans un onglet (Teams, Zoom et Meet ont une version web), puis ${tab}.`
-      : `Une fenêtre ne transmet pas son son. Choisis « Écran entier » et coche « Partager aussi l’audio du système » : Kompaly entendra tout l’ordinateur. Ou ${tab}.`;
   if (surface === 'monitor')
     return mac
-      ? `Sur Mac, Chrome ne partage pas le son de l’écran. Ouvre ton cours dans un onglet (version web de Teams, Zoom, Meet), puis ${tab}.`
-      : 'Coche « Partager aussi l’audio du système » en bas de la fenêtre de partage, puis réessaie.';
-  return `Aucun son partagé : ${tab}.`;
+      ? 'Pas de son : active le son dans la fenêtre de partage. S’il n’y est pas, mets Chrome à jour et autorise-le dans Réglages Système › Confidentialité › Enregistrement de l’écran et de l’audio système.'
+      : 'Pas de son : active « Partager aussi l’audio du système » dans la fenêtre de partage.';
+  return 'Pas de son : choisis « Écran entier » et active le son.';
 }
 
 /**
