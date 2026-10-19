@@ -65,8 +65,9 @@ const ask = (text: string, run: () => BotReply): BotReply => {
   return { text: t('{question} (oui / non)', { question: text }) };
 };
 
-const YES = /^(oui|ouais|ouep|ok|okay|vas[- ]y|go|carrement|d'accord|dac|yes|confirme|je confirme|c'est bon)\b/;
-const NO = /^(non|nan|annule|laisse|nope|non merci|pas maintenant|surtout pas)\b/;
+// French first; the other site languages too (en, es, de, it), the confirmations being shown translated.
+const YES = /^(oui|ouais|ouep|ok|okay|vas[- ]y|go|carrement|d'accord|dac|yes|yeah|yep|sure|si|vale|claro|dale|ja|klar|gerne|jawohl|certo|va bene|confirme|je confirme|c'est bon)\b/;
+const NO = /^(non|nan|annule|laisse|nope|non merci|pas maintenant|surtout pas|no|cancel|nein|lieber nicht|cancela|annulla)\b/;
 
 function quizQuestion(z: Quiz) {
   return t('**Question {index}/{total}.** {question}', { index: z.index + 1, total: z.questions.length, question: z.questions[z.index].q });

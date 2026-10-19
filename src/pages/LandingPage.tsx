@@ -140,7 +140,8 @@ const FEATURES = [
 ] as const;
 
 /** « le compte rendu » → « Compte rendu ». */
-const docName = (s: string) => s.replace(/^(?:les |le |la |l’)/, '').replace(/^./, c => c.toUpperCase());
+// Without its article, in any of the site's languages (« Le cours rédigé », « Das Protokoll », « El acta »…).
+const docName = (s: string) => s.replace(/^(?:les |le |la |l[’']|the |el |los |las |der |die |das |il |lo |gli |i )/i, '').replace(/^./, c => c.toUpperCase());
 
 const USAGE_EXAMPLES: Record<Usage, { big: string; days: string; file: string; ext: 'pdf' | 'image' | 'doc'; rec: string }> = {
   etudes: { big: t('Partiel de droit'), days: t('J-{n}', { n: 5 }), file: t('Cours de droit civil — chapitre 3.pdf'), ext: 'pdf', rec: t('Droit civil, amphi B') },

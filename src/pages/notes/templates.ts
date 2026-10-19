@@ -234,7 +234,7 @@ const WORK_TEMPLATES: NoteTemplate[] = [
         field(t('Date'), today()),
         `<h2>${t('Fait cette semaine')}</h2>`,
         list(['']),
-        `<h2>${t('En cours')}</h2>`,
+        `<h2>${t('En cours||ce qui avance, dans un point de la semaine')}</h2>`,
         list(['']),
         `<h2>${t('Bloquants')}</h2>`,
         list(['']),

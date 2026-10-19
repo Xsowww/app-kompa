@@ -22,7 +22,7 @@ const brain = async () => claudeBrain;
 // Studies revise; work and personal life block time to prepare (localBrain understands both).
 const RECORD_QUESTION = { etudes: t('Comment enregistrer un cours ?'), travail: t('Comment enregistrer une réunion ?'), perso: t('Comment enregistrer une conférence ?') };
 const suggestions = (usage: keyof typeof RECORD_QUESTION) => [t('Analyse ma semaine'), usage === 'etudes' ? t('Planifie mes révisions') : t('Bloque du temps pour préparer'), RECORD_QUESTION[usage]];
-const YES = /^(oui|ouais|ok|okay|vas[- ]y|go|carrement|d'accord|dac|yes|avec plaisir|je veux bien|volontiers)\b/;
+const YES = /^(oui|ouais|ok|okay|vas[- ]y|go|carrement|d'accord|dac|yes|yeah|yep|sure|si|vale|claro|dale|ja|klar|gerne|certo|va bene|avec plaisir|je veux bien|volontiers)\b/;
 
 function Extras({ links, offers, onGo, onOffer, disabled }: { links?: CopilotLink[]; offers?: CopilotOffer[]; onGo: (to: string) => void; onOffer: (o: CopilotOffer) => void; disabled?: boolean }) {
   if (!links?.length && !offers?.length) return null;

@@ -434,7 +434,7 @@ function CopilotTab() {
         </div>
       </Section>
 
-      <Section title={t('Rendez-vous')}>
+      <Section title={t('Rendez-vous||rendez-vous réguliers avec Kompaly : point du matin, bilan')}>
         <Row label={t('Point du matin')}>
           <Toggle label={t('Point du matin')} checked={s.morningBrief} onChange={v => s.set({ morningBrief: v })} />
         </Row>
