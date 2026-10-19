@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
-import { useAuth } from '../store/auth';
+import { AUTH_MSG, useAuth } from '../store/auth';
 import AccountList from '../components/AccountList';
 import { needsCredentials, reloginHint, savedAccounts, type SavedAccount } from '../lib/accounts';
 import { takeAfterLogin } from '../lib/afterLogin';
@@ -16,28 +16,29 @@ import OAuthButtons from '../components/OAuthButtons';
 import PasswordStrength from '../components/PasswordStrength';
 import LanguagePicker from '../components/LanguagePicker';
 import { LEGAL_LINKS } from './legal/links';
+import { t, tn } from '../i18n';
 
 function Showcase() {
   const days = [
-    { d: 'Lun', n: 13 },
-    { d: 'Mar', n: 14, dot: '#3b6fd8' },
-    { d: 'Mer', n: 15, dot: '#d48a17' },
-    { d: 'Jeu', n: 16, active: true },
-    { d: 'Ven', n: 17, dot: '#d9483b' },
+    { d: t('Lun'), n: 13 },
+    { d: t('Mar'), n: 14, dot: '#3b6fd8' },
+    { d: t('Mer'), n: 15, dot: '#d48a17' },
+    { d: t('Jeu'), n: 16, active: true },
+    { d: t('Ven'), n: 17, dot: '#d9483b' },
   ];
   return (
     <div className="relative flex h-full flex-col justify-center overflow-hidden px-14">
       <div className="max-w-[440px]">
-        <p className="eyebrow">Études, travail, vie perso</p>
+        <p className="eyebrow">{t('Études, travail, vie perso')}</p>
         <h2 className="mt-2 text-[32px] font-extrabold leading-[1.05] tracking-[-0.035em]">
-          Ton agenda, tes notes et tes fichiers, enfin au même endroit.
+          {t('Ton agenda, tes notes et tes fichiers, enfin au même endroit.')}
         </h2>
       </div>
 
       {/* Product preview */}
       <div className="mt-10 grid max-w-[460px] grid-cols-5 gap-3">
         <div className="card col-span-3 p-4">
-          <p className="eyebrow">Cette semaine</p>
+          <p className="eyebrow">{t('Cette semaine')}</p>
           <div className="mt-3 grid grid-cols-5 gap-1.5 text-center">
             {days.map(x => (
               <div key={x.n} className={x.active ? 'rounded-xl bg-tile-blue py-1.5 text-white' : 'py-1.5'}>
@@ -49,33 +50,33 @@ function Showcase() {
           </div>
           <div className="mt-3 space-y-1.5">
             <div className="flex items-center gap-2 rounded-md bg-stone-50 px-2 py-1.5 text-[12px]">
-              <span className="h-3 w-0.5 rounded-full bg-[#3b6fd8]" /> Rendez-vous chez le dentiste <span className="ml-auto tabular text-stone-500">09:00</span>
+              <span className="h-3 w-0.5 rounded-full bg-[#3b6fd8]" /> {t('Rendez-vous chez le dentiste')} <span className="ml-auto tabular text-stone-500">09:00</span>
             </div>
             <div className="flex items-center gap-2 rounded-md bg-stone-50 px-2 py-1.5 text-[12px]">
-              <span className="h-3 w-0.5 rounded-full bg-[#d48a17]" /> Envoyer le dossier <span className="ml-auto tabular text-stone-500">18:00</span>
+              <span className="h-3 w-0.5 rounded-full bg-[#d48a17]" /> {t('Envoyer le dossier')} <span className="ml-auto tabular text-stone-500">18:00</span>
             </div>
           </div>
         </div>
         <div className="card col-span-2 flex flex-col bg-tile-dark p-4 text-white">
-          <p className="text-[12px] font-semibold text-white/65">Prochain grand jour</p>
+          <p className="text-[12px] font-semibold text-white/65">{t('Prochain grand jour')}</p>
           <p className="mt-auto flex items-baseline gap-1.5">
             <span className="tabular text-[56px] font-extrabold leading-[0.8] tracking-[-0.06em] text-urgent">4</span>
-            <span className="text-[13px] font-bold">jours</span>
+            <span className="text-[13px] font-bold">{tn(4, 'jour', 'jours')}</span>
           </p>
-          <p className="mt-2 text-[12px] font-semibold">Présentation du projet</p>
+          <p className="mt-2 text-[12px] font-semibold">{t('Présentation du projet')}</p>
         </div>
         <div className="card col-span-2 flex items-center gap-2.5 p-3">
           <FileIcon category="folder" size={30} />
           <div className="min-w-0">
-            <p className="truncate text-[12px] font-medium">Projets 2026</p>
-            <p className="text-[11px] text-stone-500">24 fichiers</p>
+            <p className="truncate text-[12px] font-medium">{t('Projets 2026')}</p>
+            <p className="text-[11px] text-stone-500">{tn(24, '{n} fichier', '{n} fichiers')}</p>
           </div>
         </div>
         <div className="card col-span-3 flex items-center gap-2.5 p-3">
           <FileIcon category="pdf" size={30} />
           <div className="min-w-0">
-            <p className="truncate text-[12px] font-medium">Devis — Rénovation cuisine.pdf</p>
-            <p className="text-[11px] text-stone-500">Modifié hier</p>
+            <p className="truncate text-[12px] font-medium">{t('Devis — Rénovation cuisine.pdf')}</p>
+            <p className="text-[11px] text-stone-500">{t('Modifié hier')}</p>
           </div>
         </div>
       </div>
@@ -83,7 +84,7 @@ function Showcase() {
       {/* Kompaly peeking from the edge, under the preview (never over it) */}
       <div className="-mr-14 mt-6 flex items-center justify-end gap-1">
         <div className="pop mb-6 w-48 rounded-2xl rounded-br-sm border border-stone-200 bg-surface px-3 py-2 text-[12.5px] leading-snug shadow-pop" style={{ animationDelay: '600ms' }}>
-          Psst. Ta présentation est dans 4&nbsp;jours, on bloque du temps pour la préparer&nbsp;?
+          {t('Psst. Ta présentation est dans 4\u00a0jours, on bloque du temps pour la préparer\u00a0?')}
         </div>
         <Character pose="peek" look={{ x: -0.9, y: -0.2 }} mood="happy" size={104} />
       </div>
@@ -95,10 +96,10 @@ type Mode = 'login' | 'register' | 'forgot' | 'reset';
 type Field = 'name' | 'email' | 'password' | 'code' | 'agreed' | 'age';
 
 const COPY: Record<Mode, { title: string; subtitle?: string; submit: string }> = {
-  login: { title: 'Connexion', submit: 'Se connecter' },
-  register: { title: 'Créer un compte', subtitle: 'Gratuit, prêt en quelques secondes.', submit: 'Créer mon compte' },
-  forgot: { title: 'Mot de passe oublié', subtitle: 'On t’envoie un lien pour le changer.', submit: 'Envoyer le lien' },
-  reset: { title: 'Nouveau mot de passe', submit: 'Enregistrer' },
+  login: { title: t('Connexion'), submit: t('Se connecter') },
+  register: { title: t('Créer un compte'), subtitle: t('Gratuit, prêt en quelques secondes.'), submit: t('Créer mon compte') },
+  forgot: { title: t('Mot de passe oublié'), subtitle: t('On t’envoie un lien pour le changer.'), submit: t('Envoyer le lien') },
+  reset: { title: t('Nouveau mot de passe'), submit: t('Enregistrer') },
 };
 
 export default function AuthPage({ mode }: { mode: Mode }) {
@@ -147,34 +148,34 @@ export default function AuthPage({ mode }: { mode: Mode }) {
     setError('');
     setErrField(null);
     setInfo('');
-    if (isRegister && name.trim().length < 2) return fail('name', 'Ton prénom doit contenir au moins 2 caractères.');
-    if (needsEmail && !/^\S+@\S+\.\S+$/.test(email)) return fail('email', email.trim() ? 'Adresse e-mail invalide.' : 'Entre ton adresse e-mail.');
+    if (isRegister && name.trim().length < 2) return fail('name', t('Ton prénom doit contenir au moins 2 caractères.'));
+    if (needsEmail && !/^\S+@\S+\.\S+$/.test(email)) return fail('email', email.trim() ? t('Adresse e-mail invalide.') : t('Entre ton adresse e-mail.'));
     if ((isRegister || mode === 'reset') && (password.length < 8 || !/\p{L}/u.test(password) || !/\d/.test(password))) {
-      return fail('password', 'Au moins 8 caractères, avec des lettres et des chiffres.');
+      return fail('password', t('Au moins 8 caractères, avec des lettres et des chiffres.'));
     }
-    if (mode === 'reset' && needsCode && !/^\d{6}$/.test(code.replace(/\s/g, ''))) return fail('code', 'Entre le code à 6 chiffres de ton téléphone.');
-    if (isRegister && !agreed) return fail('agreed', 'Accepte les conditions pour continuer.');
-    if (isRegister && !oldEnough) return fail('age', 'Kompaly est ouvert dès 15 ans, ou avant avec l’accord d’un parent.');
-    if (mode === 'login' && !password) return fail('password', 'Entre ton mot de passe.');
+    if (mode === 'reset' && needsCode && !/^\d{6}$/.test(code.replace(/\s/g, ''))) return fail('code', t('Entre le code à 6 chiffres de ton téléphone.'));
+    if (isRegister && !agreed) return fail('agreed', t('Accepte les conditions pour continuer.'));
+    if (isRegister && !oldEnough) return fail('age', t('Kompaly est ouvert dès 15 ans, ou avant avec l’accord d’un parent.'));
+    if (mode === 'login' && !password) return fail('password', t('Entre ton mot de passe.'));
     setBusy(true);
     try {
       if (mode === 'forgot') {
         await requestPasswordReset(email);
-        setInfo('Si un compte existe, un e-mail vient de partir (regarde aussi les spams).');
+        setInfo(t('Si un compte existe, un e-mail vient de partir (regarde aussi les spams).'));
         return;
       }
       if (mode === 'reset') {
         await setNewPassword(password, needsCode ? code : undefined);
         await loadUserData();
         navigate('/');
-        toast('Mot de passe modifié', 'success');
+        toast(t('Mot de passe modifié'), 'success');
         return;
       }
       if (isRegister) {
         setRememberMe(true); // a new account stays signed in on the device it was created on
         const user = await register(name, email, password);
         if (!user) {
-          setInfo(`Presque fini ! Ouvre l’e-mail envoyé à ${email.trim()} sur cet appareil et clique sur le lien.`);
+          setInfo(t('Presque fini ! Ouvre l’e-mail envoyé à {email} sur cet appareil et clique sur le lien.', { email: email.trim() }));
           setCanResend(true);
           setPassword('');
           return;
@@ -192,10 +193,13 @@ export default function AuthPage({ mode }: { mode: Mode }) {
     } catch (err) {
       const message = (err as Error).message;
       // The button was disabled while waiting, so the focus fell out of the form: back to the field at fault.
-      const field: Field | null = message.startsWith('Un compte existe') || message.startsWith('Confirme d’abord') ? 'email' : /\bcode\b/i.test(message) && mode === 'reset' ? 'code' : needsPassword ? 'password' : 'email';
+      // Compared with the same t() texts as the store's (AUTH_MSG), so in every language.
+      const aboutEmail = message === AUTH_MSG.accountExists || message === AUTH_MSG.accountExistsSignIn || message === AUTH_MSG.notConfirmed;
+      const aboutCode = /\bcode\b/i.test(message) || message === AUTH_MSG.wrongCode || message === AUTH_MSG.needCode;
+      const field: Field | null = aboutEmail ? 'email' : aboutCode && mode === 'reset' ? 'code' : needsPassword ? 'password' : 'email';
       if (field === 'code') setNeedsCode(true);
       fail(field, message);
-      if (message.startsWith('Confirme d’abord')) setCanResend(true);
+      if (message === AUTH_MSG.notConfirmed) setCanResend(true);
     } finally {
       setBusy(false);
     }
@@ -204,11 +208,11 @@ export default function AuthPage({ mode }: { mode: Mode }) {
   async function resend() {
     setError('');
     setInfo('');
-    if (!/^\S+@\S+\.\S+$/.test(email)) return setError('Entre ton e-mail ci-dessus, puis réessaie.');
+    if (!/^\S+@\S+\.\S+$/.test(email)) return setError(t('Entre ton e-mail ci-dessus, puis réessaie.'));
     setBusy(true);
     try {
       await resendConfirmation(email);
-      setInfo('E-mail renvoyé. Ouvre-le sur cet appareil et clique sur le lien.');
+      setInfo(t('E-mail renvoyé. Ouvre-le sur cet appareil et clique sur le lien.'));
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -239,9 +243,9 @@ export default function AuthPage({ mode }: { mode: Mode }) {
     if (needsCredentials(a)) return askPassword(reloginHint(a));
     setSwitching(a.id);
     try {
-      if ((await useAuth.getState().switchAccount(a.id)) === 'credentials') askPassword('Session expirée : entre ton mot de passe.');
+      if ((await useAuth.getState().switchAccount(a.id)) === 'credentials') askPassword(t('Session expirée : entre ton mot de passe.'));
     } catch {
-      askPassword('Entre ton mot de passe pour ouvrir ce compte.');
+      askPassword(t('Entre ton mot de passe pour ouvrir ce compte.'));
     } finally {
       setSwitching(null);
     }
@@ -256,13 +260,13 @@ export default function AuthPage({ mode }: { mode: Mode }) {
         </div>
         <div className="flex flex-1 items-center justify-center py-10">
           <form onSubmit={onSubmit} noValidate className="enter w-full max-w-[340px]">
-            <h1 className="text-[30px] font-extrabold tracking-[-0.035em]">{adding ? 'Ajouter un compte' : copy.title}</h1>
-            {(adding || copy.subtitle) && <p className="mt-1 text-[13px] text-stone-500">{adding ? 'Tu passeras de l’un à l’autre en un clic.' : copy.subtitle}</p>}
+            <h1 className="text-[30px] font-extrabold tracking-[-0.035em]">{adding ? t('Ajouter un compte') : copy.title}</h1>
+            {(adding || copy.subtitle) && <p className="mt-1 text-[13px] text-stone-500">{adding ? t('Tu passeras de l’un à l’autre en un clic.') : copy.subtitle}</p>}
 
             {mode === 'login' && hasSaved && (
               <section aria-labelledby="comptes-appareil" className="mt-6">
                 <h2 id="comptes-appareil" className="eyebrow mb-2">
-                  Comptes sur cet appareil
+                  {t('Comptes sur cet appareil')}
                 </h2>
                 <AccountList
                   onPick={a => void pick(a)}
@@ -274,7 +278,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
                 />
                 <p className="mt-5 flex items-center gap-3 text-[12px] text-stone-500">
                   <span className="h-px flex-1 bg-stone-200" />
-                  ou un autre compte
+                  {t('ou un autre compte')}
                   <span className="h-px flex-1 bg-stone-200" />
                 </p>
               </section>
@@ -283,11 +287,11 @@ export default function AuthPage({ mode }: { mode: Mode }) {
             {cloudEnabled && !adding && (mode === 'login' || isRegister) && (
               <OAuthButtons remember={isRegister || remember} onError={m => fail(null, m)}>
                 <p className="mt-2 text-[11.5px] leading-snug text-stone-500">
-                  En continuant, tu acceptes les{' '}
+                  {t('En continuant, tu acceptes les')}{' '}
                   <Link to="/conditions" target="_blank" className="underline decoration-stone-300 underline-offset-2 hover:text-ink">
-                    conditions
+                    {t('conditions')}
                   </Link>{' '}
-                  et confirmes avoir 15&nbsp;ans ou plus.
+                  {t('et confirmes avoir 15\u00a0ans ou plus.')}
                 </p>
               </OAuthButtons>
             )}
@@ -295,15 +299,15 @@ export default function AuthPage({ mode }: { mode: Mode }) {
             <div className="mt-7 space-y-3.5">
               {isRegister && (
                 <label className="block">
-                  <span className="mb-1.5 block text-[12px] font-medium text-stone-600">Prénom</span>
+                  <span className="mb-1.5 block text-[12px] font-medium text-stone-600">{t('Prénom')}</span>
                   <input ref={el => { refs.current.name = el; }} {...invalid('name')} className="field w-full" value={name} onChange={e => setName(e.target.value)} autoComplete="given-name" autoFocus />
                   {errAt('name')}
                 </label>
               )}
               {needsEmail && (
                 <label className="block">
-                  <span className="mb-1.5 block text-[12px] font-medium text-stone-600">E-mail</span>
-                  <input ref={el => { refs.current.email = el; }} {...invalid('email')} className="field w-full" type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="username" autoFocus={!isRegister && !askedEmail} placeholder="prenom@exemple.fr" />
+                  <span className="mb-1.5 block text-[12px] font-medium text-stone-600">{t('E-mail')}</span>
+                  <input ref={el => { refs.current.email = el; }} {...invalid('email')} className="field w-full" type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="username" autoFocus={!isRegister && !askedEmail} placeholder={t('prenom@exemple.fr')} />
                   {errAt('email')}
                 </label>
               )}
@@ -311,10 +315,10 @@ export default function AuthPage({ mode }: { mode: Mode }) {
                 // A div, not a label: the eye button and « Oublié ? » must not end up in the field's name.
                 <div>
                   <span className="mb-1.5 flex items-center text-[12px] font-medium text-stone-600">
-                    <label htmlFor="auth-password">Mot de passe</label>
+                    <label htmlFor="auth-password">{t('Mot de passe')}</label>
                     {mode === 'login' && cloudEnabled && (
                       <Link to="/mot-de-passe-oublie" className="ml-auto font-normal text-stone-500 hover:text-ink">
-                        Oublié ?
+                        {t('Oublié ?')}
                       </Link>
                     )}
                   </span>
@@ -334,7 +338,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
                       autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                       autoFocus={mode === 'reset' || !!askedEmail}
                     />
-                    <button type="button" onClick={() => setShow(s => !s)} className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center justify-center rounded p-1.5 text-stone-500 hover:text-stone-700 pointer-coarse:h-9 pointer-coarse:w-9" title={show ? 'Masquer le mot de passe' : 'Afficher le mot de passe'} aria-label={show ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}>
+                    <button type="button" onClick={() => setShow(s => !s)} className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center justify-center rounded p-1.5 text-stone-500 hover:text-stone-700 pointer-coarse:h-9 pointer-coarse:w-9" title={show ? t('Masquer le mot de passe') : t('Afficher le mot de passe')} aria-label={show ? t('Masquer le mot de passe') : t('Afficher le mot de passe')}>
                       {show ? <EyeOff size={15} /> : <Eye size={15} />}
                     </button>
                   </span>
@@ -344,7 +348,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
               )}
               {mode === 'reset' && needsCode && (
                 <label className="block">
-                  <span className="mb-1.5 block text-[12px] font-medium text-stone-600">Code de ton application d’authentification</span>
+                  <span className="mb-1.5 block text-[12px] font-medium text-stone-600">{t('Code de ton application d’authentification')}</span>
                   <input
                     ref={el => {
                       refs.current.code = el;
@@ -367,8 +371,8 @@ export default function AuthPage({ mode }: { mode: Mode }) {
               <label className="mt-4 flex cursor-pointer items-center gap-2.5 text-[12.5px] text-stone-600">
                 <input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} className="h-4 w-4 shrink-0 accent-[var(--color-ink)]" />
                 <span>
-                  Rester connecté
-                  <span className="block text-[11.5px] text-stone-500">Décoche sur un ordinateur partagé.</span>
+                  {t('Rester connecté')}
+                  <span className="block text-[11.5px] text-stone-500">{t('Décoche sur un ordinateur partagé.')}</span>
                 </span>
               </label>
             )}
@@ -377,13 +381,13 @@ export default function AuthPage({ mode }: { mode: Mode }) {
               <label className="mt-4 flex cursor-pointer items-start gap-2.5 text-[12.5px] leading-snug text-stone-600">
                 <input ref={el => { refs.current.agreed = el; }} {...invalid('agreed')} type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-ink)]" />
                 <span>
-                  J’accepte les{' '}
+                  {t('J’accepte les')}{' '}
                   <Link to="/conditions" target="_blank" className="font-medium text-ink underline decoration-stone-300 underline-offset-2">
-                    conditions d’utilisation
+                    {t('conditions d’utilisation')}
                   </Link>{' '}
-                  et la{' '}
+                  {t('et la')}{' '}
                   <Link to="/confidentialite" target="_blank" className="font-medium text-ink underline decoration-stone-300 underline-offset-2">
-                    politique de confidentialité
+                    {t('politique de confidentialité')}
                   </Link>
                   .
                 </span>
@@ -393,7 +397,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
               // Touch: 10 px more above and below to tap, taken back by the margins (same layout).
               <label className="mt-2.5 flex cursor-pointer items-start gap-2.5 text-[12.5px] leading-snug text-stone-600 pointer-coarse:-mb-2.5 pointer-coarse:mt-0 pointer-coarse:py-2.5">
                 <input ref={el => { refs.current.age = el; }} {...invalid('age')} type="checkbox" checked={oldEnough} onChange={e => setOldEnough(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-ink)]" />
-                <span>J’ai 15&nbsp;ans ou plus, ou l’accord d’un parent.</span>
+                <span>{t('J’ai 15\u00a0ans ou plus, ou l’accord d’un parent.')}</span>
               </label>
             )}
 
@@ -405,7 +409,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
             {info && <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-[13px] text-emerald-800">{info}</p>}
             {canResend && cloudEnabled && (mode === 'login' || mode === 'register') && (
               <button type="button" onClick={() => void resend()} disabled={busy} className="mt-2 text-[13px] font-medium text-ink underline decoration-stone-300 underline-offset-4 hover:decoration-ink disabled:opacity-50">
-                Renvoyer l’e-mail de confirmation
+                {t('Renvoyer l’e-mail de confirmation')}
               </button>
             )}
 
@@ -415,15 +419,15 @@ export default function AuthPage({ mode }: { mode: Mode }) {
             </button>
 
             <p className="mt-6 text-center text-[13px] text-stone-500">
-              {mode === 'login' ? 'Pas encore de compte ?' : mode === 'register' ? 'Déjà un compte ?' : null}{' '}
+              {mode === 'login' ? t('Pas encore de compte ?') : mode === 'register' ? t('Déjà un compte ?') : null}{' '}
               <Link to={mode === 'login' ? '/inscription' : '/connexion'} className="hit font-medium text-ink underline decoration-stone-300 underline-offset-4 hover:decoration-ink">
-                {mode === 'login' ? 'Créer un compte' : mode === 'register' ? 'Se connecter' : 'Retour à la connexion'}
+                {mode === 'login' ? t('Créer un compte') : mode === 'register' ? t('Se connecter') : t('Retour à la connexion')}
               </Link>
             </p>
           </form>
         </div>
         <p className="text-[11px] text-stone-500">
-          {cloudEnabled ? 'Tes données sont chiffrées et protégées.' : 'Tes données restent sur cet appareil.'}
+          {cloudEnabled ? t('Tes données sont chiffrées et protégées.') : t('Tes données restent sur cet appareil.')}
           {LEGAL_LINKS.map(l => (
             <span key={l.to}>
               {'\u00a0· '}

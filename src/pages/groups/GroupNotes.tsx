@@ -76,7 +76,7 @@ export default function GroupNotes({ group }: { group: Group }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-2 pb-3">
-        <p className="eyebrow mr-auto">{notes ? `${notes.length} note${notes.length > 1 ? 's' : ''} partagée${notes.length > 1 ? 's' : ''}` : 'Chargement…'}</p>
+        <p className="eyebrow mr-auto">{notes?.length === 0 ? '' : notes ? `${notes.length} note${notes.length > 1 ? 's' : ''} partagée${notes.length > 1 ? 's' : ''}` : 'Chargement…'}</p>
         {canEdit && (
           <button className="btn-primary h-8 px-3" disabled={creating} onClick={() => void newNote()}>
             <FilePlus2 size={14} /> Nouvelle note

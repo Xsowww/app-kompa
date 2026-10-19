@@ -16,6 +16,7 @@ import { renameToKompa } from '../lib/renameToKompa';
 import { applyUsage, USAGES } from '../lib/usage';
 import { create } from 'zustand';
 import { useRecorder, stopHearing } from './recorder';
+import { t } from '../i18n';
 
 // Two tabs of the same account: what one saves, the other loads (else its next save would erase it).
 const PERSISTED = { drive: useDrive, calendar: useCalendar, notes: useNotes, copilot: useCopilot, settings: useSettings, todos: useTodos, 'focus-log': useFocusLog, focus: useFocus };
@@ -144,7 +145,7 @@ async function load() {
     } catch (e) {
       console.error('[sync] chargement', e);
       startSync(userId);
-      toast('Impossible de charger tes données en ligne. Tu vois la dernière version enregistrée sur cet appareil.', 'error');
+      toast(t('Impossible de charger tes données en ligne. Tu vois la dernière version enregistrée sur cet appareil.'), 'error');
     }
   } else if (localWelcomePending(userId)) {
     useWelcome.setState({ pending: true });

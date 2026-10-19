@@ -7,6 +7,7 @@ import { captchaToken } from '../lib/captcha';
 import { forgetAfterLogin } from '../lib/afterLogin';
 import { rememberAccount, updateSession, forgetAccount, lockAccount, savedAccount, needsCredentials } from '../lib/accounts';
 import type { AuthError, User as SupabaseUser } from '@supabase/supabase-js';
+import { t } from '../i18n';
 
 // Two modes:
 // - cloud (Supabase configured): real accounts, e-mail confirmation, password reset,
@@ -27,6 +28,16 @@ interface StoredUser extends User {
   salt: string;
   hash: string;
 }
+
+/** Messages the sign-in page reacts to: compared as shown, so the same t() here and there (any language). */
+export const AUTH_MSG = {
+  wrongPassword: t('Mot de passe incorrect.'),
+  accountExists: t('Un compte existe déjà avec cet e-mail.'),
+  accountExistsSignIn: t('Un compte existe déjà avec cet e-mail. Connecte-toi, ou choisis « Oublié ? » si tu n’as plus le mot de passe.'),
+  notConfirmed: t('Confirme d’abord ton adresse : clique sur le lien reçu par e-mail.'),
+  wrongCode: t('Code incorrect. Tape le code Kompaly affiché en ce moment sur ton téléphone.'),
+  needCode: t('Entre aussi le code à 6 chiffres de ton application d’authentification.'),
+};
 
 const USERS_KEY = 'cop:users';
 const SESSION_KEY = 'cop:session';
@@ -132,7 +143,7 @@ function restoreLocalSession(): User | null {
 
 async function checkLocalPassword(userId: string | undefined, password: string) {
   const found = readUsers().find(u => u.id === userId);
-  if (!found || (await hashPassword(password, found.salt)) !== found.hash) throw new Error('Mot de passe incorrect.');
+  if (!found || (await hashPassword(password, found.salt)) !== found.hash) throw new Error(AUTH_MSG.wrongPassword);
   return found;
 }
 
@@ -159,17 +170,17 @@ function fromSupabase(u: SupabaseUser): User {
 function authMessage(e: AuthError | Error): string {
   const code = (e as AuthError).code ?? '';
   const msg = e.message.toLowerCase();
-  if (code === 'invalid_credentials' || msg.includes('invalid login')) return 'E-mail ou mot de passe incorrect.';
-  if (code === 'email_not_confirmed' || msg.includes('not confirmed')) return 'Confirme d’abord ton adresse : clique sur le lien reçu par e-mail.';
-  if (code === 'user_already_exists' || code === 'email_exists' || msg.includes('already registered')) return 'Un compte existe déjà avec cet e-mail.';
-  if (code === 'weak_password' || msg.includes('password should')) return 'Mot de passe trop faible : au moins 8 caractères, avec lettres et chiffres.';
-  if (code.startsWith('over_') || msg.includes('rate limit')) return 'Trop de tentatives, réessaie dans quelques minutes.';
-  if (code === 'same_password') return 'Le nouveau mot de passe doit être différent de l’ancien.';
-  if (msg.includes('captcha')) return 'La vérification anti-robot a échoué. Recharge la page et réessaie.';
-  if (code === 'insufficient_aal' || msg.includes('aal2')) return 'Entre aussi le code à 6 chiffres de ton application d’authentification.';
-  if (code === 'session_not_found' || msg.includes('session missing')) return 'Ce lien a expiré ou a déjà servi : redemande un e-mail de réinitialisation.';
-  if (msg.includes('fetch') || msg.includes('network')) return 'Connexion impossible, vérifie ton accès à internet.';
-  return "Une erreur est survenue, réessaie dans un instant.";
+  if (code === 'invalid_credentials' || msg.includes('invalid login')) return t('E-mail ou mot de passe incorrect.');
+  if (code === 'email_not_confirmed' || msg.includes('not confirmed')) return AUTH_MSG.notConfirmed;
+  if (code === 'user_already_exists' || code === 'email_exists' || msg.includes('already registered')) return AUTH_MSG.accountExists;
+  if (code === 'weak_password' || msg.includes('password should')) return t('Mot de passe trop faible : au moins 8 caractères, avec lettres et chiffres.');
+  if (code.startsWith('over_') || msg.includes('rate limit')) return t('Trop de tentatives, réessaie dans quelques minutes.');
+  if (code === 'same_password') return t('Le nouveau mot de passe doit être différent de l’ancien.');
+  if (msg.includes('captcha')) return t('La vérification anti-robot a échoué. Recharge la page et réessaie.');
+  if (code === 'insufficient_aal' || msg.includes('aal2')) return AUTH_MSG.needCode;
+  if (code === 'session_not_found' || msg.includes('session missing')) return t('Ce lien a expiré ou a déjà servi : redemande un e-mail de réinitialisation.');
+  if (msg.includes('fetch') || msg.includes('network')) return t('Connexion impossible, vérifie ton accès à internet.');
+  return t('Une erreur est survenue, réessaie dans un instant.');
 }
 
 async function cloud<R extends { data: unknown; error: AuthError | null }>(p: Promise<R>): Promise<R['data']> {
@@ -291,14 +302,14 @@ export const useAuth = create<AuthState>((set, get) => ({
         supabase.auth.signUp({ email: mail, password, options: { data: { name: name.trim() }, emailRedirectTo: `${location.origin}/connexion`, captchaToken: await captchaToken() } }),
       ).finally(() => setTimeout(() => (ownSignIn = false), 1500));
       // An address that already has an account gets a look-alike answer and no e-mail at all.
-      if (data.user && !data.user.identities?.length) throw new Error('Un compte existe déjà avec cet e-mail. Connecte-toi, ou choisis « Oublié ? » si tu n’as plus le mot de passe.');
+      if (data.user && !data.user.identities?.length) throw new Error(AUTH_MSG.accountExistsSignIn);
       if (!data.session || !data.user) return null; // confirmation e-mail sent
       const user = fromSupabase(data.user);
       set({ user, mfaStep: 'setup' }); // the account is finished once the phone is paired
       return user;
     }
     const users = readUsers();
-    if (users.some(u => u.email === mail)) throw new Error('Un compte existe déjà avec cet e-mail.');
+    if (users.some(u => u.email === mail)) throw new Error(AUTH_MSG.accountExists);
     const salt = toHex(crypto.getRandomValues(new Uint8Array(16)));
     const stored: StoredUser = { id: uid(), name: name.trim(), email: mail, createdAt: nowIso(), salt, hash: await hashPassword(password, salt) };
     writeUsers([...users, stored]);
@@ -332,7 +343,7 @@ export const useAuth = create<AuthState>((set, get) => ({
       return user;
     }
     const found = readUsers().find(u => u.email === mail);
-    if (!found || (await hashPassword(password, found.salt)) !== found.hash) throw new Error('E-mail ou mot de passe incorrect.');
+    if (!found || (await hashPassword(password, found.salt)) !== found.hash) throw new Error(t('E-mail ou mot de passe incorrect.'));
     const user = publicUser(found);
     startSession(user);
     set({ user });
@@ -396,7 +407,7 @@ export const useAuth = create<AuthState>((set, get) => ({
       const ok = await checkPassword(user?.email ?? '', password).catch((e: AuthError) => {
         throw new Error(authMessage(e));
       });
-      if (!ok) throw new Error('Mot de passe incorrect.');
+      if (!ok) throw new Error(AUTH_MSG.wrongPassword);
       return;
     }
     await checkLocalPassword(user?.id, password);
@@ -406,7 +417,7 @@ export const useAuth = create<AuthState>((set, get) => ({
     try {
       await get().verifyPassword(current);
     } catch (e) {
-      throw (e as Error).message === 'Mot de passe incorrect.' ? new Error('Mot de passe actuel incorrect.') : e;
+      throw (e as Error).message === AUTH_MSG.wrongPassword ? new Error(t('Mot de passe actuel incorrect.')) : e;
     }
     if (supabase) {
       await cloud(supabase.auth.updateUser({ password: next, data: { has_password: true } }));
@@ -425,9 +436,9 @@ export const useAuth = create<AuthState>((set, get) => ({
     if (supabase) {
       // The same checks as delete_my_account, made before any file is removed: a refusal
       // afterwards would leave the account without its Drive.
-      if (await nextMfaStep()) throw new Error('Reconnecte-toi avec le code de ton téléphone, puis réessaie.');
+      if (await nextMfaStep()) throw new Error(t('Reconnecte-toi avec le code de ton téléphone, puis réessaie.'));
       const { error: offline } = await supabase.from('profiles').select('id').eq('id', user.id).limit(1);
-      if (offline) throw new Error('La suppression a échoué, réessaie plus tard.');
+      if (offline) throw new Error(t('La suppression a échoué, réessaie plus tard.'));
     }
     await beforeDelete?.();
     if (supabase) {
@@ -435,8 +446,8 @@ export const useAuth = create<AuthState>((set, get) => ({
       if (error) {
         throw new Error(
           error.code === 'PGRST202' || error.message.includes('delete_my_account')
-            ? 'La suppression de compte n’est pas encore activée sur le serveur. Lance supabase/schema.sql dans Supabase.'
-            : 'La suppression a échoué, réessaie plus tard.',
+            ? t('La suppression de compte n’est pas encore activée sur le serveur. Lance supabase/schema.sql dans Supabase.')
+            : t('La suppression a échoué, réessaie plus tard.'),
         );
       }
       stopSync();
@@ -502,12 +513,12 @@ export const useAuth = create<AuthState>((set, get) => ({
   },
 
   async requestPasswordReset(email) {
-    if (!supabase) throw new Error('La réinitialisation par e-mail n’est disponible qu’avec la version en ligne.');
+    if (!supabase) throw new Error(t('La réinitialisation par e-mail n’est disponible qu’avec la version en ligne.'));
     await cloud(supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), { redirectTo: `${location.origin}/reinitialisation`, captchaToken: await captchaToken() }));
   },
 
   async setNewPassword(password, code) {
-    if (!supabase) throw new Error('La réinitialisation par e-mail n’est disponible qu’avec la version en ligne.');
+    if (!supabase) throw new Error(t('La réinitialisation par e-mail n’est disponible qu’avec la version en ligne.'));
     // The e-mail link only proves the address: with a phone paired, Supabase also wants its code.
     if (code) {
       const { data } = await supabase.auth.mfa.listFactors();
@@ -518,7 +529,7 @@ export const useAuth = create<AuthState>((set, get) => ({
         const { error } = await supabase.auth.mfa
           .challengeAndVerify({ factorId: factor.id, code: code.replace(/\s/g, '') })
           .finally(() => setTimeout(() => (ownSignIn = false), 1500));
-        if (error) throw new Error(/rate|too many/i.test(error.message) ? 'Trop de tentatives, attends un peu.' : 'Code incorrect. Tape le code Kompaly affiché en ce moment sur ton téléphone.');
+        if (error) throw new Error(/rate|too many/i.test(error.message) ? t('Trop de tentatives, attends un peu.') : AUTH_MSG.wrongCode);
       }
     }
     await cloud(supabase.auth.updateUser({ password, data: { has_password: true } }));
@@ -534,7 +545,7 @@ export const useAuth = create<AuthState>((set, get) => ({
   },
 
   async startMfaSetup() {
-    if (!supabase) throw new Error('Indisponible en mode local.');
+    if (!supabase) throw new Error(t('Indisponible en mode local.'));
     const key = `cop-mfa-setup:${get().user?.id}`;
     const { data: list } = await supabase.auth.mfa.listFactors();
     const pending = (list?.all ?? []).filter(f => f.status !== 'verified');
@@ -553,7 +564,7 @@ export const useAuth = create<AuthState>((set, get) => ({
       for (const f of pending) await supabase.auth.mfa.unenroll({ factorId: f.id });
       ({ data, error } = await enroll());
     }
-    if (error || !data) throw new Error("Impossible de générer le QR code, réessaie dans un instant.");
+    if (error || !data) throw new Error(t('Impossible de générer le QR code, réessaie dans un instant.'));
     const enrollment = { factorId: data.id, qrCode: data.totp.qr_code, secret: data.totp.secret, uri: data.totp.uri };
     try {
       sessionStorage.setItem(key, JSON.stringify(enrollment));
@@ -571,7 +582,7 @@ export const useAuth = create<AuthState>((set, get) => ({
     const ids = factorId
       ? [factorId, ...all.filter(f => f.status !== 'verified' && f.factor_type === 'totp' && f.id !== factorId).sort((a, b) => b.created_at.localeCompare(a.created_at)).map(f => f.id)].slice(0, 5)
       : [data?.totp[0]?.id].filter((id): id is string => !!id);
-    if (!ids.length) throw new Error('Aucun appareil n’est associé à ce compte.');
+    if (!ids.length) throw new Error(t('Aucun appareil n’est associé à ce compte.'));
     ownSignIn = true;
     let error: { message: string } | null = null;
     let verified = '';
@@ -589,7 +600,15 @@ export const useAuth = create<AuthState>((set, get) => ({
     }
     if (!verified) {
       const msg = (error?.message ?? '').toLowerCase();
-      throw new Error(msg.includes('ip address') ? 'Ta connexion a changé pendant la vérification (VPN, 4G/Wi-Fi). Réessaie.' : msg.includes('expired') ? 'Ce code a expiré, tape le nouveau code affiché.' : msg.includes('rate') || msg.includes('too many') ? 'Trop de tentatives, attends un peu.' : 'Code incorrect. Vérifie que tu tapes le code Kompaly affiché en ce moment.');
+      throw new Error(
+        msg.includes('ip address')
+          ? t('Ta connexion a changé pendant la vérification (VPN, 4G/Wi-Fi). Réessaie.')
+          : msg.includes('expired')
+            ? t('Ce code a expiré, tape le nouveau code affiché.')
+            : msg.includes('rate') || msg.includes('too many')
+              ? t('Trop de tentatives, attends un peu.')
+              : t('Code incorrect. Vérifie que tu tapes le code Kompaly affiché en ce moment.'),
+      );
     }
     if (factorId) {
       // Setup done: the QR codes that weren't used are dropped, and so is the previous phone

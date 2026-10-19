@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { uid, nowIso } from '../lib/utils';
 import { userStorage } from '../lib/userStorage';
+import { t } from '../i18n';
 
 /** A simple to-do, independent from the calendar (« acheter une calculatrice »). */
 export interface Todo {
@@ -33,7 +34,7 @@ export const useTodos = create<TodosState>()(
     (set, get) => ({
       todos: [],
       add(title, due) {
-        const todo: Todo = { id: uid(), title: title.trim() || 'Tâche', done: false, due: due || undefined, createdAt: nowIso() };
+        const todo: Todo = { id: uid(), title: title.trim() || t('Tâche'), done: false, due: due || undefined, createdAt: nowIso() };
         set(s => ({ todos: [...s.todos, todo] }));
         return todo;
       },

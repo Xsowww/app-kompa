@@ -18,12 +18,13 @@ import { compressImage, imageFiles } from './images';
 import { registerEditorFlush, withProtocol } from './noteUtils';
 import { localSavesFailing } from '../../lib/userStorage';
 import './notes.css';
+import { t } from '../../i18n';
 
 /** Compresses then inserts images at `pos` (drop) or at the selection (paste, toolbar). */
 async function insertImages(view: EditorView, files: File[], pos?: number) {
   for (const file of files) {
     // Browser storage full (local mode): the image would show but be gone at the next visit.
-    if (localSavesFailing()) return toast('Mémoire du navigateur pleine : image non ajoutée. Retire des images de tes notes ou exporte une sauvegarde.', 'error');
+    if (localSavesFailing()) return toast(t('Mémoire du navigateur pleine : image non ajoutée. Retire des images de tes notes ou exporte une sauvegarde.'), 'error');
     try {
       const src = await compressImage(file);
       if (view.isDestroyed) return;
@@ -34,7 +35,7 @@ async function insertImages(view: EditorView, files: File[], pos?: number) {
       const tr = at == null ? state.tr.replaceSelectionWith(node) : state.tr.insert(Math.min(at, state.doc.content.size), node);
       view.dispatch(tr.scrollIntoView());
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Impossible d’ajouter l’image', 'error');
+      toast(e instanceof Error ? e.message : t('Impossible d’ajouter l’image'), 'error');
     }
   }
 }
@@ -66,7 +67,7 @@ function Toolbar({ editor }: { editor: Editor }) {
     </div>
   );
   const editLink = async () => {
-    const url = await askText(link !== null ? 'Modifier le lien' : 'Adresse du lien', link ?? '', link !== null ? 'Modifier' : 'Ajouter', { url: true });
+    const url = await askText(link !== null ? t('Modifier le lien') : t('Adresse du lien'), link ?? '', link !== null ? t('Modifier') : t('Ajouter'), { url: true });
     if (url === null || !url.trim()) return void c().run();
     c().extendMarkRange('link').setLink({ href: withProtocol(url) }).run();
   };
@@ -75,31 +76,31 @@ function Toolbar({ editor }: { editor: Editor }) {
     <div className="-mx-1 -my-1 overflow-hidden px-1 py-1 pointer-coarse:overflow-x-auto">
       <div className="-ml-[9px] flex flex-wrap items-center gap-y-0.5 pointer-coarse:flex-nowrap">
         {group('g1', <>
-          {btn('Titre 1', Heading1, editor.isActive('heading', { level: 1 }), () => c().toggleHeading({ level: 1 }).run())}
-          {btn('Titre 2', Heading2, editor.isActive('heading', { level: 2 }), () => c().toggleHeading({ level: 2 }).run())}
+          {btn(t('Titre 1'), Heading1, editor.isActive('heading', { level: 1 }), () => c().toggleHeading({ level: 1 }).run())}
+          {btn(t('Titre 2'), Heading2, editor.isActive('heading', { level: 2 }), () => c().toggleHeading({ level: 2 }).run())}
         </>)}
         {group('g2', <>
-          {btn('Gras (Ctrl+B)', Bold, editor.isActive('bold'), () => c().toggleBold().run())}
-          {btn('Italique (Ctrl+I)', Italic, editor.isActive('italic'), () => c().toggleItalic().run())}
-          {btn('Souligné (Ctrl+U)', Underline, editor.isActive('underline'), () => c().toggleUnderline().run())}
-          {btn('Barré', Strikethrough, editor.isActive('strike'), () => c().toggleStrike().run())}
-          {btn('Surligner', Highlighter, editor.isActive('highlight'), () => c().toggleHighlight().run())}
+          {btn(t('Gras (Ctrl+B)'), Bold, editor.isActive('bold'), () => c().toggleBold().run())}
+          {btn(t('Italique (Ctrl+I)'), Italic, editor.isActive('italic'), () => c().toggleItalic().run())}
+          {btn(t('Souligné (Ctrl+U)'), Underline, editor.isActive('underline'), () => c().toggleUnderline().run())}
+          {btn(t('Barré'), Strikethrough, editor.isActive('strike'), () => c().toggleStrike().run())}
+          {btn(t('Surligner'), Highlighter, editor.isActive('highlight'), () => c().toggleHighlight().run())}
         </>)}
         {group('g3', <>
-          {btn('Liste à puces', List, editor.isActive('bulletList'), () => c().toggleBulletList().run())}
-          {btn('Liste numérotée', ListOrdered, editor.isActive('orderedList'), () => c().toggleOrderedList().run())}
-          {btn('Cases à cocher', ListChecks, editor.isActive('taskList'), () => c().toggleTaskList().run())}
+          {btn(t('Liste à puces'), List, editor.isActive('bulletList'), () => c().toggleBulletList().run())}
+          {btn(t('Liste numérotée'), ListOrdered, editor.isActive('orderedList'), () => c().toggleOrderedList().run())}
+          {btn(t('Cases à cocher'), ListChecks, editor.isActive('taskList'), () => c().toggleTaskList().run())}
         </>)}
         {group('g4', <>
-          {btn('Citation', Quote, editor.isActive('blockquote'), () => c().toggleBlockquote().run())}
-          {btn('Bloc de code', Code2, editor.isActive('codeBlock'), () => c().toggleCodeBlock().run())}
-          {btn(link !== null ? 'Modifier le lien' : 'Lien', Link2, link !== null, () => void editLink())}
-          {link !== null && btn('Ouvrir le lien (ou Ctrl+clic)', ExternalLink, false, () => openLink(withProtocol(link)))}
-          {link !== null && btn('Retirer le lien', Link2Off, false, () => c().extendMarkRange('link').unsetLink().run())}
-          {btn('Séparateur', Minus, false, () => c().setHorizontalRule().run())}
+          {btn(t('Citation'), Quote, editor.isActive('blockquote'), () => c().toggleBlockquote().run())}
+          {btn(t('Bloc de code'), Code2, editor.isActive('codeBlock'), () => c().toggleCodeBlock().run())}
+          {btn(link !== null ? t('Modifier le lien') : t('Lien'), Link2, link !== null, () => void editLink())}
+          {link !== null && btn(t('Ouvrir le lien (ou Ctrl+clic)'), ExternalLink, false, () => openLink(withProtocol(link)))}
+          {link !== null && btn(t('Retirer le lien'), Link2Off, false, () => c().extendMarkRange('link').unsetLink().run())}
+          {btn(t('Séparateur'), Minus, false, () => c().setHorizontalRule().run())}
           <label
         key="image"
-        title="Image (ou colle-la dans la note)"
+        title={t('Image (ou colle-la dans la note)')}
         onMouseDown={e => e.preventDefault()}
         className={cx(btnClass, 'cursor-pointer text-stone-500 hover:bg-stone-100 hover:text-ink')}
       >
@@ -118,8 +119,8 @@ function Toolbar({ editor }: { editor: Editor }) {
       </label>
         </>)}
         {group('g5', <>
-          {btn('Annuler (Ctrl+Z)', Undo2, false, () => c().undo().run())}
-          {btn('Rétablir', Redo2, false, () => c().redo().run())}
+          {btn(t('Annuler (Ctrl+Z)'), Undo2, false, () => c().undo().run())}
+          {btn(t('Rétablir'), Redo2, false, () => c().redo().run())}
         </>)}
       </div>
     </div>
@@ -149,18 +150,18 @@ export default function NoteEditor({ note, readOnly = false, inset = 'px-4 pb-16
       StarterKit.configure({ link: false }),
       // Not « inclusive »: what is typed right after a link stays plain text.
       Link.extend({ inclusive: () => false }).configure({ openOnClick: false, autolink: true, defaultProtocol: 'https' }),
-      Placeholder.configure({ placeholder: 'Commence à écrire… (tape «\u00a0#\u00a0» pour un titre, «\u00a0-\u00a0» pour une liste)' }),
+      Placeholder.configure({ placeholder: t('Commence à écrire… (tape «\u00a0#\u00a0» pour un titre, «\u00a0-\u00a0» pour une liste)') }),
       Highlight,
       TaskList,
       TaskItem.configure({
         nested: true,
-        a11y: { checkboxLabel: node => (node.textContent.trim() ? `Case à cocher\u00a0: ${node.textContent.trim()}` : 'Case à cocher vide') },
+        a11y: { checkboxLabel: node => (node.textContent.trim() ? t('Case à cocher\u00a0: {text}', { text: node.textContent.trim() }) : t('Case à cocher vide')) },
       }),
       TiptapImage.configure({ allowBase64: true }),
     ],
     content: note.content,
     editorProps: {
-      attributes: { class: 'prose-note', 'aria-label': 'Contenu de la note', 'aria-multiline': 'true' },
+      attributes: { class: 'prose-note', 'aria-label': t('Contenu de la note'), 'aria-multiline': 'true' },
       // A click places the cursor in a link (to edit it); Ctrl+click (⌘+click) opens it.
       handleClick: (_view, _pos, event) => {
         const a = (event.target as HTMLElement | null)?.closest?.('a[href]');

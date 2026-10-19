@@ -1,8 +1,9 @@
 import type { Note } from '../../store/notes';
+import { t, lang, locale } from '../../i18n';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
-const fileName = (title: string) => (title.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim() || 'Note').slice(0, 120);
+const fileName = (title: string) => (title.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim() || t('Note')).slice(0, 120);
 
 const PRINT_CSS = `
 @page { size: A4; margin: 20mm 18mm 22mm; }
@@ -44,9 +45,9 @@ td, th { border: 1px solid #d6d3d1; padding: 4pt 6pt; }
 
 /** Builds the standalone printable HTML document of a note. */
 export function notePrintHtml(note: Note, subtitle?: string) {
-  const date = new Date(note.updatedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>${esc(note.title)}</title><style>${PRINT_CSS}</style></head>
-<body><header><h1>${esc(note.title)}</h1><p>${esc(subtitle ? `${subtitle} · ` : '')}Modifiée le ${date}</p></header><main>${note.content}</main></body></html>`;
+  const date = new Date(note.updatedAt).toLocaleDateString(locale(), { day: 'numeric', month: 'long', year: 'numeric' });
+  return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><title>${esc(note.title)}</title><style>${PRINT_CSS}</style></head>
+<body><header><h1>${esc(note.title)}</h1><p>${esc(subtitle ? `${subtitle} · ` : '')}${esc(t('Modifiée le {date}', { date }))}</p></header><main>${note.content}</main></body></html>`;
 }
 
 /**
@@ -66,7 +67,7 @@ export function printNote(note: Note, subtitle?: string): Promise<void> {
     const doc = frame.contentDocument;
     if (!win || !doc) {
       frame.remove();
-      return reject(new Error('Impression impossible'));
+      return reject(new Error(t('Impression impossible')));
     }
     doc.open();
     doc.write(notePrintHtml(note, subtitle));
@@ -85,7 +86,7 @@ export function printNote(note: Note, subtitle?: string): Promise<void> {
         resolve();
       } catch (e) {
         frame.remove();
-        reject(e instanceof Error ? e : new Error('Impression impossible'));
+        reject(e instanceof Error ? e : new Error(t('Impression impossible')));
       }
     };
     const imgs = Array.from(doc.images).filter(i => !i.complete);

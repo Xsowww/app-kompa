@@ -80,7 +80,7 @@ export default function GroupFiles({ group }: { group: Group }) {
       onDragLeave={e => !e.currentTarget.contains(e.relatedTarget as Node) && setOver(false)}
       onDrop={drop}
     >
-      <p className="eyebrow pb-3">{files ? `${files.length} fichier${files.length > 1 ? 's' : ''} partagé${files.length > 1 ? 's' : ''}` : 'Chargement…'}</p>
+      {files?.length !== 0 && <p className="eyebrow pb-3">{files ? `${files.length} fichier${files.length > 1 ? 's' : ''} partagé${files.length > 1 ? 's' : ''}` : 'Chargement…'}</p>}
       <div className={cx('min-h-0 flex-1 overflow-y-auto rounded-xl pb-16 lg:pb-14', over && 'outline-2 outline-dashed outline-stone-300')}>
         {files && files.length === 0 && (
           <div className="card flex flex-col items-center px-6 py-12 text-center">

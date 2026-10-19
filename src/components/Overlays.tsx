@@ -5,19 +5,20 @@ import { useNavigate } from 'react-router-dom';
 import { useUi, type Toast } from '../store/ui';
 import { cx } from '../lib/utils';
 import { arrowNav, focusBeforeOverlay, focusables, trapTab } from '../lib/a11y';
+import { locale, t } from '../i18n';
 
-function ToastRow({ t }: { t: Toast }) {
+function ToastRow({ t: item }: { t: Toast }) {
   const dismiss = useUi(s => s.dismissToast);
   return (
     <div className="pop flex max-w-[calc(100vw-32px)] items-center gap-2.5 rounded-[16px] bg-inverse px-4 py-2.5 font-medium text-[13px] text-on-inverse shadow-pop [overflow-wrap:break-word] sm:max-w-[560px]">
-      {t.tone === 'success' ? <CheckCircle2 size={15} className="shrink-0 text-emerald-400" aria-hidden /> : t.tone === 'error' ? <XCircle size={15} className="shrink-0 text-red-400" aria-hidden /> : <Info size={15} className="shrink-0 text-stone-400" aria-hidden />}
-      <span className="min-w-0 line-clamp-2">{t.text}</span>
-      {t.action && (
+      {item.tone === 'success' ? <CheckCircle2 size={15} className="shrink-0 text-emerald-400" aria-hidden /> : item.tone === 'error' ? <XCircle size={15} className="shrink-0 text-red-400" aria-hidden /> : <Info size={15} className="shrink-0 text-stone-400" aria-hidden />}
+      <span className="min-w-0 line-clamp-2">{item.text}</span>
+      {item.action && (
         <button
           className="hit-sm pointer-events-auto -my-1 -mr-1.5 ml-1.5 shrink-0 whitespace-nowrap rounded-md px-2 py-1 font-medium text-brand-200 transition-colors hover:bg-on-inverse/10 hover:text-on-inverse dark:text-brand-700"
           onClick={() => {
-            dismiss(t.id);
-            t.action!.run();
+            dismiss(item.id);
+            item.action!.run();
             // This button goes away with the toast. Unless the action focused what it brought back,
             // the focus goes to the page, not to <body> (keyboard and screen readers would start over at the top).
             setTimeout(() => {
@@ -25,9 +26,9 @@ function ToastRow({ t }: { t: Toast }) {
               if (!now || now === document.body) document.getElementById('contenu')?.focus({ preventScroll: true });
             }, 0);
           }}
-          title={t.action.label === 'Annuler' ? 'Annuler (Ctrl+Z)' : undefined}
+          title={item.action.label === t('Annuler') ? t('Annuler (Ctrl+Z)') : undefined}
         >
-          {t.action.label}
+          {item.action.label}
         </button>
       )}
     </div>
@@ -44,7 +45,7 @@ export function Toasts() {
       const at = document.activeElement as HTMLElement | null;
       if (at && (at.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(at.tagName))) return; // the field's own undo
       const { toasts: all, dismissToast } = useUi.getState();
-      const last = [...all].reverse().find(t => t.action?.label === 'Annuler');
+      const last = [...all].reverse().find(x => x.action?.label === t('Annuler'));
       if (!last) return;
       e.preventDefault();
       dismissToast(last.id);
@@ -166,7 +167,7 @@ function DialogBody() {
       )}
       <div className="mt-5 flex justify-end gap-2">
         <button type="button" className="btn-secondary" onClick={() => close(null)}>
-          Annuler
+          {t('Annuler')}
         </button>
         <button type="submit" className={dialog.danger ? 'btn-danger' : 'btn-primary'} disabled={dialog.kind === 'prompt' && !value.trim()} autoFocus={dialog.kind === 'confirm'}>
           {dialog.confirmLabel}
@@ -202,8 +203,8 @@ export interface MenuItem {
 function menuName(label?: string) {
   if (label) return label;
   const opener = document.activeElement as HTMLElement | null;
-  if (!opener || opener === document.body) return 'Actions';
-  return opener.getAttribute('aria-label') || opener.title || 'Actions';
+  if (!opener || opener === document.body) return t('Actions');
+  return opener.getAttribute('aria-label') || opener.title || t('Actions');
 }
 
 export function ContextMenu({ x, y, items, onClose, label }: { x: number; y: number; items: MenuItem[]; onClose: () => void; label?: string }) {
@@ -347,8 +348,8 @@ export function ReminderAlerts() {
             <div className="min-w-0 flex-1">
               <p className="flex items-baseline justify-between gap-2 text-[12px] leading-4 text-stone-500">
                 {/* My own reminders: « Rappel ». News (shared calendar, administration): where from, its 2nd line. */}
-                <span className="truncate font-medium">{/^(event|task):/.test(a.key) ? 'Rappel' : a.body.split('\n')[1] || 'Kompaly'}</span>
-                {a.at && <time className="tabular">{new Date(a.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</time>}
+                <span className="truncate font-medium">{/^(event|task):/.test(a.key) ? t('Rappel') : a.body.split('\n')[1] || 'Kompaly'}</span>
+                {a.at && <time className="tabular">{new Date(a.at).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })}</time>}
               </p>
               <p className="mt-1 line-clamp-2 text-[14.5px] font-semibold leading-snug text-ink [overflow-wrap:anywhere]">{a.title}</p>
               {/* Line 1: when; line 2 (« Agenda »): the system notification's, the card already says it */}
@@ -357,7 +358,7 @@ export function ReminderAlerts() {
           </div>
           <div className="grid grid-cols-2 border-t border-stone-100 text-[13px] font-medium">
             <button type="button" className="h-10 text-stone-600 transition-colors hover:bg-stone-50 hover:text-ink" onClick={() => dismiss(a.key)}>
-              Fermer
+              {t('Fermer')}
             </button>
             <button
               type="button"
@@ -367,7 +368,7 @@ export function ReminderAlerts() {
                 navigate(a.url);
               }}
             >
-              Voir
+              {t('Voir')}
             </button>
           </div>
         </div>

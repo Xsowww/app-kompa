@@ -21,6 +21,7 @@ import { isTrashedNote } from '../../lib/trash';
 import NoteMoveDialog, { type NoteMoveTarget } from './NoteMoveDialog';
 import { takeContentBuffer, takeTitleBuffer } from './titleBuffer';
 import type { Editor } from '@tiptap/react';
+import { t } from '../../i18n';
 
 const DRAG_NOTE = 'application/x-cop-note';
 const DRAG_FOLDER = 'application/x-cop-note-folder';
@@ -62,7 +63,7 @@ export default function NotesPage() {
     else if (noteId && isTrashedNote(noteId)) navigate(`/corbeille?type=notes&apercu=${noteId}`, { replace: true });
     else if (noteId && !useNotes.getState().notes.some(n => n.id === noteId)) {
       // Deleted for good (an old link from Kompaly or a notification): say so instead of a silent page.
-      if (toldGone.current !== noteId) toast('Cette note n’existe plus', 'info');
+      if (toldGone.current !== noteId) toast(t('Cette note n’existe plus'), 'info');
       toldGone.current = noteId;
       navigate('/notes', { replace: true });
     }
@@ -129,7 +130,7 @@ export default function NotesPage() {
     const typed = takeTitleBuffer();
     if (el && typed?.title) {
       el.value = typed.title;
-      useNotes.getState().updateNote(activeId, { title: typed.title.trim() || 'Sans titre' });
+      useNotes.getState().updateNote(activeId, { title: typed.title.trim() || t('Sans titre') });
     }
     if (typed?.toContent) {
       // Enter was pressed after the title: the rest goes to the content, once the editor is there
@@ -159,13 +160,13 @@ export default function NotesPage() {
   }, [activeId]);
 
   const templateMenu = (folderId: string | null = targetFolder): MenuItem[] =>
-    noteTemplates().map((t, i) => {
-      const Icon = t.icon ?? TEMPLATE_ICONS[t.id] ?? FileText;
-      return { label: t.label, icon: <Icon size={15} />, onClick: () => newNote(folderId, i === 0 ? undefined : t) };
+    noteTemplates().map((tpl, i) => {
+      const Icon = tpl.icon ?? TEMPLATE_ICONS[tpl.id] ?? FileText;
+      return { label: tpl.label, icon: <Icon size={15} />, onClick: () => newNote(folderId, i === 0 ? undefined : tpl) };
     });
 
   const newFolder = async (parentId: string | null = targetFolder) => {
-    const name = await askText(parentId ? 'Nouveau sous-dossier' : 'Nouveau dossier', 'Nouveau dossier', 'Créer');
+    const name = await askText(parentId ? t('Nouveau sous-dossier') : t('Nouveau dossier'), t('Nouveau dossier'), t('Créer'));
     if (name === null) return;
     const f = store.createFolder(name, parentId);
     setExpanded(s => new Set([...s, f.id, ...(parentId ? [parentId] : [])]));
@@ -173,12 +174,12 @@ export default function NotesPage() {
   };
 
   const renameFolder = async (f: NoteFolder) => {
-    const name = await askText('Renommer le dossier', f.name, 'Renommer');
+    const name = await askText(t('Renommer le dossier'), f.name, t('Renommer'));
     if (name) store.renameFolder(f.id, name);
   };
 
   const renameNote = async (n: Note) => {
-    const name = await askText('Renommer la note', n.title, 'Renommer');
+    const name = await askText(t('Renommer la note'), n.title, t('Renommer'));
     if (name) store.updateNote(n.id, { title: name });
   };
 
@@ -195,7 +196,7 @@ export default function NotesPage() {
   };
 
   const deleteFolder = async (f: NoteFolder) => {
-    if (!(await confirmAction(`Mettre le dossier « ${f.name} » à la corbeille ?`, 'Avec ses notes et sous-dossiers. Tu pourras les récupérer dans la corbeille.', 'Mettre à la corbeille'))) return;
+    if (!(await confirmAction(t('Mettre le dossier « {name} » à la corbeille ?', { name: f.name }), t('Avec ses notes et sous-dossiers. Tu pourras les récupérer dans la corbeille.'), t('Mettre à la corbeille')))) return;
     if (active?.folderId && isInside(active.folderId, f.id)) {
       flushNoteEditor();
       openNote(null);
@@ -210,7 +211,7 @@ export default function NotesPage() {
     const nextSel = next ? (next.dataset.folderOpen ? `[data-folder-open="${next.dataset.folderOpen}"]` : `[data-note-open="${next.dataset.noteOpen}"]`) : '#new-note';
     setTimeout(() => document.querySelector<HTMLElement>(nextSel)?.focus({ preventScroll: true }), 0);
     store.removeFolder(f.id);
-    toast('Mis à la corbeille', 'info', { label: 'Annuler', run: () => restoreAndFocus(f.id, 'folder') });
+    toast(t('Mis à la corbeille'), 'info', { label: t('Annuler'), run: () => restoreAndFocus(f.id, 'folder') });
   };
 
   // After a deletion the keyboard focus goes to the next note in the list (or the previous one),
@@ -227,14 +228,14 @@ export default function NotesPage() {
   };
 
   const deleteNote = async (n: Note) => {
-    if (!(await confirmAction(`Mettre « ${n.title.trim() || 'Sans titre'} » à la corbeille ?`, 'Tu pourras la récupérer dans la corbeille pendant 30 jours.', 'Mettre à la corbeille'))) return;
+    if (!(await confirmAction(t('Mettre « {name} » à la corbeille ?', { name: n.title.trim() || t('Sans titre') }), t('Tu pourras la récupérer dans la corbeille pendant 30 jours.'), t('Mettre à la corbeille')))) return;
     focusNeighbour(n.id);
     if (n.id === noteId) {
       flushNoteEditor();
       openNote(null);
     }
     store.removeNote(n.id);
-    toast('Mis à la corbeille', 'info', { label: 'Annuler', run: () => restoreAndFocus(n.id, 'note') });
+    toast(t('Mis à la corbeille'), 'info', { label: t('Annuler'), run: () => restoreAndFocus(n.id, 'note') });
   };
 
   const folderPath = (id: string | null) => {
@@ -246,7 +247,7 @@ export default function NotesPage() {
   const exportPdf = (n: Note) => {
     flushNoteEditor();
     const fresh = useNotes.getState().notes.find(x => x.id === n.id) ?? n;
-    printNote(fresh, folderPath(fresh.folderId) || undefined).catch(() => toast('Impossible d’ouvrir l’impression', 'error'));
+    printNote(fresh, folderPath(fresh.folderId) || undefined).catch(() => toast(t('Impossible d’ouvrir l’impression'), 'error'));
   };
 
   const exportMd = (n: Note) => {
@@ -255,8 +256,8 @@ export default function NotesPage() {
   };
 
   const exportItems = (n: Note): MenuItem[] => [
-    { label: 'Exporter en PDF', icon: <Printer size={15} />, onClick: () => exportPdf(n) },
-    { label: 'Exporter en Markdown', icon: <FileDown size={15} />, onClick: () => exportMd(n) },
+    { label: t('Exporter en PDF'), icon: <Printer size={15} />, onClick: () => exportPdf(n) },
+    { label: t('Exporter en Markdown'), icon: <FileDown size={15} />, onClick: () => exportMd(n) },
   ];
 
   // Keyboard shortcuts shown in the menus, not on touch screens.
@@ -264,32 +265,32 @@ export default function NotesPage() {
 
   const noteMenu = (n: Note, open = true): MenuItem[] => [
     // Not for the note already open (header menu): it would do nothing.
-    ...(open ? [{ label: 'Ouvrir', icon: <FileText size={15} />, onClick: () => openNote(n.id) }] : []),
-    { label: 'Renommer', icon: <Pencil size={15} />, shortcut: keyHint('F2'), onClick: () => void renameNote(n) },
-    { label: 'Dupliquer', icon: <CopyPlus size={15} />, onClick: () => { const c = store.duplicateNote(n.id); if (c) openNote(c.id); } },
-    { label: n.pinned ? 'Désépingler' : 'Épingler en haut', icon: n.pinned ? <PinOff size={15} /> : <Pin size={15} />, onClick: () => store.updateNote(n.id, { pinned: !n.pinned }) },
-    { label: 'Déplacer vers…', icon: <FolderInput size={15} />, onClick: () => setMoving({ kind: 'note', id: n.id, name: n.title, from: n.folderId }) },
-    ...(n.folderId ? [{ label: 'Sortir du dossier', icon: <FolderOpen size={15} />, onClick: () => store.updateNote(n.id, { folderId: null }) }] : []),
+    ...(open ? [{ label: t('Ouvrir'), icon: <FileText size={15} />, onClick: () => openNote(n.id) }] : []),
+    { label: t('Renommer'), icon: <Pencil size={15} />, shortcut: keyHint('F2'), onClick: () => void renameNote(n) },
+    { label: t('Dupliquer'), icon: <CopyPlus size={15} />, onClick: () => { const c = store.duplicateNote(n.id); if (c) openNote(c.id); } },
+    { label: n.pinned ? t('Désépingler') : t('Épingler en haut'), icon: n.pinned ? <PinOff size={15} /> : <Pin size={15} />, onClick: () => store.updateNote(n.id, { pinned: !n.pinned }) },
+    { label: t('Déplacer vers…'), icon: <FolderInput size={15} />, onClick: () => setMoving({ kind: 'note', id: n.id, name: n.title, from: n.folderId }) },
+    ...(n.folderId ? [{ label: t('Sortir du dossier'), icon: <FolderOpen size={15} />, onClick: () => store.updateNote(n.id, { folderId: null }) }] : []),
     { label: '', divider: true, onClick: () => {} },
     ...exportItems(n),
     { label: '', divider: true, onClick: () => {} },
-    { label: 'Supprimer', icon: <Trash2 size={15} />, shortcut: keyHint('Suppr'), danger: true, onClick: () => void deleteNote(n) },
+    { label: t('Supprimer'), icon: <Trash2 size={15} />, shortcut: keyHint(t('Suppr')), danger: true, onClick: () => void deleteNote(n) },
   ];
 
   const folderMenu = (f: NoteFolder): MenuItem[] => [
-    { label: 'Nouvelle note ici', icon: <FilePlus2 size={15} />, onClick: () => newNote(f.id) },
-    { label: 'Nouveau sous-dossier', icon: <FolderPlus size={15} />, onClick: () => void newFolder(f.id) },
-    { label: 'Renommer', icon: <Pencil size={15} />, shortcut: keyHint('F2'), onClick: () => void renameFolder(f) },
-    { label: 'Déplacer vers…', icon: <FolderInput size={15} />, onClick: () => setMoving({ kind: 'folder', id: f.id, name: f.name, from: f.parentId }) },
-    ...(f.parentId ? [{ label: 'Remonter à la racine', icon: <FolderOpen size={15} />, onClick: () => store.moveFolder(f.id, null) }] : []),
+    { label: t('Nouvelle note ici'), icon: <FilePlus2 size={15} />, onClick: () => newNote(f.id) },
+    { label: t('Nouveau sous-dossier'), icon: <FolderPlus size={15} />, onClick: () => void newFolder(f.id) },
+    { label: t('Renommer'), icon: <Pencil size={15} />, shortcut: keyHint('F2'), onClick: () => void renameFolder(f) },
+    { label: t('Déplacer vers…'), icon: <FolderInput size={15} />, onClick: () => setMoving({ kind: 'folder', id: f.id, name: f.name, from: f.parentId }) },
+    ...(f.parentId ? [{ label: t('Remonter à la racine'), icon: <FolderOpen size={15} />, onClick: () => store.moveFolder(f.id, null) }] : []),
     { label: '', divider: true, onClick: () => {} },
     {
-      label: 'Couleur du dossier',
+      label: t('Couleur du dossier'),
       onClick: () => {},
       content: <FolderColorPicker value={f.color ?? null} defaultColor="var(--color-stone-500)" onPick={key => { store.setFolderColor(f.id, key ?? undefined); setMenu(null); }} />,
     },
     { label: '', divider: true, onClick: () => {} },
-    { label: 'Supprimer', icon: <Trash2 size={15} />, shortcut: keyHint('Suppr'), danger: true, onClick: () => void deleteFolder(f) },
+    { label: t('Supprimer'), icon: <Trash2 size={15} />, shortcut: keyHint(t('Suppr')), danger: true, onClick: () => void deleteFolder(f) },
   ];
 
   /** Keys shared by the note and folder rows: arrows move between rows, Suppr puts in the trash, F2 renames. */
@@ -363,13 +364,13 @@ export default function NotesPage() {
       >
         <FileText size={14} className="shrink-0 text-stone-400" />
         <span className="flex-1 truncate">{n.title}</span>
-        {n.pinned && <Pin size={11} className="shrink-0 text-stone-400" aria-label="Épinglée" />}
+        {n.pinned && <Pin size={11} className="shrink-0 text-stone-400" aria-label={t('Épinglée')} />}
       </div>
       <button
         className="icon-btn touch-show h-6 w-6 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:h-9 pointer-coarse:w-9"
         tabIndex={-1}
-        title="Plus d’actions"
-        aria-label={`Plus d’actions pour «\u00a0${n.title}\u00a0»`}
+        title={t('Plus d’actions')}
+        aria-label={t('Plus d’actions pour «\u00a0{name}\u00a0»', { name: n.title })}
         onClick={e => setMenu({ ...menuUnder(e), items: noteMenu(n) })}
       >
         <MoreHorizontal size={14} />
@@ -428,8 +429,8 @@ export default function NotesPage() {
           <button
             className="icon-btn hidden h-6 w-6 group-hover:inline-flex [@media(hover:none)]:inline-flex pointer-coarse:h-9 pointer-coarse:w-9"
             tabIndex={-1}
-            title="Nouvelle note dans ce dossier"
-            aria-label={`Nouvelle note dans «\u00a0${f.name}\u00a0»`}
+            title={t('Nouvelle note dans ce dossier')}
+            aria-label={t('Nouvelle note dans «\u00a0{name}\u00a0»', { name: f.name })}
             onClick={() => newNote(f.id)}
           >
             <FilePlus2 size={14} />
@@ -437,8 +438,8 @@ export default function NotesPage() {
           <button
             className="icon-btn hidden h-6 w-6 group-hover:inline-flex [@media(hover:none)]:inline-flex pointer-coarse:h-9 pointer-coarse:w-9"
             tabIndex={-1}
-            title="Plus d’actions"
-            aria-label={`Plus d’actions pour «\u00a0${f.name}\u00a0»`}
+            title={t('Plus d’actions')}
+            aria-label={t('Plus d’actions pour «\u00a0{name}\u00a0»', { name: f.name })}
             onClick={e => setMenu({ ...menuUnder(e), items: folderMenu(f) })}
           >
             <MoreHorizontal size={14} />
@@ -450,7 +451,7 @@ export default function NotesPage() {
             {fnotes.map(n => renderNote(n, depth + 1))}
             {kids.length === 0 && fnotes.length === 0 && (
               <p className="py-1.5 text-[12px] text-stone-500" style={{ paddingLeft: 30 + depth * 16 }}>
-                Dossier vide
+                {t('Dossier vide')}
               </p>
             )}
           </div>
@@ -466,22 +467,22 @@ export default function NotesPage() {
   return (
     <div className="flex h-full gap-4 px-4 pb-4 md:px-8">
       {/* A note open on a phone hides the list and its title: the page keeps one for screen readers. */}
-      {mainOpen && <h1 className="sr-only md:hidden">Notes</h1>}
+      {mainOpen && <h1 className="sr-only md:hidden">{t('Notes')}</h1>}
       {/* Sidebar */}
       <aside className={cx('w-full shrink-0 flex-col md:flex md:w-[268px]', mainOpen ? 'hidden' : 'flex')}>
         <div className="flex items-center gap-1.5 pb-4 pt-2">
-          <h1 className="text-[24px] font-semibold tracking-[-0.02em]">Notes</h1>
-          <button className="icon-btn ml-auto" title="Nouveau dossier" aria-label="Nouveau dossier" onClick={() => void newFolder(null)}>
+          <h1 className="text-[24px] font-semibold tracking-[-0.02em]">{t('Notes')}</h1>
+          <button className="icon-btn ml-auto" title={t('Nouveau dossier')} aria-label={t('Nouveau dossier')} onClick={() => void newFolder(null)}>
             <FolderPlus size={16} />
           </button>
           <div className="flex">
-            <button id="new-note" className="btn-primary h-8 rounded-r-none px-3 pointer-coarse:h-9" onClick={() => newNote()} title="Nouvelle note vide">
-              <FilePlus2 size={14} /> Nouvelle note
+            <button id="new-note" className="btn-primary h-8 rounded-r-none px-3 pointer-coarse:h-9" onClick={() => newNote()} title={t('Nouvelle note vide')}>
+              <FilePlus2 size={14} /> {t('Nouvelle note')}
             </button>
             <button
               className="btn-primary h-8 rounded-l-none border-l border-on-brand/20 px-1.5 pointer-coarse:h-9 pointer-coarse:px-3"
-              title="Partir d’un modèle"
-              aria-label="Partir d’un modèle"
+              title={t('Partir d’un modèle')}
+              aria-label={t('Partir d’un modèle')}
               onClick={e => {
                 const r = e.currentTarget.getBoundingClientRect();
                 setMenu({ x: r.right - 208, y: r.bottom + 6, items: templateMenu() });
@@ -493,7 +494,7 @@ export default function NotesPage() {
         </div>
         <div className="relative mb-2">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
-          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Rechercher dans les notes" aria-label="Rechercher dans les notes" className="field w-full pl-8" />
+          <input value={query} onChange={e => setQuery(e.target.value)} placeholder={t('Rechercher dans les notes')} aria-label={t('Rechercher dans les notes')} className="field w-full pl-8" />
         </div>
         <div
           className={cx('min-h-0 flex-1 overflow-y-auto rounded-lg p-1 pb-16 lg:pb-1', dropOn === 'root' && 'ring-1 ring-brand-500')}
@@ -505,18 +506,18 @@ export default function NotesPage() {
               results.map(n => (
                 <button key={n.id} onClick={() => openNote(n.id)} className={cx('block w-full rounded-md px-2.5 py-2 text-left hover:bg-stone-50', n.id === noteId && 'bg-stone-100')}>
                   <p className="truncate text-[13px] font-medium">{n.title}</p>
-                  <p className="truncate text-[12px] text-stone-500">{stripHtml(n.content) || 'Note vide'}</p>
+                  <p className="truncate text-[12px] text-stone-500">{stripHtml(n.content) || t('Note vide')}</p>
                 </button>
               ))
             ) : (
-              <p className="p-4 text-center text-[13px] text-stone-500">Aucune note trouvée</p>
+              <p className="p-4 text-center text-[13px] text-stone-500">{t('Aucune note trouvée')}</p>
             )
           ) : (
             <div onClick={e => e.stopPropagation()}>
               {rootFolders.map(f => renderFolder(f, 0))}
               {rootNotes.length > 0 && rootFolders.length > 0 && <div className="mx-2 my-2 h-px bg-stone-200/70" />}
               {rootNotes.map(n => renderNote(n, 0))}
-              {notes.length === 0 && folders.length === 0 && <p className="p-6 text-center text-[13px] text-stone-500">Aucune note pour l’instant.</p>}
+              {notes.length === 0 && folders.length === 0 && <p className="p-6 text-center text-[13px] text-stone-500">{t('Aucune note pour l’instant.')}</p>}
             </div>
           )}
         </div>
@@ -528,24 +529,24 @@ export default function NotesPage() {
           <>
             {/* Under lg the actions sit above the title, which gets the whole width (it was 173 px wide at 768). */}
             <div className="flex flex-wrap items-start gap-1 px-4 pt-6 md:px-12 max-lg:pt-4">
-              <button className="icon-btn mt-1 md:hidden" onClick={() => openNote(null)} title="Retour" aria-label="Retour">
+              <button className="icon-btn mt-1 md:hidden" onClick={() => openNote(null)} title={t('Retour')} aria-label={t('Retour')}>
                 <ArrowLeft size={17} />
               </button>
               <div className="order-last w-full min-w-0 lg:order-none lg:w-auto lg:flex-1">
                 <NoteTitle key={active.id} note={active} />
                 <p className="mt-1 text-[12px] text-stone-500">
-                  {folders.find(f => f.id === active.folderId)?.name ?? 'Sans dossier'}{' '}
-                  <span className="whitespace-nowrap">· modifiée {relativeTime(active.updatedAt)}</span>
+                  {folders.find(f => f.id === active.folderId)?.name ?? t('Sans dossier')}{' '}
+                  <span className="whitespace-nowrap">· {t('modifiée {time}', { time: relativeTime(active.updatedAt) })}</span>
                 </p>
                 <LinkChips note={active} />
               </div>
-              <button className="btn-ghost mt-0.5 ml-auto h-8 px-2.5 lg:ml-0 pointer-coarse:min-w-9" title="Lier à des fichiers du Drive ou des événements" onClick={() => setLinking(true)}>
-                <Paperclip size={15} /> <span className="hidden sm:inline">Lier…</span>
+              <button className="btn-ghost mt-0.5 ml-auto h-8 px-2.5 lg:ml-0 pointer-coarse:min-w-9" title={t('Lier à des fichiers du Drive ou des événements')} onClick={() => setLinking(true)}>
+                <Paperclip size={15} /> <span className="hidden sm:inline">{t('Lier…')}</span>
               </button>
-              <button className="icon-btn mt-0.5" title={active.pinned ? 'Désépingler' : 'Épingler'} aria-label={active.pinned ? 'Désépingler' : 'Épingler'} onClick={() => store.updateNote(active.id, { pinned: !active.pinned })}>
+              <button className="icon-btn mt-0.5" title={active.pinned ? t('Désépingler') : t('Épingler')} aria-label={active.pinned ? t('Désépingler') : t('Épingler')} onClick={() => store.updateNote(active.id, { pinned: !active.pinned })}>
                 {active.pinned ? <PinOff size={15} /> : <Pin size={15} />}
               </button>
-              <button className="icon-btn mt-0.5" title="Plus" aria-label="Plus" onClick={e => setMenu({ ...menuUnder(e), items: noteMenu(active, false) })}>
+              <button className="icon-btn mt-0.5" title={t('Plus')} aria-label={t('Plus')} onClick={e => setMenu({ ...menuUnder(e), items: noteMenu(active, false) })}>
                 <MoreHorizontal size={16} />
               </button>
             </div>
@@ -555,11 +556,11 @@ export default function NotesPage() {
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
             <NotebookPen size={28} strokeWidth={1.5} className="text-stone-300" />
-            <p className="mt-3 text-[13px] text-stone-500">Choisis une note, ou pars d’un modèle.</p>
+            <p className="mt-3 text-[13px] text-stone-500">{t('Choisis une note, ou pars d’un modèle.')}</p>
             <div className="mt-4 flex max-w-[460px] flex-wrap justify-center gap-1.5">
-              {noteTemplates().map((t, i) => (
-                <button key={t.id} onClick={() => newNote(targetFolder, i === 0 ? undefined : t)} title={t.hint} className="btn-secondary h-8 px-3 text-[12px]">
-                  {t.label}
+              {noteTemplates().map((tpl, i) => (
+                <button key={tpl.id} onClick={() => newNote(targetFolder, i === 0 ? undefined : tpl)} title={tpl.hint} className="btn-secondary h-8 px-3 text-[12px]">
+                  {tpl.label}
                 </button>
               ))}
             </div>
@@ -580,7 +581,7 @@ export default function NotesPage() {
  */
 function NoteTitle({ note }: { note: Note }) {
   const ref = useRef<HTMLTextAreaElement>(null);
-  const shown = note.title === 'Sans titre' ? '' : note.title;
+  const shown = note.title === 'Sans titre' || note.title === t('Sans titre') ? '' : note.title;
   const fit = () => {
     const el = ref.current;
     if (!el) return;
@@ -610,13 +611,13 @@ function NoteTitle({ note }: { note: Note }) {
       id="note-title"
       rows={1}
       defaultValue={shown}
-      placeholder="Sans titre"
-      aria-label="Titre de la note"
+      placeholder={t('Sans titre')}
+      aria-label={t('Titre de la note')}
       onChange={e => {
         // One line of text, even when pasted with line breaks.
         if (/[\r\n]/.test(e.target.value)) e.target.value = e.target.value.replace(/[\r\n]+/g, ' ');
         fit();
-        useNotes.getState().updateNote(note.id, { title: e.target.value.trim() || 'Sans titre' });
+        useNotes.getState().updateNote(note.id, { title: e.target.value.trim() || t('Sans titre') });
       }}
       onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), document.querySelector<HTMLElement>('.prose-note')?.focus())}
       className="block w-full resize-none overflow-hidden bg-transparent hyphens-auto pointer-coarse:py-1 text-[22px] font-semibold md:text-[26px] leading-[1.25] tracking-[-0.02em] outline-none placeholder:text-stone-400"

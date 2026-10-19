@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { fmt, fromKey, todayKey } from '../../lib/dates';
 import { cx } from '../../lib/utils';
 import { formatMinutes } from './focusStats';
+import { t, tn } from '../../i18n';
 
 export const FOCUS_COLOR = '#2f9e6b';
 
@@ -12,7 +13,7 @@ export function SubjectBars({ rows }: { rows: { subject: string; minutes: number
   const max = Math.max(1, ...rows.map(r => r.minutes));
   const total = rows.reduce((a, r) => a + r.minutes, 0);
 
-  if (rows.length === 0) return <p className="py-8 text-center text-[13px] text-stone-500">Aucune session sur cette période.</p>;
+  if (rows.length === 0) return <p className="py-8 text-center text-[13px] text-stone-500">{t('Aucune session sur cette période.')}</p>;
 
   return (
     <ul className="space-y-[2px]" onMouseLeave={() => setHover(null)}>
@@ -39,7 +40,7 @@ export function SubjectBars({ rows }: { rows: { subject: string; minutes: number
             >
               <span className="block text-on-inverse/60">{r.subject}</span>
               <span className="tabular font-medium">
-                {formatMinutes(r.minutes)} · {r.sessions} session{r.sessions > 1 ? 's' : ''} · {Math.round((r.minutes / total) * 100)} %
+                {formatMinutes(r.minutes)} · {tn(r.sessions, '{n} session', '{n} sessions')} · {t('{n} %', { n: Math.round((r.minutes / total) * 100) })}
               </span>
             </span>
           )}
@@ -75,7 +76,7 @@ export function DailyFocus({ data }: { data: { day: string; minutes: number }[] 
 
   return (
     <div ref={box} className="relative pt-1">
-      <svg viewBox={`0 0 ${W} ${H + 18}`} className="w-full overflow-visible" role="img" aria-label={`Minutes de travail par jour sur les 30 derniers jours : ${data.reduce((a, d) => a + d.minutes, 0)} min au total, ${data.filter(d => d.minutes > 0).length} jours actifs, maximum ${max} min`} onMouseLeave={() => setHover(null)}>
+      <svg viewBox={`0 0 ${W} ${H + 18}`} className="w-full overflow-visible" role="img" aria-label={t('Minutes de travail par jour sur les 30 derniers jours : {total} min au total, {days} jours actifs, maximum {max} min', { total: data.reduce((a, d) => a + d.minutes, 0), days: data.filter(d => d.minutes > 0).length, max })} onMouseLeave={() => setHover(null)}>
         {[0, 0.5, 1].map(f => (
           <g key={f}>
             <line x1="0" x2={W} y1={H - f * H} y2={H - f * H} stroke="var(--color-stone-200)" strokeWidth="1" />
@@ -105,7 +106,7 @@ export function DailyFocus({ data }: { data: { day: string; minutes: number }[] 
         })}
         {[0, Math.floor(last / 2), last].map(i => (
           <text key={i} x={i * slot + slot / 2} y={H + 14} textAnchor={i === 0 ? 'start' : i === last ? 'end' : 'middle'} fontSize="10" fill="var(--color-stone-500)">
-            {data[i].day === today ? 'Aujourd’hui' : fmt(fromKey(data[i].day), 'd MMM')}
+            {data[i].day === today ? t('Aujourd’hui') : fmt(fromKey(data[i].day), 'd MMM')}
           </text>
         ))}
       </svg>
@@ -115,7 +116,7 @@ export function DailyFocus({ data }: { data: { day: string; minutes: number }[] 
           style={{ left: `clamp(0px, calc(${((hover + 0.5) / data.length) * 100}% - 70px), calc(100% - 140px))` }}
         >
           <p className="text-on-inverse/60 first-letter:uppercase">{fmt(fromKey(tip.day), 'EEEE d MMMM')}</p>
-          <p className="tabular font-medium">{tip.minutes ? formatMinutes(tip.minutes) : 'Pas de session'}</p>
+          <p className="tabular font-medium">{tip.minutes ? formatMinutes(tip.minutes) : t('Pas de session')}</p>
         </div>
       )}
     </div>

@@ -8,6 +8,7 @@ import { toast } from './store/ui';
 import AuthPage from './pages/AuthPage';
 import MfaPage from './pages/MfaPage';
 import { DialogHost, Toasts } from './components/Overlays';
+import { t } from './i18n';
 
 // The app itself loads after the sign-in page: someone on /connexion doesn't wait for Kompaly and the editor.
 const AppShell = lazy(() => import('./layout/AppShell'));
@@ -29,26 +30,26 @@ const WelcomePage = lazy(() => import('./pages/WelcomePage'));
 const LandingPage = lazy(() => import('./pages/LandingPage'));
 
 const TITLES: Record<string, string> = {
-  '/': 'Accueil',
-  '/drive': 'Drive',
-  '/calendrier': 'Calendrier',
-  '/notes': 'Notes',
-  '/taches': 'Tâches',
-  '/enregistrer': 'Enregistrer',
-  '/groupes': 'Groupes',
-  '/agendas': 'Agendas partagés',
-  '/corbeille': 'Corbeille',
-  '/profil': 'Profil',
-  '/admin': 'Administration',
-  '/connexion': 'Connexion',
-  '/inscription': 'Inscription',
-  '/mot-de-passe-oublie': 'Mot de passe oublié',
-  '/reinitialisation': 'Nouveau mot de passe',
-  '/securite': 'Sécurité',
-  '/bienvenue': 'Bienvenue',
-  '/mentions-legales': 'Mentions légales',
-  '/confidentialite': 'Confidentialité',
-  '/conditions': 'Conditions d’utilisation',
+  '/': t('Accueil'),
+  '/drive': t('Drive'),
+  '/calendrier': t('Calendrier'),
+  '/notes': t('Notes'),
+  '/taches': t('Tâches'),
+  '/enregistrer': t('Enregistrer'),
+  '/groupes': t('Groupes'),
+  '/agendas': t('Agendas partagés'),
+  '/corbeille': t('Corbeille'),
+  '/profil': t('Profil'),
+  '/admin': t('Administration'),
+  '/connexion': t('Connexion'),
+  '/inscription': t('Inscription'),
+  '/mot-de-passe-oublie': t('Mot de passe oublié'),
+  '/reinitialisation': t('Nouveau mot de passe'),
+  '/securite': t('Sécurité'),
+  '/bienvenue': t('Bienvenue'),
+  '/mentions-legales': t('Mentions légales'),
+  '/confidentialite': t('Confidentialité'),
+  '/conditions': t('Conditions d’utilisation'),
 };
 
 /** Pages offered to search engines (same list as the sitemap, server/index.mjs). */
@@ -61,7 +62,7 @@ function PageTitle() {
   useEffect(() => {
     const page = TITLES[pathname.replace(/(.)\/+$/, '$1').toLowerCase()]; // « /taches/ » and « /Taches » too
     // A visitor on « / » sees the public home page: the full name, as in index.html (search results).
-    document.title = guest && pathname === '/' ? 'Kompaly · Agenda, notes, fichiers et tâches au même endroit' : page ? `${page} · Kompaly` : 'Page introuvable · Kompaly';
+    document.title = guest && pathname === '/' ? t('Kompaly · Agenda, notes, fichiers et tâches au même endroit') : page ? `${page} · Kompaly` : t('Page introuvable · Kompaly');
     // Search engines: only the public pages (home, sign-in, sign-up, legal) belong in their results.
     let robots = document.querySelector<HTMLMetaElement>('meta[name="robots"]');
     if (!robots) {
@@ -111,14 +112,14 @@ function GuestOnly({ children }: { children: React.ReactNode }) {
 /** While a page's code arrives (slow network): the name pulsing, shown only after a short moment. */
 function Loading({ full }: { full?: boolean }) {
   return (
-    <div className={cx('late-show flex items-center justify-center', full ? 'min-h-dvh bg-paper' : 'h-full min-h-40')} role="status" aria-label="Chargement">
+    <div className={cx('late-show flex items-center justify-center', full ? 'min-h-dvh bg-paper' : 'h-full min-h-40')} role="status" aria-label={t('Chargement')}>
       <span className="animate-pulse text-[15px] font-semibold tracking-tight text-stone-500">kompaly</span>
     </div>
   );
 }
 
-/** « de Léa », « d’Admin » */
-const ofName = (n: string) => (/^[aeiouyàâäéèêëîïôöûüùh]/i.test(n) ? `d’${n}` : `de ${n}`);
+/** « d’Admin », not « de Admin »: the French sentence differs (each language translates both the same way). */
+const elides = (n: string) => /^[aeiouyàâäéèêëîïôöûüùh]/i.test(n);
 
 export default function App() {
   const [ready, setReady] = useState(false);
@@ -134,18 +135,24 @@ export default function App() {
           sessionStorage.removeItem('cop-own-switch');
           sessionStorage.removeItem('cop-account-switched');
           const name = useAuth.getState().user?.name;
-          if (name) toast(`Tu es sur le compte ${ofName(name)}`, 'success');
+          if (name) toast(elides(name) ? t('Tu es sur le compte d’{name}', { name }) : t('Tu es sur le compte de {name}', { name }), 'success');
         } else if (sessionStorage.getItem('cop-account-switched')) {
           sessionStorage.removeItem('cop-account-switched');
           const name = useAuth.getState().user?.name;
-          toast(`Un autre compte s’est connecté dans un autre onglet${name ? ` : tu es maintenant sur le compte ${ofName(name)}` : ''}. Tu peux passer d’un compte à l’autre depuis le menu de ton profil.`);
+          toast(
+            !name
+              ? t('Un autre compte s’est connecté dans un autre onglet. Tu peux passer d’un compte à l’autre depuis le menu de ton profil.')
+              : elides(name)
+                ? t('Un autre compte s’est connecté dans un autre onglet : tu es maintenant sur le compte d’{name}. Tu peux passer d’un compte à l’autre depuis le menu de ton profil.', { name })
+                : t('Un autre compte s’est connecté dans un autre onglet : tu es maintenant sur le compte de {name}. Tu peux passer d’un compte à l’autre depuis le menu de ton profil.', { name }),
+          );
         }
       });
   }, []);
 
   if (!ready)
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-paper" role="status" aria-label="Chargement">
+      <div className="flex min-h-dvh items-center justify-center bg-paper" role="status" aria-label={t('Chargement')}>
         <span className="animate-pulse text-[15px] font-semibold tracking-tight text-stone-400">kompaly</span>
       </div>
     );

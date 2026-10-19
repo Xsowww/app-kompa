@@ -1,3 +1,4 @@
+import { t } from '../../i18n';
 /** Images are stored inline in the note HTML (data URLs), so they must stay small. */
 export const IMAGE_MAX_SIDE = 1600;
 export const IMAGE_MAX_BYTES = 400 * 1024;
@@ -14,7 +15,7 @@ function loadImage(file: Blob): Promise<HTMLImageElement> {
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);
-      reject(new Error('Image illisible'));
+      reject(new Error(t('Image illisible')));
     };
     img.src = url;
   });
@@ -40,7 +41,7 @@ function hasTransparency(ctx: CanvasRenderingContext2D, w: number, h: number) {
  * PNG when it has transparency, JPEG otherwise. Throws with a French message when it stays too big.
  */
 export async function compressImage(file: Blob): Promise<string> {
-  if (!file.type.startsWith('image/')) throw new Error('Ce fichier n’est pas une image');
+  if (!file.type.startsWith('image/')) throw new Error(t('Ce fichier n’est pas une image'));
   const img = await loadImage(file);
   const mayBeTransparent = /png|webp|gif|svg/.test(file.type);
 
@@ -63,7 +64,7 @@ export async function compressImage(file: Blob): Promise<string> {
       if (dataUrlBytes(jpg) <= IMAGE_MAX_BYTES) return jpg;
     }
   }
-  throw new Error('Image trop lourde, même compressée (400 Ko max)');
+  throw new Error(t('Image trop lourde, même compressée (400 Ko max)'));
 }
 
 export const imageFiles = (list: FileList | null | undefined) => Array.from(list ?? []).filter(f => f.type.startsWith('image/'));

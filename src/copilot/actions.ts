@@ -13,7 +13,8 @@ import { toKey, todayKey, daysUntil, fromKey, fmt, fmtDay, weekStart, countdownL
 import type { CopilotLink } from '../store/copilot';
 import { getSettings, useSettings, applyAppearance, ACCENTS, type Settings, type AccentKey, type ThemeMode, type Chattiness } from '../store/settings';
 import { usageWords } from '../lib/usage';
-import { hasTwin, noteFor, noteTitle, pickExam, planTag, sessionsFor } from './revisionPlan';
+import { hasTwin, noteFor, noteTitle, notePrefix, pickExam, planTag, sessionPrefix, sessionsFor } from './revisionPlan';
+import { t, tn } from '../i18n';
 
 // Studies: revision sessions and a revision sheet; work and personal life: time to prepare and a checklist.
 const studying = () => (getSettings().usage ?? 'etudes') === 'etudes';
@@ -37,6 +38,16 @@ export interface SearchHit {
   to: string;
 }
 
+/** What a search hit is, as shown in a sentence (« Maths (dossier) »). */
+export const HIT_LABEL: Record<SearchHit['type'], string> = {
+  dossier: t('dossier'),
+  fichier: t('fichier'),
+  note: t('note'),
+  'dossier de notes': t('dossier de notes'),
+  événement: t('événement'),
+  tâche: t('tâche'),
+};
+
 const score = (hay: string, q: string) => {
   const h = normalize(hay);
   if (h === q) return 3;
@@ -54,7 +65,7 @@ export function search(query: string, limit = 8): SearchHit[] {
   for (const it of items) {
     const s = score(it.name, q);
     if (!s) continue;
-    const where = ['Drive', ...pathOf(items, it.parentId).map(p => p.name)].join(' › ');
+    const where = [t('Drive'), ...pathOf(items, it.parentId).map(p => p.name)].join(' › ');
     hits.push({
       s: s + (it.kind === 'folder' ? 0.2 : 0),
       type: it.kind === 'folder' ? 'dossier' : 'fichier',
@@ -67,13 +78,13 @@ export function search(query: string, limit = 8): SearchHit[] {
   const { notes, folders } = useNotes.getState();
   for (const f of folders) {
     const s = score(f.name, q);
-    if (s) hits.push({ s, type: 'dossier de notes', id: f.id, title: f.name, where: 'Notes', to: `/notes?dossier=${f.id}` });
+    if (s) hits.push({ s, type: 'dossier de notes', id: f.id, title: f.name, where: t('Notes'), to: `/notes?dossier=${f.id}` });
   }
   for (const n of notes) {
     const s = Math.max(score(n.title, q), score(stripHtml(n.content), q) * 0.6);
     if (s) {
       const folder = folders.find(f => f.id === n.folderId);
-      hits.push({ s, type: 'note', id: n.id, title: n.title, where: folder ? `Notes › ${folder.name}` : 'Notes', to: linkToNote(n.id) });
+      hits.push({ s, type: 'note', id: n.id, title: n.title, where: folder ? `${t('Notes')} › ${folder.name}` : t('Notes'), to: linkToNote(n.id) });
     }
   }
   for (const e of useCalendar.getState().events) {
@@ -81,9 +92,9 @@ export function search(query: string, limit = 8): SearchHit[] {
     if (s) hits.push({ s, type: 'événement', id: e.id, title: e.title, where: fmtDay(fromKey(e.date), 'EEEE d MMMM'), to: linkToDay(e.date, e.id) });
   }
   // Tasks still to do (a ticked one leaves the list: nothing to open there).
-  for (const t of useTodos.getState().todos) {
-    const s = t.done ? 0 : score(t.title, q);
-    if (s) hits.push({ s, type: 'tâche', id: t.id, title: t.title, where: t.due ? `Tâches · ${fmtDay(fromKey(t.due), 'EEEE d MMMM')}` : 'Tâches', to: `/taches?tache=${t.id}` });
+  for (const todo of useTodos.getState().todos) {
+    const s = todo.done ? 0 : score(todo.title, q);
+    if (s) hits.push({ s, type: 'tâche', id: todo.id, title: todo.title, where: todo.due ? `${t('Tâches')} · ${fmtDay(fromKey(todo.due), 'EEEE d MMMM')}` : t('Tâches'), to: `/taches?tache=${todo.id}` });
   }
   return hits.sort((a, b) => b.s - a.s).slice(0, limit).map(({ s: _s, ...h }) => h);
 }
@@ -97,9 +108,9 @@ export function eventsBetween(from: string, to: string) {
 
 export function describeEvent(e: { title: string; date: string; start?: string; end?: string; category: EventCategory; done?: boolean; important?: boolean }) {
   const c = catOf(e.category);
-  const h = (t: string) => t.replace(':', 'h').replace(/h00$/, 'h').replace(/^0(?=\d)/, ''); // « 9h », « 14h30 »
-  const time = e.start ? ` à ${h(e.start)}${e.end ? `–${h(e.end)}` : ''}` : '';
-  return `${e.title} (${c.label.toLowerCase()}) — ${fmtDay(fromKey(e.date), 'EEEE d MMM')}${time}${e.important ? ' · important' : ''}${e.done ? ' · fait' : ''}`;
+  const h = (hm: string) => hm.replace(':', 'h').replace(/h00$/, 'h').replace(/^0(?=\d)/, ''); // « 9h », « 14h30 »
+  const time = e.start ? ` ${t('à {time}', { time: `${h(e.start)}${e.end ? `–${h(e.end)}` : ''}` })}` : '';
+  return `${e.title} (${c.label.toLowerCase()}) — ${fmtDay(fromKey(e.date), 'EEEE d MMM')}${time}${e.important ? ` · ${t('important')}` : ''}${e.done ? ` · ${t('fait')}` : ''}`;
 }
 
 export function analyzeCalendar() {
@@ -137,25 +148,28 @@ export function calendarReport(): { text: string; links: CopilotLink[] } {
   const lines: string[] = [];
   lines.push(
     a.today.length
-      ? `Aujourd’hui : ${a.today.map(e => e.title).join(', ')}.`
-      : 'Rien de prévu aujourd’hui.',
+      ? t('Aujourd’hui : {list}.', { list: a.today.map(e => e.title).join(', ') })
+      : t('Rien de prévu aujourd’hui.'),
   );
-  lines.push(`Cette semaine : ${a.weekCount} événement${a.weekCount > 1 ? 's' : ''}, ${a.weekDone} déjà fait${a.weekDone > 1 ? 's' : ''}.`);
+  lines.push(t('Cette semaine : {events}, {done}.', { events: tn(a.weekCount, '{n} événement', '{n} événements'), done: tn(a.weekDone, '{n} déjà fait', '{n} déjà faits') }));
   if (a.busiestDay && a.busiestDay.count > 1) {
-    lines.push(`Jour le plus chargé : ${fmt(fromKey(a.busiestDay.date), 'EEEE')} (${a.busiestDay.count} événements).`);
+    lines.push(t('Jour le plus chargé : {day} ({n} événements).', { day: fmt(fromKey(a.busiestDay.date), 'EEEE'), n: a.busiestDay.count }));
   }
   if (a.exams.length) {
-    lines.push(`${w.bigMany.charAt(0).toUpperCase()}${w.bigMany.slice(1)} à venir : ${a.exams.map(e => `${e.title} (${inSentence(countdownLabel(e.date))})`).join(', ')}.`);
+    const list = a.exams.map(e => `${e.title} (${inSentence(countdownLabel(e.date))})`).join(', ');
+    lines.push(t('{big} à venir : {list}.', { big: `${w.bigMany.charAt(0).toUpperCase()}${w.bigMany.slice(1)}`, list }));
     const soon = a.exams.find(e => daysUntil(e.date) <= 7);
-    if (soon) lines.push(`Conseil : ${studying() ? 'révise' : 'prépare'} « ${soon.title} » un peu chaque jour, dès maintenant.`);
+    if (soon) lines.push(studying() ? t('Conseil : révise « {title} » un peu chaque jour, dès maintenant.', { title: soon.title }) : t('Conseil : prépare « {title} » un peu chaque jour, dès maintenant.', { title: soon.title }));
   }
   const late = a.lateHomework;
   if (late.length) {
-    lines.push(studying() ? `Attention, ${late.length} devoir${late.length > 1 ? 's' : ''} en retard : ${late.map(e => e.title).join(', ')}.` : `Attention, en retard : ${late.map(e => e.title).join(', ')}.`);
+    const list = late.map(e => e.title).join(', ');
+    lines.push(studying() ? tn(late.length, 'Attention, {n} devoir en retard : {list}.', 'Attention, {n} devoirs en retard : {list}.', { list }) : t('Attention, en retard : {list}.', { list }));
   } else if (a.nextDeadlines.length) {
-    lines.push(`${studying() ? 'Prochain rendu' : 'À faire ensuite'} : ${a.nextDeadlines[0].title} (${inSentence(countdownLabel(a.nextDeadlines[0].date))}).`);
+    const next = { title: a.nextDeadlines[0].title, when: inSentence(countdownLabel(a.nextDeadlines[0].date)) };
+    lines.push(studying() ? t('Prochain rendu : {title} ({when}).', next) : t('À faire ensuite : {title} ({when}).', next));
   }
-  return { text: lines.join('\n'), links: [{ label: 'Ouvrir le calendrier', to: '/calendrier' }] };
+  return { text: lines.join('\n'), links: [{ label: t('Ouvrir le calendrier'), to: '/calendrier' }] };
 }
 
 export function findDriveFolderByName(name: string) {
@@ -218,8 +232,8 @@ export function listDriveFolder(folderName?: string) {
   const folder = folderName ? findDriveFolderByName(folderName) : undefined;
   if (folderName && !folder) return null;
   return {
-    folder: folder?.name ?? 'Drive (racine)',
-    path: folder ? ['Drive', ...pathOf(items, folder.id).map(p => p.name)].join(' › ') : 'Drive',
+    folder: folder?.name ?? t('Drive (racine)'),
+    path: folder ? [t('Drive'), ...pathOf(items, folder.id).map(p => p.name)].join(' › ') : t('Drive'),
     link: linkToDriveFolder(folder?.id ?? null),
     content: childrenOf(items, folder?.id ?? null).map(i => ({
       id: i.id,
@@ -235,9 +249,9 @@ export function readNote(id: string) {
   return n ? { title: n.title, text: stripHtml(n.content) } : null;
 }
 
-const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 /** Escaped text with **bold** turned into <strong>. */
-const inline = (t: string) => esc(t).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+const inline = (s: string) => esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
 
 /** Plain text → note HTML: "# " = heading, "- " = bullet, "[ ] " = checkbox, other lines = paragraphs. */
 export function textToHtml(text: string): string {
@@ -298,9 +312,9 @@ export function eventNamed(query: string) {
   return pickExam(query, useCalendar.getState().events.map(e => ({ ...e, important: true })), todayKey(), true);
 }
 
-const revisionTitle = (examTitle: string) => `${studying() ? 'Révision' : 'Préparation'} · ${examTitle}`;
+const revisionTitle = (examTitle: string) => sessionPrefix(studying()) + examTitle;
 /** « Ouvrir la fiche » (studies) or « Ouvrir la note ». */
-export const openNoteLabel = () => (studying() ? 'Ouvrir la fiche' : 'Ouvrir la note');
+export const openNoteLabel = () => (studying() ? t('Ouvrir la fiche') : t('Ouvrir la note'));
 
 /** Revision (or preparation) sessions already planned for an exam, earliest first. */
 export function revisionSessions(exam: CalendarEvent) {
@@ -318,7 +332,9 @@ export function revisionNote(exam: CalendarEvent) {
 
 /** « « Contrôle de maths » », with its day when another exam has the same title (« … » du 10 novembre). */
 export function examLabel(exam: CalendarEvent) {
-  return `« ${exam.title} »${hasTwin(exam, useCalendar.getState().events) ? ` du ${fmt(fromKey(exam.date), 'd MMMM')}` : ''}`;
+  return hasTwin(exam, useCalendar.getState().events)
+    ? t('« {title} » du {date}', { title: exam.title, date: fmt(fromKey(exam.date), 'd MMMM') })
+    : t('« {title} »', { title: exam.title });
 }
 
 /** Kompaly's answer when asked to plan an exam that already has its sessions (no duplicates). */
@@ -327,10 +343,10 @@ export function alreadyPlanned(exam: CalendarEvent) {
   const note = revisionNote(exam);
   return {
     text: studying()
-      ? `C’est déjà planifié pour ${examLabel(exam)} : tes séances de révision sont dans le calendrier.`
-      : `C’est déjà planifié pour ${examLabel(exam)} : tes créneaux de préparation sont dans le calendrier.`,
+      ? t('C’est déjà planifié pour {exam} : tes séances de révision sont dans le calendrier.', { exam: examLabel(exam) })
+      : t('C’est déjà planifié pour {exam} : tes créneaux de préparation sont dans le calendrier.', { exam: examLabel(exam) }),
     links: [
-      ...(first ? [{ label: 'Voir le planning', to: linkToDay(first.date) }] : []),
+      ...(first ? [{ label: t('Voir le planning'), to: linkToDay(first.date) }] : []),
       ...(note ? [{ label: openNoteLabel(), to: linkToNote(note.id) }] : []),
     ],
   };
@@ -342,8 +358,8 @@ export function alreadyPlanned(exam: CalendarEvent) {
  */
 export function prepTemplate(title: string): string {
   if (/\b(client|rendez|rdv|r[ée]union|meeting|entretien|visio|appel|call|pr[ée]sentation|soutenance|oral)\b/i.test(title))
-    return `# Objectif du rendez-vous\n- \n# À préparer ou envoyer avant\n[ ] Documents utiles (devis, présentation…)\n[ ] Relire les derniers échanges\n[ ] \n# Questions à poser\n- \n# Points à aborder\n- \n# Compte rendu (après)\n- Décisions :\n- Prochaines étapes :\n- À relancer le :`;
-  return `# Objectif\n- \n# À préparer\n[ ] \n[ ] \n# Points à ne pas oublier\n- \n# Après\n- `;
+    return t('# Objectif du rendez-vous\n- \n# À préparer ou envoyer avant\n[ ] Documents utiles (devis, présentation…)\n[ ] Relire les derniers échanges\n[ ] \n# Questions à poser\n- \n# Points à aborder\n- \n# Compte rendu (après)\n- Décisions :\n- Prochaines étapes :\n- À relancer le :');
+  return t('# Objectif\n- \n# À préparer\n[ ] \n[ ] \n# Points à ne pas oublier\n- \n# Après\n- ');
 }
 
 /** Creates (or reuses) the revision sheet of an exam, in the "Révisions" notes folder (« Préparation » outside studies). */
@@ -352,10 +368,10 @@ export function createRevisionNote(examId: string) {
   if (!exam) return null;
   const existing = revisionNote(exam);
   if (existing) return existing;
-  const title = noteTitle(studying() ? 'Fiche · ' : 'À préparer · ', exam, useCalendar.getState().events);
+  const title = noteTitle(notePrefix(studying()), exam, useCalendar.getState().events);
   const note = studying()
-    ? createNote(title, `# Ce qui tombe\n- Chapitres à revoir :\n- Type d’épreuve :\n# À retenir\n- \n# Mes points faibles\n[ ] \n# Questions à poser au prof\n- `, 'Révisions')
-    : createNote(title, prepTemplate(exam.title), 'Préparation');
+    ? createNote(title, t('# Ce qui tombe\n- Chapitres à revoir :\n- Type d’épreuve :\n# À retenir\n- \n# Mes points faibles\n[ ] \n# Questions à poser au prof\n- '), t('Révisions'))
+    : createNote(title, prepTemplate(exam.title), t('Préparation'));
   // Linked to its exam: two exams with the same title each get their own.
   useNotes.getState().updateNote(note.id, { links: [{ kind: 'event', id: exam.id }] });
   return useNotes.getState().notes.find(n => n.id === note.id) ?? note;
@@ -367,7 +383,7 @@ export function createRevisionNote(examId: string) {
  */
 function sessionCategory(): EventCategory {
   if (getSettings().usage !== 'travail') return 'devoir';
-  return (customNamed('Préparation') ?? createCategory('Préparation', '#1f8a8a')).id;
+  return (customNamed(t('Préparation')) ?? createCategory(t('Préparation'), '#1f8a8a')).id;
 }
 
 const toHm = (min: number) => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
@@ -423,8 +439,8 @@ export function planRevisions(examId: string, sessions = getSettings().revisionS
         ...slot,
         category: sessionCategory(),
         details: studying()
-          ? `Préparation de l’examen du ${fmt(fromKey(exam.date), 'EEEE d MMMM')}.`
-          : `Pour préparer « ${exam.title} », le ${fmt(fromKey(exam.date), 'EEEE d MMMM')}.`,
+          ? t('Préparation de l’examen du {date}.', { date: fmt(fromKey(exam.date), 'EEEE d MMMM') })
+          : t('Pour préparer « {title} », le {date}.', { title: exam.title, date: fmt(fromKey(exam.date), 'EEEE d MMMM') }),
         externalId: planTag(exam.id),
       }),
     ];
@@ -494,22 +510,22 @@ export function renameItem(ref: string, name: string) {
 /** Moves a Drive item into a Drive folder, or a note / notes folder into a notes folder. `folder` empty = root. */
 export function moveItem(ref: string, folder?: string): { moved: SiteItem; to: string } | { error: string } {
   const s = findItem(ref);
-  if (!s) return { error: 'élément introuvable' };
+  if (!s) return { error: t('élément introuvable') };
   if (s.space === 'drive') {
     const target = folder ? findDriveFolderByName(folder) : undefined;
-    if (folder && !target) return { error: 'dossier de destination introuvable dans le Drive' };
+    if (folder && !target) return { error: t('dossier de destination introuvable dans le Drive') };
     const n = useDrive.getState().move([s.item.id], target?.id ?? null);
-    if (!n && s.item.parentId !== (target?.id ?? null)) return { error: 'impossible de déplacer un dossier dans lui-même' };
-    return { moved: findItem(s.item.id)!, to: target?.name ?? 'Drive (racine)' };
+    if (!n && s.item.parentId !== (target?.id ?? null)) return { error: t('impossible de déplacer un dossier dans lui-même') };
+    return { moved: findItem(s.item.id)!, to: target?.name ?? t('Drive (racine)') };
   }
   const target = folder ? findNoteFolderByName(folder) : undefined;
-  if (folder && !target) return { error: 'dossier de notes introuvable' };
+  if (folder && !target) return { error: t('dossier de notes introuvable') };
   if (s.space === 'note') useNotes.getState().updateNote(s.item.id, { folderId: target?.id ?? null });
   else {
     useNotes.getState().moveFolder(s.item.id, target?.id ?? null);
-    if (useNotes.getState().folders.find(f => f.id === s.item.id)?.parentId !== (target?.id ?? null)) return { error: 'impossible de déplacer un dossier dans lui-même' };
+    if (useNotes.getState().folders.find(f => f.id === s.item.id)?.parentId !== (target?.id ?? null)) return { error: t('impossible de déplacer un dossier dans lui-même') };
   }
-  return { moved: findItem(s.item.id)!, to: target?.name ?? 'Notes (racine)' };
+  return { moved: findItem(s.item.id)!, to: target?.name ?? t('Notes (racine)') };
 }
 
 export function setStar(ref: string, starred = true) {
@@ -545,16 +561,16 @@ export function trashItems(refs: string[]) {
   return { done, missing };
 }
 
-const deletedLabel = (iso?: string) => (iso ? fmt(new Date(iso), "d MMM 'à' HH:mm") : '');
+const deletedLabel = (iso?: string) => (iso ? fmt(new Date(iso), t("d MMM 'à' HH:mm")) : '');
 
-const TRASH_LABEL = { note: 'note', noteFolder: 'dossier de notes', event: 'événement' } as const;
+const TRASH_LABEL = { note: t('note'), noteFolder: t('dossier de notes'), event: t('événement') };
 
 /** Everything in the trash (Notes, Drive and Calendar), newest first. */
 export function listTrash() {
   return collectTrash().map(e => ({
     id: e.id,
     name: e.name,
-    type: e.kind === 'drive' ? (e.item.kind === 'folder' ? 'dossier du Drive' : 'fichier du Drive') : TRASH_LABEL[e.kind],
+    type: e.kind === 'drive' ? (e.item.kind === 'folder' ? t('dossier du Drive') : t('fichier du Drive')) : TRASH_LABEL[e.kind],
     from: e.place,
     deleted: deletedLabel(e.deletedAt),
   }));
@@ -564,7 +580,7 @@ export function listTrash() {
 export function findInTrash(ref: string) {
   const all = listTrash();
   const q = normalize(ref);
-  return all.find(t => t.id === ref) ?? all.find(t => normalize(t.name) === q) ?? all.find(t => q.length > 2 && normalize(t.name).includes(q));
+  return all.find(x => x.id === ref) ?? all.find(x => normalize(x.name) === q) ?? all.find(x => q.length > 2 && normalize(x.name).includes(q));
 }
 
 export function restoreFromTrash(refs: string[]) {
@@ -572,14 +588,14 @@ export function restoreFromTrash(refs: string[]) {
   const missing: string[] = [];
   const links: CopilotLink[] = [];
   for (const ref of refs) {
-    const t = findInTrash(ref);
-    if (!t) {
+    const found = findInTrash(ref);
+    if (!found) {
       missing.push(ref);
       continue;
     }
-    const r = restoreTrash([t.id]);
-    restored.push(t.name);
-    if (r.href) links.push({ label: t.name, to: r.href });
+    const r = restoreTrash([found.id]);
+    restored.push(found.name);
+    if (r.href) links.push({ label: found.name, to: r.href });
   }
   return { restored, missing, links };
 }

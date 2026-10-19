@@ -3,6 +3,7 @@
 // and a keyword only has to start a word, so « examen » also catches « examens ».
 
 import type { Usage } from './usage';
+import { t } from '../i18n';
 
 export interface Keyword {
   word: string;
@@ -12,11 +13,18 @@ export interface Keyword {
 
 const list = (...words: string[]): Keyword[] => words.map(word => ({ word, notify: true }));
 
+/** The default lists as written in French: an account made in French then switched to another language still has these. */
+const KEYWORDS_FR: Record<Usage, string[]> = {
+  etudes: ['examen', 'partiel', 'contrôle', 'interro', 'important', 'à retenir', 'retenez', 'par cœur', 'tombera', 'DM', 'à rendre', 'date limite'],
+  travail: ['important', 'à retenir', 'urgent', 'date limite', 'décision', 'action', 'à faire', 'budget', 'client', 'prochaine réunion'],
+  perso: ['important', 'à retenir', 'rendez-vous', 'date limite', 'à faire', 'adresse'],
+};
+
 /** The words watched until the student changes them: a class, a work meeting, anything else. */
 export const KEYWORDS_BY_USAGE: Record<Usage, Keyword[]> = {
-  etudes: list('examen', 'partiel', 'contrôle', 'interro', 'important', 'à retenir', 'retenez', 'par cœur', 'tombera', 'DM', 'à rendre', 'date limite'),
-  travail: list('important', 'à retenir', 'urgent', 'date limite', 'décision', 'action', 'à faire', 'budget', 'client', 'prochaine réunion'),
-  perso: list('important', 'à retenir', 'rendez-vous', 'date limite', 'à faire', 'adresse'),
+  etudes: list(t('examen'), t('partiel'), t('contrôle'), t('interro'), t('important'), t('à retenir'), t('retenez'), t('par cœur'), t('tombera'), t('DM'), t('à rendre'), t('date limite')),
+  travail: list(t('important'), t('à retenir'), t('urgent'), t('date limite'), t('décision'), t('action'), t('à faire'), t('budget'), t('client'), t('prochaine réunion')),
+  perso: list(t('important'), t('à retenir'), t('rendez-vous'), t('date limite'), t('à faire'), t('adresse')),
 };
 export const DEFAULT_KEYWORDS = KEYWORDS_BY_USAGE.etudes;
 
@@ -25,8 +33,16 @@ const sameWords = (a: readonly Keyword[], b: readonly Keyword[]) => a.length ===
 /** The list in use: a default list never changed by hand follows the account's usage (a pro account gets « décision », « action »…). */
 export function keywordsFor(saved: readonly Keyword[], usage: Usage | undefined): Keyword[] {
   const own = KEYWORDS_BY_USAGE[usage ?? 'etudes'] ?? DEFAULT_KEYWORDS;
-  // Bells switched on or off are kept for the words both lists share.
-  if (Object.values(KEYWORDS_BY_USAGE).some(d => sameWords(saved, d))) return own.map(k => ({ ...k, notify: saved.find(x => normalize(x.word) === normalize(k.word))?.notify ?? true }));
+  const defaults = [...Object.values(KEYWORDS_BY_USAGE), ...Object.values(KEYWORDS_FR).map(words => list(...words))];
+  const fr = Object.entries(KEYWORDS_FR).find(([, words]) => sameWords(saved, list(...words)));
+  // Bells switched on or off are kept for the words both lists share (a French list matches word by word in its translation).
+  if (defaults.some(d => sameWords(saved, d))) {
+    return own.map(k => {
+      const at = fr ? fr[1].findIndex(w => normalize(t(w)) === normalize(k.word)) : -1;
+      const was = at >= 0 ? saved[at] : saved.find(x => normalize(x.word) === normalize(k.word));
+      return { ...k, notify: was?.notify ?? true };
+    });
+  }
   return [...saved];
 }
 

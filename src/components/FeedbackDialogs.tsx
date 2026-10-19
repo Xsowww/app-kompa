@@ -4,6 +4,7 @@ import { Modal } from './Overlays';
 import { toast } from '../store/ui';
 import { cx } from '../lib/utils';
 import { REPORT_REASONS, reportGroupItem, sendFeedback, useFeedback, type FeedbackKind, type ReportKind, type ReportReason } from '../lib/feedback';
+import { t } from '../i18n';
 
 /** « Donner mon avis / Signaler un bug » : rendu une fois dans la mise en page, ouvert par openFeedback(). */
 export function FeedbackDialog() {
@@ -27,7 +28,7 @@ function FeedbackForm({ initial }: { initial: FeedbackKind }) {
     try {
       const how = await sendFeedback(kind, text);
       close();
-      toast(how === 'mail' ? 'Ton application d’e-mail s’ouvre avec le message prêt.' : 'Merci ! Ton message est bien arrivé.', 'success');
+      toast(how === 'mail' ? t('Ton application d’e-mail s’ouvre avec le message prêt.') : t('Merci ! Ton message est bien arrivé.'), 'success');
     } catch (err) {
       toast((err as Error).message, 'error');
       setBusy(false);
@@ -36,12 +37,12 @@ function FeedbackForm({ initial }: { initial: FeedbackKind }) {
   const bug = kind === 'bug';
   return (
     <form onSubmit={submit}>
-      <h2 className="text-[15px] font-semibold">Donner mon avis ou signaler un bug</h2>
-      <div className="mt-3 grid grid-cols-2 gap-2" role="radiogroup" aria-label="Type de message">
+      <h2 className="text-[15px] font-semibold">{t('Donner mon avis ou signaler un bug')}</h2>
+      <div className="mt-3 grid grid-cols-2 gap-2" role="radiogroup" aria-label={t('Type de message')}>
         {(
           [
-            ['idea', 'Une idée, un avis', Lightbulb],
-            ['bug', 'Un bug', Bug],
+            ['idea', t('Une idée, un avis'), Lightbulb],
+            ['bug', t('Un bug'), Bug],
           ] as const
         ).map(([k, label, Icon]) => (
           <button
@@ -60,7 +61,7 @@ function FeedbackForm({ initial }: { initial: FeedbackKind }) {
         ))}
       </div>
       <label htmlFor="feedback-text" className="mt-4 block text-[13px] font-medium">
-        {bug ? 'Que s’est-il passé ?' : 'Ton message'}
+        {bug ? t('Que s’est-il passé ?') : t('Ton message')}
       </label>
       <textarea
         id="feedback-text"
@@ -69,15 +70,15 @@ function FeedbackForm({ initial }: { initial: FeedbackKind }) {
         maxLength={4000}
         value={text}
         onChange={e => setText(e.target.value)}
-        placeholder={bug ? 'J’ai ajouté un fichier dans le Drive, il n’apparaît pas…' : 'J’aimerais pouvoir…'}
+        placeholder={bug ? t('J’ai ajouté un fichier dans le Drive, il n’apparaît pas…') : t('J’aimerais pouvoir…')}
       />
-      <p className="mt-2 text-[11.5px] text-stone-500">On joint la page ouverte et le type d’appareil, rien d’autre.</p>
+      <p className="mt-2 text-[11.5px] text-stone-500">{t('On joint la page ouverte et le type d’appareil, rien d’autre.')}</p>
       <div className="mt-5 flex justify-end gap-2">
         <button type="button" className="btn-secondary" onClick={close}>
-          Annuler
+          {t('Annuler')}
         </button>
         <button type="submit" className="btn-primary" disabled={!text.trim() || busy}>
-          {busy ? 'Envoi…' : 'Envoyer'}
+          {busy ? t('Envoi…') : t('Envoyer')}
         </button>
       </div>
     </form>
@@ -104,7 +105,7 @@ function ReportForm({ target, onClose }: { target: ReportTarget; onClose: () => 
   const [reason, setReason] = useState<ReportReason | null>(null);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
-  const what = target.kind === 'note' ? 'cette note' : target.kind === 'file' ? 'ce fichier' : 'cet événement';
+  const heading = target.kind === 'note' ? t('Signaler cette note') : target.kind === 'file' ? t('Signaler ce fichier') : t('Signaler cet événement');
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!reason || busy) return;
@@ -112,7 +113,7 @@ function ReportForm({ target, onClose }: { target: ReportTarget; onClose: () => 
     try {
       await reportGroupItem(target.kind, target.id, reason, text);
       onClose();
-      toast('Merci, signalement envoyé.', 'success');
+      toast(t('Merci, signalement envoyé.'), 'success');
     } catch (err) {
       toast((err as Error).message, 'error');
       setBusy(false);
@@ -120,10 +121,10 @@ function ReportForm({ target, onClose }: { target: ReportTarget; onClose: () => 
   };
   return (
     <form onSubmit={submit}>
-      <h2 className="text-[15px] font-semibold">Signaler {what}</h2>
-      <p className="mt-1 truncate text-[13px] text-stone-500">« {target.title} »</p>
+      <h2 className="text-[15px] font-semibold">{heading}</h2>
+      <p className="mt-1 truncate text-[13px] text-stone-500">{t('« {title} »', { title: target.title })}</p>
       <fieldset className="mt-4">
-        <legend className="text-[13px] font-medium">Pourquoi ?</legend>
+        <legend className="text-[13px] font-medium">{t('Pourquoi ?')}</legend>
         <div className="mt-2 grid gap-1">
           {REPORT_REASONS.map(r => (
             <label key={r.value} className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-2 text-[13.5px] hover:bg-stone-100">
@@ -134,7 +135,7 @@ function ReportForm({ target, onClose }: { target: ReportTarget; onClose: () => 
         </div>
       </fieldset>
       <label htmlFor="report-text" className="mt-3 block text-[13px] font-medium">
-        Précisions <span className="font-normal text-stone-500">(facultatif)</span>
+        {t('Précisions')} <span className="font-normal text-stone-500">{t('(facultatif)')}</span>
       </label>
       <textarea
         id="report-text"
@@ -143,13 +144,13 @@ function ReportForm({ target, onClose }: { target: ReportTarget; onClose: () => 
         value={text}
         onChange={e => setText(e.target.value)}
       />
-      <p className="mt-2 text-[11.5px] text-stone-500">Les membres ne savent pas qui a signalé. L’administrateur voit une copie du contenu.</p>
+      <p className="mt-2 text-[11.5px] text-stone-500">{t('Les membres ne savent pas qui a signalé. L’administrateur voit une copie du contenu.')}</p>
       <div className="mt-5 flex justify-end gap-2">
         <button type="button" className="btn-secondary" onClick={onClose}>
-          Annuler
+          {t('Annuler')}
         </button>
         <button type="submit" className="btn-danger" disabled={!reason || busy}>
-          {busy ? 'Envoi…' : 'Envoyer le signalement'}
+          {busy ? t('Envoi…') : t('Envoyer le signalement')}
         </button>
       </div>
     </form>

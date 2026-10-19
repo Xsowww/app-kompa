@@ -6,6 +6,7 @@ import { deviceState, enableDevice } from '../lib/push';
 import { devicePushChanged } from '../lib/reminderScheduler';
 import { toast } from '../store/ui';
 import { cx } from '../lib/utils';
+import { t } from '../i18n';
 
 interface Props {
   value: number[];
@@ -37,16 +38,16 @@ function customMinutes(c: Custom, date: string | undefined, time: string | undef
   let minutes: number;
   if (c.mode === 'duree') {
     const n = Number(c.amount.replace(',', '.'));
-    if (!c.amount.trim() || !Number.isFinite(n) || n < 0) return { error: 'Indique une durée.' };
+    if (!c.amount.trim() || !Number.isFinite(n) || n < 0) return { error: t('Indique une durée.') };
     minutes = Math.round(n * UNITS[c.unit]);
   } else {
-    if (!date || !c.day || !/^\d{2}:\d{2}$/.test(c.at)) return { error: 'Indique un jour et une heure.' };
+    if (!date || !c.day || !/^\d{2}:\d{2}$/.test(c.at)) return { error: t('Indique un jour et une heure.') };
     minutes = minutesBefore(date, time, c.day, c.at);
-    if (minutes < 0) return { error: time ? 'C’est après le début : choisis un moment avant.' : 'C’est après 9h le jour même : choisis un moment avant.' };
+    if (minutes < 0) return { error: time ? t('C’est après le début : choisis un moment avant.') : t('C’est après 9h le jour même : choisis un moment avant.') };
   }
-  if (minutes > MAX_MINUTES) return { error: '4 semaines avant au plus.' };
-  if (taken.includes(minutes)) return { error: 'Ce rappel est déjà dans la liste.' };
-  if (date && reminderMoment(date, time, minutes).getTime() < Date.now()) return { minutes, error: 'Ce moment est déjà passé.' };
+  if (minutes > MAX_MINUTES) return { error: t('4 semaines avant au plus.') };
+  if (taken.includes(minutes)) return { error: t('Ce rappel est déjà dans la liste.') };
+  if (date && reminderMoment(date, time, minutes).getTime() < Date.now()) return { minutes, error: t('Ce moment est déjà passé.') };
   return { minutes };
 }
 
@@ -78,7 +79,7 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
   // The item's own moment is past (an all-day event today after 9:00, a time gone by): no reminder can ring any more.
   const over = !!date && anchorOf(date, time).getTime() <= openedAt;
   const left = [
-    usable(eve) ? { minutes: eve, label: 'La veille à 9h' } : usable(60) ? { minutes: 60, label: timed ? '1 h avant' : 'Le jour même à 8h' } : null,
+    usable(eve) ? { minutes: eve, label: t('La veille à 9h') } : usable(60) ? { minutes: 60, label: timed ? t('1 h avant') : t('Le jour même à 8h') } : null,
   ].filter((o): o is { minutes: number; label: string } => !!o);
   const [menu, setMenu] = useState<HTMLElement | null>(null);
   const sorted = [...value].sort((a, b) => a - b);
@@ -88,14 +89,14 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
     setState(next);
     if (next === 'on') {
       void devicePushChanged();
-      toast('Notifications activées sur cet appareil', 'success');
-    } else if (next === 'denied') toast('Notifications bloquées : autorise-les dans les réglages de ton navigateur.', 'error');
+      toast(t('Notifications activées sur cet appareil'), 'success');
+    } else if (next === 'denied') toast(t('Notifications bloquées : autorise-les dans les réglages de ton navigateur.'), 'error');
   };
 
   return (
     <div className="mt-3">
       <p className="mb-1.5 flex items-center gap-1.5 text-[12px] font-medium text-stone-600">
-        <Bell size={13} aria-hidden /> Rappels
+        <Bell size={13} aria-hidden /> {t('Rappels')}
       </p>
       {disabled ? (
         <p className="text-[12.5px] text-stone-500">{disabled}</p>
@@ -108,14 +109,14 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
                 type="button"
                 onClick={() => onChange(value.filter(x => x !== m))}
                 className="hit-sm flex h-6 w-6 items-center justify-center rounded text-brand-600 transition-colors hover:bg-brand-100"
-                aria-label={`Retirer le rappel « ${reminderLabel(m, timed, date, time)} »`}
+                aria-label={t('Retirer le rappel « {reminder} »', { reminder: reminderLabel(m, timed, date, time) })}
               >
                 <X size={13} />
               </button>
             </span>
           ))}
-          {!value.length && !over && <span className="mr-1 text-[13px] text-stone-500">Aucun</span>}
-          {over && !custom && <span className="text-[12.5px] text-stone-500">{value.length ? 'Ce moment est passé.' : 'Ce moment est déjà passé : plus de rappel possible.'}</span>}
+          {!value.length && !over && <span className="mr-1 text-[13px] text-stone-500">{t('Aucun')}</span>}
+          {over && !custom && <span className="text-[12.5px] text-stone-500">{value.length ? t('Ce moment est passé.') : t('Ce moment est déjà passé : plus de rappel possible.')}</span>}
           {value.length < 10 && !custom && !over && (
             <button
               type="button"
@@ -124,12 +125,12 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
               onClick={e => setMenu(menu ? null : e.currentTarget)}
               className="flex h-8 items-center gap-1 rounded-full border border-dashed border-stone-300 px-3 text-[13px] font-semibold text-stone-600 transition-colors hover:border-stone-400 hover:text-ink pointer-coarse:h-9"
             >
-              <Plus size={14} aria-hidden /> Ajouter un rappel
+              <Plus size={14} aria-hidden /> {t('Ajouter un rappel')}
             </button>
           )}
           {menu && (
-            <Popover anchor={menu} onClose={() => setMenu(null)} label="Ajouter un rappel" className="p-1">
-              <div role="menu" aria-label="Ajouter un rappel" className="min-w-52">
+            <Popover anchor={menu} onClose={() => setMenu(null)} label={t('Ajouter un rappel')} className="p-1">
+              <div role="menu" aria-label={t('Ajouter un rappel')} className="min-w-52">
                 {left.map(o => (
                   <button
                     key={o.minutes}
@@ -155,7 +156,7 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
                   }}
                   className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-[13.5px] transition-colors hover:bg-stone-100 focus-visible:bg-stone-100"
                 >
-                  <SlidersHorizontal size={15} className="text-stone-400" aria-hidden /> Personnaliser…
+                  <SlidersHorizontal size={15} className="text-stone-400" aria-hidden /> {t('Personnaliser…')}
                 </button>
               </div>
             </Popover>
@@ -167,7 +168,7 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
           ref={customRef}
           className="mt-2 rounded-2xl bg-stone-50 p-3"
           role="group"
-          aria-label="Rappel personnalisé"
+          aria-label={t('Rappel personnalisé')}
           // Enter in its fields adds the reminder (and doesn't send the event's form).
           onKeyDown={e => {
             if (e.key !== 'Enter' || !(e.target instanceof HTMLInputElement)) return;
@@ -179,8 +180,8 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
             <div className="mb-2.5 flex gap-1 rounded-lg bg-stone-100 p-0.5 text-[12.5px] font-medium">
               {(
                 [
-                  ['moment', 'Jour et heure'],
-                  ['duree', 'Durée avant'],
+                  ['moment', t('Jour et heure')],
+                  ['duree', t('Durée avant')],
                 ] as const
               ).map(([mode, label]) => (
                 <button
@@ -197,8 +198,8 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
           )}
           {custom.mode === 'moment' ? (
             <div className="flex flex-wrap gap-2">
-              <DateField value={custom.day} max={date} onChange={day => setCustom({ ...custom, day })} label="Jour du rappel" className="h-9 min-w-0 flex-1" />
-              <TimeField value={custom.at} onChange={at => setCustom({ ...custom, at })} label="Heure du rappel" className="h-9 w-[128px]" />
+              <DateField value={custom.day} max={date} onChange={day => setCustom({ ...custom, day })} label={t('Jour du rappel')} className="h-9 min-w-0 flex-1" />
+              <TimeField value={custom.at} onChange={at => setCustom({ ...custom, at })} label={t('Heure du rappel')} className="h-9 w-[128px]" />
             </div>
           ) : (
             <div className="flex items-center gap-2">
@@ -208,32 +209,32 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
                 inputMode="decimal"
                 value={custom.amount}
                 onChange={e => setCustom({ ...custom, amount: e.target.value })}
-                aria-label="Durée"
+                aria-label={t('Durée')}
                 className="field h-9 w-20"
               />
               <SelectField<Unit>
                 value={custom.unit}
                 onChange={unit => setCustom({ ...custom, unit })}
-                label="Unité"
+                label={t('Unité')}
                 className="h-9 w-32"
                 options={[
-                  { value: 'min', label: 'minutes' },
-                  { value: 'h', label: 'heures' },
-                  { value: 'j', label: 'jours' },
+                  { value: 'min', label: t('minutes') },
+                  { value: 'h', label: t('heures') },
+                  { value: 'j', label: t('jours') },
                 ]}
               />
-              <span className="text-[13px] text-stone-600">avant</span>
+              <span className="text-[13px] text-stone-600">{t('avant')}</span>
             </div>
           )}
           <p className={cx('mt-2 text-[12px]', check?.error ? 'text-red-600' : 'text-stone-600')} aria-live="polite">
-            {check?.error ?? (check?.minutes !== undefined && date ? `Rappel : ${reminderLabel(check.minutes, timed, date, time).replace(/^./, c => c.toLowerCase())}` : '')}
+            {check?.error ?? (check?.minutes !== undefined && date ? t('Rappel : {when}', { when: reminderLabel(check.minutes, timed, date, time).replace(/^./, c => c.toLowerCase()) }) : '')}
           </p>
           <div className="mt-2.5 flex justify-end gap-2">
             <button type="button" className="btn-secondary h-8 px-3 text-[13px]" onClick={() => setCustom(null)}>
-              Annuler
+              {t('Annuler')}
             </button>
             <button type="button" className="btn-primary h-8 px-3 text-[13px]" disabled={check?.minutes === undefined || !!check.error} onClick={addCustom}>
-              Ajouter
+              {t('Ajouter')}
             </button>
           </div>
         </div>
@@ -244,18 +245,18 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
             <>
               <span className="flex items-start gap-2">
                 <BellOff size={13} className="mt-px shrink-0 text-stone-400" aria-hidden />
-                Sur cet appareil, tu ne seras prévenu que si Kompaly est ouvert.
+                {t('Sur cet appareil, tu ne seras prévenu que si Kompaly est ouvert.')}
               </span>
               <button type="button" onClick={() => void turnOn()} className="hit-sm font-medium text-brand-600 underline-offset-2 hover:underline">
-                Activer les notifications
+                {t('Activer les notifications')}
               </button>
             </>
           ) : state === 'install' ? (
-            <span>Sur iPhone, ajoute Kompaly à l’écran d’accueil (Partager › Sur l’écran d’accueil) pour recevoir les notifications.</span>
+            <span>{t('Sur iPhone, ajoute Kompaly à l’écran d’accueil (Partager › Sur l’écran d’accueil) pour recevoir les notifications.')}</span>
           ) : state === 'denied' ? (
-            <span>Notifications bloquées : autorise-les dans les réglages de ton navigateur.</span>
+            <span>{t('Notifications bloquées : autorise-les dans les réglages de ton navigateur.')}</span>
           ) : (
-            <span>Ce navigateur n’affiche pas de notifications : le rappel s’affichera seulement dans Kompaly.</span>
+            <span>{t('Ce navigateur n’affiche pas de notifications : le rappel s’affichera seulement dans Kompaly.')}</span>
           )}
         </p>
       )}

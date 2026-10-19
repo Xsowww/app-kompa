@@ -5,6 +5,7 @@ import type { Usage } from '../lib/usage';
 import type { CustomCategory } from './calendar';
 import type { Period } from '../lib/periods';
 import { DEFAULT_KEYWORDS, type Keyword } from '../lib/keywords';
+import { t } from '../i18n';
 
 export type AccentKey = 'orange' | 'bleu' | 'vert' | 'violet' | 'rose' | 'encre';
 export type Chattiness = 'calme' | 'normal' | 'bavard';
@@ -14,12 +15,12 @@ export type Language = 'fr' | 'en';
 export type PersonaKey = 'pote' | 'coach' | 'prof' | 'zen' | 'taquin';
 
 export const ACCENTS: Record<AccentKey, { label: string; shades: Record<'50' | '100' | '200' | '500' | '600' | '700', string> }> = {
-  orange: { label: 'Orange', shades: { 50: '#fdf3ef', 100: '#fbe4da', 200: '#f6c6b2', 500: '#e8613c', 600: '#c94a26', 700: '#ad3e20' } },
-  bleu: { label: 'Bleu Kompaly', shades: { 50: '#eef2fd', 100: '#dbe3fb', 200: '#b8c8f6', 500: '#3d63dd', 600: '#2f4fc0', 700: '#26409c' } },
-  vert: { label: 'Vert', shades: { 50: '#ecf8f2', 100: '#d3efe1', 200: '#a6dec3', 500: '#2f9e6b', 600: '#238556', 700: '#1c6a45' } },
-  violet: { label: 'Violet', shades: { 50: '#f4f1fd', 100: '#e7e0fb', 200: '#cfc1f6', 500: '#7a5ad6', 600: '#6545bf', 700: '#51379b' } },
-  rose: { label: 'Framboise', shades: { 50: '#fdf0f4', 100: '#fbdde7', 200: '#f5b6cb', 500: '#d6457a', 600: '#bc3166', 700: '#962752' } },
-  encre: { label: 'Encre', shades: { 50: '#f5f5f4', 100: '#e7e5e4', 200: '#d6d3d1', 500: '#44403c', 600: '#292524', 700: '#1c1917' } },
+  orange: { label: t('Orange'), shades: { 50: '#fdf3ef', 100: '#fbe4da', 200: '#f6c6b2', 500: '#e8613c', 600: '#c94a26', 700: '#ad3e20' } },
+  bleu: { label: t('Bleu Kompaly'), shades: { 50: '#eef2fd', 100: '#dbe3fb', 200: '#b8c8f6', 500: '#3d63dd', 600: '#2f4fc0', 700: '#26409c' } },
+  vert: { label: t('Vert'), shades: { 50: '#ecf8f2', 100: '#d3efe1', 200: '#a6dec3', 500: '#2f9e6b', 600: '#238556', 700: '#1c6a45' } },
+  violet: { label: t('Violet'), shades: { 50: '#f4f1fd', 100: '#e7e0fb', 200: '#cfc1f6', 500: '#7a5ad6', 600: '#6545bf', 700: '#51379b' } },
+  rose: { label: t('Framboise'), shades: { 50: '#fdf0f4', 100: '#fbdde7', 200: '#f5b6cb', 500: '#d6457a', 600: '#bc3166', 700: '#962752' } },
+  encre: { label: t('Encre'), shades: { 50: '#f5f5f4', 100: '#e7e5e4', 200: '#d6d3d1', 500: '#44403c', 600: '#292524', 700: '#1c1917' } },
 };
 
 export const AVATAR_COLORS = ['#3d63dd', '#e8613c', '#2f9e6b', '#7a5ad6', '#d6457a', '#d48a17', '#1f8fa8', '#44403c'];

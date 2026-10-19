@@ -7,6 +7,7 @@ import { addDays, addMonths, isSameMonth, startOfMonth } from 'date-fns';
 import { CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Clock, X } from 'lucide-react';
 import { fmt, fmtDay, fromKey, parseTime, toKey, todayKey, validKey, weekStart } from '../lib/dates';
 import { cx } from '../lib/utils';
+import { locale, t } from '../i18n';
 
 // ── The panel ───────────────────────────────────────────────────────────────
 /**
@@ -117,7 +118,8 @@ function FieldButton({ open, onOpen, icon, children, placeholder, className, lab
 }
 
 // ── Date ────────────────────────────────────────────────────────────────────
-const WEEKDAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+/** « L M M J V S D » in the site's language (1 January 2024 was a Monday). */
+const WEEKDAYS = Array.from({ length: 7 }, (_, i) => new Intl.DateTimeFormat(locale(), { weekday: 'narrow' }).format(new Date(2024, 0, 1 + i)));
 
 function MonthGrid({ value, min, max, onPick }: { value: string; min?: string; max?: string; onPick: (key: string) => void }) {
   const today = todayKey();
@@ -141,11 +143,11 @@ function MonthGrid({ value, min, max, onPick }: { value: string; min?: string; m
   return (
     <div className="w-[276px] p-1">
       <div className="mb-2 flex items-center justify-between">
-        <button type="button" className="icon-btn" onClick={() => setMonth(m => addMonths(m, -1))} aria-label="Mois précédent">
+        <button type="button" className="icon-btn" onClick={() => setMonth(m => addMonths(m, -1))} aria-label={t('Mois précédent')}>
           <ChevronLeft size={16} />
         </button>
         <span className="text-[14px] font-bold first-letter:uppercase" aria-live="polite">{fmt(month, 'MMMM yyyy')}</span>
-        <button type="button" className="icon-btn" onClick={() => setMonth(m => addMonths(m, 1))} aria-label="Mois suivant">
+        <button type="button" className="icon-btn" onClick={() => setMonth(m => addMonths(m, 1))} aria-label={t('Mois suivant')}>
           <ChevronRight size={16} />
         </button>
       </div>
@@ -155,7 +157,7 @@ function MonthGrid({ value, min, max, onPick }: { value: string; min?: string; m
       <div
         ref={grid}
         role="group"
-        aria-label="Jours du mois"
+        aria-label={t('Jours du mois')}
         className="grid grid-cols-7 gap-0.5"
         onKeyDown={e => {
           const step = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[e.key];
@@ -212,8 +214,8 @@ export function DatePopover({ anchor, value, onPick, onClose, min, max, label, c
       <MonthGrid value={value} min={min} max={max} onPick={onPick} />
       <div className="mt-1 flex flex-wrap gap-1.5 border-t border-stone-100 px-1 pt-2">
         {[
-          [today, 'Aujourd’hui'],
-          [tomorrow, 'Demain'],
+          [today, t('Aujourd’hui')],
+          [tomorrow, t('Demain')],
         ]
           .filter(([k]) => (!min || k >= min) && (!max || k <= max))
           .map(([k, l]) => (
@@ -223,7 +225,7 @@ export function DatePopover({ anchor, value, onPick, onClose, min, max, label, c
           ))}
         {clearable && value && (
           <button type="button" onClick={() => onPick('')} className="ml-auto flex h-8 items-center gap-1 rounded-full px-3 text-[12.5px] font-semibold text-stone-500 transition-colors hover:bg-stone-100 hover:text-ink pointer-coarse:h-9">
-            <X size={13} /> Effacer
+            <X size={13} /> {t('Effacer')}
           </button>
         )}
       </div>
@@ -232,7 +234,7 @@ export function DatePopover({ anchor, value, onPick, onClose, min, max, label, c
 }
 
 /** A day (YYYY-MM-DD), chosen on a small calendar. */
-export function DateField({ value, onChange, min, max, label, placeholder = 'Choisir un jour', className, clearable, invalid, disabled }: {
+export function DateField({ value, onChange, min, max, label, placeholder = t('Choisir un jour'), className, clearable, invalid, disabled }: {
   value: string;
   onChange: (key: string) => void;
   min?: string;
@@ -257,7 +259,7 @@ export function DateField({ value, onChange, min, max, label, placeholder = 'Cho
   const shown = validKey(value);
   return (
     <>
-      <FieldButton buttonRef={btn} open={open} onOpen={() => setOpen(o => !o)} icon={<CalendarDays size={15} />} placeholder={placeholder} className={className} label={`${label}${shown ? ` : ${fmt(fromKey(shown), 'EEEE d MMMM yyyy')}` : ''}`} invalid={invalid} disabled={disabled}>
+      <FieldButton buttonRef={btn} open={open} onOpen={() => setOpen(o => !o)} icon={<CalendarDays size={15} />} placeholder={placeholder} className={className} label={shown ? t('{label} : {value}', { label, value: fmt(fromKey(shown), 'EEEE d MMMM yyyy') }) : label} invalid={invalid} disabled={disabled}>
         {shown && <span className="inline-block first-letter:uppercase">{fmtDay(fromKey(shown), 'EEE d MMM')}</span>}
       </FieldButton>
       {anchor && <DatePopover anchor={anchor} value={value} min={min} max={max} label={label} clearable={clearable} onPick={pick} onClose={() => setOpen(false)} />}
@@ -327,19 +329,19 @@ function TimePanel({ value, onPick, clearable }: { value: string; onPick: (v: st
           inputMode="numeric"
           spellCheck={false}
           autoComplete="off"
-          placeholder="14h30"
-          aria-label="Heure, à taper (14h30, 9h…)"
+          placeholder={t('14h30')}
+          aria-label={t('Heure, à taper (14h30, 9h…)')}
           className={cx('field h-9 min-w-0 flex-1 text-center text-[14px] font-semibold', text && !typed && 'border-red-400')}
         />
         <button type="submit" disabled={!typed} className="btn-primary h-9 px-3">
-          OK
+          {t('OK')}
         </button>
       </form>
       <div ref={lists} className="mt-1 grid grid-cols-2 gap-1 border-t border-stone-100 pt-1">
         {[
           // The hour keeps the panel open (the minutes come next) and shows in the box above, where « OK » takes it.
-          { list: HOURS, current: h, label: 'Heure' },
-          { list: minutes, current: m, label: 'Minutes' },
+          { hours: true, list: HOURS, current: h, label: t('Heure') },
+          { hours: false, list: minutes, current: m, label: t('Minutes') },
         ].map(col => (
           <div key={col.label} data-col role="group" aria-label={col.label} className="max-h-52 space-y-0.5 overflow-y-auto overscroll-contain p-0.5">
             {col.list.map(v => (
@@ -348,10 +350,10 @@ function TimePanel({ value, onPick, clearable }: { value: string; onPick: (v: st
                 type="button"
                 data-v={v}
                 aria-pressed={v === col.current}
-                onClick={() => (col.label === 'Heure' ? pickFromList(`${v}:${m || '00'}`, false) : pickFromList(`${h || '08'}:${v}`, true))}
+                onClick={() => (col.hours ? pickFromList(`${v}:${m || '00'}`, false) : pickFromList(`${h || '08'}:${v}`, true))}
                 className={cx('tabular flex h-8 w-full items-center justify-center rounded-lg text-[13.5px] transition-colors pointer-coarse:h-9', v === col.current ? 'bg-ink font-bold text-paper' : 'hover:bg-stone-100')}
               >
-                {col.label === 'Heure' ? `${Number(v)} h` : v}
+                {col.hours ? t('{n} h', { n: Number(v) }) : v}
               </button>
             ))}
           </div>
@@ -359,7 +361,7 @@ function TimePanel({ value, onPick, clearable }: { value: string; onPick: (v: st
       </div>
       {clearable && value && (
         <button type="button" onClick={() => pick('', true)} className="mt-1 flex h-8 w-full items-center justify-center gap-1 rounded-lg text-[12.5px] font-semibold text-stone-500 transition-colors hover:bg-stone-100 hover:text-ink">
-          <X size={13} /> Sans heure
+          <X size={13} /> {t('Sans heure')}
         </button>
       )}
     </div>
@@ -367,7 +369,7 @@ function TimePanel({ value, onPick, clearable }: { value: string; onPick: (v: st
 }
 
 /** A time (HH:mm), typed (« 14h30 ») or picked from an hours / minutes list. */
-export function TimeField({ value, onChange, label, placeholder = 'Heure', className, clearable, invalid, disabled }: {
+export function TimeField({ value, onChange, label, placeholder = t('Heure'), className, clearable, invalid, disabled }: {
   value: string;
   onChange: (v: string) => void;
   label: string;
@@ -384,8 +386,8 @@ export function TimeField({ value, onChange, label, placeholder = 'Heure', class
   const setOpen = (v: boolean | ((o: boolean) => boolean)) => setAnchor(a => ((typeof v === 'function' ? v(!!a) : v) ? btn.current : null));
   return (
     <>
-      <FieldButton buttonRef={btn} open={open} onOpen={() => setOpen(o => !o)} icon={<Clock size={15} />} placeholder={placeholder} className={className} label={`${label}${value ? ` : ${value}` : ''}`} invalid={invalid} disabled={disabled}>
-        {value ? <span className="tabular">{value.replace(':', ' h ')}</span> : undefined}
+      <FieldButton buttonRef={btn} open={open} onOpen={() => setOpen(o => !o)} icon={<Clock size={15} />} placeholder={placeholder} className={className} label={value ? t('{label} : {value}', { label, value }) : label} invalid={invalid} disabled={disabled}>
+        {value ? <span className="tabular">{t('{h} h {m}', { h: value.slice(0, 2), m: value.slice(3) })}</span> : undefined}
       </FieldButton>
       {anchor && (
         <Popover anchor={anchor} onClose={() => setOpen(false)} label={label}>
@@ -440,7 +442,7 @@ export function SelectField<T extends string | number>({ value, options, onChang
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-label={`${label} : ${current?.label ?? '—'}`}
+        aria-label={t('{label} : {value}', { label, value: current?.label ?? '—' })}
         onClick={() => setOpen(o => !o)}
         className={cx('field flex items-center gap-2 text-left disabled:cursor-not-allowed disabled:opacity-50', open && 'border-focus ring-1 ring-focus', className)}
       >

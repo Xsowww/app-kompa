@@ -10,6 +10,7 @@ import { Modal } from '../../components/Overlays';
 import FileIcon from '../../components/FileIcon';
 import { cx, normalize } from '../../lib/utils';
 import { eventHref, fileHref } from './noteUtils';
+import { t, tn } from '../../i18n';
 
 const todayKey = () => format(new Date(), 'yyyy-MM-dd');
 const shortDate = (d: string) => fmt(parseISO(d), 'd MMM');
@@ -52,7 +53,7 @@ export function LinkChips({ note, readOnly }: { note: Note; readOnly?: boolean }
           <span key={r.link.kind + r.link.id} className={chip}>
             <button
               className="flex min-w-0 items-center gap-1.5 self-stretch"
-              title={isFile ? `Ouvrir ${title} dans le Drive` : `${title} · ${longDate(r.event.date)}`}
+              title={isFile ? t('Ouvrir {name} dans le Drive', { name: title }) : `${title} · ${longDate(r.event.date)}`}
               onClick={() => navigate(isFile ? fileHref(r.file) : eventHref(r.event))}
             >
               {isFile ? (
@@ -64,7 +65,7 @@ export function LinkChips({ note, readOnly }: { note: Note; readOnly?: boolean }
               {!isFile && <span className="tabular shrink-0 text-stone-500">{shortDate(r.event.date)}</span>}
             </button>
             {!readOnly && (
-              <button className="hit-sm rounded p-0.5 text-stone-400 hover:bg-stone-200/70 hover:text-ink pointer-coarse:p-1.5" title="Retirer le lien" aria-label={`Retirer le lien vers «\u00a0${title}\u00a0»`} onClick={() => unlink(r.link)}>
+              <button className="hit-sm rounded p-0.5 text-stone-400 hover:bg-stone-200/70 hover:text-ink pointer-coarse:p-1.5" title={t('Retirer le lien')} aria-label={t('Retirer le lien vers «\u00a0{name}\u00a0»', { name: title })} onClick={() => unlink(r.link)}>
                 <X size={12} />
               </button>
             )}
@@ -92,10 +93,10 @@ function PickerBody({ note, onClose }: { note: Note; onClose: () => void }) {
   const q = normalize(query);
 
   const evs = useMemo(() => {
-    const t = todayKey();
+    const today = todayKey();
     const match = events.filter(e => !q || normalize(e.title).includes(q));
-    const upcoming = match.filter(e => e.date >= t).sort(sortEvents);
-    const past = match.filter(e => e.date < t).sort((a, b) => sortEvents(b, a));
+    const upcoming = match.filter(e => e.date >= today).sort(sortEvents);
+    const past = match.filter(e => e.date < today).sort((a, b) => sortEvents(b, a));
     return [...upcoming, ...past].slice(0, q ? 40 : 12);
   }, [events, q]);
 
@@ -112,8 +113,8 @@ function PickerBody({ note, onClose }: { note: Note; onClose: () => void }) {
   const toggle = (kind: NoteLink['kind'], id: string) =>
     useNotes.getState().updateNote(note.id, { links: has(kind, id) ? links.filter(l => !(l.kind === kind && l.id === id)) : [...links, { kind, id }] });
 
-  const folderName = (id: string | null) => (id ? items.find(i => i.id === id)?.name : null) ?? 'Mon Drive';
-  const t = todayKey();
+  const folderName = (id: string | null) => (id ? items.find(i => i.id === id)?.name : null) ?? t('Mon Drive');
+  const today = todayKey();
 
   const row = (key: string, linked: boolean, onClick: () => void, icon: React.ReactNode, title: string, meta: React.ReactNode) => (
     <button key={key} onClick={onClick} aria-pressed={linked} className={cx('flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors', linked ? 'bg-brand-50/70' : 'hover:bg-stone-50')}>
@@ -134,19 +135,19 @@ function PickerBody({ note, onClose }: { note: Note; onClose: () => void }) {
   return (
     <div>
       <div className="flex items-baseline justify-between">
-        <h3 className="text-[15px] font-semibold">Lier la note</h3>
-        <span className="text-[12px] text-stone-500">{links.length ? `${links.length} lien${links.length > 1 ? 's' : ''}` : ''}</span>
+        <h3 className="text-[15px] font-semibold">{t('Lier la note')}</h3>
+        <span className="text-[12px] text-stone-500">{links.length ? tn(links.length, '{n} lien', '{n} liens') : ''}</span>
       </div>
       <div className="relative mt-4">
         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
-        <input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder="Rechercher un fichier ou un événement" aria-label="Rechercher un fichier ou un événement" className="field w-full pl-8" />
+        <input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder={t('Rechercher un fichier ou un événement')} aria-label={t('Rechercher un fichier ou un événement')} className="field w-full pl-8" />
       </div>
-      <div className="mt-3 flex gap-1" role="group" aria-label="Afficher">
+      <div className="mt-3 flex gap-1" role="group" aria-label={t('Afficher')}>
         {(
           [
-            ['all', 'Tout'],
-            ['event', 'Événements'],
-            ['file', 'Fichiers'],
+            ['all', t('Tout')],
+            ['event', t('Événements')],
+            ['file', t('Fichiers')],
           ] as const
         ).map(([k, label]) => (
           <button key={k} onClick={() => setTab(k)} aria-pressed={tab === k} className={cx('h-7 rounded-md px-2.5 text-[12px] font-medium transition-colors pointer-coarse:h-9', tab === k ? 'bg-stone-100 text-ink' : 'text-stone-500 hover:text-ink')}>
@@ -157,7 +158,7 @@ function PickerBody({ note, onClose }: { note: Note; onClose: () => void }) {
       <div className="-mx-1 mt-2 max-h-[52vh] overflow-y-auto px-1">
         {showEvents && (
           <section className="mb-2">
-            <p className="eyebrow px-2.5 pb-1 pt-2">Événements</p>
+            <p className="eyebrow px-2.5 pb-1 pt-2">{t('Événements')}</p>
             {evs.length ? (
               evs.map(e =>
                 row(
@@ -167,30 +168,30 @@ function PickerBody({ note, onClose }: { note: Note; onClose: () => void }) {
                   <span className="h-2.5 w-2.5 rounded-full" style={{ background: catOf(e.category).color }} />,
                   e.title,
                   <>
-                    <span className={cx('inline-block first-letter:uppercase', e.date < t && 'text-stone-500')}>{longDate(e.date)}</span>
+                    <span className={cx('inline-block first-letter:uppercase', e.date < today && 'text-stone-500')}>{longDate(e.date)}</span>
                     {e.start && ` · ${e.start}`} · {catOf(e.category).label}
                   </>,
                 ),
               )
             ) : (
-              <p className="px-2.5 py-2 text-[13px] text-stone-500">{q ? 'Aucun événement trouvé' : 'Aucun événement dans le calendrier'}</p>
+              <p className="px-2.5 py-2 text-[13px] text-stone-500">{q ? t('Aucun événement trouvé') : t('Aucun événement dans le calendrier')}</p>
             )}
           </section>
         )}
         {showFiles && (
           <section>
-            <p className="eyebrow px-2.5 pb-1 pt-2">Fichiers du Drive</p>
+            <p className="eyebrow px-2.5 pb-1 pt-2">{t('Fichiers du Drive')}</p>
             {files.length ? (
               files.map(f => row('f' + f.id, has('file', f.id), () => toggle('file', f.id), <FileIcon category={categoryOf(f)} size={24} />, f.name, folderName(f.parentId)))
             ) : (
-              <p className="px-2.5 py-2 text-[13px] text-stone-500">{q ? 'Aucun fichier trouvé' : 'Aucun fichier dans le Drive'}</p>
+              <p className="px-2.5 py-2 text-[13px] text-stone-500">{q ? t('Aucun fichier trouvé') : t('Aucun fichier dans le Drive')}</p>
             )}
           </section>
         )}
       </div>
       <div className="mt-4 flex justify-end">
         <button className="btn-primary" onClick={onClose}>
-          Terminé
+          {t('Terminé')}
         </button>
       </div>
     </div>

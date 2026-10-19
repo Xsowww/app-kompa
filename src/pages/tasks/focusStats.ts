@@ -4,16 +4,17 @@ import type { CalendarEvent } from '../../store/calendar';
 import { normalize } from '../../lib/utils';
 import { toKey, weekStart } from '../../lib/dates';
 import type { Usage } from '../../lib/usage';
+import { locale, t } from '../../i18n';
 
-export const NO_SUBJECT = 'Sans matière';
+export const NO_SUBJECT = t('Sans matière');
 
 /** « Sans matière » for studies, « Sans sujet » for work and personal life. */
-export const noSubjectLabel = (usage?: Usage) => (usage && usage !== 'etudes' ? 'Sans sujet' : NO_SUBJECT);
+export const noSubjectLabel = (usage?: Usage) => (usage && usage !== 'etudes' ? t('Sans sujet') : NO_SUBJECT);
 
 /** « Cours de maths » → « Maths », « Amphi d'histoire » → « Histoire ». */
 export function subjectFromCourse(title: string) {
-  const t = title.replace(/^\s*(cours|amphi|cm|td|tp)\b\s*(de la |de l'|de l’|de |d'|d’|du |des )?/i, '').trim() || title.trim();
-  return t.charAt(0).toUpperCase() + t.slice(1);
+  const s = title.replace(/^\s*(cours|amphi|cm|td|tp)\b\s*(de la |de l'|de l’|de |d'|d’|du |des )?/i, '').trim() || title.trim();
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 /** Subjects to suggest before a focus session: recent ones first, then courses around today. */
@@ -49,7 +50,7 @@ export function minutesBySubject(sessions: FocusSession[], from: string | null, 
     row.sessions++;
     map.set(k, row);
   }
-  return [...map.values()].sort((a, b) => b.minutes - a.minutes || a.subject.localeCompare(b.subject, 'fr'));
+  return [...map.values()].sort((a, b) => b.minutes - a.minutes || a.subject.localeCompare(b.subject, locale()));
 }
 
 /** Focus minutes for each of the last `days` days (oldest first). */
@@ -70,8 +71,8 @@ export function weekMinutes(sessions: FocusSession[]) {
 
 /** « 1 h 25 », « 40 min », « 12 h » */
 export function formatMinutes(min: number) {
-  if (min < 60) return `${min} min`;
+  if (min < 60) return t('{n} min', { n: min });
   const h = Math.floor(min / 60);
   const m = Math.round(min % 60);
-  return m ? `${h} h ${String(m).padStart(2, '0')}` : `${h} h`;
+  return m ? t('{h} h {m}', { h, m: String(m).padStart(2, '0') }) : t('{n} h', { n: h });
 }

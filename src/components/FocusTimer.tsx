@@ -7,6 +7,7 @@ import { useCalendar } from '../store/calendar';
 import { startBadgeWatcher } from '../lib/badges';
 import { subjectSuggestions } from '../pages/tasks/focusStats';
 import { cx } from '../lib/utils';
+import { t } from '../i18n';
 
 /** Asks what the session is about before starting (optional, free text + quick chips). */
 function SubjectPicker({ onStart, onCancel }: { onStart: (subject: string) => void; onCancel: () => void }) {
@@ -30,9 +31,9 @@ function SubjectPicker({ onStart, onCancel }: { onStart: (subject: string) => vo
     <div ref={ref} className="enter mb-2 rounded-lg border border-stone-200 bg-surface p-2.5 shadow-card">
       <div className="flex items-center">
         <label htmlFor="focus-subject" className="text-[11px] font-medium text-stone-500">
-          Sur quoi tu travailles&nbsp;?
+          {t('Sur quoi tu travailles\u00a0?')}
         </label>
-        <button onClick={onCancel} className="hit ml-auto -mr-1 flex h-5 w-5 items-center justify-center rounded text-stone-500 hover:bg-stone-100 hover:text-ink" title="Annuler" aria-label="Annuler">
+        <button onClick={onCancel} className="hit ml-auto -mr-1 flex h-5 w-5 items-center justify-center rounded text-stone-500 hover:bg-stone-100 hover:text-ink" title={t('Annuler')} aria-label={t('Annuler')}>
           <X size={12} />
         </button>
       </div>
@@ -46,7 +47,7 @@ function SubjectPicker({ onStart, onCancel }: { onStart: (subject: string) => vo
           if (e.key === 'Escape') onCancel();
         }}
         // « Matière » is a school word: a subject for the other uses of the account.
-        placeholder={usage === 'travail' || usage === 'perso' ? 'Sujet (facultatif)' : 'Matière (facultatif)'}
+        placeholder={usage === 'travail' || usage === 'perso' ? t('Sujet (facultatif)') : t('Matière (facultatif)')}
         maxLength={40}
         className="field mt-1.5 h-8 w-full px-2.5 text-[12px]"
       />
@@ -57,7 +58,7 @@ function SubjectPicker({ onStart, onCancel }: { onStart: (subject: string) => vo
               key={s}
               onClick={() => onStart(s)}
               className="max-w-full truncate rounded-md border border-stone-200 px-1.5 py-0.5 text-[11px] pointer-coarse:min-h-9 pointer-coarse:px-2.5 text-stone-600 transition-colors hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700"
-              title={`Démarrer sur « ${s} »`}
+              title={t('Démarrer sur « {subject} »', { subject: s })}
             >
               {s}
             </button>
@@ -65,7 +66,7 @@ function SubjectPicker({ onStart, onCancel }: { onStart: (subject: string) => vo
         </div>
       )}
       <button onClick={() => onStart(subject)} className="btn-primary mt-2.5 h-8 w-full text-[12px]">
-        <Play size={12} /> Démarrer · {focusMinutes} min
+        <Play size={12} /> {t('Démarrer · {n} min', { n: focusMinutes })}
       </button>
     </div>
   );
@@ -87,11 +88,11 @@ export default function FocusTimer() {
 
   useEffect(() => {
     if (!focus.phase) return;
-    const t = setInterval(() => {
+    const timer = setInterval(() => {
       useFocus.getState().tick();
       setNow(Date.now());
     }, 1000);
-    return () => clearInterval(t);
+    return () => clearInterval(timer);
   }, [focus.phase]);
 
   if (!focus.phase) {
@@ -114,11 +115,11 @@ export default function FocusTimer() {
         data-focus-start
         onClick={() => setPicking(true)}
         className="mb-2 flex h-9 w-full items-center gap-2.5 rounded-lg border border-dashed border-stone-300 px-2.5 text-[13px] text-stone-600 transition-colors hover:border-brand-500 hover:bg-brand-50 hover:text-brand-700"
-        title={`${focusMinutes} min de travail, ${breakMinutes} min de pause`}
+        title={t('{focus} min de travail, {pause} min de pause', { focus: focusMinutes, pause: breakMinutes })}
       >
         <Timer size={15} />
-        Session focus
-        <span className="tabular ml-auto text-[11px] text-stone-500">{focusMinutes} min</span>
+        {t('Session focus')}
+        <span className="tabular ml-auto text-[11px] text-stone-500">{t('{n} min', { n: focusMinutes })}</span>
       </button>
     );
   }
@@ -133,24 +134,24 @@ export default function FocusTimer() {
       <div className="flex items-center gap-2">
         <span className={cx('min-w-0 truncate text-[11px] font-medium', focus.phase === 'focus' ? 'text-brand-700' : 'text-emerald-700')}>
           {/* A paused break is « suspended »: « Temps de pause · en pause » said the same word twice. */}
-          {focus.phase === 'focus' ? (paused ? 'Concentration · en pause' : 'Concentration') : paused ? 'Pause suspendue' : 'Temps de pause'}
+          {focus.phase === 'focus' ? (paused ? t('Concentration · en pause') : t('Concentration')) : paused ? t('Pause suspendue') : t('Temps de pause')}
         </span>
-        <span role="timer" aria-label={`Temps restant : ${mmss(left)}`} className="tabular ml-auto font-mono text-[15px] font-medium">{mmss(left)}</span>
+        <span role="timer" aria-label={t('Temps restant : {time}', { time: mmss(left) })} className="tabular ml-auto font-mono text-[15px] font-medium">{mmss(left)}</span>
       </div>
       {focus.phase === 'focus' && focus.label && <p className="mt-0.5 truncate text-[12px] font-medium text-ink">{focus.label}</p>}
-      <div className="mt-2 h-1 overflow-hidden rounded-full bg-surface" role="progressbar" aria-label="Progression de la session" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(done)}>
+      <div className="mt-2 h-1 overflow-hidden rounded-full bg-surface" role="progressbar" aria-label={t('Progression de la session')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(done)}>
         <div className={cx('h-full rounded-full', focus.phase === 'focus' ? 'bg-brand-500' : 'bg-emerald-500')} style={{ width: `${done}%` }} />
       </div>
       <div className="mt-2 flex gap-1">
         <button data-focus-pause onClick={paused ? focus.resume : focus.pause} className="flex h-7 flex-1 items-center justify-center gap-1 rounded-md bg-surface pointer-coarse:h-9 text-[12px] font-medium text-stone-700 shadow-card hover:text-ink">
-          {paused ? <Play size={12} /> : <Pause size={12} />} {paused ? 'Reprendre' : focus.phase === 'break' ? 'Suspendre' : 'Pause'}
+          {paused ? <Play size={12} /> : <Pause size={12} />} {paused ? t('Reprendre') : focus.phase === 'break' ? t('Suspendre') : t('Pause')}
         </button>
         <button
           onClick={() => {
             focus.stop();
             focusLater('[data-focus-start]');
           }}
-          className="flex h-7 w-8 items-center justify-center rounded-md bg-surface pointer-coarse:h-9 pointer-coarse:w-10 text-stone-500 shadow-card hover:text-red-600" title="Arrêter" aria-label="Arrêter">
+          className="flex h-7 w-8 items-center justify-center rounded-md bg-surface pointer-coarse:h-9 pointer-coarse:w-10 text-stone-500 shadow-card hover:text-red-600" title={t('Arrêter')} aria-label={t('Arrêter')}>
           <Square size={11} />
         </button>
       </div>

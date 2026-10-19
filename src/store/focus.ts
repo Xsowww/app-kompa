@@ -5,6 +5,7 @@ import { getSettings, useSettings } from './settings';
 import { useCopilot } from './copilot';
 import { notify, chime } from '../lib/notify';
 import { useFocusLog } from './focusLog';
+import { t, tn } from '../i18n';
 
 export type FocusPhase = 'focus' | 'break';
 
@@ -22,6 +23,12 @@ interface FocusState {
 }
 
 const pick = <T,>(a: T[]) => a[Math.floor(Math.random() * a.length)];
+
+/** « Ta session sur « Maths » s’est terminée pendant ton absence : 25 min comptées. » */
+const endedAway = (label: string, minutes: number) =>
+  label
+    ? t('Ta session sur «\u00a0{label}\u00a0» s’est terminée pendant ton absence\u00a0: {minutes}\u00a0min comptées.', { label, minutes })
+    : t('Ta session s’est terminée pendant ton absence\u00a0: {minutes}\u00a0min comptées.', { minutes });
 
 // Kept on the device: a reload (often on phones, coming back to the tab) doesn't lose the session.
 export const useFocus = create<FocusState>()(
@@ -62,10 +69,7 @@ export const useFocus = create<FocusState>()(
           // The break starts when the session really ended, not when the tab comes back.
           const breakEndsAt = s.endsAt + settings.breakMinutes * 60_000;
           if (Date.now() >= breakEndsAt) {
-            useCopilot.getState().say({
-              text: `Ta session${s.label ? ` sur «\u00a0${s.label}\u00a0»` : ''} s’est terminée pendant ton absence\u00a0: ${minutes}\u00a0min comptées.`,
-              mood: 'happy',
-            });
+            useCopilot.getState().say({ text: endedAway(s.label, minutes), mood: 'happy' });
             set({ phase: null, pausedLeft: null, label: '' });
             return;
           }
@@ -73,20 +77,22 @@ export const useFocus = create<FocusState>()(
           // Back after the end (tab closed, phone asleep): part of the break is already gone.
           const breakLeft = Math.ceil((breakEndsAt - Date.now()) / 60_000);
           const late = breakLeft < settings.breakMinutes;
-          const plural = (n: number) => (n > 1 ? 's' : '');
+          const pause = settings.breakMinutes;
           const text = late
-            ? `Ta session${s.label ? ` sur «\u00a0${s.label}\u00a0»` : ''} s’est terminée pendant ton absence\u00a0: ${minutes}\u00a0min comptées. Il te reste ${breakLeft}\u00a0min de pause.`
+            ? `${endedAway(s.label, minutes)} ${t('Il te reste {n}\u00a0min de pause.', { n: breakLeft })}`
             : pick([
-                `${minutes}\u00a0minutes de concentration, bien joué. Pause de ${settings.breakMinutes}\u00a0min\u00a0: lève-toi, bois un verre d’eau.`,
-                `Session terminée${s.label ? ` sur «\u00a0${s.label}\u00a0»` : ''}. Tu as mérité ta pause de ${settings.breakMinutes}\u00a0minute${plural(settings.breakMinutes)}.`,
+                t('{minutes}\u00a0minutes de concentration, bien joué. Pause de {pause}\u00a0min\u00a0: lève-toi, bois un verre d’eau.', { minutes, pause }),
+                s.label
+                  ? tn(pause, 'Session terminée sur «\u00a0{label}\u00a0». Tu as mérité ta pause de {n}\u00a0minute.', 'Session terminée sur «\u00a0{label}\u00a0». Tu as mérité ta pause de {n}\u00a0minutes.', { label: s.label })
+                  : tn(pause, 'Session terminée. Tu as mérité ta pause de {n}\u00a0minute.', 'Session terminée. Tu as mérité ta pause de {n}\u00a0minutes.'),
               ]);
           useCopilot.getState().say({ text, mood: 'happy' });
-          notify('Session terminée', late ? `Il reste ${breakLeft}\u00a0minute${plural(breakLeft)} de pause.` : `Pause de ${settings.breakMinutes}\u00a0minute${plural(settings.breakMinutes)}.`);
+          notify(t('Session terminée'), late ? tn(breakLeft, 'Il reste {n}\u00a0minute de pause.', 'Il reste {n}\u00a0minutes de pause.') : tn(pause, 'Pause de {n}\u00a0minute.', 'Pause de {n}\u00a0minutes.'));
           set({ phase: 'break', endsAt: breakEndsAt, minutes: settings.breakMinutes });
         } else {
           if (settings.focusSound) chime();
-          notify('Fin de la pause', 'On repart pour une session\u00a0?');
-          useCopilot.getState().say({ text: 'Fin de la pause. On repart pour une session\u00a0?', mood: 'alert' });
+          notify(t('Fin de la pause'), t('On repart pour une session\u00a0?'));
+          useCopilot.getState().say({ text: t('Fin de la pause. On repart pour une session\u00a0?'), mood: 'alert' });
           set({ phase: null, label: '' });
         }
       },

@@ -4,6 +4,7 @@ import { Modal } from '../../components/Overlays';
 import { useNotes, folderDescendants } from '../../store/notes';
 import { cx } from '../../lib/utils';
 import { folderIconStyle } from '../../store/drive';
+import { t } from '../../i18n';
 
 /** What to move: a note, or a folder (never into itself or one of its sub-folders). */
 export type NoteMoveTarget = { kind: 'note'; id: string; name: string; from: string | null } | { kind: 'folder'; id: string; name: string; from: string | null };
@@ -36,20 +37,20 @@ export default function NoteMoveDialog({ target, onClose }: { target: NoteMoveTa
 
   return (
     <Modal open onClose={onClose} width={420}>
-      <h3 className="truncate text-[15px] font-semibold">Déplacer « {target.name} »</h3>
+      <h3 className="truncate text-[15px] font-semibold">{t('Déplacer « {name} »', { name: target.name })}</h3>
       <div className="mt-4 max-h-80 overflow-y-auto rounded-lg border border-stone-200 p-1">
         <Choice selected={dest === null} depth={0} onClick={() => setDest(null)}>
           <NotebookPen size={15} className="shrink-0 text-stone-500" />
-          <span className="font-medium">Sans dossier</span>
+          <span className="font-medium">{t('Sans dossier')}</span>
         </Choice>
         {level(null, 1)}
       </div>
       <div className="mt-5 flex justify-end gap-2">
         <button className="btn-secondary" onClick={onClose}>
-          Annuler
+          {t('Annuler')}
         </button>
         <button className="btn-primary" disabled={dest === target.from} onClick={move}>
-          Déplacer ici
+          {t('Déplacer ici')}
         </button>
       </div>
     </Modal>

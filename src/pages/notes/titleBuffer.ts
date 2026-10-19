@@ -3,6 +3,8 @@
 // the keyboard on phones), keeps what is typed, and hands it over to the new note's title.
 // Enter or Tab ends the title, as in the real title field: what comes after goes to the content.
 
+import { t } from '../../i18n';
+
 const ID = 'note-title-buffer';
 
 const buffer = () => document.getElementById(ID) as HTMLTextAreaElement | null;
@@ -11,7 +13,7 @@ export function startTitleBuffer() {
   buffer()?.remove();
   const el = document.createElement('textarea');
   el.id = ID;
-  el.setAttribute('aria-label', 'Titre de la note');
+  el.setAttribute('aria-label', t('Titre de la note'));
   el.setAttribute('autocomplete', 'off');
   // 16 px: no zoom on iPhone when it takes the focus.
   el.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;padding:0;border:0;opacity:0;font-size:16px;resize:none;pointer-events:none';
