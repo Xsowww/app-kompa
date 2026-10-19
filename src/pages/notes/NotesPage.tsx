@@ -344,7 +344,7 @@ export default function NotesPage() {
       onDragStart={e => e.dataTransfer.setData(DRAG_NOTE, n.id)}
       onContextMenu={e => { e.preventDefault(); setMenu({ ...menuPoint(e), items: noteMenu(n) }); }}
       className={cx(
-        'group flex h-8 items-center gap-1 rounded-md pr-1 text-[13px] transition-colors pointer-coarse:h-9',
+        'list-row group flex h-8 items-center gap-1 rounded-md pr-1 text-[13px] transition-colors pointer-coarse:h-9',
         n.id === noteId ? 'bg-stone-100 font-medium text-ink' : 'text-stone-600 hover:bg-stone-50 hover:text-ink',
       )}
     >

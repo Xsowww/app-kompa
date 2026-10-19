@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CalendarRange, CloudOff, Link2, Plus, Settings2, Users } from 'lucide-react';
 import { useAuth } from '../../store/auth';
-import { useGroups, watchFocus } from '../../store/groups';
+import { prefetchGroup, useGroups, watchFocus } from '../../store/groups';
 import { Modal } from '../../components/Overlays';
 import { cloudEnabled } from '../../lib/supabase';
 import { copyInviteLink, setGroupSpace } from '../../lib/groups';
@@ -114,6 +114,7 @@ function Agendas() {
                 role="tab"
                 aria-selected={g.id === active?.id}
                 onClick={() => open(g.id)}
+                onPointerEnter={() => prefetchGroup(g.id)}
                 className={cx(
                   'flex h-9 shrink-0 items-center gap-2 rounded-full border pl-1 pr-3 text-[13px] font-medium transition-colors',
                   g.id === active?.id ? 'border-stone-300 bg-surface text-ink shadow-card' : 'border-stone-200 text-stone-600 hover:bg-stone-100',

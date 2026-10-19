@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Bell, BookOpenCheck, Check, ClipboardList, FileText, FolderOpen, Loader2, Mic, MonitorSpeaker, RotateCcw, Square, Star, Trash2 } from 'lucide-react';
 import { Modal } from '../../components/Overlays';
 import { useSettings } from '../../store/settings';
+import { SelectField } from '../../components/Pickers';
 import { useDrive, pathOf } from '../../store/drive';
 import { confirmAction } from '../../store/ui';
 import {
@@ -206,12 +207,16 @@ function AlertSettings({ onClose }: { onClose: () => void }) {
           <span className="min-w-0 flex-1 font-medium">{t('Alertes aussi sur mon téléphone')}</span>
           <Toggle checked={phone} onChange={v => useSettings.getState().set({ coursePhone: v })} label={t('Alertes aussi sur mon téléphone')} />
         </div>
-        <label className="flex items-center gap-3">
+        <div className="flex items-center gap-3">
           <span className="min-w-0 flex-1 font-medium">{t('Prévenir si personne ne parle pendant')}</span>
-          <select className="field h-8 w-auto py-0 text-[13px]" value={silence} onChange={e => useSettings.getState().set({ courseSilenceMinutes: Number(e.target.value) })}>
-            {[1, 2, 3, 5, 10].map(m => <option key={m} value={m}>{t('{min} min', { min: m })}</option>)}
-          </select>
-        </label>
+          <SelectField<number>
+            className="h-8 w-auto text-[13px]"
+            label={t('Prévenir si personne ne parle pendant')}
+            value={silence}
+            options={[1, 2, 3, 5, 10].map(m => ({ value: m, label: t('{min} min', { min: m }) }))}
+            onChange={m => useSettings.getState().set({ courseSilenceMinutes: m })}
+          />
+        </div>
       </div>
       <div className="mt-5 flex justify-end">
         <button type="button" className="btn-primary" onClick={onClose}>OK</button>

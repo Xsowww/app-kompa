@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, CalendarClock, CloudOff, Copy, ImagePlus, Link2, LogIn, NotebookText, Paperclip, Plus, Settings2, Users } from 'lucide-react';
 import { imageToAvatar } from '../../lib/backup';
 import { useAuth } from '../../store/auth';
-import { useGroups, watchFocus } from '../../store/groups';
+import { prefetchGroup, useGroups, watchFocus } from '../../store/groups';
 import { useGroupActivity, totalUnread } from '../../store/groupActivity';
 import { toast } from '../../store/ui';
 import { Modal } from '../../components/Overlays';
@@ -251,6 +251,7 @@ function Groups() {
             <button
               key={g.id}
               onClick={() => go(g.id)}
+              onPointerEnter={() => prefetchGroup(g.id)}
               className={cx(
                 'flex w-full items-center gap-2.5 rounded-lg border px-2 py-2 text-left transition-colors',
                 g.id === active?.id ? 'border-stone-200 bg-surface shadow-card' : 'border-transparent hover:bg-stone-100',

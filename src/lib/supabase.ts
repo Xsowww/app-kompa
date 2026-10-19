@@ -7,6 +7,9 @@ import { t } from '../i18n';
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
+/** This page was opened by a sign-in link (e-mail confirmation, Google…): read before the client clears the URL. */
+export const arrivedWithLink = typeof location !== 'undefined' && /(?:^|[#&?])(?:access_token|code)=/.test(location.hash + location.search);
+
 /** Set just before leaving for Google or Apple: an error on the way back is theirs, not an e-mail link's. */
 export const OAUTH_KEY = 'cop-oauth';
 

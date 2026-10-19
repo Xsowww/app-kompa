@@ -1,6 +1,7 @@
-import { createJSONStorage } from 'zustand/middleware';
+import type { PersistStorage } from 'zustand/middleware';
 import { useUi } from '../store/ui';
 import { cloudEnabled } from './supabase';
+import { t } from '../i18n';
 
 // Every data store is persisted under a key prefixed by the signed-in user's id,
 // so each account on this browser has its own Drive, calendar and notes.
@@ -8,6 +9,7 @@ import { cloudEnabled } from './supabase';
 let currentUserId: string | null = null;
 
 export function setStorageUser(id: string | null) {
+  if (id !== currentUserId) flushStorage(); // what the previous account changed goes under its own keys
   currentUserId = id;
 }
 
@@ -15,12 +17,21 @@ export function getStorageUser() {
   return currentUserId;
 }
 
-export const userStorage = createJSONStorage(() => ({
-  getItem: (name: string) => (currentUserId ? localStorage.getItem(`cop:${currentUserId}:${name}`) : null),
-  setItem: (name: string, value: string) => {
-    if (!currentUserId) return;
+// Saves are grouped: a store changes many times in a row (each key typed in a note, a sync bringing
+// hundreds of rows), and writing it whole each time (the notes can weigh megabytes) made the page lag.
+// The latest state is kept here and written a moment later, or at once when the page is left.
+const pending = new Map<string, unknown>();
+let timer: ReturnType<typeof setTimeout> | undefined;
+const keyOf = (name: string) => `cop:${currentUserId}:${name}`;
+
+/** Writes the saves still waiting (the page is being left, the account changes…). */
+export function flushStorage() {
+  clearTimeout(timer);
+  timer = undefined;
+  for (const [key, value] of pending) {
+    const name = key.slice(key.indexOf(':', 4) + 1);
     try {
-      localStorage.setItem(`cop:${currentUserId}:${name}`, value);
+      localStorage.setItem(key, JSON.stringify(value));
       failing.delete(name);
     } catch {
       // Browser storage full (usually many images pasted in notes). Without this, the error
@@ -28,11 +39,43 @@ export const userStorage = createJSONStorage(() => ({
       failing.add(name);
       warnFull();
     }
+  }
+  pending.clear();
+}
+
+/** An account's data removed from this device: its saves still waiting must not bring it back. */
+export function dropPendingStorage(userId: string) {
+  for (const key of [...pending.keys()]) if (key.startsWith(`cop:${userId}:`)) pending.delete(key);
+}
+
+if (typeof window !== 'undefined') {
+  addEventListener('pagehide', flushStorage);
+  document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && flushStorage());
+}
+
+export const userStorage: PersistStorage<unknown> = {
+  getItem: name => {
+    if (!currentUserId) return null;
+    const key = keyOf(name);
+    if (pending.has(key)) return pending.get(key) as ReturnType<PersistStorage<unknown>['getItem']>;
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
   },
-  removeItem: (name: string) => {
-    if (currentUserId) localStorage.removeItem(`cop:${currentUserId}:${name}`);
+  setItem: (name, value) => {
+    if (!currentUserId) return;
+    pending.set(keyOf(name), value);
+    timer ??= setTimeout(flushStorage, 400);
   },
-}));
+  removeItem: name => {
+    if (!currentUserId) return;
+    pending.delete(keyOf(name));
+    localStorage.removeItem(keyOf(name));
+  },
+};
 
 // Stores whose last save failed (a small store saved fine meanwhile doesn't mean the notes are).
 const failing = new Set<string>();
@@ -47,8 +90,8 @@ function warnFull() {
   warnedAt = Date.now();
   useUi.getState().toast(
     cloudEnabled
-      ? 'Mémoire du navigateur pleine : tout reste enregistré en ligne, mais plus hors ligne sur cet appareil. Allège les images de tes notes.'
-      : 'Mémoire du navigateur pleine : tes dernières modifications ne sont pas enregistrées. Retire des images de tes notes ou exporte une sauvegarde.',
+      ? t('Mémoire du navigateur pleine : tout reste enregistré en ligne, mais plus hors ligne sur cet appareil. Allège les images de tes notes.')
+      : t('Mémoire du navigateur pleine : tes dernières modifications ne sont pas enregistrées. Retire des images de tes notes ou exporte une sauvegarde.'),
     'error',
   );
 }

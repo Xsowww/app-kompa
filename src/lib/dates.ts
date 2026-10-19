@@ -5,8 +5,14 @@ import { parseQuickAddIn } from './quickAddOther';
 
 const DATE_LOCALE = { fr, en: enGB, es, de, it }[lang];
 
-export const toKey = (d: Date) => format(d, 'yyyy-MM-dd');
-export const fromKey = (k: string) => parseISO(k);
+// Called thousands of times per render (calendar, badges, reminders): plain string work, not date-fns.
+const pad = (n: number) => (n < 10 ? `0${n}` : String(n));
+export const toKey = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const KEY = /^(\d{4})-(\d{2})-(\d{2})$/;
+export const fromKey = (k: string) => {
+  const m = KEY.exec(k);
+  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : parseISO(k);
+};
 export const todayKey = () => toKey(new Date());
 /** A real yyyy-MM-dd day (« abc » or « 2026-02-30 » from a damaged link give null). */
 export const validKey = (k: string | null | undefined): string | null => {

@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { uid, nowIso } from '../lib/utils';
-import { setStorageUser } from '../lib/userStorage';
+import { dropPendingStorage, setStorageUser } from '../lib/userStorage';
 import { flushNow, stopSync, updateCloudProfile } from '../lib/cloudSync';
-import { supabase, checkPassword, remembered, authStorageKey, revokeSession, OAUTH_KEY, type OAuthProvider } from '../lib/supabase';
+import { supabase, checkPassword, remembered, authStorageKey, revokeSession, OAUTH_KEY, arrivedWithLink, type OAuthProvider } from '../lib/supabase';
 import { captchaToken } from '../lib/captcha';
 import { forgetAfterLogin } from '../lib/afterLogin';
 import { rememberAccount, updateSession, forgetAccount, lockAccount, savedAccount, needsCredentials } from '../lib/accounts';
@@ -158,6 +158,7 @@ async function checkLocalPassword(userId: string | undefined, password: string) 
 }
 
 function clearLocalCache(userId: string) {
+  dropPendingStorage(userId);
   for (const key of Object.keys(localStorage)) if (key.startsWith(`cop:${userId}:`)) localStorage.removeItem(key);
 }
 
@@ -269,7 +270,12 @@ export const useAuth = create<AuthState>((set, get) => ({
   async init() {
     if (!supabase) return;
     const { data } = await supabase.auth.getSession();
-    const user = data.session ? fromSupabase(data.session.user) : null;
+    // The sign-up tab waiting for its e-mail, reloaded once the link opened the account in another tab:
+    // it says so instead of opening the account a second time (the link's own tab goes on as usual).
+    if (arrivedWithLink) awaitConfirmation(false);
+    const elsewhere = !!data.session && awaiting();
+    if (elsewhere) set({ confirmedElsewhere: true });
+    const user = data.session && !elsewhere ? fromSupabase(data.session.user) : null;
     const mfaStep = user ? await nextMfaStep() : null;
     setStorageUser(user && !mfaStep ? user.id : null);
     set({ user, mfaStep });
@@ -292,8 +298,7 @@ export const useAuth = create<AuthState>((set, get) => ({
     const adopt = () => {
       if (get().confirmedElsewhere) return; // already said (the event and the return to the tab both come here)
       if (!awaiting()) return location.reload();
-      awaitConfirmation(false);
-      set({ confirmedElsewhere: true });
+      set({ confirmedElsewhere: true }); // the mark stays: a reload says it again, « Continuer ici » clears it
       window.close();
     };
     // Account put aside in another tab (« Se déconnecter », « Ajouter un compte »): no session here either.
@@ -378,6 +383,7 @@ export const useAuth = create<AuthState>((set, get) => ({
       const user = fromSupabase(data.user!);
       const mfaStep = await nextMfaStep();
       if (!mfaStep) setStorageUser(user.id);
+      awaitConfirmation(false); // signed in here: this tab no longer waits for an e-mail
       set({ user, mfaStep });
       return user;
     }

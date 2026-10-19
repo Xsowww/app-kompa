@@ -268,7 +268,14 @@ export default function AuthPage({ mode }: { mode: Mode }) {
               <CheckCircle2 size={36} className="mx-auto text-emerald-600" aria-hidden />
               <h1 className="mt-4 text-[24px] font-extrabold tracking-[-0.03em]">{t('Adresse confirmée')}</h1>
               <p className="mt-2 text-[13.5px] text-stone-500">{t('Ton compte est ouvert dans l’autre onglet. Tu peux fermer celui-ci.')}</p>
-              <button type="button" className="btn-secondary mt-6" onClick={() => location.reload()}>
+              <button
+                type="button"
+                className="btn-secondary mt-6"
+                onClick={() => {
+                  awaitConfirmation(false);
+                  location.reload();
+                }}
+              >
                 {t('Continuer ici')}
               </button>
             </div>

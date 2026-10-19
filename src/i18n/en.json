@@ -1297,6 +1297,8 @@
  "Médicaments": "Medication",
  "Mémoire": "Memory",
  "Mémoire du navigateur pleine : image non ajoutée. Retire des images de tes notes ou exporte une sauvegarde.": "Browser storage full: image not added. Remove images from your notes or export a backup.",
+ "Mémoire du navigateur pleine : tes dernières modifications ne sont pas enregistrées. Retire des images de tes notes ou exporte une sauvegarde.": "Browser storage full: your latest changes aren’t saved. Remove images from your notes or export a backup.",
+ "Mémoire du navigateur pleine : tout reste enregistré en ligne, mais plus hors ligne sur cet appareil. Allège les images de tes notes.": "Browser storage full: everything is still saved online, but no longer offline on this device. Use lighter images in your notes.",
  "Mémoire réinitialisée": "Memory reset",
  "Métier": "Job",
  "Même quand Kompaly est fermé.": "Even when Kompaly is closed.",

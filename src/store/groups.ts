@@ -165,6 +165,21 @@ export const useGroups = create<GroupsState>((set, get) => {
   };
 });
 
+/** The list, read early (app opened): the Groups and Agendas pages then show it at once. */
+export function prefetchGroups() {
+  const { loaded, loadGroups } = useGroups.getState();
+  if (!loaded && supabase) void loadGroups();
+}
+
+const prefetched = new Set<string>();
+/** A group's content, read when the pointer reaches it: it opens already filled. */
+export function prefetchGroup(id: string) {
+  const s = useGroups.getState();
+  if (!supabase || prefetched.has(id) || s.activeId === id || s.members[id]) return;
+  prefetched.add(id);
+  void s.refresh(id);
+}
+
 /** Relit tout quand on revient sur l'onglet (au cas où le temps réel a décroché). */
 export function watchFocus(): () => void {
   const onVisible = () => {

@@ -250,6 +250,16 @@ body {
 @utility field {
   @apply h-10 rounded-[14px] border border-stone-200 bg-surface px-3.5 text-[13.5px] text-ink outline-none transition placeholder:text-stone-500 focus:border-focus focus:ring-1 focus:ring-focus pointer-coarse:min-h-9;
 }
+/* A row of a long list (notes, tasks, files): the browser lays out and paints only the rows on screen.
+   `auto` keeps the size measured once the row was shown, so scrolling doesn't jump. */
+@utility list-row {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 2.25rem;
+  /* The row clips what is drawn outside it: the keyboard focus ring goes inside. */
+  &:focus-visible, & :focus-visible {
+    outline-offset: -2px;
+  }
+}
 @utility eyebrow {
   @apply text-[12px] font-medium text-stone-500;
 }

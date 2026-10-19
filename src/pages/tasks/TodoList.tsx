@@ -1,5 +1,5 @@
 import { useToday } from '../../lib/useToday';
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Bell, BellRing, CalendarPlus, Check, ChevronRight, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useTodos, type Todo } from '../../store/todos';
@@ -82,12 +82,13 @@ const GoesIn = ({ minutes }: { minutes: number }) => (
   <span className="block text-[11.5px] font-medium text-emerald-700 dark:text-emerald-400">{t('Se supprime dans {n} min', { n: minutes })}</span>
 );
 
-function TodoRow({ t: todo, editable, preview, now = 0 }: { t: Todo; editable?: boolean; preview?: boolean; now?: number }) {
+// memo: ticking one task re-renders its row only, not the whole list.
+const TodoRow = memo(function TodoRow({ t: todo, editable, preview, now = 0 }: { t: Todo; editable?: boolean; preview?: boolean; now?: number }) {
   // A ticked task is shown green at the bottom of the list until it goes (SETTLE_MS).
   const justDone = todo.done;
   // (`now` can lag behind a tick just made: never more than the 30 minutes)
   const minutesLeft = justDone && todo.doneAt ? Math.min(SETTLE_MS / 60_000, Math.max(1, Math.ceil((Date.parse(todo.doneAt) + SETTLE_MS - now) / 60_000))) : 0;
-  const { toggle, remove, update } = useTodos();
+  const { toggle, remove, update } = useTodos.getState();
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(todo.title);
   // The date button the small calendar hangs from while it is open.
@@ -118,7 +119,7 @@ function TodoRow({ t: todo, editable, preview, now = 0 }: { t: Todo; editable?: 
   };
 
   return (
-    <li ref={rowRef} className="group flex min-h-9 items-center gap-2 rounded-lg sm:gap-3 px-1.5 py-1 transition-colors hover:bg-stone-50">
+    <li ref={rowRef} className="list-row group flex min-h-9 items-center gap-2 rounded-lg sm:gap-3 px-1.5 py-1 transition-colors hover:bg-stone-50">
       <button
         data-todo={todo.id}
         onClick={() => {
@@ -264,7 +265,7 @@ function TodoRow({ t: todo, editable, preview, now = 0 }: { t: Todo; editable?: 
       </button>}
     </li>
   );
-}
+});
 
 function QuickAdd() {
   const add = useTodos(s => s.add);
@@ -390,7 +391,7 @@ export default function TodoList({ limit, grouped }: { limit?: number; grouped?:
               )}
               <ul className="-mx-1.5">
                 {g.items.map(x => (
-                  <TodoRow key={x.id} t={x} editable={grouped} preview={preview} now={now} />
+                  <TodoRow key={x.id} t={x} editable={grouped} preview={preview} now={x.done ? now : 0} />
                 ))}
               </ul>
             </div>

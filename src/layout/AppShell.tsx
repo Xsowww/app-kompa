@@ -13,6 +13,7 @@ import Avatar from '../components/Avatar';
 import FocusTimer from '../components/FocusTimer';
 import { cx } from '../lib/utils';
 import { adminPendingCount, checkIsAdmin, cloudEnabled } from '../lib/supabase';
+import { prefetchGroups } from '../store/groups';
 import { startReminders } from '../lib/reminderScheduler';
 import { useAgendaNews, totalAgendaNews, watchAgendaNews } from '../store/agendaNews';
 import { useUi } from '../store/ui';
@@ -243,6 +244,13 @@ export default function AppShell() {
   useEffect(() => sessionStorage.removeItem(PENDING_INVITE), []);
   useInvitations(pendingInvite);
   useEffect(() => startProactive(), []);
+  // Shared spaces read in the background once the page is up: their pages open at once.
+  useEffect(() => {
+    if (!cloudEnabled) return;
+    const idle = window.requestIdleCallback ?? ((f: () => void) => setTimeout(f, 1500));
+    const id = idle(() => prefetchGroups());
+    return () => (window.cancelIdleCallback ?? clearTimeout)(id as number);
+  }, [user.id]);
   // Rappels des événements et des tâches (dans l'appli, et par notifications push en ligne).
   useEffect(() => startReminders(user.id), [user.id]);
 

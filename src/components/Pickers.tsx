@@ -416,13 +416,16 @@ export interface Choice<T extends string | number> {
 }
 
 /** One choice among a few, in a list under the button (instead of the browser's « select »). */
-export function SelectField<T extends string | number>({ value, options, onChange, label, className, disabled }: {
+export function SelectField<T extends string | number>({ value, options, onChange, label, className, disabled, bare, icon }: {
   value: T;
   options: Choice<T>[];
   onChange: (v: T) => void;
   label: string;
   className?: string;
   disabled?: boolean;
+  /** A small text button (page header) instead of a form field. */
+  bare?: boolean;
+  icon?: ReactNode;
 }) {
   const btn = useRef<HTMLButtonElement>(null);
   // The button the panel hangs from while open (null: closed).
@@ -444,10 +447,17 @@ export function SelectField<T extends string | number>({ value, options, onChang
         aria-expanded={open}
         aria-label={t('{label} : {value}', { label, value: current?.label ?? '—' })}
         onClick={() => setOpen(o => !o)}
-        className={cx('field flex items-center gap-2 text-left disabled:cursor-not-allowed disabled:opacity-50', open && 'border-focus ring-1 ring-focus', className)}
+        className={cx(
+          bare
+            ? 'inline-flex items-center gap-1.5 rounded-lg px-1.5 text-[12px] font-medium text-stone-500 transition-colors hover:text-ink'
+            : cx('field flex items-center gap-2 text-left', open && 'border-focus ring-1 ring-focus'),
+          'disabled:cursor-not-allowed disabled:opacity-50',
+          className,
+        )}
       >
-        <span className="min-w-0 flex-1 truncate">{current?.label ?? '—'}</span>
-        <ChevronDown size={15} className={cx('shrink-0 text-stone-400 transition-transform', open && 'rotate-180')} aria-hidden />
+        {icon}
+        <span className={cx('min-w-0 truncate', !bare && 'flex-1')}>{current?.label ?? '—'}</span>
+        <ChevronDown size={bare ? 13 : 15} className={cx('shrink-0 text-stone-400 transition-transform', open && 'rotate-180')} aria-hidden />
       </button>
       {anchor && (
         <Popover anchor={anchor} onClose={() => setOpen(false)} label={label} className="p-1">
