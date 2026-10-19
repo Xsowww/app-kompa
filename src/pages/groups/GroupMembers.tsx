@@ -89,7 +89,7 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
         <div className="card flex flex-wrap items-center gap-3 p-4">
           <div className="min-w-[220px] flex-1">
             <p className="text-[14px] font-medium">Inviter quelqu’un</p>
-            <p className="mt-0.5 text-[13px] text-stone-500">Envoie le lien : en cliquant dessus, la personne rejoint {w.the} (après s’être connectée). Tu seras prévenu.</p>
+            <p className="mt-0.5 text-[13px] text-stone-500">Envoie le lien : en cliquant dessus, la personne rejoint {w.the} (après s’être connectée). Tu recevras une notification.</p>
           </div>
           <div className="flex gap-1.5">
             <button className="btn-primary h-8 px-3" onClick={() => void copyInviteLink(code, 'agenda')}>
@@ -145,7 +145,7 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
             {m.isOwner ? (
               <span className="rounded-md bg-stone-100 px-2 py-0.5 text-[11px] font-medium text-stone-600">Propriétaire</span>
             ) : isOwner ? (
-              <div className="ml-auto flex shrink-0 items-center gap-3">
+              <div className="ml-auto flex flex-wrap items-center gap-x-3 gap-y-2">
                 <SelectField<GroupRole>
                   className="h-9 w-32 text-[13px]"
                   label={`Rôle de ${m.name}`}

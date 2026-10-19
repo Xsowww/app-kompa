@@ -260,7 +260,7 @@ function Groups() {
               <GroupBadge group={g} size={28} />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[13px] font-medium">{g.name}</span>
-                <span className="block text-[11px] text-stone-500">{g.ownerId === userId ? 'Tu l’as créé' : 'Membre'}</span>
+                <span className="block text-[11px] text-stone-500">{g.ownerId === userId ? (w.a.startsWith('une ') ? 'Tu l’as créée' : 'Tu l’as créé') : 'Membre'}</span>
               </span>
               {totalUnread(unread[g.id]) > 0 && g.id !== active?.id && (
                 <span className="rounded-full bg-brand-solid px-1.5 text-[11px] font-semibold leading-[18px] text-on-brand tabular" aria-label={`${totalUnread(unread[g.id])} nouveautés`}>

@@ -24,14 +24,13 @@ import {
 import { canShareComputer, canUseMic, type SourceKind } from '../../lib/recorder/capture';
 import { serverState } from '../../lib/recorder/api';
 import { clock, courseMarkdown, duration } from '../../lib/recorder/course';
-import { normalize } from '../../lib/keywords';
+import { keywordsFor, normalize } from '../../lib/keywords';
 import { cx } from '../../lib/utils';
 import { Toggle } from '../profile/controls';
 import MoveDialog from '../drive/MoveDialog';
 import KeywordsEditor from './KeywordsEditor';
 import Transcript, { Alerts } from './Transcript';
-
-const MAKE_LABEL: Record<Make, string> = { fiche: 'Fiche de révision', examen: 'Examen d’entraînement' };
+import { useRecWords } from './words';
 
 /** Ticks every second while `on`. */
 function useTick(on: boolean) {
@@ -63,7 +62,8 @@ function Setup() {
   const history = useRecorder(s => s.history);
   const remembered = useRecorder(s => s.folders);
   const make = useSettings(s => s.courseMake);
-  const keywords = useSettings(s => s.courseKeywords);
+  const keywords = keywordsFor(useSettings(s => s.courseKeywords), useSettings(s => s.usage));
+  const w = useRecWords();
   const [title, setTitle] = useState('');
   const [source, setSource] = useState<SourceKind>(canUseMic() ? 'micro' : 'onglet');
   // null: a folder at the class's name in Mon Drive (or the one used last time for that name).
@@ -78,7 +78,7 @@ function Setup() {
     serverState().then(setServer, () => setServer(null));
   }, []);
 
-  const name = title.trim() || 'Cours';
+  const name = title.trim() || w.fallback;
   const known = remembered[normalize(title)];
   const target = picked ? { id: picked.id, own: false } : known !== undefined ? { id: known, own: false } : { id: null, own: true };
   const where = [...pathOf(items, target.id).map(i => i.name), ...(target.own ? [name] : [])].join(' / ') || 'Mon Drive';
@@ -108,8 +108,8 @@ function Setup() {
         className="field h-12 w-full text-[16px] font-medium"
         value={title}
         onChange={e => setTitle(e.target.value)}
-        placeholder="Nom du cours"
-        aria-label="Nom du cours"
+        placeholder={w.name}
+        aria-label={w.name}
         list="cours-titres"
         maxLength={100}
         autoComplete="off"
@@ -144,7 +144,7 @@ function Setup() {
       {picking && (
         <MoveDialog
           ids={[]}
-          title="Où ranger le cours ?"
+          title={w.where}
           confirm="Choisir ce dossier"
           initial={target.id}
           onClose={() => setPicking(false)}
@@ -163,10 +163,10 @@ function Setup() {
             type="button"
             aria-pressed={make[k]}
             onClick={() => useSettings.getState().set({ courseMake: { ...make, [k]: !make[k] } })}
-            className={cx('flex h-8 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium ring-1 ring-inset transition-colors', make[k] ? 'bg-ink text-paper ring-ink' : 'bg-surface text-stone-600 ring-stone-200 hover:text-ink')}
+            className={cx('flex h-8 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium ring-1 ring-inset transition-colors pointer-coarse:h-9', make[k] ? 'bg-ink text-paper ring-ink' : 'bg-surface text-stone-600 ring-stone-200 hover:text-ink')}
           >
             {make[k] ? <Check size={13} strokeWidth={3} aria-hidden /> : k === 'fiche' ? <ClipboardList size={14} aria-hidden /> : <BookOpenCheck size={14} aria-hidden />}
-            {k === 'fiche' ? 'Fiche de révision' : 'Examen'}
+            {w.short[k]}
           </button>
         ))}
       </div>
@@ -228,6 +228,7 @@ function Running({ s }: { s: Session }) {
   const elsewhere = !live.hearing && recordingElsewhere();
   const [busy, setBusy] = useState(false);
   const [settings, setSettings] = useState(false);
+  const w = useRecWords();
   // What the browser heard after the last passage written by the server, then what it is hearing now.
   const lastEnd = s.segments.at(-1)?.end ?? 0;
   const liveText = finishing ? '' : [...s.live.filter(l => l.time > lastEnd + 1).map(l => l.text), live.interim].filter(Boolean).join(' ');
@@ -245,7 +246,7 @@ function Running({ s }: { s: Session }) {
   }, []);
 
   const finish = async () => {
-    if (!(await confirmAction('Terminer l’enregistrement ?', 'Le cours sera rédigé et rangé dans ton Drive.', 'Terminer', false))) return;
+    if (!(await confirmAction('Terminer l’enregistrement ?', w.finish, 'Terminer', false))) return;
     void finishRecording().catch(() => undefined);
   };
   const resume = async () => {
@@ -271,14 +272,14 @@ function Running({ s }: { s: Session }) {
           <span className="min-w-0 truncate text-[14px] font-semibold text-stone-700" title={s.title}>· {s.title}</span>
           {live.hearing && <Level value={live.level} />}
           {!finishing && (
-            <span className="ml-auto flex gap-2">
+            <span className="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto">
               <button type="button" className="btn-secondary h-9 px-2.5" onClick={() => setSettings(true)} title="Mots-clés" aria-label="Mots-clés">
                 <Bell size={15} /> <span className="tabular text-[12.5px]">{s.keywords.length}</span>
               </button>
-              <button type="button" className="btn-secondary h-9" onClick={star} disabled={!live.hearing} title="Marque ce qui vient d’être dit (touche M)">
+              <button type="button" className="btn-secondary h-9 flex-1 sm:flex-none" onClick={star} disabled={!live.hearing} title="Marque ce qui vient d’être dit (touche M)">
                 <Star size={15} className="fill-amber-400 text-amber-500" /> Moment important
               </button>
-              <button type="button" className="btn-primary h-9" onClick={() => void finish()}>
+              <button type="button" className="btn-primary h-9 flex-1 sm:flex-none" onClick={() => void finish()}>
                 <Square size={13} className="fill-current" /> Terminer
               </button>
             </span>
@@ -288,7 +289,7 @@ function Running({ s }: { s: Session }) {
 
         {finishing && !live.step ? (
           <Banner tone="warn">
-            <span className="min-w-0 flex-1">La création des documents s’est interrompue. Rien n’est perdu.</span>
+            <span className="min-w-48 flex-1">La création des documents s’est interrompue. Rien n’est perdu.</span>
             <button type="button" className="btn-secondary h-8 bg-surface text-[12.5px]" onClick={() => void completeDocuments().catch(() => undefined)}>
               <RotateCcw size={13} /> Reprendre
             </button>
@@ -299,7 +300,7 @@ function Running({ s }: { s: Session }) {
           <Banner tone="info">Cet enregistrement tourne dans un autre onglet de ce navigateur.</Banner>
         ) : !live.hearing ? (
           <Banner tone="warn">
-            <span className="min-w-0 flex-1">{live.problem ?? 'L’écoute s’est arrêtée.'} Rien n’est perdu.</span>
+            <span className="min-w-48 flex-1">{live.problem ?? 'L’écoute s’est arrêtée.'} Rien n’est perdu.</span>
             <button type="button" className="btn-secondary h-8 bg-surface text-[12.5px]" disabled={busy} onClick={() => void resume()}>
               <RotateCcw size={13} /> Reprendre l’écoute
             </button>
@@ -349,12 +350,13 @@ function Banner({ tone, children }: { tone: 'warn' | 'info'; children: React.Rea
 /** One line on what happens behind: pieces waiting, parts already written, what's not available. */
 function Status({ s }: { s: Session }) {
   const live = useRecLive();
+  const w = useRecWords();
   const bits: string[] = [];
   if (s.transcriptionOff) bits.push(s.transcriptionOff + (s.source === 'micro' && live.quickLane ? ' La suite est écrite par le navigateur.' : ''));
   else if (live.waiting) bits.push(`Le serveur est occupé : reprise dans ${live.waiting} s.`);
   else if (live.queue > 1) bits.push(`${live.queue} morceaux en cours d’écriture.`);
   if (s.aiOff) bits.push(s.aiOff);
-  else if (s.parts.length) bits.push(`${s.parts.length} partie${s.parts.length > 1 ? 's' : ''} du cours déjà rédigée${s.parts.length > 1 ? 's' : ''}.`);
+  else if (s.parts.length) bits.push(`${s.parts.length} partie${s.parts.length > 1 ? 's' : ''} ${w.ofDoc} déjà rédigée${s.parts.length > 1 ? 's' : ''}.`);
   if (!bits.length) return null;
   return <p className="mb-3 text-[12.5px] text-stone-500" role="status">{bits.join(' ')}</p>;
 }
@@ -379,6 +381,8 @@ function Progress({ step, progress, waiting }: { step: string | null; progress: 
 
 function Done({ s }: { s: Session }) {
   const making = useRecLive(st => st.making);
+  const w = useRecWords();
+  const passages = s.segments.filter(x => x.text).length;
   const md = useMemo(
     () => courseMarkdown({ title: s.title, date: new Date(s.startedAt).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }), seconds: elapsed(s), parts: s.parts, alerts: s.alerts, missing: s.segments.filter(x => x.origin === 'manquant').length }),
     [s],
@@ -389,16 +393,16 @@ function Done({ s }: { s: Session }) {
   }, [md]);
   return (
     <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,8fr)_minmax(0,4fr)]">
-      <section className="card p-5 sm:p-7" aria-label="Le cours rédigé">
+      <section className="card p-5 sm:p-7" aria-label={w.docDone}>
         <div className="doc-preview max-w-none text-[14.5px] leading-relaxed [&_blockquote]:border-l-2 [&_blockquote]:border-stone-300 [&_blockquote]:pl-3 [&_blockquote]:text-stone-600 [&_h1]:text-[24px] [&_h1]:font-bold [&_h2]:mt-6 [&_h2]:text-[18px] [&_h2]:font-semibold [&_h3]:mt-4 [&_h3]:text-[15px] [&_h3]:font-semibold [&_li]:my-1 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:my-2 [&_ul]:list-disc [&_ul]:pl-6" dangerouslySetInnerHTML={{ __html: html }} />
       </section>
-      <aside className="card space-y-4 p-5 sm:p-6 lg:sticky lg:top-2" aria-label="Documents créés">
+      <aside className="card order-first space-y-4 p-5 sm:p-6 lg:sticky lg:top-2 lg:order-none" aria-label="Documents créés">
         <div>
           <p className="flex items-center gap-2 text-[16px] font-semibold">
             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-white"><Check size={14} strokeWidth={3} /></span>
             C’est rangé dans ton Drive
           </p>
-          <p className="mt-1 text-[12.5px] text-stone-500">{duration(elapsed(s))} d’enregistrement · {s.segments.filter(x => x.text).length} passages</p>
+          <p className="mt-1 text-[12.5px] text-stone-500">{duration(elapsed(s))} d’enregistrement · {passages} passage{passages > 1 ? 's' : ''}</p>
         </div>
         <Files files={s.files} pastId={s.id} making={making} />
         <button type="button" className="btn-primary h-10 w-full" onClick={() => useRecorder.getState().discard()}>
@@ -412,16 +416,19 @@ function Done({ s }: { s: Session }) {
 /** The course, its revision sheet and its exam: open them, or make the ones not made yet. */
 function Files({ files, pastId, making, compact }: { files: Past['files']; pastId: string; making: { id: string; kind: Make } | null; compact?: boolean }) {
   const items = useDrive(st => st.items);
+  const w = useRecWords();
   const there = (id?: string) => !!id && items.some(i => i.id === id);
+  // Long names (« Créer les questions de compréhension ») wrap instead of leaving the card on a phone.
+  const size = compact ? 'h-auto min-h-8 py-1.5 text-[12.5px] pointer-coarse:min-h-9' : 'h-auto min-h-10 py-2';
   const row = (label: string, icon: React.ReactNode, id: string | undefined, kind?: Make) => {
     const busy = making?.id === pastId && making.kind === kind;
     return there(id) ? (
-      <button type="button" className={cx('btn-secondary w-full justify-start', compact ? 'h-8 text-[12.5px]' : 'h-10')} onClick={() => openInDrive(id!)}>
+      <button type="button" className={cx('btn-secondary w-full justify-start whitespace-normal text-left', size)} onClick={() => openInDrive(id!)}>
         {icon} {label}
       </button>
     ) : kind ? (
-      <button type="button" className={cx('btn-ghost w-full justify-start border border-dashed border-stone-300', compact ? 'h-8 text-[12.5px]' : 'h-10')} disabled={!!making} onClick={() => void makeLater(pastId, kind)}>
-        {busy ? <Loader2 size={15} className="animate-spin" /> : icon} {busy ? 'Création…' : kind === 'fiche' ? 'Créer la fiche' : compact ? 'Créer l’examen' : 'Créer l’examen d’entraînement'}
+      <button type="button" className={cx('btn-ghost w-full justify-start whitespace-normal border border-dashed border-stone-300 text-left', size)} disabled={!!making} onClick={() => void makeLater(pastId, kind)}>
+        {busy ? <Loader2 size={15} className="animate-spin" /> : icon} {busy ? 'Création…' : (compact ? w.create : w.createLong)[kind]}
       </button>
     ) : (
       <p className="text-[12.5px] text-stone-500">Le document n’est plus dans le Drive.</p>
@@ -429,9 +436,9 @@ function Files({ files, pastId, making, compact }: { files: Past['files']; pastI
   };
   return (
     <div className={cx('grid gap-2', compact && 'sm:grid-cols-3')}>
-      {row('Le cours', <FileText size={15} />, files.cours)}
-      {row(MAKE_LABEL.fiche, <ClipboardList size={15} />, files.fiche, 'fiche')}
-      {row(MAKE_LABEL.examen, <BookOpenCheck size={15} />, files.examen, 'examen')}
+      {row(w.doc, <FileText size={15} />, files.cours)}
+      {row((compact ? w.short : w.long).fiche, <ClipboardList size={15} />, files.fiche, 'fiche')}
+      {row((compact ? w.short : w.long).examen, <BookOpenCheck size={15} />, files.examen, 'examen')}
     </div>
   );
 }
@@ -439,10 +446,11 @@ function Files({ files, pastId, making, compact }: { files: Past['files']; pastI
 function History() {
   const history = useRecorder(s => s.history);
   const making = useRecLive(s => s.making);
+  const w = useRecWords();
   if (!history.length) return null;
   return (
     <section className="mt-8" aria-labelledby="cours-passes">
-      <h2 id="cours-passes" className="mb-3 text-[16px] font-semibold">Cours enregistrés</h2>
+      <h2 id="cours-passes" className="mb-3 text-[16px] font-semibold">{w.history}</h2>
       <ul className="space-y-2.5">
         {history.map(h => (
           <li key={h.id} className="card flex flex-col gap-3 p-4 lg:flex-row lg:items-center">

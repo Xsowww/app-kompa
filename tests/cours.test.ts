@@ -161,3 +161,15 @@ describe('rédaction selon l’usage', () => {
     for (const u of Object.values(SYSTEMS) as Record<string, string>[]) expect(u.partie).toMatch(/TITRE:[^]*POINTS:/);
   });
 });
+
+describe('mots-clés par défaut selon l’usage', () => {
+  it('une liste jamais modifiée suit l’usage, une liste à soi reste', async () => {
+    const { KEYWORDS_BY_USAGE, keywordsFor } = await import('../src/lib/keywords');
+    const etudes = KEYWORDS_BY_USAGE.etudes.map(k => (k.word === 'important' ? { ...k, notify: false } : k));
+    const pro = keywordsFor(etudes, 'travail');
+    expect(pro.map(k => k.word)).toContain('décision');
+    expect(pro.find(k => k.word === 'important')?.notify).toBe(false);
+    const mine = [{ word: 'Hugo', notify: true }];
+    expect(keywordsFor(mine, 'travail')).toEqual(mine);
+  });
+});

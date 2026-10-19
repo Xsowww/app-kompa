@@ -188,5 +188,5 @@ export function chunkText(text: string, size = 10_000): string[] {
 /** « 2026-10-19 – Droit des contrats » : how the files of a class are named. */
 export function baseName(title: string, date: Date): string {
   const d = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-  return `${d} – ${title.replace(/[\\/:*?"<>|]+/g, '-').trim() || 'Cours'}`;
+  return `${d} – ${title.replace(/[\\/:*?"<>|]+/g, '-').trim() || 'Enregistrement'}`;
 }

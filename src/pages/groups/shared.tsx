@@ -44,7 +44,7 @@ export function ColorPicker({ value, onChange }: { value: string; onChange: (c: 
           role="radio"
           aria-checked={value === c}
           onClick={() => onChange(c)}
-          className={cx('h-7 w-7 rounded-full transition-transform hover:scale-110', value === c && 'ring-2 ring-offset-2')}
+          className={cx('hit h-7 w-7 rounded-full transition-transform hover:scale-110', value === c && 'ring-2 ring-offset-2')}
           style={{ background: c, ['--tw-ring-color' as string]: c }}
         />
       ))}

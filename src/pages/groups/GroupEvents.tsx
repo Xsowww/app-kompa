@@ -14,9 +14,11 @@ import { groupColor, useGroupWords, useMemberName, useRights } from './util';
 import { useSettings } from '../../store/settings';
 
 const isUrl = (s: string) => /^https?:\/\/\S+$/i.test(s.trim());
+const PLACE_EXAMPLE = { etudes: 'BU, salle B204… ou https://…', travail: 'Salle de réunion… ou https://…', perso: 'Chez Léa… ou https://…' };
 
 function EventForm({ group, onDone }: { group: Group; onDone: () => void }) {
   const w = useGroupWords();
+  const usage = useSettings(s => s.usage);
   const [title, setTitle] = useState('');
   const [date, setDate] = useState(todayKey());
   const [start, setStart] = useState('');
@@ -60,7 +62,7 @@ function EventForm({ group, onDone }: { group: Group; onDone: () => void }) {
       </div>
       <label className="mt-2 block">
         <span className="eyebrow">Lieu ou lien de visio</span>
-        <input value={place} maxLength={300} onChange={e => setPlace(e.target.value)} placeholder="BU, salle B204… ou https://…" className="field mt-1 w-full" />
+        <input value={place} maxLength={300} onChange={e => setPlace(e.target.value)} placeholder={PLACE_EXAMPLE[usage] ?? PLACE_EXAMPLE.etudes} className="field mt-1 w-full" />
       </label>
       {badTime && <p className="mt-2 text-[12px] text-red-600">L’heure de fin doit être après l’heure de début.</p>}
       <div className="mt-4 flex justify-end gap-2">

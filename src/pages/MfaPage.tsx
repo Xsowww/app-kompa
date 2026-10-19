@@ -147,7 +147,7 @@ export default function MfaPage() {
                         </button>
                       </div>
                       <label className="mt-2 flex cursor-pointer items-center gap-2 text-[12.5px] text-stone-600">
-                        <input type="checkbox" checked={keptKey} onChange={e => setKeptKey(e.target.checked)} className="h-4 w-4 accent-[var(--color-ink)]" />
+                        <input type="checkbox" checked={keptKey} onChange={e => setKeptKey(e.target.checked)} className="h-4 w-4 shrink-0 accent-[var(--color-ink)]" />
                         Je l’ai gardée en lieu sûr (gestionnaire de mots de passe, papier…)
                       </label>
                     </>

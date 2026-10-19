@@ -1,15 +1,19 @@
 import { useState } from 'react';
 import { Bell, BellOff, Plus, RotateCcw, X } from 'lucide-react';
 import { useSettings } from '../../store/settings';
-import { DEFAULT_KEYWORDS, cleanKeywords, parseKeywords } from '../../lib/keywords';
+import { KEYWORDS_BY_USAGE, cleanKeywords, keywordsFor, parseKeywords } from '../../lib/keywords';
 import { confirmAction } from '../../store/ui';
 import { cx } from '../../lib/utils';
+import { useRecWords } from './words';
 
 /** Words watched during the class: each one marked in the text, with a notification or not (the bell). */
 export default function KeywordsEditor() {
-  const keywords = useSettings(s => s.courseKeywords);
+  const saved = useSettings(s => s.courseKeywords);
+  const usage = useSettings(s => s.usage);
+  const keywords = keywordsFor(saved, usage);
   const set = (list: typeof keywords) => useSettings.getState().set({ courseKeywords: cleanKeywords(list) });
   const [text, setText] = useState('');
+  const w = useRecWords();
 
   const add = () => {
     const words = parseKeywords(text);
@@ -52,7 +56,7 @@ export default function KeywordsEditor() {
               add();
             }
           }}
-          placeholder="Ajouter un mot (ton prénom, « exposé »…)"
+          placeholder={w.keywordHint}
           aria-label="Ajouter un mot-clé"
           maxLength={120}
         />
@@ -61,11 +65,11 @@ export default function KeywordsEditor() {
         </button>
       </div>
       <p className="mt-2 text-[12px] leading-relaxed text-stone-500">
-        « examen » attrape aussi « examens ».
+        « {w.plural[0]} » attrape aussi « {w.plural[1]} ».
         <button
           type="button"
           className="ml-1 inline-flex items-center gap-1 font-medium text-brand-600 hover:underline"
-          onClick={async () => (await confirmAction('Remettre la liste par défaut ?', 'Tes mots-clés ajoutés seront retirés.', 'Remettre', false)) && set(DEFAULT_KEYWORDS)}
+          onClick={async () => (await confirmAction('Remettre la liste par défaut ?', 'Tes mots-clés ajoutés seront retirés.', 'Remettre', false)) && set(KEYWORDS_BY_USAGE[usage] ?? KEYWORDS_BY_USAGE.etudes)}
         >
           <RotateCcw size={11} aria-hidden /> Liste par défaut
         </button>

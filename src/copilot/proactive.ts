@@ -55,7 +55,8 @@ function canSpeak(n: Nudge) {
 }
 
 async function nudge(n: Nudge) {
-  if (busy || !canSpeak(n)) return false;
+  // Never over the recording page: its buttons are where the bubble opens (and the documents it saves aren't « first files »).
+  if (busy || !canSpeak(n) || (typeof location !== 'undefined' && location.pathname === '/enregistrer')) return false;
   busy = true;
   lastNudge = Date.now();
   useCopilot.getState().remember(n.key);

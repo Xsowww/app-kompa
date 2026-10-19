@@ -15,7 +15,7 @@ import { useDrive, type DriveItem } from './drive';
 import { toast } from './ui';
 import { chime, notify } from '../lib/notify';
 import { serviceWorker } from '../lib/push';
-import { normalize, type Keyword } from '../lib/keywords';
+import { keywordsFor, normalize, type Keyword } from '../lib/keywords';
 import { encodeWav, isSilent } from '../lib/recorder/audio';
 import { startCapture, CaptureError, type Capture, type Piece, type SourceKind } from '../lib/recorder/capture';
 import { startLive, type LiveLane } from '../lib/recorder/live';
@@ -130,6 +130,8 @@ const patch = (fn: (s: Session) => Partial<Session>) =>
 const session = () => useRecorder.getState().session;
 /** The words of the account's usage: a class, a meeting, anything else (« Le cours » / « Le compte rendu »…). */
 const words = () => recWords(getSettings().usage);
+/** The keywords watched (the default list follows the usage). */
+const myKeywords = () => keywordsFor(getSettings().courseKeywords, getSettings().usage);
 const live = (p: Partial<LiveState>) => useRecLive.setState(p);
 
 // ── Running engine (one per tab) ────────────────────────────────────────────
@@ -207,7 +209,7 @@ async function systemAlert(title: string, body: string) {
 /** Asked when a recording starts (the click on « Démarrer »): the keyword alerts need it. */
 export function askNotifications() {
   try {
-    if (typeof Notification !== 'undefined' && Notification.permission === 'default' && useSettings.getState().courseKeywords.some(k => k.notify)) void Notification.requestPermission();
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default' && myKeywords().some(k => k.notify)) void Notification.requestPermission();
   } catch {
     /* not supported */
   }
@@ -215,7 +217,7 @@ export function askNotifications() {
 
 // Keywords changed during the class: watched from now on.
 useSettings.subscribe((st, prev) => {
-  if (st.courseKeywords !== prev.courseKeywords && session()?.phase === 'running') patch(() => ({ keywords: st.courseKeywords }));
+  if ((st.courseKeywords !== prev.courseKeywords || st.usage !== prev.usage) && session()?.phase === 'running') patch(() => ({ keywords: myKeywords() }));
 });
 
 /** Keywords in what was just heard (quick lane or precise lane): marked, and announced once per 30 s each. */
@@ -529,7 +531,7 @@ export async function startRecording(o: StartOptions) {
     source: o.source,
     folderId: o.folderId,
     ...(o.newFolder && { newFolder: o.newFolder }),
-    keywords: useSettings.getState().courseKeywords,
+    keywords: myKeywords(),
     make: o.make,
     startedAt: Date.now(),
     phase: 'running',
