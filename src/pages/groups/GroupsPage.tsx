@@ -18,13 +18,14 @@ import GroupMembers from './GroupMembers';
 import GroupFiles from './GroupFiles';
 import ShareButton from './GroupShare';
 import { showJoined } from './join';
+import { t, tn, locale } from '../../i18n';
 
 type Tab = 'notes' | 'fichiers' | 'revisions' | 'membres';
 const TABS: { id: Tab; label: string; icon: typeof Users }[] = [
-  { id: 'notes', label: 'Notes', icon: NotebookText },
-  { id: 'fichiers', label: 'Fichiers', icon: Paperclip },
-  { id: 'revisions', label: 'Révisions', icon: CalendarClock },
-  { id: 'membres', label: 'Membres', icon: Users },
+  { id: 'notes', label: t('Notes'), icon: NotebookText },
+  { id: 'fichiers', label: t('Fichiers'), icon: Paperclip },
+  { id: 'revisions', label: t('Révisions'), icon: CalendarClock },
+  { id: 'membres', label: t('Membres'), icon: Users },
 ];
 
 
@@ -40,7 +41,7 @@ export function GroupForm({ group, onDone }: { group?: Group; onDone: (g?: Group
     try {
       setPhoto(await imageToAvatar(f, 256));
     } catch {
-      toast('Image illisible : essaie une photo JPEG ou PNG.', 'error');
+      toast(t('Image illisible : essaie une photo JPEG ou PNG.'), 'error');
     }
   };
   const submit = async (e: FormEvent) => {
@@ -67,29 +68,29 @@ export function GroupForm({ group, onDone }: { group?: Group; onDone: (g?: Group
   };
   return (
     <form onSubmit={submit}>
-      <h3 className="text-[15px] font-semibold">{group ? `Paramètres ${w.of}` : `Créer ${w.a}`}</h3>
-      <label className="eyebrow mt-4 block" htmlFor="group-name">Nom</label>
+      <h3 className="text-[15px] font-semibold">{group ? t('Paramètres {of}', { of: w.of }) : t('Créer {a}', { a: w.a })}</h3>
+      <label className="eyebrow mt-4 block" htmlFor="group-name">{t('Nom')}</label>
       <input id="group-name" autoFocus value={name} maxLength={60} onChange={e => setName(e.target.value)} placeholder={w.namePlaceholder} className="field mt-1.5 w-full" />
-      <p className="eyebrow mt-4">Photo</p>
+      <p className="eyebrow mt-4">{t('Photo')}</p>
       <div className="mt-2 flex items-center gap-3">
         <GroupBadge group={{ name: name || '?', color, photo }} size={52} />
         <label className="btn-secondary h-9 cursor-pointer focus-within:ring-2 focus-within:ring-focus">
-          <ImagePlus size={15} aria-hidden /> {photo ? 'Changer' : 'Ajouter une photo'}
+          <ImagePlus size={15} aria-hidden /> {photo ? t('Changer') : t('Ajouter une photo')}
           <input type="file" accept="image/*" className="sr-only" onChange={e => { void pickPhoto(e.target.files?.[0]); e.target.value = ''; }} />
         </label>
         {photo && (
           <button type="button" className="btn-ghost h-9" onClick={() => setPhoto(null)}>
-            Retirer
+            {t('Retirer')}
           </button>
         )}
       </div>
-      <p className="eyebrow mt-4">{photo ? 'Couleur (sans photo)' : 'Couleur'}</p>
+      <p className="eyebrow mt-4">{photo ? t('Couleur (sans photo)') : t('Couleur')}</p>
       <div className="mt-2">
         <ColorPicker value={color} onChange={setColor} />
       </div>
       <div className="mt-6 flex justify-end gap-2">
-        <button type="button" className="btn-secondary" onClick={() => onDone()}>Annuler</button>
-        <button type="submit" className="btn-primary" disabled={!name.trim() || busy}>{group ? 'Enregistrer' : `Créer ${w.the}`}</button>
+        <button type="button" className="btn-secondary" onClick={() => onDone()}>{t('Annuler')}</button>
+        <button type="submit" className="btn-primary" disabled={!name.trim() || busy}>{group ? t('Enregistrer') : t('Créer {the}', { the: w.the })}</button>
       </div>
     </form>
   );
@@ -108,7 +109,7 @@ function JoinForm({ onDone }: { onDone: () => void }) {
     try {
       const id = await joinGroup(clean);
       if (!id) {
-        setError(`${w.none} avec ce code : vérifie-le.`);
+        setError(t('{none} avec ce code : vérifie-le.', { none: w.none }));
         setBusy(false);
         return;
       }
@@ -123,23 +124,23 @@ function JoinForm({ onDone }: { onDone: () => void }) {
   };
   return (
     <form onSubmit={submit}>
-      <h3 className="text-[15px] font-semibold">Rejoindre {w.a}</h3>
-      <p className="mt-1 text-[13px] text-stone-500">Le code à 6 caractères reçu d’un membre.</p>
+      <h3 className="text-[15px] font-semibold">{t('Rejoindre {a}', { a: w.a })}</h3>
+      <p className="mt-1 text-[13px] text-stone-500">{t('Le code à 6 caractères reçu d’un membre.')}</p>
       <input
         autoFocus
         value={code}
         maxLength={8}
         onChange={e => setCode(e.target.value)}
         placeholder="ABC234"
-        aria-label="Code d’invitation"
+        aria-label={t('Code d’invitation')}
         autoCapitalize="characters"
         spellCheck={false}
         className="field mt-4 h-11 w-full text-center font-mono text-[18px] tracking-[0.3em] uppercase"
       />
       {error && <p className="mt-2 text-[12px] text-red-600">{error}</p>}
       <div className="mt-6 flex justify-end gap-2">
-        <button type="button" className="btn-secondary" onClick={() => onDone()}>Annuler</button>
-        <button type="submit" className="btn-primary" disabled={clean.length !== 6 || busy}>Rejoindre</button>
+        <button type="button" className="btn-secondary" onClick={() => onDone()}>{t('Annuler')}</button>
+        <button type="submit" className="btn-primary" disabled={clean.length !== 6 || busy}>{t('Rejoindre')}</button>
       </div>
     </form>
   );
@@ -152,8 +153,8 @@ function Intro({ onCreate, onJoin }: { onCreate: () => void; onJoin: () => void 
       <h2 className="text-[18px] font-semibold tracking-[-0.01em]">{w.introTitle}</h2>
       <p className="mt-1.5 text-[13px] text-stone-500">{w.introText}</p>
       <div className="mt-6 flex flex-wrap gap-2">
-        <button className="btn-primary" onClick={onCreate}><Plus size={15} /> Créer {w.a}</button>
-        <button className="btn-secondary" onClick={onJoin}><LogIn size={15} /> J’ai un code</button>
+        <button className="btn-primary" onClick={onCreate}><Plus size={15} /> {t('Créer {a}', { a: w.a })}</button>
+        <button className="btn-secondary" onClick={onJoin}><LogIn size={15} /> {t('J’ai un code')}</button>
       </div>
     </div>
   );
@@ -166,8 +167,8 @@ function OfflineNotice() {
       <h1 className="pb-4 pt-2 text-[24px] font-semibold tracking-[-0.02em]">{w.Groups}</h1>
       <div className="flex flex-1 flex-col items-center justify-center text-center">
         <CloudOff size={26} strokeWidth={1.5} className="text-stone-300" />
-        <p className="mt-3 text-[14px] font-medium">Disponible dans la version en ligne</p>
-        <p className="mt-1 max-w-sm text-[13px] text-stone-500">Ici, tes données restent dans ce navigateur.</p>
+        <p className="mt-3 text-[14px] font-medium">{t('Disponible dans la version en ligne')}</p>
+        <p className="mt-1 max-w-sm text-[13px] text-stone-500">{t('Ici, tes données restent dans ce navigateur.')}</p>
       </div>
     </div>
   );
@@ -190,7 +191,7 @@ function Groups() {
   const [dialog, setDialog] = useState<'create' | 'join' | 'settings' | null>(null);
 
   const gid = params.get('g');
-  const tab = (tabs.find(t => t.id === params.get('onglet'))?.id ?? tabs[0].id) as Tab;
+  const tab = (tabs.find(x => x.id === params.get('onglet'))?.id ?? tabs[0].id) as Tab;
   const unread = useGroupActivity(s => s.unread);
   const tabNews = gid ? (unread[gid]?.[tab as 'notes'] ?? 0) : 0;
   useEffect(() => {
@@ -219,9 +220,9 @@ function Groups() {
     else if (loaded && gid && !active) setParams({}, { replace: true });
   }, [loaded, gid, active, elsewhere, navigate, setParams]);
 
-  const go = (id: string | null, t: Tab = tabs[0].id) => setParams(id ? (t === tabs[0].id ? { g: id } : { g: id, onglet: t }) : {});
+  const go = (id: string | null, to: Tab = tabs[0].id) => setParams(id ? (to === tabs[0].id ? { g: id } : { g: id, onglet: to }) : {});
 
-  const sorted = [...groups].sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+  const sorted = [...groups].sort((a, b) => a.name.localeCompare(b.name, locale()));
 
   return (
     <div className="flex h-full gap-4 px-4 pb-4 md:px-8">
@@ -231,19 +232,19 @@ function Groups() {
       <aside className={cx('w-full shrink-0 flex-col md:flex md:w-[248px]', active ? 'hidden' : 'flex')}>
         <div className="flex items-center gap-1.5 pb-4 pt-2">
           <h1 className="text-[24px] font-semibold tracking-[-0.02em]">{w.Groups}</h1>
-          <button className="icon-btn ml-auto" title="Rejoindre avec un code" aria-label="Rejoindre avec un code" onClick={() => setDialog('join')}>
+          <button className="icon-btn ml-auto" title={t('Rejoindre avec un code')} aria-label={t('Rejoindre avec un code')} onClick={() => setDialog('join')}>
             <LogIn size={16} />
           </button>
           <button className="btn-primary h-8 px-3" onClick={() => setDialog('create')}>
-            <Plus size={14} /> Créer
+            <Plus size={14} /> {t('Créer')}
           </button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto">
-          {!loaded && <p className="p-4 text-[13px] text-stone-500">Chargement…</p>}
+          {!loaded && <p className="p-4 text-[13px] text-stone-500">{t('Chargement…')}</p>}
           {loaded && failed && (
             <div className="p-4 text-[13px] text-stone-500">
-              Impossible de charger tes {w.groups}.{' '}
-              <button className="font-medium text-ink underline underline-offset-2" onClick={() => void useGroups.getState().loadGroups()}>Réessayer</button>
+              {t('Impossible de charger tes {groups}.', { groups: w.groups })}{' '}
+              <button className="font-medium text-ink underline underline-offset-2" onClick={() => void useGroups.getState().loadGroups()}>{t('Réessayer')}</button>
             </div>
           )}
           {sorted.map(g => (
@@ -258,10 +259,10 @@ function Groups() {
               <GroupBadge group={g} size={28} />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[13px] font-medium">{g.name}</span>
-                <span className="block text-[11px] text-stone-500">{g.ownerId === userId ? (w.a.startsWith('une ') ? 'Tu l’as créée' : 'Tu l’as créé') : 'Membre'}</span>
+                <span className="block text-[11px] text-stone-500">{g.ownerId === userId ? (w.a === t('une équipe') ? t('Tu l’as créée') : t('Tu l’as créé')) : t('Membre')}</span>
               </span>
               {totalUnread(unread[g.id]) > 0 && g.id !== active?.id && (
-                <span className="rounded-full bg-brand-solid px-1.5 text-[11px] font-semibold leading-[18px] text-on-brand tabular" aria-label={`${totalUnread(unread[g.id])} nouveautés`}>
+                <span className="rounded-full bg-brand-solid px-1.5 text-[11px] font-semibold leading-[18px] text-on-brand tabular" aria-label={tn(totalUnread(unread[g.id]), '{n} nouveauté', '{n} nouveautés')}>
                   {totalUnread(unread[g.id])}
                 </span>
               )}
@@ -269,7 +270,7 @@ function Groups() {
           ))}
           {loaded && !failed && groups.length === 0 && (
             <>
-              <p className="hidden px-2 py-3 text-[13px] text-stone-500 md:block">{w.none} pour l’instant.</p>
+              <p className="hidden px-2 py-3 text-[13px] text-stone-500 md:block">{t('{none} pour l’instant.', { none: w.none })}</p>
               <div className="card px-5 md:hidden">
                 <Intro onCreate={() => setDialog('create')} onJoin={() => setDialog('join')} />
               </div>
@@ -283,7 +284,7 @@ function Groups() {
         {active ? (
           <>
             <div className="flex items-center gap-2 pb-3 sm:gap-3">
-              <button className="icon-btn md:hidden" onClick={() => go(null)} title="Retour" aria-label="Retour">
+              <button className="icon-btn md:hidden" onClick={() => go(null)} title={t('Retour')} aria-label={t('Retour')}>
                 <ArrowLeft size={17} />
               </button>
               {/* Smallest phones: no room for the badge, the name and the code come first. */}
@@ -293,17 +294,17 @@ function Groups() {
                 {code && (
                   <button
                     className="group/code hit-sm flex max-w-full items-center gap-1.5 text-[12px] text-stone-500 hover:text-ink"
-                    title="Copier le code d’invitation"
+                    title={t('Copier le code d’invitation')}
                     onClick={() => void copyCode(code)}
                   >
-                    Code <span className="font-mono font-medium tracking-wider text-stone-700">{code}</span>
+                    {t('Code')} <span className="font-mono font-medium tracking-wider text-stone-700">{code}</span>
                     <Copy size={12} className="text-stone-400 group-hover/code:text-ink" />
                   </button>
                 )}
               </div>
               {code && (
-                <button className="btn-secondary h-8 px-2.5 sm:px-3" onClick={() => void copyInviteLink(code, 'groupe')} title="Copier le lien d’invitation">
-                  <Link2 size={14} /> <span className="max-sm:sr-only">Inviter</span>
+                <button className="btn-secondary h-8 px-2.5 sm:px-3" onClick={() => void copyInviteLink(code, 'groupe')} title={t('Copier le lien d’invitation')}>
+                  <Link2 size={14} /> <span className="max-sm:sr-only">{t('Inviter')}</span>
                 </button>
               )}
               {rights.canEdit && (
@@ -314,29 +315,29 @@ function Groups() {
                 />
               )}
               {active.ownerId === userId && (
-                <button className="icon-btn" title={`Paramètres ${w.of}`} aria-label={`Paramètres ${w.of}`} onClick={() => setDialog('settings')}>
+                <button className="icon-btn" title={t('Paramètres {of}', { of: w.of })} aria-label={t('Paramètres {of}', { of: w.of })} onClick={() => setDialog('settings')}>
                   <Settings2 size={16} />
                 </button>
               )}
             </div>
             <div className="flex gap-1 overflow-x-auto border-b border-stone-200" role="tablist">
-              {tabs.map(t => (
+              {tabs.map(x => (
                 <button
-                  key={t.id}
+                  key={x.id}
                   role="tab"
-                  aria-selected={tab === t.id}
+                  aria-selected={tab === x.id}
                   // On a phone the row scrolls: the chosen tab is brought fully into view.
-                  ref={tab === t.id ? el => el?.scrollIntoView({ inline: 'nearest', block: 'nearest' }) : undefined}
-                  onClick={() => go(active.id, t.id)}
+                  ref={tab === x.id ? el => el?.scrollIntoView({ inline: 'nearest', block: 'nearest' }) : undefined}
+                  onClick={() => go(active.id, x.id)}
                   className={cx(
                     '-mb-px flex h-9 shrink-0 items-center gap-1.5 border-b-2 px-2.5 text-[13px] font-medium transition-[color]',
-                    tab === t.id ? 'text-ink' : 'border-transparent text-stone-500 hover:text-ink',
+                    tab === x.id ? 'text-ink' : 'border-transparent text-stone-500 hover:text-ink',
                   )}
-                  style={tab === t.id ? { borderColor: groupColor(active) } : undefined}
+                  style={tab === x.id ? { borderColor: groupColor(active) } : undefined}
                 >
-                  <t.icon size={15} strokeWidth={1.9} />
-                  {t.id === 'revisions' ? w.meet.Tab : t.label}
-                  {tab !== t.id && (unread[active.id]?.[t.id as 'notes'] ?? 0) > 0 && <span className="h-1.5 w-1.5 rounded-full bg-brand-solid" aria-label="nouveau" />}
+                  <x.icon size={15} strokeWidth={1.9} />
+                  {x.id === 'revisions' ? w.meet.Tab : x.label}
+                  {tab !== x.id && (unread[active.id]?.[x.id as 'notes'] ?? 0) > 0 && <span className="h-1.5 w-1.5 rounded-full bg-brand-solid" aria-label={t('nouveau')} />}
                 </button>
               ))}
             </div>
@@ -354,7 +355,7 @@ function Groups() {
         ) : (
           <div className="card flex flex-1 flex-col items-center justify-center p-8 text-center">
             <Users size={28} strokeWidth={1.5} className="text-stone-300" />
-            <p className="mt-3 text-[14px] font-medium">Choisis {w.a}</p>
+            <p className="mt-3 text-[14px] font-medium">{t('Choisis {a}', { a: w.a })}</p>
           </div>
         )}
       </section>

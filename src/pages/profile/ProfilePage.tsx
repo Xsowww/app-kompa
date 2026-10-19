@@ -38,9 +38,11 @@ import { aiPausedUntil, aiPauseReason } from '../../copilot/aiPause';
 import BadgeGrid from './BadgeGrid';
 import { USAGES, WORDS, applyUsage, groupWords, type Usage } from '../../lib/usage';
 import { PERSONAS, personaLabel } from '../../lib/personas';
+import LanguagePicker from '../../components/LanguagePicker';
+import { t, tn, lang, locale } from '../../i18n';
 
-/** « 1 note », « 0 note », « 2 notes ». */
-const plural = (n: number, one: string, many: string) => (n > 1 ? many : one);
+/** Singular or plural of words that come from elsewhere (tn() takes fixed texts), by the language's rule like tn(). */
+const plural = (n: number, one: string, many: string) => ((lang === 'fr' ? Math.abs(n) < 2 : Math.abs(n) === 1) ? one : many);
 
 const TABS = [
   { key: 'profil', label: t('Profil'), icon: User },
@@ -108,9 +110,9 @@ function BadgesSection() {
       <h2>
         <button onClick={() => setOpen(v => !v)} aria-expanded={open} aria-controls="badges-grille" className="flex w-full items-center gap-2 rounded-xl px-5 py-4 text-left">
           <ChevronRight size={15} className={cx('text-stone-400 transition-transform', open && 'rotate-90')} />
-          <span className="text-[14px] font-semibold">Badges</span>
+          <span className="text-[14px] font-semibold">{t('Badges')}</span>
           <span className="tabular text-[13px] font-normal text-stone-500">
-            · {earned} sur {badges.length}
+            · {t('{n} sur {total}', { n: earned, total: badges.length })}
           </span>
         </button>
       </h2>
@@ -136,9 +138,9 @@ function ProfileTab() {
     if (!f) return;
     try {
       settings.set({ avatarImage: await imageToAvatar(f) });
-      toast('Photo mise à jour', 'success');
+      toast(t('Photo mise à jour'), 'success');
     } catch {
-      toast("Impossible de lire cette image", 'error');
+      toast(t('Impossible de lire cette image'), 'error');
     }
   };
 
@@ -158,13 +160,13 @@ function ProfileTab() {
             {/* Phones: the date on its own line, so a long e-mail never leaves « · » at the start of a line. */}
             <p className="text-[13px] text-stone-500 [overflow-wrap:anywhere]">
               {user.email}<span className="max-sm:hidden">{'\u00a0'}· </span>
-              <span className="max-sm:block max-sm:first-letter:uppercase">inscription le {fmt(new Date(user.createdAt), 'd MMMM yyyy').replace(/ /g, '\u00a0')}</span>
+              <span className="max-sm:block max-sm:first-letter:uppercase">{t('inscription le {date}', { date: fmt(new Date(user.createdAt), 'd MMMM yyyy').replace(/ /g, '\u00a0') })}</span>
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-1.5">
               {AVATAR_COLORS.map((c, i) => (
                 <button
                   key={c}
-                  aria-label={`Couleur de l’avatar ${i + 1}`}
+                  aria-label={t('Couleur de l’avatar {n}', { n: i + 1 })}
                   aria-pressed={!settings.avatarImage && settings.avatarColor === c}
                   onClick={() => settings.set({ avatarColor: c, avatarImage: null })}
                   className="flex h-6 w-6 items-center justify-center rounded-full ring-offset-2 transition-transform hover:scale-110 pointer-coarse:h-9 pointer-coarse:w-9"
@@ -173,8 +175,8 @@ function ProfileTab() {
                 />
               ))}
               {settings.avatarImage && (
-                <button className="ml-2 text-[12px] text-stone-500 underline underline-offset-2 hover:text-ink" onClick={async () => (await confirmAction('Retirer ta photo ?', undefined, 'Retirer')) && settings.set({ avatarImage: null })}>
-                  Retirer la photo
+                <button className="ml-2 text-[12px] text-stone-500 underline underline-offset-2 hover:text-ink" onClick={async () => (await confirmAction(t('Retirer ta photo ?'), undefined, t('Retirer'))) && settings.set({ avatarImage: null })}>
+                  {t('Retirer la photo')}
                 </button>
               )}
             </div>
@@ -190,14 +192,14 @@ function ProfileTab() {
               if (name.trim().length >= 2 && name.trim() !== user.name) {
                 setName(name.trim());
                 updateName(name.trim()).then(
-                  () => toast('Prénom enregistré', 'success'),
+                  () => toast(t('Prénom enregistré'), 'success'),
                   (e: Error) => {
                     toast(e.message, 'error');
                     setName(user.name);
                   },
                 );
               } else {
-                if (name.trim() !== user.name) toast('Ton prénom doit contenir au moins 2 caractères.', 'error');
+                if (name.trim() !== user.name) toast(t('Ton prénom doit contenir au moins 2 caractères.'), 'error');
                 // Same name with spaces around it: shown as saved.
                 setName(user.name);
               }
@@ -227,16 +229,16 @@ function ProfileTab() {
 
       <Section title={t('Statistiques')}>
         <div className="grid grid-cols-2 md:grid-cols-3">
-          <Stat value={stats.streak} label={`jour${stats.streak > 1 ? 's' : ''} d’affilée`} />
-          <Stat value={stats.done} label={plural(stats.done, 'élément coché', 'éléments cochés')} />
+          <Stat value={stats.streak} label={tn(stats.streak, 'jour d’affilée', 'jours d’affilée')} />
+          <Stat value={stats.done} label={tn(stats.done, 'élément coché', 'éléments cochés')} />
           <Stat value={stats.exams} label={plural(stats.exams, words.pastOne, words.pastMany)} />
           <Stat
             value={stats.focusSessions}
-            label={plural(stats.focusSessions, 'session focus', 'sessions focus')}
-            sub={stats.focusHours ? `${stats.focusHours.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} h` : undefined}
+            label={tn(stats.focusSessions, 'session focus', 'sessions focus')}
+            sub={stats.focusHours ? t('{hours} h', { hours: stats.focusHours.toLocaleString(locale(), { maximumFractionDigits: 1 }) }) : undefined}
           />
-          <Stat value={stats.notes} label={plural(stats.notes, 'note', 'notes')} sub={stats.words ? `${stats.words.toLocaleString('fr-FR')} ${plural(stats.words, 'mot', 'mots')}` : undefined} />
-          <Stat value={stats.files} label={plural(stats.files, 'fichier', 'fichiers')} sub={stats.files ? formatBytes(stats.size) : undefined} />
+          <Stat value={stats.notes} label={tn(stats.notes, 'note', 'notes')} sub={stats.words ? tn(stats.words, '{count} mot', '{count} mots', { count: stats.words.toLocaleString(locale()) }) : undefined} />
+          <Stat value={stats.files} label={tn(stats.files, 'fichier', 'fichiers')} sub={stats.files ? formatBytes(stats.size) : undefined} />
         </div>
       </Section>
 
@@ -245,10 +247,10 @@ function ProfileTab() {
       <Section title={t('Ton avis compte')}>
         <div className="flex flex-wrap gap-2 px-5 py-4">
           <button className="btn-secondary h-9" onClick={() => openFeedback('idea')}>
-            <Lightbulb size={14} /> Donner mon avis
+            <Lightbulb size={14} /> {t('Donner mon avis')}
           </button>
           <button className="btn-secondary h-9" onClick={() => openFeedback('bug')}>
-            <Bug size={14} /> Signaler un bug
+            <Bug size={14} /> {t('Signaler un bug')}
           </button>
         </div>
       </Section>
@@ -282,6 +284,9 @@ function AppearanceTab() {
           ]}
         />
       </Row>
+      <Row label={t('Langue')}>
+        <LanguagePicker />
+      </Row>
       <Row label={t('Couleur d’accent')}>
         <div className="flex gap-1.5" role="group" aria-label={t('Couleur d’accent')}>
           {(Object.keys(ACCENTS) as AccentKey[]).map(k => (
@@ -301,9 +306,9 @@ function AppearanceTab() {
       </Row>
       {/* Preview only: no real button (no Tab stop), nothing announced. */}
       <div className="flex items-center gap-4 overflow-hidden bg-stone-50/70 px-5 py-4" aria-hidden>
-        <span className="btn-primary pointer-events-none">Bouton</span>
+        <span className="btn-primary pointer-events-none">{t('Bouton')}</span>
         <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-solid text-[13px] font-semibold text-on-brand">{new Date().getDate()}</span>
-        <span className="rounded-md bg-brand-50 px-2 py-1 text-[12px] font-medium text-brand-700">Sélection</span>
+        <span className="rounded-md bg-brand-50 px-2 py-1 text-[12px] font-medium text-brand-700">{t('Sélection')}</span>
         <div className="relative ml-auto h-16 w-24 overflow-hidden">
           <div className="absolute -right-1 top-[-14px]">
             <Character pose="peek" mood="happy" size={80} />
@@ -340,8 +345,8 @@ function CopilotTab() {
   const pausedUntil = aiEnabled ? aiPausedUntil() : 0;
   useEffect(() => {
     if (!aiEnabled) return;
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
   }, [aiEnabled]);
   const left = Math.max(0, Math.ceil((pausedUntil - now) / 1000));
   const clock = left >= 3600 ? `${Math.floor(left / 3600)} h ${String(Math.floor((left % 3600) / 60)).padStart(2, '0')}` : `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
@@ -354,19 +359,19 @@ function CopilotTab() {
           <p className="text-[13px]">
             {paused ? (
               <>
-                <span className="font-medium">Mode simple pour l’instant.</span>{' '}
+                <span className="font-medium">{t('Mode simple pour l’instant.')}</span>{' '}
                 <span className="text-stone-500">
-                  {aiPauseReason() === 'error' ? 'L’IA ne répond pas' : 'L’IA gratuite a atteint sa limite'}, retour dans <span className="tabular">{clock}</span>.
+                  {aiPauseReason() === 'error' ? t('L’IA ne répond pas, retour dans') : t('L’IA gratuite a atteint sa limite, retour dans')} <span className="tabular">{clock}</span>.
                 </span>
               </>
             ) : aiEnabled ? (
               <>
-                <span className="font-medium">Mode intelligent activé.</span>{' '}
-                {provider && <span className="text-stone-500">{`IA\u00a0: ${provider}`}</span>}
+                <span className="font-medium">{t('Mode intelligent activé.')}</span>{' '}
+                {provider && <span className="text-stone-500">{t('IA\u00a0: {provider}', { provider })}</span>}
               </>
             ) : (
               <>
-                <span className="font-medium">Mode simple.</span> <span className="text-stone-500">Il comprend les commandes courantes.</span>
+                <span className="font-medium">{t('Mode simple.')}</span> <span className="text-stone-500">{t('Il comprend les commandes courantes.')}</span>
               </>
             )}
           </p>
@@ -374,7 +379,7 @@ function CopilotTab() {
         <Row label={t('Afficher Kompaly')}>
           <Toggle label={t('Afficher Kompaly')} checked={s.copilotVisible} onChange={v => s.set({ copilotVisible: v })} />
         </Row>
-        <Row label={t('Initiatives')} hint={s.usage === 'etudes' ? 'Propose des révisions, rappelle les rendus.' : 'Propose du temps de préparation, rappelle les échéances.'}>
+        <Row label={t('Initiatives')} hint={s.usage === 'etudes' ? t('Propose des révisions, rappelle les rendus.') : t('Propose du temps de préparation, rappelle les échéances.')}>
           <Toggle label={t('Initiatives')} checked={s.proactive} onChange={v => s.set({ proactive: v })} />
         </Row>
         <Row label={t('Bavardage')}>
@@ -415,7 +420,7 @@ function CopilotTab() {
         </div>
         <div className="px-5 py-4">
           <label htmlFor="persona-notes" className="text-[13px] font-medium">
-            Tes instructions pour Kompaly
+            {t('Tes instructions pour Kompaly')}
           </label>
           <textarea
             id="persona-notes"
@@ -439,27 +444,27 @@ function CopilotTab() {
       </Section>
 
       <Section title={t('Mémoire')}>
-        <Row label={t('Conversation')} hint={`${messages} message${messages > 1 ? 's' : ''} enregistré${messages > 1 ? 's' : ''}.`}>
+        <Row label={t('Conversation')} hint={tn(messages, '{n} message enregistré.', '{n} messages enregistrés.')}>
           <button
             className="btn-secondary h-8"
             onClick={async () => {
-              if (!(await confirmAction('Effacer la conversation ?', 'Sur cet appareil.', 'Effacer'))) return;
+              if (!(await confirmAction(t('Effacer la conversation ?'), t('Sur cet appareil.'), t('Effacer')))) return;
               useCopilot.getState().clearHistory();
               resetClaudeHistory();
-              toast('Conversation effacée', 'success');
+              toast(t('Conversation effacée'), 'success');
             }}
           >
-            Effacer
+            {t('Effacer')}
           </button>
         </Row>
         <Row label={t('Remarques déjà faites')} hint={t('Il pourra te les refaire.')}>
-          <button className="btn-secondary h-8" onClick={() => { useCopilot.setState({ memory: {} }); toast('Mémoire réinitialisée', 'success'); }}>
-            Réinitialiser
+          <button className="btn-secondary h-8" onClick={() => { useCopilot.setState({ memory: {} }); toast(t('Mémoire réinitialisée'), 'success'); }}>
+            {t('Réinitialiser')}
           </button>
         </Row>
         <Row label={t('Position sur l’écran')}>
-          <button className="btn-secondary h-8" onClick={() => { useCopilot.getState().setOffsetY(0.62); toast('Kompaly est revenu à sa place'); }}>
-            Replacer
+          <button className="btn-secondary h-8" onClick={() => { useCopilot.getState().setOffsetY(0.62); toast(t('Kompaly est revenu à sa place')); }}>
+            {t('Replacer')}
           </button>
         </Row>
       </Section>
@@ -476,32 +481,32 @@ function StudiesTab() {
     <div className="space-y-5">
       <Section title={t('Sessions focus')}>
         <Row label={t('Durée de travail')}>
-          <Segmented<number> label={t('Durée de travail')} value={s.focusMinutes} onChange={v => s.set({ focusMinutes: v })} options={[15, 25, 45, 50].map(v => ({ value: v, label: `${v} min` }))} />
+          <Segmented<number> label={t('Durée de travail')} value={s.focusMinutes} onChange={v => s.set({ focusMinutes: v })} options={[15, 25, 45, 50].map(v => ({ value: v, label: t('{n} min', { n: v }) }))} />
         </Row>
         <Row label={t('Durée de pause')}>
-          <Segmented<number> label={t('Durée de pause')} value={s.breakMinutes} onChange={v => s.set({ breakMinutes: v })} options={[5, 10, 15].map(v => ({ value: v, label: `${v} min` }))} />
+          <Segmented<number> label={t('Durée de pause')} value={s.breakMinutes} onChange={v => s.set({ breakMinutes: v })} options={[5, 10, 15].map(v => ({ value: v, label: t('{n} min', { n: v }) }))} />
         </Row>
         <Row label={t('Son de fin de session')}>
           <button className="btn-ghost h-8 text-[12px]" onClick={chime}>
-            Écouter
+            {t('Écouter')}
           </button>
           <Toggle label={t('Son')} checked={s.focusSound} onChange={v => s.set({ focusSound: v })} />
         </Row>
-        <Row label={t('Lancer une session')} hint={focus.phase ? 'Une session est déjà en cours.' : undefined}>
+        <Row label={t('Lancer une session')} hint={focus.phase ? t('Une session est déjà en cours.') : undefined}>
           <button
             className="btn-primary h-8"
             disabled={!!focus.phase}
             onClick={async () => {
-              const label = await askText('Sur quoi tu travailles ?', '', 'Démarrer');
+              const label = await askText(t('Sur quoi tu travailles ?'), '', t('Démarrer'));
               if (label !== null) focus.start(label.trim());
             }}
           >
-            <Timer size={14} /> Démarrer
+            <Timer size={14} /> {t('Démarrer')}
           </button>
         </Row>
       </Section>
 
-      <Section title={s.usage === 'etudes' ? 'Planification des révisions' : 'Temps de préparation'}>
+      <Section title={s.usage === 'etudes' ? t('Planification des révisions') : t('Temps de préparation')}>
         <Row label={t('Nombre de séances')}>
           <Stepper label={t('Nombre de séances')} value={s.revisionSessions} min={1} max={6} onChange={v => s.set({ revisionSessions: v })} />
         </Row>
@@ -521,59 +526,59 @@ const SHORTCUTS: { group: string; keys: [string, string][] }[] = [
   {
     group: t('Partout'),
     keys: [
-      ['Ctrl K', 'Rechercher'],
-      ['↑ ↓ · Entrée', 'Choisir un résultat'],
-      ['Échap', 'Fermer, désélectionner'],
-      ['Maj F10', 'Menu contextuel'],
+      ['Ctrl K', t('Rechercher')],
+      [t('↑ ↓ · Entrée'), t('Choisir un résultat')],
+      [t('Échap'), t('Fermer, désélectionner')],
+      [t('Maj F10'), t('Menu contextuel')],
     ],
   },
   {
     group: t('Drive'),
     keys: [
-      ['Entrée', 'Ouvrir'],
-      ['Espace', 'Sélectionner'],
-      ['Ctrl A', 'Tout sélectionner'],
-      ['Ctrl C · Ctrl X · Ctrl V', 'Copier, couper, coller'],
-      ['Ctrl D', 'Dupliquer'],
-      ['F2', 'Renommer'],
-      ['Suppr', 'Mettre à la corbeille'],
-      ['Retour arrière', 'Dossier parent'],
+      [t('Entrée'), t('Ouvrir')],
+      [t('Espace'), t('Sélectionner')],
+      ['Ctrl A', t('Tout sélectionner')],
+      ['Ctrl C · Ctrl X · Ctrl V', t('Copier, couper, coller')],
+      ['Ctrl D', t('Dupliquer')],
+      ['F2', t('Renommer')],
+      [t('Suppr'), t('Mettre à la corbeille')],
+      [t('Retour arrière'), t('Dossier parent')],
     ],
   },
   {
     group: t('Calendrier'),
     keys: [
-      ['← →', 'Jour précédent, suivant'],
-      ['↑ ↓', 'Semaine précédente, suivante'],
-      ['Échap', 'Annuler un déplacement'],
+      ['← →', t('Jour précédent, suivant')],
+      ['↑ ↓', t('Semaine précédente, suivante')],
+      [t('Échap'), t('Annuler un déplacement')],
     ],
   },
   {
     group: t('Notes'),
     keys: [
-      ['Ctrl B · Ctrl I · Ctrl U', 'Gras, italique, souligné'],
-      ['Ctrl Z', 'Annuler la frappe'],
-      ['Entrée', 'Du titre au texte'],
-      ['F2', 'Renommer un dossier'],
+      ['Ctrl B · Ctrl I · Ctrl U', t('Gras, italique, souligné')],
+      ['Ctrl Z', t('Annuler la frappe')],
+      [t('Entrée'), t('Du titre au texte')],
+      ['F2', t('Renommer un dossier')],
     ],
   },
   {
     group: t('Corbeille'),
     keys: [
-      ['Entrée', 'Aperçu'],
-      ['↑ ↓', 'Élément précédent, suivant'],
-      ['Ctrl A', 'Tout sélectionner'],
-      ['Suppr', 'Supprimer définitivement'],
+      [t('Entrée'), t('Aperçu')],
+      ['↑ ↓', t('Élément précédent, suivant')],
+      ['Ctrl A', t('Tout sélectionner')],
+      [t('Suppr'), t('Supprimer définitivement')],
     ],
   },
   {
     group: t('Souris'),
     keys: [
-      ['Double-clic', 'Ouvrir un fichier ou un dossier'],
-      ['Clic droit', 'Plus d’options'],
-      ['Ctrl + clic', 'Sélectionner plusieurs éléments'],
-      ['Glisser', 'Ranger dans un dossier, déplacer un événement'],
-      ['Alt + glisser', 'Copier au lieu de déplacer (Drive)'],
+      [t('Double-clic'), t('Ouvrir un fichier ou un dossier')],
+      [t('Clic droit'), t('Plus d’options')],
+      [t('Ctrl + clic'), t('Sélectionner plusieurs éléments')],
+      [t('Glisser'), t('Ranger dans un dossier, déplacer un événement')],
+      [t('Alt + glisser'), t('Copier au lieu de déplacer (Drive)')],
     ],
   },
 ];
@@ -624,7 +629,7 @@ function NotificationsTab() {
       if (on) {
         const next = await enableDevice();
         setState(next);
-        if (next === 'denied') toast('Notifications bloquées : autorise-les dans les réglages du navigateur.', 'error');
+        if (next === 'denied') toast(t('Notifications bloquées : autorise-les dans les réglages du navigateur.'), 'error');
       } else {
         await disableDevice();
         setState(deviceState());
@@ -637,23 +642,23 @@ function NotificationsTab() {
 
   const testClosed = async () => {
     const r = await sendTestPush(10);
-    if (r === 'ok') toast('Ferme ou quitte Kompaly : la notification arrive dans 10 secondes.', 'success');
-    else toast(r === 'unavailable' ? 'Pas encore disponible.' : 'L’essai n’a pas pu partir, réessaie dans un instant.', 'error');
+    if (r === 'ok') toast(t('Ferme ou quitte Kompaly : la notification arrive dans 10 secondes.'), 'success');
+    else toast(r === 'unavailable' ? t('Pas encore disponible.') : t('L’essai n’a pas pu partir, réessaie dans un instant.'), 'error');
   };
 
   const hint =
     state === 'on'
       ? push
-        ? 'Même quand Kompaly est fermé.'
+        ? t('Même quand Kompaly est fermé.')
         : push === false && cloudEnabled
-          ? 'Seulement quand Kompaly est ouvert.'
+          ? t('Seulement quand Kompaly est ouvert.')
           : undefined
       : state === 'denied'
-        ? 'Bloquées par le navigateur : autorise-les via le cadenas à gauche de l’adresse, puis recharge la page.'
+        ? t('Bloquées par le navigateur : autorise-les via le cadenas à gauche de l’adresse, puis recharge la page.')
         : state === 'install'
-          ? 'Sur iPhone et iPad : ajoute d’abord Kompaly à l’écran d’accueil (Partager › « Sur l’écran d’accueil »), puis ouvre-le depuis son icône.'
+          ? t('Sur iPhone et iPad : ajoute d’abord Kompaly à l’écran d’accueil (Partager › « Sur l’écran d’accueil »), puis ouvre-le depuis son icône.')
           : state === 'unsupported'
-            ? 'Non disponibles dans ce navigateur.'
+            ? t('Non disponibles dans ce navigateur.')
             : undefined;
 
   const defaultValue = s.defaultReminders[0] ?? -1;
@@ -666,23 +671,23 @@ function NotificationsTab() {
         {!installed() && (canInstall || macSafari()) && (
           <Row
             label={t('Installer Kompaly')}
-            hint={canInstall ? 'Il s’ouvre dans sa propre fenêtre.' : 'Dans Safari : menu Fichier › Ajouter au Dock.'}
+            hint={canInstall ? t('Il s’ouvre dans sa propre fenêtre.') : t('Dans Safari : menu Fichier › Ajouter au Dock.')}
           >
             {canInstall && (
-              <button className="btn-primary h-8" onClick={() => void install().then(ok => ok && toast('Kompaly est installé', 'success'))}>
-                Installer
+              <button className="btn-primary h-8" onClick={() => void install().then(ok => ok && toast(t('Kompaly est installé'), 'success'))}>
+                {t('Installer')}
               </button>
             )}
           </Row>
         )}
         {state === 'on' && (
           <Row label={t('Tester')}>
-            <button className="btn-secondary h-8" onClick={() => void showSystemNotification('Notifications activées', 'Tes rappels Kompaly arriveront ici.\nEssai', 'test', '/profil?onglet=notifications')}>
-              <Bell size={14} /> Essayer
+            <button className="btn-secondary h-8" onClick={() => void showSystemNotification(t('Notifications activées'), t('Tes rappels Kompaly arriveront ici.\nEssai'), 'test', '/profil?onglet=notifications')}>
+              <Bell size={14} /> {t('Essayer')}
             </button>
             {push && (
               <button className="btn-secondary h-8" title={t('Ferme Kompaly juste après : la notification arrive 10 secondes plus tard.')} onClick={() => void testClosed()}>
-                Site fermé
+                {t('Site fermé')}
               </button>
             )}
           </Row>
@@ -720,20 +725,18 @@ function DataTab() {
 
   const onImport = async (f?: File) => {
     if (!f) return;
-    if (!(await confirmAction('Restaurer cette sauvegarde ?', 'Ce qui manque sera ajouté. Rien n’est remplacé, sauf tes préférences.', 'Restaurer', false))) return;
+    if (!(await confirmAction(t('Restaurer cette sauvegarde ?'), t('Ce qui manque sera ajouté. Rien n’est remplacé, sauf tes préférences.'), t('Restaurer'), false))) return;
     try {
       const r = await importBackup(f);
       const parts = [
-        [r.notes, 'note'],
-        [r.events, 'événement'],
-        [r.todos, 'tâche'],
-        [r.folders, 'dossier'],
-      ]
-        .filter(([n]) => n)
-        .map(([n, word]) => `${n} ${word}${(n as number) > 1 ? 's' : ''}`);
-      const list = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} et ${parts.at(-1)}` : parts[0];
-      const trash = r.inTrash ? ` ${r.inTrash > 1 ? `${r.inTrash} éléments sont` : 'Un élément est'} dans la corbeille.` : '';
-      toast(list ? `Récupéré : ${list}.${trash}` : r.inTrash ? `Rien de plus à récupérer.${trash}` : 'Rien à récupérer : tout est déjà là.', list || !r.inTrash ? 'success' : 'info');
+        r.notes ? tn(r.notes, '{n} note', '{n} notes') : '',
+        r.events ? tn(r.events, '{n} événement', '{n} événements') : '',
+        r.todos ? tn(r.todos, '{n} tâche', '{n} tâches') : '',
+        r.folders ? tn(r.folders, '{n} dossier', '{n} dossiers') : '',
+      ].filter(Boolean);
+      const list = parts.length > 1 ? t('{list} et {last}', { list: parts.slice(0, -1).join(', '), last: parts.at(-1)! }) : parts[0];
+      const trash = r.inTrash ? ` ${r.inTrash > 1 ? tn(r.inTrash, '{n} élément est dans la corbeille.', '{n} éléments sont dans la corbeille.') : t('Un élément est dans la corbeille.')}` : '';
+      toast(list ? `${t('Récupéré : {list}.', { list })}${trash}` : r.inTrash ? `${t('Rien de plus à récupérer.')}${trash}` : t('Rien à récupérer : tout est déjà là.'), list || !r.inTrash ? 'success' : 'info');
     } catch (e) {
       toast((e as Error).message, 'error');
     }
@@ -741,21 +744,21 @@ function DataTab() {
 
   return (
     <div className="space-y-5">
-      <Section title={t('Sauvegarde')} description={cloudEnabled ? undefined : 'Tes données sont enregistrées sur cet appareil.'}>
+      <Section title={t('Sauvegarde')} description={cloudEnabled ? undefined : t('Tes données sont enregistrées sur cet appareil.')}>
         <Row label={t('Exporter mes données')} hint={t('Sans les fichiers du Drive.')}>
           <button
             className="btn-secondary h-8"
             onClick={() => {
               exportBackup();
-              toast('Sauvegarde exportée', 'success');
+              toast(t('Sauvegarde exportée'), 'success');
             }}
           >
-            <Download size={14} /> Exporter
+            <Download size={14} /> {t('Exporter')}
           </button>
         </Row>
         <Row label={t('Restaurer une sauvegarde')}>
           <button className="btn-secondary h-8" onClick={() => importRef.current?.click()}>
-            <Upload size={14} /> Importer
+            <Upload size={14} /> {t('Importer')}
           </button>
           <input ref={importRef} type="file" accept="application/json,.json" hidden onChange={e => { void onImport(e.target.files?.[0]); e.target.value = ''; }} />
         </Row>
@@ -765,10 +768,10 @@ function DataTab() {
             disabled={!events}
             onClick={() => {
               exportIcs();
-              toast('Calendrier exporté', 'success');
+              toast(t('Calendrier exporté'), 'success');
             }}
           >
-            <CalendarArrowUp size={14} /> Exporter
+            <CalendarArrowUp size={14} /> {t('Exporter')}
           </button>
         </Row>
       </Section>
@@ -779,7 +782,7 @@ function DataTab() {
             <div className="flex items-center gap-2 text-[13px]">
               <HardDrive size={15} className="text-stone-400" />
               <span className="tabular font-medium">{formatBytes(usage.used)}</span>
-              <span className="text-stone-500">utilisés sur {formatBytes(usage.quota)}</span>
+              <span className="text-stone-500">{t('utilisés sur {total}', { total: formatBytes(usage.quota) })}</span>
             </div>
             <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-stone-100">
               <div className="h-full rounded-full bg-[#3b6fd8]" style={{ width: `${Math.max(1, (usage.used / usage.quota) * 100)}%` }} />
@@ -789,20 +792,20 @@ function DataTab() {
       )}
 
       <Section title={t('Zone sensible')} danger>
-        <Row label={t('Effacer toutes mes données')} hint={`Drive, notes, événements, tâches et conversation, corbeilles comprises. Ton compte, tes réglages et tes ${groupWords(useSettings.getState().usage).groups} restent.`}>
+        <Row label={t('Effacer toutes mes données')} hint={t('Drive, notes, événements, tâches et conversation, corbeilles comprises. Ton compte, tes réglages et tes {groups} restent.', { groups: groupWords(useSettings.getState().usage).groups })}>
           <button
             className="btn-danger h-8"
             onClick={async () => {
-              if (!(await confirmAction('Tout effacer ?', `Fichiers, notes, événements et tâches seront supprimés définitivement${cloudEnabled ? ' sur tous tes appareils' : ''}. Exporte une sauvegarde avant si tu veux les garder.`, 'Tout effacer'))) return;
+              if (!(await confirmAction(t('Tout effacer ?'), cloudEnabled ? t('Fichiers, notes, événements et tâches seront supprimés définitivement sur tous tes appareils. Exporte une sauvegarde avant si tu veux les garder.') : t('Fichiers, notes, événements et tâches seront supprimés définitivement. Exporte une sauvegarde avant si tu veux les garder.'), t('Tout effacer')))) return;
               try {
                 await wipeUserData();
-                toast('Données effacées', 'success');
+                toast(t('Données effacées'), 'success');
               } catch (err) {
                 toast((err as Error).message, 'error');
               }
             }}
           >
-            <Trash2 size={14} /> Tout effacer
+            <Trash2 size={14} /> {t('Tout effacer')}
           </button>
         </Row>
       </Section>
@@ -827,16 +830,16 @@ function AccountTab() {
 
   const onChange = async (e: FormEvent) => {
     e.preventDefault();
-    if (next.length < 8 || !/\p{L}/u.test(next) || !/\d/.test(next)) return toast('Au moins 8 caractères, avec des lettres et des chiffres.', 'error');
-    if (next !== confirmPw) return toast('Les deux mots de passe ne correspondent pas', 'error');
-    if (!noPassword && next === current) return toast('Choisis un mot de passe différent de l’actuel.', 'error');
+    if (next.length < 8 || !/\p{L}/u.test(next) || !/\d/.test(next)) return toast(t('Au moins 8 caractères, avec des lettres et des chiffres.'), 'error');
+    if (next !== confirmPw) return toast(t('Les deux mots de passe ne correspondent pas'), 'error');
+    if (!noPassword && next === current) return toast(t('Choisis un mot de passe différent de l’actuel.'), 'error');
     setBusy(true);
     try {
       await changePassword(current, next);
       setCurrent('');
       setNext('');
       setConfirmPw('');
-      toast(noPassword ? 'Mot de passe enregistré' : 'Mot de passe modifié', 'success');
+      toast(noPassword ? t('Mot de passe enregistré') : t('Mot de passe modifié'), 'success');
     } catch (err) {
       toast((err as Error).message, 'error');
     } finally {
@@ -856,14 +859,14 @@ function AccountTab() {
         <Section title={t('Double authentification')}>
           <Row label={t('Activée')}>
             <span className="flex items-center gap-1.5 text-[13px] font-medium text-emerald-700">
-              <ShieldCheck size={15} /> Protégé
+              <ShieldCheck size={15} /> {t('Protégé')}
             </span>
           </Row>
           <Row label={t('Changer de téléphone')}>
             <button
               className="btn-secondary h-8"
               onClick={async () => {
-                if (!(await confirmAction('Changer de téléphone ?', 'Tu scanneras un nouveau QR code. L’ancien téléphone ne servira plus.', 'Continuer', false))) return;
+                if (!(await confirmAction(t('Changer de téléphone ?'), t('Tu scanneras un nouveau QR code. L’ancien téléphone ne servira plus.'), t('Continuer'), false))) return;
                 try {
                   await useAuth.getState().resetMfa();
                   navigate('/securite');
@@ -872,7 +875,7 @@ function AccountTab() {
                 }
               }}
             >
-              <Smartphone size={14} /> Changer
+              <Smartphone size={14} /> {t('Changer')}
             </button>
           </Row>
         </Section>
@@ -890,7 +893,7 @@ function AccountTab() {
           )}
           <div className="sm:col-span-3">
             <button className="btn-primary h-8" disabled={busy || (!noPassword && !current) || !next}>
-              {noPassword ? 'Choisir un mot de passe' : 'Modifier le mot de passe'}
+              {noPassword ? t('Choisir un mot de passe') : t('Modifier le mot de passe')}
             </button>
           </div>
         </form>
@@ -899,7 +902,7 @@ function AccountTab() {
       <Section title={t('Comptes sur cet appareil')}>
         <div className="space-y-3 px-5 py-4">
           <p className="text-[12.5px] text-stone-500">
-            Après {STALE_DAYS}&nbsp;jours sans utilisation, le mot de passe est redemandé.
+            {t('Après {n}\u00a0jours sans utilisation, le mot de passe est redemandé.', { n: STALE_DAYS })}
           </p>
           <AccountList
             currentId={userId}
@@ -914,7 +917,7 @@ function AccountTab() {
             }}
           />
           <button className="btn-secondary h-8" onClick={() => void useAuth.getState().addAccount()}>
-            <UserPlus size={14} /> Ajouter un compte
+            <UserPlus size={14} /> {t('Ajouter un compte')}
           </button>
         </div>
       </Section>
@@ -922,10 +925,10 @@ function AccountTab() {
       <Section title={t('Session')}>
         <Row
           label={t('Se déconnecter')}
-          hint={!cloudEnabled ? 'Tes données restent sur cet appareil.' : remembered() ? 'Ton compte reste proposé sur la page de connexion.' : undefined}
+          hint={!cloudEnabled ? t('Tes données restent sur cet appareil.') : remembered() ? t('Ton compte reste proposé sur la page de connexion.') : undefined}
         >
           <button className="btn-secondary h-8" onClick={() => void logout().then(leave)}>
-            <LogOut size={14} /> Se déconnecter
+            <LogOut size={14} /> {t('Se déconnecter')}
           </button>
         </Row>
       </Section>
@@ -937,19 +940,19 @@ function AccountTab() {
             className="btn-danger h-8"
             disabled={!noPassword && !deletePw}
             onClick={async () => {
-              if (!(await confirmAction('Supprimer ton compte ?', 'Cette action est irréversible.', 'Supprimer'))) return;
+              if (!(await confirmAction(t('Supprimer ton compte ?'), t('Cette action est irréversible.'), t('Supprimer')))) return;
               try {
                 // Password and server checks come first: never wipe the Drive for a refused deletion.
                 await deleteAccount(deletePw, clearBeforeAccountDeletion);
                 resetLocalData(); // only once the account is gone: a failed deletion keeps the data
                 await leave();
-                toast('Ton compte et tes données ont été supprimés.', 'success');
+                toast(t('Ton compte et tes données ont été supprimés.'), 'success');
               } catch (err) {
                 toast((err as Error).message, 'error');
               }
             }}
           >
-            Supprimer
+            {t('Supprimer')}
           </button>
         </Row>
       </Section>
@@ -961,34 +964,34 @@ function AccountTab() {
 
 export default function ProfilePage() {
   const [params, setParams] = useSearchParams();
-  const tab = (TABS.find(t => t.key === params.get('onglet'))?.key ?? 'profil') as TabKey;
+  const tab = (TABS.find(x => x.key === params.get('onglet'))?.key ?? 'profil') as TabKey;
   const usage = useSettings(s => s.usage);
 
   return (
     <div className="h-full overflow-y-auto px-4 pb-16 md:px-8">
       <div className="mx-auto max-w-[1180px]">
         <div className="pb-5 pt-2">
-          <h1 className="text-[24px] font-semibold tracking-[-0.02em]">Profil et réglages</h1>
+          <h1 className="text-[24px] font-semibold tracking-[-0.02em]">{t('Profil et réglages')}</h1>
         </div>
         <div className="flex flex-col gap-6 md:flex-row">
           <nav aria-label={t('Sections du profil')} className="grid shrink-0 grid-cols-4 gap-1.5 max-[359px]:grid-cols-3 md:flex md:w-48 md:flex-col md:gap-0.5">
-            {TABS.map(t => (
+            {TABS.map(tb => (
               <button
-                key={t.key}
-                aria-current={tab === t.key ? 'page' : undefined}
-                onClick={() => setParams(t.key === 'profil' ? {} : { onglet: t.key })}
+                key={tb.key}
+                aria-current={tab === tb.key ? 'page' : undefined}
+                onClick={() => setParams(tb.key === 'profil' ? {} : { onglet: tb.key })}
                 className={cx(
                   // Phone: every section visible at once (a grid of 4, of 3 under 360 px where « Notifications » was cut), no hidden tabs to swipe to.
                   'flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[11.5px] font-medium transition-colors md:h-8 md:shrink-0 md:flex-row md:justify-start md:gap-2.5 md:rounded-md md:px-2.5 md:py-0 md:text-[13px] md:pointer-coarse:h-9',
-                  tab === t.key ? 'bg-ink font-semibold text-paper md:bg-surface md:text-ink md:shadow-card md:ring-1 md:ring-stone-200' : 'bg-surface text-stone-600 hover:bg-stone-100 hover:text-ink md:bg-transparent',
+                  tab === tb.key ? 'bg-ink font-semibold text-paper md:bg-surface md:text-ink md:shadow-card md:ring-1 md:ring-stone-200' : 'bg-surface text-stone-600 hover:bg-stone-100 hover:text-ink md:bg-transparent',
                 )}
               >
                 {(() => {
                   // The « Études » tab is « Travail » or « Organisation » for other usages: its icon follows.
-                  const Icon = t.key === 'etudes' ? USAGE_ICONS[usage] ?? t.icon : t.icon;
-                  return <Icon size={15} className={cx('shrink-0', tab === t.key && 'md:text-brand-600')} />;
+                  const Icon = tb.key === 'etudes' ? USAGE_ICONS[usage] ?? tb.icon : tb.icon;
+                  return <Icon size={15} className={cx('shrink-0', tab === tb.key && 'md:text-brand-600')} />;
                 })()}
-                <span className="max-w-full truncate">{t.key === 'etudes' ? (WORDS[usage] ?? WORDS.etudes).profileTab : t.label}</span>
+                <span className="max-w-full truncate">{tb.key === 'etudes' ? (WORDS[usage] ?? WORDS.etudes).profileTab : tb.label}</span>
               </button>
             ))}
           </nav>

@@ -350,8 +350,19 @@ const describeDue = (key: string) => {
   return d === 0 ? t('aujourd’hui') : d === 1 ? t('demain') : d === -1 ? t('hier') : fmt(fromKey(key), 'EEEE d MMM');
 };
 
+/** The suggestions under the chat, sent as they are shown: in another language, back to the French this brain reads. */
+const SUGGESTED: [string, string][] = [
+  ['Analyse ma semaine', t('Analyse ma semaine')],
+  ['Planifie mes révisions', t('Planifie mes révisions')],
+  ['Bloque du temps pour préparer', t('Bloque du temps pour préparer')],
+  ['Comment enregistrer un cours ?', t('Comment enregistrer un cours ?')],
+  ['Comment enregistrer une réunion ?', t('Comment enregistrer une réunion ?')],
+  ['Comment enregistrer une conférence ?', t('Comment enregistrer une conférence ?')],
+];
+
 export function localReply(raw: string): BotReply {
-  const input = raw.trim();
+  const typed = raw.trim();
+  const input = SUGGESTED.find(([, shown]) => shown.toLowerCase() === typed.toLowerCase())?.[0] ?? typed;
   const q = normalize(input);
 
   // ── Waiting for a confirmation ────────────────────────────────────────────

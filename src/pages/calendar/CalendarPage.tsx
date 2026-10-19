@@ -21,12 +21,13 @@ import { useEventDrag, type DropTarget } from './useEventDrag';
 import { exportIcs } from '../../lib/backup';
 import { flashWhenReady } from '../../lib/flash';
 import { eventReminders, followMoments, reminderLabel } from '../../lib/reminders';
+import { t, tn } from '../../i18n';
 
 type Mode = 'week' | 'month' | 'day';
 const MODES: { id: Mode; label: string }[] = [
-  { id: 'day', label: 'Jour' },
-  { id: 'week', label: 'Semaine' },
-  { id: 'month', label: 'Mois' },
+  { id: 'day', label: t('Jour') },
+  { id: 'week', label: t('Semaine') },
+  { id: 'month', label: t('Mois') },
 ];
 const MODE_KEY = 'cop.calendar.mode';
 
@@ -76,37 +77,37 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
             {ev.end && <p className="text-stone-500">{ev.end}</p>}
           </>
         ) : (
-          <p className="text-stone-500">Journée</p>
+          <p className="text-stone-500">{t('Journée')}</p>
         )}
       </div>
       {/* The card alone lights up when a link leads here (lib/flash), not the time beside it. */}
       <div
         data-event={ev.id}
         onPointerDown={readOnly ? undefined : onDragStart}
-        title={readOnly ? undefined : 'Glisse sur un autre jour pour déplacer'}
+        title={readOnly ? undefined : t('Glisse sur un autre jour pour déplacer')}
         className={cx('flex min-w-0 flex-1 touch-manipulation items-start gap-3 rounded-[16px] bg-stone-50 py-3 pl-3 pr-2 transition-colors [-webkit-touch-callout:none] hover:bg-stone-100', ev.done && 'opacity-60', dragging && 'opacity-40')}
       >
         <span className="mt-0.5 w-[3px] self-stretch rounded-full" style={{ background: c.color, opacity: ev.done ? 0.35 : 1 }} />
         {!shared && <button
           onClick={() => toggleDone(ev.id)}
           className={cx('hit mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors', ev.done ? 'border-ink bg-ink' : 'border-stone-300 hover:border-stone-500')}
-          title={ev.done ? 'Marquer comme à faire' : 'Marquer comme fait'} aria-label={`Marquer « ${ev.title} » comme ${ev.done ? 'à faire' : 'fait'}`}
+          title={ev.done ? t('Marquer comme à faire') : t('Marquer comme fait')} aria-label={ev.done ? t('Marquer « {title} » comme à faire', { title: ev.title }) : t('Marquer « {title} » comme fait', { title: ev.title })}
         >
           {ev.done && <Check size={11} strokeWidth={3} className="text-paper" />}
         </button>}
         <button className={cx('min-w-0 flex-1 text-left pointer-coarse:py-2', readOnly && 'cursor-default')} onClick={readOnly ? undefined : onEdit}>
           <p className={cx('text-[14px] font-medium leading-snug hyphens-auto [overflow-wrap:anywhere]', ev.done && 'text-stone-500 line-through')}>
-            {ev.important && <Flag size={12} className="mr-1 inline-block -translate-y-px fill-amber-500 text-amber-500" aria-label="Important" />}
+            {ev.important && <Flag size={12} className="mr-1 inline-block -translate-y-px fill-amber-500 text-amber-500" aria-label={t('Important')} />}
             {ev.title}
           </p>
           <p className="mt-0.5 text-[12px] text-stone-500">
             <span style={{ color: c.text }}>{c.label}</span>
-            {shared && ev.people?.length ? ` · pour ${ev.people.map(shared.nameOf).join(', ')}` : ''}
-            {shared && ` · par ${shared.author(ev.id)}`}
+            {shared && ev.people?.length ? ` · ${t('pour {names}', { names: ev.people.map(shared.nameOf).join(', ') })}` : ''}
+            {shared && ` · ${t('par {name}', { name: shared.author(ev.id) })}`}
             {isBigEvent(ev) && !ev.done && ` · ${countdownLabel(ev.date)}`}
             {!ev.done && reminders.length > 0 && (
-              <span className="ml-2 inline-flex items-center gap-1 whitespace-nowrap" title="Rappels">
-                <Bell size={11} aria-label="Rappel" />
+              <span className="ml-2 inline-flex items-center gap-1 whitespace-nowrap" title={t('Rappels')}>
+                <Bell size={11} aria-label={t('Rappel')} />
                 {reminderLabel(Math.min(...reminders), !!ev.start, ev.date, ev.start)}
                 {reminders.length > 1 && ` +${reminders.length - 1}`}
               </span>
@@ -116,12 +117,12 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
         </button>
         {/* On a phone the card itself opens the form (with « Supprimer »): the title keeps the width. */}
         {!readOnly && <div className="touch-show flex shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:max-sm:hidden">
-          <button className="icon-btn" title="Modifier" aria-label={`Modifier « ${ev.title} »`} onClick={onEdit}>
+          <button className="icon-btn" title={t('Modifier')} aria-label={t('Modifier « {title} »', { title: ev.title })} onClick={onEdit}>
             <Pencil size={14} />
           </button>
           <button
             className="icon-btn hover:text-red-600"
-            title="Supprimer" aria-label={`Supprimer « ${ev.title} »`}
+            title={t('Supprimer')} aria-label={t('Supprimer « {title} »', { title: ev.title })}
             onClick={async () => (await confirmRemoveEvent(ev, shared)) && remove(ev.id)}
           >
             <Trash2 size={14} />
@@ -183,21 +184,21 @@ function CalendarFilter({ categories, shown, importantOnly, onToggle, onImportan
         aria-expanded={open}
         aria-controls="filtre-calendrier"
         className={cx('btn-secondary h-8 px-2.5', count > 0 && 'border-ink/40 text-ink')}
-        title="Filtrer les événements affichés"
+        title={t('Filtrer les événements affichés')}
       >
         <ListFilter size={15} />
-        <span className="max-sm:sr-only">Filtrer</span>
+        <span className="max-sm:sr-only">{t('Filtrer')}</span>
         {count > 0 && <span className="tabular rounded-full bg-ink px-1.5 text-[11px] leading-[18px] text-paper">{count}</span>}
       </button>
       {open && (
-        <div id="filtre-calendrier" role="group" aria-label="Filtrer les événements" className="pop absolute right-0 top-10 z-[60] w-64 rounded-xl border border-stone-200 bg-surface p-2 shadow-pop max-sm:left-0 max-sm:right-auto">
-          <p className="px-2 pb-1 pt-0.5 text-[12px] text-stone-500">Afficher seulement :</p>
+        <div id="filtre-calendrier" role="group" aria-label={t('Filtrer les événements')} className="pop absolute right-0 top-10 z-[60] w-64 rounded-xl border border-stone-200 bg-surface p-2 shadow-pop max-sm:left-0 max-sm:right-auto">
+          <p className="px-2 pb-1 pt-0.5 text-[12px] text-stone-500">{t('Afficher seulement :')}</p>
           {onImportant && (
             <>
               <label className={row}>
                 <input type="checkbox" className={box} checked={importantOnly} onChange={onImportant} />
                 <Flag size={13} className="shrink-0 fill-amber-500 text-amber-500" />
-                Importants
+                {t('Importants')}
               </label>
               <div className="my-1 h-px bg-stone-100" />
             </>
@@ -214,7 +215,7 @@ function CalendarFilter({ categories, shown, importantOnly, onToggle, onImportan
           })}
           <div className="mt-1 flex items-center gap-1 border-t border-stone-100 pt-2">
             <button type="button" className="btn-ghost h-8 px-2 text-[12px]" disabled={!count} onClick={onReset}>
-              Tout afficher
+              {t('Tout afficher')}
             </button>
             {onManage && (
               <button
@@ -225,7 +226,7 @@ function CalendarFilter({ categories, shown, importantOnly, onToggle, onImportan
                   onManage();
                 }}
               >
-                Gérer les catégories
+                {t('Gérer les catégories')}
               </button>
             )}
           </div>
@@ -352,7 +353,7 @@ export default function CalendarPage() {
     setQuick('');
     showSaved({ date, category: parsedCat!, important: parsed.important });
     toast(
-      parsed.weekly ? `Ajouté pour ${fmt(fromKey(date), 'EEEE d MMMM')}, une seule fois (pas encore de répétition)` : `Ajouté : ${parsed.title}`,
+      parsed.weekly ? t('Ajouté pour {day}, une seule fois (pas encore de répétition)', { day: fmt(fromKey(date), 'EEEE d MMMM') }) : t('Ajouté : {title}', { title: parsed.title }),
       'success',
     );
   };
@@ -371,8 +372,8 @@ export default function CalendarPage() {
   useEffect(() => {
     keysRef.current = e => {
       if (form || importing || e.metaKey || e.ctrlKey || e.altKey) return;
-      const t = e.target as HTMLElement | null;
-      if (t?.closest('input, textarea, select, [contenteditable="true"], [role="dialog"], [aria-modal="true"]')) return;
+      const el = e.target as HTMLElement | null;
+      if (el?.closest('input, textarea, select, [contenteditable="true"], [role="dialog"], [aria-modal="true"]')) return;
       const delta = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: mode === 'day' ? 0 : -7, ArrowDown: mode === 'day' ? 0 : 7 }[e.key];
       if (!delta) return;
       e.preventDefault();
@@ -401,8 +402,9 @@ export default function CalendarPage() {
     const before = { date: ev.date, start: ev.start, end: ev.end, reminders: ev.reminders };
     const { update } = source;
     update(ev.id, patch);
-    const label = dayChanged ? `Déplacé au ${fmt(fromKey(target.day), 'EEEE d MMM')}${timeChanged ? ` à ${patch.start}` : ''}` : `Déplacé à ${patch.start}`;
-    toast(label, 'success', { label: 'Annuler', run: () => update(ev.id, before) });
+    const day = fmt(fromKey(target.day), 'EEEE d MMM');
+    const label = dayChanged ? (timeChanged ? t('Déplacé au {day} à {time}', { day, time: patch.start! }) : t('Déplacé au {day}', { day })) : t('Déplacé à {time}', { time: patch.start! });
+    toast(label, 'success', { label: t('Annuler'), run: () => update(ev.id, before) });
   };
   const { drag, ghostRef, start: dragStart } = useEventDrag(moveEvent);
   const startDrag: typeof dragStart = (...a) => (readOnly ? undefined : dragStart(...a));
@@ -417,7 +419,7 @@ export default function CalendarPage() {
     const file = e.dataTransfer.files[0];
     if (!file) return;
     if (!isIcsFile(file)) {
-      toast(`Dépose un fichier .ics pour importer un ${words.timetable}`, 'error');
+      toast(t('Dépose un fichier .ics pour importer un {timetable}', { timetable: words.timetable }), 'error');
       return;
     }
     setImporting({ initial: { name: file.name, text: await file.text() } });
@@ -469,20 +471,20 @@ export default function CalendarPage() {
       <div className="mx-auto max-w-[1180px]">
         {/* Header */}
         <div className="flex flex-wrap items-center gap-2 pb-4 pt-2">
-          {!shared && <h1 className="mr-3 text-[24px] font-semibold tracking-[-0.02em]">Calendrier</h1>}
+          {!shared && <h1 className="mr-3 text-[24px] font-semibold tracking-[-0.02em]">{t('Calendrier')}</h1>}
           <div className="ml-auto flex items-center gap-1">
-            <button className="icon-btn" onClick={() => shift(-1)} title={mode === 'day' ? 'Jour précédent' : 'Précédent'} aria-label={mode === 'day' ? 'Jour précédent' : 'Précédent'}>
+            <button className="icon-btn" onClick={() => shift(-1)} title={mode === 'day' ? t('Jour précédent') : t('Précédent')} aria-label={mode === 'day' ? t('Jour précédent') : t('Précédent')}>
               <ChevronLeft size={17} />
             </button>
             <span className="min-w-28 text-center text-[14px] font-medium first-letter:uppercase">{fmt(selDate, mode === 'day' ? 'EEE d MMMM' : 'MMMM yyyy')}</span>
-            <button className="icon-btn" onClick={() => shift(1)} title={mode === 'day' ? 'Jour suivant' : 'Suivant'} aria-label={mode === 'day' ? 'Jour suivant' : 'Suivant'}>
+            <button className="icon-btn" onClick={() => shift(1)} title={mode === 'day' ? t('Jour suivant') : t('Suivant')} aria-label={mode === 'day' ? t('Jour suivant') : t('Suivant')}>
               <ChevronRight size={17} />
             </button>
           </div>
           <button className="btn-secondary h-8" onClick={() => selectDay(today)}>
-            Aujourd’hui
+            {t('Aujourd’hui')}
           </button>
-          <div className="flex h-8 items-center rounded-lg bg-stone-100 p-0.5 text-[13px] pointer-coarse:h-10" role="group" aria-label="Affichage">
+          <div className="flex h-8 items-center rounded-lg bg-stone-100 p-0.5 text-[13px] pointer-coarse:h-10" role="group" aria-label={t('Affichage')}>
             {MODES.map(m => (
               <button key={m.id} onClick={() => setMode(m.id)} aria-pressed={mode === m.id} className={cx('h-7 rounded-md px-2 font-medium transition-colors pointer-coarse:h-9 sm:px-3', mode === m.id ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}>
                 {m.label}
@@ -492,8 +494,8 @@ export default function CalendarPage() {
           {/* Filter and import wrap together: on a phone the import icon was left alone on its own line. */}
           <div className="flex items-center gap-2">
           {(!readOnly || periods.length > 0) && (
-            <button className="btn-secondary h-8 px-2.5" onClick={() => setPeriodsOpen(true)} title={`Périodes : ${periodIdeas(usage)}…`} aria-label="Périodes">
-              <CalendarRange size={15} /> <span className="max-sm:sr-only">Périodes</span>
+            <button className="btn-secondary h-8 px-2.5" onClick={() => setPeriodsOpen(true)} title={t('Périodes : {ideas}…', { ideas: periodIdeas(usage) })} aria-label={t('Périodes')}>
+              <CalendarRange size={15} /> <span className="max-sm:sr-only">{t('Périodes')}</span>
             </button>
           )}
           <CalendarFilter
@@ -517,11 +519,11 @@ export default function CalendarPage() {
           />
           {/* Together: on a tablet the header wraps, and the export icon was left alone on a second line. */}
           {!shared && <div className="flex items-center gap-1">
-          <button className="icon-btn h-8 w-8" onClick={() => setImporting({})} title={`Importer un ${words.timetable} (.ics)`} aria-label={`Importer un ${words.timetable} (.ics)`}>
+          <button className="icon-btn h-8 w-8" onClick={() => setImporting({})} title={t('Importer un {timetable} (.ics)', { timetable: words.timetable })} aria-label={t('Importer un {timetable} (.ics)', { timetable: words.timetable })}>
             <CalendarArrowDown size={16} />
           </button>
           {/* Not on phones, where the header would wrap for it: Profil › Données exports too. */}
-          <button className="icon-btn hidden h-8 w-8 disabled:opacity-40 sm:inline-flex" disabled={!events.length} onClick={() => (exportIcs(), toast('Calendrier exporté', 'success'))} title="Exporter le calendrier (.ics)" aria-label="Exporter le calendrier (.ics)">
+          <button className="icon-btn hidden h-8 w-8 disabled:opacity-40 sm:inline-flex" disabled={!events.length} onClick={() => (exportIcs(), toast(t('Calendrier exporté'), 'success'))} title={t('Exporter le calendrier (.ics)')} aria-label={t('Exporter le calendrier (.ics)')}>
             <CalendarArrowUp size={16} />
           </button>
           </div>}
@@ -531,7 +533,7 @@ export default function CalendarPage() {
         {/* Quick add */}
         {/* Keyboard focus: a brand ring (the shadow alone was invisible on the dark theme). */}
         {readOnly ? (
-          <p className="card px-4 py-3 text-[13px] text-stone-500">Agenda en lecture seule.</p>
+          <p className="card px-4 py-3 text-[13px] text-stone-500">{t('Agenda en lecture seule.')}</p>
         ) : (
         <form onSubmit={submitQuick} className="card flex flex-col px-3 transition-shadow focus-within:border-stone-300 focus-within:shadow-pop has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-focus">
           <div className="flex h-12 items-center gap-2.5">
@@ -540,17 +542,17 @@ export default function CalendarPage() {
               ref={quickRef}
               value={quick}
               onChange={e => setQuick(e.target.value)}
-              placeholder={wide ? `Ajouter un événement, par exemple «\u00a0${words.quickExample}\u00a0»` : 'Ajouter un événement…'}
-              aria-label="Ajouter un événement en une phrase"
+              placeholder={wide ? t('Ajouter un événement, par exemple «\u00a0{example}\u00a0»', { example: words.quickExample }) : t('Ajouter un événement…')}
+              aria-label={t('Ajouter un événement en une phrase')}
               className="h-full min-w-0 flex-1 text-ellipsis bg-transparent text-[14px] outline-none placeholder:text-stone-400"
             />
             {parsed?.title ? (
               <button type="submit" className="btn-primary h-8 px-3">
-                Ajouter <CornerDownLeft size={13} />
+                {t('Ajouter')} <CornerDownLeft size={13} />
               </button>
             ) : (
               <button type="button" className="btn-ghost h-8 px-2.5 text-[12px]" onClick={openForm}>
-                Formulaire
+                {t('Formulaire')}
               </button>
             )}
           </div>
@@ -575,11 +577,11 @@ export default function CalendarPage() {
                 <>
                   <span>·</span>
                   <span className="flex items-center gap-1 font-medium text-amber-700 dark:text-amber-400">
-                    <Flag size={11} className="fill-current" /> Important
+                    <Flag size={11} className="fill-current" /> {t('Important')}
                   </span>
                 </>
               )}
-              {parsed.weekly && <span className="w-full text-stone-500">Une seule fois&nbsp;: pas encore de répétition.</span>}
+              {parsed.weekly && <span className="w-full text-stone-500">{t('Une seule fois\u00a0: pas encore de répétition.')}</span>}
             </div>
           )}
         </form>
@@ -591,7 +593,7 @@ export default function CalendarPage() {
             {mode !== 'month' ? (
               <>
               {weekBands.length > 0 && (
-                <div className="mb-1 grid grid-cols-7 gap-1" aria-label="Périodes de la semaine">
+                <div className="mb-1 grid grid-cols-7 gap-1" aria-label={t('Périodes de la semaine')}>
                   {weekLanes(weekBands, weekKeys).filter(b => b.lane < 3).map(({ period: p, from, to, lane }) => {
                     return (
                       <button
@@ -620,7 +622,7 @@ export default function CalendarPage() {
                       key={key}
                       data-drop-day={key}
                       aria-pressed={isSel}
-                      aria-label={`${fmt(d, 'EEEE d MMMM')}${isToday ? ', aujourd’hui' : ''}${evs.length ? `, ${evs.length} événement${evs.length > 1 ? 's' : ''}` : ''}`}
+                      aria-label={`${fmt(d, 'EEEE d MMMM')}${isToday ? t(', aujourd’hui') : ''}${evs.length ? tn(evs.length, ', {n} événement', ', {n} événements') : ''}`}
                       onClick={() => selectDay(key)}
                       onDoubleClick={() => setForm({ date: key })}
                       className={cx(
@@ -652,7 +654,7 @@ export default function CalendarPage() {
             ) : (
               <div className="@container">
                 <div className="grid grid-cols-7 pb-1.5 text-center text-[11px] font-medium text-stone-500">
-                  {['Lun.', 'Mar.', 'Mer.', 'Jeu.', 'Ven.', 'Sam.', 'Dim.'].map(d => (
+                  {[t('Lun.'), t('Mar.'), t('Mer.'), t('Jeu.'), t('Ven.'), t('Sam.'), t('Dim.')].map(d => (
                     <span key={d}>{d}</span>
                   ))}
                 </div>
@@ -670,7 +672,7 @@ export default function CalendarPage() {
                         key={key}
                         data-drop-day={key}
                         aria-pressed={isSel}
-                        aria-label={`${fmt(d, 'EEEE d MMMM')}${key === today ? ', aujourd’hui' : ''}${evs.length ? `, ${evs.length} événement${evs.length > 1 ? 's' : ''}` : ''}`}
+                        aria-label={`${fmt(d, 'EEEE d MMMM')}${key === today ? t(', aujourd’hui') : ''}${evs.length ? tn(evs.length, ', {n} événement', ', {n} événements') : ''}`}
                         onClick={() => selectDay(key)}
                         onDoubleClick={() => setForm({ date: key })}
                         className={cx(
@@ -707,7 +709,7 @@ export default function CalendarPage() {
                               x.stopPropagation();
                               setForm({ event: e, date: e.date });
                             }}
-                            title={readOnly ? eventTitle(e, shared) : `${eventTitle(e, shared)} · double-clic pour modifier`}
+                            title={readOnly ? eventTitle(e, shared) : t('{title} · double-clic pour modifier', { title: eventTitle(e, shared) })}
                             className={cx('mb-0.5 hidden cursor-grab select-none items-center gap-1 truncate rounded px-1 text-[11px] text-stone-700 hover:bg-stone-100 @md:flex', drag?.ev.id === e.id && 'opacity-40')}
                             style={{ textDecoration: e.done ? 'line-through' : undefined }}
                           >
@@ -722,13 +724,13 @@ export default function CalendarPage() {
                             ))}
                           </span>
                         )}
-                        {evs.length > 2 && <span className="hidden px-1 text-[10px] text-stone-500 @md:block">+{evs.length - 2} autre{evs.length > 3 ? 's' : ''}</span>}
+                        {evs.length > 2 && <span className="hidden px-1 text-[10px] text-stone-500 @md:block">{tn(evs.length - 2, '+{n} autre', '+{n} autres')}</span>}
                       </button>
                     );
                   })}
                 </div>
                 {monthBands.length > 0 && (
-                  <div className="mt-2.5 flex flex-wrap gap-1.5" aria-label="Périodes du mois">
+                  <div className="mt-2.5 flex flex-wrap gap-1.5" aria-label={t('Périodes du mois')}>
                     {monthBands.slice(0, 8).map(p => (
                       <button key={p.id} onClick={() => setPeriodsOpen(true)} className="hit-sm flex h-6 min-w-0 max-w-full items-center gap-1.5 rounded-full px-2.5 text-[11.5px] font-semibold" style={{ background: periodTint(p, 16), color: periodText(p) }}>
                         <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: periodColor(p) }} aria-hidden />
@@ -744,7 +746,7 @@ export default function CalendarPage() {
             {/* Selected day */}
             <div className="mt-5 border-t border-stone-100 pt-5">
               <div className="mb-4 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                <h2 className="text-[16px] font-semibold first-letter:uppercase">{selected === today ? 'Aujourd’hui' : fmt(selDate, 'EEEE d MMMM')}</h2>
+                <h2 className="text-[16px] font-semibold first-letter:uppercase">{selected === today ? t('Aujourd’hui') : fmt(selDate, 'EEEE d MMMM')}</h2>
                 {selPeriods.map(p => (
                   <button
                     key={p.id}
@@ -758,7 +760,7 @@ export default function CalendarPage() {
                   </button>
                 ))}
                 {!readOnly && <button className="btn-ghost ml-auto h-8 text-[12px]" onClick={() => setForm({ date: selected })}>
-                  <Plus size={14} /> Ajouter
+                  <Plus size={14} /> {t('Ajouter')}
                 </button>}
               </div>
               {mode === 'day' ? (
@@ -772,7 +774,7 @@ export default function CalendarPage() {
                   onCreate={(start, end) => setForm({ date: selected, start, end })}
                 />
               ) : dayEvents.length === 0 ? (
-                <p className="py-8 text-center text-[13px] text-stone-500">{events.some(e => e.date === selected) ? 'Rien à afficher avec ce filtre.' : selected === today ? 'Rien de prévu aujourd’hui.' : 'Rien de prévu ce jour-là.'}</p>
+                <p className="py-8 text-center text-[13px] text-stone-500">{events.some(e => e.date === selected) ? t('Rien à afficher avec ce filtre.') : selected === today ? t('Rien de prévu aujourd’hui.') : t('Rien de prévu ce jour-là.')}</p>
               ) : (
                 <div className="space-y-2">
                   {dayEvents.map(ev => (
@@ -785,11 +787,11 @@ export default function CalendarPage() {
 
           <aside aria-labelledby="a-venir-titre" className="card min-w-0 self-start p-4">
             <h2 id="a-venir-titre" className="mb-2 text-[13px] font-medium text-stone-600">
-              À venir
+              {t('À venir')}
             </h2>
             {upcomingExams.length === 0 && nextUp.length === 0 ? (
               <p className="py-1 text-[13px] text-stone-500">
-                {upcomingHidden ? 'Rien à afficher avec ce filtre.' : 'Rien de prévu pour la suite.'}
+                {upcomingHidden ? t('Rien à afficher avec ce filtre.') : t('Rien de prévu pour la suite.')}
               </p>
             ) : (
               <ul className="-mx-1.5">
@@ -798,7 +800,7 @@ export default function CalendarPage() {
                   return (
                     <li key={e.id}>
                       <button onClick={() => showEvent(e)} className="flex w-full items-center gap-3 rounded-lg px-1.5 py-1.5 text-left transition-colors hover:bg-stone-50">
-                        <span className={cx('tabular w-9 shrink-0 text-[13px] font-semibold', n <= 3 ? 'font-extrabold text-urgent-text' : 'text-ink')}>{n === 0 ? 'Auj.' : `J-${n}`}</span>
+                        <span className={cx('tabular w-9 shrink-0 text-[13px] font-semibold', n <= 3 ? 'font-extrabold text-urgent-text' : 'text-ink')}>{n === 0 ? t('Auj.') : t('J-{n}', { n })}</span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[13px] font-medium">{eventTitle(e, shared)}</span>
                           <span className="block text-[12px] first-letter:uppercase text-stone-500">
@@ -813,7 +815,7 @@ export default function CalendarPage() {
                 {moreExams > 0 && (
                   <li>
                     <button onClick={() => setAllExams(v => !v)} aria-expanded={allExams} className="w-full rounded-lg px-1.5 py-1 text-left text-[12px] font-medium text-stone-500 transition-colors hover:bg-stone-50 hover:text-ink pointer-coarse:py-2">
-                      {allExams ? 'Réduire' : `Voir ${moreExams} autre${moreExams > 1 ? 's' : ''}`}
+                      {allExams ? t('Réduire') : tn(moreExams, 'Voir {n} autre', 'Voir {n} autres')}
                     </button>
                   </li>
                 )}
@@ -824,14 +826,14 @@ export default function CalendarPage() {
                   return (
                     <li key={e.id} className="flex items-center">
                       <button onClick={() => showEvent(e)} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1.5 py-1.5 text-left transition-colors hover:bg-stone-50">
-                        <span className={cx('tabular w-9 shrink-0 text-[12px] font-semibold', late ? 'font-extrabold text-urgent-text' : 'text-stone-500')}>{late ? 'Retard' : n === 0 ? 'Auj.' : n === 1 ? 'Dem.' : `J-${n}`}</span>
+                        <span className={cx('tabular w-9 shrink-0 text-[12px] font-semibold', late ? 'font-extrabold text-urgent-text' : 'text-stone-500')}>{late ? t('Retard') : n === 0 ? t('Auj.') : n === 1 ? t('Dem.') : t('J-{n}', { n })}</span>
                         <span className="min-w-0 flex-1">
                           <span className="flex min-w-0 items-center gap-1.5 text-[13px] font-medium">
                             <Dot color={catOf(e.category).color} size={6} />
                             <span className="truncate">{eventTitle(e, shared)}</span>
                           </span>
                           <span className="block text-[12px] first-letter:uppercase text-stone-500">
-                            {toHandIn ? `${words.markDone === 'rendu' ? 'À rendre' : 'À faire'} · ` : ''}
+                            {toHandIn ? `${(WORDS[usage] ?? WORDS.etudes) === WORDS.etudes ? t('À rendre') : t('À faire')} · ` : ''}
                             {fmtDay(fromKey(e.date), 'EEE d MMM')}
                             {e.start && ` · ${e.start}`}
                           </span>
@@ -842,8 +844,8 @@ export default function CalendarPage() {
                         <button
                           onClick={() => source.toggleDone(e.id)}
                           className="hit ml-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-[1.5px] border-stone-300 text-transparent transition-colors hover:border-emerald-500 hover:text-emerald-500"
-                          title={`Marquer comme ${words.markDone}`}
-                          aria-label={`Marquer « ${e.title} » comme ${words.markDone}`}
+                          title={t('Marquer comme {done}', { done: words.markDone })}
+                          aria-label={t('Marquer « {title} » comme {done}', { title: e.title, done: words.markDone })}
                         >
                           <Check size={13} strokeWidth={3} />
                         </button>
@@ -894,8 +896,8 @@ export default function CalendarPage() {
         <div className="pointer-events-none fixed inset-0 z-[75] flex items-center justify-center bg-stone-900/10 p-6">
           <div className="pop flex flex-col items-center rounded-2xl border-2 border-dashed border-brand-500 bg-surface/95 px-10 py-8 text-center shadow-pop">
             <CalendarArrowDown size={26} className="text-brand-600" />
-            <p className="mt-2 text-[15px] font-semibold">Dépose ton {words.timetable}</p>
-            <p className="mt-0.5 text-[13px] text-stone-500">Fichier .ics</p>
+            <p className="mt-2 text-[15px] font-semibold">{t('Dépose ton {timetable}', { timetable: words.timetable })}</p>
+            <p className="mt-0.5 text-[13px] text-stone-500">{t('Fichier .ics')}</p>
           </div>
         </div>
       )}

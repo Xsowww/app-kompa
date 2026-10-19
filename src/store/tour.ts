@@ -5,8 +5,6 @@ import { t } from '../i18n';
 /** Title of the starter task that launches the tour (TodoList shows a « Lancer » button on it), in the account's language.
  *  No-break space in « 1 min »: « (1 » and « min) » never end up on two lines. */
 export const TOUR_TODO = t('Faire le tour de Kompaly (1\u00a0min)');
-/** Start shared by every title the task ever had (found in aria-labels by the tour). */
-export const TOUR_TODO_START = 'Faire le tour de Kompa';
 /** Older accounts still have the task with a plain space, or under the name the app had before Kompaly. */
 export const isTourTodo = (title: string) => {
   const x = title.replace(/\u00a0/g, ' ');

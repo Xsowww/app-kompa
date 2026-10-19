@@ -16,6 +16,7 @@ import { deleteNote, fetchNote, groupError, saveNote, summary, type GroupNote } 
 import { cx, relativeTime } from '../../lib/utils';
 import { withProtocol } from '../notes/noteUtils';
 import { groupWordsNow, useGroupWords, useMemberName } from './util';
+import { t } from '../../i18n';
 
 function Toolbar({ editor }: { editor: Editor }) {
   const btn = (label: string, Icon: typeof Bold, active: boolean, run: () => void) => (
@@ -34,36 +35,39 @@ function Toolbar({ editor }: { editor: Editor }) {
   const sep = (k: string) => <span key={k} className="mx-1 h-4 w-px bg-stone-200" />;
   return (
     <div className="flex flex-wrap items-center gap-0.5">
-      {btn('Titre 1', Heading1, editor.isActive('heading', { level: 1 }), () => c().toggleHeading({ level: 1 }).run())}
-      {btn('Titre 2', Heading2, editor.isActive('heading', { level: 2 }), () => c().toggleHeading({ level: 2 }).run())}
+      {btn(t('Titre 1'), Heading1, editor.isActive('heading', { level: 1 }), () => c().toggleHeading({ level: 1 }).run())}
+      {btn(t('Titre 2'), Heading2, editor.isActive('heading', { level: 2 }), () => c().toggleHeading({ level: 2 }).run())}
       {sep('s1')}
-      {btn('Gras (Ctrl+B)', Bold, editor.isActive('bold'), () => c().toggleBold().run())}
-      {btn('Italique (Ctrl+I)', Italic, editor.isActive('italic'), () => c().toggleItalic().run())}
-      {btn('Barré', Strikethrough, editor.isActive('strike'), () => c().toggleStrike().run())}
-      {btn('Surligner', Highlighter, editor.isActive('highlight'), () => c().toggleHighlight().run())}
+      {btn(t('Gras (Ctrl+B)'), Bold, editor.isActive('bold'), () => c().toggleBold().run())}
+      {btn(t('Italique (Ctrl+I)'), Italic, editor.isActive('italic'), () => c().toggleItalic().run())}
+      {btn(t('Barré'), Strikethrough, editor.isActive('strike'), () => c().toggleStrike().run())}
+      {btn(t('Surligner'), Highlighter, editor.isActive('highlight'), () => c().toggleHighlight().run())}
       {sep('s2')}
-      {btn('Liste à puces', List, editor.isActive('bulletList'), () => c().toggleBulletList().run())}
-      {btn('Liste numérotée', ListOrdered, editor.isActive('orderedList'), () => c().toggleOrderedList().run())}
-      {btn('Cases à cocher', ListChecks, editor.isActive('taskList'), () => c().toggleTaskList().run())}
+      {btn(t('Liste à puces'), List, editor.isActive('bulletList'), () => c().toggleBulletList().run())}
+      {btn(t('Liste numérotée'), ListOrdered, editor.isActive('orderedList'), () => c().toggleOrderedList().run())}
+      {btn(t('Cases à cocher'), ListChecks, editor.isActive('taskList'), () => c().toggleTaskList().run())}
       {sep('s3')}
-      {btn('Citation', Quote, editor.isActive('blockquote'), () => c().toggleBlockquote().run())}
-      {btn('Bloc de code', Code2, editor.isActive('codeBlock'), () => c().toggleCodeBlock().run())}
-      {btn('Lien', Link2, editor.isActive('link'), () => {
+      {btn(t('Citation'), Quote, editor.isActive('blockquote'), () => c().toggleBlockquote().run())}
+      {btn(t('Bloc de code'), Code2, editor.isActive('codeBlock'), () => c().toggleCodeBlock().run())}
+      {btn(t('Lien'), Link2, editor.isActive('link'), () => {
         const prev = editor.getAttributes('link').href as string | undefined;
-        void askText(prev ? 'Modifier le lien' : 'Adresse du lien', prev ?? '', 'Valider', { url: true }).then(url => {
+        void askText(prev ? t('Modifier le lien') : t('Adresse du lien'), prev ?? '', t('Valider'), { url: true }).then(url => {
           if (url === null) return;
           if (!url.trim() || url.trim() === 'https://') c().unsetLink().run();
           else c().extendMarkRange('link').setLink({ href: withProtocol(url) }).run();
         });
       })}
       {sep('s4')}
-      {btn('Annuler (Ctrl+Z)', Undo2, false, () => c().undo().run())}
-      {btn('Rétablir', Redo2, false, () => c().redo().run())}
+      {btn(t('Annuler (Ctrl+Z)'), Undo2, false, () => c().undo().run())}
+      {btn(t('Rétablir'), Redo2, false, () => c().redo().run())}
     </div>
   );
 }
 
 type Status = 'saved' | 'pending' | 'saving' | 'error';
+
+/** The default title, in French (notes made before a language switch) or translated: shown as an empty title. */
+const untitled = (s: string) => s === 'Sans titre' || s === t('Sans titre');
 
 /** Charge la note, puis affiche l'éditeur. */
 /** `fresh` : la note qu'on vient de créer (pas de rechargement) et le titre déjà tapé pendant sa création. */
@@ -83,12 +87,12 @@ export default function GroupNoteEditor({ noteId, onClose, readOnly = false, fre
     // eslint-disable-next-line react-hooks/exhaustive-deps -- la note fraîche ne sert qu'au premier affichage
   }, [noteId]);
 
-  if (note === undefined) return <div className="flex-1 p-8 text-[13px] text-stone-500">Chargement de la note…</div>;
+  if (note === undefined) return <div className="flex-1 p-8 text-[13px] text-stone-500">{t('Chargement de la note…')}</div>;
   if (note === null)
     return (
       <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
-        <p className="text-[14px] font-medium">Cette note n’existe plus</p>
-        <button className="btn-secondary mt-4" onClick={onClose}>Retour à la liste</button>
+        <p className="text-[14px] font-medium">{t('Cette note n’existe plus')}</p>
+        <button className="btn-secondary mt-4" onClick={onClose}>{t('Retour à la liste')}</button>
       </div>
     );
   return <LoadedEditor initial={note} onClose={onClose} readOnly={readOnly} startTitle={preset?.title.current} />;
@@ -102,7 +106,7 @@ function LoadedEditor({ initial, onClose, readOnly, startTitle }: { initial: Gro
   const [meta, setMeta] = useState({ updatedAt: initial.updatedAt, updatedBy: initial.updatedBy });
   const me = useAuth(s => s.user?.id);
   const [reporting, setReporting] = useState(false);
-  const [title, setTitle] = useState(startTitle ?? (initial.title === 'Sans titre' ? '' : initial.title));
+  const [title, setTitle] = useState(startTitle ?? (untitled(initial.title) ? '' : initial.title));
   const titleInput = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<Status>('saved');
   const [conflict, setConflict] = useState<GroupNote | null>(null);
@@ -134,7 +138,7 @@ function LoadedEditor({ initial, onClose, readOnly, startTitle }: { initial: Gro
       setStatus('saving');
       const at = edits.current;
       try {
-        const saved = await saveNote(id, { title: titleRef.current.trim() || 'Sans titre', content: html.current }, force ? null : base.current);
+        const saved = await saveNote(id, { title: titleRef.current.trim() || t('Sans titre'), content: html.current }, force ? null : base.current);
         failed.current = false;
         if (saved) {
           adopt(saved);
@@ -149,7 +153,7 @@ function LoadedEditor({ initial, onClose, readOnly, startTitle }: { initial: Gro
           // (passé lecteur entre-temps) : la version en ligne n'a alors pas bougé.
           blocked.current = true;
           const remote = await fetchNote(id);
-          if (remote && (force || remote.updatedAt === base.current)) toast(`Tu ne peux plus modifier cette note : tu es lecteur dans ${groupWordsNow().this}.`, 'error');
+          if (remote && (force || remote.updatedAt === base.current)) toast(t('Tu ne peux plus modifier cette note : tu es lecteur dans {group}.', { group: groupWordsNow().this }), 'error');
           else if (remote) setConflict(remote);
           else setDeleted(true);
           setStatus('error');
@@ -191,7 +195,7 @@ function LoadedEditor({ initial, onClose, readOnly, startTitle }: { initial: Gro
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ link: { openOnClick: false, autolink: true } }),
-      Placeholder.configure({ placeholder: 'Écris ici…' }),
+      Placeholder.configure({ placeholder: t('Écris ici…') }),
       Highlight,
       TiptapImage.configure({ allowBase64: true }), // notes partagées depuis ses notes perso
       TaskList,
@@ -199,7 +203,7 @@ function LoadedEditor({ initial, onClose, readOnly, startTitle }: { initial: Gro
     ],
     content: initial.content,
     editable: !readOnly,
-    editorProps: { attributes: { class: 'prose-note', 'aria-label': 'Contenu de la note', 'aria-multiline': 'true' } },
+    editorProps: { attributes: { class: 'prose-note', 'aria-label': t('Contenu de la note'), 'aria-multiline': 'true' } },
     onUpdate: ({ editor: ed }) => {
       if (!ed.isEditable) return;
       html.current = ed.getHTML();
@@ -217,7 +221,7 @@ function LoadedEditor({ initial, onClose, readOnly, startTitle }: { initial: Gro
     (n: GroupNote) => {
       editorRef.current?.commands.setContent(n.content, { emitUpdate: false });
       html.current = n.content;
-      titleRef.current = n.title === 'Sans titre' ? '' : n.title;
+      titleRef.current = untitled(n.title) ? '' : n.title;
       setTitle(titleRef.current);
       dirty.current = false;
       blocked.current = false;
@@ -261,12 +265,12 @@ function LoadedEditor({ initial, onClose, readOnly, startTitle }: { initial: Gro
   }, [save]);
 
   const remove = async () => {
-    if (!(await confirmAction(`Supprimer cette note pour ${w.all} ?`, 'C’est définitif.'))) return;
+    if (!(await confirmAction(t('Supprimer cette note pour {all} ?', { all: w.all }), t('C’est définitif.')))) return;
     try {
       blocked.current = true;
       await deleteNote(id);
       useGroups.getState().dropNote(initial.groupId, id);
-      toast('Note supprimée', 'success');
+      toast(t('Note supprimée'), 'success');
       onClose();
     } catch (e) {
       blocked.current = false;
@@ -275,13 +279,23 @@ function LoadedEditor({ initial, onClose, readOnly, startTitle }: { initial: Gro
   };
 
   const statusText =
-    readOnly && status === 'saved' ? `Lecture seule · modifiée par ${nameOf(meta.updatedBy)} ${relativeTime(meta.updatedAt)}` : conflict ? 'En attente : choisis la version à garder' : status === 'saving' ? 'Enregistrement…' : status === 'pending' ? 'Modifications non enregistrées' : status === 'error' ? 'Non enregistré' : `Modifiée par ${nameOf(meta.updatedBy)} ${relativeTime(meta.updatedAt)}`;
+    readOnly && status === 'saved'
+      ? t('Lecture seule · modifiée par {name} {when}', { name: nameOf(meta.updatedBy), when: relativeTime(meta.updatedAt) })
+      : conflict
+        ? t('En attente : choisis la version à garder')
+        : status === 'saving'
+          ? t('Enregistrement…')
+          : status === 'pending'
+            ? t('Modifications non enregistrées')
+            : status === 'error'
+              ? t('Non enregistré')
+              : t('Modifiée par {name} {when}', { name: nameOf(meta.updatedBy), when: relativeTime(meta.updatedAt) });
 
   if (!editor) return null;
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-start gap-1 px-4 pt-5 md:px-10">
-        <button className="icon-btn mt-1" onClick={onClose} title="Retour à la liste" aria-label="Retour à la liste">
+        <button className="icon-btn mt-1" onClick={onClose} title={t('Retour à la liste')} aria-label={t('Retour à la liste')}>
           <ArrowLeft size={17} />
         </button>
         <div className="min-w-0 flex-1">
@@ -291,8 +305,8 @@ function LoadedEditor({ initial, onClose, readOnly, startTitle }: { initial: Gro
             readOnly={readOnly}
             // A note just created: its title is the first thing to type.
             autoFocus={!readOnly && startTitle === undefined && !title && !initial.content}
-            placeholder="Sans titre"
-            aria-label="Titre de la note"
+            placeholder={t('Sans titre')}
+            aria-label={t('Titre de la note')}
             maxLength={200}
             onChange={e => {
               setTitle(e.target.value);
@@ -306,33 +320,35 @@ function LoadedEditor({ initial, onClose, readOnly, startTitle }: { initial: Gro
         </div>
         {/* Someone else wrote in it: it can be reported to the administrator. */}
         {(initial.createdBy !== me || meta.updatedBy !== me) && (
-          <button className="icon-btn mt-1" title="Signaler la note" aria-label="Signaler la note" onClick={() => setReporting(true)}>
+          <button className="icon-btn mt-1" title={t('Signaler la note')} aria-label={t('Signaler la note')} onClick={() => setReporting(true)}>
             <Flag size={15} />
           </button>
         )}
         {!readOnly && (
-          <button className="icon-btn mt-1 hover:text-red-600" title="Supprimer la note" aria-label="Supprimer la note" onClick={() => void remove()}>
+          <button className="icon-btn mt-1 hover:text-red-600" title={t('Supprimer la note')} aria-label={t('Supprimer la note')} onClick={() => void remove()}>
             <Trash2 size={15} />
           </button>
         )}
-        <ReportDialog target={reporting ? { kind: 'note', id: initial.id, title: title.trim() || 'Sans titre' } : null} onClose={() => setReporting(false)} />
+        <ReportDialog target={reporting ? { kind: 'note', id: initial.id, title: title.trim() || t('Sans titre') } : null} onClose={() => setReporting(false)} />
       </div>
 
       {gone && (
         <div className="mx-4 mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-800 md:mx-10">
           <AlertTriangle size={15} className="shrink-0" />
-          <span className="flex-1">Un membre a supprimé cette note. Tes dernières modifications ne sont plus enregistrées.</span>
-          <button className="btn-secondary h-7 px-2.5" onClick={onClose}>Fermer</button>
+          <span className="flex-1">{t('Un membre a supprimé cette note. Tes dernières modifications ne sont plus enregistrées.')}</span>
+          <button className="btn-secondary h-7 px-2.5" onClick={onClose}>{t('Fermer')}</button>
         </div>
       )}
       {conflict && !gone && (
         <div className="mx-4 mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-900 md:mx-10">
           <AlertTriangle size={15} className="shrink-0" />
           <span className="min-w-0 flex-1">
-            {conflict.updatedBy === me ? 'Tu as modifié cette note ailleurs (autre onglet ou appareil)' : `${nameOf(conflict.updatedBy)} a modifié cette note`} {relativeTime(conflict.updatedAt)} pendant que tu écrivais. Rien n’a été écrasé.
+            {conflict.updatedBy === me
+              ? t('Tu as modifié cette note ailleurs (autre onglet ou appareil) {when} pendant que tu écrivais. Rien n’a été écrasé.', { when: relativeTime(conflict.updatedAt) })
+              : t('{name} a modifié cette note {when} pendant que tu écrivais. Rien n’a été écrasé.', { name: nameOf(conflict.updatedBy), when: relativeTime(conflict.updatedAt) })}
           </span>
-          <button className="btn-secondary h-7 px-2.5" onClick={() => loadRemote(conflict)}>{conflict.updatedBy === me ? 'Charger l’autre version' : 'Charger sa version'}</button>
-          <button className="btn-primary h-7 px-2.5" onClick={() => void save(true)}>{conflict.updatedBy === me ? 'Garder celle-ci' : 'Garder la mienne'}</button>
+          <button className="btn-secondary h-7 px-2.5" onClick={() => loadRemote(conflict)}>{conflict.updatedBy === me ? t('Charger l’autre version') : t('Charger sa version')}</button>
+          <button className="btn-primary h-7 px-2.5" onClick={() => void save(true)}>{conflict.updatedBy === me ? t('Garder celle-ci') : t('Garder la mienne')}</button>
         </div>
       )}
 

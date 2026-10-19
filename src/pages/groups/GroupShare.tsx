@@ -11,6 +11,7 @@ import { blobKey } from '../../lib/userStorage';
 import { MAX_GROUP_FILE, createNote, groupError, summary, type Group } from '../../lib/groups';
 import { groupWordsNow, shareFiles } from './util';
 import { cx, formatBytes, normalize, stripHtml } from '../../lib/utils';
+import { t } from '../../i18n';
 
 /** « Une de mes notes » : copie une note personnelle dans le groupe. */
 function NotePicker({ group, onPicked, onClose }: { group: Group; onPicked: (id: string) => void; onClose: () => void }) {
@@ -29,7 +30,7 @@ function NotePicker({ group, onPicked, onClose }: { group: Group; onPicked: (id:
     try {
       const copy = await createNote(group.id, n.title, n.content);
       useGroups.getState().upsertNote(summary(copy));
-      toast(`Note partagée avec ${groupWordsNow().the}`, 'success');
+      toast(t('Note partagée avec {group}', { group: groupWordsNow().the }), 'success');
       onPicked(copy.id);
     } catch (e) {
       toast(groupError(e), 'error');
@@ -38,14 +39,14 @@ function NotePicker({ group, onPicked, onClose }: { group: Group; onPicked: (id:
   };
   return (
     <div>
-      <h3 className="text-[15px] font-semibold">Partager une de mes notes</h3>
-      <p className="mt-1 text-[13px] text-stone-500">Une copie est ajoutée à « {group.name} » ; ta note reste privée.</p>
+      <h3 className="text-[15px] font-semibold">{t('Partager une de mes notes')}</h3>
+      <p className="mt-1 text-[13px] text-stone-500">{t('Une copie est ajoutée à « {name} » ; ta note reste privée.', { name: group.name })}</p>
       <div className="relative mt-4">
         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
-        <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Rechercher une note" aria-label="Rechercher une note" className="field w-full pl-8" />
+        <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder={t('Rechercher une note')} aria-label={t('Rechercher une note')} className="field w-full pl-8" />
       </div>
       <div className="mt-2 max-h-[320px] overflow-y-auto">
-        {list.length === 0 && <p className="p-6 text-center text-[13px] text-stone-500">{notes.length ? 'Aucune note trouvée' : 'Tu n’as pas encore de note.'}</p>}
+        {list.length === 0 && <p className="p-6 text-center text-[13px] text-stone-500">{notes.length ? t('Aucune note trouvée') : t('Tu n’as pas encore de note.')}</p>}
         {list.map(n => (
           <button
             key={n.id}
@@ -56,14 +57,14 @@ function NotePicker({ group, onPicked, onClose }: { group: Group; onPicked: (id:
             <FileText size={15} className="shrink-0 text-stone-400" />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[13px] font-medium">{n.title}</span>
-              <span className="block truncate text-[12px] text-stone-500">{stripHtml(n.content).slice(0, 120) || 'Note vide'}</span>
+              <span className="block truncate text-[12px] text-stone-500">{stripHtml(n.content).slice(0, 120) || t('Note vide')}</span>
             </span>
-            {busy === n.id && <span className="text-[12px] text-stone-500">Copie…</span>}
+            {busy === n.id && <span className="text-[12px] text-stone-500">{t('Copie…')}</span>}
           </button>
         ))}
       </div>
       <div className="mt-4 flex justify-end">
-        <button className="btn-secondary" onClick={onClose}>Fermer</button>
+        <button className="btn-secondary" onClick={onClose}>{t('Fermer')}</button>
       </div>
     </div>
   );
@@ -80,7 +81,7 @@ function DrivePicker({ group, onDone, onClose }: { group: Group; onDone: () => v
     () =>
       items
         .filter(i => i.kind === 'file')
-        .map(i => ({ item: i, where: pathOf(items, i.parentId).map(p => p.name).join(' / ') || 'Mon Drive' }))
+        .map(i => ({ item: i, where: pathOf(items, i.parentId).map(p => p.name).join(' / ') || t('Mon Drive') }))
         .filter(({ item, where }) => !nq || normalize(item.name).includes(nq) || normalize(where).includes(nq))
         .sort((a, b) => b.item.updatedAt.localeCompare(a.item.updatedAt))
         .slice(0, 200),
@@ -102,14 +103,14 @@ function DrivePicker({ group, onDone, onClose }: { group: Group; onDone: () => v
   };
   return (
     <div>
-      <h3 className="text-[15px] font-semibold">Partager depuis mon Drive</h3>
-      <p className="mt-1 text-[13px] text-stone-500">Une copie est ajoutée à « {group.name} » ; tes fichiers restent privés.</p>
+      <h3 className="text-[15px] font-semibold">{t('Partager depuis mon Drive')}</h3>
+      <p className="mt-1 text-[13px] text-stone-500">{t('Une copie est ajoutée à « {name} » ; tes fichiers restent privés.', { name: group.name })}</p>
       <div className="relative mt-4">
         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
-        <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Rechercher un fichier ou un dossier" aria-label="Rechercher dans mon Drive" className="field w-full pl-8" />
+        <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder={t('Rechercher un fichier ou un dossier')} aria-label={t('Rechercher dans mon Drive')} className="field w-full pl-8" />
       </div>
-      <div className="mt-2 max-h-[320px] overflow-y-auto" role="group" aria-label="Fichiers de mon Drive">
-        {files.length === 0 && <p className="p-6 text-center text-[13px] text-stone-500">{items.some(i => i.kind === 'file') ? 'Aucun fichier trouvé' : 'Ton Drive est vide.'}</p>}
+      <div className="mt-2 max-h-[320px] overflow-y-auto" role="group" aria-label={t('Fichiers de mon Drive')}>
+        {files.length === 0 && <p className="p-6 text-center text-[13px] text-stone-500">{items.some(i => i.kind === 'file') ? t('Aucun fichier trouvé') : t('Ton Drive est vide.')}</p>}
         {files.map(({ item, where }) => {
           const tooBig = (item.size ?? 0) > MAX_GROUP_FILE;
           const on = picked.has(item.id);
@@ -123,7 +124,7 @@ function DrivePicker({ group, onDone, onClose }: { group: Group; onDone: () => v
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[13px] font-medium">{item.name}</span>
                 <span className="block truncate text-[12px] text-stone-500">
-                  {where} · {tooBig ? 'trop lourd (plus de 50 Mo)' : formatBytes(item.size)}
+                  {where} · {tooBig ? t('trop lourd (plus de 50 Mo)') : formatBytes(item.size)}
                 </span>
               </span>
             </label>
@@ -131,9 +132,9 @@ function DrivePicker({ group, onDone, onClose }: { group: Group; onDone: () => v
         })}
       </div>
       <div className="mt-4 flex items-center justify-end gap-2">
-        <button className="btn-secondary" onClick={onClose}>Annuler</button>
+        <button className="btn-secondary" onClick={onClose}>{t('Annuler')}</button>
         <button className="btn-primary" disabled={!picked.size || busy} onClick={() => void share()}>
-          {busy ? 'Partage…' : picked.size > 1 ? `Partager ${picked.size} fichiers` : 'Partager'}
+          {busy ? t('Partage…') : picked.size > 1 ? t('Partager {n} fichiers', { n: picked.size }) : t('Partager')}
         </button>
       </div>
     </div>
@@ -151,8 +152,8 @@ export default function ShareButton({ group, onNote, onFiles }: { group: Group; 
   };
   return (
     <>
-      <button className="btn-secondary h-8 px-2.5 sm:px-3" aria-label="Partager" aria-haspopup="menu" aria-expanded={!!menu} onMouseDown={e => menu && e.stopPropagation()} onClick={open}>
-        <Share2 size={14} /> <span className="hidden sm:inline">Partager</span> <ChevronDown size={13} className="-mr-0.5 text-stone-400" />
+      <button className="btn-secondary h-8 px-2.5 sm:px-3" aria-label={t('Partager')} aria-haspopup="menu" aria-expanded={!!menu} onMouseDown={e => menu && e.stopPropagation()} onClick={open}>
+        <Share2 size={14} /> <span className="hidden sm:inline">{t('Partager')}</span> <ChevronDown size={13} className="-mr-0.5 text-stone-400" />
       </button>
       {menu && (
         <ContextMenu
@@ -160,9 +161,9 @@ export default function ShareButton({ group, onNote, onFiles }: { group: Group; 
           y={menu.y}
           onClose={() => setMenu(null)}
           items={[
-            { label: 'Une de mes notes', icon: <FileText />, onClick: () => setDialog('note') },
-            { label: 'Un fichier de mon Drive', icon: <HardDrive />, onClick: () => setDialog('drive') },
-            { label: 'Un fichier de l’appareil', icon: <Monitor />, onClick: () => input.current?.click() },
+            { label: t('Une de mes notes'), icon: <FileText />, onClick: () => setDialog('note') },
+            { label: t('Un fichier de mon Drive'), icon: <HardDrive />, onClick: () => setDialog('drive') },
+            { label: t('Un fichier de l’appareil'), icon: <Monitor />, onClick: () => input.current?.click() },
           ]}
         />
       )}

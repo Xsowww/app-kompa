@@ -190,7 +190,7 @@ function accountLabels(): Record<string, string> {
 async function shareAccounts() {
   const reg = await navigator.serviceWorker?.ready.catch(() => null);
   const labels = accountLabels();
-  reg?.active?.postMessage({ type: 'kompaly-accounts', accounts: Object.entries(labels).map(([id, label]) => ({ id, label })) });
+  reg?.active?.postMessage({ type: 'kompaly-accounts', accounts: Object.entries(labels).map(([id, label]) => ({ id, label, line: t('Compte {account}', { account: label }) })) });
 }
 
 /** Opened from a notification of another account (no Kompaly tab was open): switch to it. */

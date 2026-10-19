@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import Logo from '../components/Logo';
+import { t } from '../i18n';
 
 /** An address that leads nowhere (a typo, an old link): say so, and one way back. */
 export default function NotFoundPage() {
@@ -8,7 +9,7 @@ export default function NotFoundPage() {
   return (
     <div className="flex min-h-dvh flex-col bg-paper px-4 py-6 sm:px-8">
       <header>
-        <Link to="/" className="inline-flex rounded-lg" aria-label="Kompaly, accueil">
+        <Link to="/" className="inline-flex rounded-lg" aria-label={t('Kompaly, accueil')}>
           <Logo />
         </Link>
       </header>
@@ -20,13 +21,13 @@ export default function NotFoundPage() {
             <circle cx="98" cy="14" r="9" fill="#3d63dd" />
             <path d="M58 30 Q72 12 86 16" fill="none" stroke="var(--color-stone-300)" strokeWidth="2.5" strokeDasharray="2 6" strokeLinecap="round" />
           </svg>
-          <p className="eyebrow mt-6">Erreur 404</p>
-          <h1 className="mt-1.5 text-[26px] leading-tight">Cette page est introuvable</h1>
+          <p className="eyebrow mt-6">{t('Erreur 404')}</p>
+          <h1 className="mt-1.5 text-[26px] leading-tight">{t('Cette page est introuvable')}</h1>
           <p className="mt-3 truncate rounded-lg bg-stone-50 px-3 py-1.5 font-mono text-[12px] text-stone-500" title={pathname}>
             kompaly.com{pathname}
           </p>
           <Link to="/" className="btn-primary mt-6 h-11 w-full text-[15px]">
-            <ArrowLeft size={16} aria-hidden /> Retour à l’accueil
+            <ArrowLeft size={16} aria-hidden /> {t('Retour à l’accueil')}
           </Link>
         </div>
       </main>

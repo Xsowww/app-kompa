@@ -7,31 +7,32 @@ import { finishWelcome, loadWelcomeDraft, saveWelcomeDraft, type WelcomeAnswers 
 import { PERSONAS, personaLabel } from '../lib/personas';
 import { USAGES, WORDS, type Usage } from '../lib/usage';
 import { cx } from '../lib/utils';
+import { t } from '../i18n';
 
 const USAGE_ICONS = { etudes: GraduationCap, travail: Briefcase, perso: House };
 
 const NEEDS = (usage: Usage) => [
-  { key: 'agenda', label: 'Ne rien oublier (agenda, rappels)' },
-  { key: 'fichiers', label: 'Retrouver mes fichiers' },
-  { key: 'notes', label: 'Prendre et ranger mes notes' },
-  { key: 'taches', label: 'Suivre mes tâches' },
-  { key: 'equipe', label: usage === 'travail' ? 'Travailler en équipe' : 'Travailler à plusieurs' },
-  { key: 'enregistrer', label: usage === 'travail' ? 'Enregistrer mes réunions (compte rendu)' : usage === 'perso' ? 'Enregistrer et résumer (conférence, vidéo…)' : 'Enregistrer mes cours (texte et fiche)' },
-  { key: 'ia', label: 'Me faire aider par une IA' },
+  { key: 'agenda', label: t('Ne rien oublier (agenda, rappels)') },
+  { key: 'fichiers', label: t('Retrouver mes fichiers') },
+  { key: 'notes', label: t('Prendre et ranger mes notes') },
+  { key: 'taches', label: t('Suivre mes tâches') },
+  { key: 'equipe', label: usage === 'travail' ? t('Travailler en équipe') : t('Travailler à plusieurs') },
+  { key: 'enregistrer', label: usage === 'travail' ? t('Enregistrer mes réunions (compte rendu)') : usage === 'perso' ? t('Enregistrer et résumer (conférence, vidéo…)') : t('Enregistrer mes cours (texte et fiche)') },
+  { key: 'ia', label: t('Me faire aider par une IA') },
 ];
 
 
 const TIMES = [
-  { value: '09:00', label: 'Le matin' },
-  { value: '14:00', label: 'L’après-midi' },
-  { value: '18:00', label: 'En fin de journée' },
-  { value: '21:00', label: 'Le soir' },
+  { value: '09:00', label: t('Le matin') },
+  { value: '14:00', label: t('L’après-midi') },
+  { value: '18:00', label: t('En fin de journée') },
+  { value: '21:00', label: t('Le soir') },
 ];
 
 const TIME_QUESTION: Record<Usage, string> = {
-  etudes: 'Quand révises-tu le mieux\u00a0?',
-  travail: 'Quand te concentres-tu le mieux\u00a0?',
-  perso: 'Quand as-tu du temps pour toi\u00a0?',
+  etudes: t('Quand révises-tu le mieux\u00a0?'),
+  travail: t('Quand te concentres-tu le mieux\u00a0?'),
+  perso: t('Quand as-tu du temps pour toi\u00a0?'),
 };
 
 const STEPS = 6;
@@ -95,20 +96,20 @@ export default function WelcomePage() {
           <div className="flex items-center gap-3">
             {/* The place of the back arrow is kept on the first question: the bar doesn't move afterwards. */}
             {step > 0 ? (
-              <button type="button" onClick={() => go(step - 1)} className="icon-btn -ml-2" aria-label="Question précédente">
+              <button type="button" onClick={() => go(step - 1)} className="icon-btn -ml-2" aria-label={t('Question précédente')}>
                 <ArrowLeft size={16} />
               </button>
             ) : (
               <span className="-ml-2 h-8 w-8 shrink-0" aria-hidden />
             )}
-            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-stone-200" role="progressbar" aria-valuemin={1} aria-valuemax={STEPS} aria-valuenow={step + 1} aria-label={`Question ${step + 1} sur ${STEPS}`}>
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-stone-200" role="progressbar" aria-valuemin={1} aria-valuemax={STEPS} aria-valuenow={step + 1} aria-label={t('Question {n} sur {total}', { n: step + 1, total: STEPS })}>
               <div className="h-full rounded-full bg-brand-500 transition-[width] duration-300" style={{ width: `${((step + 1) / STEPS) * 100}%` }} />
             </div>
             <span className="tabular text-[12px] text-stone-500">{step + 1}/{STEPS}</span>
           </div>
 
           {step === 0 && (
-            <Question title={`Bienvenue${name ? `, ${name}` : ''}\u00a0! Tu vas utiliser Kompaly pour…`}>
+            <Question title={name ? t('Bienvenue, {name}\u00a0! Tu vas utiliser Kompaly pour…', { name }) : t('Bienvenue\u00a0! Tu vas utiliser Kompaly pour…')}>
               {USAGES.map(u => {
                 const Icon = USAGE_ICONS[u.key];
                 return (
@@ -125,7 +126,7 @@ export default function WelcomePage() {
           )}
 
           {step === 1 && (
-            <Question title={a.usage === 'etudes' ? 'Tu es en…' : a.usage === 'travail' ? 'Tu es…' : 'Aujourd’hui, tu es…'}>
+            <Question title={a.usage === 'etudes' ? t('Tu es en…') : a.usage === 'travail' ? t('Tu es…') : t('Aujourd’hui, tu es…')}>
               <div className="flex flex-wrap gap-2">
                 {words.levels.filter(Boolean).map(l => (
                   <button key={l} type="button" onClick={() => set({ year: l })} className={cx('rounded-full border px-3.5 py-2 text-[13px]', a.year === l ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-stone-200 hover:bg-stone-50')}>
@@ -137,7 +138,7 @@ export default function WelcomePage() {
           )}
 
           {step === 2 && (
-            <Question title={a.usage === 'etudes' ? 'Où étudies-tu\u00a0?' : a.usage === 'travail' ? 'Où travailles-tu\u00a0?' : 'Un peu plus sur toi'} hint="Facultatif.">
+            <Question title={a.usage === 'etudes' ? t('Où étudies-tu\u00a0?') : a.usage === 'travail' ? t('Où travailles-tu\u00a0?') : t('Un peu plus sur toi')} hint={t('Facultatif.')}>
               <label className="block text-[13px] font-medium">
                 {words.school}
                 <input className="field mt-1 h-10 w-full" value={a.school} placeholder={words.schoolHint} onChange={e => set({ school: e.target.value }, false)} onKeyDown={e => e.key === 'Enter' && go(3)} />
@@ -147,13 +148,13 @@ export default function WelcomePage() {
                 <input className="field mt-1 h-10 w-full" value={a.program} placeholder={words.programHint} onChange={e => set({ program: e.target.value }, false)} onKeyDown={e => e.key === 'Enter' && go(3)} />
               </label>
               <button type="button" className="btn-primary mt-2 w-full" onClick={() => go(3)}>
-                {a.school || a.program ? 'Continuer' : 'Passer'}
+                {a.school || a.program ? t('Continuer') : t('Passer')}
               </button>
             </Question>
           )}
 
           {step === 3 && (
-            <Question title={'De quoi as-tu le plus besoin\u00a0?'} hint="Plusieurs réponses possibles.">
+            <Question title={t('De quoi as-tu le plus besoin\u00a0?')} hint={t('Plusieurs réponses possibles.')}>
               {NEEDS(a.usage).map(n => {
                 const on = a.needs.includes(n.key);
                 return (
@@ -164,13 +165,13 @@ export default function WelcomePage() {
                 );
               })}
               <button type="button" className="btn-primary mt-2 w-full" onClick={() => go(4)}>
-                Continuer
+                {t('Continuer')}
               </button>
             </Question>
           )}
 
           {step === 4 && (
-            <Question title={'Comment Kompaly doit-il te parler\u00a0?'} hint="Tu pourras changer ça dans ton profil.">
+            <Question title={t('Comment Kompaly doit-il te parler\u00a0?')} hint={t('Tu pourras changer ça dans ton profil.')}>
               {PERSONAS.map(p => (
                 <button key={p.key} type="button" className={choice(a.persona === p.key)} onClick={() => set({ persona: p.key })}>
                   <span>
@@ -185,25 +186,25 @@ export default function WelcomePage() {
           {step === 5 && (
             <Question title={TIME_QUESTION[a.usage]} hint={
                 a.usage === 'perso' ? (
-                  'Kompaly te proposera ce créneau pour avancer sur tes projets.'
+                  t('Kompaly te proposera ce créneau pour avancer sur tes projets.')
                 ) : (
-                  <>Kompaly placera {a.usage === 'travail' ? 'tes créneaux de travail' : 'tes séances de révision'} à ce <span className="whitespace-nowrap">moment-là</span>.</>
+                  <>{a.usage === 'travail' ? t('Kompaly placera tes créneaux de travail à ce') : t('Kompaly placera tes séances de révision à ce')} <span className="whitespace-nowrap">{t('moment-là')}</span>.</>
                 )
               }>
-              {TIMES.map(t => (
+              {TIMES.map(o => (
                 <button
-                  key={t.value}
+                  key={o.value}
                   type="button"
                   disabled={busy}
-                  className={choice(a.revisionTime === t.value)}
+                  className={choice(a.revisionTime === o.value)}
                   onClick={() => {
                     if (!settled()) return;
-                    setA(prev => ({ ...prev, revisionTime: t.value })); // the spinner shows on the chosen answer
-                    void finish({ ...a, revisionTime: t.value });
+                    setA(prev => ({ ...prev, revisionTime: o.value })); // the spinner shows on the chosen answer
+                    void finish({ ...a, revisionTime: o.value });
                   }}
                 >
-                  <span className="text-[14px] font-medium">{t.label}</span>
-                  {busy && a.revisionTime === t.value && <Loader2 size={14} className="ml-auto animate-spin" />}
+                  <span className="text-[14px] font-medium">{o.label}</span>
+                  {busy && a.revisionTime === o.value && <Loader2 size={14} className="ml-auto animate-spin" />}
                 </button>
               ))}
             </Question>
@@ -211,7 +212,7 @@ export default function WelcomePage() {
 
           {step === 0 && (
             <button type="button" disabled={busy} onClick={() => void finish(a)} className="mt-3 w-full py-3 text-center text-[12px] text-stone-500 underline decoration-stone-300 underline-offset-2 hover:text-ink">
-              Passer le questionnaire
+              {t('Passer le questionnaire')}
             </button>
           )}
         </div>

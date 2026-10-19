@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2, ShieldCheck, Smartphone } from 'lucide-react';
-import { useAuth, type MfaEnrollment } from '../store/auth';
+import { AUTH_MSG, useAuth, type MfaEnrollment } from '../store/auth';
 import { loadUserData, useWelcome } from '../store/session';
 import { takeAfterLogin } from '../lib/afterLogin';
 import Logo from '../components/Logo';
 import { toast } from '../store/ui';
+import { t } from '../i18n';
 
 /**
  * Second factor: the student scans a QR code with their phone camera (or an authenticator
@@ -14,10 +15,10 @@ import { toast } from '../store/ui';
  */
 /** The key as a small text file, to keep with the student's documents or password manager. */
 function downloadKey(secret: string, email: string) {
-  const text = `Clé de secours Kompaly (double authentification)\nCompte : ${email}\nClé : ${secret}\n\nEn cas de perte du téléphone : dans une app d’authentification, « Ajouter un compte » puis « Saisir une clé », et colle cette clé.\nGarde ce fichier en lieu sûr : avec ton mot de passe, il ouvre ton compte.\n`;
+  const text = t('Clé de secours Kompaly (double authentification)\nCompte : {email}\nClé : {secret}\n\nEn cas de perte du téléphone : dans une app d’authentification, « Ajouter un compte » puis « Saisir une clé », et colle cette clé.\nGarde ce fichier en lieu sûr : avec ton mot de passe, il ouvre ton compte.\n', { email, secret });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
-  a.download = 'kompaly-cle-de-secours.txt';
+  a.download = `${t('kompaly-cle-de-secours')}.txt`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
@@ -48,8 +49,8 @@ export default function MfaPage() {
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!/^\d{6}$/.test(code.replace(/\s/g, ''))) return setError('Le code contient 6 chiffres.');
-    if (mfaStep === 'setup' && !keptKey) return setError('Garde d’abord ta clé de secours (étape 2).');
+    if (!/^\d{6}$/.test(code.replace(/\s/g, ''))) return setError(t('Le code contient 6 chiffres.'));
+    if (mfaStep === 'setup' && !keptKey) return setError(t('Garde d’abord ta clé de secours (étape 2).'));
     setBusy(true);
     setError('');
     submitting.current = true;
@@ -62,8 +63,8 @@ export default function MfaPage() {
       submitting.current = false;
       const msg = (err as Error).message;
       setError(
-        mfaStep === 'setup' && msg.startsWith('Code incorrect')
-          ? 'Code refusé. Tape le code de l’entrée Kompaly que tu viens d’ajouter, et vérifie que l’heure de ton téléphone est en automatique.'
+        mfaStep === 'setup' && (msg === AUTH_MSG.wrongCode || msg === t('Code incorrect. Vérifie que tu tapes le code Kompaly affiché en ce moment.'))
+          ? t('Code refusé. Tape le code de l’entrée Kompaly que tu viens d’ajouter, et vérifie que l’heure de ton téléphone est en automatique.')
           : msg,
       );
       setCode('');
@@ -83,11 +84,11 @@ export default function MfaPage() {
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
             {isSetup ? <ShieldCheck size={20} /> : <Smartphone size={20} />}
           </span>
-          <h1 className="mt-4 text-[22px] font-semibold tracking-[-0.015em]">{isSetup ? 'Sécurise ton compte' : 'Code de sécurité'}</h1>
+          <h1 className="mt-4 text-[22px] font-semibold tracking-[-0.015em]">{isSetup ? t('Sécurise ton compte') : t('Code de sécurité')}</h1>
           <p className="mt-1 text-[13px] leading-relaxed text-stone-500">
             {isSetup
-              ? 'Dernière étape : associe ton téléphone pour protéger ton compte.'
-              : 'Tape le code à 6 chiffres affiché dans ton app d’authentification.'}
+              ? t('Dernière étape : associe ton téléphone pour protéger ton compte.')
+              : t('Tape le code à 6 chiffres affiché dans ton app d’authentification.')}
           </p>
 
           {isSetup && (
@@ -95,26 +96,26 @@ export default function MfaPage() {
               <li className="flex gap-3">
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink text-[11px] font-semibold text-paper">1</span>
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium">Scanne ce QR code avec ton téléphone</p>
+                  <p className="font-medium">{t('Scanne ce QR code avec ton téléphone')}</p>
                   <p className="mt-0.5 text-stone-500">
-                    iPhone : l’appareil photo, puis « Ajouter dans Mots de passe ». Android : Google Authenticator ou Microsoft Authenticator.
+                    {t('iPhone : l’appareil photo, puis « Ajouter dans Mots de passe ». Android : Google Authenticator ou Microsoft Authenticator.')}
                   </p>
                   {user?.email && (
                     <p className="mt-2 rounded-md bg-amber-50 px-2.5 py-2 text-[12.5px] leading-relaxed text-amber-900">
-                      QR code du compte <strong className="[overflow-wrap:anywhere]">{user.email}</strong>. Si ton iPhone propose une autre adresse, choisis plutôt celle-ci (ou crée-la) : sinon le code de l’autre compte serait remplacé.
+                      {t('QR code du compte')} <strong className="[overflow-wrap:anywhere]">{user.email}</strong>. {t('Si ton iPhone propose une autre adresse, choisis plutôt celle-ci (ou crée-la) : sinon le code de l’autre compte serait remplacé.')}
                     </p>
                   )}
                   <div className="mt-3 flex h-[180px] w-[180px] items-center justify-center rounded-xl border border-stone-200 bg-surface p-2.5">
-                    {enrollment ? <img src={enrollment.qrCode} alt="QR code à scanner" className="h-full w-full" /> : <Loader2 className="animate-spin text-stone-400" />}
+                    {enrollment ? <img src={enrollment.qrCode} alt={t('QR code à scanner')} className="h-full w-full" /> : <Loader2 className="animate-spin text-stone-400" />}
                   </div>
                   {enrollment && (
                     <div className="mt-2 text-[12px] text-stone-500">
                       <a href={enrollment.uri} className="underline decoration-stone-300 underline-offset-2 hover:text-ink">
-                        Tu es déjà sur ton téléphone ? Touche ici
+                        {t('Tu es déjà sur ton téléphone ? Touche ici')}
                       </a>
                       {' · '}
                       <button type="button" onClick={() => setShowSecret(s => !s)} className="underline decoration-stone-300 underline-offset-2 hover:text-ink">
-                        Saisir la clé à la main
+                        {t('Saisir la clé à la main')}
                       </button>
                       {showSecret && <p className="mt-1.5 break-all rounded-md bg-stone-100 px-2 py-1.5 font-mono text-[12px] text-ink">{enrollment.secret}</p>}
                     </div>
@@ -124,31 +125,31 @@ export default function MfaPage() {
               <li className="flex gap-3">
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink text-[11px] font-semibold text-paper">2</span>
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium">Garde ta clé de secours</p>
+                  <p className="font-medium">{t('Garde ta clé de secours')}</p>
                   <p className="mt-0.5 text-stone-500">
-                    Elle sert si tu perds ton téléphone. Sans elle, ton compte reste bloqué.
+                    {t('Elle sert si tu perds ton téléphone. Sans elle, ton compte reste bloqué.')}
                   </p>
                   {enrollment && (
                     <>
                       <p className="mt-2 break-all rounded-md bg-stone-100 px-2 py-1.5 font-mono text-[12px] text-ink">{enrollment.secret}</p>
                       <div className="mt-2 flex gap-2">
                         <button type="button" className="btn-secondary h-8" onClick={() => {
-                            const failed = () => toast('Copie impossible : télécharge la clé, ou recopie-la à la main.', 'error');
+                            const failed = () => toast(t('Copie impossible : télécharge la clé, ou recopie-la à la main.'), 'error');
                             if (!navigator.clipboard) return failed();
                             navigator.clipboard.writeText(enrollment.secret).then(() => {
                               setKeptKey(true);
-                              toast('Clé copiée : colle-la dans un endroit sûr.', 'success');
+                              toast(t('Clé copiée : colle-la dans un endroit sûr.'), 'success');
                             }, failed);
                           }}>
-                          Copier
+                          {t('Copier')}
                         </button>
                         <button type="button" className="btn-secondary h-8" onClick={() => (downloadKey(enrollment.secret, user?.email ?? ''), setKeptKey(true))}>
-                          Télécharger
+                          {t('Télécharger')}
                         </button>
                       </div>
                       <label className="mt-2 flex cursor-pointer items-center gap-2 text-[12.5px] text-stone-600">
                         <input type="checkbox" checked={keptKey} onChange={e => setKeptKey(e.target.checked)} className="h-4 w-4 shrink-0 accent-[var(--color-ink)]" />
-                        Je l’ai gardée en lieu sûr
+                        {t('Je l’ai gardée en lieu sûr')}
                       </label>
                     </>
                   )}
@@ -156,7 +157,7 @@ export default function MfaPage() {
               </li>
               <li className="flex gap-3">
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink text-[11px] font-semibold text-paper">3</span>
-                <p className="font-medium">Tape le code à 6 chiffres affiché par ton téléphone</p>
+                <p className="font-medium">{t('Tape le code à 6 chiffres affiché par ton téléphone')}</p>
               </li>
             </ol>
           )}
@@ -169,7 +170,7 @@ export default function MfaPage() {
             autoComplete="one-time-code"
             autoFocus={!isSetup}
             placeholder="123 456"
-            aria-label="Code à 6 chiffres"
+            aria-label={t('Code à 6 chiffres')}
             className="field mt-5 h-12 w-full text-center font-mono text-[22px] tracking-[0.3em]"
           />
 
@@ -177,24 +178,24 @@ export default function MfaPage() {
 
           <button type="submit" disabled={busy || (isSetup && !enrollment)} className="btn-primary mt-4 w-full">
             {busy && <Loader2 size={15} className="animate-spin" />}
-            {isSetup ? 'Activer et entrer' : 'Valider'}
+            {isSetup ? t('Activer et entrer') : t('Valider')}
           </button>
 
           <p className="mt-5 text-center text-[13px] text-stone-500">
-            {isSetup ? 'Pas le bon compte ?' : 'Tu n’as plus accès à ton téléphone ?'}{' '}
+            {isSetup ? t('Pas le bon compte ?') : t('Tu n’as plus accès à ton téléphone ?')}{' '}
             <button
               type="button"
               onClick={() => void logout().then(() => navigate('/connexion', { replace: true }))}
               className="font-medium text-ink underline decoration-stone-300 underline-offset-4 hover:decoration-ink"
             >
-              Se déconnecter
+              {t('Se déconnecter')}
             </button>
           </p>
           {!isSetup && (
             <p className="mt-2 text-center text-[12px] leading-relaxed text-stone-500">
-              Avec ta clé de secours : « Saisir une clé » dans l’app de ton nouveau téléphone, puis tape le code. Sinon, écris au support (page{' '}
+              {t('Avec ta clé de secours : « Saisir une clé » dans l’app de ton nouveau téléphone, puis tape le code. Sinon, écris au support (page')}{' '}
               <a href="/mentions-legales" className="underline decoration-stone-300 underline-offset-2">
-                Mentions légales
+                {t('Mentions légales')}
               </a>
               ).
             </p>

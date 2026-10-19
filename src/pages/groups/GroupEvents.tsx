@@ -12,9 +12,10 @@ import { cx } from '../../lib/utils';
 import { MemberDot } from './shared';
 import { groupColor, useGroupWords, useMemberName, useRights } from './util';
 import { useSettings } from '../../store/settings';
+import { t, tn } from '../../i18n';
 
 const isUrl = (s: string) => /^https?:\/\/\S+$/i.test(s.trim());
-const PLACE_EXAMPLE = { etudes: 'BU, salle B204… ou https://…', travail: 'Salle de réunion… ou https://…', perso: 'Chez Léa… ou https://…' };
+const PLACE_EXAMPLE = { etudes: t('BU, salle B204… ou https://…'), travail: t('Salle de réunion… ou https://…'), perso: t('Chez Léa… ou https://…') };
 
 function EventForm({ group, onDone }: { group: Group; onDone: () => void }) {
   const w = useGroupWords();
@@ -34,7 +35,7 @@ function EventForm({ group, onDone }: { group: Group; onDone: () => void }) {
     try {
       await createEvent(group.id, { title: title.trim(), date, start: start || null, end: end || null, place: place.trim() || null });
       await useGroups.getState().refresh(group.id, ['events']);
-      toast(`${w.meet.proposed} dans ${w.this}`, 'success');
+      toast(t('{proposed} dans {group}', { proposed: w.meet.proposed, group: w.this }), 'success');
       onDone();
     } catch (err) {
       toast(groupError(err), 'error');
@@ -44,30 +45,30 @@ function EventForm({ group, onDone }: { group: Group; onDone: () => void }) {
 
   return (
     <form onSubmit={submit} className="card enter mb-4 p-4">
-      <p className="text-[14px] font-semibold">Proposer {w.meet.a}</p>
+      <p className="text-[14px] font-semibold">{t('Proposer {a}', { a: w.meet.a })}</p>
       <input autoFocus value={title} maxLength={200} onChange={e => setTitle(e.target.value)} placeholder={w.meet.placeholder} className="field mt-3 w-full" />
       <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-[1.4fr_1fr_1fr]">
         <div className="col-span-2 sm:col-span-1">
-          <span className="eyebrow">Date</span>
-          <DateField value={date} min={todayKey()} onChange={setDate} label="Date" className="mt-1 w-full" />
+          <span className="eyebrow">{t('Date')}</span>
+          <DateField value={date} min={todayKey()} onChange={setDate} label={t('Date')} className="mt-1 w-full" />
         </div>
         <div>
-          <span className="eyebrow">Début</span>
-          <TimeField value={start} onChange={setStart} label="Heure de début" clearable className="mt-1 w-full" />
+          <span className="eyebrow">{t('Début')}</span>
+          <TimeField value={start} onChange={setStart} label={t('Heure de début')} clearable className="mt-1 w-full" />
         </div>
         <div>
-          <span className="eyebrow">Fin</span>
-          <TimeField value={end} onChange={setEnd} label="Heure de fin" clearable invalid={badTime} className="mt-1 w-full" />
+          <span className="eyebrow">{t('Fin')}</span>
+          <TimeField value={end} onChange={setEnd} label={t('Heure de fin')} clearable invalid={badTime} className="mt-1 w-full" />
         </div>
       </div>
       <label className="mt-2 block">
-        <span className="eyebrow">Lieu ou lien de visio</span>
+        <span className="eyebrow">{t('Lieu ou lien de visio')}</span>
         <input value={place} maxLength={300} onChange={e => setPlace(e.target.value)} placeholder={PLACE_EXAMPLE[usage] ?? PLACE_EXAMPLE.etudes} className="field mt-1 w-full" />
       </label>
-      {badTime && <p className="mt-2 text-[12px] text-red-600">L’heure de fin doit être après l’heure de début.</p>}
+      {badTime && <p className="mt-2 text-[12px] text-red-600">{t('L’heure de fin doit être après l’heure de début.')}</p>}
       <div className="mt-4 flex justify-end gap-2">
-        <button type="button" className="btn-secondary" onClick={onDone}>Annuler</button>
-        <button type="submit" className="btn-primary" disabled={!title.trim() || !date || badTime || busy}>Proposer</button>
+        <button type="button" className="btn-secondary" onClick={onDone}>{t('Annuler')}</button>
+        <button type="submit" className="btn-primary" disabled={!title.trim() || !date || badTime || busy}>{t('Proposer')}</button>
       </div>
     </form>
   );
@@ -109,14 +110,14 @@ function EventCard({ group, ev }: { group: Group; ev: GroupEvent }) {
       end: ev.end ?? undefined,
       // Studies: a revision session (homework colour); work and personal: a meeting / get-together.
       category: useSettings.getState().usage !== 'etudes' || c === 'cours' ? 'cours' : 'devoir',
-      details: [`${w.meet.One} ${w.of} « ${group.name} »`, ev.place].filter(Boolean).join('\n'),
+      details: [t('{meet} {of} « {name} »', { meet: w.meet.One, of: w.of, name: group.name }), ev.place].filter(Boolean).join('\n'),
       externalId: `groupe:${ev.id}`,
     });
-    toast('Ajouté à ton calendrier', 'success');
+    toast(t('Ajouté à ton calendrier'), 'success');
   };
 
   const remove = async () => {
-    if (!(await confirmAction(`Supprimer « ${ev.title} » ?`, `${w.meet.The} disparaît pour tous les membres ${w.of}.`, `Supprimer ${w.meet.the}`))) return;
+    if (!(await confirmAction(t('Supprimer « {title} » ?', { title: ev.title }), t('{The} disparaît pour tous les membres {of}.', { The: w.meet.The, of: w.of }), t('Supprimer {the}', { the: w.meet.the })))) return;
     try {
       await deleteEvent(ev.id);
       await useGroups.getState().refresh(group.id, ['events']);
@@ -128,12 +129,12 @@ function EventCard({ group, ev }: { group: Group; ev: GroupEvent }) {
   const names = coming.map(id => nameOf(id));
   const who =
     coming.length === 0
-      ? 'Personne n’a encore répondu'
+      ? t('Personne n’a encore répondu')
       : coming.length === 1 && iCome
-        ? 'Tu viens'
+        ? t('Tu viens')
         : coming.length <= 3
-          ? `${names.join(', ').replace(/, ([^,]*)$/, ' et $1')} ${coming.length > 1 ? 'viennent' : 'vient'}`
-          : `${names.slice(0, 2).join(', ')} et ${coming.length - 2} autres viennent`;
+          ? tn(coming.length, '{names} vient', '{names} viennent', { names: names.join(', ').replace(/, ([^,]*)$/, ` ${t('et')} $1`) })
+          : t('{names} et {n} autres viennent', { names: names.slice(0, 2).join(', '), n: coming.length - 2 });
 
   return (
     <div className="card group flex flex-wrap items-start gap-3 p-4 sm:flex-nowrap sm:items-center">
@@ -154,7 +155,7 @@ function EventCard({ group, ev }: { group: Group; ev: GroupEvent }) {
           {ev.place &&
             (isUrl(ev.place) ? (
               <a href={ev.place.trim()} target="_blank" rel="noreferrer noopener" className="flex min-w-0 items-center gap-1 text-ink underline decoration-stone-300 underline-offset-2">
-                <Link2 size={12} /> <span className="truncate">Lien de la visio</span>
+                <Link2 size={12} /> <span className="truncate">{t('Lien de la visio')}</span>
               </a>
             ) : (
               <span className="flex min-w-0 items-center gap-1">
@@ -166,13 +167,13 @@ function EventCard({ group, ev }: { group: Group; ev: GroupEvent }) {
           {coming.length > 0 && (
             <span className="flex -space-x-1.5">
               {coming.slice(0, 5).map(id => (
-                <MemberDot key={id} userId={id} name={nameOf(id, 'Toi')} size={20} />
+                <MemberDot key={id} userId={id} name={nameOf(id, t('Toi'))} size={20} />
               ))}
             </span>
           )}
           <span className="truncate text-[12px] text-stone-500">{who.charAt(0).toUpperCase() + who.slice(1)}</span>
         </div>
-        <p className="mt-1 text-[11px] text-stone-500">{w.meet.a.startsWith('une ') ? 'Proposée' : 'Proposé'} par {nameOf(ev.createdBy)}</p>
+        <p className="mt-1 text-[11px] text-stone-500">{[t('une révision'), t('une réunion')].includes(w.meet.a) ? t('Proposée par {name}', { name: nameOf(ev.createdBy) }) : t('Proposé par {name}', { name: nameOf(ev.createdBy) })}</p>
       </div>
       <div className="flex shrink-0 basis-full items-center gap-1.5 pl-[68px] sm:basis-auto sm:pl-0">
         <button
@@ -182,19 +183,19 @@ function EventCard({ group, ev }: { group: Group; ev: GroupEvent }) {
           aria-pressed={iCome}
           onClick={() => void toggle()}
         >
-          {iCome && <Check size={14} />} Je viens
+          {iCome && <Check size={14} />} {t('Je viens')}
         </button>
-        <button className="icon-btn" title={inCalendar ? 'Déjà dans ton calendrier' : 'Ajouter à mon calendrier'} aria-label={inCalendar ? 'Déjà dans ton calendrier' : 'Ajouter à mon calendrier'} disabled={inCalendar} onClick={addToCalendar}>
+        <button className="icon-btn" title={inCalendar ? t('Déjà dans ton calendrier') : t('Ajouter à mon calendrier')} aria-label={inCalendar ? t('Déjà dans ton calendrier') : t('Ajouter à mon calendrier')} disabled={inCalendar} onClick={addToCalendar}>
           {inCalendar ? <Check size={15} className="text-emerald-600" /> : <CalendarPlus size={15} />}
         </button>
         {ev.createdBy !== me && (
-          <button className="icon-btn" title="Signaler" aria-label={`Signaler « ${ev.title} »`} onClick={() => setReporting(true)}>
+          <button className="icon-btn" title={t('Signaler')} aria-label={t('Signaler « {title} »', { title: ev.title })} onClick={() => setReporting(true)}>
             <Flag size={15} />
           </button>
         )}
         <ReportDialog target={reporting ? { kind: 'event', id: ev.id, title: ev.title } : null} onClose={() => setReporting(false)} />
         {canDelete && (
-          <button className="icon-btn hover:text-red-600" title={`Supprimer ${w.meet.the}`} aria-label={`Supprimer ${w.meet.the}`} onClick={() => void remove()}>
+          <button className="icon-btn hover:text-red-600" title={t('Supprimer {the}', { the: w.meet.the })} aria-label={t('Supprimer {the}', { the: w.meet.the })} onClick={() => void remove()}>
             <Trash2 size={15} />
           </button>
         )}
@@ -212,16 +213,16 @@ export default function GroupEvents({ group }: { group: Group }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center gap-2 pb-3">
-        <p className="eyebrow mr-auto">{w.meet.Tab} à venir</p>
+        <p className="eyebrow mr-auto">{t('{Tab} à venir', { Tab: w.meet.Tab })}</p>
         {!adding && canEdit && (
           <button className="btn-primary h-8 px-3" onClick={() => setAdding(true)}>
-            <Plus size={14} /> Proposer {w.meet.a}
+            <Plus size={14} /> {t('Proposer {a}', { a: w.meet.a })}
           </button>
         )}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto pb-2">
         {adding && canEdit && <EventForm group={group} onDone={() => setAdding(false)} />}
-        {!events && <p className="text-[13px] text-stone-500">Chargement…</p>}
+        {!events && <p className="text-[13px] text-stone-500">{t('Chargement…')}</p>}
         {events && events.length === 0 && !adding && (
           <div className="card flex flex-col items-center px-6 py-12 text-center">
             <CalendarPlus size={26} strokeWidth={1.5} className="text-stone-300" />

@@ -13,6 +13,7 @@ import { GroupForm } from './GroupsPage';
 import GroupMembers from './GroupMembers';
 import SharedCalendar from './SharedCalendar';
 import { setViewingAgenda, useAgendaNews } from '../../store/agendaNews';
+import { t, tn, locale } from '../../i18n';
 
 // « Agendas partagés » : calendars shared with others (groups of the 'agenda' kind, lib/groups). Joined only by
 // their link (/agendas?invitation=…), shown with the same day / week / month views as my own calendar.
@@ -30,11 +31,11 @@ export default function AgendasPage() {
 function Offline() {
   return (
     <div className="flex h-full flex-col px-4 pb-10 md:px-8">
-      <h1 className="pb-4 pt-2 text-[24px] font-semibold tracking-[-0.02em]">Agendas partagés</h1>
+      <h1 className="pb-4 pt-2 text-[24px] font-semibold tracking-[-0.02em]">{t('Agendas partagés')}</h1>
       <div className="flex flex-1 flex-col items-center justify-center text-center">
         <CloudOff size={26} strokeWidth={1.5} className="text-stone-300" />
-        <p className="mt-3 text-[14px] font-medium">Disponible dans la version en ligne</p>
-        <p className="mt-1 max-w-sm text-[13px] text-stone-500">Ici, tes données restent dans ce navigateur.</p>
+        <p className="mt-3 text-[14px] font-medium">{t('Disponible dans la version en ligne')}</p>
+        <p className="mt-1 max-w-sm text-[13px] text-stone-500">{t('Ici, tes données restent dans ce navigateur.')}</p>
       </div>
     </div>
   );
@@ -45,7 +46,7 @@ function Agendas() {
   const navigate = useNavigate();
   const userId = useAuth(s => s.user?.id);
   const { groups: all, loaded, failed } = useGroups();
-  const agendas = all.filter(g => g.kind === 'agenda').sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+  const agendas = all.filter(g => g.kind === 'agenda').sort((a, b) => a.name.localeCompare(b.name, locale()));
   const [dialog, setDialog] = useState<'create' | 'settings' | 'members' | null>(null);
 
   // Which one: ?g=…, else the last one opened here, else the first.
@@ -101,12 +102,12 @@ function Agendas() {
     <div className="flex h-full flex-col">
       {/* Title, the shared calendars (scroll sideways on a phone), « Nouveau » */}
       <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 px-4 pb-3 pt-2 md:px-8">
-        <h1 className="text-[24px] font-semibold tracking-[-0.02em]">Agendas partagés</h1>
+        <h1 className="text-[24px] font-semibold tracking-[-0.02em]">{t('Agendas partagés')}</h1>
         <button className="btn-primary ml-auto h-8 px-3" onClick={() => setDialog('create')}>
-          <Plus size={14} /> Nouveau
+          <Plus size={14} /> {t('Nouveau')}
         </button>
         {agendas.length > 0 && (
-          <div className="-mx-4 flex w-[calc(100%+2rem)] gap-1.5 overflow-x-auto px-4 pb-1 md:-mx-8 md:w-[calc(100%+4rem)] md:px-8" role="tablist" aria-label="Agendas partagés">
+          <div className="-mx-4 flex w-[calc(100%+2rem)] gap-1.5 overflow-x-auto px-4 pb-1 md:-mx-8 md:w-[calc(100%+4rem)] md:px-8" role="tablist" aria-label={t('Agendas partagés')}>
             {agendas.map(g => (
               <button
                 key={g.id}
@@ -121,7 +122,7 @@ function Agendas() {
                 <GroupBadge group={g} size={26} />
                 <span className="max-w-[160px] truncate">{g.name}</span>
                 {g.id !== active?.id && (news[g.id] ?? 0) > 0 && (
-                  <span className="rounded-full bg-red-500 px-1.5 text-[11px] font-semibold leading-[18px] text-white tabular" aria-label={`${news[g.id]} nouveautés`}>
+                  <span className="rounded-full bg-red-500 px-1.5 text-[11px] font-semibold leading-[18px] text-white tabular" aria-label={tn(news[g.id], '{n} nouveauté', '{n} nouveautés')}>
                     {news[g.id]}
                   </span>
                 )}
@@ -132,24 +133,24 @@ function Agendas() {
       </div>
 
       {!loaded ? (
-        <p className="px-4 text-[13px] text-stone-500 md:px-8">Chargement…</p>
+        <p className="px-4 text-[13px] text-stone-500 md:px-8">{t('Chargement…')}</p>
       ) : failed ? (
         <p className="px-4 text-[13px] text-stone-500 md:px-8">
-          Impossible de charger tes agendas.{' '}
+          {t('Impossible de charger tes agendas.')}{' '}
           <button className="font-medium text-ink underline underline-offset-2" onClick={() => void useGroups.getState().loadGroups()}>
-            Réessayer
+            {t('Réessayer')}
           </button>
         </p>
       ) : !active ? (
         <div className="px-4 md:px-8">
           <div className="card mx-auto mt-4 max-w-[520px] p-6 md:p-8">
             <CalendarRange size={26} strokeWidth={1.6} className="text-brand-600" />
-            <h2 className="mt-3 text-[18px] font-semibold tracking-[-0.01em]">Un agenda à plusieurs</h2>
+            <h2 className="mt-3 text-[18px] font-semibold tracking-[-0.01em]">{t('Un agenda à plusieurs')}</h2>
             <p className="mt-1.5 text-[13px] leading-relaxed text-stone-600">
-              Un calendrier commun, séparé du tien. On le rejoint avec son lien d’invitation.
+              {t('Un calendrier commun, séparé du tien. On le rejoint avec son lien d’invitation.')}
             </p>
             <button className="btn-primary mt-5" onClick={() => setDialog('create')}>
-              <Plus size={15} /> Créer un agenda partagé
+              <Plus size={15} /> {t('Créer un agenda partagé')}
             </button>
           </div>
         </div>
@@ -158,20 +159,20 @@ function Agendas() {
           {/* The open one: who is in it, invite, settings */}
           <div className="flex shrink-0 items-center gap-1.5 px-4 pb-1 sm:gap-2 md:px-8">
             <p className="mr-auto min-w-0 truncate text-[13px] text-stone-500">
-              {members ? `${members.length} membre${members.length > 1 ? 's' : ''}` : ' '}
-              {active.ownerId === userId ? ' · tu l’as créé' : ''}
+              {members ? tn(members.length, '{n} membre', '{n} membres') : ' '}
+              {active.ownerId === userId ? ` · ${t('tu l’as créé')}` : ''}
             </p>
             {/* Phones: icons only, the row stays on one line */}
-            <button className="btn-secondary h-8 px-2.5 sm:px-3" onClick={() => setDialog('members')} title="Membres">
-              <Users size={14} /> <span className="max-sm:sr-only">Membres</span>
+            <button className="btn-secondary h-8 px-2.5 sm:px-3" onClick={() => setDialog('members')} title={t('Membres')}>
+              <Users size={14} /> <span className="max-sm:sr-only">{t('Membres')}</span>
             </button>
             {token && (
-              <button className="btn-secondary h-8 px-2.5 sm:px-3" onClick={() => void copyInviteLink(token, 'agenda')} title="Copier le lien d’invitation">
-                <Link2 size={14} /> <span className="max-sm:sr-only">Inviter</span>
+              <button className="btn-secondary h-8 px-2.5 sm:px-3" onClick={() => void copyInviteLink(token, 'agenda')} title={t('Copier le lien d’invitation')}>
+                <Link2 size={14} /> <span className="max-sm:sr-only">{t('Inviter')}</span>
               </button>
             )}
             {active.ownerId === userId && (
-              <button className="icon-btn" title="Paramètres de l’agenda" aria-label="Paramètres de l’agenda" onClick={() => setDialog('settings')}>
+              <button className="icon-btn" title={t('Paramètres de l’agenda')} aria-label={t('Paramètres de l’agenda')} onClick={() => setDialog('settings')}>
                 <Settings2 size={16} />
               </button>
             )}
@@ -196,7 +197,7 @@ function Agendas() {
       <Modal open={dialog === 'members' && !!active} onClose={() => setDialog(null)} width={560}>
         {dialog === 'members' && active && (
           <div className="flex max-h-[70vh] flex-col">
-            <h3 className="mb-3 text-[15px] font-semibold">Membres de « {active.name} »</h3>
+            <h3 className="mb-3 text-[15px] font-semibold">{t('Membres de « {name} »', { name: active.name })}</h3>
             <GroupMembers group={active} onLeft={() => setDialog(null)} />
           </div>
         )}

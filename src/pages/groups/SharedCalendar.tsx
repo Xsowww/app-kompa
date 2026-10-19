@@ -8,6 +8,7 @@ import { createEvent, deleteEvent, deletePeriod, groupError, savePeriods, update
 import { useMemberName, useRights } from './util';
 import { useAuth } from '../../store/auth';
 import { sortPeriods } from '../../lib/periods';
+import { t } from '../../i18n';
 
 const builtin = (c: string | null | undefined): EventCategory => (c && c in CATEGORIES ? (c as EventCategory) : 'perso');
 
@@ -73,8 +74,8 @@ export default function SharedCalendar({ group }: { group: Group }) {
         group,
         canEdit,
         author: id => nameOf(list.find(e => e.id === id)?.createdBy ?? null),
-        people: [...(members ?? [])].sort((a, b) => Number(b.userId === me) - Number(a.userId === me) || a.name.localeCompare(b.name)).map(m => ({ id: m.userId, name: m.userId === me ? 'Moi' : m.name })),
-        nameOf: id => nameOf(id, 'Toi').replace(/^./, c => c.toUpperCase()),
+        people: [...(members ?? [])].sort((a, b) => Number(b.userId === me) - Number(a.userId === me) || a.name.localeCompare(b.name)).map(m => ({ id: m.userId, name: m.userId === me ? t('Moi') : m.name })),
+        nameOf: id => nameOf(id, t('Toi')).replace(/^./, c => c.toUpperCase()),
       },
       events: list.map(toCalendar),
       add: e => {
@@ -97,8 +98,8 @@ export default function SharedCalendar({ group }: { group: Group }) {
         const timer = setTimeout(send, UNDO_MS);
         pending.set(id, send);
         redraw(n => n + 1);
-        toast('Supprimé de l’agenda', 'info', {
-          label: 'Annuler',
+        toast(t('Supprimé de l’agenda'), 'info', {
+          label: t('Annuler'),
           run: () => {
             clearTimeout(timer);
             pending.delete(id);

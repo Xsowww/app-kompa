@@ -6,8 +6,9 @@ import { REPORT_REASONS } from '../../lib/feedback';
 import { confirmAction, toast } from '../../store/ui';
 import { cx, formatBytes, relativeTime } from '../../lib/utils';
 import { fmtDay, fromKey } from '../../lib/dates';
+import { t } from '../../i18n';
 
-const KIND = { note: 'Note', file: 'Fichier', event: 'Événement' } as const;
+const KIND = { note: t('Note'), file: t('Fichier'), event: t('Événement') };
 const reasonLabel = (r: string) => REPORT_REASONS.find(x => x.value === r)?.label ?? r;
 
 /** Onglet « À traiter » : signalements des groupes et messages « Avis ou bug ». */
@@ -17,14 +18,14 @@ export default function AdminInbox({ inbox, missing, reload }: { inbox: Inbox | 
 
   const handle = async (r: Report, action: 'remove' | 'dismiss') => {
     if (!supabase) return;
-    if (action === 'remove' && !(await confirmAction('Retirer ce contenu du groupe ?', `« ${r.snapshot.title ?? ''} » sera supprimé pour tous les membres. Les autres signalements de ce contenu seront classés.`, 'Retirer'))) return;
+    if (action === 'remove' && !(await confirmAction(t('Retirer ce contenu du groupe ?'), t('« {title} » sera supprimé pour tous les membres. Les autres signalements de ce contenu seront classés.', { title: r.snapshot.title ?? '' }), t('Retirer')))) return;
     setBusy(r.id);
     const { data: path, error } = await supabase.rpc('admin_handle_report', { p_id: r.id, p_action: action });
     // A file: its content leaves the storage too.
     if (!error && typeof path === 'string' && path) await supabase.storage.from('groups').remove([path]);
     setBusy(null);
-    if (error) return toast('Action impossible. Réessaie.', 'error');
-    toast(action === 'remove' ? 'Contenu retiré.' : 'Signalement classé.', 'success');
+    if (error) return toast(t('Action impossible. Réessaie.'), 'error');
+    toast(action === 'remove' ? t('Contenu retiré.') : t('Signalement classé.'), 'success');
     reload();
   };
 
@@ -33,14 +34,14 @@ export default function AdminInbox({ inbox, missing, reload }: { inbox: Inbox | 
     setBusy(f.id);
     const { error } = await supabase.rpc('admin_feedback_done', { p_id: f.id, p_done: f.status === 'open' });
     setBusy(null);
-    if (error) return toast('Action impossible. Réessaie.', 'error');
+    if (error) return toast(t('Action impossible. Réessaie.'), 'error');
     reload();
   };
 
   if (missing) {
     return (
       <p className="card p-5 text-[13px] text-stone-500">
-        Applique la migration 2026-10-16b_signalements_avis.sql dans Supabase pour recevoir les signalements et les avis.
+        {t('Applique la migration 2026-10-16b_signalements_avis.sql dans Supabase pour recevoir les signalements et les avis.')}
       </p>
     );
   }
@@ -52,10 +53,10 @@ export default function AdminInbox({ inbox, missing, reload }: { inbox: Inbox | 
 
   return (
     <div>
-      <div className="mb-3 flex h-8 w-fit items-center rounded-lg bg-stone-100 p-0.5 text-[12px] pointer-coarse:h-10" role="group" aria-label="Afficher">
+      <div className="mb-3 flex h-8 w-fit items-center rounded-lg bg-stone-100 p-0.5 text-[12px] pointer-coarse:h-10" role="group" aria-label={t('Afficher')}>
         {[
-          [false, `À traiter (${openReports + openFeedback})`],
-          [true, 'Déjà traités'],
+          [false, t('À traiter ({n})', { n: openReports + openFeedback })],
+          [true, t('Déjà traités')],
         ].map(([v, label]) => (
           <button
             key={String(v)}
@@ -70,11 +71,11 @@ export default function AdminInbox({ inbox, missing, reload }: { inbox: Inbox | 
       <div className="grid items-start gap-3 lg:grid-cols-2">
         <section className="card overflow-hidden" aria-labelledby="admin-reports">
           <h2 id="admin-reports" className="flex items-center gap-2 border-b border-stone-100 px-4 py-3 text-[13px] font-medium text-stone-600">
-            <Flag size={14} /> Signalements des groupes
+            <Flag size={14} /> {t('Signalements des groupes')}
             {!history && openReports > 0 && <span className="rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-700">{openReports}</span>}
           </h2>
           {reports.length === 0 ? (
-            <p className="px-4 py-8 text-center text-[13px] text-stone-500">{history ? 'Aucun signalement traité.' : 'Rien à traiter.'}</p>
+            <p className="px-4 py-8 text-center text-[13px] text-stone-500">{history ? t('Aucun signalement traité.') : t('Rien à traiter.')}</p>
           ) : (
             <ul className="divide-y divide-stone-100">
               {reports.map(r => (
@@ -83,9 +84,9 @@ export default function AdminInbox({ inbox, missing, reload }: { inbox: Inbox | 
                     <span className="font-medium text-ink">{KIND[r.kind]}</span>
                     {r.snapshot.group && <span>· {r.snapshot.group}</span>}
                     <span>· {relativeTime(r.created_at)}</span>
-                    {r.status !== 'open' && <span>· {r.status === 'removed' ? 'retiré' : 'classé sans suite'}</span>}
+                    {r.status !== 'open' && <span>· {r.status === 'removed' ? t('retiré') : t('classé sans suite')}</span>}
                   </div>
-                  <p className="mt-1 text-[14px] font-medium">« {r.snapshot.title ?? 'Sans titre'} »</p>
+                  <p className="mt-1 text-[14px] font-medium">« {r.snapshot.title ?? t('Sans titre')} »</p>
                   {r.snapshot.excerpt && <p className="mt-1 line-clamp-3 text-[12.5px] text-stone-600">{r.snapshot.excerpt}</p>}
                   {r.kind === 'event' && r.snapshot.date && (
                     <p className="mt-1 text-[12.5px] text-stone-600">
@@ -100,19 +101,19 @@ export default function AdminInbox({ inbox, missing, reload }: { inbox: Inbox | 
                     {r.message && <span className="text-stone-600"> — {r.message}</span>}
                   </p>
                   <p className="mt-1 text-[11.5px] text-stone-500">
-                    Signalé par {r.reporter ?? 'un compte supprimé'} · auteur {r.author ?? 'inconnu'}
+                    {t('Signalé par {reporter}', { reporter: r.reporter ?? t('un compte supprimé') })} · {t('auteur {author}', { author: r.author ?? t('inconnu') })}
                   </p>
                   {r.status === 'open' && (
                     <div className="mt-2 flex flex-wrap gap-2">
                       {r.still_there ? (
                         <button className="btn-danger h-8 text-[12px]" disabled={busy === r.id} onClick={() => void handle(r, 'remove')}>
-                          <Trash2 size={13} /> Retirer le contenu
+                          <Trash2 size={13} /> {t('Retirer le contenu')}
                         </button>
                       ) : (
-                        <span className="self-center text-[12px] text-stone-500">Déjà supprimé par le groupe.</span>
+                        <span className="self-center text-[12px] text-stone-500">{t('Déjà supprimé par le groupe.')}</span>
                       )}
                       <button className="btn-secondary h-8 text-[12px]" disabled={busy === r.id} onClick={() => void handle(r, 'dismiss')}>
-                        {busy === r.id ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />} Classer sans suite
+                        {busy === r.id ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />} {t('Classer sans suite')}
                       </button>
                     </div>
                   )}
@@ -124,22 +125,22 @@ export default function AdminInbox({ inbox, missing, reload }: { inbox: Inbox | 
 
         <section className="card overflow-hidden" aria-labelledby="admin-feedback">
           <h2 id="admin-feedback" className="flex items-center gap-2 border-b border-stone-100 px-4 py-3 text-[13px] font-medium text-stone-600">
-            <Lightbulb size={14} /> Avis et bugs
+            <Lightbulb size={14} /> {t('Avis et bugs')}
             {!history && openFeedback > 0 && <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-700">{openFeedback}</span>}
           </h2>
           {feedback.length === 0 ? (
-            <p className="px-4 py-8 text-center text-[13px] text-stone-500">{history ? 'Aucun message traité.' : 'Rien à traiter.'}</p>
+            <p className="px-4 py-8 text-center text-[13px] text-stone-500">{history ? t('Aucun message traité.') : t('Rien à traiter.')}</p>
           ) : (
             <ul className="divide-y divide-stone-100">
               {feedback.map(f => (
                 <li key={f.id} className="flex gap-3 px-4 py-3">
-                  <span className={cx('mt-0.5 shrink-0', f.kind === 'bug' ? 'text-red-600' : 'text-amber-600')} aria-label={f.kind === 'bug' ? 'Bug' : 'Avis'}>
+                  <span className={cx('mt-0.5 shrink-0', f.kind === 'bug' ? 'text-red-600' : 'text-amber-600')} aria-label={f.kind === 'bug' ? t('Bug') : t('Avis')}>
                     {f.kind === 'bug' ? <Bug size={15} /> : <Lightbulb size={15} />}
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="whitespace-pre-wrap break-words text-[13.5px]">{f.message}</p>
                     <p className="mt-1 text-[11.5px] text-stone-500">
-                      {f.email ?? 'compte supprimé'} · {relativeTime(f.created_at)}
+                      {f.email ?? t('compte supprimé')} · {relativeTime(f.created_at)}
                       {f.page && ` · ${f.page}`}
                       {f.device && ` · ${f.device}`}
                     </p>
@@ -147,8 +148,8 @@ export default function AdminInbox({ inbox, missing, reload }: { inbox: Inbox | 
                   <button
                     className="icon-btn shrink-0"
                     disabled={busy === f.id}
-                    title={f.status === 'open' ? 'Marquer comme traité' : 'Remettre à traiter'}
-                    aria-label={f.status === 'open' ? 'Marquer comme traité' : 'Remettre à traiter'}
+                    title={f.status === 'open' ? t('Marquer comme traité') : t('Remettre à traiter')}
+                    aria-label={f.status === 'open' ? t('Marquer comme traité') : t('Remettre à traiter')}
                     onClick={() => void toggleDone(f)}
                   >
                     {f.status === 'open' ? <Check size={15} /> : <RotateCcw size={15} />}

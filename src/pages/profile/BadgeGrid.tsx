@@ -28,7 +28,7 @@ function BadgeCard({ b }: { b: Badge }) {
         {b.earned ? (
           <p className="mt-2 text-[11px] text-stone-500">{earnedLabel(b.earnedAt)}</p>
         ) : (
-          <div className="mt-2 flex items-center gap-2" title={t('{current} sur {target}', { current: b.current, target: b.target })}>
+          <div className="mt-2 flex items-center gap-2" title={t('{n} sur {total}', { n: b.current, total: b.target })}>
             <span className="h-1 flex-1 overflow-hidden rounded-full bg-stone-200/70" role="progressbar" aria-valuemin={0} aria-valuemax={b.target} aria-valuenow={b.current} aria-label={t('Progression vers « {title} »', { title: b.title })}>
               <span className="block h-full rounded-full bg-stone-500" style={{ width: `${pct}%` }} />
             </span>

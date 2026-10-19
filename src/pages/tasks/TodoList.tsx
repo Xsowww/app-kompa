@@ -130,6 +130,7 @@ function TodoRow({ t: todo, editable, preview, now = 0 }: { t: Todo; editable?: 
           justDone ? 'border-emerald-500 bg-emerald-500' : overdue ? 'border-[#d9a19a] hover:border-[#b13428] dark:border-red-300 dark:hover:border-red-600' : 'border-stone-300 hover:border-stone-500',
         )}
         title={todo.done ? t('Remettre à faire') : t('Marquer comme faite')}
+        data-tour-todo={isTourTodo(todo.title) || undefined}
         aria-label={todo.done ? t('Remettre « {title} » à faire', { title: todo.title }) : t('Cocher « {title} »', { title: todo.title })}
       >
         {todo.done && <Check size={10} strokeWidth={3} className="pop text-white" />}

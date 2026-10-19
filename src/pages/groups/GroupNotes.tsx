@@ -7,6 +7,7 @@ import { createNote, groupError, summary, type Group, type GroupNote } from '../
 import { cx, relativeTime } from '../../lib/utils';
 import { useMemberName, useRights } from './util';
 import GroupNoteEditor from './GroupNoteEditor';
+import { t, tn } from '../../i18n';
 
 export default function GroupNotes({ group }: { group: Group }) {
   const [params, setParams] = useSearchParams();
@@ -63,12 +64,12 @@ export default function GroupNotes({ group }: { group: Group }) {
             draftRef.current = e.target.value;
           }}
           onKeyDown={e => e.key === 'Enter' && e.preventDefault()}
-          placeholder="Sans titre"
-          aria-label="Titre de la note"
+          placeholder={t('Sans titre')}
+          aria-label={t('Titre de la note')}
           maxLength={200}
           className="ml-9 w-[calc(100%-36px)] bg-transparent text-[24px] font-semibold tracking-[-0.02em] outline-none placeholder:text-stone-400"
         />
-        <p className="ml-9 mt-0.5 text-[12px] text-stone-500">Création de la note…</p>
+        <p className="ml-9 mt-0.5 text-[12px] text-stone-500">{t('Création de la note…')}</p>
       </div>
     );
   }
@@ -76,10 +77,10 @@ export default function GroupNotes({ group }: { group: Group }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-2 pb-3">
-        <p className="eyebrow mr-auto">{notes?.length === 0 ? '' : notes ? `${notes.length} note${notes.length > 1 ? 's' : ''} partagée${notes.length > 1 ? 's' : ''}` : 'Chargement…'}</p>
+        <p className="eyebrow mr-auto">{notes?.length === 0 ? '' : notes ? tn(notes.length, '{n} note partagée', '{n} notes partagées') : t('Chargement…')}</p>
         {canEdit && (
           <button className="btn-primary h-8 px-3" disabled={creating} onClick={() => void newNote()}>
-            <FilePlus2 size={14} /> Nouvelle note
+            <FilePlus2 size={14} /> {t('Nouvelle note')}
           </button>
         )}
       </div>
@@ -88,7 +89,7 @@ export default function GroupNotes({ group }: { group: Group }) {
         {notes && notes.length === 0 && (
           <div className="card flex flex-col items-center px-6 py-12 text-center">
             <FileText size={26} strokeWidth={1.5} className="text-stone-300" />
-            <p className="mt-3 text-[14px] font-medium">Aucune note pour l’instant.</p>
+            <p className="mt-3 text-[14px] font-medium">{t('Aucune note pour l’instant.')}</p>
           </div>
         )}
         {notes && notes.length > 0 && (
@@ -99,7 +100,7 @@ export default function GroupNotes({ group }: { group: Group }) {
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[14px] font-medium">{n.title}</span>
                   <span className="block truncate text-[12px] text-stone-500">
-                    Modifiée par {nameOf(n.updatedBy)} {relativeTime(n.updatedAt)}
+                    {t('Modifiée par {name} {when}', { name: nameOf(n.updatedBy), when: relativeTime(n.updatedAt) })}
                   </span>
                 </span>
               </button>

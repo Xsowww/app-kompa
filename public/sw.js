@@ -52,7 +52,9 @@ async function withAccount(data) {
   const list = await deviceAccounts();
   const mine = list.find(a => a.id === data.user);
   if (list.length < 2 || !mine) return data;
-  return { ...data, body: `${data.body ? `${data.body}\n` : ''}Compte ${mine.label}` };
+  // `line`: written by the page in the site's language (older pages: the French one).
+  const line = typeof mine.line === 'string' ? mine.line : `Compte ${mine.label}`;
+  return { ...data, body: `${data.body ? `${data.body}\n` : ''}${line}` };
 }
 
 /** Same look as the app's own notifications (src/lib/notify.ts): keep the two in step. */

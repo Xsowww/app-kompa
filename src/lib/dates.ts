@@ -1,6 +1,7 @@
 import { addDays, format, isValid, parseISO, startOfWeek, differenceInCalendarDays } from 'date-fns';
 import { de, enGB, es, fr, it } from 'date-fns/locale';
 import { lang, t } from '../i18n';
+import { parseQuickAddIn } from './quickAddOther';
 
 const DATE_LOCALE = { fr, en: enGB, es, de, it }[lang];
 
@@ -63,7 +64,14 @@ function realDate(y: number, month: number, day: number) {
  * Understands simple French sentences such as
  * "Exam de maths vendredi 14h", "Rendre TP le 12/11 à 9h30", "Sport demain 18h-19h".
  */
-export function parseQuickAdd(input: string, base = new Date()): ParsedQuickAdd {
+export function parseQuickAdd(input: string, base = new Date(), language = lang): ParsedQuickAdd {
+  // Another language: its own words, unless the French reading understands more (« Dentiste demain 9h »).
+  if (language !== 'fr') {
+    const other = parseQuickAddIn(language, input, base);
+    const french = parseQuickAdd(input, base, 'fr');
+    const score = (r: ParsedQuickAdd) => Number(!!r.date) + Number(!!r.start);
+    return score(french) > score(other) ? french : other;
+  }
   let text = ` ${input} `;
   let date: Date | null = null;
   let start: string | null = null;

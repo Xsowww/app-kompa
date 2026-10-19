@@ -8,6 +8,7 @@ import { fmt, fromKey } from '../../lib/dates';
 import AdminInbox from './AdminInbox';
 import { fetchInbox, openCount, type Inbox as InboxData } from './inbox';
 import { useUi } from '../../store/ui';
+import { t, tn, locale } from '../../i18n';
 
 interface Account {
   id: string;
@@ -54,7 +55,8 @@ function Kpi({ icon: Icon, label, value, sub, color, className }: { icon: typeof
 }
 
 /** Daily columns, one series: 2px gaps, 4px rounded caps, hover tooltip, recessive grid. */
-function DailyColumns({ data, valueKey, label, labelOne, color }: { data: Stats['days']; valueKey: 'signups' | 'created'; label: string; labelOne: string; color: string }) {
+/** `label`: what is counted, in the plural (for screen readers); `unit(n)`: the same after a number. */
+function DailyColumns({ data, valueKey, label, unit, color }: { data: Stats['days']; valueKey: 'signups' | 'created'; label: string; unit: (n: number) => string; color: string }) {
   const [hover, setHover] = useState<number | null>(null);
   const values = data.map(d => d[valueKey]);
   const max = Math.max(1, ...values);
@@ -70,9 +72,9 @@ function DailyColumns({ data, valueKey, label, labelOne, color }: { data: Stats[
   return (
     <div className="relative">
       <p className="tabular text-[13px] text-stone-500">
-        <span className="text-[20px] font-semibold text-ink">{total}</span> {total > 1 ? label : labelOne} sur 30 jours
+        <span className="text-[20px] font-semibold text-ink">{total}</span> {t('{unit} sur 30 jours', { unit: unit(total) })}
       </p>
-      <svg viewBox={`0 0 ${W} ${H + 18}`} className="mt-3 w-full overflow-visible" role="img" aria-label={`${label} par jour sur 30 jours : ${total} au total, maximum ${max} par jour`} onMouseLeave={() => setHover(null)}>
+      <svg viewBox={`0 0 ${W} ${H + 18}`} className="mt-3 w-full overflow-visible" role="img" aria-label={t('{label} par jour sur 30 jours : {total} au total, maximum {max} par jour', { label, total, max })} onMouseLeave={() => setHover(null)}>
         {[0, 0.5, 1].map(f => (
           <g key={f}>
             <line x1="0" x2={PLOT} y1={H - f * H} y2={H - f * H} stroke="var(--color-stone-200)" strokeWidth="1" />
@@ -114,7 +116,7 @@ function DailyColumns({ data, valueKey, label, labelOne, color }: { data: Stats[
         >
           <p className="text-on-inverse/60">{fmt(fromKey(tip.day), 'EEEE d MMMM')}</p>
           <p className="tabular font-medium">
-            {tip[valueKey]} {tip[valueKey] > 1 ? label : labelOne}
+            {tip[valueKey]} {unit(tip[valueKey])}
           </p>
         </div>
       )}
@@ -124,10 +126,10 @@ function DailyColumns({ data, valueKey, label, labelOne, color }: { data: Stats[
 
 type View = 'apercu' | 'traiter' | 'comptes' | 'contenus';
 const VIEWS: { key: View; label: string; short?: string; icon: typeof Users }[] = [
-  { key: 'apercu', label: 'Vue d’ensemble', short: 'Aperçu', icon: LayoutDashboard },
-  { key: 'traiter', label: 'À traiter', icon: Inbox },
-  { key: 'comptes', label: 'Comptes', icon: Users },
-  { key: 'contenus', label: 'Contenus', icon: CalendarDays },
+  { key: 'apercu', label: t('Vue d’ensemble'), short: t('Aperçu'), icon: LayoutDashboard },
+  { key: 'traiter', label: t('À traiter'), icon: Inbox },
+  { key: 'comptes', label: t('Comptes'), icon: Users },
+  { key: 'contenus', label: t('Contenus'), icon: CalendarDays },
 ];
 
 export default function AdminPage() {
@@ -154,10 +156,10 @@ export default function AdminPage() {
       setInboxMissing(box.missing);
     }
     if (err) {
-      setError(err.message.includes('mfa') ? 'Reconnecte-toi avec ton code de sécurité pour voir ces chiffres.' : boxFailed ? 'Impossible d’actualiser : les chiffres affichés ne sont peut-être pas à jour.' : 'Impossible de charger les statistiques.');
+      setError(err.message.includes('mfa') ? t('Reconnecte-toi avec ton code de sécurité pour voir ces chiffres.') : boxFailed ? t('Impossible d’actualiser : les chiffres affichés ne sont peut-être pas à jour.') : t('Impossible de charger les statistiques.'));
       return;
     }
-    setError(boxFailed ? 'Impossible d’actualiser les signalements.' : '');
+    setError(boxFailed ? t('Impossible d’actualiser les signalements.') : '');
     setStats(data as Stats);
   }, []);
 
@@ -169,12 +171,12 @@ export default function AdminPage() {
   useEffect(() => {
     if (!allowed) return;
     const first = setTimeout(() => void load(), 0);
-    const t = setInterval(() => void load(), REFRESH_MS);
+    const timer = setInterval(() => void load(), REFRESH_MS);
     const onVisible = () => document.visibilityState === 'visible' && void load();
     document.addEventListener('visibilitychange', onVisible);
     return () => {
       clearTimeout(first);
-      clearInterval(t);
+      clearInterval(timer);
       document.removeEventListener('visibilitychange', onVisible);
     };
   }, [allowed, load]);
@@ -202,22 +204,22 @@ export default function AdminPage() {
       <div className="mx-auto max-w-[1180px]">
         <div className="flex flex-wrap items-center gap-3 pb-4 pt-2">
           <div className="mr-auto">
-            <h1 className="text-[24px] font-semibold tracking-[-0.02em]">Administration</h1>
+            <h1 className="text-[24px] font-semibold tracking-[-0.02em]">{t('Administration')}</h1>
             <p className="mt-0.5 flex items-center gap-1.5 text-[12px] text-stone-500">
               {/* Green and pulsing only while the figures are fresh. */}
               <span className="relative flex h-2 w-2">
                 {!error && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />}
                 <span className={cx('relative inline-flex h-2 w-2 rounded-full', error ? 'bg-stone-400' : 'bg-emerald-500')} />
               </span>
-              {error ? 'Pas à jour' : 'En direct'} · {stats ? `mis à jour à ${fmt(new Date(stats.generated_at), 'HH:mm:ss')}` : 'chargement…'}
+              {error ? t('Pas à jour') : t('En direct')} · {stats ? t('mis à jour à {time}', { time: fmt(new Date(stats.generated_at), 'HH:mm:ss') }) : t('chargement…')}
             </p>
           </div>
           <button className="btn-secondary h-8" onClick={() => void load()} disabled={loading}>
-            {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />} Actualiser
+            {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />} {t('Actualiser')}
           </button>
         </div>
 
-        <nav aria-label="Parties de l’administration" className="-mx-4 mb-5 overflow-x-auto border-b border-stone-200 px-4 md:mx-0 md:px-0">
+        <nav aria-label={t('Parties de l’administration')} className="-mx-4 mb-5 overflow-x-auto border-b border-stone-200 px-4 md:mx-0 md:px-0">
           <div className="flex min-w-max gap-1">
             {VIEWS.map(v => (
               <button
@@ -273,47 +275,50 @@ export default function AdminPage() {
               >
                 <Inbox size={16} aria-hidden />
                 <span className="flex-1">
-                  {pendingReports > 0 && `${pendingReports} signalement${pendingReports > 1 ? 's' : ''}`}
-                  {pendingReports > 0 && pending - pendingReports > 0 && ' et '}
-                  {pending - pendingReports > 0 && `${pending - pendingReports} avis ou bug${pending - pendingReports > 1 ? 's' : ''}`} à traiter
+                  {(() => {
+                    const reports = pendingReports > 0 ? tn(pendingReports, '{n} signalement', '{n} signalements') : '';
+                    const rest = pending - pendingReports;
+                    const feedback = rest > 0 ? tn(rest, '{n} avis ou bug', '{n} avis ou bugs') : '';
+                    return t('{items} à traiter', { items: reports && feedback ? t('{list} et {last}', { list: reports, last: feedback }) : reports || feedback });
+                  })()}
                 </span>
-                <span className="font-medium">Voir</span>
+                <span className="font-medium">{t('Voir')}</span>
               </button>
             )}
 
             <section aria-labelledby="admin-users">
-              <h2 id="admin-users" className="eyebrow mb-2">Utilisateurs</h2>
+              <h2 id="admin-users" className="eyebrow mb-2">{t('Utilisateurs')}</h2>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-                <Kpi icon={Users} label="Comptes" value={u!.total} sub={`+${u!.new_7d} cette semaine`} color="var(--color-brand-500)" />
-                <Kpi icon={Activity} label="Actifs (7 jours)" value={u!.active_7d} sub={`${u!.active_24h} aujourd’hui · ${u!.active_30d} sur 30 jours`} color="#2f9e6b" />
-                <Kpi icon={ShieldCheck} label="Double authentification" value={`${u!.total ? Math.round((stats.mfa_users / u!.total) * 100) : 0} %`} sub={`${stats.mfa_users} compte${stats.mfa_users > 1 ? 's' : ''} protégé${stats.mfa_users > 1 ? 's' : ''}`} color="#7a5ad6" className="col-span-2 md:col-span-1" />
+                <Kpi icon={Users} label={t('Comptes')} value={u!.total} sub={t('+{n} cette semaine', { n: u!.new_7d })} color="var(--color-brand-500)" />
+                <Kpi icon={Activity} label={t('Actifs (7 jours)')} value={u!.active_7d} sub={t('{today} aujourd’hui · {month} sur 30 jours', { today: u!.active_24h, month: u!.active_30d })} color="#2f9e6b" />
+                <Kpi icon={ShieldCheck} label={t('Double authentification')} value={t('{n} %', { n: u!.total ? Math.round((stats.mfa_users / u!.total) * 100) : 0 })} sub={tn(stats.mfa_users, '{n} compte protégé', '{n} comptes protégés')} color="#7a5ad6" className="col-span-2 md:col-span-1" />
               </div>
             </section>
 
             <section aria-labelledby="admin-content">
-              <h2 id="admin-content" className="eyebrow mb-2">Contenus</h2>
+              <h2 id="admin-content" className="eyebrow mb-2">{t('Contenus')}</h2>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                <Kpi icon={NotebookText} label="Notes" value={c!.notes} sub={`${c!.note_folders} dossiers`} color="#d48a17" />
-                <Kpi icon={CalendarDays} label="Événements" value={c!.events} sub={`${c!.events ? Math.round((c!.events_done / c!.events) * 100) : 0} % terminés`} color="#d9483b" />
-                <Kpi icon={FolderClosed} label="Fichiers" value={c!.files} sub={u!.total ? `${(c!.files / u!.total).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} par compte` : undefined} color="#3b6fd8" />
-                <Kpi icon={HardDrive} label="Stockage" value={formatBytes(c!.storage_bytes)} sub={`${c!.folders} dossiers`} color="#3b6fd8" />
+                <Kpi icon={NotebookText} label={t('Notes')} value={c!.notes} sub={tn(c!.note_folders, '{n} dossier', '{n} dossiers')} color="#d48a17" />
+                <Kpi icon={CalendarDays} label={t('Événements')} value={c!.events} sub={t('{n} % terminés', { n: c!.events ? Math.round((c!.events_done / c!.events) * 100) : 0 })} color="#d9483b" />
+                <Kpi icon={FolderClosed} label={t('Fichiers')} value={c!.files} sub={u!.total ? t('{n} par compte', { n: (c!.files / u!.total).toLocaleString(locale(), { maximumFractionDigits: 1 }) }) : undefined} color="#3b6fd8" />
+                <Kpi icon={HardDrive} label={t('Stockage')} value={formatBytes(c!.storage_bytes)} sub={tn(c!.folders, '{n} dossier', '{n} dossiers')} color="#3b6fd8" />
               </div>
             </section>
 
             <section aria-labelledby="admin-trends">
-              <h2 id="admin-trends" className="eyebrow mb-2">30 derniers jours</h2>
+              <h2 id="admin-trends" className="eyebrow mb-2">{t('30 derniers jours')}</h2>
               <div className="grid gap-3 lg:grid-cols-2">
                 <div className="card p-4">
-                  <h3 className="text-[13px] font-medium text-stone-600">Activité</h3>
-                  <p className="text-[12px] text-stone-500">Notes, événements et fichiers créés par jour</p>
+                  <h3 className="text-[13px] font-medium text-stone-600">{t('Activité')}</h3>
+                  <p className="text-[12px] text-stone-500">{t('Notes, événements et fichiers créés par jour')}</p>
                   <div className="mt-3">
-                    <DailyColumns data={stats.days} valueKey="created" label="éléments créés" labelOne="élément créé" color="var(--color-brand-500)" />
+                    <DailyColumns data={stats.days} valueKey="created" label={t('éléments créés')} unit={n => tn(n, 'élément créé', 'éléments créés')} color="var(--color-brand-500)" />
                   </div>
                 </div>
                 <div className="card p-4">
-                  <h3 className="text-[13px] font-medium text-stone-600">Inscriptions</h3>
+                  <h3 className="text-[13px] font-medium text-stone-600">{t('Inscriptions')}</h3>
                   <div className="mt-3">
-                    <DailyColumns data={stats.days} valueKey="signups" label="inscriptions" labelOne="inscription" color="#3b6fd8" />
+                    <DailyColumns data={stats.days} valueKey="signups" label={t('inscriptions')} unit={n => tn(n, 'inscription', 'inscriptions')} color="#3b6fd8" />
                   </div>
                 </div>
               </div>
@@ -337,28 +342,28 @@ function AccountsTable({ accounts, total, query, setQuery }: { accounts: Account
     <section className="card overflow-hidden" aria-labelledby="admin-accounts">
       <div className="flex flex-wrap items-center gap-3 border-b border-stone-100 px-4 py-3">
         <h2 id="admin-accounts" className="mr-auto text-[13px] font-medium text-stone-600">
-          Comptes <span className="tabular text-stone-500">({accounts.length === total ? total : `${accounts.length} sur ${total}`})</span>
+          {t('Comptes')} <span className="tabular text-stone-500">({accounts.length === total ? total : t('{n} sur {total}', { n: accounts.length, total })})</span>
         </h2>
         <div className="relative">
           <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400" />
-          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Nom ou e-mail" aria-label="Chercher un compte" className="field h-8 w-56 pl-8" />
+          <input value={query} onChange={e => setQuery(e.target.value)} placeholder={t('Nom ou e-mail')} aria-label={t('Chercher un compte')} className="field h-8 w-56 pl-8" />
         </div>
       </div>
       {accounts.length === 0 ? (
-        <p className="px-4 py-8 text-center text-[13px] text-stone-500">Aucun compte ne correspond.</p>
+        <p className="px-4 py-8 text-center text-[13px] text-stone-500">{t('Aucun compte ne correspond.')}</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[820px] text-[13px]">
             <thead>
               <tr className="border-b border-stone-100 text-left text-[12px] text-stone-500">
-                <th className="px-4 py-2 font-medium">Compte</th>
-                <th className="px-3 py-2 font-medium">Inscrit</th>
-                <th className="px-3 py-2 font-medium">Dernière connexion</th>
-                <th className="px-3 py-2 font-medium">Sécurité</th>
-                <th className="px-3 py-2 text-right font-medium">Notes</th>
-                <th className="px-3 py-2 text-right font-medium">Événements</th>
-                <th className="px-3 py-2 text-right font-medium">Fichiers</th>
-                <th className="px-4 py-2 text-right font-medium">Stockage</th>
+                <th className="px-4 py-2 font-medium">{t('Compte')}</th>
+                <th className="px-3 py-2 font-medium">{t('Inscrit')}</th>
+                <th className="px-3 py-2 font-medium">{t('Dernière connexion')}</th>
+                <th className="px-3 py-2 font-medium">{t('Sécurité')}</th>
+                <th className="px-3 py-2 text-right font-medium">{t('Notes')}</th>
+                <th className="px-3 py-2 text-right font-medium">{t('Événements')}</th>
+                <th className="px-3 py-2 text-right font-medium">{t('Fichiers')}</th>
+                <th className="px-4 py-2 text-right font-medium">{t('Stockage')}</th>
               </tr>
             </thead>
             <tbody>
@@ -367,15 +372,15 @@ function AccountsTable({ accounts, total, query, setQuery }: { accounts: Account
                   <td className="px-4 py-2.5">
                     <p className="font-medium">
                       {a.name || '—'}
-                      {a.admin && <span className="ml-1.5 rounded bg-brand-50 px-1.5 py-0.5 text-[10px] font-semibold text-brand-700">Admin</span>}
+                      {a.admin && <span className="ml-1.5 rounded bg-brand-50 px-1.5 py-0.5 text-[10px] font-semibold text-brand-700">{t('Admin')}</span>}
                     </p>
                     <p className="text-[12px] text-stone-500">{a.email}</p>
                   </td>
                   <td className="whitespace-nowrap px-3 py-2.5 text-stone-600">{fmt(new Date(a.created_at), 'd MMM yyyy')}</td>
-                  <td className="whitespace-nowrap px-3 py-2.5 text-stone-600">{a.last_sign_in_at ? relativeTime(a.last_sign_in_at) : 'jamais'}</td>
+                  <td className="whitespace-nowrap px-3 py-2.5 text-stone-600">{a.last_sign_in_at ? relativeTime(a.last_sign_in_at) : t('jamais')}</td>
                   <td className="px-3 py-2.5">
                     <span className={cx('inline-flex items-center gap-1 whitespace-nowrap text-[12px]', a.mfa ? 'text-emerald-700' : 'text-stone-500')}>
-                      <ShieldCheck size={13} /> {a.mfa ? '2FA active' : 'Sans 2FA'}
+                      <ShieldCheck size={13} /> {a.mfa ? t('2FA active') : t('Sans 2FA')}
                     </span>
                   </td>
                   <td className="tabular px-3 py-2.5 text-right">{a.notes}</td>
@@ -413,27 +418,27 @@ function Categories({ stats }: { stats: Stats }) {
   return (
     <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-2">
       <section className="card p-4" aria-labelledby="admin-cats">
-        <h2 id="admin-cats" className="text-[13px] font-medium text-stone-600">Événements par catégorie</h2>
+        <h2 id="admin-cats" className="text-[13px] font-medium text-stone-600">{t('Événements par catégorie')}</h2>
         <div className="mt-4 space-y-2">
           {categories.map(({ key, n }) => row(key, CATEGORIES[key].label, n, CATEGORIES[key].color))}
-          {row('autres', 'Autres', others, 'var(--color-stone-400)')}
+          {row('autres', t('Autres'), others, 'var(--color-stone-400)')}
         </div>
       </section>
       <section className="card p-4" aria-labelledby="admin-customs">
         <h2 id="admin-customs" className="text-[13px] font-medium text-stone-600">
-          Autres : catégories créées par les utilisateurs{customs ? ` (${customs.length})` : ''}
+          {t('Autres : catégories créées par les utilisateurs')}{customs ? ` (${customs.length})` : ''}
         </h2>
         {!customs ? (
-          <p className="mt-2 text-[12px] text-stone-500">Disponible après la migration 2026-10-16 sur Supabase.</p>
+          <p className="mt-2 text-[12px] text-stone-500">{t('Disponible après la migration 2026-10-16 sur Supabase.')}</p>
         ) : customs.length === 0 ? (
-          <p className="mt-2 text-[12px] text-stone-500">Aucune catégorie personnelle pour l’instant.</p>
+          <p className="mt-2 text-[12px] text-stone-500">{t('Aucune catégorie personnelle pour l’instant.')}</p>
         ) : (
           <ul className="mt-3 divide-y divide-stone-100 text-[13px]">
             {customs.map(c => (
               <li key={c.label} className="flex items-baseline gap-2 py-1.5">
                 <span className="min-w-0 flex-1 truncate" title={c.label}>{c.label}</span>
                 <span className="tabular shrink-0 text-[12px] text-stone-500">
-                  {c.events} événement{c.events > 1 ? 's' : ''} · {c.users} compte{c.users > 1 ? 's' : ''}
+                  {tn(c.events, '{n} événement', '{n} événements')} · {tn(c.users, '{n} compte', '{n} comptes')}
                 </span>
               </li>
             ))}

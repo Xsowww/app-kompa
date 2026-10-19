@@ -28,6 +28,9 @@ export const KEYWORDS_BY_USAGE: Record<Usage, Keyword[]> = {
 };
 export const DEFAULT_KEYWORDS = KEYWORDS_BY_USAGE.etudes;
 
+/** A French default word → its translation (same place in the same list). */
+const TRANSLATED = new Map((Object.keys(KEYWORDS_FR) as Usage[]).flatMap(u => KEYWORDS_FR[u].map((w, i) => [normalize(w), KEYWORDS_BY_USAGE[u][i].word] as const)));
+
 const sameWords = (a: readonly Keyword[], b: readonly Keyword[]) => a.length === b.length && a.every((k, i) => normalize(k.word) === normalize(b[i].word));
 
 /** The list in use: a default list never changed by hand follows the account's usage (a pro account gets « décision », « action »…). */
@@ -35,7 +38,7 @@ export function keywordsFor(saved: readonly Keyword[], usage: Usage | undefined)
   const own = KEYWORDS_BY_USAGE[usage ?? 'etudes'] ?? DEFAULT_KEYWORDS;
   const defaults = [...Object.values(KEYWORDS_BY_USAGE), ...Object.values(KEYWORDS_FR).map(words => list(...words))];
   // Bells switched on or off are kept for the words both lists share (a French word also matches its translation).
-  const same = (x: Keyword, k: Keyword) => normalize(x.word) === normalize(k.word) || normalize(t(x.word)) === normalize(k.word);
+  const same = (x: Keyword, k: Keyword) => normalize(x.word) === normalize(k.word) || normalize(TRANSLATED.get(normalize(x.word)) ?? '') === normalize(k.word);
   if (defaults.some(d => sameWords(saved, d))) return own.map(k => ({ ...k, notify: saved.find(x => same(x, k))?.notify ?? true }));
   return [...saved];
 }

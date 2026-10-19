@@ -15,10 +15,12 @@ import ImportPeriods from './ImportPeriods';
 import { useGroups } from '../../store/groups';
 import { cloudEnabled } from '../../lib/supabase';
 import { catOf, sortEvents, type CalendarEvent } from '../../store/calendar';
+import { lang, locale, t, tn } from '../../i18n';
 
 type Draft = { id?: string; title: string; start: string; end: string; color: string; people?: string[]; skip?: string[] };
 
-const WEEKDAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+/** « L M M J V S D » in the site's language (1 January 2024 was a Monday). */
+const WEEKDAYS = Array.from({ length: 7 }, (_, i) => new Intl.DateTimeFormat(locale(), { weekday: 'narrow' }).format(new Date(2024, 0, 1 + i)));
 const near = (key: string, n: number) => toKey(addDays(fromKey(key), n));
 
 /**
@@ -71,11 +73,11 @@ function DaysPicker({ days, color, around, others, events, onChange }: {
   return (
     <div className="mt-1.5 select-none rounded-2xl bg-surface p-2 ring-1 ring-inset ring-stone-200">
       <div className="mb-1 flex items-center justify-between">
-        <button type="button" className="icon-btn" onClick={() => setMonth(m => addMonths(m, -1))} aria-label="Mois précédent">
+        <button type="button" className="icon-btn" onClick={() => setMonth(m => addMonths(m, -1))} aria-label={t('Mois précédent')}>
           <ChevronLeft size={16} />
         </button>
         <span className="text-[13.5px] font-bold first-letter:uppercase" aria-live="polite">{fmt(month, 'MMMM yyyy')}</span>
-        <button type="button" className="icon-btn" onClick={() => setMonth(m => addMonths(m, 1))} aria-label="Mois suivant">
+        <button type="button" className="icon-btn" onClick={() => setMonth(m => addMonths(m, 1))} aria-label={t('Mois suivant')}>
           <ChevronRight size={16} />
         </button>
       </div>
@@ -84,7 +86,7 @@ function DaysPicker({ days, color, around, others, events, onChange }: {
       </div>
       <div
         role="group"
-        aria-label="Jours de la période"
+        aria-label={t('Jours de la période')}
         className="grid touch-none grid-cols-7 gap-y-0.5"
         onPointerDown={e => {
           const key = keyAt(e.clientX, e.clientY);
@@ -111,7 +113,7 @@ function DaysPicker({ days, color, around, others, events, onChange }: {
           const on = days.has(key);
           const dayEvents = (eventsOn.get(key) ?? []).sort(sortEvents);
           const dayPeriods = shownOthers.filter(p => covers(p, key));
-          const already = [...dayPeriods.map(p => p.title), ...dayEvents.map(e => `${e.start ? `${e.start.replace(':', 'h').replace(/h00$/, 'h').replace(/^0(?=\d)/, '')} ` : ''}${e.title}`)];
+          const already = [...dayPeriods.map(p => p.title), ...dayEvents.map(e => `${e.start ? `${lang === 'fr' ? e.start.replace(':', 'h').replace(/h00$/, 'h').replace(/^0(?=\d)/, '') : e.start} ` : ''}${e.title}`)];
           const before = days.has(near(key, -1));
           const after = days.has(near(key, 1));
           const d = fromKey(key);
@@ -121,7 +123,7 @@ function DaysPicker({ days, color, around, others, events, onChange }: {
               type="button"
               data-day={key}
               aria-pressed={on}
-              aria-label={`${fmt(d, 'EEEE d MMMM yyyy')}${already.length ? ` — déjà : ${already.join(', ')}` : ''}`}
+              aria-label={already.length ? t('{day} — déjà : {list}', { day: fmt(d, 'EEEE d MMMM yyyy'), list: already.join(', ') }) : fmt(d, 'EEEE d MMMM yyyy')}
               title={already.length ? already.join('\n') : undefined}
               // The keyboard has no pointer: Entrée / Espace ticks or unticks the day.
               onKeyDown={e => {
@@ -159,7 +161,7 @@ function DaysPicker({ days, color, around, others, events, onChange }: {
         })}
       </div>
       {shownOthers.length > 0 && (
-        <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 px-1 text-[11.5px] font-medium text-stone-600" aria-label="Autres périodes ce mois-ci">
+        <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 px-1 text-[11.5px] font-medium text-stone-600" aria-label={t('Autres périodes ce mois-ci')}>
           {shownOthers.map(p => (
             <span key={p.id} className="flex items-center gap-1.5">
               <span className="h-[3px] w-3 rounded-full" style={{ background: periodColor(p) }} aria-hidden />
@@ -168,7 +170,7 @@ function DaysPicker({ days, color, around, others, events, onChange }: {
           ))}
         </div>
       )}
-      <p className="mt-1.5 px-1 text-[12px] text-stone-500">Touche ou glisse pour cocher les jours.</p>
+      <p className="mt-1.5 px-1 text-[12px] text-stone-500">{t('Touche ou glisse pour cocher les jours.')}</p>
     </div>
   );
 }
@@ -196,7 +198,7 @@ function PeriodForm({ draft, around, onDone }: { draft: Draft; around: string; o
   const [longTo, setLongTo] = useState('');
   const [long, setLong] = useState(false);
   const span = runs.length ? { start: runs[0].start, end: runs[runs.length - 1].end } : null;
-  const error = !span ? 'Choisis au moins un jour.' : differenceInCalendarDays(fromKey(span.end), fromKey(span.start)) > MAX_DAYS ? 'Une période dure au plus un peu plus d’un an.' : '';
+  const error = !span ? t('Choisis au moins un jour.') : differenceInCalendarDays(fromKey(span.end), fromKey(span.start)) > MAX_DAYS ? t('Une période dure au plus un peu plus d’un an.') : '';
   const skip = span && !error ? daysBetween(span.start, span.end).filter(k => !days.has(k)) : [];
   const people = source.shared ? d.people ?? [] : [];
   const base = { title: d.title.trim(), color: d.color, ...(people.length && { people }) };
@@ -212,8 +214,8 @@ function PeriodForm({ draft, around, onDone }: { draft: Draft; around: string; o
 
   return (
     <form onSubmit={submit} className="mt-4 rounded-2xl bg-stone-50 p-4">
-      <label className="eyebrow block" htmlFor="periode-nom">Nom</label>
-      <input id="periode-nom" autoFocus value={d.title} maxLength={60} onChange={e => set({ title: e.target.value })} placeholder="Ex. En entreprise" className="field mt-1.5 w-full" />
+      <label className="eyebrow block" htmlFor="periode-nom">{t('Nom')}</label>
+      <input id="periode-nom" autoFocus value={d.title} maxLength={60} onChange={e => set({ title: e.target.value })} placeholder={t('Ex. En entreprise')} className="field mt-1.5 w-full" />
       <div className="mt-2 flex flex-wrap gap-1.5">
         {(PERIOD_IDEAS[usage] ?? PERIOD_IDEAS.etudes).map(idea => (
           <button
@@ -228,18 +230,21 @@ function PeriodForm({ draft, around, onDone }: { draft: Draft; around: string; o
         ))}
       </div>
 
-      {source.shared && source.shared.people.length > 1 && <PeoplePicker people={source.shared.people} value={people} onChange={ids => set({ people: ids })} what="la période" />}
+      {source.shared && source.shared.people.length > 1 && <PeoplePicker people={source.shared.people} value={people} onChange={ids => set({ people: ids })} what={t('la période')} />}
 
-      <p className="eyebrow mt-4">Jours</p>
+      <p className="eyebrow mt-4">{t('Jours')}</p>
       <DaysPicker days={days} color={d.color} around={around} others={others} events={source.events} onChange={setDays} />
       {(clash.periods.length > 0 || clash.events.length > 0) && (
         <p className="mt-2 rounded-xl bg-surface px-3 py-2 text-[12.5px] leading-snug text-stone-600 ring-1 ring-inset ring-stone-200" aria-live="polite">
-          <span className="font-semibold text-ink">Déjà sur ces jours : </span>
-          {[
-            ...clash.periods.map(c => `« ${c.title} » (${c.n} jour${c.n > 1 ? 's' : ''})`),
-            ...(clash.events.length ? [`${clash.events.length} événement${clash.events.length > 1 ? 's' : ''} (${clash.events.slice(0, 3).map(e => `${e.title}, ${fmtDay(fromKey(e.date), 'EEE d')}`).join(' ; ')}${clash.events.length > 3 ? '…' : ''})`] : []),
-          ].join(' · ')}
-          . Ils restent visibles.
+          <span className="font-semibold text-ink">{t('Déjà sur ces jours :')} </span>
+          {t('{list}. Ils restent visibles.', {
+            list: [
+              ...clash.periods.map(c => tn(c.n, '« {title} » ({n} jour)', '« {title} » ({n} jours)', { title: c.title })),
+              ...(clash.events.length
+                ? [tn(clash.events.length, '{n} événement ({list})', '{n} événements ({list})', { list: `${clash.events.slice(0, 3).map(e => `${e.title}, ${fmtDay(fromKey(e.date), 'EEE d')}`).join(' ; ')}${clash.events.length > 3 ? '…' : ''}` })]
+                : []),
+            ].join(' · '),
+          })}
         </p>
       )}
       {runs.length > 0 && (
@@ -250,7 +255,7 @@ function PeriodForm({ draft, around, onDone }: { draft: Draft; around: string; o
               <button
                 type="button"
                 className="hit-sm flex h-5 w-5 items-center justify-center rounded-full hover:bg-black/10"
-                aria-label={`Retirer les jours ${periodRange(r, fmtDay)}`}
+                aria-label={t('Retirer les jours {range}', { range: periodRange(r, fmtDay) })}
                 onClick={() => {
                   const next = new Set(days);
                   for (const k of daysBetween(r.start, r.end)) next.delete(k);
@@ -261,18 +266,18 @@ function PeriodForm({ draft, around, onDone }: { draft: Draft; around: string; o
               </button>
             </span>
           ))}
-          <span className="text-[12px] text-stone-500">{days.size} jour{days.size > 1 ? 's' : ''}{runs.length > 1 ? ` en ${runs.length} morceaux` : ''}</span>
+          <span className="text-[12px] text-stone-500">{runs.length > 1 ? tn(days.size, '{n} jour en {pieces} morceaux', '{n} jours en {pieces} morceaux', { pieces: runs.length }) : tn(days.size, '{n} jour', '{n} jours')}</span>
         </div>
       )}
       {long ? (
         <div className="mt-3 flex flex-wrap items-end gap-2">
           <div className="min-w-[8.5rem] flex-1">
-            <span className="eyebrow">Du</span>
-            <DateField value={longFrom} onChange={setLongFrom} label="Premier jour à ajouter" className="mt-1.5 w-full" />
+            <span className="eyebrow">{t('Du')}</span>
+            <DateField value={longFrom} onChange={setLongFrom} label={t('Premier jour à ajouter')} className="mt-1.5 w-full" />
           </div>
           <div className="min-w-[8.5rem] flex-1">
-            <span className="eyebrow">Au (inclus)</span>
-            <DateField value={longTo} min={longFrom || undefined} onChange={setLongTo} label="Dernier jour à ajouter" className="mt-1.5 w-full" />
+            <span className="eyebrow">{t('Au (inclus)')}</span>
+            <DateField value={longTo} min={longFrom || undefined} onChange={setLongTo} label={t('Dernier jour à ajouter')} className="mt-1.5 w-full" />
           </div>
           <button
             type="button"
@@ -284,17 +289,17 @@ function PeriodForm({ draft, around, onDone }: { draft: Draft; around: string; o
               setLongTo('');
             }}
           >
-            <Plus size={15} /> Ajouter ces jours
+            <Plus size={15} /> {t('Ajouter ces jours')}
           </button>
         </div>
       ) : (
         <button type="button" className="mt-2 text-[12.5px] font-semibold text-brand-600 hover:text-brand-700" onClick={() => setLong(true)}>
-          Sur plusieurs mois ? Choisir les dates
+          {t('Sur plusieurs mois ? Choisir les dates')}
         </button>
       )}
 
-      <p className="eyebrow mt-4">Couleur</p>
-      <div className="mt-2 flex flex-wrap gap-1.5" role="radiogroup" aria-label="Couleur">
+      <p className="eyebrow mt-4">{t('Couleur')}</p>
+      <div className="mt-2 flex flex-wrap gap-1.5" role="radiogroup" aria-label={t('Couleur')}>
         {Object.entries(FOLDER_COLORS).map(([key, c]) => (
           <button
             key={key}
@@ -317,16 +322,16 @@ function PeriodForm({ draft, around, onDone }: { draft: Draft; around: string; o
           {/* The whole line is the tap target (check-hit's negative margin put the box over the icon). */}
           <label className="flex min-h-9 cursor-pointer items-center gap-2 text-[13px] font-medium">
             <input type="checkbox" checked={repeat} onChange={e => setRepeat(e.target.checked)} className="h-4 w-4 shrink-0 accent-[var(--color-ink)]" />
-            <Repeat size={14} className="shrink-0 text-stone-500" aria-hidden /> Se répète (alternance, garde…)
+            <Repeat size={14} className="shrink-0 text-stone-500" aria-hidden /> {t('Se répète (alternance, garde…)')}
           </label>
           {repeat && (
             <div className="mt-2 flex flex-wrap items-center gap-2 pl-6 text-[13px]">
-              <span>toutes les</span>
-              <input type="number" min={1} max={52} value={everyText} onChange={e => setEveryText(e.target.value)} onBlur={() => setEveryText(String(every))} aria-label="Nombre de semaines entre deux débuts" className="field h-9 w-16 text-center" />
-              <span>semaines, jusqu’au</span>
-              <DateField value={until} min={runs[0]?.start} onChange={setUntil} label="Dernier début possible" className="h-9 w-40" />
+              <span>{t('toutes les')}</span>
+              <input type="number" min={1} max={52} value={everyText} onChange={e => setEveryText(e.target.value)} onBlur={() => setEveryText(String(every))} aria-label={t('Nombre de semaines entre deux débuts')} className="field h-9 w-16 text-center" />
+              <span>{t('semaines, jusqu’au')}</span>
+              <DateField value={until} min={runs[0]?.start} onChange={setUntil} label={t('Dernier début possible')} className="h-9 w-40" />
               <span className="w-full text-[12px] text-stone-500">
-                {copies.length > 1 ? `${copies.length} périodes, la dernière ${periodRange(copies[copies.length - 1], fmtDay)}.` : 'Une seule période avec ces dates.'}
+                {copies.length > 1 ? t('{n} périodes, la dernière {range}.', { n: copies.length, range: periodRange(copies[copies.length - 1], fmtDay) }) : t('Une seule période avec ces dates.')}
               </span>
             </div>
           )}
@@ -335,9 +340,9 @@ function PeriodForm({ draft, around, onDone }: { draft: Draft; around: string; o
 
       {error && runs.length > 0 && <p className="mt-3 text-[12.5px] text-red-600">{error}</p>}
       <div className="mt-5 flex flex-wrap justify-end gap-2">
-        <button type="button" className="btn-secondary" onClick={onDone}>Annuler</button>
+        <button type="button" className="btn-secondary" onClick={onDone}>{t('Annuler')}</button>
         <button type="submit" className="btn-primary" disabled={!base.title || !!error}>
-          {d.id ? 'Enregistrer' : copies.length > 1 ? `Ajouter ${copies.length} périodes` : 'Ajouter'}
+          {d.id ? t('Enregistrer') : copies.length > 1 ? t('Ajouter {n} périodes', { n: copies.length }) : t('Ajouter')}
         </button>
       </div>
     </form>
@@ -361,12 +366,12 @@ export default function PeriodsDialog({ day, onClose }: { day: string; onClose: 
   }, [canEdit]);
 
   const remove = async (p: Period) => {
-    if (await confirmAction(`Supprimer « ${p.title} » ?`, 'Les événements restent.', 'Supprimer')) source.removePeriod(p.id);
+    if (await confirmAction(t('Supprimer « {title} » ?', { title: p.title }), t('Les événements restent.'), t('Supprimer'))) source.removePeriod(p.id);
   };
 
   return (
     <Modal open onClose={onClose} width={500}>
-      <h3 className="text-[18px]">Périodes</h3>
+      <h3 className="text-[18px]">{t('Périodes')}</h3>
       <p className="mt-1 text-[13px] text-stone-500 first-letter:uppercase">{periodIdeas(usage)}…</p>
 
       {list.length > 0 && (
@@ -376,14 +381,14 @@ export default function PeriodsDialog({ day, onClose }: { day: string; onClose: 
               <span className="h-8 w-1.5 shrink-0 rounded-full" style={{ background: periodColor(p) }} aria-hidden />
               <span className="min-w-0 flex-1">
                 <span className="line-clamp-2 text-[13.5px] font-semibold [overflow-wrap:anywhere]">{periodLabel(p, source.shared?.nameOf)}</span>
-                <span className="block text-[12px] text-stone-500">{periodRange(p, fmtDay)}{p.skip?.length ? ` · ${periodDays(p)} jours` : ''}</span>
+                <span className="block text-[12px] text-stone-500">{periodRange(p, fmtDay)}{p.skip?.length ? ` · ${tn(periodDays(p), '{n} jour', '{n} jours')}` : ''}</span>
               </span>
               {canEdit && (
                 <>
-                  <button className="icon-btn" title="Modifier" aria-label={`Modifier « ${p.title} »`} onClick={() => setDraft({ ...p })}>
+                  <button className="icon-btn" title={t('Modifier')} aria-label={t('Modifier « {title} »', { title: p.title })} onClick={() => setDraft({ ...p })}>
                     <Pencil size={14} />
                   </button>
-                  <button className="icon-btn hover:text-red-600" title="Supprimer" aria-label={`Supprimer « ${p.title} »`} onClick={() => void remove(p)}>
+                  <button className="icon-btn hover:text-red-600" title={t('Supprimer')} aria-label={t('Supprimer « {title} »', { title: p.title })} onClick={() => void remove(p)}>
                     <Trash2 size={14} />
                   </button>
                 </>
@@ -392,11 +397,11 @@ export default function PeriodsDialog({ day, onClose }: { day: string; onClose: 
           ))}
         </ul>
       )}
-      {list.length === 0 && !draft && <p className="mt-4 text-[13px] text-stone-500">Aucune période pour l’instant.</p>}
+      {list.length === 0 && !draft && <p className="mt-4 text-[13px] text-stone-500">{t('Aucune période pour l’instant.')}</p>}
 
       {draft && !draft.id && list.length === 0 && sources.length > 0 && (
         <button type="button" className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-semibold text-brand-600 hover:underline" onClick={() => (setDraft(null), setImporting(true))}>
-          <Import size={14} aria-hidden /> Importer celles d’un autre agenda
+          <Import size={14} aria-hidden /> {t('Importer celles d’un autre agenda')}
         </button>
       )}
       {draft ? (
@@ -408,16 +413,16 @@ export default function PeriodsDialog({ day, onClose }: { day: string; onClose: 
           {canEdit ? (
             <span className="flex flex-wrap gap-2">
               <button className="btn-secondary" onClick={() => setDraft(fresh())}>
-                <Plus size={15} /> Ajouter une période
+                <Plus size={15} /> {t('Ajouter une période')}
               </button>
               {sources.length > 0 && (
-                <button className="btn-secondary" onClick={() => setImporting(true)} title="Copier des périodes d’un autre agenda">
-                  <Import size={15} /> Importer
+                <button className="btn-secondary" onClick={() => setImporting(true)} title={t('Copier des périodes d’un autre agenda')}>
+                  <Import size={15} /> {t('Importer')}
                 </button>
               )}
             </span>
           ) : <span />}
-          <button className="btn-primary" onClick={onClose}>Terminé</button>
+          <button className="btn-primary" onClick={onClose}>{t('Terminé')}</button>
         </div>
       )}
     </Modal>

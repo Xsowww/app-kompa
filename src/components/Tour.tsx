@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSettings } from '../store/settings';
 import { useCopilot } from '../store/copilot';
 import { trapTab, focusBeforeOverlay, focusables } from '../lib/a11y';
-import { useTour, endTour, TOUR_TODO_START } from '../store/tour';
+import { useTour, endTour } from '../store/tour';
 import { usageWords, type Usage } from '../lib/usage';
 import { t } from '../i18n';
 
@@ -148,7 +148,7 @@ export default function Tour() {
     opener.current = null;
     const target =
       (el.isConnected && el.offsetParent ? el : null) ??
-      visible(`[aria-label*="« ${TOUR_TODO_START}"]`) ??
+      visible('[data-tour-todo]') ??
       (block?.isConnected ? focusables(block)[0] : null) ??
       // Started from another page (Tâches): the tour ends on the home page, first block there.
       focusables(document.querySelector<HTMLElement>('#contenu section') ?? document.body)[0] ??
