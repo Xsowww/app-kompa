@@ -205,6 +205,14 @@ body {
   }
 }
 
+/* Hover shows at once (a fade-in made a quick sweep of the mouse over the menu look laggy);
+   only leaving fades. Outside any layer, so it wins over the transition utilities. */
+@media (hover: hover) {
+  :where(.transition, .transition-colors, .transition-all, .transition-opacity, .transition-shadow):hover {
+    transition-duration: 0s;
+  }
+}
+
 .skip-link {
   position: fixed;
   left: 12px;

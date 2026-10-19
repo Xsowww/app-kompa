@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
+import { memo, useEffect, useLayoutEffect, useRef, useState, type ComponentProps, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowUp, Check, Copy, Maximize2, Mic, Minimize2, RotateCcw, Square, X } from 'lucide-react';
 import Character, { CopilotAvatar, type CopilotMood } from './Character';
@@ -23,6 +23,40 @@ const brain = async () => claudeBrain;
 const RECORD_QUESTION = { etudes: t('Comment enregistrer un cours ?'), travail: t('Comment enregistrer une réunion ?'), perso: t('Comment enregistrer une conférence ?') };
 const suggestions = (usage: keyof typeof RECORD_QUESTION) => [t('Analyse ma semaine'), usage === 'etudes' ? t('Planifie mes révisions') : t('Bloque du temps pour préparer'), RECORD_QUESTION[usage]];
 const YES = /^(oui|ouais|ok|okay|vas[- ]y|go|carrement|d'accord|dac|yes|yeah|yep|sure|si|vale|claro|dale|ja|klar|gerne|certo|va bene|avec plaisir|je veux bien|volontiers)\b/;
+
+/**
+ * The character, his eyes following the mouse. Only this small part re-renders while the mouse moves
+ * (before, the whole chat did, on every frame: hovering the page lagged), and his place is computed,
+ * not measured, so the page is never asked for its layout in the middle of a hover.
+ */
+const WatchingCharacter = memo(function WatchingCharacter({ offsetY, ...props }: Omit<ComponentProps<typeof Character>, 'look'> & { offsetY: number }) {
+  const [look, setLook] = useState({ x: -1, y: 0 });
+  useEffect(() => {
+    let frame = 0;
+    let last: MouseEvent | null = null;
+    const onMove = (e: MouseEvent) => {
+      last = e;
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        if (!last) return;
+        // He sits at the right edge, centred on offsetY (fixed position).
+        const dx = last.clientX - (window.innerWidth - 60);
+        const dy = last.clientY - offsetY * window.innerHeight;
+        const len = Math.max(1, Math.hypot(dx, dy));
+        const x = Math.round((dx / len) * 10) / 10;
+        const y = Math.round((dy / len) * 10) / 10;
+        setLook(l => (l.x === x && l.y === y ? l : { x, y }));
+      });
+    };
+    window.addEventListener('mousemove', onMove, { passive: true });
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      cancelAnimationFrame(frame);
+    };
+  }, [offsetY]);
+  return <Character {...props} look={look} />;
+});
 
 function Extras({ links, offers, onGo, onOffer, disabled }: { links?: CopilotLink[]; offers?: CopilotOffer[]; onGo: (to: string) => void; onOffer: (o: CopilotOffer) => void; disabled?: boolean }) {
   if (!links?.length && !offers?.length) return null;
@@ -93,7 +127,6 @@ export default function Copilot() {
         : t('Salut {name} ! Je peux retrouver tes fichiers, organiser ton agenda, créer des notes… Dis-moi.', { name: user?.name ?? '' }),
     );
 
-  const [look, setLook] = useState({ x: -1, y: 0 });
   const [blink, setBlink] = useState(false);
   const [talking, setTalking] = useState(false);
   const [asleep, setAsleep] = useState(false);
@@ -126,34 +159,20 @@ export default function Copilot() {
     return () => clearInterval(timer);
   }, [pose, thinking]);
 
-  // Eyes follow the mouse; long inactivity sends him to sleep.
+  // Long inactivity sends him to sleep (his eyes follow the mouse in WatchingCharacter).
   useEffect(() => {
-    let frame = 0;
     let sleepTimer: ReturnType<typeof setTimeout>;
     const wake = () => {
       setAsleep(false);
       clearTimeout(sleepTimer);
       sleepTimer = setTimeout(() => setAsleep(true), 4 * 60_000);
     };
-    const onMove = (e: MouseEvent) => {
-      wake();
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        const r = rootRef.current?.getBoundingClientRect();
-        if (!r) return;
-        const dx = e.clientX - (r.right - 60);
-        const dy = e.clientY - (r.top + r.height / 2);
-        const len = Math.max(1, Math.hypot(dx, dy));
-        setLook({ x: dx / len, y: dy / len });
-      });
-    };
     wake();
-    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mousemove', wake, { passive: true });
     window.addEventListener('keydown', wake);
     return () => {
-      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mousemove', wake);
       window.removeEventListener('keydown', wake);
-      cancelAnimationFrame(frame);
       clearTimeout(sleepTimer);
     };
   }, []);
@@ -486,7 +505,7 @@ export default function Copilot() {
             else open();
           }}
         >
-          <Character pose={pose} look={look} blink={blink} mood={mood} size={104} />
+          <WatchingCharacter offsetY={offsetY} pose={pose} blink={blink} mood={mood} size={104} />
           {/* Fingers: only his head shows at the edge, too small to tap; a wider invisible pad along the edge. */}
           {!isOpen && <span aria-hidden className="pointer-events-auto absolute inset-y-1 right-0 hidden w-14 pointer-coarse:block" />}
         </div>
