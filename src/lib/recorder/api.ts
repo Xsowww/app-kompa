@@ -1,6 +1,7 @@
 // Calls to Kompaly's server for a recorded class (server/cours.mjs).
 
 import { accessToken } from '../supabase';
+import { getSettings } from '../../store/settings';
 
 export class CoursError extends Error {
   /** disabled | daily_limit | site_limit | rate_limited | unauthorized | network | timeout | … */
@@ -49,10 +50,10 @@ export interface WrittenPart {
   points: string[];
 }
 
-export const writePart = (body: { title: string; text: string; keywords: string[]; before?: string }) => call<WrittenPart>('rediger', json({ task: 'partie', ...body }), 120_000);
-export const listPoints = (body: { title: string; text: string }) => call<{ points: string[] }>('rediger', json({ task: 'points', ...body }), 120_000).then(r => r.points ?? []);
+export const writePart = (body: { title: string; text: string; keywords: string[]; before?: string }) => call<WrittenPart>('rediger', json({ task: 'partie', usage: getSettings().usage, ...body }), 120_000);
+export const listPoints = (body: { title: string; text: string }) => call<{ points: string[] }>('rediger', json({ task: 'points', usage: getSettings().usage, ...body }), 120_000).then(r => r.points ?? []);
 export const writeDoc = (task: 'fiche' | 'examen', body: { title: string; points: string[]; parts?: string[]; moments?: string[] }) =>
-  call<{ text: string }>('rediger', json({ task, ...body }), 120_000).then(r => r.text);
+  call<{ text: string }>('rediger', json({ task, usage: getSettings().usage, ...body }), 120_000).then(r => r.text);
 export const alertOtherDevices = (body: { title: string; body: string; except?: string }) => call<{ ok: boolean }>('alerte', json(body), 15_000).catch(() => null);
 export const serverState = () => call<{ transcription: boolean; redaction: boolean }>('etat', { method: 'GET' }, 10_000);
 

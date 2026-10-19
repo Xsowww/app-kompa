@@ -142,54 +142,98 @@ async function transcribe(t, wav, hint) {
 
 const FORMAT = `Écris en français, en Markdown simple uniquement : « ## » et « ### » pour les titres, « - » pour les listes, « 1. » pour les étapes, **gras** pour les mots importants. Pas de tableau, pas d'emoji, pas de HTML.`;
 
-const SYSTEMS = {
-  partie: `Tu aides un étudiant : tu reçois un morceau de la transcription automatique de son cours (reconnaissance vocale, donc avec des erreurs, des hésitations, des répétitions).
-Réécris CE morceau en un vrai cours, propre et structuré, comme un très bon étudiant le prendrait en notes :
-- corrige les mots mal reconnus d'après le contexte (et les mots-clés donnés), enlève les hésitations et les digressions sans intérêt ;
-- garde TOUTE l'information : définitions, exemples, chiffres, dates, formules, consignes du professeur (examens, devoirs, dates limites) ;
-- n'invente rien ; si un passage est incompréhensible, résume-le prudemment ou ignore-le ;
-- les passages marqués ⚑ ont été signalés comme importants : mets-les en valeur.
-${FORMAT}
-Réponds EXACTEMENT dans ce format, sans rien avant ni après :
+const ANSWER_PART = `Réponds EXACTEMENT dans ce format, sans rien avant ni après :
 TITRE: <titre court de cette partie>
 ---
-<le cours rédigé de cette partie, avec des sous-titres « ### » si besoin, sans répéter le titre>
+<le texte rédigé de cette partie, avec des sous-titres « ### » si besoin, sans répéter le titre>
 ---
 POINTS:
-- <3 à 6 points essentiels de cette partie, une phrase chacun>`,
-  points: `Tu reçois un extrait d'un cours. Donne les points essentiels à retenir (définitions, idées clés, chiffres, dates, méthodes, consignes d'examen).
-Réponds EXACTEMENT dans ce format, sans rien avant ni après :
+- <3 à 6 points essentiels de cette partie, une phrase chacun>`;
+const ANSWER_POINTS = `Réponds EXACTEMENT dans ce format, sans rien avant ni après :
 POINTS:
-- <un point essentiel par ligne, une phrase chacun, 4 à 10 points>`,
-  fiche: `Tu fais une fiche de révision d'une à deux pages à partir des points essentiels d'un cours.
+- <un point essentiel par ligne, une phrase chacun, 4 à 10 points>`;
+const CLEAN = `- corrige les mots mal reconnus d'après le contexte (et les mots-clés donnés), enlève les hésitations et les digressions sans intérêt ;
+- n'invente rien ; si un passage est incompréhensible, résume-le prudemment ou ignore-le ;
+- les passages marqués ⚑ ont été signalés comme importants : mets-les en valeur.`;
+
+/** What the AI is asked, for a class (études), a meeting (travail) or anything else recorded (perso). */
+export const SYSTEMS = {
+  etudes: {
+    partie: `Tu aides un étudiant : tu reçois un morceau de la transcription automatique de son cours (reconnaissance vocale, donc avec des erreurs, des hésitations, des répétitions).
+Réécris CE morceau en un vrai cours, propre et structuré, comme un très bon étudiant le prendrait en notes :
+- garde TOUTE l'information : définitions, exemples, chiffres, dates, formules, consignes du professeur (examens, devoirs, dates limites) ;
+${CLEAN}
+${FORMAT}
+${ANSWER_PART}`,
+    points: `Tu reçois un extrait d'un cours. Donne les points essentiels à retenir (définitions, idées clés, chiffres, dates, méthodes, consignes d'examen).
+${ANSWER_POINTS}`,
+    fiche: `Tu fais une fiche de révision d'une à deux pages à partir des points essentiels d'un cours.
 Commence par « # Fiche de révision : <titre> ». Puis, s'il y en a, « ## À ne pas oublier » avec les infos pratiques (examens, devoirs, dates, consignes du professeur).
 Puis l'essentiel du cours, regroupé en quelques parties « ## » courtes : définitions, idées clés, formules ou méthodes, exemples types. Termine par « ## Pour vérifier que tu sais » avec 3 à 5 questions rapides (sans réponses).
 Phrases courtes, listes, **gras** sur les mots à connaître. N'invente rien qui ne soit pas dans les points.
 ${FORMAT}`,
-  examen: `Tu écris un examen d'entraînement sur un cours, à partir de ses points essentiels.
+    examen: `Tu écris un examen d'entraînement sur un cours, à partir de ses points essentiels.
 Commence par « # Examen : <titre> », puis une ligne de consignes (durée conseillée, barème sur 20).
 « ## Partie 1 : questions de cours » : 4 à 6 questions courtes. « ## Partie 2 : QCM » : 5 questions, 4 choix (a, b, c, d) chacune, une seule bonne réponse.
 « ## Partie 3 : réflexion » : 1 ou 2 questions ou un exercice d'application qui demande de raisonner.
 Indique les points de chaque partie. Puis « ## Corrigé » avec les réponses détaillées de toutes les questions, dans l'ordre.
 Uniquement sur ce qui est dans le cours, rien d'inventé.
 ${FORMAT}`,
+  },
+  travail: {
+    partie: `Tu aides un professionnel : tu reçois un morceau de la transcription automatique d'une réunion (reconnaissance vocale, donc avec des erreurs, des hésitations, des répétitions).
+Réécris CE morceau en compte rendu clair et structuré :
+- garde TOUTE l'information utile : sujets abordés, chiffres, dates, décisions prises, actions à faire (qui, quoi, pour quand), questions restées ouvertes ;
+- nomme les personnes seulement si leur nom est dit ; style neutre et professionnel ;
+${CLEAN}
+${FORMAT}
+${ANSWER_PART}`,
+    points: `Tu reçois un extrait d'un compte rendu de réunion ou d'un document de travail. Donne les points essentiels (décisions, actions, chiffres, dates, échéances).
+${ANSWER_POINTS}`,
+    fiche: `Tu fais le résumé d'une réunion (une page) à partir de ses points essentiels.
+Commence par « # Résumé : <titre> ». Puis « ## Décisions », « ## Actions à faire » (une ligne par action : qui, quoi, pour quand, si c'est connu), « ## Dates et échéances » s'il y en a, « ## Points clés » et « ## Questions ouvertes » s'il y en a.
+Phrases courtes, listes, **gras** sur l'essentiel. N'invente rien qui ne soit pas dans les points.
+${FORMAT}`,
+    examen: `Tu écris des questions de compréhension sur une réunion ou un document de travail, à partir de ses points essentiels, pour vérifier qu'on a bien tout retenu.
+Commence par « # Questions de compréhension : <titre> ». « ## Questions » : 6 à 8 questions courtes, puis « ## QCM » : 4 questions, 4 choix (a, b, c, d), une seule bonne réponse.
+Puis « ## Réponses » avec les réponses, dans l'ordre. Uniquement sur ce qui a été dit, rien d'inventé.
+${FORMAT}`,
+  },
+  perso: {
+    partie: `Tu reçois un morceau de la transcription automatique d'un enregistrement (conférence, podcast, vidéo, discussion…), avec des erreurs de reconnaissance vocale.
+Réécris CE morceau en texte clair et structuré, facile à relire :
+- garde TOUTE l'information : idées, exemples, chiffres, dates, conseils ;
+${CLEAN}
+${FORMAT}
+${ANSWER_PART}`,
+    points: `Tu reçois un extrait d'un document. Donne les points essentiels à retenir (idées clés, chiffres, dates, conseils).
+${ANSWER_POINTS}`,
+    fiche: `Tu fais un résumé d'une page à partir des points essentiels d'un enregistrement ou d'un document.
+Commence par « # Résumé : <titre> ». Puis l'essentiel, regroupé en quelques parties « ## » courtes : idées clés, chiffres et dates, conseils ou choses à faire.
+Phrases courtes, listes, **gras** sur l'essentiel. N'invente rien qui ne soit pas dans les points.
+${FORMAT}`,
+    examen: `Tu écris un petit quiz pour vérifier qu'on a retenu l'essentiel d'un enregistrement ou d'un document, à partir de ses points essentiels.
+Commence par « # Quiz : <titre> ». « ## Questions » : 5 à 7 questions courtes, puis « ## QCM » : 4 questions, 4 choix (a, b, c, d), une seule bonne réponse.
+Puis « ## Réponses », dans l'ordre. Uniquement sur ce qui a été dit, rien d'inventé.
+${FORMAT}`,
+  },
 };
 
 const MAX_TOKENS = { partie: 3000, points: 1200, fiche: 2500, examen: 3500 };
 const clip = (v, n) => String(v ?? '').slice(0, n);
 
 function userMessage(task, body) {
-  const title = clip(body.title, 120) || 'Cours';
+  const title = clip(body.title, 120) || 'Sans titre';
   if (task === 'partie') {
     const words = Array.isArray(body.keywords) ? body.keywords.slice(0, 40).map(k => clip(k, 40)).join(', ') : '';
-    const head = [`Cours : ${title}`, words && `Mots-clés : ${words}`, body.before && `Fin de la partie précédente (contexte, à ne pas réécrire) : « ${clip(body.before, 600)} »`];
+    const head = [`Titre : ${title}`, words && `Mots-clés : ${words}`, body.before && `Fin de la partie précédente (contexte, à ne pas réécrire) : « ${clip(body.before, 600)} »`];
     return `${head.filter(Boolean).join('\n')}\n\nTranscription :\n${clip(body.text, 14_000)}`;
   }
-  if (task === 'points') return `Cours : ${title}\n\n${clip(body.text, 14_000)}`;
+  if (task === 'points') return `Titre : ${title}\n\n${clip(body.text, 14_000)}`;
   const points = Array.isArray(body.points) ? body.points.map(p => `- ${clip(p, 400)}`).join('\n').slice(0, 14_000) : '';
   const parts = Array.isArray(body.parts) ? body.parts.map(p => `- ${clip(p, 120)}`).join('\n').slice(0, 2000) : '';
   const moments = Array.isArray(body.moments) ? body.moments.map(m => `- ${clip(m, 300)}`).join('\n').slice(0, 4000) : '';
-  return [`Cours : ${title}`, parts && `Plan du cours :\n${parts}`, moments && `Moments signalés pendant le cours (consignes, mots-clés entendus) :\n${moments}`, `Points essentiels :\n${points}`].filter(Boolean).join('\n\n');
+  return [`Titre : ${title}`, parts && `Plan :\n${parts}`, moments && `Moments signalés pendant l'enregistrement (consignes, mots-clés entendus) :\n${moments}`, `Points essentiels :\n${points}`].filter(Boolean).join('\n\n');
 }
 
 /** « TITRE: … --- texte --- POINTS: - … » → { title, text, points }, tolerant of a model that strays a little. */
@@ -261,13 +305,14 @@ export async function handleCours(req, res, env = process.env) {
     const provider = resolveProvider(env);
     if (!provider) return (send(res, 503, { error: 'disabled' }), true);
     const body = await readJson(req);
-    const task = Object.hasOwn(SYSTEMS, body.task) ? body.task : null;
+    const usage = Object.hasOwn(SYSTEMS, body.usage) ? body.usage : 'etudes';
+    const task = Object.hasOwn(SYSTEMS.etudes, body.task) ? body.task : null;
     if (!task) return (send(res, 400, { error: 'bad_task' }), true);
     if ((task === 'partie' || task === 'points') && !String(body.text ?? '').trim()) return (send(res, 400, { error: 'empty' }), true);
     const limit = overQuota(who, false, provider, env);
     if (limit) return (send(res, 429, { error: limit, retryAfter: secondsToParisMidnight() }), true);
     const response = await chat(provider, {
-      system: SYSTEMS[task],
+      system: SYSTEMS[usage][task],
       messages: [{ role: 'user', content: userMessage(task, body) }],
       maxTokens: MAX_TOKENS[task],
       timeoutMs: 90_000,

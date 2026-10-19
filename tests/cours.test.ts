@@ -149,3 +149,15 @@ describe('partage sans son', () => {
     expect(noSoundHelp('monitor', false)).toMatch(/audio du système/);
   });
 });
+
+describe('rédaction selon l’usage', () => {
+  it('un cours pour un étudiant, un compte rendu pour une réunion', async () => {
+    // @ts-expect-error -- server module in plain JavaScript
+    const { SYSTEMS } = await import('../server/cours.mjs');
+    expect(SYSTEMS.etudes.partie).toMatch(/étudiant/);
+    expect(SYSTEMS.travail.partie).toMatch(/réunion/);
+    expect(SYSTEMS.travail.fiche).toMatch(/Décisions/);
+    expect(SYSTEMS.perso.examen).toMatch(/Quiz/);
+    for (const u of Object.values(SYSTEMS) as Record<string, string>[]) expect(u.partie).toMatch(/TITRE:[^]*POINTS:/);
+  });
+});

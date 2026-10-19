@@ -113,7 +113,7 @@ export interface CourseInfo {
 
 /** Heading of the list that also lets a revision sheet or an exam be made later, from the document alone. */
 export const ESSENTIAL = 'L’essentiel à retenir';
-const MOMENTS = 'Moments signalés pendant le cours';
+const MOMENTS = 'Moments signalés';
 
 /** The moments marked (keyword heard, or by hand), as lines for the document and the AI. */
 export function momentLines(alerts: readonly Alert[]): string[] {
@@ -131,7 +131,7 @@ export function momentLines(alerts: readonly Alert[]): string[] {
 /** The course document, in the Markdown that lib/docx turns into Word. */
 export function courseMarkdown(c: CourseInfo): string {
   const out = [`# ${c.title}`, `*${c.date} · ${duration(c.seconds)} · enregistré et rédigé avec Kompaly*`];
-  if (c.parts.some(p => p.raw)) out.push('> Une partie du cours n’a pas pu être rédigée par l’IA : elle est recopiée telle qu’elle a été entendue.');
+  if (c.parts.some(p => p.raw)) out.push('> Une partie n’a pas pu être rédigée par l’IA : elle est recopiée telle qu’elle a été entendue.');
   if (c.missing) out.push(`> ${c.missing > 1 ? `${c.missing} passages n’ont` : 'Un passage n’a'} pas pu être transcrit${c.missing > 1 ? 's' : ''} : ce document peut être incomplet.`);
   c.parts.forEach((p, i) => {
     out.push(`## ${p.title || `Partie ${i + 1}`}`);
@@ -148,13 +148,13 @@ export function courseMarkdown(c: CourseInfo): string {
 export function essentialsOf(text: string): { points: string[]; moments: string[] } | null {
   const lines = text.replace(/\r/g, '').split('\n').map(l => l.trim());
   const section = (title: string) => {
-    const at = lines.findIndex(l => l.replace(/[’']/g, "'") === title.replace(/[’']/g, "'"));
+    const at = lines.findIndex(l => l.replace(/[’']/g, "'").replace(/ pendant le cours$/, '') === title.replace(/[’']/g, "'"));
     if (at < 0) return [];
     const out: string[] = [];
     for (const l of lines.slice(at + 1)) {
       if (!l) continue;
       // The next heading: a short line that isn't an item (mammoth's raw text loses the markers).
-      if (/^(L’essentiel à retenir|L'essentiel à retenir|Moments signalés pendant le cours)$/.test(l)) break;
+      if (/^(L’essentiel à retenir|L'essentiel à retenir|Moments signalés( pendant le cours)?)$/.test(l)) break;
       out.push(l.replace(/^[-•◦]\s*/, ''));
     }
     return out;
