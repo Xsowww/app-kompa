@@ -4,6 +4,7 @@ import { userStorage } from '../lib/userStorage';
 import type { Usage } from '../lib/usage';
 import type { CustomCategory } from './calendar';
 import type { Period } from '../lib/periods';
+import { DEFAULT_KEYWORDS, type Keyword } from '../lib/keywords';
 
 export type AccentKey = 'orange' | 'bleu' | 'vert' | 'violet' | 'rose' | 'encre';
 export type Chattiness = 'calme' | 'normal' | 'bavard';
@@ -64,6 +65,11 @@ export interface Settings {
   customCategories: CustomCategory[]; // calendar categories created by the student
   periods: Period[]; // « En entreprise », « Vacances »… shown as a tint over the calendar days
   renamedToKompa: boolean; // old « COP-PILOT » texts in this account already renamed (see lib/renameToKompa)
+  // « Enregistrer un cours »
+  courseKeywords: Keyword[]; // words watched during a recording (marked, and a notification if wanted)
+  courseMake: { fiche: boolean; examen: boolean }; // documents made at the end, besides the course itself
+  coursePhone: boolean; // keyword alerts also on the other devices (phone) where notifications are on
+  courseSilenceMinutes: number; // « personne ne parle depuis… » after this long
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -99,6 +105,10 @@ export const DEFAULT_SETTINGS: Settings = {
   customCategories: [],
   periods: [],
   renamedToKompa: false,
+  courseKeywords: DEFAULT_KEYWORDS,
+  courseMake: { fiche: true, examen: false },
+  coursePhone: true,
+  courseSilenceMinutes: 3,
 };
 
 interface SettingsState extends Settings {

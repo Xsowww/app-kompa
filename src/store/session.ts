@@ -15,6 +15,7 @@ import { useFocus, settleFocus } from './focus';
 import { renameToKompa } from '../lib/renameToKompa';
 import { applyUsage, USAGES } from '../lib/usage';
 import { create } from 'zustand';
+import { useRecorder, stopHearing } from './recorder';
 
 // Two tabs of the same account: what one saves, the other loads (else its next save would erase it).
 const PERSISTED = { drive: useDrive, calendar: useCalendar, notes: useNotes, copilot: useCopilot, settings: useSettings, todos: useTodos, 'focus-log': useFocusLog, focus: useFocus };
@@ -111,6 +112,9 @@ async function load() {
   useFocus.setState({ phase: null, pausedLeft: null, label: '' });
   useCopilot.getState().reset();
   useSettings.getState().reset();
+  // A class being recorded belongs to the account that started it: its sound stops, what's written stays saved.
+  stopHearing();
+  useRecorder.setState({ session: null, history: [], folders: {} });
   setStorageUser(userId);
   if (!userId) {
     // Logged out: last theme used on this device, otherwise the system's.
@@ -126,6 +130,7 @@ async function load() {
     useTodos.persist.rehydrate(),
     useFocusLog.persist.rehydrate(),
     useFocus.persist.rehydrate(),
+    useRecorder.persist.rehydrate(),
   ]);
 
   // Cloud mode: the local copy above is only a cache, the truth is in Supabase.

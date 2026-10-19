@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useToday } from '../lib/useToday';
 import { Link, useNavigate } from 'react-router-dom';
 import { addDays } from 'date-fns';
-import { ArrowUpRight, CalendarDays, Check, Flag, Plus } from 'lucide-react';
+import { ArrowUpRight, CalendarDays, Check, Flag, Mic, Plus } from 'lucide-react';
 import { useAuth } from '../store/auth';
 import { useNotes } from '../store/notes';
 import { useCalendar, catOf, isBigEvent, sortEvents, type CalendarEvent } from '../store/calendar';
@@ -165,6 +165,9 @@ export default function Dashboard() {
             </button>
             <button onClick={() => navigate('/calendrier?ajout=1')} className="btn-ghost h-8 px-2.5 text-[13px]">
               <CalendarDays size={15} /> Événement
+            </button>
+            <button onClick={() => navigate('/enregistrer')} className="btn-ghost h-8 px-2.5 text-[13px]">
+              <Mic size={15} /> Enregistrer
             </button>
           </div>
         </div>

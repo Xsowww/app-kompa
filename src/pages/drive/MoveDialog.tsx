@@ -9,17 +9,26 @@ interface Props {
   ids: string[];
   onClose: () => void;
   onMove: (target: string | null) => void;
+  /** Used as a folder picker (« Enregistrer un cours »): its own title and button, starting on `initial`. */
+  title?: string;
+  confirm?: string;
+  initial?: string | null;
 }
 
-export default function MoveDialog({ ids, onClose, onMove }: Props) {
+export default function MoveDialog({ ids, onClose, onMove, title = 'Déplacer vers…', confirm = 'Déplacer ici', initial = null }: Props) {
   const items = useDrive(s => s.items);
   const forbidden = new Set(withDescendants(items, ids));
   // Where the items already are (when they all share one folder): moving there would do nothing.
   const parents = new Set(items.filter(i => ids.includes(i.id)).map(i => i.parentId));
   const here = parents.size === 1 ? [...parents][0] : undefined;
   const currentTag = <span className="ml-1 shrink-0 text-[11px] font-normal text-stone-500">(emplacement actuel)</span>;
-  const [target, setTarget] = useState<string | null>(null);
-  const [open, setOpen] = useState<Set<string>>(new Set());
+  const [target, setTarget] = useState<string | null>(initial);
+  // The folders around the one chosen are unfolded.
+  const [open, setOpen] = useState<Set<string>>(() => {
+    const out = new Set<string>();
+    for (let f = items.find(i => i.id === initial); f?.parentId; f = items.find(i => i.id === f!.parentId)) out.add(f.parentId);
+    return out;
+  });
 
   const renderLevel = (parentId: string | null, depth: number): React.ReactNode =>
     childrenOf(items, parentId)
@@ -63,7 +72,7 @@ export default function MoveDialog({ ids, onClose, onMove }: Props) {
 
   return (
     <Modal open onClose={onClose} width={440}>
-      <h3 className="text-[15px] font-semibold">Déplacer vers…</h3>
+      <h3 className="text-[15px] font-semibold">{title}</h3>
       <div className="mt-4 max-h-80 overflow-y-auto rounded-lg border border-stone-200 p-1">
         <button
           type="button"
@@ -80,8 +89,8 @@ export default function MoveDialog({ ids, onClose, onMove }: Props) {
         <button className="btn-secondary" onClick={onClose}>
           Annuler
         </button>
-        <button className="btn-primary" disabled={target === here} title={target === here ? 'Choisis un autre dossier' : undefined} onClick={() => onMove(target)}>
-          Déplacer ici
+        <button className="btn-primary" disabled={ids.length > 0 && target === here} title={ids.length > 0 && target === here ? 'Choisis un autre dossier' : undefined} onClick={() => onMove(target)}>
+          {confirm}
         </button>
       </div>
     </Modal>

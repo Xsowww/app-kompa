@@ -22,9 +22,9 @@ interface Recognition {
   stop: () => void;
   abort: () => void;
 }
-type RecognitionCtor = new () => Recognition;
+export type RecognitionCtor = new () => Recognition;
 
-function recognitionCtor(): RecognitionCtor | null {
+export function recognitionCtor(): RecognitionCtor | null {
   const w = window as unknown as { SpeechRecognition?: RecognitionCtor; webkitSpeechRecognition?: RecognitionCtor };
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 }

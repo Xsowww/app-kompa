@@ -7,6 +7,7 @@ import { gzipSync } from 'node:zlib';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { handleCopilot, copilotProvider, ipOf } from './copilot.mjs';
+import { handleCours } from './cours.mjs';
 import { loadPublicEnv } from './publicEnv.mjs';
 
 try {
@@ -64,7 +65,7 @@ const SECURITY = {
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'X-Frame-Options': 'DENY',
-  'Permissions-Policy': 'camera=(), geolocation=(), microphone=(self)', // microphone: dictation to Kompaly
+  'Permissions-Policy': 'camera=(), geolocation=(), microphone=(self), display-capture=(self)', // microphone: dictation, « Enregistrer un cours »
   'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
 };
 
@@ -79,7 +80,7 @@ const files = new Map();
 const CF_TOKEN = /^[a-f0-9]{32}$/i.test(process.env.CF_ANALYTICS_TOKEN ?? '') ? process.env.CF_ANALYTICS_TOKEN : '';
 const BEACON = CF_TOKEN ? `<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token":"${CF_TOKEN}","spa":true}'></script>` : '';
 /** The app's pages (src/App.tsx): any other address gets the page with a 404 status. */
-const APP_ROUTES = new Set(['/', '/connexion', '/inscription', '/mot-de-passe-oublie', '/reinitialisation', '/securite', '/bienvenue', '/mentions-legales', '/confidentialite', '/conditions', '/drive', '/calendrier', '/notes', '/taches', '/progression', '/groupes', '/agendas', '/corbeille', '/profil', '/admin']);
+const APP_ROUTES = new Set(['/', '/connexion', '/inscription', '/mot-de-passe-oublie', '/reinitialisation', '/securite', '/bienvenue', '/mentions-legales', '/confidentialite', '/conditions', '/drive', '/calendrier', '/notes', '/taches', '/progression', '/groupes', '/agendas', '/corbeille', '/profil', '/admin', '/enregistrer']);
 
 async function serveStatic(req, res) {
   if (req.method !== 'GET' && req.method !== 'HEAD') {
@@ -228,6 +229,7 @@ const server = createServer(async (req, res) => {
     if (await serveErrorReport(req, res)) return;
     if (await handlePush(req, res)) return;
     if (await handleCopilot(req, res)) return;
+    if (await handleCours(req, res)) return;
     await serveStatic(req, res);
   } catch (e) {
     console.error('[serveur]', req.method, req.url, e);

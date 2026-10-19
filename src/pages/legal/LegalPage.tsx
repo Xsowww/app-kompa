@@ -76,6 +76,15 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
         ],
       },
       {
+        title: 'Enregistrer un cours',
+        body: [
+          'Quand tu enregistres un cours, le son (de ton micro ou de l’onglet que tu partages) est découpé en morceaux d’une vingtaine de secondes, envoyés un par un à Groq pour être écrits en texte, puis effacés : ni Kompaly ni Groq ne gardent le son. Les moments où personne ne parle ne sont pas envoyés.',
+          'Avec le micro, le navigateur peut aussi écrire les mots en direct avec sa propre reconnaissance vocale (celle de Google dans Chrome, d’Apple dans Safari), selon les règles de ce navigateur.',
+          'Le texte est ensuite rédigé en cours, fiche de révision ou examen par le fournisseur d’IA indiqué plus haut, et les documents sont rangés dans ton Drive. Pendant l’enregistrement, la transcription est gardée sur ton appareil pour ne rien perdre si la page se ferme.',
+          'Enregistrer quelqu’un demande son accord : demande-le au professeur ou aux personnes présentes avant de commencer.',
+        ],
+      },
+      {
         title: 'Qui y a accès',
         body: [
           'Personne d’autre que toi pour ton espace personnel. Les membres d’un groupe voient ce qui est partagé dans ce groupe.',

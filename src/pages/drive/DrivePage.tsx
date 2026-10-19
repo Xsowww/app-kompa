@@ -3,13 +3,14 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ChevronDown, ChevronRight, ClipboardPaste, Copy, CopyPlus, Download, Eye, FolderInput, FolderPlus, FolderUp, HardDrive, LayoutGrid,
   List, Pencil, Scissors, Star, Trash2, Upload, Clock, ArrowUpDown, ArrowUp, ArrowDown, X, MousePointer2, Search, Tag, Link2, Check, Palette,
-  MoreHorizontal,
+  MoreHorizontal, ClipboardList, BookOpenCheck,
 } from 'lucide-react';
 import {
   useDrive, childrenOf, pathOf, categoryOf, folderSize, FOLDER_COLORS, type DriveItem,
   pasteForbidden,
 } from '../../store/drive';
 import { askText, confirmAction, toast, useUi } from '../../store/ui';
+import { canMakeFrom, makeFromFile, useRecLive } from '../../store/recorder';
 import { formatBytes, relativeTime, cx } from '../../lib/utils';
 import { fold, highlightParts, searchFileContents, startTextIndexing } from '../../lib/textIndex';
 import FileIcon from '../../components/FileIcon';
@@ -98,6 +99,7 @@ export default function DrivePage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [anchor, setAnchor] = useState<string | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; target: string | null } | null>(null);
+  const making = useRecLive(s => s.making);
   const [importMenu, setImportMenu] = useState<{ x: number; y: number } | null>(null);
   const [colorMenu, setColorMenu] = useState<{ x: number; y: number } | null>(null);
   const [dropTarget, setDropTarget] = useState<string | 'here' | null>(null);
@@ -545,12 +547,20 @@ export default function DrivePage() {
       ...(one ? [{ label: item.starred ? 'Retirer des favoris' : 'Ajouter aux favoris', icon: <Star size={15} />, onClick: () => useDrive.getState().toggleStar(item.id) }] : []),
       { label: 'Étiquettes…', icon: <Tag size={15} />, onClick: () => setTagIds(ids) },
       ...(one && item.kind === 'file' ? [{ label: 'Partager le lien…', icon: <Link2 size={15} />, onClick: () => setShareItem(item) }] : []),
+      // A course (Word, PDF, text): Kompaly makes its revision sheet or a practice exam, saved next to it.
+      ...(one && canMakeFrom(item)
+        ? [
+            { label: '', divider: true, onClick: () => {} },
+            { label: 'Faire une fiche de révision', icon: <ClipboardList size={15} />, disabled: !!making, onClick: () => void makeFromFile(item, 'fiche') },
+            { label: 'Faire un examen d’entraînement', icon: <BookOpenCheck size={15} />, disabled: !!making, onClick: () => void makeFromFile(item, 'examen') },
+          ]
+        : []),
       ...palette,
       { label: '', divider: true, onClick: () => {} },
       { label: 'Mettre à la corbeille', icon: <Trash2 size={15} />, shortcut: 'Suppr', danger: true, onClick: () => void remove(ids) },
     ];
     return list;
-  }, [menu, selectedIds, items, clipboard, tabAll, parentId, visible, newFolder, paste, openItem, copy, cut, duplicate, rename, remove]);
+  }, [menu, selectedIds, items, clipboard, tabAll, parentId, visible, newFolder, paste, openItem, copy, cut, duplicate, rename, remove, making]);
   // No keyboard shortcuts on a phone.
   const shownMenu = touchMode ? menuItems.map(i => ({ ...i, shortcut: undefined })) : menuItems;
 

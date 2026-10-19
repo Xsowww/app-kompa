@@ -20,6 +20,7 @@ const NotesPage = lazy(() => import('./pages/notes/NotesPage'));
 const ProfilePage = lazy(() => import('./pages/profile/ProfilePage'));
 const AdminPage = lazy(() => import('./pages/admin/AdminPage'));
 const TasksPage = lazy(() => import('./pages/tasks/TasksPage'));
+const RecordPage = lazy(() => import('./pages/record/RecordPage'));
 const GroupsPage = lazy(() => import('./pages/groups/GroupsPage'));
 const AgendasPage = lazy(() => import('./pages/groups/AgendasPage'));
 const TrashPage = lazy(() => import('./pages/trash/TrashPage'));
@@ -33,6 +34,7 @@ const TITLES: Record<string, string> = {
   '/calendrier': 'Calendrier',
   '/notes': 'Notes',
   '/taches': 'Tâches',
+  '/enregistrer': 'Enregistrer un cours',
   '/groupes': 'Groupes',
   '/agendas': 'Agendas partagés',
   '/corbeille': 'Corbeille',
@@ -167,6 +169,7 @@ export default function App() {
           <Route path="calendrier" element={<Suspense fallback={<Loading />}><CalendarPage /></Suspense>} />
           <Route path="notes" element={<Suspense fallback={<Loading />}><NotesPage /></Suspense>} />
           <Route path="taches" element={<Suspense fallback={<Loading />}><TasksPage /></Suspense>} />
+          <Route path="enregistrer" element={<Suspense fallback={<Loading />}><RecordPage /></Suspense>} />
           <Route path="progression" element={<Navigate to="/taches" replace />} />
           <Route path="groupes" element={<Suspense fallback={<Loading />}><GroupsPage /></Suspense>} />
           <Route path="agendas" element={<Suspense fallback={<Loading />}><AgendasPage /></Suspense>} />

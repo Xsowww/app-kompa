@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { House, FolderClosed, CalendarDays, CalendarRange, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn, ListChecks, Users, Trash2, ArrowLeftRight, UserRound, UserPlus, MessageSquareText } from 'lucide-react';
+import { Mic, House, FolderClosed, CalendarDays, CalendarRange, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn, ListChecks, Users, Trash2, ArrowLeftRight, UserRound, UserPlus, MessageSquareText } from 'lucide-react';
 import { FeedbackDialog } from '../components/FeedbackDialogs';
 import { openFeedback } from '../lib/feedback';
 import { useAuth } from '../store/auth';
@@ -23,6 +23,7 @@ import { WORDS } from '../lib/usage';
 import { ContextMenu, ReminderAlerts } from '../components/Overlays';
 import { PENDING_INVITE } from '../App';
 import { JoinedDialog } from '../pages/groups/Joined';
+import RecPill from '../pages/record/RecPill';
 import { useInvitations } from '../pages/groups/join';
 import { needsCredentials, savedAccounts, type SavedAccount } from '../lib/accounts';
 
@@ -34,6 +35,8 @@ const NAV = [
   { to: '/taches', label: 'Tâches', icon: ListChecks, color: '#2f9e6b' },
   { to: '/notes', label: 'Notes', icon: NotebookText, color: SPACE_COLORS.notes },
   { to: '/drive', label: 'Drive', icon: FolderClosed, color: SPACE_COLORS.drive },
+  // Phones: from the home page (the tab bar is full).
+  { to: '/enregistrer', label: 'Enregistrer', icon: Mic, color: '#e5484d', phone: false },
   // `section`: a small title above this entry in the sidebar (what is shared with others comes after).
   { to: '/groupes', label: 'Groupes', icon: Users, color: '#1f8a8a', section: 'Espaces partagés' },
   { to: '/agendas', label: 'Agendas partagés', short: 'Agendas', icon: CalendarRange, color: '#7a5ad6' },
@@ -429,6 +432,7 @@ export default function AppShell() {
           <FeedbackDialog />
           <ReminderAlerts />
           <JoinedDialog />
+          <RecPill />
           {/* « Avis ou bug » : always at hand, bottom right (above the tab bar on phones). */}
           <button
             type="button"
@@ -445,7 +449,7 @@ export default function AppShell() {
 
       {/* Bottom nav (mobile) */}
       <nav aria-label="Navigation principale" className="fixed bottom-[max(12px,env(safe-area-inset-bottom))] left-[max(12px,env(safe-area-inset-left))] right-[max(12px,env(safe-area-inset-right))] z-30 flex rounded-[22px] bg-tile-dark p-1 shadow-pop ring-1 ring-white/10 lg:hidden">
-        {NAV.map(n => (
+        {NAV.filter(n => !('phone' in n)).map(n => (
           <NavLink
             key={n.to}
             to={n.to}

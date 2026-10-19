@@ -91,6 +91,20 @@ async function rest(path, init = {}) {
   return r.status === 204 ? null : r.json().catch(() => null);
 }
 
+/**
+ * A notification on all of a user's devices but `except` (the one asking): « Enregistrer un cours » alerts
+ * reach the phone while the class is recorded on the computer. Returns false when push isn't set up.
+ */
+export async function pushToUser(userId, payload, except = '') {
+  if (!vapid || !SUPABASE || !SERVICE_KEY || !/^[0-9a-f-]{36}$/i.test(String(userId))) return false;
+  const subs = await rest(`/rest/v1/push_subscriptions?select=user_id,endpoint,p256dh,auth&user_id=eq.${userId}`);
+  for (const s of subs ?? []) {
+    if (s.endpoint === except) continue;
+    if ((await send(s, { ...payload, user: userId }, 600)) === 'sent') pushStatus.sent++;
+  }
+  return true;
+}
+
 // ── The loop ────────────────────────────────────────────────────────────────
 /** lastCode: the HTTP status of the last failure (or 'réseau'), shown by /api/sante — never the message itself. */
 export const pushStatus = { active: false, lastRun: null, lastError: null, lastCode: null, lastHint: null, sent: 0 };

@@ -7,6 +7,7 @@ import { supabase } from './supabase';
 import { useCalendar, type CalendarEvent } from '../store/calendar';
 import { useNotes, type Note, type NoteFolder } from '../store/notes';
 import { cleanPeriods } from './periods';
+import { cleanKeywords } from './keywords';
 import { folderColorKey, useDrive, type DriveItem } from '../store/drive';
 import { useSettings, DEFAULT_SETTINGS, type Settings } from '../store/settings';
 import { useUi } from '../store/ui';
@@ -473,7 +474,7 @@ function apply({ events, folders, notes, items, profile, todos, focus }: Awaited
     if (!focus.error) useFocusLog.setState({ sessions: (focus.data ?? []).map(rowToFocus) });
     const saved = (profile.data?.settings ?? {}) as Partial<Settings>;
     const known = Object.keys(DEFAULT_SETTINGS) as (keyof Settings)[];
-    useSettings.setState(Object.fromEntries(known.filter(k => k in saved).map(k => [k, k === 'periods' ? cleanPeriods(saved[k]) : saved[k]])) as Partial<Settings>);
+    useSettings.setState(Object.fromEntries(known.filter(k => k in saved).map(k => [k, k === 'periods' ? cleanPeriods(saved[k]) : k === 'courseKeywords' ? cleanKeywords(saved[k]) : saved[k]])) as Partial<Settings>);
   } finally {
     pulling = false;
   }

@@ -14,7 +14,8 @@ function copilotApi(env: Record<string, string>): Plugin {
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
         const { handlePush } = await import('./server/push.mjs');
-        if (!(await handleCopilot(req, res, env)) && !(await handlePush(req, res))) next();
+        const { handleCours } = await import('./server/cours.mjs');
+        if (!(await handleCopilot(req, res, env)) && !(await handlePush(req, res)) && !(await handleCours(req, res, env))) next();
       });
     },
   };

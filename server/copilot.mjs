@@ -49,7 +49,7 @@ async function anthropicChat(p, { system, messages, tools, maxTokens }) {
 }
 
 /** One model call, whatever the provider. Answer in the Anthropic shape: { content, stop_reason }. */
-function chat(p, req) {
+export function chat(p, req) {
   return p.id === 'anthropic' ? anthropicChat(p, req) : openAiChat(p, req);
 }
 
@@ -57,7 +57,7 @@ function chat(p, req) {
 // With Supabase configured, only signed-in students can talk to Kompaly: the page sends
 // its session token and we ask Supabase who it belongs to (cached one minute).
 const tokenCache = new Map();
-async function authenticate(req, env) {
+export async function authenticate(req, env) {
   const url = env.SUPABASE_URL || env.VITE_SUPABASE_URL;
   const key = env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY;
   // Local mode has no accounts: the AI then only answers this computer, never the internet.
@@ -79,7 +79,7 @@ async function authenticate(req, env) {
 }
 
 const hits = new Map();
-function rateLimited(key, max) {
+export function rateLimited(key, max) {
   const now = Date.now();
   const list = (hits.get(key) ?? []).filter(t => now - t < RATE_WINDOW_MS);
   list.push(now);
@@ -108,13 +108,13 @@ let quotaDay = '';
 let usage = new Map();
 let siteCalls = 0;
 const parisDay = () => new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris' }).format(new Date());
-function secondsToParisMidnight() {
+export function secondsToParisMidnight() {
   const [h, m, s] = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).format(new Date()).split(':').map(Number);
   return 86_400 - (h * 3600 + m * 60 + s);
 }
 
 /** Counts one call. Returns the error code when a limit is reached, else null. */
-function overQuota(who, question, provider, env) {
+export function overQuota(who, question, provider, env) {
   if (quotaDay !== parisDay()) {
     quotaDay = parisDay();
     usage = new Map();
@@ -181,7 +181,7 @@ export function trimHistory(messages, { budget, toolChars }) {
 // Groq's free tier allows 8 000 tokens per minute and the prompt with its tools already takes ~3 700.
 const sizeFor = provider => (provider.id === 'anthropic' ? { budget: 400_000, toolChars: 30_000 } : { budget: 10_000, toolChars: 6_000 });
 
-function readJson(req) {
+export function readJson(req) {
   return new Promise((resolve, reject) => {
     let size = 0;
     const chunks = [];
@@ -207,7 +207,7 @@ function readJson(req) {
   });
 }
 
-function send(res, status, body) {
+export function send(res, status, body) {
   res.statusCode = status;
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.end(JSON.stringify(body));
