@@ -91,6 +91,8 @@ export interface MfaEnrollment {
 interface AuthState {
   user: User | null;
   mfaStep: MfaStep;
+  /** This tab waited for the confirmation e-mail, and the link opened the account in another tab. */
+  confirmedElsewhere: boolean;
   startMfaSetup: () => Promise<MfaEnrollment>;
   /** Confirms a code from the authenticator app (setup or login). */
   submitMfaCode: (code: string, factorId?: string) => Promise<void>;
@@ -238,12 +240,31 @@ async function leaveSession(user: User) {
 
 const OWN_SWITCH = 'cop-own-switch';
 
+const AWAITING = 'cop-awaiting-confirm';
+/** The sign-up page waits for its confirmation e-mail (this tab only). */
+export function awaitConfirmation(on: boolean) {
+  try {
+    if (on) sessionStorage.setItem(AWAITING, '1');
+    else sessionStorage.removeItem(AWAITING);
+  } catch {
+    /* storage blocked: this tab then simply opens the account too */
+  }
+}
+const awaiting = () => {
+  try {
+    return sessionStorage.getItem(AWAITING) === '1';
+  } catch {
+    return false;
+  }
+};
+
 /** True while this tab itself is signing in (its own SIGNED_IN event must not reload it). */
 let ownSignIn = false;
 
 export const useAuth = create<AuthState>((set, get) => ({
   user: supabase ? null : restoreLocalSession(),
   mfaStep: null,
+  confirmedElsewhere: false,
 
   async init() {
     if (!supabase) return;
@@ -266,6 +287,15 @@ export const useAuth = create<AuthState>((set, get) => ({
       }
       return false;
     };
+    // Signed in from another tab: this one opens the account too. Except the sign-up tab waiting for its
+    // e-mail: the link opened the account in a new tab, so this one closes (when the browser lets it) or says so.
+    const adopt = () => {
+      if (get().confirmedElsewhere) return; // already said (the event and the return to the tab both come here)
+      if (!awaiting()) return location.reload();
+      awaitConfirmation(false);
+      set({ confirmedElsewhere: true });
+      window.close();
+    };
     // Account put aside in another tab (« Se déconnecter », « Ajouter un compte »): no session here either.
     window.addEventListener('storage', e => {
       if (e.key === authStorageKey && e.newValue === null && get().user) location.reload();
@@ -275,7 +305,7 @@ export const useAuth = create<AuthState>((set, get) => ({
       void supabase!.auth.getSession().then(async ({ data: d }) => {
         if (switched(d.session?.user.id)) return;
         if (d.session && get().mfaStep && !(await nextMfaStep())) location.reload();
-        else if (d.session && !get().user) location.reload();
+        else if (d.session && !get().user) adopt();
       });
     });
     supabase.auth.onAuthStateChange((event, session) => {
@@ -288,7 +318,7 @@ export const useAuth = create<AuthState>((set, get) => ({
       }
       // Signed in from another tab while this one shows the login page: adopt that session.
       if (event === 'SIGNED_IN' && session && !get().user && !ownSignIn) {
-        location.reload();
+        adopt();
         return;
       }
       // Session expired or signed out in another tab.

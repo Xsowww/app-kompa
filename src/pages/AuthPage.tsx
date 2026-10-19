@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
-import { AUTH_MSG, useAuth } from '../store/auth';
+import { CheckCircle2, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { AUTH_MSG, awaitConfirmation, useAuth } from '../store/auth';
 import AccountList from '../components/AccountList';
 import { needsCredentials, reloginHint, savedAccounts, type SavedAccount } from '../lib/accounts';
 import { takeAfterLogin } from '../lib/afterLogin';
@@ -104,6 +104,7 @@ const COPY: Record<Mode, { title: string; subtitle?: string; submit: string }> =
 
 export default function AuthPage({ mode }: { mode: Mode }) {
   const navigate = useNavigate();
+  const confirmedElsewhere = useAuth(s => s.confirmedElsewhere);
   const { login, register, requestPasswordReset, setNewPassword, resendConfirmation } = useAuth.getState();
   const [name, setName] = useState('');
   // « Ajouter un compte » for a saved account whose session ended: its e-mail is already known.
@@ -176,6 +177,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
         const user = await register(name, email, password);
         if (!user) {
           setInfo(t('Presque fini ! Ouvre l’e-mail envoyé à {email} sur cet appareil et clique sur le lien.', { email: email.trim() }));
+          awaitConfirmation(true);
           setCanResend(true);
           setPassword('');
           return;
@@ -213,6 +215,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
     try {
       await resendConfirmation(email);
       setInfo(t('E-mail renvoyé. Ouvre-le sur cet appareil et clique sur le lien.'));
+      awaitConfirmation(true);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -259,6 +262,17 @@ export default function AuthPage({ mode }: { mode: Mode }) {
           <LanguagePicker />
         </div>
         <div className="flex flex-1 items-center justify-center py-10">
+          {confirmedElsewhere ? (
+            // The e-mail link opened the account in another tab: one tab is enough.
+            <div className="enter w-full max-w-[340px] text-center" role="status">
+              <CheckCircle2 size={36} className="mx-auto text-emerald-600" aria-hidden />
+              <h1 className="mt-4 text-[24px] font-extrabold tracking-[-0.03em]">{t('Adresse confirmée')}</h1>
+              <p className="mt-2 text-[13.5px] text-stone-500">{t('Ton compte est ouvert dans l’autre onglet. Tu peux fermer celui-ci.')}</p>
+              <button type="button" className="btn-secondary mt-6" onClick={() => location.reload()}>
+                {t('Continuer ici')}
+              </button>
+            </div>
+          ) : (
           <form onSubmit={onSubmit} noValidate className="enter w-full max-w-[340px]">
             <h1 className="text-[30px] font-extrabold tracking-[-0.035em]">{adding ? t('Ajouter un compte') : copy.title}</h1>
             {(adding || copy.subtitle) && <p className="mt-1 text-[13px] text-stone-500">{adding ? t('Tu passeras de l’un à l’autre en un clic.') : copy.subtitle}</p>}
@@ -425,6 +439,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
               </Link>
             </p>
           </form>
+          )}
         </div>
         <p className="text-[11px] text-stone-500">
           {cloudEnabled ? t('Tes données sont chiffrées et protégées.') : t('Tes données restent sur cet appareil.')}
