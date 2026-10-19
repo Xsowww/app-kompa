@@ -5,7 +5,6 @@
 
 import { resolveProvider, parseWait, mapStatus, ProviderError } from './aiProviders.mjs';
 import { authenticate, chat, ipOf, overQuota, rateLimited, readJson, secondsToParisMidnight, send } from './copilot.mjs';
-import { pushToUser } from './push.mjs';
 
 const MAX_AUDIO = 3_000_000; // bytes: 90 s of 16 kHz 16-bit mono, a piece is 15-35 s
 const BYTES_PER_SECOND = 32_000;
@@ -278,6 +277,8 @@ export async function handleCours(req, res, env = process.env) {
     if (url === '/api/cours/alerte') {
       if (!caller.id || rateLimited(`cours-alerte:${who}`, 20)) return (send(res, 429, { error: 'rate_limited' }), true);
       const body = await readJson(req);
+      // Loaded here, not at the top: push.mjs reads its settings when loaded, after the server has read the environment.
+      const { pushToUser } = await import('./push.mjs');
       const ok = await pushToUser(caller.id, { title: clip(body.title, 120), body: clip(body.body, 300), url: '/enregistrer', tag: 'cours' }, clip(body.except, 600));
       send(res, ok ? 200 : 503, { ok });
       return true;
