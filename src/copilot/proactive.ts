@@ -307,7 +307,7 @@ function morningBrief(): boolean {
         : t('À faire : rien.'),
     nextExam
       ? daysUntil(nextExam.date) <= 1
-        ? t('{next} : {title}, {when}.', { next: words.nextBig, title: nextExam.title, when: countdownLabel(nextExam.date).toLowerCase() })
+        ? t('{next} : {title}, {when}.', { next: words.nextBig, title: nextExam.title, when: countdownLabel(nextExam.date).replace(/^\p{Lu}(?=\p{Ll})/u, c => c.toLowerCase()) })
         : tn(daysUntil(nextExam.date), '{next} : {title}, dans {n} jour.', '{next} : {title}, dans {n} jours.', { next: words.nextBig, title: nextExam.title })
       : t('{next} : {none} à l’horizon.', { next: words.nextBig, none: words.none }),
   ];

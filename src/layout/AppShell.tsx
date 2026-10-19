@@ -19,7 +19,7 @@ import { useUi } from '../store/ui';
 import { useGroupActivity, totalUnread } from '../store/groupActivity';
 import { useTrashCount } from '../lib/trash';
 import { useSettings } from '../store/settings';
-import { WORDS } from '../lib/usage';
+import { WORDS, groupWords } from '../lib/usage';
 import { ContextMenu, ReminderAlerts } from '../components/Overlays';
 import { PENDING_INVITE } from '../App';
 import { JoinedDialog } from '../pages/groups/Joined';
@@ -208,7 +208,8 @@ function AccountSwitch({ currentId }: { currentId: string }) {
 }
 
 export default function AppShell() {
-  const groupsLabel = (WORDS[useSettings(st => st.usage)] ?? WORDS.etudes).groups;
+  const usage = useSettings(st => st.usage);
+  const groupsLabel = (WORDS[usage] ?? WORDS.etudes).groups;
   const label = (n: { to: string; label: string }) => (n.to === '/groupes' ? groupsLabel : n.label);
   const navigate = useNavigate();
   const user = useAuth(s => s.user)!;
@@ -319,7 +320,7 @@ export default function AppShell() {
                       aria-label={
                         n.to === '/agendas'
                           ? tn(agendaNews, '{n} nouveauté dans tes agendas partagés', '{n} nouveautés dans tes agendas partagés')
-                          : tn(groupNews, '{n} nouveauté dans tes {groups}', '{n} nouveautés dans tes {groups}', { groups: groupsLabel.toLowerCase() })
+                          : tn(groupNews, '{n} nouveauté dans tes {groups}', '{n} nouveautés dans tes {groups}', { groups: groupWords(usage).groups })
                       }
                     >
                       {news(n.to)}

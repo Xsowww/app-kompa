@@ -11,7 +11,9 @@ export interface RecWords {
   doc: string; ofDoc: string; docDone: string; where: string; finish: string;
   history: string; keywordHint: string;
   /** The two extra documents: short (chips, compact buttons), long (Done view), and the « Créer… » buttons. */
-  short: Record<Make, string>; long: Record<Make, string>; create: Record<Make, string>; createLong: Record<Make, string>;
+  short: Record<Make, string>; long: Record<Make, string>;
+  /** The long names inside a sentence (« Kompaly prépare : fiche de révision… »). */
+  inText: Record<Make, string>; create: Record<Make, string>; createLong: Record<Make, string>;
   /** The Drive's right-click on a document. */
   menu: Record<Make, string>;
 }
@@ -19,6 +21,7 @@ export interface RecWords {
 const PRO = {
   short: { fiche: t('Résumé'), examen: t('Questions') },
   long: { fiche: t('Résumé'), examen: t('Questions de compréhension') },
+  inText: { fiche: t('résumé'), examen: t('questions de compréhension') },
   create: { fiche: t('Créer le résumé'), examen: t('Créer les questions') },
   createLong: { fiche: t('Créer le résumé'), examen: t('Créer les questions de compréhension') },
   menu: { fiche: t('Faire un résumé'), examen: t('Faire des questions de compréhension') },
@@ -31,6 +34,7 @@ export const REC_WORDS: Record<Usage, RecWords> = {
     history: t('Cours enregistrés'), keywordHint: t('Ex. ton prénom, « exposé »'),
     short: { fiche: t('Fiche de révision'), examen: t('Examen') },
     long: { fiche: t('Fiche de révision'), examen: t('Examen d’entraînement') },
+    inText: { fiche: t('fiche de révision'), examen: t('examen d’entraînement') },
     create: { fiche: t('Créer la fiche'), examen: t('Créer l’examen') },
     createLong: { fiche: t('Créer la fiche'), examen: t('Créer l’examen d’entraînement') },
     menu: { fiche: t('Faire une fiche de révision'), examen: t('Faire un examen d’entraînement') },

@@ -37,7 +37,7 @@ export const WORDS: Record<Usage, {
     school: t('Établissement'), schoolHint: t('Université, école…'), program: t('Filière'), programHint: t('Droit, info, médecine…'),
     level: t('Année'), levels: ['', t('Lycée'), t('L1'), t('L2'), t('L3'), t('M1'), t('M2'), t('BTS / BUT'), t('Prépa'), t('École'), t('Doctorat'), t('Autre')],
     groups: t('Groupes'), profileTab: t('Études'),
-    quickExample: t('Partiel de maths vendredi 14h'), markDone: t('rendu'), slot: t('cours'), slots: t('cours'),
+    quickExample: t('Partiel de maths vendredi 14h'), markDone: t('rendu'), slot: t('cours'), slots: t('cours||pluriel'),
     timetable: t('emploi du temps'), titleExample: t('Partiel de maths'), notesExample: t('salle, chapitres à réviser…'),
     categoryExample: t('Stage, Asso, Job…'), categoryHint: t('Stage chez Airbus'),
     bigNoted: t('Examen noté'), prepare: t('des révisions'),
@@ -65,7 +65,7 @@ export const WORDS: Record<Usage, {
     school: t('Ville'), schoolHint: t('Lyon, Lille…'), program: t('Centres d’intérêt'), programHint: t('Cuisine, sport, voyages…'),
     level: t('Situation'), levels: ['', t('Étudiant·e'), t('En activité'), t('En recherche'), t('Parent'), t('Retraité·e'), t('Autre')],
     groups: t('Groupes'), profileTab: t('Organisation'),
-    quickExample: t('Dentiste mardi 17h30'), markDone: t('fait'), slot: t('rendez-vous'), slots: t('rendez-vous'),
+    quickExample: t('Dentiste mardi 17h30'), markDone: t('fait'), slot: t('rendez-vous'), slots: t('rendez-vous||pluriel'),
     timetable: t('agenda'), titleExample: t('Dentiste'), notesExample: t('adresse, choses à apporter…'),
     categoryExample: t('Famille, Vacances, Asso…'), categoryHint: t('Vacances à Biarritz'),
     bigNoted: t('C’est noté'), prepare: t('du temps pour préparer'),
@@ -93,7 +93,7 @@ export interface GroupWords {
   created: string; deleted: string; namePlaceholder: string; introTitle: string; introText: string;
   /** The meetings planned together (study sessions, work meetings, get-togethers). */
   meet: {
-    Tab: string; One: string; many: string; a: string; the: string; The: string; proposed: string; proposedMany: string; none: string; placeholder: string;
+    Tab: string; One: string; one: string; many: string; a: string; the: string; The: string; proposed: string; proposedMany: string; none: string; placeholder: string;
   };
 }
 
@@ -104,7 +104,7 @@ export const GROUP_WORDS: Record<Usage, GroupWords> = {
     namePlaceholder: t('Ex. L2 Bio — TD 3'),
     introTitle: t('Travaille avec ta promo'), introText: t('Notes partagées et séances de révision en commun, avec ceux qui ont le code du groupe.'),
     meet: {
-      Tab: t('Révisions'), One: t('Révision'), many: t('révisions'), a: t('une révision'), the: t('la révision'), The: t('La révision'), proposed: t('Révision proposée'), proposedMany: t('proposées'),
+      Tab: t('Révisions'), One: t('Révision'), one: t('révision'), many: t('révisions'), a: t('une révision'), the: t('la révision'), The: t('La révision'), proposed: t('Révision proposée'), proposedMany: t('proposées'),
       none: t('Aucune révision prévue'), placeholder: t('Ex. Révision partiel d’anatomie'),
     },
   },
@@ -114,7 +114,7 @@ export const GROUP_WORDS: Record<Usage, GroupWords> = {
     namePlaceholder: t('Ex. Équipe marketing, Projet Dupont'),
     introTitle: t('Travaille avec ton équipe'), introText: t('Notes, fichiers et réunions partagés, avec ceux qui ont le code de l’équipe.'),
     meet: {
-      Tab: t('Réunions'), One: t('Réunion'), many: t('réunions'), a: t('une réunion'), the: t('la réunion'), The: t('La réunion'), proposed: t('Réunion proposée'), proposedMany: t('proposées'),
+      Tab: t('Réunions'), One: t('Réunion'), one: t('réunion'), many: t('réunions'), a: t('une réunion'), the: t('la réunion'), The: t('La réunion'), proposed: t('Réunion proposée'), proposedMany: t('proposées'),
       none: t('Aucune réunion prévue'), placeholder: t('Ex. Point hebdo projet'),
     },
   },
@@ -124,7 +124,7 @@ export const GROUP_WORDS: Record<Usage, GroupWords> = {
     namePlaceholder: t('Ex. Famille, Coloc, Asso du quartier'),
     introTitle: t('Organise-toi à plusieurs'), introText: t('Notes, fichiers et rendez-vous partagés, avec ceux qui ont le code du groupe.'),
     meet: {
-      Tab: t('Rendez-vous'), One: t('Rendez-vous'), many: t('rendez-vous'), a: t('un rendez-vous'), the: t('le rendez-vous'), The: t('Le rendez-vous'), proposed: t('Rendez-vous proposé'), proposedMany: t('proposés'),
+      Tab: t('Rendez-vous'), One: t('Rendez-vous||un seul'), one: t('rendez-vous'), many: t('rendez-vous||pluriel'), a: t('un rendez-vous'), the: t('le rendez-vous'), The: t('Le rendez-vous'), proposed: t('Rendez-vous proposé'), proposedMany: t('proposés'),
       none: t('Aucun rendez-vous prévu'), placeholder: t('Ex. Repas de famille'),
     },
   },
@@ -140,7 +140,7 @@ export const AGENDA_WORDS: GroupWords = {
   namePlaceholder: t('Ex. Coloc, Famille, Nous deux'),
   introTitle: t('Un agenda à plusieurs'), introText: t('Un calendrier commun, séparé du tien : chacun y ajoute ses événements, les autres sont prévenus.'),
   meet: {
-    Tab: t('Agenda'), One: t('Événement'), many: t('événements'), a: t('un événement'), the: t('l’événement'), The: t('L’événement'), proposed: t('Événement ajouté'), proposedMany: t('ajoutés'),
+    Tab: t('Agenda'), One: t('Événement'), one: t('événement'), many: t('événements'), a: t('un événement'), the: t('l’événement'), The: t('L’événement'), proposed: t('Événement ajouté'), proposedMany: t('ajoutés'),
     none: t('Aucun événement prévu'), placeholder: t('Ex. Dîner chez Léa'),
   },
 };

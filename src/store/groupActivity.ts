@@ -88,7 +88,7 @@ function announce(gid: string, more: Counts) {
   const w = groupWords(getSettings().usage);
   const name = names[gid] ?? w.yours;
   // The meetings are « révisions », « réunions » or « rendez-vous » depending on the account.
-  const label = (x: (typeof TABLES)[number], n: number) => x.count?.(n) ?? `${n} ${n === 1 ? w.meet.One.toLowerCase() : w.meet.many}`;
+  const label = (x: (typeof TABLES)[number], n: number) => x.count?.(n) ?? `${n} ${n === 1 ? w.meet.one : w.meet.many}`;
   const parts = TABLES.filter(x => more[x.tab]).map(x => label(x, more[x.tab]!));
   const first = TABLES.find(x => more[x.tab])!.tab;
   const to = `/groupes?g=${gid}${first === 'notes' ? '' : `&onglet=${first}`}`;

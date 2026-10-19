@@ -353,7 +353,7 @@ function TimePanel({ value, onPick, clearable }: { value: string; onPick: (v: st
                 onClick={() => (col.hours ? pickFromList(`${v}:${m || '00'}`, false) : pickFromList(`${h || '08'}:${v}`, true))}
                 className={cx('tabular flex h-8 w-full items-center justify-center rounded-lg text-[13.5px] transition-colors pointer-coarse:h-9', v === col.current ? 'bg-ink font-bold text-paper' : 'hover:bg-stone-100')}
               >
-                {col.hours ? t('{n} h', { n: Number(v) }) : v}
+                {col.hours ? t('{n} h||heure', { n: Number(v) }) : v}
               </button>
             ))}
           </div>

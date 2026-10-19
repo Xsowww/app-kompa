@@ -657,7 +657,7 @@ async function saveDocuments() {
   patch(() => ({ phase: 'done', ...(failed.length && { failed }) }));
   live({ step: null, progress: null });
   notify(t('{doc} est prêt', { doc: words().docDone }), t('« {title} » est rangé dans ton Drive.', { title: done.title }));
-  if (failed.length) toast(t('Impossible de créer : {docs}. Tu peux réessayer.', { docs: failed.map(f => words().long[f].toLowerCase()).join(` ${t('et')} `) }), 'error');
+  if (failed.length) toast(t('Impossible de créer : {docs}. Tu peux réessayer.', { docs: failed.map(f => words().inText[f]).join(` ${t('et')} `) }), 'error');
 }
 
 /** The essentials of the class: the AI's points per part (or, when it couldn't write the parts, asked now). */
@@ -734,7 +734,7 @@ export function errorText(e: unknown): string {
 export async function makeFromFile(item: DriveItem, kind: Make) {
   if (useRecLive.getState().making) return toast(t('Un document est déjà en cours de création.'), 'info');
   live({ making: { id: item.id, kind } });
-  toast(t('Kompaly prépare : {doc}…', { doc: words().long[kind].toLowerCase() }), 'info');
+  toast(t('Kompaly prépare : {doc}…', { doc: words().inText[kind] }), 'info');
   try {
     const blob = await blobStore.get(blobKey(item.id));
     if (!blob) throw new Error(t('Le fichier n’a pas pu être lu.'));
