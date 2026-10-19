@@ -479,7 +479,7 @@ export default function NotesPage() {
               <FilePlus2 size={14} /> Nouvelle note
             </button>
             <button
-              className="btn-primary h-8 rounded-l-none border-l border-white/20 px-1.5 pointer-coarse:h-9 pointer-coarse:px-3"
+              className="btn-primary h-8 rounded-l-none border-l border-on-brand/20 px-1.5 pointer-coarse:h-9 pointer-coarse:px-3"
               title="Partir d’un modèle"
               aria-label="Partir d’un modèle"
               onClick={e => {
@@ -539,7 +539,7 @@ export default function NotesPage() {
                 </p>
                 <LinkChips note={active} />
               </div>
-              <button className="btn-ghost mt-0.5 ml-auto h-8 px-2.5 lg:ml-0" title="Lier à des fichiers du Drive ou des événements" onClick={() => setLinking(true)}>
+              <button className="btn-ghost mt-0.5 ml-auto h-8 px-2.5 lg:ml-0 pointer-coarse:min-w-9" title="Lier à des fichiers du Drive ou des événements" onClick={() => setLinking(true)}>
                 <Paperclip size={15} /> <span className="hidden sm:inline">Lier…</span>
               </button>
               <button className="icon-btn mt-0.5" title={active.pinned ? 'Désépingler' : 'Épingler'} aria-label={active.pinned ? 'Désépingler' : 'Épingler'} onClick={() => store.updateNote(active.id, { pinned: !active.pinned })}>

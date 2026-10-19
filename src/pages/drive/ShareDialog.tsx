@@ -65,12 +65,12 @@ export default function ShareDialog({ item, onClose }: { item: DriveItem; onClos
         <>
           <p className="mt-4 text-[13px] text-stone-600">Toute personne qui a le lien pourra télécharger ce fichier, sans compte, jusqu’à son expiration.</p>
           <p className="eyebrow mt-4">Le lien expire dans</p>
-          <div className="mt-1.5 flex h-9 w-fit items-center rounded-lg bg-stone-100 p-0.5 text-[13px]">
+          <div className="mt-1.5 flex h-9 w-fit items-center rounded-lg bg-stone-100 p-0.5 text-[13px] pointer-coarse:h-10">
             {DURATIONS.map(d => (
               <button
                 key={d.days}
                 onClick={() => setDays(d.days)}
-                className={cx('h-8 rounded-md px-3 font-medium transition-colors', days === d.days ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
+                className={cx('h-8 rounded-md px-3 font-medium transition-colors pointer-coarse:h-9', days === d.days ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
               >
                 {d.label}
               </button>

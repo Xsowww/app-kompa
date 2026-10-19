@@ -62,7 +62,7 @@ function Choice({ selected, depth, onClick, children }: { selected: boolean; dep
       type="button"
       aria-pressed={selected}
       onClick={onClick}
-      className={cx('flex h-8 w-full items-center gap-2 rounded-md pr-2 text-left text-[13px]', selected ? 'bg-brand-50 font-medium text-brand-700' : 'hover:bg-stone-100')}
+      className={cx('flex h-8 w-full items-center gap-2 rounded-md pr-2 text-left text-[13px] pointer-coarse:h-10', selected ? 'bg-brand-50 font-medium text-brand-700' : 'hover:bg-stone-100')}
       style={{ paddingLeft: 8 + depth * 18 }}
     >
       {children}

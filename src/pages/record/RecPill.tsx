@@ -27,7 +27,7 @@ export default function RecPill() {
         {finishing ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <span className={cx('h-2.5 w-2.5 rounded-full', hearing ? 'animate-pulse bg-red-500' : 'bg-amber-400')} aria-hidden />}
         {!finishing && <span className="text-[11px] font-bold tracking-wide text-red-400">REC</span>}
         <span className="tabular">{finishing ? 'Rédaction…' : clock(elapsed(session))}</span>
-        <span className="max-w-[140px] truncate font-medium text-white/70">{session.title}</span>
+        <span className="max-w-[140px] truncate font-medium text-white/70 max-[400px]:hidden">{session.title}</span>
       </button>
       {hearing && (
         <button type="button" onClick={star} className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-white/10" title="Moment important" aria-label="Marquer un moment important">

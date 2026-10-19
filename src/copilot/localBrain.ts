@@ -1,5 +1,6 @@
 // Built-in French command engine: works offline, no API key needed.
 
+import { recWords } from '../pages/record/words';
 import { normalize } from '../lib/utils';
 import { parseQuickAdd, todayKey, daysUntil, fmt, fromKey } from '../lib/dates';
 import { useCalendar, isBigEvent } from '../store/calendar';
@@ -309,9 +310,6 @@ const EXAMPLES: Record<Usage, string[]> = {
   ],
 };
 
-/** « le résumé » → « un résumé », « les questions… » → « des questions… ». */
-const indefinite = (s: string) => s.replace(/^les /, 'des ').replace(/^la /, 'une ').replace(/^(?:le |l’)/, 'un ');
-
 /** « Comment enregistrer mon cours ? »: the page « Enregistrer » does it, Kompaly explains how. */
 function recordingHelp(): BotReply {
   const w = words().recording;
@@ -330,15 +328,14 @@ function recordingHelp(): BotReply {
 /** « Fais-moi une fiche de révision de ce document »: the Drive's right-click menu makes it, next to the file. */
 function sheetFromDocument(input: string, q: string): BotReply {
   const exam = /(examen|quiz|questions)/.test(q) && !/fiche/.test(q);
-  const label = exam ? 'Faire un examen d’entraînement' : 'Faire une fiche de révision';
-  const w = words().recording;
-  const made = (getSettings().usage ?? 'etudes') === 'etudes' ? '' : ` (pour toi, j’en fais ${indefinite(exam ? w.exam : w.sheet)})`;
+  // The menu's own words for this usage (« Faire un résumé » for a pro account).
+  const label = recWords(getSettings().usage).menu[exam ? 'examen' : 'fiche'];
   // « … du fichier Chapitre 3 », « … de Chapitre 3.pdf »: the file named, when the Drive has it (and the menu offers it).
   const named = /(?:document|fichier|pdf|word)\s+(?!(?:du|de|dans)\b)(.+?)\s*[?.!]*$/i.exec(input)?.[1] ?? input.split(/\s(?:de|du|sur|d['’])\s*/i).at(-1)?.replace(/[\s?.!]+$/, '');
   const file = named ? search(unquote(named)).find(h => h.type === 'fichier' && /\.(docx|pdf|txt|md)$/i.test(h.title)) : undefined;
   return {
     text:
-      `Dans le Drive, fais un clic droit sur ${file ? `« ${file.title} »` : 'le document (Word, PDF ou texte)'}, puis « ${label} »${made}. ` +
+      `Dans le Drive, fais un clic droit sur ${file ? `« ${file.title} »` : 'le document (Word, PDF ou texte)'}, puis « ${label} ». ` +
       `Sur téléphone : sélectionne-le, puis « Plus d’actions ». Je range le nouveau document à côté. (Avec l’IA, je peux aussi le lire et t’écrire ${exam ? 'les questions' : 'la fiche'} dans une note.)`,
     links: [file ? { label: file.title, to: file.to } : { label: 'Drive', to: '/drive' }],
   };

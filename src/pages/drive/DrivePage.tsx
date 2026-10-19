@@ -11,6 +11,7 @@ import {
 } from '../../store/drive';
 import { askText, confirmAction, toast, useUi } from '../../store/ui';
 import { canMakeFrom, makeFromFile, useRecLive } from '../../store/recorder';
+import { useRecWords } from '../record/words';
 import { formatBytes, relativeTime, cx } from '../../lib/utils';
 import { fold, highlightParts, searchFileContents, startTextIndexing } from '../../lib/textIndex';
 import FileIcon from '../../components/FileIcon';
@@ -100,6 +101,7 @@ export default function DrivePage() {
   const [anchor, setAnchor] = useState<string | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; target: string | null } | null>(null);
   const making = useRecLive(s => s.making);
+  const rec = useRecWords();
   const [importMenu, setImportMenu] = useState<{ x: number; y: number } | null>(null);
   const [colorMenu, setColorMenu] = useState<{ x: number; y: number } | null>(null);
   const [dropTarget, setDropTarget] = useState<string | 'here' | null>(null);
@@ -273,7 +275,10 @@ export default function DrivePage() {
     const items = useDrive.getState().items.filter(i => ids.includes(i.id));
     const one = items.length === 1 ? items[0] : null;
     const title = one ? `Mettre « ${one.name} » à la corbeille ?` : `Mettre ${ids.length} éléments à la corbeille ?`;
-    const body = items.some(i => i.kind === 'folder') ? 'Les dossiers partent avec tout leur contenu. Tu pourras les récupérer dans la corbeille.' : 'Tu pourras les récupérer dans la corbeille.';
+    const folders = items.some(i => i.kind === 'folder');
+    const body = one
+      ? `${folders ? 'Le dossier part avec tout son contenu. ' : ''}Tu pourras le récupérer dans la corbeille.`
+      : `${folders ? 'Les dossiers partent avec tout leur contenu. ' : ''}Tu pourras les récupérer dans la corbeille.`;
     if (!(await confirmAction(title, body, 'Mettre à la corbeille'))) return;
     useDrive.getState().remove(ids);
     setSelected(new Set());
@@ -551,8 +556,8 @@ export default function DrivePage() {
       ...(one && canMakeFrom(item)
         ? [
             { label: '', divider: true, onClick: () => {} },
-            { label: 'Faire une fiche de révision', icon: <ClipboardList size={15} />, disabled: !!making, onClick: () => void makeFromFile(item, 'fiche') },
-            { label: 'Faire un examen d’entraînement', icon: <BookOpenCheck size={15} />, disabled: !!making, onClick: () => void makeFromFile(item, 'examen') },
+            { label: rec.menu.fiche, icon: <ClipboardList size={15} />, disabled: !!making, onClick: () => void makeFromFile(item, 'fiche') },
+            { label: rec.menu.examen, icon: <BookOpenCheck size={15} />, disabled: !!making, onClick: () => void makeFromFile(item, 'examen') },
           ]
         : []),
       ...palette,
@@ -560,7 +565,7 @@ export default function DrivePage() {
       { label: 'Mettre à la corbeille', icon: <Trash2 size={15} />, shortcut: 'Suppr', danger: true, onClick: () => void remove(ids) },
     ];
     return list;
-  }, [menu, selectedIds, items, clipboard, tabAll, parentId, visible, newFolder, paste, openItem, copy, cut, duplicate, rename, remove, making]);
+  }, [menu, selectedIds, items, clipboard, tabAll, parentId, visible, newFolder, paste, openItem, copy, cut, duplicate, rename, remove, making, rec]);
   // No keyboard shortcuts on a phone.
   const shownMenu = touchMode ? menuItems.map(i => ({ ...i, shortcut: undefined })) : menuItems;
 
@@ -730,7 +735,7 @@ export default function DrivePage() {
                 <Upload size={15} /> <span className="hidden sm:inline">{busy ? 'Import…' : 'Importer'}</span>
               </button>
               <button
-                className="btn-primary w-9 justify-center rounded-l-none border-l border-white/20 px-0 sm:w-auto sm:px-1.5 pointer-coarse:w-9 pointer-coarse:px-0"
+                className="btn-primary w-9 justify-center rounded-l-none border-l border-on-brand/20 px-0 sm:w-auto sm:px-1.5 pointer-coarse:w-9 pointer-coarse:px-0"
                 disabled={busy}
                 title="Plus d’options d’import"
                 aria-label="Plus d’options d’import"
@@ -808,7 +813,7 @@ export default function DrivePage() {
             <button
               onClick={() => openFolder(null)}
               {...folderDropProps(null, 'crumb-root')}
-              className={cx('rounded-md px-1.5 py-1 font-medium transition-colors hover:bg-stone-100', breadcrumb.length ? 'text-stone-500' : 'text-ink', dropTarget === 'crumb-root' && 'bg-brand-50 text-brand-700')}
+              className={cx('rounded-md px-1.5 py-1 font-medium transition-colors hover:bg-stone-100 pointer-coarse:py-2', breadcrumb.length ? 'text-stone-500' : 'text-ink', dropTarget === 'crumb-root' && 'bg-brand-50 text-brand-700')}
             >
               Mon Drive
             </button>
@@ -819,7 +824,7 @@ export default function DrivePage() {
                   onClick={() => openFolder(b.id)}
                   {...folderDropProps(b.id, `crumb-${b.id}`)}
                   className={cx(
-                    'max-w-48 truncate rounded-md px-1.5 py-1 font-medium transition-colors hover:bg-stone-100',
+                    'max-w-48 truncate rounded-md px-1.5 py-1 font-medium transition-colors hover:bg-stone-100 pointer-coarse:py-2',
                     b.id === parentId ? 'text-ink' : 'text-stone-500',
                     dropTarget === `crumb-${b.id}` && 'bg-brand-50 text-brand-700',
                   )}

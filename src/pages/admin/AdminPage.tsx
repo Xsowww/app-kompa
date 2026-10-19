@@ -375,10 +375,10 @@ function AccountsTable({ accounts, total, query, setQuery }: { accounts: Account
                     </p>
                     <p className="text-[12px] text-stone-500">{a.email}</p>
                   </td>
-                  <td className="px-3 py-2.5 text-stone-600">{fmt(new Date(a.created_at), 'd MMM yyyy')}</td>
-                  <td className="px-3 py-2.5 text-stone-600">{a.last_sign_in_at ? relativeTime(a.last_sign_in_at) : 'jamais'}</td>
+                  <td className="whitespace-nowrap px-3 py-2.5 text-stone-600">{fmt(new Date(a.created_at), 'd MMM yyyy')}</td>
+                  <td className="whitespace-nowrap px-3 py-2.5 text-stone-600">{a.last_sign_in_at ? relativeTime(a.last_sign_in_at) : 'jamais'}</td>
                   <td className="px-3 py-2.5">
-                    <span className={cx('inline-flex items-center gap-1 text-[12px]', a.mfa ? 'text-emerald-700' : 'text-stone-500')}>
+                    <span className={cx('inline-flex items-center gap-1 whitespace-nowrap text-[12px]', a.mfa ? 'text-emerald-700' : 'text-stone-500')}>
                       <ShieldCheck size={13} /> {a.mfa ? '2FA active' : 'Sans 2FA'}
                     </span>
                   </td>

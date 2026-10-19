@@ -67,7 +67,7 @@ export default function PdfView({ url, title }: { url: string; title: string }) 
   }, [total, shown]);
 
   if (failed)
-    return <p className="rounded-md bg-white px-6 py-10 text-center text-[13px] text-stone-600 shadow-2xl">Impossible d’afficher ce PDF. Télécharge-le pour l’ouvrir.</p>;
+    return <p className="rounded-md bg-surface px-6 py-10 text-center text-[13px] text-stone-600 shadow-2xl">Impossible d’afficher ce PDF. Télécharge-le pour l’ouvrir.</p>;
 
   return (
     <div ref={box} role="document" aria-label={title} className="h-[82vh] w-[min(1000px,92vw)] overflow-y-auto rounded-md bg-stone-200 p-4 shadow-2xl">

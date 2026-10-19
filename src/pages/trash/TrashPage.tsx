@@ -317,7 +317,7 @@ export default function TrashPage() {
   );
 
   return (
-    <div className="h-full overflow-y-auto px-4 pb-10 md:px-8">
+    <div className="h-full overflow-y-auto px-4 pb-16 md:px-8">
       <div className="mx-auto max-w-[1180px]">
         <div className="flex flex-wrap items-start gap-3 pb-4 pt-2">
           <div className="min-w-0 flex-1">
@@ -463,10 +463,10 @@ export default function TrashPage() {
             onClose={() => openPreview(null)}
             actions={
               <>
-                <button onClick={() => restore([preview.id])} className="btn h-8 bg-white/10 text-white hover:bg-white/20" aria-label="Restaurer">
+                <button onClick={() => restore([preview.id])} className="btn h-8 bg-white/10 text-white hover:bg-white/20 max-sm:w-9 max-sm:px-0" aria-label="Restaurer">
                   <RotateCcw size={15} /> <span className="hidden sm:inline">Restaurer</span>
                 </button>
-                <button onClick={() => void purge([preview.id])} className="btn h-8 bg-white/10 text-white hover:bg-red-500/80" aria-label="Supprimer définitivement">
+                <button onClick={() => void purge([preview.id])} className="btn h-8 bg-white/10 text-white hover:bg-red-500/80 max-sm:w-9 max-sm:px-0" aria-label="Supprimer définitivement">
                   <Trash2 size={15} /> <span className="hidden sm:inline">Supprimer</span>
                 </button>
               </>

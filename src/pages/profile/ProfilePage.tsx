@@ -447,7 +447,7 @@ function CopilotTab() {
         <Row label="Point du matin" hint="Ta journée en 3 lignes, avant midi.">
           <Toggle label="Point du matin" checked={s.morningBrief} onChange={v => s.set({ morningBrief: v })} />
         </Row>
-        <Row label="Bilan du dimanche" hint="Le dimanche à partir de 17h.">
+        <Row label="Bilan du dimanche" hint={'Le dimanche à partir de 17\u00a0h.'}>
           <Toggle label="Bilan du dimanche" checked={s.weeklyReview} onChange={v => s.set({ weeklyReview: v })} />
         </Row>
       </Section>
@@ -983,20 +983,20 @@ export default function ProfilePage() {
   const usage = useSettings(s => s.usage);
 
   return (
-    <div className="h-full overflow-y-auto px-4 pb-12 md:px-8">
+    <div className="h-full overflow-y-auto px-4 pb-16 md:px-8">
       <div className="mx-auto max-w-[1180px]">
         <div className="pb-5 pt-2">
           <h1 className="text-[24px] font-semibold tracking-[-0.02em]">Profil et réglages</h1>
         </div>
         <div className="flex flex-col gap-6 md:flex-row">
-          <nav aria-label="Sections du profil" className="grid shrink-0 grid-cols-4 gap-1.5 md:flex md:w-48 md:flex-col md:gap-0.5">
+          <nav aria-label="Sections du profil" className="grid shrink-0 grid-cols-4 gap-1.5 max-[359px]:grid-cols-3 md:flex md:w-48 md:flex-col md:gap-0.5">
             {TABS.map(t => (
               <button
                 key={t.key}
                 aria-current={tab === t.key ? 'page' : undefined}
                 onClick={() => setParams(t.key === 'profil' ? {} : { onglet: t.key })}
                 className={cx(
-                  // Phone: every section visible at once (a grid of 4), no hidden tabs to swipe to.
+                  // Phone: every section visible at once (a grid of 4, of 3 under 360 px where « Notifications » was cut), no hidden tabs to swipe to.
                   'flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[11.5px] font-medium transition-colors md:h-8 md:shrink-0 md:flex-row md:justify-start md:gap-2.5 md:rounded-md md:px-2.5 md:py-0 md:text-[13px] md:pointer-coarse:h-9',
                   tab === t.key ? 'bg-ink font-semibold text-paper md:bg-surface md:text-ink md:shadow-card md:ring-1 md:ring-stone-200' : 'bg-surface text-stone-600 hover:bg-stone-100 hover:text-ink md:bg-transparent',
                 )}

@@ -13,6 +13,8 @@ export interface RecWords {
   plural: [string, string];
   /** The two extra documents: short (chips, compact buttons), long (Done view), and the « Créer… » buttons. */
   short: Record<Make, string>; long: Record<Make, string>; create: Record<Make, string>; createLong: Record<Make, string>;
+  /** The Drive's right-click on a document. */
+  menu: Record<Make, string>;
 }
 
 const PRO = {
@@ -20,6 +22,7 @@ const PRO = {
   long: { fiche: 'Résumé', examen: 'Questions de compréhension' },
   create: { fiche: 'Créer le résumé', examen: 'Créer les questions' },
   createLong: { fiche: 'Créer le résumé', examen: 'Créer les questions de compréhension' },
+  menu: { fiche: 'Faire un résumé', examen: 'Faire des questions de compréhension' },
 };
 
 export const REC_WORDS: Record<Usage, RecWords> = {
@@ -31,6 +34,7 @@ export const REC_WORDS: Record<Usage, RecWords> = {
     long: { fiche: 'Fiche de révision', examen: 'Examen d’entraînement' },
     create: { fiche: 'Créer la fiche', examen: 'Créer l’examen' },
     createLong: { fiche: 'Créer la fiche', examen: 'Créer l’examen d’entraînement' },
+    menu: { fiche: 'Faire une fiche de révision', examen: 'Faire un examen d’entraînement' },
   },
   travail: {
     name: 'Nom de la réunion', fallback: 'Réunion',

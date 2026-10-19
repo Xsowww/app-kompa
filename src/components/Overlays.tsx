@@ -292,7 +292,7 @@ export function ContextMenu({ x, y, items, onClose, label }: { x: number; y: num
               it.onClick();
             }}
             className={cx(
-              'flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-left text-[13px] transition-colors outline-none disabled:opacity-40',
+              'flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-left text-[13px] transition-colors outline-none disabled:opacity-40 pointer-coarse:h-10',
               it.danger ? 'text-red-600 hover:bg-red-50 focus-visible:bg-red-50' : 'text-stone-700 hover:bg-stone-100 focus-visible:bg-stone-100',
               // The background alone is too faint to show the keyboard position.
               'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus',
