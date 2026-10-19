@@ -8,7 +8,7 @@ import { useNotes, type Note, type NoteFolder } from '../store/notes';
 import { useCalendar, catOf, guessCategory, customCategoryIn, customNamed, createCategory, isDeliverable, isBigEvent, sortEvents, type CalendarEvent, type EventCategory } from '../store/calendar';
 import { useTodos } from '../store/todos';
 import { useFocus, focusLeft } from '../store/focus';
-import { normalize, stripHtml, formatBytes } from '../lib/utils';
+import { normalize, noteText, stripHtml, formatBytes } from '../lib/utils';
 import { toKey, todayKey, daysUntil, fromKey, fmt, fmtDay, weekStart, countdownLabel } from '../lib/dates';
 import type { CopilotLink } from '../store/copilot';
 import { getSettings, useSettings, applyAppearance, ACCENTS, type Settings, type AccentKey, type ThemeMode, type Chattiness } from '../store/settings';
@@ -48,8 +48,18 @@ export const HIT_LABEL: Record<SearchHit['type'], string> = {
   tâche: t('tâche'),
 };
 
-const score = (hay: string, q: string) => {
-  const h = normalize(hay);
+// Texts prepared for searching, kept per object: an item, note or event is a new object when it changes,
+// so only what changed is prepared again (a note's full text was stripped and normalised at each key typed).
+const prepared = new WeakMap<object, Map<string, string>>();
+function prep(obj: object, field: string, make: () => string) {
+  let m = prepared.get(obj);
+  if (!m) prepared.set(obj, (m = new Map()));
+  let v = m.get(field);
+  if (v === undefined) m.set(field, (v = make()));
+  return v;
+}
+
+const score = (h: string, q: string) => {
   if (h === q) return 3;
   if (h.startsWith(q)) return 2;
   if (h.includes(q)) return 1;
@@ -63,7 +73,7 @@ export function search(query: string, limit = 8): SearchHit[] {
   const hits: (SearchHit & { s: number })[] = [];
   const { items } = useDrive.getState();
   for (const it of items) {
-    const s = score(it.name, q);
+    const s = score(prep(it, 'name', () => normalize(it.name)), q);
     if (!s) continue;
     const where = [t('Drive'), ...pathOf(items, it.parentId).map(p => p.name)].join(' › ');
     hits.push({
@@ -77,23 +87,23 @@ export function search(query: string, limit = 8): SearchHit[] {
   }
   const { notes, folders } = useNotes.getState();
   for (const f of folders) {
-    const s = score(f.name, q);
+    const s = score(prep(f, 'name', () => normalize(f.name)), q);
     if (s) hits.push({ s, type: 'dossier de notes', id: f.id, title: f.name, where: t('Notes'), to: `/notes?dossier=${f.id}` });
   }
   for (const n of notes) {
-    const s = Math.max(score(n.title, q), score(stripHtml(n.content), q) * 0.6);
+    const s = Math.max(score(prep(n, 'title', () => normalize(n.title)), q), score(prep(n, 'text', () => normalize(noteText(n))), q) * 0.6);
     if (s) {
       const folder = folders.find(f => f.id === n.folderId);
       hits.push({ s, type: 'note', id: n.id, title: n.title, where: folder ? `${t('Notes')} › ${folder.name}` : t('Notes'), to: linkToNote(n.id) });
     }
   }
   for (const e of useCalendar.getState().events) {
-    const s = score(e.title, q);
+    const s = score(prep(e, 'title', () => normalize(e.title)), q);
     if (s) hits.push({ s, type: 'événement', id: e.id, title: e.title, where: fmtDay(fromKey(e.date), 'EEEE d MMMM'), to: linkToDay(e.date, e.id) });
   }
   // Tasks still to do (a ticked one leaves the list: nothing to open there).
   for (const todo of useTodos.getState().todos) {
-    const s = todo.done ? 0 : score(todo.title, q);
+    const s = todo.done ? 0 : score(prep(todo, 'title', () => normalize(todo.title)), q);
     if (s) hits.push({ s, type: 'tâche', id: todo.id, title: todo.title, where: todo.due ? `${t('Tâches')} · ${fmtDay(fromKey(todo.due), 'EEEE d MMMM')}` : t('Tâches'), to: `/taches?tache=${todo.id}` });
   }
   return hits.sort((a, b) => b.s - a.s).slice(0, limit).map(({ s: _s, ...h }) => h);

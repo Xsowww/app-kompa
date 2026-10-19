@@ -10,7 +10,7 @@ import { blobStore } from '../../lib/blobStore';
 import { blobKey } from '../../lib/userStorage';
 import { MAX_GROUP_FILE, createNote, groupError, summary, type Group } from '../../lib/groups';
 import { groupWordsNow, shareFiles } from './util';
-import { cx, formatBytes, normalize, stripHtml } from '../../lib/utils';
+import { cx, formatBytes, normalize, noteText } from '../../lib/utils';
 import { t } from '../../i18n';
 
 /** « Une de mes notes » : copie une note personnelle dans le groupe. */
@@ -57,7 +57,7 @@ function NotePicker({ group, onPicked, onClose }: { group: Group; onPicked: (id:
             <FileText size={15} className="shrink-0 text-stone-400" />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[13px] font-medium">{n.title}</span>
-              <span className="block truncate text-[12px] text-stone-500">{stripHtml(n.content).slice(0, 120) || t('Note vide')}</span>
+              <span className="block truncate text-[12px] text-stone-500">{noteText(n).slice(0, 120) || t('Note vide')}</span>
             </span>
             {busy === n.id && <span className="text-[12px] text-stone-500">{t('Copie…')}</span>}
           </button>

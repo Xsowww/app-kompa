@@ -6,6 +6,7 @@ import { useTodos, type Todo } from '../../store/todos';
 import { countdownLabel, daysUntil, fmt, fmtDay, fromKey, todayKey } from '../../lib/dates';
 import { cx } from '../../lib/utils';
 import { isTourTodo, startTour } from '../../store/tour';
+import { useProgressive } from '../../lib/useProgressive';
 import { confirmAction, toast } from '../../store/ui';
 import TaskDialog from './TaskDialog';
 import { DatePopover } from '../../components/Pickers';
@@ -375,6 +376,13 @@ export default function TodoList({ limit, grouped }: { limit?: number; grouped?:
         ]
       : [{ key: 'all', label: '', items: [...openShown, ...tickedShown] }]
   ).filter(g => g.items.length);
+  // Hundreds of tasks: the first rows at once, the others right after (useProgressive).
+  let left = useProgressive(groups.reduce((n, g) => n + g.items.length, 0));
+  const rendered = groups.map(g => {
+    const rows = g.items.slice(0, Math.max(0, left));
+    left -= g.items.length;
+    return { ...g, rows };
+  });
 
   return (
     <div className="flex flex-1 flex-col" data-todolist>
@@ -382,7 +390,7 @@ export default function TodoList({ limit, grouped }: { limit?: number; grouped?:
       {open.length === 0 && <p className={cx('text-[13px] text-stone-500', ticked.length ? 'pt-3' : 'py-5')}>{ticked.length || todos.some(x => x.done) ? t('Tout est coché. Profites-en.') : t('Rien à faire pour l’instant.')}</p>}
       {groups.length > 0 && (
         <div className="mt-2">
-          {groups.map(g => (
+          {rendered.filter(g => g.rows.length).map(g => (
             <div key={g.key} className={cx(g.label && 'mt-3 first:mt-1')}>
               {g.label && (
                 <h2 className={cx('eyebrow mb-0.5 px-1.5', g.key === 'done' && 'text-emerald-700 dark:text-emerald-400')} style={g.key === 'late' ? { color: OVERDUE } : undefined}>
@@ -390,7 +398,7 @@ export default function TodoList({ limit, grouped }: { limit?: number; grouped?:
                 </h2>
               )}
               <ul className="-mx-1.5">
-                {g.items.map(x => (
+                {g.rows.map(x => (
                   <TodoRow key={x.id} t={x} editable={grouped} preview={preview} now={x.done ? now : 0} />
                 ))}
               </ul>

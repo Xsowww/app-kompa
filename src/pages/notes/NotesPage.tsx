@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { flashWhenReady } from '../../lib/flash';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -10,7 +10,8 @@ import { askText, confirmAction, toast } from '../../store/ui';
 import { ContextMenu, type MenuItem } from '../../components/Overlays';
 import { FolderColorPicker } from '../../components/FolderColorPicker';
 import { folderIconStyle } from '../../store/drive';
-import { cx, normalize, relativeTime, stripHtml } from '../../lib/utils';
+import { useProgressive } from '../../lib/useProgressive';
+import { cx, normalize, noteSearchText, noteText, relativeTime } from '../../lib/utils';
 import NoteEditor from './NoteEditor';
 import { LinkChips, LinkPicker } from './NoteLinks';
 import { noteTemplates, type NoteTemplate } from './templates';
@@ -332,51 +333,25 @@ export default function NotesPage() {
   });
   const q = normalize(query);
   const results = useMemo(
-    () => (q ? sortNotes(notes.filter(n => normalize(n.title).includes(q) || normalize(stripHtml(n.content)).includes(q))) : []),
+    () => (q ? sortNotes(notes.filter(n => noteSearchText(n).includes(q))) : []),
     [q, notes],
   );
 
   // The row's main part and its « … » button are siblings: no button nested in a button.
-  const renderNote = (n: Note, depth: number) => (
-    <div
-      key={n.id}
-      draggable
-      onDragStart={e => e.dataTransfer.setData(DRAG_NOTE, n.id)}
-      onContextMenu={e => { e.preventDefault(); setMenu({ ...menuPoint(e), items: noteMenu(n) }); }}
-      className={cx(
-        'list-row group flex h-8 items-center gap-1 rounded-md pr-1 text-[13px] transition-colors pointer-coarse:h-9',
-        n.id === noteId ? 'bg-stone-100 font-medium text-ink' : 'text-stone-600 hover:bg-stone-50 hover:text-ink',
-      )}
-    >
-      <div
-        data-note-open={n.id}
-        onClick={() => { openNote(n.id); setFocusFolder(null); }}
-        role="button"
-        tabIndex={0}
-        aria-current={n.id === noteId ? 'page' : undefined}
-        onKeyDown={e => {
-          if (isMenuKey(e)) { e.preventDefault(); setMenu({ ...menuPoint(e), items: noteMenu(n) }); }
-          else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openNote(n.id); setFocusFolder(null); }
-          else rowKeys(e, () => void deleteNote(n), () => void renameNote(n));
-        }}
-        className="flex h-full min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md"
-        style={{ paddingLeft: 10 + depth * 16 }}
-      >
-        <FileText size={14} className="shrink-0 text-stone-400" />
-        <span className="flex-1 truncate">{n.title}</span>
-        {n.pinned && <Pin size={11} className="shrink-0 text-stone-400" aria-label={t('Épinglée')} />}
-      </div>
-      <button
-        className="icon-btn touch-show h-6 w-6 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:h-9 pointer-coarse:w-9"
-        tabIndex={-1}
-        title={t('Plus d’actions')}
-        aria-label={t('Plus d’actions pour «\u00a0{name}\u00a0»', { name: n.title })}
-        onClick={e => setMenu({ ...menuUnder(e), items: noteMenu(n) })}
-      >
-        <MoreHorizontal size={14} />
-      </button>
-    </div>
-  );
+  // Hundreds of notes: the first rows of the list at once, the others right after (useProgressive).
+  let noteRows = useProgressive(notes.length, 60);
+  // What a row does, read when it happens: the rows stay memoised (only the one that changed re-renders).
+  const rowActions = useRef<RowActions>(null!);
+  rowActions.current = {
+    open: id => {
+      openNote(id);
+      setFocusFolder(null);
+    },
+    menuAt: (e, n) => setMenu({ ...menuPoint(e), items: noteMenu(n) }),
+    menuUnder: (e, n) => setMenu({ ...menuUnder(e), items: noteMenu(n) }),
+    keys: (e, n) => rowKeys(e, () => void deleteNote(n), () => void renameNote(n)),
+  };
+  const renderNote = (n: Note, depth: number) => (noteRows-- <= 0 ? null : <NoteRow key={n.id} note={n} depth={depth} active={n.id === noteId} actions={rowActions} />);
 
   const renderFolder = (f: NoteFolder, depth: number): React.ReactNode => {
     const open = expanded.has(f.id);
@@ -506,7 +481,7 @@ export default function NotesPage() {
               results.map(n => (
                 <button key={n.id} onClick={() => openNote(n.id)} className={cx('block w-full rounded-md px-2.5 py-2 text-left hover:bg-stone-50', n.id === noteId && 'bg-stone-100')}>
                   <p className="truncate text-[13px] font-medium">{n.title}</p>
-                  <p className="truncate text-[12px] text-stone-500">{stripHtml(n.content) || t('Note vide')}</p>
+                  <p className="truncate text-[12px] text-stone-500">{noteText(n) || t('Note vide')}</p>
                 </button>
               ))
             ) : (
@@ -579,6 +554,55 @@ export default function NotesPage() {
  * elsewhere (menu, list) when it doesn't have the focus, or the next key would bring the old name back.
  * On several lines when it's long: a one-line field cut a long title after a few words on phones.
  */
+interface RowActions {
+  open: (id: string) => void;
+  menuAt: (e: React.MouseEvent | React.KeyboardEvent, n: Note) => void;
+  menuUnder: (e: React.MouseEvent, n: Note) => void;
+  keys: (e: React.KeyboardEvent<HTMLElement>, n: Note) => void;
+}
+
+/** A note in the list: re-rendered only when its note or its « open » state changes (hundreds of them). */
+const NoteRow = memo(function NoteRow({ note: n, depth, active, actions }: { note: Note; depth: number; active: boolean; actions: RefObject<RowActions> }) {
+  return (
+    <div
+      draggable
+      onDragStart={e => e.dataTransfer.setData(DRAG_NOTE, n.id)}
+      onContextMenu={e => { e.preventDefault(); actions.current.menuAt(e, n); }}
+      className={cx(
+        'list-row group flex h-8 items-center gap-1 rounded-md pr-1 text-[13px] transition-colors pointer-coarse:h-9',
+        active ? 'bg-stone-100 font-medium text-ink' : 'text-stone-600 hover:bg-stone-50 hover:text-ink',
+      )}
+    >
+      <div
+        data-note-open={n.id}
+        onClick={() => actions.current.open(n.id)}
+        role="button"
+        tabIndex={0}
+        aria-current={active ? 'page' : undefined}
+        onKeyDown={e => {
+          if (isMenuKey(e)) { e.preventDefault(); actions.current.menuAt(e, n); }
+          else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); actions.current.open(n.id); }
+          else actions.current.keys(e, n);
+        }}
+        className="flex h-full min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md"
+        style={{ paddingLeft: 10 + depth * 16 }}
+      >
+        <FileText size={14} className="shrink-0 text-stone-400" />
+        <span className="flex-1 truncate">{n.title}</span>
+        {n.pinned && <Pin size={11} className="shrink-0 text-stone-400" aria-label={t('Épinglée')} />}
+      </div>
+      <button
+        className="icon-btn touch-show h-6 w-6 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:h-9 pointer-coarse:w-9"
+        tabIndex={-1}
+        title={t('Plus d’actions')}
+        aria-label={t('Plus d’actions pour «\u00a0{name}\u00a0»', { name: n.title })}
+        onClick={e => actions.current.menuUnder(e, n)}
+      >
+        <MoreHorizontal size={14} />
+      </button>
+    </div>);
+});
+
 function NoteTitle({ note }: { note: Note }) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const shown = note.title === 'Sans titre' || note.title === t('Sans titre') ? '' : note.title;

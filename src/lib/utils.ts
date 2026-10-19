@@ -18,6 +18,7 @@ export function normalize(s: string): string {
   return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[’‘]/g, "'").trim();
 }
 
+let decimalMark: string | undefined;
 export function formatBytes(bytes = 0): string {
   if (bytes < 1024) return t('{n} o', { n: bytes });
   const units = [t('Ko'), t('Mo'), t('Go'), t('To')];
@@ -32,8 +33,9 @@ export function formatBytes(bytes = 0): string {
     v /= 1024;
     i++;
   }
-  // The language's decimal mark (« 1,5 Mo », « 1.5 MB »).
-  const n = v.toFixed(v < 10 ? 1 : 0).replace(/\.0$/, '').replace('.', (1.5).toLocaleString(locale()).charAt(1));
+  // The language's decimal mark (« 1,5 Mo », « 1.5 MB »), looked up once.
+  decimalMark ??= (1.5).toLocaleString(locale()).charAt(1);
+  const n = v.toFixed(v < 10 ? 1 : 0).replace(/\.0$/, '').replace('.', decimalMark);
   return t('{n} {unit}', { n, unit: units[i] });
 }
 
@@ -76,3 +78,19 @@ export function relativeTime(iso: string): string {
   if (d < 7) return t('il y a {n} jours', { n: d });
   return new Date(iso).toLocaleDateString(locale(), { day: 'numeric', month: 'short' });
 }
+
+// A note's plain text, prepared once per version of the note (a changed note is a new object):
+// searches and previews ran stripHtml over every note at each key typed.
+const noteTexts = new WeakMap<object, { text: string; search: string }>();
+function prepared(n: { title: string; content: string }) {
+  let p = noteTexts.get(n);
+  if (!p) {
+    const text = stripHtml(n.content);
+    noteTexts.set(n, (p = { text, search: normalize(`${n.title}\n${text}`) }));
+  }
+  return p;
+}
+/** The note's text without its HTML (for a preview). */
+export const noteText = (n: { title: string; content: string }) => prepared(n).text;
+/** Title and text, normalised, to search in. */
+export const noteSearchText = (n: { title: string; content: string }) => prepared(n).search;

@@ -25,7 +25,7 @@ import { deviceState, disableDevice, enableDevice, pushActive, sendTestPush } fr
 import { devicePushChanged } from '../../lib/reminderScheduler';
 import { TIMED_OPTIONS } from '../../lib/reminders';
 import { install, installed, macSafari, useInstallOffer } from '../../lib/install';
-import { formatBytes, stripHtml, cx } from '../../lib/utils';
+import { formatBytes, noteText, cx } from '../../lib/utils';
 import { fmt, todayKey } from '../../lib/dates';
 import Avatar from '../../components/Avatar';
 import Character from '../../copilot/Character';
@@ -75,7 +75,7 @@ function useStats() {
     files: files.length,
     size: files.reduce((s, f) => s + (f.size ?? 0), 0),
     notes: notes.length,
-    words: notes.reduce((s, n) => s + (stripHtml(n.content).match(/\S+/g)?.length ?? 0), 0),
+    words: notes.reduce((s, n) => s + (noteText(n).match(/\S+/g)?.length ?? 0), 0),
     done: events.filter(e => e.done).length,
     exams: events.filter(e => e.category === 'examen' && (e.done || e.date < today)).length,
     focusSessions: Math.max(focusSessions, log.length),

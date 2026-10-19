@@ -111,7 +111,14 @@ function streakHistory(events: CalendarEvent[]) {
 const nth = <T,>(sorted: T[], n: number) => (sorted.length >= n ? sorted[n - 1] : undefined);
 const byDate = (a: { createdAt: string }, b: { createdAt: string }) => a.createdAt.localeCompare(b.createdAt);
 /** A session to get ready: « Révision… » (studies, or typed by hand), « Préparation · … » (Kompaly outside studies). */
-const isRevision = (e: CalendarEvent) => e.externalId?.startsWith('revision:') || /^(?:revision|preparation)/.test(normalize(e.title));
+// Per event object (a changed event is a new object): the badges are counted again after every change.
+const revisionTitle = new WeakMap<CalendarEvent, boolean>();
+const isRevision = (e: CalendarEvent) => {
+  if (e.externalId?.startsWith('revision:')) return true;
+  let r = revisionTitle.get(e);
+  if (r === undefined) revisionTitle.set(e, (r = /^(?:revision|preparation)/.test(normalize(e.title))));
+  return r;
+};
 
 /** A week (Monday→Sunday) in which every calendar item and every dated to-do is done, with at least 3 of them. */
 function weekAllDone(events: CalendarEvent[], todos: Todo[]) {

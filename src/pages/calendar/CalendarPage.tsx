@@ -434,15 +434,21 @@ export default function CalendarPage() {
   // « Rien à afficher » only when a hidden category holds something this block would list (not a hidden « Sport »).
   // Anything still to come (not done, not over): after the important ones, the next things, whatever they are.
   const isComing = (e: CalendarEvent) => !e.done && e.date >= today && !isOver(e);
-  const upcomingHidden = filtering && events.some(e => !passes(e) && (isComing(e) || isHomeworkSoon(e)));
-  const allUpcomingExams = visible.filter(isUpcomingExam).sort(sortEvents);
-  const upcomingExams = allExams ? allUpcomingExams : allUpcomingExams.slice(0, EXAMS_SHOWN);
-  const moreExams = allUpcomingExams.length - EXAMS_SHOWN;
-  const homework = visible.filter(isHomeworkSoon).sort(sortEvents).slice(0, 6);
-  // After the important ones, one list in time order: homework to hand in (late first) and the next events.
-  const listed = new Set([...allUpcomingExams, ...homework].map(e => e.id));
-  const others = visible.filter(e => isComing(e) && !listed.has(e.id)).sort(sortEvents).slice(0, Math.max(1, EXAMS_SHOWN - upcomingExams.length));
-  const nextUp = [...homework, ...others].sort(sortEvents);
+  // Sorted once per change of the events (and once a minute, for « over »), not at each key typed in the quick add.
+  const minute = Math.floor(Date.now() / 60_000);
+  const { upcomingHidden, upcomingExams, moreExams, nextUp } = useMemo(() => {
+    const upcomingHidden = filtering && events.some(e => !passes(e) && (isComing(e) || isHomeworkSoon(e)));
+    const allUpcomingExams = visible.filter(isUpcomingExam).sort(sortEvents);
+    const upcomingExams = allExams ? allUpcomingExams : allUpcomingExams.slice(0, EXAMS_SHOWN);
+    const moreExams = allUpcomingExams.length - EXAMS_SHOWN;
+    const homework = visible.filter(isHomeworkSoon).sort(sortEvents).slice(0, 6);
+    // After the important ones, one list in time order: homework to hand in (late first) and the next events.
+    const listed = new Set([...allUpcomingExams, ...homework].map(e => e.id));
+    const others = visible.filter(e => isComing(e) && !listed.has(e.id)).sort(sortEvents).slice(0, Math.max(1, EXAMS_SHOWN - upcomingExams.length));
+    const nextUp = [...homework, ...others].sort(sortEvents);
+    return { upcomingHidden, allUpcomingExams, upcomingExams, moreExams, nextUp };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the helpers above only read these values
+  }, [events, visible, passes, filtering, allExams, shared, today, minute]);
 
   const monthDays = useMemo(() => {
     const ref = fromKey(selected);

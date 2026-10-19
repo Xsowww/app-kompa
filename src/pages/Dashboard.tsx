@@ -7,7 +7,7 @@ import { useAuth } from '../store/auth';
 import { useNotes } from '../store/notes';
 import { useCalendar, catOf, isBigEvent, sortEvents, type CalendarEvent } from '../store/calendar';
 import { fmt, fmtDay, toKey, fromKey, weekStart, daysUntil, hasStarted } from '../lib/dates';
-import { relativeTime, stripHtml, cx } from '../lib/utils';
+import { relativeTime, noteText, cx } from '../lib/utils';
 import { hasRevisionPlan, revisionNote, revisionSessions, linkToDay, linkToNote } from '../copilot/actions';
 import { runOffer } from '../copilot/offers';
 import { toast } from '../store/ui';
@@ -334,7 +334,7 @@ export default function Dashboard() {
               <ul className="-mx-1.5">
                 {recentNotes.map(n => (
                   <li key={n.id}>
-                    <Link to={linkToNote(n.id)} className="flex items-baseline gap-2 rounded-lg px-1.5 py-1.5 transition-colors hover:bg-stone-50 pointer-coarse:py-2" title={`${folders.find(f => f.id === n.folderId)?.name ?? t('Notes')} · ${stripHtml(n.content).slice(0, 120) || t('Vide')}`}>
+                    <Link to={linkToNote(n.id)} className="flex items-baseline gap-2 rounded-lg px-1.5 py-1.5 transition-colors hover:bg-stone-50 pointer-coarse:py-2" title={`${folders.find(f => f.id === n.folderId)?.name ?? t('Notes')} · ${noteText(n).slice(0, 120) || t('Vide')}`}>
                       <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{n.title}</span>
                       <span className="shrink-0 text-[11px] text-stone-500">{relativeTime(n.updatedAt)}</span>
                     </Link>

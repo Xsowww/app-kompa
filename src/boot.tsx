@@ -2,12 +2,12 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 // Fonts served by the site itself: faster than a third-party request, and no visitor IP sent to Google.
-import '@fontsource-variable/plus-jakarta-sans';
-import '@fontsource/geist/400.css';
-import '@fontsource/geist/500.css';
-import '@fontsource/geist/600.css';
-import '@fontsource/geist/700.css';
-import '@fontsource/geist-mono/500.css';
+import './fonts/fonts.css';
+import '@fontsource/geist/latin-400.css';
+import '@fontsource/geist/latin-500.css';
+import '@fontsource/geist/latin-600.css';
+import '@fontsource/geist/latin-700.css';
+import '@fontsource/geist-mono/latin-500.css';
 import './index.css';
 import App from './App';
 import ErrorBoundary from './components/ErrorBoundary';
