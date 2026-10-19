@@ -77,7 +77,8 @@ function Setup() {
   const [folder, setFolder] = useState<{ id: string | null; own: boolean; chosen: boolean }>({ id: null, own: true, chosen: false });
   const [picking, setPicking] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
+  const error = useRecLive(st => st.startError);
+  const setError = (startError: string) => useRecLive.setState({ startError });
   const [server, setServer] = useState<{ transcription: boolean; redaction: boolean } | null>(null);
   useEffect(() => {
     serverState().then(setServer, () => setServer(null));
@@ -117,7 +118,7 @@ function Setup() {
           <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Source du son">
             {([
               { key: 'micro', icon: Mic, label: 'Le micro', hint: 'Un cours en salle, ou tout ce que ton appareil entend.', ok: canUseMic() },
-              { key: 'onglet', icon: MonitorSpeaker, label: 'Le son d’un onglet', hint: 'Teams, Zoom, Meet, YouTube… ouvert dans Chrome ou Edge, même avec des écouteurs.', ok: canShareTab() },
+              { key: 'onglet', icon: MonitorSpeaker, label: 'Le son de l’ordinateur', hint: MAC ? 'Un onglet de ce navigateur : Teams, Zoom, Meet, YouTube… en version web. Même avec des écouteurs.' : 'Un onglet de ce navigateur (Teams, Zoom, Meet web…), ou tout l’ordinateur pour une appli. Même avec des écouteurs.', ok: canShareTab() },
             ] as const).map(o => (
               <button
                 key={o.key}
@@ -136,7 +137,7 @@ function Setup() {
               </button>
             ))}
           </div>
-          {source === 'onglet' && <p className="mt-2 text-[12.5px] leading-relaxed text-stone-500">Chrome te demandera quel onglet partager : choisis celui du cours et laisse cochée la case « Partager aussi l’audio de l’onglet ».</p>}
+          {source === 'onglet' && <ShareHelp />}
           {noLive && <p className="mt-2 text-[12.5px] leading-relaxed text-stone-500">Ce navigateur n’affiche pas les mots à l’instant où ils sont dits : le texte arrive par blocs, environ 20 secondes après.</p>}
         </div>
 
@@ -234,6 +235,32 @@ function Setup() {
           </label>
         </div>
       </aside>
+    </div>
+  );
+}
+
+const MAC = typeof navigator !== 'undefined' && /Mac/.test(navigator.userAgent) && !/iPhone|iPad/.test(navigator.userAgent);
+
+/** What to pick in the browser's share window: a site can't see the other browsers or apps, the browser shows its own list. */
+function ShareHelp() {
+  const step = (n: number, title: string, text: string) => (
+    <li className="flex gap-2.5">
+      <span className="tabular mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink text-[11px] font-semibold text-paper">{n}</span>
+      <span>
+        <span className="font-semibold text-ink">{title}</span> {text}
+      </span>
+    </li>
+  );
+  return (
+    <div className="mt-3 rounded-2xl bg-stone-50 p-3.5 text-[12.5px] leading-relaxed text-stone-600">
+      <p className="mb-2">Au démarrage, ton navigateur ouvre sa fenêtre de partage. Elle ne montre que ses propres onglets : un site ne peut pas voir les autres navigateurs ni les applis, c’est une protection du navigateur.</p>
+      <ol className="space-y-1.5">
+        {step(1, 'Cours dans un onglet', '(Teams, Zoom ou Meet web, YouTube…) : onglet « Onglet Chrome », choisis-le et laisse cochée « Partager aussi l’audio de l’onglet ».')}
+        {MAC
+          ? step(2, 'Cours dans une appli ou un autre navigateur :', 'sur Mac, son son ne peut pas être capté par un site. Ouvre plutôt la version web dans Chrome ou Edge, ou choisis « Le micro ».')
+          : step(2, 'Cours dans une appli ou un autre navigateur :', 'onglet « Écran entier », choisis l’écran et coche « Partager aussi l’audio du système ». Kompaly entend alors tout l’ordinateur (coupe la musique à côté).')}
+      </ol>
+      <p className="mt-2">Une « Fenêtre » seule ne transmet pas son son.</p>
     </div>
   );
 }

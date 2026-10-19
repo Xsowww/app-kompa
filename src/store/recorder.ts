@@ -102,6 +102,8 @@ interface LiveState {
   progress: [number, number] | null;
   /** A revision sheet or an exam being made from the list or the Drive: its file (or past class) id. */
   making: { id: string; kind: Make } | null;
+  /** Why the last start failed (shown on the form, which is shown again after the failed start). */
+  startError: string;
 }
 
 export const useRecLive = create<LiveState>()(() => ({
@@ -116,6 +118,7 @@ export const useRecLive = create<LiveState>()(() => ({
   step: null,
   progress: null,
   making: null,
+  startError: '',
 }));
 
 const patch = (fn: (s: Session) => Partial<Session>) =>
@@ -310,7 +313,7 @@ function check() {
     if (!warned.sound) {
       warned.sound = true;
       live({ problem: 'Plus aucun son depuis 1 min' });
-      void alertUser('⚠️ Plus aucun son', 'L’onglet partagé ne fait plus de bruit depuis 1 minute : la visio est peut-être finie ou en pause.', true);
+      void alertUser('⚠️ Plus aucun son', 'Le son partagé est silencieux depuis 1 minute : la visio est peut-être finie ou en pause.', true);
     }
   } else if (warned.sound) {
     warned.sound = false;
@@ -324,11 +327,10 @@ function check() {
   }
 }
 
-async function listen(kind: SourceKind) {
-  const s = session();
-  if (!s) return;
+/** `offset`: seconds of the class already recorded (0 at the start, before the session is saved). */
+async function listen(kind: SourceKind, offset: number) {
   capture = await startCapture(kind, {
-    offset: elapsed(s),
+    offset,
     target: PIECE_SECONDS[kind],
     onPiece: p => {
       // Nobody speaking: nothing to send (it also saves the day's allowance).
@@ -347,8 +349,8 @@ async function listen(kind: SourceKind) {
     onEnded: () => {
       capture = null;
       stopQuick();
-      live({ hearing: false, problem: kind === 'onglet' ? 'Le partage de l’onglet s’est arrêté' : 'Le micro s’est coupé', interim: '' });
-      void alertUser('⚠️ Écoute arrêtée', kind === 'onglet' ? 'Le partage de l’onglet s’est arrêté. Clique sur « Reprendre l’écoute » pour continuer.' : 'Le micro s’est coupé. Clique sur « Reprendre l’écoute ».', true);
+      live({ hearing: false, problem: kind === 'onglet' ? 'Le partage du son s’est arrêté' : 'Le micro s’est coupé', interim: '' });
+      void alertUser('⚠️ Écoute arrêtée', kind === 'onglet' ? 'Le partage du son s’est arrêté. Clique sur « Reprendre l’écoute » pour continuer.' : 'Le micro s’est coupé. Clique sur « Reprendre l’écoute ».', true);
     },
   });
   lastAudible = lastText = Date.now();
@@ -478,22 +480,23 @@ export async function startRecording(o: StartOptions) {
     partsUpTo: 0,
     files: {},
   };
-  useRecorder.setState({ session: s });
   lastAlert.clear();
+  // The session is saved once the sound is heard: a refused share leaves the form as it was.
   try {
-    await listen(o.source);
+    await listen(o.source, 0);
   } catch (e) {
-    useRecorder.setState({ session: null });
     release();
+    live({ hearing: false });
     throw e;
   }
+  useRecorder.setState({ session: { ...s, startedAt: Date.now() } });
 }
 
 /** After the share stopped or a reload: listens again, the class goes on where it was. */
 export async function resumeListening() {
   const s = session();
   if (!s || s.phase !== 'running' || capture) return;
-  await listen(s.source);
+  await listen(s.source, elapsed(s));
 }
 
 /** « Moment important » : what was just said (3 s ago: the click comes after the sentence). */

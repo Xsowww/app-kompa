@@ -37,23 +37,42 @@ async function openStream(kind: SourceKind): Promise<MediaStream> {
       );
     }
   }
-  if (!canShareTab()) throw new CaptureError('Le son d’un onglet ne peut être écouté que sur ordinateur, dans Chrome ou Edge.');
+  if (!canShareTab()) throw new CaptureError('Le son d’un onglet ou de l’ordinateur ne peut être écouté que sur ordinateur, dans Chrome ou Edge.');
   let stream: MediaStream;
   try {
     stream = await navigator.mediaDevices.getDisplayMedia({
-      video: true,
+      // The picture isn't used: as small as the browser allows (a whole screen would cost for nothing).
+      video: { frameRate: 1, width: { max: 640 }, height: { max: 360 } },
       audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, suppressLocalAudioPlayback: false } as MediaTrackConstraints,
-      // Chrome: offer the tabs first, never this one, and keep listening if the student switches tab in the share bar.
-      ...({ preferCurrentTab: false, selfBrowserSurface: 'exclude', surfaceSwitching: 'include', systemAudio: 'include' } as object),
+      // Chrome: tabs first, never this one, keep listening if the student switches tab in the share bar,
+      // the computer's sound with a whole screen (Windows), a window's own sound where Chrome can.
+      ...({ preferCurrentTab: false, selfBrowserSurface: 'exclude', surfaceSwitching: 'include', systemAudio: 'include', monitorTypeSurfaces: 'include', windowAudio: 'window' } as object),
     });
   } catch (e) {
     throw new CaptureError((e as Error)?.name === 'NotAllowedError' ? 'Partage annulé.' : 'Le partage n’a pas pu démarrer.');
   }
   if (!stream.getAudioTracks().length) {
+    const surface = (stream.getVideoTracks()[0]?.getSettings() as { displaySurface?: string } | undefined)?.displaySurface;
     stream.getTracks().forEach(t => t.stop());
-    throw new CaptureError('Aucun son partagé : choisis l’onglet de ton cours et coche « Partager aussi l’audio de l’onglet ».');
+    throw new CaptureError(noSoundHelp(surface));
   }
   return stream;
+}
+
+const isMac = () => /Mac/.test(navigator.userAgent) && !/iPhone|iPad/.test(navigator.userAgent);
+
+/** The share came without sound: what to choose instead, depending on what was chosen and the computer. */
+export function noSoundHelp(surface: string | undefined, mac = isMac()): string {
+  const tab = 'choisis l’onglet « Onglet Chrome » (ou Edge) de ton cours et laisse cochée « Partager aussi l’audio de l’onglet »';
+  if (surface === 'window')
+    return mac
+      ? `Une fenêtre ne transmet pas son son. Ouvre plutôt ton cours dans un onglet (Teams, Zoom et Meet ont une version web), puis ${tab}.`
+      : `Une fenêtre ne transmet pas son son. Choisis « Écran entier » et coche « Partager aussi l’audio du système » : Kompaly entendra tout l’ordinateur. Ou ${tab}.`;
+  if (surface === 'monitor')
+    return mac
+      ? `Sur Mac, Chrome ne partage pas le son de l’écran. Ouvre ton cours dans un onglet (version web de Teams, Zoom, Meet), puis ${tab}.`
+      : 'Coche « Partager aussi l’audio du système » en bas de la fenêtre de partage, puis réessaie.';
+  return `Aucun son partagé : ${tab}.`;
 }
 
 /**
