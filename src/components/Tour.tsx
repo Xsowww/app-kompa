@@ -4,7 +4,7 @@ import { useSettings } from '../store/settings';
 import { useCopilot } from '../store/copilot';
 import { trapTab, focusBeforeOverlay, focusables } from '../lib/a11y';
 import { useTour, endTour, TOUR_TODO_START } from '../store/tour';
-import type { Usage } from '../lib/usage';
+import { usageWords, type Usage } from '../lib/usage';
 
 interface Step {
   /** Element pointed at (the first visible match); none = a card in the middle of the screen. */
@@ -52,9 +52,19 @@ const STEPS: Step[] = [
     text: (_, touch) => `${touch ? 'Ajoute tes fichiers avec le bouton d’import.' : 'Glisse tes fichiers dans la page.'} La recherche fouille même le texte de tes PDF.`,
   },
   {
+    // Phones: not in the tab bar (reached from the home page), the card is then in the middle.
+    target: nav('/enregistrer'),
+    title: 'Enregistrer',
+    text: (u, touch) => {
+      const w = usageWords(u).recording;
+      const how = touch ? `Avec le bouton «\u00a0Enregistrer\u00a0» de l’accueil, enregistre ${w.a}` : `Enregistre ${w.a} au micro ou avec le son de l’ordinateur`;
+      return `${how}\u00a0: Kompaly écrit tout, te prévient des mots-clés et range ${w.doc} dans ton Drive.`;
+    },
+  },
+  {
     target: nav('/groupes'),
     title: 'Le travail à plusieurs',
-    text: u => `Crée ${u === 'travail' ? 'une équipe' : 'un groupe'}, partage le code, et vous partagez notes et fichiers.`,
+    text: u => `Crée ${u === 'travail' ? 'une équipe' : 'un groupe'} ou un agenda partagé, partage le code, et vous partagez notes, fichiers et rendez-vous.`,
   },
   {
     target: 'input[aria-label^="Rechercher dans tes fichiers"], button[aria-label="Rechercher"]',

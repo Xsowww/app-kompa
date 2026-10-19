@@ -34,7 +34,7 @@ const TITLES: Record<string, string> = {
   '/calendrier': 'Calendrier',
   '/notes': 'Notes',
   '/taches': 'Tâches',
-  '/enregistrer': 'Enregistrer un cours',
+  '/enregistrer': 'Enregistrer',
   '/groupes': 'Groupes',
   '/agendas': 'Agendas partagés',
   '/corbeille': 'Corbeille',

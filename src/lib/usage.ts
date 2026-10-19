@@ -28,6 +28,8 @@ export const WORDS: Record<Usage, {
   subject: string;
   /** Shared files of a group (empty list) and an example of a Drive tag. */
   sharedFiles: string; tagExample: string;
+  /** « Enregistrer » (/enregistrer): what is recorded, and the documents the AI writes from it (see server/cours.mjs › SYSTEMS). */
+  recording: { a: string; what: string; doc: string; sheet: string; exam: string };
 }> = {
   etudes: {
     nextBig: 'Prochain examen', noBig: 'Aucun examen à venir.', plan: 'Planifier les révisions', planned: 'Révisions planifiées',
@@ -41,6 +43,7 @@ export const WORDS: Record<Usage, {
     pastOne: 'examen passé', pastMany: 'examens passés', upcoming: 'Tes prochains examens', bigOne: 'examen', bigMany: 'examens',
     none: 'aucun', it: 'le', subject: 'matière',
     sharedFiles: 'Cours, sujets, corrigés…', tagExample: 'Partiels',
+    recording: { a: 'un cours', what: 'cours', doc: 'le cours rédigé', sheet: 'la fiche de révision', exam: 'l’examen d’entraînement' },
   },
   travail: {
     nextBig: 'Prochaine échéance', noBig: 'Aucune échéance à venir.', plan: 'Bloquer du temps pour préparer', planned: 'Préparation planifiée',
@@ -54,6 +57,7 @@ export const WORDS: Record<Usage, {
     pastOne: 'échéance passée', pastMany: 'échéances passées', upcoming: 'Tes prochaines échéances', bigOne: 'échéance', bigMany: 'échéances',
     none: 'aucune', it: 'la', subject: 'sujet',
     sharedFiles: 'Devis, présentations, comptes rendus…', tagExample: 'Clients',
+    recording: { a: 'une réunion', what: 'réunion', doc: 'le compte rendu', sheet: 'le résumé', exam: 'les questions de compréhension' },
   },
   perso: {
     nextBig: 'Prochain grand jour', noBig: 'Rien d’important à venir.', plan: 'Bloquer du temps pour préparer', planned: 'Préparation planifiée',
@@ -67,6 +71,7 @@ export const WORDS: Record<Usage, {
     pastOne: 'grand jour passé', pastMany: 'grands jours passés', upcoming: 'Tes prochains grands jours', bigOne: 'grand jour', bigMany: 'grands jours',
     none: 'aucun', it: 'le', subject: 'sujet',
     sharedFiles: 'Photos, papiers, billets…', tagExample: 'Papiers',
+    recording: { a: 'une conférence, un podcast ou une vidéo', what: 'enregistrement', doc: 'le texte rédigé', sheet: 'le résumé', exam: 'le quiz' },
   },
 };
 

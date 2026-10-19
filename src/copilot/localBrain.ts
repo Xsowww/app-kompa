@@ -295,19 +295,54 @@ const EXAMPLES: Record<Usage, string[]> = {
   etudes: [
     '« Trouve le dossier Maths »', '« Analyse mon calendrier »', '« Crée une note Révisions histoire : chapitre 3 »', '« Ajoute Exam de physique vendredi 10h »',
     '« Ajoute la tâche acheter une calculatrice demain »', '« Interroge-moi sur Histoire »', '« Lance une session focus sur les maths »',
-    '« Renomme TD1 en TD1 corrigé », « Mets Brouillon à la corbeille »', '« Mode sombre », « Qu’est-ce que j’ai demain ? »',
+    '« Renomme TD1 en TD1 corrigé », « Mets Brouillon à la corbeille »', '« Mode sombre », « Qu’est-ce que j’ai demain ? »', '« Comment enregistrer un cours ? »',
   ],
   travail: [
     '« Trouve le dossier Clients »', '« Analyse mon calendrier »', '« Crée une note Compte rendu : points clés »', '« Ajoute Réunion client vendredi 10h »',
     '« Ajoute la tâche envoyer le devis demain »', '« Interroge-moi sur Procédure »', '« Lance une session focus sur le rapport »',
-    '« Renomme Devis v1 en Devis final », « Mets Brouillon à la corbeille »', '« Mode sombre », « Qu’est-ce que j’ai demain ? »',
+    '« Renomme Devis v1 en Devis final », « Mets Brouillon à la corbeille »', '« Mode sombre », « Qu’est-ce que j’ai demain ? »', '« Comment enregistrer une réunion ? »',
   ],
   perso: [
     '« Trouve le dossier Papiers »', '« Analyse mon calendrier »', '« Crée une note Courses : pain, lait »', '« Ajoute Dentiste vendredi 10h »',
     '« Ajoute la tâche appeler la banque demain »', '« Interroge-moi sur Espagnol »', '« Lance une session focus sur le rangement »',
-    '« Renomme Vacances en Vacances 2026 », « Mets Brouillon à la corbeille »', '« Mode sombre », « Qu’est-ce que j’ai demain ? »',
+    '« Renomme Vacances en Vacances 2026 », « Mets Brouillon à la corbeille »', '« Mode sombre », « Qu’est-ce que j’ai demain ? »', '« Comment enregistrer une conférence ? »',
   ],
 };
+
+/** « le résumé » → « un résumé », « les questions… » → « des questions… ». */
+const indefinite = (s: string) => s.replace(/^les /, 'des ').replace(/^la /, 'une ').replace(/^(?:le |l’)/, 'un ');
+
+/** « Comment enregistrer mon cours ? »: the page « Enregistrer » does it, Kompaly explains how. */
+function recordingHelp(): BotReply {
+  const w = words().recording;
+  return {
+    text: [
+      `Ouvre la page **Enregistrer**, donne un nom, puis choisis « Micro » (dans la salle) ou « Son de l’ordinateur » (une visio, une vidéo : avec Chrome ou Edge sur ordinateur) et « Démarrer ».`,
+      '- Le texte s’écrit en direct. Ajoute des mots-clés avec la cloche : je te préviens quand ils sont prononcés, même sur ton téléphone si tu l’actives.',
+      '- « Moment important » (ou la touche M) marque ce qui vient d’être dit.',
+      `- Avec « Terminer », je range ${w.doc} dans le dossier du Drive choisi, avec ${w.sheet} et ${w.exam} si tu les as cochés.`,
+      'Pense à demander l’accord des personnes que tu enregistres.',
+    ].join('\n'),
+    links: [{ label: 'Enregistrer', to: '/enregistrer' }],
+  };
+}
+
+/** « Fais-moi une fiche de révision de ce document »: the Drive's right-click menu makes it, next to the file. */
+function sheetFromDocument(input: string, q: string): BotReply {
+  const exam = /(examen|quiz|questions)/.test(q) && !/fiche/.test(q);
+  const label = exam ? 'Faire un examen d’entraînement' : 'Faire une fiche de révision';
+  const w = words().recording;
+  const made = (getSettings().usage ?? 'etudes') === 'etudes' ? '' : ` (pour toi, j’en fais ${indefinite(exam ? w.exam : w.sheet)})`;
+  // « … du fichier Chapitre 3 », « … de Chapitre 3.pdf »: the file named, when the Drive has it (and the menu offers it).
+  const named = /(?:document|fichier|pdf|word)\s+(?!(?:du|de|dans)\b)(.+?)\s*[?.!]*$/i.exec(input)?.[1] ?? input.split(/\s(?:de|du|sur|d['’])\s*/i).at(-1)?.replace(/[\s?.!]+$/, '');
+  const file = named ? search(unquote(named)).find(h => h.type === 'fichier' && /\.(docx|pdf|txt|md)$/i.test(h.title)) : undefined;
+  return {
+    text:
+      `Dans le Drive, fais un clic droit sur ${file ? `« ${file.title} »` : 'le document (Word, PDF ou texte)'}, puis « ${label} »${made}. ` +
+      `Sur téléphone : sélectionne-le, puis « Plus d’actions ». Je range le nouveau document à côté. (Avec l’IA, je peux aussi le lire et t’écrire ${exam ? 'les questions' : 'la fiche'} dans une note.)`,
+    links: [file ? { label: file.title, to: file.to } : { label: 'Drive', to: '/drive' }],
+  };
+}
 
 const describeDue = (key: string) => {
   const d = daysUntil(key);
@@ -339,6 +374,15 @@ export function localReply(raw: string): BotReply {
   }
   if (offer && /^(non|nan|pas maintenant|plus tard|laisse|nope|non merci)\b/.test(q)) {
     return { text: pick(['Ok, je n’insiste pas. Je reste dans le coin.', 'Pas de souci, on verra plus tard.']) };
+  }
+
+  // ── Recording (page « Enregistrer ») and sheets made from a Drive document ──
+  // Not « rappelle-moi d'enregistrer… » nor « ajoute Enregistrement du podcast mardi » (a reminder, an event).
+  if (/(enregistr|transcri)/.test(q) && !/\b(note|tache|evenement|rdv|rendez-vous|fichier|dossier|document|reglages?|mot de passe)\b|rappel|penser|^(ajoute|planifie|programme|mets?)\b/.test(q)) {
+    return recordingHelp();
+  }
+  if (/(fiche|examen|quiz)/.test(q) && /(fai[st]|faire|cree|creer|prepar|genere|ecri|tire|transforme|comment)/.test(q) && /\b(document|fichier|pdf|word|docx|drive)\b|\.(pdf|docx|txt|md)\b/.test(q)) {
+    return sheetFromDocument(input, q);
   }
 
   // ── Plan revisions ────────────────────────────────────────────────────────
@@ -405,7 +449,7 @@ export function localReply(raw: string): BotReply {
   }
 
   // ── Revision sheet: « crée une fiche de révision de maths dans le dossier Cours » ──
-  let m = input.match(/(?:cr[ée]e|cr[ée]er|fais|faire|pr[ée]pare|[ée]cris)\s+(?:moi\s+)?(?:une\s+)?(?:petite\s+)?fiche(?:\s+de\s+r[ée]vision)?(?:\s+(?:(?:de|d['’]|en|sur|pour)\s*)?(.+?))?(?:\s+dans\s+(?:le\s+dossier\s+)?(.+?))?(?:\s+dans\s+(?:les\s+|mes\s+)?notes)?\s*[.!?]*$/i);
+  let m = input.match(/(?:cr[ée]e|cr[ée]er|fais|faire|pr[ée]pare|[ée]cris)(?:[\s-]+moi)?\s+(?:une\s+)?(?:petite\s+)?fiche(?:\s+de\s+r[ée]vision)?(?:\s+(?:(?:de|d['’]|en|sur|pour)\s*)?(.+?))?(?:\s+dans\s+(?:le\s+dossier\s+)?(.+?))?(?:\s+dans\s+(?:les\s+|mes\s+)?notes)?\s*[.!?]*$/i);
   if (m) {
     const subject = m[1] ? unquote(m[1]) : '';
     const folder = m[2] && !/^(?:les |mes )?notes$/i.test(m[2]) ? unquote(m[2]) : undefined;
@@ -560,6 +604,7 @@ export function localReply(raw: string): BotReply {
 
   // ── Navigation ────────────────────────────────────────────────────────────
   if (/(ouvre|va|aller|emmene|montre).*(drive|fichiers)/.test(q)) return { text: 'On y va.', links: [{ label: 'Drive', to: '/drive' }] };
+  if (/(ouvre|va|aller|emmene|montre).*agendas? partages?/.test(q)) return { text: 'Tes agendas partagés, c’est par ici.', links: [{ label: 'Agendas partagés', to: '/agendas' }] };
   if (/(ouvre|va|aller|emmene|montre).*(calendrier|agenda|planning)/.test(q)) return { text: 'Direction le calendrier.', links: [{ label: 'Calendrier', to: '/calendrier' }] };
   if (/(ouvre|va|aller|emmene|montre).*notes/.test(q)) return { text: 'Tes notes t’attendent.', links: [{ label: 'Notes', to: '/notes' }] };
   if (/(ouvre|va|aller|emmene|montre).*(taches|todo|to-do|a faire|progression|temps de travail)/.test(q)) return { text: 'Voilà ta liste.', links: [{ label: 'Tâches', to: '/taches' }] };

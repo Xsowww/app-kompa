@@ -16,6 +16,7 @@ const NEEDS = (usage: Usage) => [
   { key: 'notes', label: 'Prendre et ranger mes notes' },
   { key: 'taches', label: 'Suivre mes tâches' },
   { key: 'equipe', label: usage === 'travail' ? 'Travailler en équipe' : 'Travailler à plusieurs' },
+  { key: 'enregistrer', label: usage === 'travail' ? 'Enregistrer mes réunions (compte rendu)' : usage === 'perso' ? 'Enregistrer et résumer (conférence, vidéo…)' : 'Enregistrer mes cours (texte et fiche)' },
   { key: 'ia', label: 'Me faire aider par une IA' },
 ];
 

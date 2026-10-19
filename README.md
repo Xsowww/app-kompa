@@ -1,6 +1,6 @@
 # Kompaly
 
-L’espace de travail des étudiants : **Drive**, **Calendrier**, **Notes** et tâches réunis dans une seule appli, avec Kompaly, un petit compagnon IA qui se cache sur le bord de l'écran et aide l'étudiant à s'organiser.
+L’espace de travail pour les études, le travail ou la vie perso (l'usage se choisit au questionnaire de bienvenue et change les mots de l'appli) : **Drive**, **Calendrier**, **Notes**, tâches et **Enregistrer** (cours ou réunions écrits et résumés) réunis dans une seule appli, avec Kompaly, un petit compagnon IA qui se cache sur le bord de l'écran et aide à s'organiser.
 
 ## Démarrer
 
@@ -32,7 +32,7 @@ Node 22+ (voir `.nvmrc`). Un devcontainer est fourni pour GitHub Codespaces.
 | **Connexion / inscription** | Comptes multiples sur le même navigateur, mot de passe haché (PBKDF2), chaque compte a ses propres données. Un nouveau compte reçoit quelques éléments de départ. |
 | **Dashboard** | Cinq cartes : aujourd'hui (et ce qui suit), prochain examen (J-x, bouton « Planifier les révisions »), « À faire » (ajout rapide de tâches), cette semaine (charge par jour), notes récentes. |
 | **Drive** | Importer des fichiers ou un dossier entier (bouton ou glisser-déposer depuis l'ordinateur), créer, renommer (F2), supprimer, copier / couper / coller (Ctrl+C / X / V), dupliquer (Ctrl+D), déplacer par glisser-déposer ou via « Déplacer vers… », Alt+glisser pour copier, sélection multiple (Ctrl / Maj + clic, Ctrl+A), clic droit, favoris, récents, vue grille ou liste avec tri, aperçu (images, PDF, vidéo, audio, texte, Word, PowerPoint) et téléchargement, suppression vers la corbeille (« Annuler » juste après), couleurs de dossiers, étiquettes avec filtre, **recherche dans le contenu** des PDF / Word / textes, partage d'un fichier par lien temporaire (version en ligne). |
-| **Calendrier** | Ajout en langage naturel (« Exam de maths vendredi 14h », « Sport demain 18h-19h »), catégorie devinée automatiquement (cours, examen, devoir, perso, sport), bande de la semaine et vue mois, agenda du jour avec cases « c'est fait », examens à venir avec J-x, devoirs à rendre, filtres par catégorie, vue **Jour** heure par heure, déplacer un événement en le glissant (jour ou heure), **import d'emploi du temps .ics** (ENT, Google Agenda ; cours répétés compris, sans doublon en cas de réimport), notes liées à un événement. |
+| **Calendrier** | Ajout en langage naturel (« Exam de maths vendredi 14h », « Sport demain 18h-19h »), catégorie devinée automatiquement (cours, examen, devoir, perso, sport), bande de la semaine et vue mois, agenda du jour avec cases « c'est fait », examens à venir avec J-x, devoirs à rendre, filtres par catégorie, vue **Jour** heure par heure, déplacer un événement en le glissant (jour ou heure), **import d'emploi du temps .ics** (ENT, Google Agenda ; cours répétés compris, sans doublon en cas de réimport), notes liées à un événement, **périodes** (vacances, stage, en entreprise…) en un ou plusieurs morceaux, double-clic sur un événement pour le modifier. Chaque suppression demande une confirmation. |
 | **Notes** | Dossiers et sous-dossiers, créer / renommer / dupliquer / épingler / supprimer, glisser une note ou un dossier dans un autre dossier, recherche, éditeur riche (titres, gras, surlignage, listes, cases à cocher, citations, code, liens, images), sauvegarde automatique, suppression vers la corbeille, **modèles** (fiche de révision, compte-rendu de TP, plan de dissertation, cours magistral, exposé), lier une note à des fichiers et événements, export PDF et Markdown. |
 | **Corbeille** | Une seule corbeille pour tout le site, toujours à portée (bas de la barre latérale, icône en haut sur mobile) : notes, dossiers de notes, fichiers et dossiers du Drive, événements du calendrier. Aperçu en lecture seule, restaurer (à la racine si le dossier d'origine n'existe plus), supprimer définitivement, filtres par espace, sélection multiple, vider. Tout est effacé après 30 jours. |
 | **Profil et réglages** | En cliquant sur le profil en bas à gauche. Photo ou couleur d'avatar, établissement/filière/année (connus de Kompaly), statistiques (série de jours, tâches, examens, sessions focus, notes, fichiers), thème clair / sombre / automatique, couleur d'accent (6 choix, jusqu'au casque de Kompaly), réduire les animations, réglages de Kompaly (affichage, initiatives, rappels, bavardage, séances de révision), sessions focus (Pomodoro), raccourcis clavier, notifications du navigateur, export/import de sauvegarde, export du calendrier en .ics, stockage utilisé, changement de mot de passe, double authentification (associer un autre téléphone), déconnexion, suppression du compte. |
@@ -40,7 +40,8 @@ Node 22+ (voir `.nvmrc`). Un devcontainer est fourni pour GitHub Codespaces.
 | **Administration** | `/admin`, visible uniquement pour les comptes listés dans la table `admins` (et connectés avec leur code) : comptes, actifs, 2FA, stockage, notes, événements, fichiers, activité et inscriptions des 30 derniers jours, répartition du calendrier, liste des comptes avec recherche. Mise à jour en direct toutes les 20 s. Seulement des chiffres, jamais le contenu. Ajouter un admin : voir la fin de `supabase/schema.sql`. |
 | **Session focus** | Minuteur Pomodoro en bas de la barre latérale : on choisit la matière, travail puis pause, son de fin, notification, Kompaly te félicite. |
 | **Tâches** | `/taches` (ancien `/progression`, redirigé) : liste de tâches indépendante du calendrier (en retard, aujourd'hui, à venir, sans échéance) et temps de travail de la semaine par matière, graphiques détaillés et vue tableau derrière « Voir le détail ». Les 18 badges sont dans Profil › Profil ; leur annonce par Kompaly est désactivée par défaut. |
-| **Groupes** | `/groupes` (version en ligne) : créer un groupe ou le rejoindre avec un code à 6 caractères, notes partagées modifiables par tous (mises à jour en direct, sans écraser le travail d'un autre), révisions en commun avec « Je viens » et ajout à son calendrier, membres (prénoms uniquement). |
+| **Enregistrer** | `/enregistrer` (version en ligne ; sur téléphone, depuis l'accueil) : enregistre un cours, une réunion ou une conférence, au **micro** ou avec le **son de l'ordinateur** (Chrome / Edge sur ordinateur : onglet ou écran entier avec le son). Texte écrit en direct (Whisper via Groq, par morceaux d'environ 20 s ; le son n'est jamais gardé), **mots-clés** surlignés qui envoient une notification (aussi sur le téléphone), bouton « Moment important » (touche M), pastille « REC » sur toutes les pages. À la fin, l'IA rédige le cours (ou le compte rendu pour le travail) et, au choix, la fiche de révision (résumé) et l'examen d'entraînement (questions, quiz), rangés en Word dans le dossier du Drive choisi ; ceux non cochés se font plus tard depuis la liste. Dans le Drive, clic droit sur un Word, PDF ou texte › « Faire une fiche de révision » / « Faire un examen d'entraînement ». Réglages : voir « Enregistrer : transcription » plus bas. |
+| **Groupes** | `/groupes` (version en ligne) : créer un groupe ou le rejoindre avec un code à 6 caractères, notes partagées modifiables par tous (mises à jour en direct, sans écraser le travail d'un autre), révisions en commun avec « Je viens » et ajout à son calendrier, membres (prénoms uniquement). **Agendas partagés** (`/agendas`) : un calendrier commun séparé du sien, chacun y ajoute événements et périodes, « Pour qui » (tout le monde ou certains membres), notification aux autres, import des périodes d'un autre agenda. |
 | **Kompaly** | Personnage accroché au bord droit de l'écran, présent sur toutes les pages. Clic pour lui parler, glisser pour le déplacer le long du bord. Voir plus bas. |
 
 Recherche globale dans la barre du haut (Ctrl+K) : fichiers, dossiers, notes et événements.
@@ -98,6 +99,19 @@ AI_API_KEY=ta-cle-google-ai-studio
 # AI_MODEL=gemini-2.5-flash   (facultatif)
 ```
 
+### Enregistrer : transcription
+
+La page « Enregistrer » envoie le son à un service de reconnaissance vocale (`server/cours.mjs`, API `/api/cours/*`), puis fait rédiger le texte par l'IA ci-dessus. Avec `AI_PROVIDER=groq`, rien à ajouter : la même clé sert à Whisper (`whisper-large-v3-turbo`). Sinon (détails dans `.env.example`) :
+
+| Variable | Rôle |
+| --- | --- |
+| `TRANSCRIBE_API_KEY` | clé Groq ([console.groq.com](https://console.groq.com/keys)) ou d'un service compatible OpenAI `/audio/transcriptions` |
+| `TRANSCRIBE_BASE_URL`, `TRANSCRIBE_MODEL` | autre service ou autre modèle (facultatif) |
+| `TRANSCRIBE_DAILY_MINUTES` | minutes de son par compte et par jour (240 par défaut) |
+| `TRANSCRIBE_SITE_MINUTES` | minutes pour tout le site par jour (450 par défaut avec Groq gratuit, qui en accepte environ 8 h) |
+
+Sans clé, la page s'ouvre mais affiche « La transcription est indisponible pour le moment ».
+
 Puis relance `npm run dev`. L'onglet Profil › Kompaly affiche le fournisseur utilisé (aussi au survol de « Dans le coin » dans la conversation). Une ancienne configuration avec seulement `ANTHROPIC_API_KEY` continue de marcher.
 
 Comment ça marche : la personnalité et les outils sont définis côté serveur (`server/copilotPrompt.mjs`). Claude passe par le SDK Anthropic ; les autres fournisseurs parlent le format « chat completions » d'OpenAI, et `server/aiProviders.mjs` convertit la conversation et les outils dans ce format puis la réponse dans le format Anthropic, si bien que le navigateur (`src/copilot/claudeBrain.ts`) ne voit aucune différence. Les erreurs sont harmonisées (clé invalide, quota atteint, panne, délai dépassé). La clé n'est jamais envoyée au navigateur.
@@ -129,18 +143,19 @@ src/
   App.tsx                 routes (connexion, inscription, espace protégé)
   layout/AppShell.tsx     barre latérale, recherche globale, navigation mobile, Kompaly
   pages/                  Dashboard, drive/, calendar/, notes/, tasks/, groups/, trash/,
-                          profile/, admin/, AuthPage, MfaPage
+                          record/ (Enregistrer, pastille REC), profile/, admin/, AuthPage, MfaPage
   copilot/                Character (personnage SVG), Kompaly (conversation), actions,
                           offers (boutons d'action), proactive (initiatives),
                           localBrain (mode simple), claudeBrain (mode IA, via le serveur),
                           Markdown (mise en forme sûre), voice (micro, lecture), quiz, fileText
 server/
   copilot.mjs             API /api/copilot : authentification, limite, appel à l'IA
-  copilotPrompt.mjs       personnalité, styles, outils
+  copilotPrompt.mjs       personnalité, styles, outils, pages de l'appli
+  cours.mjs               API /api/cours : transcription du son, rédaction du cours, fiche, examen, alertes
   aiProviders.mjs         choix du fournisseur, adaptateur format OpenAI ↔ Anthropic
   index.mjs               serveur de production (dist/ compressé, en-têtes de sécurité, API)
 src/store/                état Zustand : auth, session, drive, calendar, notes, todos, groups,
-                          groupActivity (pastilles), copilot, settings, ui
+                          groupActivity (pastilles), copilot, settings, ui, recorder (enregistrement)
 src/lib/                  cloudSync (synchro Supabase), blobStore (fichiers), groups, ics,
                           dates (langage naturel), textIndex et docText (texte des PDF/Word),
                           trash, backup, badges, utilitaires

@@ -19,7 +19,8 @@ import { useDictation } from './voice';
 const brain = async () => claudeBrain;
 
 // Studies revise; work and personal life block time to prepare (localBrain understands both).
-const suggestions = (studying: boolean) => ['Analyse ma semaine', studying ? 'Planifie mes révisions' : 'Bloque du temps pour préparer'];
+const RECORD_QUESTION = { etudes: 'Comment enregistrer un cours ?', travail: 'Comment enregistrer une réunion ?', perso: 'Comment enregistrer une conférence ?' } as const;
+const suggestions = (usage: keyof typeof RECORD_QUESTION) => ['Analyse ma semaine', usage === 'etudes' ? 'Planifie mes révisions' : 'Bloque du temps pour préparer', RECORD_QUESTION[usage]];
 const YES = /^(oui|ouais|ok|okay|vas[- ]y|go|carrement|d'accord|dac|yes|avec plaisir|je veux bien|volontiers)\b/;
 
 function Extras({ links, offers, onGo, onOffer, disabled }: { links?: CopilotLink[]; offers?: CopilotOffer[]; onGo: (to: string) => void; onOffer: (o: CopilotOffer) => void; disabled?: boolean }) {
@@ -82,7 +83,8 @@ export default function Copilot() {
   const [pausedUntil, setPausedUntil] = useState(0);
   const [now, setNow] = useState(() => Date.now());
   const { push, setPose, clearBubble, setThinking, setOffsetY, clearHistory, greet } = useCopilot.getState();
-  const studying = useSettings(s => s.usage ?? 'etudes') === 'etudes';
+  const usage = useSettings(s => s.usage ?? 'etudes');
+  const studying = usage === 'etudes';
   const hello = () =>
     greet(`Salut ${user?.name ?? ''} ! Moi c’est Kompaly. Je peux retrouver tes fichiers, ${studying ? 'organiser tes révisions' : 'organiser ton agenda'}, créer des notes… ou juste discuter. Dis-moi.`);
 
@@ -382,7 +384,7 @@ export default function Copilot() {
 
           {messages.length <= 2 && (
             <div className="flex flex-wrap gap-1.5 px-3.5 pb-2.5">
-              {suggestions(studying).map(s => (
+              {suggestions(usage).map(s => (
                 <button key={s} onClick={() => void send(s)} tabIndex={isOpen ? 0 : -1} className="h-7 rounded-full border border-stone-200 px-2.5 text-[12px] text-stone-600 transition-colors hover:bg-stone-50 hover:text-ink pointer-coarse:h-9">
                   {s}
                 </button>

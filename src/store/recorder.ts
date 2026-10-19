@@ -9,7 +9,8 @@ import { persist } from 'zustand/middleware';
 import { blobKey, getStorageUser, userStorage } from '../lib/userStorage';
 import { blobStore } from '../lib/blobStore';
 import { uid } from '../lib/utils';
-import { useSettings } from './settings';
+import { getSettings, useSettings } from './settings';
+import { recWords } from '../pages/record/words';
 import { useDrive, type DriveItem } from './drive';
 import { toast } from './ui';
 import { chime, notify } from '../lib/notify';
@@ -127,6 +128,8 @@ export const useRecLive = create<LiveState>()(() => ({
 const patch = (fn: (s: Session) => Partial<Session>) =>
   useRecorder.setState(st => (st.session ? { session: { ...st.session, ...fn(st.session) } } : {}));
 const session = () => useRecorder.getState().session;
+/** The words of the account's usage: a class, a meeting, anything else (« Le cours » / « Le compte rendu »…). */
+const words = () => recWords(getSettings().usage);
 const live = (p: Partial<LiveState>) => useRecLive.setState(p);
 
 // ── Running engine (one per tab) ────────────────────────────────────────────
@@ -519,7 +522,7 @@ export interface StartOptions {
 /** Starts a recording. Throws a CaptureError with a sentence for the student when the sound can't be heard. */
 export async function startRecording(o: StartOptions) {
   if (session() && session()!.phase !== 'done') throw new CaptureError('Un enregistrement est déjà en cours.');
-  const title = o.title.trim() || 'Cours';
+  const title = o.title.trim() || words().fallback;
   const s: Session = {
     id: uid(),
     title,
@@ -590,7 +593,7 @@ export async function finishRecording() {
 export async function completeDocuments() {
   if (session()?.phase !== 'finishing') return;
   try {
-    live({ step: 'Rédaction du cours…', progress: [session()!.parts.length, session()!.parts.length + 1] });
+    live({ step: `Rédaction ${words().ofDoc}…`, progress: [session()!.parts.length, session()!.parts.length + 1] });
     await writeParts(true);
     await saveDocuments();
   } catch (e) {
@@ -631,7 +634,7 @@ async function saveDocuments() {
   const failed: Make[] = [];
   for (const kind of ['fiche', 'examen'] as Make[]) {
     if (!s.make[kind] || session()!.files[kind]) continue;
-    live({ step: kind === 'fiche' ? 'Fiche de révision…' : 'Examen…', progress: null });
+    live({ step: `${words().long[kind]}…`, progress: null });
     try {
       const id = await makeDoc(kind, s.title, info, name, folderId);
       patch(x => ({ files: { ...x.files, [kind]: id } }));
@@ -647,8 +650,8 @@ async function saveDocuments() {
   }));
   patch(() => ({ phase: 'done', ...(failed.length && { failed }) }));
   live({ step: null, progress: null });
-  notify('Ton cours est prêt', `« ${done.title} » est rangé dans ton Drive.`);
-  if (failed.length) toast(`${failed.map(f => (f === 'fiche' ? 'La fiche de révision' : 'L’examen')).join(' et ')} n’a pas pu être fait : réessaie depuis la liste des cours.`, 'error');
+  notify(`${words().docDone} est prêt`, `« ${done.title} » est rangé dans ton Drive.`);
+  if (failed.length) toast(`Pas pu créer : ${failed.map(f => words().long[f].toLowerCase()).join(' et ')}. Réessaie depuis la liste en bas de la page.`, 'error');
 }
 
 /** The essentials of the class: the AI's points per part (or, when it couldn't write the parts, asked now). */
@@ -678,7 +681,7 @@ async function makeDoc(kind: Make, title: string, info: Pick<Past, 'points' | 'p
   if (!info.points.length) throw new Error('Pas assez de contenu pour faire ce document.');
   const md = await withRetry(() => writeDoc(kind, { title, ...info }), { onWait: w => live({ waiting: w }) });
   live({ waiting: null });
-  const label = kind === 'fiche' ? 'Fiche de révision' : 'Examen';
+  const label = words().long[kind];
   return (await upload(`${name} – ${label}`, md, `${label} : ${title}`, folderId)).id;
 }
 
@@ -693,7 +696,7 @@ export async function makeLater(pastId: string, kind: Make) {
     useRecorder.setState(st => ({ history: st.history.map(h => (h.id === pastId ? { ...h, files: { ...h.files, [kind]: id } } : h)) }));
     const s = session();
     if (s?.id === pastId) patch(x => ({ files: { ...x.files, [kind]: id }, failed: x.failed?.filter(f => f !== kind) }));
-    toast(kind === 'fiche' ? 'Fiche de révision rangée dans le Drive' : 'Examen rangé dans le Drive', 'success', { label: 'Ouvrir', run: () => openInDrive(id) });
+    toast(`« ${words().long[kind]} » est dans ton Drive`, 'success', { label: 'Ouvrir', run: () => openInDrive(id) });
   } catch (e) {
     toast(errorText(e), 'error');
   } finally {
@@ -725,7 +728,7 @@ export function errorText(e: unknown): string {
 export async function makeFromFile(item: DriveItem, kind: Make) {
   if (useRecLive.getState().making) return toast('Un document est déjà en cours de création.', 'info');
   live({ making: { id: item.id, kind } });
-  toast(kind === 'fiche' ? 'Kompaly prépare la fiche de révision…' : 'Kompaly prépare l’examen…', 'info');
+  toast(`Kompaly prépare : ${words().long[kind].toLowerCase()}…`, 'info');
   try {
     const blob = await blobStore.get(blobKey(item.id));
     if (!blob) throw new Error('Le fichier n’a pas pu être lu.');
@@ -735,7 +738,7 @@ export async function makeFromFile(item: DriveItem, kind: Make) {
     const found = essentialsOf(text);
     const points = found?.points ?? (await pointsFromText(title, text));
     const id = await makeDoc(kind, title, { points, parts: [], moments: found?.moments ?? [] }, item.name.replace(/\.[^.]+$/, ''), item.parentId);
-    toast(kind === 'fiche' ? 'Fiche de révision rangée à côté du document' : 'Examen rangé à côté du document', 'success', { label: 'Ouvrir', run: () => openInDrive(id) });
+    toast(`« ${words().long[kind]} » est rangé à côté du document`, 'success', { label: 'Ouvrir', run: () => openInDrive(id) });
   } catch (e) {
     toast(errorText(e), 'error');
   } finally {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Bot, CalendarDays, CornerDownLeft, Download, Flag, FolderClosed, ListChecks, Lock, NotebookText, Server, ShieldCheck, Users } from 'lucide-react';
+import { Bot, CalendarDays, CornerDownLeft, Download, Flag, FolderClosed, ListChecks, Lock, Mic, NotebookText, Server, ShieldCheck, Users } from 'lucide-react';
 import Logo from '../components/Logo';
 import FileIcon from '../components/FileIcon';
 import Character from '../copilot/Character';
@@ -123,18 +123,27 @@ function HeroDemo() {
 }
 
 const FEATURES = [
-  { icon: CalendarDays, title: 'Calendrier', text: 'Écris « Dentiste mardi 17h30 » : l’événement se range tout seul. Marque ce qui est important, filtre par catégorie, importe ton agenda existant (.ics).' },
+  { icon: CalendarDays, title: 'Calendrier', text: 'Écris « Dentiste mardi 17h30 » : l’événement se range tout seul. Marque ce qui est important, ajoute des périodes (vacances, stage, mission), importe ton agenda existant (.ics).' },
   { icon: ListChecks, title: 'Tâches', text: 'La liste du jour, des sessions de concentration chronométrées et des badges pour garder le rythme.' },
   { icon: NotebookText, title: 'Notes', text: 'Des notes rangées en dossiers, des modèles prêts à remplir, l’export en PDF.' },
-  { icon: FolderClosed, title: 'Drive', text: 'Tes fichiers au même endroit, une recherche qui lit jusque dans les PDF, un lien pour partager.' },
-  { icon: Users, title: 'Groupes', text: 'Notes, fichiers et rendez-vous partagés avec un simple code d’invitation. Chacun indique s’il vient.' },
+  { icon: FolderClosed, title: 'Drive', text: 'Tes fichiers au même endroit, une recherche qui lit jusque dans les PDF, un lien pour partager. Un clic droit sur un document, et Kompaly en fait une fiche.' },
+  { icon: Users, title: 'Groupes et agendas partagés', text: 'Notes, fichiers et rendez-vous partagés avec un simple code d’invitation. Un agenda commun pour l’équipe, la coloc ou la famille, avec des événements pour tous ou pour certains.' },
   { icon: Bot, title: 'Kompaly', text: 'Demande-lui d’ajouter un rendez-vous, de retrouver un fichier ou de préparer un planning. Il te prévient avant les grands jours.' },
+  {
+    icon: Mic,
+    title: 'Enregistrer',
+    text: 'Enregistre un cours ou une réunion : Kompaly écrit tout en direct, te prévient quand un mot important est prononcé (même sur ton téléphone) et range le cours ou le compte rendu dans ton Drive, avec une fiche de révision ou un résumé.',
+    wide: true,
+  },
 ] as const;
 
-const USAGE_EXAMPLES: Record<Usage, { big: string; days: string; file: string; ext: 'pdf' | 'image' | 'doc' }> = {
-  etudes: { big: 'Partiel de droit', days: 'J-5', file: 'Cours de droit civil — chapitre 3.pdf', ext: 'pdf' },
-  travail: { big: 'Rendu de la maquette', days: 'J-3', file: 'Devis — Rénovation cuisine.pdf', ext: 'pdf' },
-  perso: { big: 'Départ à Biarritz', days: 'J-12', file: 'Billets de train.pdf', ext: 'pdf' },
+/** « le compte rendu » → « Compte rendu ». */
+const docName = (s: string) => s.replace(/^(?:les |le |la |l’)/, '').replace(/^./, c => c.toUpperCase());
+
+const USAGE_EXAMPLES: Record<Usage, { big: string; days: string; file: string; ext: 'pdf' | 'image' | 'doc'; rec: string }> = {
+  etudes: { big: 'Partiel de droit', days: 'J-5', file: 'Cours de droit civil — chapitre 3.pdf', ext: 'pdf', rec: 'Droit civil, amphi B' },
+  travail: { big: 'Rendu de la maquette', days: 'J-3', file: 'Devis — Rénovation cuisine.pdf', ext: 'pdf', rec: 'Point projet du lundi' },
+  perso: { big: 'Départ à Biarritz', days: 'J-12', file: 'Billets de train.pdf', ext: 'pdf', rec: 'Conférence sur le sommeil' },
 };
 
 /** Studies, work or personal life: the same app, its words follow the person (lib/usage). */
@@ -189,6 +198,16 @@ function Usages() {
             </div>
             <p className="mt-auto text-[12px] text-stone-500">{w.sharedFiles}</p>
           </div>
+          <div className="card p-4 sm:col-span-2">
+            <p className="flex items-center gap-1.5 text-[12px] text-stone-500">
+              <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" aria-hidden /> Enregistrer · {ex.rec}
+            </p>
+            <p className="mt-2.5 flex flex-wrap gap-1.5 text-[12.5px]">
+              {[w.recording.doc, w.recording.sheet, w.recording.exam].map(d => (
+                <span key={d} className="rounded-full bg-stone-100 px-2.5 py-1 font-medium text-stone-700">{docName(d)}</span>
+              ))}
+            </p>
+          </div>
         </div>
       </div>
     </section>
@@ -203,10 +222,11 @@ const TRUST = [
 ] as const;
 
 const FAQ = [
-  { q: 'C’est gratuit ?', a: 'Oui. Les limites actuelles : 50 Mo par fichier, 1 Go d’espace, et un nombre de questions par jour à Kompaly en mode intelligent.' },
+  { q: 'C’est gratuit ?', a: 'Oui. Les limites actuelles : 50 Mo par fichier, 1 Go d’espace, un nombre de questions par jour à Kompaly en mode intelligent et quelques heures d’enregistrement par jour.' },
   { q: 'Ça marche sur téléphone ?', a: 'Oui. Ouvre kompaly.com et installe l’appli sur ton écran d’accueil (iPhone : Partager, puis Sur l’écran d’accueil ; Android : Installer l’application). Tout se synchronise entre tes appareils, et l’essentiel marche même hors connexion.' },
   { q: 'Qui peut voir mes notes et mes fichiers ?', a: 'Toi seul. Dans un groupe, les membres voient seulement ce que tu y partages.' },
   { q: 'Que devient ce que je demande à Kompaly ?', a: 'En mode intelligent, ta question est envoyée à notre fournisseur d’IA, qui ne la conserve pas. Le mode simple fonctionne sans rien envoyer.' },
+  { q: 'Le son de mes enregistrements est-il gardé ?', a: 'Non, Kompaly ne garde pas le son : il est envoyé par petits morceaux pour être écrit en texte, puis effacé. Seuls le texte et les documents rangés dans ton Drive restent. Demande l’accord des personnes que tu enregistres.' },
   { q: 'J’ai un compte perso et un compte travail.', a: 'Ajoute les deux sur ton appareil : tu passes de l’un à l’autre en un clic, sans retaper tes identifiants.' },
   { q: 'À partir de quel âge ?', a: 'Dès 15 ans. Avant, il faut l’accord d’un parent.' },
 ] as const;
@@ -263,15 +283,18 @@ export default function LandingPage() {
           <div className="mx-auto grid max-w-[1120px] gap-12 px-5 py-20 md:px-8 lg:grid-cols-[minmax(0,360px)_1fr]">
             <div className="lg:sticky lg:top-24 lg:self-start">
               <h2 id="fonctions-title" className="text-[30px] font-extrabold leading-[1.05] tracking-[-0.035em] md:text-[36px]">
-                Six outils qui se parlent.
+                Sept outils qui se parlent.
               </h2>
               <p className="mt-4 text-[15px] leading-relaxed text-stone-600">Un rendez-vous ajouté dans le calendrier apparaît sur ton accueil, Kompaly le voit, et ton groupe aussi si tu le partages.</p>
             </div>
             <ul className="grid gap-x-10 gap-y-9 sm:grid-cols-2">
               {FEATURES.map(f => (
-                <li key={f.title}>
+                <li key={f.title} className={'wide' in f ? 'sm:col-span-2' : undefined}>
                   <f.icon size={20} strokeWidth={1.8} className="text-brand-600" aria-hidden />
-                  <h3 className="mt-3 text-[16px] font-semibold tracking-[-0.01em]">{f.title}</h3>
+                  <h3 className="mt-3 flex items-center gap-2 text-[16px] font-semibold tracking-[-0.01em]">
+                    {f.title}
+                    {'wide' in f && <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11.5px] font-semibold text-brand-700">Nouveau</span>}
+                  </h3>
                   <p className="mt-1.5 text-[14.5px] leading-relaxed text-stone-600">{f.text}</p>
                 </li>
               ))}

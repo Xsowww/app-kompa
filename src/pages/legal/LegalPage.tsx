@@ -6,7 +6,7 @@ import { LEGAL_LINKS } from './links';
 
 export type LegalDoc = 'mentions' | 'confidentialite' | 'conditions';
 
-const UPDATED = '18 octobre 2026';
+const UPDATED = '19 octobre 2026';
 const CONTACT = 'contact@kompaly.com';
 
 type Section = { title: string; body: string[] };
@@ -52,7 +52,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
         title: 'Données collectées',
         body: [
           'Compte : prénom, adresse e-mail, mot de passe (enregistré sous forme chiffrée, jamais lisible), double authentification.',
-          'Contenus : fichiers du Drive, notes, événements, tâches, sessions de concentration, groupes et ce que tu y partages, réglages (thème, profil d’études facultatif).',
+          'Contenus : fichiers du Drive, notes, événements, tâches, sessions de concentration, groupes et agendas partagés et ce que tu y partages, enregistrements (le texte écrit à partir du son, tes mots-clés et les documents créés), réglages (thème, profil d’études ou de travail facultatif).',
           'Technique : journaux d’erreurs du serveur (page concernée et message d’erreur, sans le contenu de tes documents) pour corriger les bugs.',
           'Messages « Avis ou bug » : ton message, la page ouverte et le type d’appareil (navigateur, système, taille d’écran).',
           'Signalements dans un groupe : la raison choisie, ta précision éventuelle et une copie du contenu signalé (titre et début du texte, ou nom du fichier).',
@@ -76,12 +76,13 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
         ],
       },
       {
-        title: 'Enregistrer un cours',
+        title: 'Enregistrer un cours ou une réunion',
         body: [
-          'Quand tu enregistres un cours, le son (de ton micro ou de l’onglet que tu partages) est découpé en morceaux d’une vingtaine de secondes, envoyés un par un à Groq pour être écrits en texte, puis effacés : ni Kompaly ni Groq ne gardent le son. Les moments où personne ne parle ne sont pas envoyés.',
+          'Quand tu enregistres un cours, une réunion ou autre chose, le son (de ton micro, ou de l’ordinateur quand tu partages un onglet ou ton écran) est découpé en morceaux d’une vingtaine de secondes, envoyés un par un à Groq pour être écrits en texte (avec le titre, tes mots-clés et la fin du passage précédent, pour mieux reconnaître les mots), puis effacés : ni Kompaly ni Groq ne gardent le son. Les moments où personne ne parle ne sont pas envoyés.',
           'Avec le micro, le navigateur peut aussi écrire les mots en direct avec sa propre reconnaissance vocale (celle de Google dans Chrome, d’Apple dans Safari), selon les règles de ce navigateur.',
-          'Le texte est ensuite rédigé en cours, fiche de révision ou examen par le fournisseur d’IA indiqué plus haut, et les documents sont rangés dans ton Drive. Pendant l’enregistrement, la transcription est gardée sur ton appareil pour ne rien perdre si la page se ferme.',
-          'Enregistrer quelqu’un demande son accord : demande-le au professeur ou aux personnes présentes avant de commencer.',
+          'Le texte est ensuite rédigé (cours, compte rendu, fiche de révision, résumé, examen ou questions) par le fournisseur d’IA indiqué plus haut, et les documents sont rangés dans ton Drive. C’est le même fournisseur qui fait une fiche ou un examen à partir d’un document de ton Drive quand tu le demandes (clic droit sur le fichier) : le texte du document lui est alors envoyé. Pendant l’enregistrement, la transcription est gardée sur ton appareil pour ne rien perdre si la page se ferme.',
+          'Si tu actives « Alertes aussi sur mon téléphone », le mot-clé entendu et la phrase où il a été dit sont envoyés à tes autres appareils par notification (voir « Qui y a accès »).',
+          'Enregistrer quelqu’un demande son accord : demande-le au professeur, à tes collègues ou aux personnes présentes avant de commencer.',
         ],
       },
       {
@@ -89,7 +90,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
         body: [
           'Personne d’autre que toi pour ton espace personnel. Les membres d’un groupe voient ce qui est partagé dans ce groupe.',
           'L’administrateur du site (l’éditeur) voit la liste des comptes pour faire fonctionner le service : prénom, e-mail, dates d’inscription et de dernière connexion, double authentification activée ou non, nombre de notes, d’événements et de fichiers, espace utilisé, noms des catégories que tu crées (sans tes événements). Il lit aussi les messages « Avis ou bug » et les signalements, avec la copie du contenu signalé. Jamais le reste du contenu de tes notes, fichiers ou événements.',
-          'Nos sous-traitants techniques les traitent uniquement pour faire fonctionner le service : Render (hébergement du site, serveurs à Francfort, Allemagne), Supabase (comptes, données et fichiers, serveurs en Irlande), Resend (envoi des e-mails du compte : confirmation, mot de passe oublié ; reçoit ton adresse e-mail, serveurs en Irlande), Cloudflare (vérification anti-robot Turnstile à l’inscription et à la connexion : reçoit ton adresse IP et des informations sur ton navigateur le temps de la vérification, sans pistage publicitaire ; et mesure d’audience anonyme ; contrat de traitement et clauses contractuelles types) et le fournisseur d’IA indiqué plus haut.',
+          'Nos sous-traitants techniques les traitent uniquement pour faire fonctionner le service : Render (hébergement du site, serveurs à Francfort, Allemagne), Supabase (comptes, données et fichiers, serveurs en Irlande), Resend (envoi des e-mails du compte : confirmation, mot de passe oublié ; reçoit ton adresse e-mail, serveurs en Irlande), Cloudflare (vérification anti-robot Turnstile à l’inscription et à la connexion : reçoit ton adresse IP et des informations sur ton navigateur le temps de la vérification, sans pistage publicitaire ; et mesure d’audience anonyme ; contrat de traitement et clauses contractuelles types) et Groq (fournisseur d’IA indiqué plus haut, et transcription du son des enregistrements, sans conservation).',
           'Les notifications passent par le service de notifications de ton navigateur ou de ton téléphone (Google pour Chrome et Android, Apple pour Safari et iPhone, Mozilla pour Firefox, Microsoft pour Edge) : le message est chiffré de bout en bout, ce service ne peut pas le lire, il le transmet seulement à ton appareil.',
         ],
       },
@@ -124,7 +125,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
       {
         title: 'Le service',
         body: [
-          'Kompaly est un espace pour s’organiser (études, travail ou vie perso) : Drive, calendrier, notes, tâches, groupes, et l’ami Kompaly qui t’accompagne. Il est proposé gratuitement, en l’état, et peut évoluer.',
+          'Kompaly est un espace pour s’organiser (études, travail ou vie perso) : Drive, calendrier, notes, tâches, groupes et agendas partagés, enregistrement de cours ou de réunions, et l’ami Kompaly qui t’accompagne. Il est proposé gratuitement, en l’état, et peut évoluer.',
           'En créant un compte, tu acceptes ces conditions et la politique de confidentialité.',
         ],
       },
@@ -134,13 +135,14 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
           'Kompaly est ouvert dès 15 ans. Avant 15 ans, il faut l’accord d’un parent ou d’un responsable légal pour créer un compte.',
           'Une vérification anti-robot peut être demandée à l’inscription et à la connexion.',
           'Tu es responsable de ton mot de passe et de ton téléphone de double authentification. Garde ta clé de secours en lieu sûr : sans elle, un téléphone perdu peut bloquer l’accès au compte.',
-          'Limites actuelles : 50 Mo par fichier, 1 Go d’espace par compte, un nombre limité de questions par jour à Kompaly en mode intelligent.',
+          'Limites actuelles : 50 Mo par fichier, 1 Go d’espace par compte, un nombre limité de questions par jour à Kompaly en mode intelligent et de minutes d’enregistrement écrites par jour.',
         ],
       },
       {
         title: 'Ce qui est interdit',
         body: [
           'Déposer ou partager des contenus illégaux, haineux, violents, ou qui portent atteinte aux droits d’autrui (droit d’auteur, vie privée).',
+          'Enregistrer des personnes sans leur accord.',
           'Tenter de contourner la sécurité, les limites ou d’accéder aux données d’autres utilisateurs ; utiliser le service de façon automatisée ou abusive.',
           'Nous pouvons supprimer un contenu signalé comme illicite et suspendre un compte qui ne respecte pas ces règles. Pour signaler un contenu d’un groupe : le bouton « Signaler » (le drapeau) à côté de ce contenu, ou un e-mail à ' + CONTACT + '. Chaque signalement est examiné, et le contenu retiré s’il ne respecte pas ces règles.',
         ],
@@ -148,7 +150,8 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
       {
         title: 'L’ami Kompaly',
         body: [
-          'Kompaly est une intelligence artificielle : il peut se tromper. Vérifie ce qu’il te dit, surtout pour tes cours, tes dates d’examen et tes rendus. Il te demande toujours de confirmer avant de supprimer quelque chose.',
+          'Kompaly est une intelligence artificielle : il peut se tromper. Vérifie ce qu’il te dit, surtout pour tes cours, tes dates importantes et tes échéances. Il te demande toujours de confirmer avant de supprimer quelque chose.',
+          'Les documents écrits à partir d’un enregistrement ou d’un fichier (cours, compte rendu, fiche, résumé, examen) sont rédigés par l’IA à partir d’une transcription automatique : relis-les avant de t’en servir.',
         ],
       },
       {
