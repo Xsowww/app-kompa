@@ -1,40 +1,44 @@
 import { useEffect, useMemo, useState } from 'react';
 import CalendarPage from '../calendar/CalendarPage';
 import { CalendarSourceContext, type CalendarSource } from '../calendar/source';
-import { CATEGORIES, type CalendarEvent, type EventCategory } from '../../store/calendar';
+import { CATEGORIES, type CalendarEvent, type CategoryScope, type CustomCategory, type EventCategory } from '../../store/calendar';
 import { useGroups } from '../../store/groups';
 import { toast } from '../../store/ui';
-import { createEvent, deleteEvent, deletePeriod, groupError, savePeriods, updateEvent, type Group, type GroupEvent, type NewGroupEvent } from '../../lib/groups';
+import { createEvent, deleteEvent, deletePeriod, groupError, savePeriods, setAgendaCategories, updateEvent, type Group, type GroupEvent, type NewGroupEvent } from '../../lib/groups';
 import { useMemberName, useRights } from './util';
 import { useAuth } from '../../store/auth';
 import { sortPeriods } from '../../lib/periods';
 import { t } from '../../i18n';
 
-const builtin = (c: string | null | undefined): EventCategory => (c && c in CATEGORIES ? (c as EventCategory) : 'perso');
+/** A built-in category or one of the calendar's own; anything else (deleted since, mine) shows as Perso. */
+const categoryIn = (custom: CustomCategory[]) => (c: string | null | undefined): EventCategory =>
+  c && (c in CATEGORIES || custom.some(x => x.id === c)) ? (c as EventCategory) : 'perso';
 
 /** A shared calendar's event as the Calendar page shows it (its place, from the former list, joins the notes). */
-const toCalendar = (e: GroupEvent): CalendarEvent => ({
+const toCalendar = (e: GroupEvent, category: ReturnType<typeof categoryIn>): CalendarEvent => ({
   id: e.id,
   title: e.title,
   date: e.date,
   start: e.start ?? undefined,
   end: e.end ?? undefined,
-  category: builtin(e.category),
+  category: category(e.category),
   details: [e.place, e.details].filter(Boolean).join('\n') || undefined,
   done: false,
   createdAt: e.createdAt,
   ...(e.people.length && { people: e.people }),
+  ...(e.reminders.length && { reminders: e.reminders }),
 });
 
-const toRow = (p: Partial<CalendarEvent>): Partial<NewGroupEvent> => ({
+const toRow = (p: Partial<CalendarEvent>, category: ReturnType<typeof categoryIn>): Partial<NewGroupEvent> => ({
   ...(p.title !== undefined && { title: p.title }),
   ...(p.date !== undefined && { date: p.date }),
   ...('start' in p && { start: p.start ?? null }),
   ...('end' in p && { end: p.end ?? null }),
-  ...(p.category !== undefined && { category: builtin(p.category) }),
+  ...(p.category !== undefined && { category: category(p.category) }),
   // The notes now hold the place too: it isn't kept twice.
   ...('details' in p && { details: p.details ?? null, place: null }),
   ...('people' in p && { people: p.people ?? [] }),
+  ...('reminders' in p && { reminders: p.reminders ?? [] }),
 });
 
 // Removed events wait for the end of the « Annuler » toast before leaving the server: undoing gives back
@@ -60,14 +64,37 @@ export default function SharedCalendar({ group }: { group: Group }) {
     };
   }, []);
 
+  // A category another member just created: the calendar's list is read again (the groups table isn't live).
+  const unknown = (raw ?? []).some(e => e.category?.startsWith('c-') && !group.categories.some(c => c.id === e.category));
+  useEffect(() => {
+    if (unknown) void useGroups.getState().loadGroups();
+  }, [unknown]);
+
   const source = useMemo<CalendarSource>(() => {
     const list = (raw ?? []).filter(e => !pending.has(e.id));
+    const category = categoryIn(group.categories);
     const reload = () => useGroups.getState().refresh(group.id, ['events']);
     // Shown at once; the server's answer (and the other members' changes) follow by Realtime.
     const patchLocal = (fn: (l: GroupEvent[]) => GroupEvent[]) => useGroups.setState(s => ({ events: { ...s.events, [group.id]: fn(s.events[group.id] ?? []) } }));
     const fail = (e: unknown) => {
       toast(groupError(e), 'error');
       void reload();
+    };
+    // Shown at once, saved for every member; the server's list (cleaned) replaces it.
+    const setCategories = (categories: CustomCategory[]) =>
+      useGroups.setState(s => ({ groups: s.groups.map(g => (g.id === group.id ? { ...g, categories } : g)) }));
+    const categoryScope: CategoryScope = {
+      list: () => useGroups.getState().groups.find(g => g.id === group.id)?.categories ?? group.categories,
+      save: next => {
+        const before = categoryScope.list();
+        setCategories(next);
+        void setAgendaCategories(group.id, next)
+          .then(setCategories)
+          .catch(e => {
+            setCategories(before);
+            fail(e);
+          });
+      },
     };
     return {
       shared: {
@@ -77,14 +104,16 @@ export default function SharedCalendar({ group }: { group: Group }) {
         people: [...(members ?? [])].sort((a, b) => Number(b.userId === me) - Number(a.userId === me) || a.name.localeCompare(b.name)).map(m => ({ id: m.userId, name: m.userId === me ? t('Moi') : m.name })),
         nameOf: id => nameOf(id, t('Toi')).replace(/^./, c => c.toUpperCase()),
       },
-      events: list.map(toCalendar),
+      events: list.map(e => toCalendar(e, category)),
+      categories: group.categories,
+      categoryScope,
       add: e => {
-        void createEvent(group.id, { title: e.title, date: e.date, start: e.start ?? null, end: e.end ?? null, place: null, category: builtin(e.category), details: e.details ?? null, people: e.people ?? [] })
+        void createEvent(group.id, { title: e.title, date: e.date, start: e.start ?? null, end: e.end ?? null, place: null, category: category(e.category), details: e.details ?? null, people: e.people ?? [], reminders: e.reminders ?? [] })
           .then(reload)
           .catch(fail);
       },
       update: (id, patch) => {
-        const row = toRow(patch);
+        const row = toRow(patch, category);
         patchLocal(l => l.map(e => (e.id === id ? { ...e, ...row } : e)));
         void updateEvent(id, row).catch(fail);
       },

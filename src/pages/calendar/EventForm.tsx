@@ -16,6 +16,8 @@ import { DateField, TimeField } from '../../components/Pickers';
 import { eventReminders, followMoments } from '../../lib/reminders';
 import { t } from '../../i18n';
 
+const NONE: number[] = [];
+
 interface Props {
   event?: CalendarEvent;
   date: string;
@@ -28,8 +30,8 @@ interface Props {
 }
 
 export default function EventForm({ event, date, start: initialStart, end: initialEnd, onClose, onSaved }: Props) {
-  // My calendar or a shared one (no « important », reminders or my own categories there).
-  const { add, update, remove, shared } = useCalendarSource();
+  // My calendar or a shared one (no « important » there; its own categories, and reminders for each member it is for).
+  const { add, update, remove, shared, categories: custom } = useCalendarSource();
   const [title, setTitle] = useState(event?.title ?? '');
   const [day, setDay] = useState(event?.date ?? date);
   const [start, setStart] = useState(event?.start ?? initialStart ?? '');
@@ -41,13 +43,13 @@ export default function EventForm({ event, date, start: initialStart, end: initi
   const [people, setPeople] = useState<string[]>(event?.people ?? []);
   // undefined = not chosen: the usual reminder (Profil › Notifications) for an event with a time.
   const [chosen, setChosen] = useState<number[] | undefined>(event?.reminders);
-  const defaults = useSettings(s => s.defaultReminders);
+  const mine = useSettings(s => s.defaultReminders);
+  // My usual reminder isn't imposed on the members of a shared calendar: none until one is chosen.
+  const defaults = shared ? NONE : mine;
   const reminders = eventReminders({ reminders: chosen, start, externalId: event?.externalId }, defaults);
-  const mine = useSettings(s => s.customCategories);
-  const custom = shared ? [] : mine;
   const words = { ...(WORDS[useSettings(s => s.usage)] ?? WORDS.etudes), ...(shared && AGENDA_EXAMPLES) };
   const [creating, setCreating] = useState(false);
-  const effective = category ?? guessCategory(title, !!start);
+  const effective = category ?? guessCategory(title, !!start, custom);
   const notes = useNotes(s => s.notes);
   const linked = event ? notes.filter(n => n.links?.some(l => l.kind === 'event' && l.id === event.id)) : [];
 
@@ -87,14 +89,14 @@ export default function EventForm({ event, date, start: initialStart, end: initi
               </button>
             );
           })}
-          {!shared && <button
+          <button
             type="button"
             onClick={() => setCreating(v => !v)}
             aria-expanded={creating}
             className="flex h-8 items-center gap-1 rounded-md border border-dashed border-stone-300 px-2.5 text-[13px] pointer-coarse:h-9 text-stone-500 transition-colors hover:border-stone-400 hover:text-ink"
           >
             <Plus size={14} /> {t('Nouvelle')}
-          </button>}
+          </button>
         </div>
         {creating && (
           <div className="mt-2.5 rounded-lg bg-stone-50 p-3">
@@ -162,7 +164,10 @@ export default function EventForm({ event, date, start: initialStart, end: initi
           {important ? t('Important') : t('Marquer comme important')}
         </button>}
 
-        {!shared && <ReminderPicker value={reminders} onChange={setChosen} timed={!!start} date={day || undefined} time={start || undefined} />}
+        <ReminderPicker value={reminders} onChange={setChosen} timed={!!start} date={day || undefined} time={start || undefined} />
+        {shared && reminders.length > 0 && (
+          <p className="mt-1.5 text-[12px] text-stone-500">{people.length ? t('Envoyé à chaque personne choisie ci-dessous.') : t('Envoyé à chaque membre de l’agenda.')}</p>
+        )}
 
         {shared && shared.people.length > 1 && <PeoplePicker people={shared.people} value={people} onChange={setPeople} what={t('l’événement')} />}
         <textarea value={details} onChange={e => setDetails(e.target.value)} placeholder={t('Notes ({example})', { example: words.notesExample })} aria-label={t('Notes')} rows={3} className="field mt-3 h-auto w-full resize-none py-2" />

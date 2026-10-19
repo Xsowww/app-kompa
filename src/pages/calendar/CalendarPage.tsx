@@ -67,7 +67,8 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
   const readOnly = !!shared && !shared.canEdit; // a reader of a shared calendar: nothing to change
   const c = catOf(ev.category);
   const defaults = useSettings(s => s.defaultReminders);
-  const reminders = shared ? [] : eventReminders(ev, defaults);
+  // A shared calendar's reminders are the ones chosen on it (no usual reminder of mine there).
+  const reminders = shared ? (ev.reminders ?? []) : eventReminders(ev, defaults);
   return (
     <div className="group enter flex items-stretch gap-2 sm:gap-4">
       <div className="tabular w-10 shrink-0 pt-3 text-right text-[12px] sm:w-12">
@@ -146,7 +147,7 @@ function CalendarFilter({ categories, shown, importantOnly, onToggle, onImportan
   /** Absent in a shared calendar (nothing is marked important there). */
   onImportant?: () => void;
   onReset: () => void;
-  /** Absent in a shared calendar (my categories are mine). */
+  /** Absent for a reader of a shared calendar (its categories are changed by its editors). */
   onManage?: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -247,8 +248,7 @@ export default function CalendarPage() {
   const [shown, setShown] = useState<Set<EventCategory>>(new Set());
   const [importantOnly, setImportantOnly] = useState(false);
   const filtering = shown.size > 0 || importantOnly;
-  const mine = useSettings(s => s.customCategories);
-  const custom = shared ? [] : mine; // a shared calendar: the built-in categories only (mine aren't the others')
+  const custom = source.categories; // a shared calendar: its own (mine aren't the others')
   const usage = useSettings(s => s.usage);
   const words = { ...(WORDS[usage] ?? WORDS.etudes), ...(shared && AGENDA_EXAMPLES) };
   const wide = useWide();
@@ -330,7 +330,7 @@ export default function CalendarPage() {
   const label = (p: Period) => periodLabel(p, shared?.nameOf);
 
   const parsed = quick.trim() ? parseQuickAdd(quick) : null;
-  const parsedCat = parsed ? guessCategory(parsed.title || quick, !!parsed.start) : null;
+  const parsedCat = parsed ? guessCategory(parsed.title || quick, !!parsed.start, custom) : null;
 
   // The form, with what the sentence already gives (« demain 14h » has a day and an hour but no title).
   const openForm = () => setForm({ date: parsed?.date ?? selected, start: parsed?.start ?? undefined, end: parsed?.end ?? undefined, fromQuick: !!quick.trim() });
@@ -521,7 +521,7 @@ export default function CalendarPage() {
               setShown(new Set());
               setImportantOnly(false);
             }}
-            onManage={shared ? undefined : () => setManaging(true)}
+            onManage={readOnly ? undefined : () => setManaging(true)}
           />
           {/* Together: on a tablet the header wraps, and the export icon was left alone on a second line. */}
           {!shared && <div className="flex items-center gap-1">

@@ -2,7 +2,7 @@
 // (pages/groups/SharedCalendar), with the same screens — day, week, month, quick add, drag.
 
 import { createContext, useContext, useMemo } from 'react';
-import { useCalendar, type CalendarEvent, type NewEvent } from '../../store/calendar';
+import { useCalendar, MY_CATEGORIES, type CalendarEvent, type CategoryScope, type CustomCategory, type NewEvent } from '../../store/calendar';
 import { trashEvent } from '../../lib/trash';
 import type { Group } from '../../lib/groups';
 import { useSettings } from '../../store/settings';
@@ -16,7 +16,7 @@ import { t } from '../../i18n';
 export const periodIdeas = (usage?: Usage) => (PERIOD_IDEAS[usage ?? 'etudes'] ?? PERIOD_IDEAS.etudes).slice(0, 3).map(i => i.title.toLowerCase()).join(', ');
 
 export interface CalendarSource {
-  /** null: my calendar. A shared calendar has no « fait », reminders, import or custom categories. */
+  /** null: my calendar. A shared calendar has no « fait », import or « important »; its reminders go to each member it is for. */
   shared: {
     group: Group;
     author: (eventId: string) => string;
@@ -27,6 +27,9 @@ export interface CalendarSource {
     nameOf: (userId: string) => string;
   } | null;
   events: CalendarEvent[];
+  /** Own categories: mine (settings), or the shared calendar's, for all its members. */
+  categories: CustomCategory[];
+  categoryScope: CategoryScope;
   add: (e: NewEvent) => void;
   update: (id: string, patch: Partial<CalendarEvent>) => void;
   toggleDone: (id: string) => void;
@@ -44,12 +47,15 @@ export function useCalendarSource(): CalendarSource {
   const shared = useContext(CalendarSourceContext);
   const events = useCalendar(s => s.events);
   const periods = useSettings(s => s.periods);
+  const categories = useSettings(s => s.customCategories);
   const mine = useMemo<CalendarSource>(() => {
     const { add, update, toggleDone } = useCalendar.getState();
     const settings = useSettings.getState();
     return {
       shared: null,
       events,
+      categories,
+      categoryScope: MY_CATEGORIES,
       add: e => void add(e),
       update,
       toggleDone,
@@ -61,7 +67,7 @@ export function useCalendarSource(): CalendarSource {
       },
       removePeriod: id => settings.set({ periods: useSettings.getState().periods.filter(p => p.id !== id) }),
     };
-  }, [events, periods]);
+  }, [events, periods, categories]);
   return shared ?? mine;
 }
 

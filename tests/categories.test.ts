@@ -6,7 +6,8 @@ Object.assign(globalThis, {
   location: new URL('http://localhost/'),
   localStorage: { getItem: (k: string) => memory.get(k) ?? null, setItem: (k: string, v: string) => memory.set(k, v), removeItem: (k: string) => memory.delete(k) },
 });
-const { useCalendar, catOf, allCategories, guessCategory, createCategory, updateCategory, deleteCategory, labelTaken, builtinLabel } = await import('../src/store/calendar');
+const { useCalendar, catOf, allCategories, guessCategory, createCategory, updateCategory, deleteCategory, labelTaken, builtinLabel, knowSharedCategories } = await import('../src/store/calendar');
+type CustomCategory = import('../src/store/calendar').CustomCategory;
 const { applyUsage } = await import('../src/lib/usage');
 const { useSettings } = await import('../src/store/settings');
 
@@ -58,5 +59,27 @@ describe('own categories', () => {
     expect(builtinLabel('Stage')).toBeNull();
     applyUsage('etudes');
     expect(builtinLabel('Cours')).toBe('current');
+  });
+});
+
+describe('a shared calendar’s categories', () => {
+  it('live in their own list, are guessed from it and shown for every member', () => {
+    let list: CustomCategory[] = [];
+    const scope = { list: () => list, save: (next: CustomCategory[]) => void ((list = next), knowSharedCategories(next)) };
+    const menage = createCategory('Ménage', '#2f9e6b', scope);
+    expect(menage.id).toMatch(/^c-[a-z0-9-]{1,20}$/); // what set_agenda_categories accepts
+    expect(useSettings.getState().customCategories).toEqual([]); // not added to mine
+    expect(createCategory('ménage', '#d9483b', scope).id).toBe(menage.id);
+    expect(labelTaken('Ménage', undefined, scope)).toBe(true);
+    expect(labelTaken('Ménage')).toBe(false); // my own list doesn't have it
+    expect(guessCategory('Ménage de la cuisine', false, list)).toBe(menage.id);
+    expect(guessCategory('Ménage de la cuisine')).not.toBe(menage.id);
+    expect(catOf(menage.id)).toMatchObject({ label: 'Ménage', color: '#2f9e6b' });
+    updateCategory(menage.id, { color: '#7a5ad6' }, scope);
+    expect(catOf(menage.id).color).toBe('#7a5ad6');
+    const ev = useCalendar.getState().add({ title: 'Perso', date: '2026-10-20', category: 'perso' });
+    deleteCategory(menage.id, scope);
+    expect(list).toEqual([]);
+    expect(useCalendar.getState().events.find(e => e.id === ev.id)?.category).toBe('perso'); // my calendar untouched
   });
 });

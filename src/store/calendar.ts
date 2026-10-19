@@ -94,10 +94,14 @@ const customInfo = (c: CustomCategory): CategoryInfo => ({
   text: `color-mix(in oklab, ${c.color} 72%, var(--color-ink))`,
 });
 
+/** The shared calendars' own categories (lib/groups registers them as it reads the calendars). */
+const sharedCategories = new Map<string, CustomCategory>();
+export const knowSharedCategories = (list: CustomCategory[]) => list.forEach(c => sharedCategories.set(c.id, c));
+
 /** Name and colours of a category (one deleted in the meantime shows as Perso). */
 export function catOf(key: EventCategory): CategoryInfo {
   if (key in CATEGORIES) return CATEGORIES[key as BuiltinCategory];
-  const c = getSettings().customCategories?.find(x => x.id === key);
+  const c = getSettings().customCategories?.find(x => x.id === key) ?? sharedCategories.get(key);
   return c ? customInfo(c) : CATEGORIES.perso;
 }
 
@@ -107,11 +111,11 @@ export const allCategories = (custom: CustomCategory[] = getSettings().customCat
   ...custom.map(c => c.id),
 ];
 
-/** One of the student's own categories named in the title (« Stage chez Airbus » → Stage). */
-export function customCategoryIn(title: string): EventCategory | undefined {
+/** One of the student's own categories (or a shared calendar's: `custom`) named in the title (« Stage chez Airbus » → Stage). */
+export function customCategoryIn(title: string, custom: CustomCategory[] = myCategories()): EventCategory | undefined {
   const words = (x: string) => ` ${x.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()} `;
   const t = words(title);
-  return (getSettings().customCategories ?? []).find(c => words(c.label).trim() && t.includes(words(c.label)))?.id;
+  return custom.find(c => words(c.label).trim() && t.includes(words(c.label)))?.id;
 }
 
 /** Something to hand in (« Marquer comme rendu »): a revision session is homework-coloured but not one. */
@@ -134,8 +138,8 @@ function workCategory(t: string, timed: boolean): EventCategory | undefined {
  * with an hour is a class, not homework. Work and personal accounts use the same five categories under
  * other names (see lib/usage): Réunion / Échéance / Devis at work, Rendez-vous / Grand jour / À faire at home.
  */
-export function guessCategory(title: string, timed = false): EventCategory {
-  const own = customCategoryIn(title);
+export function guessCategory(title: string, timed = false, custom?: CustomCategory[]): EventCategory {
+  const own = customCategoryIn(title, custom);
   if (own) return own;
   const t = title.toLowerCase();
   const usage = getSettings().usage ?? 'etudes';
@@ -208,7 +212,17 @@ export const useCalendar = create<CalendarState>()(
   ),
 );
 
-// ── The student's own categories ─────────────────────────────────────────────
+// ── The student's own categories, or a shared calendar's ─────────────────────
+
+const myCategories = () => getSettings().customCategories ?? [];
+
+/** Where a list of categories lives: my settings, or a shared calendar (lib/groups, for all its members). */
+export interface CategoryScope {
+  list: () => CustomCategory[];
+  save: (list: CustomCategory[]) => void;
+}
+
+export const MY_CATEGORIES: CategoryScope = { list: myCategories, save: list => useSettings.getState().set({ customCategories: list }) };
 
 const cleanLabel = (label: string) => label.trim().replace(/\s+/g, ' ').slice(0, 24);
 
@@ -223,34 +237,34 @@ export function builtinLabel(label: string): 'current' | 'other' | null {
   return Object.values(CATEGORY_LABELS).some(names => Object.values(names).some(n => sameName(n, label))) ? 'other' : null;
 }
 
-/** The student's own category with this name (spaces and case aside). */
-export const customNamed = (label: string, exceptId?: string) => (getSettings().customCategories ?? []).find(c => c.id !== exceptId && sameName(c.label, label));
+/** The category with this name in the scope (spaces and case aside). */
+export const customNamed = (label: string, exceptId?: string, scope = MY_CATEGORIES) => scope.list().find(c => c.id !== exceptId && sameName(c.label, label));
 
-/** A built-in category, or another of the student's, already has this name (« Cours » twice would be confusing). */
-export function labelTaken(label: string, exceptId?: string) {
-  return !!builtinLabel(label) || !!customNamed(label, exceptId);
+/** A built-in category, or another of the scope, already has this name (« Cours » twice would be confusing). */
+export function labelTaken(label: string, exceptId?: string, scope = MY_CATEGORIES) {
+  return !!builtinLabel(label) || !!customNamed(label, exceptId, scope);
 }
 
 /** Creates a category, or returns the existing one with that name. */
-export function createCategory(label: string, color: string): CustomCategory {
+export function createCategory(label: string, color: string, scope = MY_CATEGORIES): CustomCategory {
   const name = cleanLabel(label);
-  const list = getSettings().customCategories ?? [];
-  const same = customNamed(name);
+  const same = customNamed(name, undefined, scope);
   if (same) return same;
-  const cat: CustomCategory = { id: `c-${uid().slice(0, 8)}`, label: name, color };
-  useSettings.getState().set({ customCategories: [...list, cat] });
+  const cat: CustomCategory = { id: `c-${uid().slice(0, 8).toLowerCase().replace(/[^a-z0-9]/g, '0')}`, label: name, color };
+  scope.save([...scope.list(), cat]);
   return cat;
 }
 
-export function updateCategory(id: CustomCategory['id'], patch: Partial<Omit<CustomCategory, 'id'>>) {
-  if (patch.label !== undefined && labelTaken(patch.label, id)) return;
-  const list = getSettings().customCategories ?? [];
-  useSettings.getState().set({ customCategories: list.map(c => (c.id === id ? { ...c, ...patch, label: cleanLabel(patch.label ?? c.label) || c.label } : c)) });
+export function updateCategory(id: CustomCategory['id'], patch: Partial<Omit<CustomCategory, 'id'>>, scope = MY_CATEGORIES) {
+  if (patch.label !== undefined && labelTaken(patch.label, id, scope)) return;
+  scope.save(scope.list().map(c => (c.id === id ? { ...c, ...patch, label: cleanLabel(patch.label ?? c.label) || c.label } : c)));
 }
 
-/** Removes a category; its events (trash included) go back to Perso. */
-export function deleteCategory(id: CustomCategory['id']) {
-  const reset = (list: CalendarEvent[]) => (list.some(e => e.category === id) ? list.map(e => (e.category === id ? { ...e, category: 'perso' as const } : e)) : list);
-  useCalendar.setState(s => ({ events: reset(s.events), trash: reset(s.trash) }));
-  useSettings.getState().set({ customCategories: (getSettings().customCategories ?? []).filter(c => c.id !== id) });
+/** Removes a category; its events (trash included) go back to Perso (on a shared calendar they show as Perso). */
+export function deleteCategory(id: CustomCategory['id'], scope = MY_CATEGORIES) {
+  if (scope === MY_CATEGORIES) {
+    const reset = (list: CalendarEvent[]) => (list.some(e => e.category === id) ? list.map(e => (e.category === id ? { ...e, category: 'perso' as const } : e)) : list);
+    useCalendar.setState(s => ({ events: reset(s.events), trash: reset(s.trash) }));
+  }
+  scope.save(scope.list().filter(c => c.id !== id));
 }

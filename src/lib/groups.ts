@@ -4,6 +4,7 @@ import { toast } from '../store/ui';
 import { getSettings } from '../store/settings';
 import { AGENDA_WORDS, groupWords } from './usage';
 import { cleanPeriod, type Period } from './periods';
+import { knowSharedCategories, type CustomCategory } from '../store/calendar';
 
 let space: GroupKind = 'groupe';
 /** The screens in use (/groupes or /agendas): messages speak of « ce groupe » or « cet agenda ». */
@@ -27,6 +28,8 @@ export interface Group {
   createdAt: string;
   /** 'agenda' : an « agenda partagé » (own space, /agendas); 'groupe' : a work group (/groupes). */
   kind: GroupKind;
+  /** Shared calendars: their own categories, for every member (migration 2026-10-27). */
+  categories: CustomCategory[];
 }
 export type GroupKind = 'groupe' | 'agenda';
 
@@ -84,6 +87,8 @@ export interface GroupEvent {
   createdAt: string;
   /** Shared calendars: the members it is about (« pour qui »); empty: everyone. */
   people: string[];
+  /** Shared calendars: reminders in minutes before the start, sent to each member it is for (migration 2026-10-27). */
+  reminders: number[];
 }
 
 export interface Attendance {
@@ -91,12 +96,21 @@ export interface Attendance {
   userId: string;
 }
 
-export type NewGroupEvent = Pick<GroupEvent, 'title' | 'date' | 'start' | 'end' | 'place'> & Partial<Pick<GroupEvent, 'category' | 'details' | 'people'>>;
+export type NewGroupEvent = Pick<GroupEvent, 'title' | 'date' | 'start' | 'end' | 'place'> & Partial<Pick<GroupEvent, 'category' | 'details' | 'people' | 'reminders'>>;
 
 type Row = Record<string, unknown>;
 const s = (v: unknown) => (v == null ? null : String(v));
 
+/** A shared calendar's categories as saved (anything else dropped). */
+function toCategories(v: unknown): CustomCategory[] {
+  if (!Array.isArray(v)) return [];
+  const list = v.filter((c): c is CustomCategory => !!c && /^c-[a-z0-9-]{1,20}$/.test(c.id) && typeof c.label === 'string' && !!c.label && /^#[0-9a-f]{6}$/i.test(c.color));
+  knowSharedCategories(list);
+  return list;
+}
+
 const toGroup = (r: Row): Group => ({
+  categories: toCategories(r.categories),
   id: String(r.id),
   name: String(r.name),
   color: s(r.color),
@@ -130,6 +144,7 @@ export const toEvent = (r: Row): GroupEvent => ({
   createdBy: s(r.created_by),
   createdAt: String(r.created_at),
   people: Array.isArray(r.people) ? r.people.map(String) : [],
+  reminders: Array.isArray(r.reminders) ? r.reminders.map(Number).filter(n => Number.isInteger(n) && n >= 0) : [],
 });
 
 function db(): SupabaseClient {
@@ -151,6 +166,7 @@ export function groupError(e: unknown): string {
   if (/too large|exceeded the maximum|payload too large|413/i.test(msg)) return t('Fichier trop lourd : 50 Mo au maximum.');
   if (/photo/i.test(msg) && /column|schema cache/i.test(msg)) return t('Les photos ne sont pas encore activées sur le serveur (migration 2026-10-19 à lancer).');
   if (/group_periods|42P01|PGRST205/.test(msg)) return t('Les périodes ne sont pas encore activées sur le serveur (migration 2026-10-20 à lancer).');
+  if (/group_events_category_check|group_events_reminders_check/.test(msg)) return AGENDA_MISSING;
   if (/too many periods/i.test(msg)) return t('Trop de périodes dans cet agenda (300 au maximum).');
   if (/mfa required/i.test(msg)) return t('Confirme d’abord ta connexion avec le code de ton téléphone.');
   if (/forbidden|row-level security|permission denied/i.test(msg)) return t('Tu n’as pas le droit de faire ça dans {group}.', { group: w.this });
@@ -180,9 +196,9 @@ export async function sessionUserId(): Promise<string> {
 // ── Groupes et membres ────────────────────────────────────────────────────
 export async function fetchGroups(): Promise<Group[]> {
   // Jamais « * » : le code d'invitation n'est pas lisible dans la table (voir group_invite_code).
-  // Newest columns first; a server without a recent migration (no « photo », 2026-10-19; no « kind », 2026-10-18)
-  // answers 42703 (no such column) or 42501 (column not readable yet) and the next, older list is tried.
-  for (const cols of ['id, name, color, photo, owner_id, created_at, kind', 'id, name, color, owner_id, created_at, kind', 'id, name, color, owner_id, created_at']) {
+  // Newest columns first; a server without a recent migration (no « categories », 2026-10-27; no « photo », 2026-10-19;
+  // no « kind », 2026-10-18) answers 42703 (no such column) or 42501 (column not readable yet) and the next, older list is tried.
+  for (const cols of ['id, name, color, photo, owner_id, created_at, kind, categories', 'id, name, color, photo, owner_id, created_at, kind', 'id, name, color, owner_id, created_at, kind', 'id, name, color, owner_id, created_at']) {
     const res = await db().from('groups').select(cols).order('created_at');
     if (res.error?.code === '42703' || res.error?.code === '42501') continue;
     return (check(res) as unknown as Row[]).map(toGroup);
@@ -338,15 +354,26 @@ export async function fetchEvents(groupId: string, fromDate: string): Promise<{ 
 /** « Pour qui » needs the column of migration 2026-10-24: without it, a clear message rather than the server's. */
 const PEOPLE_MISSING = t('Choisir pour qui est un événement demande une mise à jour du serveur (migration 2026-10-24). En attendant, laisse « Tout le monde ».');
 const noPeopleColumn = (e: { code?: string; message?: string } | null) => e?.code === 'PGRST204' && /people/.test(e.message ?? '');
+/** Reminders and own categories need migration 2026-10-27. */
+const AGENDA_MISSING = t('Les rappels et les catégories des agendas partagés demandent une mise à jour du serveur (migration 2026-10-27).');
+const noRemindersColumn = (e: { code?: string; message?: string } | null) => e?.code === 'PGRST204' && /reminders/.test(e.message ?? '');
+
+/** A shared calendar's categories, for all its members (editors only: the database checks it). */
+export async function setAgendaCategories(groupId: string, list: CustomCategory[]): Promise<CustomCategory[]> {
+  const res = await db().rpc('set_agenda_categories', { p_group: groupId, p_list: list.map(({ id, label, color }) => ({ id, label, color })) });
+  if (res.error?.code === 'PGRST202') throw new Refused(AGENDA_MISSING); // no such function yet
+  return toCategories(check(res));
+}
 
 export async function createEvent(groupId: string, e: NewGroupEvent): Promise<GroupEvent> {
   const res = await db()
     .from('group_events')
-    // « people » only when chosen: a server without the column still takes the others.
-    .insert({ group_id: groupId, title: e.title, date: e.date, start_time: e.start, end_time: e.end, place: e.place, ...(e.category !== undefined && { category: e.category }), ...(e.details !== undefined && { details: e.details }), ...(e.people?.length && { people: e.people }) })
+    // « people » and « reminders » only when chosen: a server without the columns still takes the others.
+    .insert({ group_id: groupId, title: e.title, date: e.date, start_time: e.start, end_time: e.end, place: e.place, ...(e.category !== undefined && { category: e.category }), ...(e.details !== undefined && { details: e.details }), ...(e.people?.length && { people: e.people }), ...(e.reminders?.length && { reminders: e.reminders }) })
     .select('*')
     .single();
   if (noPeopleColumn(res.error)) throw new Refused(PEOPLE_MISSING);
+  if (noRemindersColumn(res.error)) throw new Refused(AGENDA_MISSING);
   return toEvent(check(res) as Row);
 }
 
@@ -393,10 +420,13 @@ export async function updateEvent(id: string, patch: Partial<NewGroupEvent>) {
   if (patch.category !== undefined) row.category = patch.category;
   if (patch.details !== undefined) row.details = patch.details;
   if (patch.people !== undefined) row.people = patch.people;
+  if (patch.reminders !== undefined) row.reminders = patch.reminders;
   let res = await db().from('group_events').update(row).eq('id', id).select('id');
-  if (noPeopleColumn(res.error)) {
-    if (patch.people?.length) throw new Refused(PEOPLE_MISSING);
-    delete row.people;
+  // A server without the newer columns: saved without them when they are empty, else said clearly.
+  for (const [col, missing, msg] of [['people', noPeopleColumn, PEOPLE_MISSING], ['reminders', noRemindersColumn, AGENDA_MISSING]] as const) {
+    if (!missing(res.error)) continue;
+    if ((row[col] as unknown[] | undefined)?.length) throw new Refused(msg);
+    delete row[col];
     res = await db().from('group_events').update(row).eq('id', id).select('id');
   }
   changed(res, t('Tu peux seulement consulter cet agenda.'));

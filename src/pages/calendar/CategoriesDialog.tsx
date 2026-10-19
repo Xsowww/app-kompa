@@ -3,8 +3,9 @@ import { Check, Plus, Tags, Trash2 } from 'lucide-react';
 import { Modal } from '../../components/Overlays';
 import { confirmAction, toast } from '../../store/ui';
 import { useSettings } from '../../store/settings';
-import { useCalendar, CATEGORIES, CATEGORY_COLORS, builtinLabel, createCategory, customNamed, deleteCategory, labelTaken, updateCategory, type CustomCategory } from '../../store/calendar';
-import { WORDS } from '../../lib/usage';
+import { CATEGORIES, CATEGORY_COLORS, builtinLabel, createCategory, customNamed, deleteCategory, labelTaken, updateCategory, type CustomCategory } from '../../store/calendar';
+import { AGENDA_EXAMPLES, WORDS } from '../../lib/usage';
+import { useCalendarSource } from './source';
 import { cx } from '../../lib/utils';
 import { t, tn } from '../../i18n';
 
@@ -29,10 +30,11 @@ export function ColorChoice({ value, onChange }: { value: string; onChange: (col
   );
 }
 
-/** Name + colour of a new category; calls back with the one created. */
+/** Name + colour of a new category (mine, or the shared calendar's); calls back with the one created. */
 export function NewCategory({ onCreated, autoFocus }: { onCreated: (c: CustomCategory) => void; autoFocus?: boolean }) {
-  const used = useSettings(s => s.customCategories).length;
-  const words = WORDS[useSettings(s => s.usage)] ?? WORDS.etudes;
+  const { shared, categories, categoryScope: scope } = useCalendarSource();
+  const used = categories.length;
+  const words = { ...(WORDS[useSettings(s => s.usage)] ?? WORDS.etudes), ...(shared && AGENDA_EXAMPLES) };
   const [label, setLabel] = useState('');
   const [color, setColor] = useState(CATEGORY_COLORS[(used + 5) % CATEGORY_COLORS.length]);
   const submit = () => {
@@ -42,8 +44,9 @@ export function NewCategory({ onCreated, autoFocus }: { onCreated: (c: CustomCat
     if (builtin === 'current') return toast(t('« {name} » existe déjà.', { name }), 'error');
     // A name kept for the other usages (« Cours » in a work account): it would come back twice after switching.
     if (builtin === 'other') return toast(t('« {name} » est réservé par Kompaly.', { name }), 'error');
-    if (customNamed(name)) return toast(t('Tu as déjà une catégorie « {name} ».', { name: customNamed(name)!.label }), 'error');
-    onCreated(createCategory(label, color));
+    const same = customNamed(name, undefined, scope);
+    if (same) return toast(shared ? t('L’agenda a déjà une catégorie « {name} ».', { name: same.label }) : t('Tu as déjà une catégorie « {name} ».', { name: same.label }), 'error');
+    onCreated(createCategory(label, color, scope));
     setLabel('');
     setColor(CATEGORY_COLORS[(used + 6) % CATEGORY_COLORS.length]); // the next one gets another colour
   };
@@ -78,11 +81,12 @@ export function NewCategory({ onCreated, autoFocus }: { onCreated: (c: CustomCat
 function Row({ cat }: { cat: CustomCategory }) {
   const [label, setLabel] = useState(cat.label);
   const [editingColor, setEditingColor] = useState(false);
-  const count = useCalendar(s => s.events.filter(e => e.category === cat.id).length);
+  const { events, categoryScope: scope } = useCalendarSource();
+  const count = events.filter(e => e.category === cat.id).length;
   const remove = async () => {
     const msg = count ? tn(count, 'Son événement passera dans « {category} ».', 'Ses {n} événements passeront dans « {category} ».', { category: CATEGORIES.perso.label }) : t('Aucun événement ne l’utilise.');
     if (!(await confirmAction(t('Supprimer « {title} » ?', { title: cat.label }), msg, t('Supprimer')))) return;
-    deleteCategory(cat.id);
+    deleteCategory(cat.id, scope);
     // Its row (and the button the confirmation gave the focus back to) is gone: stay in the dialog.
     setTimeout(() => document.querySelector<HTMLInputElement>('[data-new-category]')?.focus(), 0);
   };
@@ -94,8 +98,8 @@ function Row({ cat }: { cat: CustomCategory }) {
           value={label}
           onChange={e => setLabel(e.target.value)}
           onBlur={() => {
-            if (label.trim() && !labelTaken(label, cat.id)) {
-              updateCategory(cat.id, { label });
+            if (label.trim() && !labelTaken(label, cat.id, scope)) {
+              if (label.trim().replace(/\s+/g, ' ') !== cat.label) updateCategory(cat.id, { label }, scope);
               return setLabel(label.trim().replace(/\s+/g, ' ')); // the name as saved
             }
             if (label.trim() && label.trim() !== cat.label) {
@@ -118,7 +122,7 @@ function Row({ cat }: { cat: CustomCategory }) {
           <ColorChoice
             value={cat.color}
             onChange={color => {
-              updateCategory(cat.id, { color });
+              updateCategory(cat.id, { color }, scope);
               setEditingColor(false);
             }}
           />
@@ -128,17 +132,17 @@ function Row({ cat }: { cat: CustomCategory }) {
   );
 }
 
-/** The student's own calendar categories: create, rename, recolour, delete. */
+/** Own calendar categories (mine, or a shared calendar's for all its members): create, rename, recolour, delete. */
 export default function CategoriesDialog({ onClose }: { onClose: () => void }) {
-  const custom = useSettings(s => s.customCategories);
-  const words = WORDS[useSettings(s => s.usage)] ?? WORDS.etudes;
+  const { shared, categories: custom } = useCalendarSource();
+  const words = { ...(WORDS[useSettings(s => s.usage)] ?? WORDS.etudes), ...(shared && AGENDA_EXAMPLES) };
   return (
     <Modal open onClose={onClose} width={460}>
       <div className="flex items-center gap-2.5">
         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-stone-100 text-stone-600">
           <Tags size={15} />
         </span>
-        <h3 className="text-[15px] font-semibold">{t('Mes catégories')}</h3>
+        <h3 className="text-[15px] font-semibold">{shared ? t('Catégories de l’agenda') : t('Mes catégories')}</h3>
       </div>
 
       <p className="eyebrow mt-5">{t('De base')}</p>
@@ -151,7 +155,9 @@ export default function CategoriesDialog({ onClose }: { onClose: () => void }) {
         ))}
       </div>
 
-      <p className="eyebrow mt-5">{t('Les tiennes')}</p>
+      {shared && <p className="mt-2 text-[13px] text-stone-500">{t('Tous les membres de « {name} » les voient et peuvent les choisir.', { name: shared.group.name })}</p>}
+
+      <p className="eyebrow mt-5">{shared ? t('Celles de l’agenda') : t('Les tiennes')}</p>
       {custom.length ? (
         <ul className="mt-1 divide-y divide-stone-100">
           {custom.map(c => (

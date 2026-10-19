@@ -5,6 +5,8 @@
 // - In the app: the next day's reminders are also timed here. Page in view: a card in the app (ReminderAlerts);
 //   page in the background: a system notification. When the server's push reaches this device, it shows first
 //   and the app's own timer, a little later, sees it is done.
+// - Shared calendars: the database prepares their reminders for each member (migration 2026-10-27); the app
+//   reads the next day's ones (RPC my_shared_reminders) and times them the same way.
 // Every reminder has a key (lib/reminders): shown once, whichever way it came.
 
 import { eventReminders, upcomingReminders, type DueReminder, type ReminderSource } from './reminders';
@@ -18,6 +20,7 @@ import { pushActive, refreshDevice } from './push';
 import { goTo } from '../copilot/actions';
 import { useAgendaNews, viewingAgenda } from '../store/agendaNews';
 import { useAuth } from '../store/auth';
+import { useGroups } from '../store/groups';
 import { savedAccount, savedAccounts } from './accounts';
 import { t } from '../i18n';
 
@@ -33,6 +36,9 @@ let timers: ReturnType<typeof setTimeout>[] = [];
 let push = false;
 let lastSent = '';
 let serverReady = true;
+/** The next day's reminders of my shared calendars, as the database prepared them. */
+let shared: DueReminder[] = [];
+let sharedReady = true;
 
 // ── Already shown (shared by the tabs, per account) ─────────────────────────
 const shownKey = () => `cop:${userId}:reminders-shown`;
@@ -101,6 +107,24 @@ async function sendToServer(list: DueReminder[]) {
   else if (error.code === 'PGRST202' || error.message.includes('replace_my_reminders')) serverReady = false;
 }
 
+async function loadShared() {
+  const id = userId;
+  if (!supabase || !sharedReady || !id) return;
+  const { data, error } = await supabase.rpc('my_shared_reminders');
+  if (userId !== id) return; // signed out or another account meanwhile
+  // Server without the 2026-10-27 migration: no reminders on shared calendars yet.
+  if (error) return void (error.code === 'PGRST202' && (sharedReady = false));
+  const rows = (Array.isArray(data) ? data : []) as { key: string; fire_at: string; title: string; body: string; url: string }[];
+  shared = rows.map(r => ({ key: r.key, fireAt: new Date(r.fire_at), title: r.title, body: r.body ?? '', url: r.url || '/' })).filter(r => !Number.isNaN(r.fireAt.getTime()));
+}
+
+let sharedTimer: ReturnType<typeof setTimeout> | undefined;
+/** Read again a little after a shared calendar changed (the database prepares its reminders first). */
+const loadSharedSoon = () => {
+  clearTimeout(sharedTimer);
+  sharedTimer = setTimeout(() => void loadShared().then(plan, () => undefined), 3000);
+};
+
 function plan() {
   timers.forEach(clearTimeout);
   timers = [];
@@ -112,6 +136,10 @@ function plan() {
     const wait = r.fireAt.getTime() - now + (push ? FALLBACK_DELAY : 0);
     if (wait > LOCAL_HORIZON) break;
     if (!wasShown(r.key)) timers.push(setTimeout(() => fire(r), Math.max(0, wait)));
+  }
+  for (const r of shared) {
+    const wait = r.fireAt.getTime() - now + (push ? FALLBACK_DELAY : 0);
+    if (wait <= LOCAL_HORIZON && !wasShown(r.key)) timers.push(setTimeout(() => fire(r), Math.max(0, wait)));
   }
 }
 
@@ -209,13 +237,16 @@ export function startReminders(id: string): () => void {
   userId = id;
   lastSent = '';
   serverReady = true;
+  shared = [];
+  sharedReady = true;
   const unsubs = [
+    useGroups.subscribe((s, p) => s.events !== p.events && loadSharedSoon()),
     useCalendar.subscribe((s, p) => s.events !== p.events && planSoon()),
     useTodos.subscribe((s, p) => s.todos !== p.todos && planSoon()),
     useSettings.subscribe((s, p) => s.defaultReminders !== p.defaultReminders && planSoon()),
   ];
-  const hourly = setInterval(plan, 3_600_000);
-  const onVisible = () => document.visibilityState === 'visible' && planSoon();
+  const hourly = setInterval(loadSharedSoon, 3_600_000); // then plan()
+  const onVisible = () => document.visibilityState === 'visible' && loadSharedSoon();
   document.addEventListener('visibilitychange', onVisible);
   navigator.serviceWorker?.addEventListener('message', onWorkerMessage);
   followNotificationAccount();
@@ -223,12 +254,15 @@ export function startReminders(id: string): () => void {
   void (async () => {
     await refreshDevice().catch(() => undefined);
     push = await pushActive().catch(() => false);
+    await loadShared().catch(() => undefined);
     if (userId === id) plan();
   })();
   return () => {
     unsubs.forEach(u => u());
     clearInterval(hourly);
     clearTimeout(planTimer);
+    clearTimeout(sharedTimer);
+    shared = [];
     document.removeEventListener('visibilitychange', onVisible);
     navigator.serviceWorker?.removeEventListener('message', onWorkerMessage);
     timers.forEach(clearTimeout);
