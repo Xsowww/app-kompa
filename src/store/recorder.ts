@@ -166,7 +166,7 @@ const onVisible = () => {
 async function alertUser(title: string, body: string, urgent = false) {
   toast(`${title} — ${body}`, urgent ? 'error' : 'info');
   chime();
-  notify(title, body, urgent);
+  void systemAlert(title, body);
   if (!useSettings.getState().coursePhone) return;
   let except = '';
   try {
@@ -176,6 +176,37 @@ async function alertUser(title: string, body: string, urgent = false) {
   }
   void alertOtherDevices({ title: `${title} — ${session()?.title ?? ''}`, body, except });
 }
+
+/**
+ * The computer's notification as soon as Kompaly isn't the window in front (during a class, Zoom or Teams is):
+ * not only when the tab is hidden, as for the app's other notifications.
+ */
+async function systemAlert(title: string, body: string) {
+  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+  if (document.hasFocus() && !document.hidden) return;
+  const options = { body, tag: `cours-${Date.now()}`, lang: 'fr', icon: '/icon-192.png', badge: '/notification-badge.png', data: { url: '/enregistrer' } };
+  try {
+    const reg = await serviceWorker();
+    if (reg) await reg.showNotification(title, options);
+    else new Notification(title, options);
+  } catch {
+    /* the toast and the chime are there */
+  }
+}
+
+/** Asked when a recording starts (the click on « Démarrer »): the keyword alerts need it. */
+export function askNotifications() {
+  try {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default' && useSettings.getState().courseKeywords.some(k => k.notify)) void Notification.requestPermission();
+  } catch {
+    /* not supported */
+  }
+}
+
+// Keywords changed during the class: watched from now on.
+useSettings.subscribe((st, prev) => {
+  if (st.courseKeywords !== prev.courseKeywords && session()?.phase === 'running') patch(() => ({ keywords: st.courseKeywords }));
+});
 
 /** Keywords in what was just heard (quick lane or precise lane): marked, and announced once per 30 s each. */
 function spot(text: string, time: number) {

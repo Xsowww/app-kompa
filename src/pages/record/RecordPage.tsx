@@ -5,6 +5,7 @@ import { useSettings } from '../../store/settings';
 import { useDrive, pathOf } from '../../store/drive';
 import { confirmAction } from '../../store/ui';
 import {
+  askNotifications,
   completeDocuments,
   elapsed,
   finishRecording,
@@ -86,6 +87,7 @@ function Setup() {
   const start = async () => {
     setError('');
     setBusy(true);
+    askNotifications();
     try {
       await startRecording({ title: name, source, folderId: target.id, ...(target.own && { newFolder: name }), make });
     } catch (e) {
@@ -225,6 +227,7 @@ function Running({ s }: { s: Session }) {
   useTick(!finishing);
   const elsewhere = !live.hearing && recordingElsewhere();
   const [busy, setBusy] = useState(false);
+  const [settings, setSettings] = useState(false);
   // What the browser heard after the last passage written by the server, then what it is hearing now.
   const lastEnd = s.segments.at(-1)?.end ?? 0;
   const liveText = finishing ? '' : [...s.live.filter(l => l.time > lastEnd + 1).map(l => l.text), live.interim].filter(Boolean).join(' ');
@@ -269,6 +272,9 @@ function Running({ s }: { s: Session }) {
           {live.hearing && <Level value={live.level} />}
           {!finishing && (
             <span className="ml-auto flex gap-2">
+              <button type="button" className="btn-secondary h-9 px-2.5" onClick={() => setSettings(true)} title="Mots-clés" aria-label="Mots-clés">
+                <Bell size={15} /> <span className="tabular text-[12.5px]">{s.keywords.length}</span>
+              </button>
               <button type="button" className="btn-secondary h-9" onClick={star} disabled={!live.hearing} title="Marque ce qui vient d’être dit (touche M)">
                 <Star size={15} className="fill-amber-400 text-amber-500" /> Moment important
               </button>
@@ -277,6 +283,7 @@ function Running({ s }: { s: Session }) {
               </button>
             </span>
           )}
+          {settings && <AlertSettings onClose={() => setSettings(false)} />}
         </div>
 
         {finishing && !live.step ? (
