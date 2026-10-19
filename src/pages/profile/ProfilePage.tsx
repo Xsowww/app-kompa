@@ -43,14 +43,14 @@ import { PERSONAS, personaLabel } from '../../lib/personas';
 const plural = (n: number, one: string, many: string) => (n > 1 ? many : one);
 
 const TABS = [
-  { key: 'profil', label: 'Profil', icon: User },
-  { key: 'apparence', label: 'Apparence', icon: Palette },
-  { key: 'copilot', label: 'Kompaly', icon: Sparkles },
-  { key: 'etudes', label: 'Études', icon: GraduationCap },
-  { key: 'notifications', label: 'Notifications', icon: Bell },
-  { key: 'donnees', label: 'Données', icon: Database },
-  { key: 'raccourcis', label: 'Raccourcis', icon: Keyboard },
-  { key: 'compte', label: 'Compte', icon: ShieldCheck },
+  { key: 'profil', label: t('Profil'), icon: User },
+  { key: 'apparence', label: t('Apparence'), icon: Palette },
+  { key: 'copilot', label: t('Kompaly'), icon: Sparkles },
+  { key: 'etudes', label: t('Études'), icon: GraduationCap },
+  { key: 'notifications', label: t('Notifications'), icon: Bell },
+  { key: 'donnees', label: t('Données'), icon: Database },
+  { key: 'raccourcis', label: t('Raccourcis'), icon: Keyboard },
+  { key: 'compte', label: t('Compte'), icon: ShieldCheck },
 ] as const;
 type TabKey = (typeof TABS)[number]['key'];
 
@@ -144,11 +144,11 @@ function ProfileTab() {
 
   return (
     <div className="space-y-5">
-      <Section label="Profil">
+      <Section label={t('Profil')}>
         <div className="flex flex-wrap items-center gap-5 px-5 py-5">
           <div className="relative">
             <Avatar size={72} />
-            <button onClick={() => fileRef.current?.click()} className="hit absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-surface bg-ink text-paper hover:bg-stone-700" title="Changer la photo" aria-label="Changer la photo">
+            <button onClick={() => fileRef.current?.click()} className="hit absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-surface bg-ink text-paper hover:bg-stone-700" title={t('Changer la photo')} aria-label={t('Changer la photo')}>
               <Camera size={13} />
             </button>
             <input ref={fileRef} type="file" accept="image/*" hidden onChange={e => { void pickPhoto(e.target.files?.[0]); e.target.value = ''; }} />
@@ -169,7 +169,7 @@ function ProfileTab() {
                   onClick={() => settings.set({ avatarColor: c, avatarImage: null })}
                   className="flex h-6 w-6 items-center justify-center rounded-full ring-offset-2 transition-transform hover:scale-110 pointer-coarse:h-9 pointer-coarse:w-9"
                   style={{ background: c, boxShadow: !settings.avatarImage && settings.avatarColor === c ? `0 0 0 2px var(--color-surface), 0 0 0 4px ${c}` : undefined }}
-                  title="Couleur de l’avatar"
+                  title={t('Couleur de l’avatar')}
                 />
               ))}
               {settings.avatarImage && (
@@ -180,10 +180,10 @@ function ProfileTab() {
             </div>
           </div>
         </div>
-        <Row label="Prénom">
+        <Row label={t('Prénom')}>
           <input
             className="field w-56"
-            aria-label="Prénom"
+            aria-label={t('Prénom')}
             value={name}
             onChange={e => setName(e.target.value)}
             onBlur={() => {
@@ -205,8 +205,8 @@ function ProfileTab() {
             onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()}
           />
         </Row>
-        <Row label="Kompaly sert pour">
-          <SelectField<Usage> className="w-56" label="Kompaly sert pour" value={settings.usage} options={USAGES.map(u => ({ value: u.key, label: u.label }))} onChange={usage => { settings.set({ usage }); applyUsage(usage); }} />
+        <Row label={t('Kompaly sert pour')}>
+          <SelectField<Usage> className="w-56" label={t('Kompaly sert pour')} value={settings.usage} options={USAGES.map(u => ({ value: u.key, label: u.label }))} onChange={usage => { settings.set({ usage }); applyUsage(usage); }} />
         </Row>
         <Row label={words.school}>
           <input className="field w-56" aria-label={words.school} value={settings.school} placeholder={words.schoolHint} onChange={e => settings.set({ school: e.target.value })} />
@@ -225,7 +225,7 @@ function ProfileTab() {
         </Row>
       </Section>
 
-      <Section title="Statistiques">
+      <Section title={t('Statistiques')}>
         <div className="grid grid-cols-2 md:grid-cols-3">
           <Stat value={stats.streak} label={`jour${stats.streak > 1 ? 's' : ''} d’affilée`} />
           <Stat value={stats.done} label={plural(stats.done, 'élément coché', 'éléments cochés')} />
@@ -242,7 +242,7 @@ function ProfileTab() {
 
       <BadgesSection />
 
-      <Section title="Ton avis compte">
+      <Section title={t('Ton avis compte')}>
         <div className="flex flex-wrap gap-2 px-5 py-4">
           <button className="btn-secondary h-9" onClick={() => openFeedback('idea')}>
             <Lightbulb size={14} /> Donner mon avis
@@ -269,21 +269,21 @@ function AppearanceTab() {
     applyAppearance({ ...settings, theme });
   };
   return (
-    <Section label="Apparence">
-      <Row label="Thème">
+    <Section label={t('Apparence')}>
+      <Row label={t('Thème')}>
         <Segmented
-          label="Thème"
+          label={t('Thème')}
           value={settings.theme}
           onChange={setTheme}
           options={[
-            { value: 'clair', label: 'Clair' },
-            { value: 'sombre', label: 'Sombre' },
-            { value: 'auto', label: 'Automatique' },
+            { value: 'clair', label: t('Clair') },
+            { value: 'sombre', label: t('Sombre') },
+            { value: 'auto', label: t('Automatique') },
           ]}
         />
       </Row>
-      <Row label="Couleur d’accent">
-        <div className="flex gap-1.5" role="group" aria-label="Couleur d’accent">
+      <Row label={t('Couleur d’accent')}>
+        <div className="flex gap-1.5" role="group" aria-label={t('Couleur d’accent')}>
           {(Object.keys(ACCENTS) as AccentKey[]).map(k => (
             <button
               key={k}
@@ -310,9 +310,9 @@ function AppearanceTab() {
           </div>
         </div>
       </div>
-      <Row label="Réduire les animations">
+      <Row label={t('Réduire les animations')}>
         <Toggle
-          label="Réduire les animations"
+          label={t('Réduire les animations')}
           checked={settings.reduceMotion}
           onChange={v => {
             settings.set({ reduceMotion: v });
@@ -348,7 +348,7 @@ function CopilotTab() {
   const paused = left > 0;
   return (
     <div className="space-y-5">
-      <Section label="Kompaly">
+      <Section label={t('Kompaly')}>
         <div className="flex items-center gap-3 px-5 py-4">
           <span className={cx('h-2 w-2 shrink-0 rounded-full', !aiEnabled ? 'bg-stone-400' : paused ? 'bg-amber-500' : 'bg-emerald-500')} />
           <p className="text-[13px]">
@@ -371,29 +371,29 @@ function CopilotTab() {
             )}
           </p>
         </div>
-        <Row label="Afficher Kompaly">
-          <Toggle label="Afficher Kompaly" checked={s.copilotVisible} onChange={v => s.set({ copilotVisible: v })} />
+        <Row label={t('Afficher Kompaly')}>
+          <Toggle label={t('Afficher Kompaly')} checked={s.copilotVisible} onChange={v => s.set({ copilotVisible: v })} />
         </Row>
-        <Row label="Initiatives" hint={s.usage === 'etudes' ? 'Propose des révisions, rappelle les rendus.' : 'Propose du temps de préparation, rappelle les échéances.'}>
-          <Toggle label="Initiatives" checked={s.proactive} onChange={v => s.set({ proactive: v })} />
+        <Row label={t('Initiatives')} hint={s.usage === 'etudes' ? 'Propose des révisions, rappelle les rendus.' : 'Propose du temps de préparation, rappelle les échéances.'}>
+          <Toggle label={t('Initiatives')} checked={s.proactive} onChange={v => s.set({ proactive: v })} />
         </Row>
-        <Row label="Bavardage">
-          <Segmented<Chattiness> label="Bavardage"
+        <Row label={t('Bavardage')}>
+          <Segmented<Chattiness> label={t('Bavardage')}
             value={s.chattiness}
             onChange={v => s.set({ chattiness: v })}
             options={[
-              { value: 'calme', label: 'Discret' },
-              { value: 'normal', label: 'Normal' },
-              { value: 'bavard', label: 'Bavard' },
+              { value: 'calme', label: t('Discret') },
+              { value: 'normal', label: t('Normal') },
+              { value: 'bavard', label: t('Bavard') },
             ]}
           />
         </Row>
-        <Row label="Annoncer les nouveaux badges">
-          <Toggle label="Annoncer les nouveaux badges" checked={s.badgeAnnouncements} onChange={v => s.set({ badgeAnnouncements: v })} />
+        <Row label={t('Annoncer les nouveaux badges')}>
+          <Toggle label={t('Annoncer les nouveaux badges')} checked={s.badgeAnnouncements} onChange={v => s.set({ badgeAnnouncements: v })} />
         </Row>
       </Section>
 
-      <Section title="Personnalité">
+      <Section title={t('Personnalité')}>
         <div className="grid gap-2 px-5 py-4 sm:grid-cols-2">
           {PERSONAS.map(p => (
             <button
@@ -423,23 +423,23 @@ function CopilotTab() {
             maxLength={600}
             value={s.personaNotes}
             onChange={e => s.set({ personaNotes: e.target.value.slice(0, 600) })}
-            placeholder="Appelle-moi Capitaine, parle-moi de foot."
+            placeholder={t('Appelle-moi Capitaine, parle-moi de foot.')}
           />
           <p className={cx('mt-1 text-right text-[11px] tabular', s.personaNotes.length >= 560 ? 'text-amber-600' : 'text-stone-500')}>{s.personaNotes.length}/600</p>
         </div>
       </Section>
 
-      <Section title="Rendez-vous">
-        <Row label="Point du matin">
-          <Toggle label="Point du matin" checked={s.morningBrief} onChange={v => s.set({ morningBrief: v })} />
+      <Section title={t('Rendez-vous')}>
+        <Row label={t('Point du matin')}>
+          <Toggle label={t('Point du matin')} checked={s.morningBrief} onChange={v => s.set({ morningBrief: v })} />
         </Row>
-        <Row label="Bilan du dimanche">
-          <Toggle label="Bilan du dimanche" checked={s.weeklyReview} onChange={v => s.set({ weeklyReview: v })} />
+        <Row label={t('Bilan du dimanche')}>
+          <Toggle label={t('Bilan du dimanche')} checked={s.weeklyReview} onChange={v => s.set({ weeklyReview: v })} />
         </Row>
       </Section>
 
-      <Section title="Mémoire">
-        <Row label="Conversation" hint={`${messages} message${messages > 1 ? 's' : ''} enregistré${messages > 1 ? 's' : ''}.`}>
+      <Section title={t('Mémoire')}>
+        <Row label={t('Conversation')} hint={`${messages} message${messages > 1 ? 's' : ''} enregistré${messages > 1 ? 's' : ''}.`}>
           <button
             className="btn-secondary h-8"
             onClick={async () => {
@@ -452,12 +452,12 @@ function CopilotTab() {
             Effacer
           </button>
         </Row>
-        <Row label="Remarques déjà faites" hint="Il pourra te les refaire.">
+        <Row label={t('Remarques déjà faites')} hint={t('Il pourra te les refaire.')}>
           <button className="btn-secondary h-8" onClick={() => { useCopilot.setState({ memory: {} }); toast('Mémoire réinitialisée', 'success'); }}>
             Réinitialiser
           </button>
         </Row>
-        <Row label="Position sur l’écran">
+        <Row label={t('Position sur l’écran')}>
           <button className="btn-secondary h-8" onClick={() => { useCopilot.getState().setOffsetY(0.62); toast('Kompaly est revenu à sa place'); }}>
             Replacer
           </button>
@@ -474,20 +474,20 @@ function StudiesTab() {
   const focus = useFocus();
   return (
     <div className="space-y-5">
-      <Section title="Sessions focus">
-        <Row label="Durée de travail">
-          <Segmented<number> label="Durée de travail" value={s.focusMinutes} onChange={v => s.set({ focusMinutes: v })} options={[15, 25, 45, 50].map(v => ({ value: v, label: `${v} min` }))} />
+      <Section title={t('Sessions focus')}>
+        <Row label={t('Durée de travail')}>
+          <Segmented<number> label={t('Durée de travail')} value={s.focusMinutes} onChange={v => s.set({ focusMinutes: v })} options={[15, 25, 45, 50].map(v => ({ value: v, label: `${v} min` }))} />
         </Row>
-        <Row label="Durée de pause">
-          <Segmented<number> label="Durée de pause" value={s.breakMinutes} onChange={v => s.set({ breakMinutes: v })} options={[5, 10, 15].map(v => ({ value: v, label: `${v} min` }))} />
+        <Row label={t('Durée de pause')}>
+          <Segmented<number> label={t('Durée de pause')} value={s.breakMinutes} onChange={v => s.set({ breakMinutes: v })} options={[5, 10, 15].map(v => ({ value: v, label: `${v} min` }))} />
         </Row>
-        <Row label="Son de fin de session">
+        <Row label={t('Son de fin de session')}>
           <button className="btn-ghost h-8 text-[12px]" onClick={chime}>
             Écouter
           </button>
-          <Toggle label="Son" checked={s.focusSound} onChange={v => s.set({ focusSound: v })} />
+          <Toggle label={t('Son')} checked={s.focusSound} onChange={v => s.set({ focusSound: v })} />
         </Row>
-        <Row label="Lancer une session" hint={focus.phase ? 'Une session est déjà en cours.' : undefined}>
+        <Row label={t('Lancer une session')} hint={focus.phase ? 'Une session est déjà en cours.' : undefined}>
           <button
             className="btn-primary h-8"
             disabled={!!focus.phase}
@@ -502,11 +502,11 @@ function StudiesTab() {
       </Section>
 
       <Section title={s.usage === 'etudes' ? 'Planification des révisions' : 'Temps de préparation'}>
-        <Row label="Nombre de séances">
-          <Stepper label="Nombre de séances" value={s.revisionSessions} min={1} max={6} onChange={v => s.set({ revisionSessions: v })} />
+        <Row label={t('Nombre de séances')}>
+          <Stepper label={t('Nombre de séances')} value={s.revisionSessions} min={1} max={6} onChange={v => s.set({ revisionSessions: v })} />
         </Row>
-        <Row label="Heure des séances" hint="Chaque séance dure 1 h 30.">
-          <TimeField className="w-32" label="Heure des séances" value={s.revisionTime} onChange={v => v && s.set({ revisionTime: v })} />
+        <Row label={t('Heure des séances')} hint={t('Chaque séance dure 1 h 30.')}>
+          <TimeField className="w-32" label={t('Heure des séances')} value={s.revisionTime} onChange={v => v && s.set({ revisionTime: v })} />
         </Row>
       </Section>
     </div>
@@ -519,7 +519,7 @@ const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(naviga
 
 const SHORTCUTS: { group: string; keys: [string, string][] }[] = [
   {
-    group: 'Partout',
+    group: t('Partout'),
     keys: [
       ['Ctrl K', 'Rechercher'],
       ['↑ ↓ · Entrée', 'Choisir un résultat'],
@@ -528,7 +528,7 @@ const SHORTCUTS: { group: string; keys: [string, string][] }[] = [
     ],
   },
   {
-    group: 'Drive',
+    group: t('Drive'),
     keys: [
       ['Entrée', 'Ouvrir'],
       ['Espace', 'Sélectionner'],
@@ -541,7 +541,7 @@ const SHORTCUTS: { group: string; keys: [string, string][] }[] = [
     ],
   },
   {
-    group: 'Calendrier',
+    group: t('Calendrier'),
     keys: [
       ['← →', 'Jour précédent, suivant'],
       ['↑ ↓', 'Semaine précédente, suivante'],
@@ -549,7 +549,7 @@ const SHORTCUTS: { group: string; keys: [string, string][] }[] = [
     ],
   },
   {
-    group: 'Notes',
+    group: t('Notes'),
     keys: [
       ['Ctrl B · Ctrl I · Ctrl U', 'Gras, italique, souligné'],
       ['Ctrl Z', 'Annuler la frappe'],
@@ -558,7 +558,7 @@ const SHORTCUTS: { group: string; keys: [string, string][] }[] = [
     ],
   },
   {
-    group: 'Corbeille',
+    group: t('Corbeille'),
     keys: [
       ['Entrée', 'Aperçu'],
       ['↑ ↓', 'Élément précédent, suivant'],
@@ -567,7 +567,7 @@ const SHORTCUTS: { group: string; keys: [string, string][] }[] = [
     ],
   },
   {
-    group: 'Souris',
+    group: t('Souris'),
     keys: [
       ['Double-clic', 'Ouvrir un fichier ou un dossier'],
       ['Clic droit', 'Plus d’options'],
@@ -583,7 +583,7 @@ const keyLabel = (k: string) => (IS_MAC ? k.replace(/Ctrl /g, '⌘ ').replace(/A
 function ShortcutsTab() {
   return (
     <div className="space-y-5">
-      <Section title="Raccourcis clavier">
+      <Section title={t('Raccourcis clavier')}>
         {SHORTCUTS.map(g => (
           <div key={g.group} className="px-5 py-3">
             <h3 className="eyebrow mb-1">{g.group}</h3>
@@ -659,13 +659,13 @@ function NotificationsTab() {
   const defaultValue = s.defaultReminders[0] ?? -1;
   return (
     <div className="space-y-5">
-      <Section title="Sur cet appareil">
-        <Row label="Notifications" hint={hint}>
-          {(state === 'on' || state === 'off') && <Toggle label="Notifications sur cet appareil" checked={state === 'on'} onChange={v => !busy && void toggle(v)} />}
+      <Section title={t('Sur cet appareil')}>
+        <Row label={t('Notifications')} hint={hint}>
+          {(state === 'on' || state === 'off') && <Toggle label={t('Notifications sur cet appareil')} checked={state === 'on'} onChange={v => !busy && void toggle(v)} />}
         </Row>
         {!installed() && (canInstall || macSafari()) && (
           <Row
-            label="Installer Kompaly"
+            label={t('Installer Kompaly')}
             hint={canInstall ? 'Il s’ouvre dans sa propre fenêtre.' : 'Dans Safari : menu Fichier › Ajouter au Dock.'}
           >
             {canInstall && (
@@ -676,26 +676,26 @@ function NotificationsTab() {
           </Row>
         )}
         {state === 'on' && (
-          <Row label="Tester">
+          <Row label={t('Tester')}>
             <button className="btn-secondary h-8" onClick={() => void showSystemNotification('Notifications activées', 'Tes rappels Kompaly arriveront ici.\nEssai', 'test', '/profil?onglet=notifications')}>
               <Bell size={14} /> Essayer
             </button>
             {push && (
-              <button className="btn-secondary h-8" title="Ferme Kompaly juste après : la notification arrive 10 secondes plus tard." onClick={() => void testClosed()}>
+              <button className="btn-secondary h-8" title={t('Ferme Kompaly juste après : la notification arrive 10 secondes plus tard.')} onClick={() => void testClosed()}>
                 Site fermé
               </button>
             )}
           </Row>
         )}
       </Section>
-      <Section title="Rappels">
-        <Row label="Rappel par défaut" hint="Pour les événements avec une heure.">
+      <Section title={t('Rappels')}>
+        <Row label={t('Rappel par défaut')} hint={t('Pour les événements avec une heure.')}>
           <SelectField<number>
             value={defaultValue}
             onChange={v => s.set({ defaultReminders: v < 0 ? [] : [v] })}
-            label="Rappel par défaut"
+            label={t('Rappel par défaut')}
             className="h-9 w-52"
-            options={[{ value: -1, label: 'Aucun' }, ...TIMED_OPTIONS.map(o => ({ value: o.minutes, label: o.label }))]}
+            options={[{ value: -1, label: t('Aucun') }, ...TIMED_OPTIONS.map(o => ({ value: o.minutes, label: o.label }))]}
           />
         </Row>
       </Section>
@@ -741,8 +741,8 @@ function DataTab() {
 
   return (
     <div className="space-y-5">
-      <Section title="Sauvegarde" description={cloudEnabled ? undefined : 'Tes données sont enregistrées sur cet appareil.'}>
-        <Row label="Exporter mes données" hint="Sans les fichiers du Drive.">
+      <Section title={t('Sauvegarde')} description={cloudEnabled ? undefined : 'Tes données sont enregistrées sur cet appareil.'}>
+        <Row label={t('Exporter mes données')} hint={t('Sans les fichiers du Drive.')}>
           <button
             className="btn-secondary h-8"
             onClick={() => {
@@ -753,13 +753,13 @@ function DataTab() {
             <Download size={14} /> Exporter
           </button>
         </Row>
-        <Row label="Restaurer une sauvegarde">
+        <Row label={t('Restaurer une sauvegarde')}>
           <button className="btn-secondary h-8" onClick={() => importRef.current?.click()}>
             <Upload size={14} /> Importer
           </button>
           <input ref={importRef} type="file" accept="application/json,.json" hidden onChange={e => { void onImport(e.target.files?.[0]); e.target.value = ''; }} />
         </Row>
-        <Row label="Exporter le calendrier" hint="Fichier .ics (Google Agenda, Outlook…).">
+        <Row label={t('Exporter le calendrier')} hint={t('Fichier .ics (Google Agenda, Outlook…).')}>
           <button
             className="btn-secondary h-8"
             disabled={!events}
@@ -774,7 +774,7 @@ function DataTab() {
       </Section>
 
       {!cloudEnabled && usage && usage.quota > 0 && (
-        <Section title="Stockage">
+        <Section title={t('Stockage')}>
           <div className="px-5 py-4">
             <div className="flex items-center gap-2 text-[13px]">
               <HardDrive size={15} className="text-stone-400" />
@@ -788,8 +788,8 @@ function DataTab() {
         </Section>
       )}
 
-      <Section title="Zone sensible" danger>
-        <Row label="Effacer toutes mes données" hint={`Drive, notes, événements, tâches et conversation, corbeilles comprises. Ton compte, tes réglages et tes ${groupWords(useSettings.getState().usage).groups} restent.`}>
+      <Section title={t('Zone sensible')} danger>
+        <Row label={t('Effacer toutes mes données')} hint={`Drive, notes, événements, tâches et conversation, corbeilles comprises. Ton compte, tes réglages et tes ${groupWords(useSettings.getState().usage).groups} restent.`}>
           <button
             className="btn-danger h-8"
             onClick={async () => {
@@ -853,13 +853,13 @@ function AccountTab() {
   return (
     <div className="space-y-5">
       {cloudEnabled && (
-        <Section title="Double authentification">
-          <Row label="Activée">
+        <Section title={t('Double authentification')}>
+          <Row label={t('Activée')}>
             <span className="flex items-center gap-1.5 text-[13px] font-medium text-emerald-700">
               <ShieldCheck size={15} /> Protégé
             </span>
           </Row>
-          <Row label="Changer de téléphone">
+          <Row label={t('Changer de téléphone')}>
             <button
               className="btn-secondary h-8"
               onClick={async () => {
@@ -878,11 +878,11 @@ function AccountTab() {
         </Section>
       )}
 
-      <Section title="Mot de passe">
+      <Section title={t('Mot de passe')}>
         <form onSubmit={onChange} className="grid gap-3 px-5 py-4 sm:grid-cols-3">
-          {!noPassword && <input type="password" className="field" placeholder="Mot de passe actuel" aria-label="Mot de passe actuel" value={current} onChange={e => setCurrent(e.target.value)} autoComplete="current-password" />}
-          <input type="password" className="field" placeholder="Nouveau mot de passe" aria-label="Nouveau mot de passe" aria-describedby="profile-strength" value={next} onChange={e => setNext(e.target.value)} autoComplete="new-password" />
-          <input type="password" className="field" placeholder="Confirmer" aria-label="Confirmer le nouveau mot de passe" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} autoComplete="new-password" />
+          {!noPassword && <input type="password" className="field" placeholder={t('Mot de passe actuel')} aria-label={t('Mot de passe actuel')} value={current} onChange={e => setCurrent(e.target.value)} autoComplete="current-password" />}
+          <input type="password" className="field" placeholder={t('Nouveau mot de passe')} aria-label={t('Nouveau mot de passe')} aria-describedby="profile-strength" value={next} onChange={e => setNext(e.target.value)} autoComplete="new-password" />
+          <input type="password" className="field" placeholder={t('Confirmer')} aria-label={t('Confirmer le nouveau mot de passe')} value={confirmPw} onChange={e => setConfirmPw(e.target.value)} autoComplete="new-password" />
           {next && (
             <div className="sm:col-span-3 sm:-mt-1">
               <PasswordStrength id="profile-strength" password={next} />
@@ -896,7 +896,7 @@ function AccountTab() {
         </form>
       </Section>
 
-      <Section title="Comptes sur cet appareil">
+      <Section title={t('Comptes sur cet appareil')}>
         <div className="space-y-3 px-5 py-4">
           <p className="text-[12.5px] text-stone-500">
             Après {STALE_DAYS}&nbsp;jours sans utilisation, le mot de passe est redemandé.
@@ -919,9 +919,9 @@ function AccountTab() {
         </div>
       </Section>
 
-      <Section title="Session">
+      <Section title={t('Session')}>
         <Row
-          label="Se déconnecter"
+          label={t('Se déconnecter')}
           hint={!cloudEnabled ? 'Tes données restent sur cet appareil.' : remembered() ? 'Ton compte reste proposé sur la page de connexion.' : undefined}
         >
           <button className="btn-secondary h-8" onClick={() => void logout().then(leave)}>
@@ -930,9 +930,9 @@ function AccountTab() {
         </Row>
       </Section>
 
-      <Section title="Supprimer le compte" danger>
-        <Row label="Supprimer définitivement mon compte" hint="Tout sera effacé. Exporte une sauvegarde avant.">
-          {!noPassword && <input type="password" className="field w-44" placeholder="Mot de passe" aria-label="Mot de passe, pour confirmer la suppression" value={deletePw} onChange={e => setDeletePw(e.target.value)} />}
+      <Section title={t('Supprimer le compte')} danger>
+        <Row label={t('Supprimer définitivement mon compte')} hint={t('Tout sera effacé. Exporte une sauvegarde avant.')}>
+          {!noPassword && <input type="password" className="field w-44" placeholder={t('Mot de passe')} aria-label={t('Mot de passe, pour confirmer la suppression')} value={deletePw} onChange={e => setDeletePw(e.target.value)} />}
           <button
             className="btn-danger h-8"
             disabled={!noPassword && !deletePw}
@@ -971,7 +971,7 @@ export default function ProfilePage() {
           <h1 className="text-[24px] font-semibold tracking-[-0.02em]">Profil et réglages</h1>
         </div>
         <div className="flex flex-col gap-6 md:flex-row">
-          <nav aria-label="Sections du profil" className="grid shrink-0 grid-cols-4 gap-1.5 max-[359px]:grid-cols-3 md:flex md:w-48 md:flex-col md:gap-0.5">
+          <nav aria-label={t('Sections du profil')} className="grid shrink-0 grid-cols-4 gap-1.5 max-[359px]:grid-cols-3 md:flex md:w-48 md:flex-col md:gap-0.5">
             {TABS.map(t => (
               <button
                 key={t.key}

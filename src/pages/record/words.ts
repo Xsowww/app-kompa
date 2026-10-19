@@ -1,6 +1,7 @@
 import type { Usage } from '../../lib/usage';
 import type { Make } from '../../store/recorder';
 import { useSettings } from '../../store/settings';
+import { t } from '../../i18n';
 
 /** The words of the « Enregistrer » page that follow the account's usage: a class, a work meeting, anything else. */
 export interface RecWords {
@@ -16,35 +17,35 @@ export interface RecWords {
 }
 
 const PRO = {
-  short: { fiche: 'Résumé', examen: 'Questions' },
-  long: { fiche: 'Résumé', examen: 'Questions de compréhension' },
-  create: { fiche: 'Créer le résumé', examen: 'Créer les questions' },
-  createLong: { fiche: 'Créer le résumé', examen: 'Créer les questions de compréhension' },
-  menu: { fiche: 'Faire un résumé', examen: 'Faire des questions de compréhension' },
+  short: { fiche: t('Résumé'), examen: t('Questions') },
+  long: { fiche: t('Résumé'), examen: t('Questions de compréhension') },
+  create: { fiche: t('Créer le résumé'), examen: t('Créer les questions') },
+  createLong: { fiche: t('Créer le résumé'), examen: t('Créer les questions de compréhension') },
+  menu: { fiche: t('Faire un résumé'), examen: t('Faire des questions de compréhension') },
 };
 
 export const REC_WORDS: Record<Usage, RecWords> = {
   etudes: {
-    name: 'Nom du cours', fallback: 'Cours',
-    doc: 'Le cours', ofDoc: 'du cours', docDone: 'Le cours rédigé', where: 'Où ranger le cours ?', finish: 'Le cours sera rédigé et rangé dans ton Drive.',
-    history: 'Cours enregistrés', keywordHint: 'Ex. ton prénom, « exposé »',
-    short: { fiche: 'Fiche de révision', examen: 'Examen' },
-    long: { fiche: 'Fiche de révision', examen: 'Examen d’entraînement' },
-    create: { fiche: 'Créer la fiche', examen: 'Créer l’examen' },
-    createLong: { fiche: 'Créer la fiche', examen: 'Créer l’examen d’entraînement' },
-    menu: { fiche: 'Faire une fiche de révision', examen: 'Faire un examen d’entraînement' },
+    name: t('Nom du cours'), fallback: t('Cours'),
+    doc: t('Le cours'), ofDoc: t('du cours'), docDone: t('Le cours rédigé'), where: t('Où ranger le cours ?'), finish: t('Le cours sera rédigé et rangé dans ton Drive.'),
+    history: t('Cours enregistrés'), keywordHint: t('Ex. ton prénom, « exposé »'),
+    short: { fiche: t('Fiche de révision'), examen: t('Examen') },
+    long: { fiche: t('Fiche de révision'), examen: t('Examen d’entraînement') },
+    create: { fiche: t('Créer la fiche'), examen: t('Créer l’examen') },
+    createLong: { fiche: t('Créer la fiche'), examen: t('Créer l’examen d’entraînement') },
+    menu: { fiche: t('Faire une fiche de révision'), examen: t('Faire un examen d’entraînement') },
   },
   travail: {
-    name: 'Nom de la réunion', fallback: 'Réunion',
-    doc: 'Le compte rendu', ofDoc: 'du compte rendu', docDone: 'Le compte rendu rédigé', where: 'Où ranger le compte rendu ?',
-    finish: 'Le compte rendu sera rédigé et rangé dans ton Drive.',
-    history: 'Réunions enregistrées', keywordHint: 'Ex. ton prénom, « budget »',
+    name: t('Nom de la réunion'), fallback: t('Réunion'),
+    doc: t('Le compte rendu'), ofDoc: t('du compte rendu'), docDone: t('Le compte rendu rédigé'), where: t('Où ranger le compte rendu ?'),
+    finish: t('Le compte rendu sera rédigé et rangé dans ton Drive.'),
+    history: t('Réunions enregistrées'), keywordHint: t('Ex. ton prénom, « budget »'),
     ...PRO,
   },
   perso: {
-    name: 'Titre de l’enregistrement', fallback: 'Enregistrement',
-    doc: 'Le document', ofDoc: 'du document', docDone: 'Le document rédigé', where: 'Où ranger le document ?', finish: 'Le document sera rédigé et rangé dans ton Drive.',
-    history: 'Enregistrements passés', keywordHint: 'Ex. ton prénom, « billet »',
+    name: t('Titre de l’enregistrement'), fallback: t('Enregistrement'),
+    doc: t('Le document'), ofDoc: t('du document'), docDone: t('Le document rédigé'), where: t('Où ranger le document ?'), finish: t('Le document sera rédigé et rangé dans ton Drive.'),
+    history: t('Enregistrements passés'), keywordHint: t('Ex. ton prénom, « billet »'),
     ...PRO,
   },
 };

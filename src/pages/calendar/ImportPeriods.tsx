@@ -10,6 +10,7 @@ import { fmtDay, todayKey } from '../../lib/dates';
 import { cx, uid } from '../../lib/utils';
 import { PERSO, useCalendarSource, useImportSources } from './source';
 import PeoplePicker from './PeoplePicker';
+import { t, tn } from '../../i18n';
 
 /** « Importer des périodes » : copies some periods of another calendar (my own, another shared one) into this one. */
 export default function ImportPeriods({ onDone }: { onDone: () => void }) {
@@ -71,16 +72,16 @@ export default function ImportPeriods({ onDone }: { onDone: () => void }) {
   const run = () => {
     if (!chosen.length) return;
     source.savePeriods(copyPeriods(chosen, source.shared ? people : [], uid));
-    toast(chosen.length > 1 ? `${chosen.length} périodes importées` : 'Période importée', 'success');
+    toast(chosen.length > 1 ? t('{n} périodes importées', { n: chosen.length }) : t('Période importée'), 'success');
     onDone();
   };
 
   return (
     <div className="mt-4 rounded-2xl bg-stone-50 p-4">
-      <p className="text-[14px] font-semibold">Importer des périodes</p>
+      <p className="text-[14px] font-semibold">{t('Importer des périodes')}</p>
 
-      <p className="eyebrow mt-4">Depuis</p>
-      <div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-label="Importer depuis">
+      <p className="eyebrow mt-4">{t('Depuis')}</p>
+      <div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-label={t('Importer depuis')}>
         {sources.map(s => (
           <button
             key={s.id}
@@ -99,17 +100,17 @@ export default function ImportPeriods({ onDone }: { onDone: () => void }) {
       </div>
 
       <div className="mt-4 flex items-baseline justify-between gap-2">
-        <p className="eyebrow">Périodes</p>
+        <p className="eyebrow">{t('Périodes')}</p>
         {free.length > 1 && (
           <button type="button" className="text-[12.5px] font-semibold text-brand-600 hover:underline pointer-coarse:-my-2 pointer-coarse:py-2" onClick={() => setPicked(all ? new Set() : new Set(free.map(p => p.id)))}>
-            {all ? 'Tout décocher' : 'Tout cocher'}
+            {all ? t('Tout décocher') : t('Tout cocher')}
           </button>
         )}
       </div>
       {list === null ? (
-        <p className="mt-2 text-[13px] text-stone-500" role="status">Chargement…</p>
+        <p className="mt-2 text-[13px] text-stone-500" role="status">{t('Chargement…')}</p>
       ) : list.length === 0 ? (
-        <p className="mt-2 text-[13px] text-stone-500">Aucune période dans « {fromName} ».</p>
+        <p className="mt-2 text-[13px] text-stone-500">{t('Aucune période dans « {name} ».', { name: fromName })}</p>
       ) : (
         <ul className="mt-2 max-h-[30vh] space-y-1 overflow-y-auto pr-1">
           {list.map(p => {
@@ -123,8 +124,8 @@ export default function ImportPeriods({ onDone }: { onDone: () => void }) {
                     <span className="line-clamp-2 text-[13.5px] font-semibold [overflow-wrap:anywhere]">{periodLabel(p, fromPerso ? undefined : nameIn(from))}</span>
                     <span className="block text-[12px] text-stone-500">
                       {periodRange(p, fmtDay)}
-                      {p.skip?.length ? ` · ${periodDays(p)} jours` : ''}
-                      {dup ? ' · déjà ici' : p.end < todayKey() ? ' · passée' : ''}
+                      {p.skip?.length ? ` · ${tn(periodDays(p), '{n} jour', '{n} jours')}` : ''}
+                      {dup ? ` · ${t('déjà ici')}` : p.end < todayKey() ? ` · ${t('passée')}` : ''}
                     </span>
                   </span>
                 </label>
@@ -134,14 +135,14 @@ export default function ImportPeriods({ onDone }: { onDone: () => void }) {
         </ul>
       )}
 
-      {source.shared && source.shared.people.length > 1 && free.length > 0 && <PeoplePicker people={source.shared.people} value={people} onChange={setPeople} what="ces périodes" />}
+      {source.shared && source.shared.people.length > 1 && free.length > 0 && <PeoplePicker people={source.shared.people} value={people} onChange={setPeople} what={t('ces périodes')} />}
 
       <div className="mt-4 flex flex-wrap justify-end gap-2">
         <button type="button" className="btn-secondary" onClick={onDone}>
-          Annuler
+          {t('Annuler')}
         </button>
         <button type="button" className="btn-primary" disabled={!chosen.length} onClick={run}>
-          {chosen.length > 1 ? `Importer ${chosen.length} périodes` : 'Importer'}
+          {chosen.length > 1 ? t('Importer {n} périodes', { n: chosen.length }) : t('Importer')}
         </button>
       </div>
     </div>
@@ -153,5 +154,5 @@ function nameIn(groupId: string) {
   const members = useGroups.getState().members[groupId];
   if (!members?.length) return undefined;
   const me = useAuth.getState().user?.id;
-  return (id: string) => (id === me ? 'Moi' : (members.find(m => m.userId === id)?.name ?? 'Un membre'));
+  return (id: string) => (id === me ? t('Moi') : (members.find(m => m.userId === id)?.name ?? t('Un membre')));
 }

@@ -5,6 +5,7 @@ import { AGENDA_WORDS, groupWords } from '../../lib/usage';
 import { useGroups } from '../../store/groups';
 import { toast } from '../../store/ui';
 import { GROUP_COLORS, MAX_GROUP_FILE, groupError, uploadFile, type Group, type GroupKind } from '../../lib/groups';
+import { t, tn } from '../../i18n';
 
 /** Which space the group screens are in: work groups (/groupes) or shared calendars (/agendas). */
 export const KindContext = createContext<GroupKind>('groupe');
@@ -22,10 +23,10 @@ export const groupColor = (g: Pick<Group, 'color'>) => g.color ?? GROUP_COLORS[0
 export function useMemberName(groupId: string) {
   const me = useAuth(s => s.user?.id);
   const members = useGroups(s => s.members[groupId]);
-  return (userId: string | null, self = 'toi') => {
-    if (!userId) return 'un ancien membre';
+  return (userId: string | null, self = t('toi')) => {
+    if (!userId) return t('un ancien membre');
     if (userId === me) return self;
-    return members?.find(m => m.userId === userId)?.name ?? 'un ancien membre';
+    return members?.find(m => m.userId === userId)?.name ?? t('un ancien membre');
   };
 }
 
@@ -40,6 +41,9 @@ export function useRights(group: Pick<Group, 'id' | 'ownerId'>) {
   return { isOwner, canEdit: isOwner || mine?.role === 'editeur' };
 }
 
+/** A refusal worded here (file missing, too big): shown as it is. */
+class FileRefused extends Error {}
+
 /** Ajoute des fichiers au groupe, un par un ; dit ce qui est passé et ce qui a été refusé. */
 export async function shareFiles(group: Group, files: { blob: Blob | (() => Promise<Blob | undefined>); name: string }[]): Promise<number> {
   let ok = 0;
@@ -47,17 +51,16 @@ export async function shareFiles(group: Group, files: { blob: Blob | (() => Prom
   for (const f of files) {
     try {
       const blob = typeof f.blob === 'function' ? await f.blob() : f.blob;
-      if (!blob) throw new Error('Le contenu de « ' + f.name + ' » est introuvable.');
-      if (blob.size > MAX_GROUP_FILE) throw new Error(`« ${f.name} » dépasse 50 Mo.`);
+      if (!blob) throw new FileRefused(t('Le contenu de « {name} » est introuvable.', { name: f.name }));
+      if (blob.size > MAX_GROUP_FILE) throw new FileRefused(t('« {name} » dépasse 50 Mo.', { name: f.name }));
       await uploadFile(group.id, blob, f.name);
       ok++;
     } catch (e) {
-      const m = String((e as Error)?.message ?? '');
-      error = m.startsWith('«') || m.startsWith('Le contenu') ? m : groupError(e);
+      error = e instanceof FileRefused ? e.message : groupError(e);
     }
   }
   if (ok) void useGroups.getState().refresh(group.id, ['files']);
-  if (error) toast(ok ? `${ok} fichier${ok > 1 ? 's' : ''} partagé${ok > 1 ? 's' : ''}. ${error}` : error, 'error');
-  else if (ok) toast(ok > 1 ? `${ok} fichiers partagés avec ${groupWordsNow().the}` : `Fichier partagé avec ${groupWordsNow().the}`, 'success');
+  if (error) toast(ok ? tn(ok, '{n} fichier partagé. {error}', '{n} fichiers partagés. {error}', { error }) : error, 'error');
+  else if (ok) toast(tn(ok, 'Fichier partagé avec {group}', '{n} fichiers partagés avec {group}', { group: groupWordsNow().the }), 'success');
   return ok;
 }

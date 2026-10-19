@@ -4,7 +4,7 @@ import { Modal } from '../../components/Overlays';
 import { useNotes, folderDescendants } from '../../store/notes';
 import { cx } from '../../lib/utils';
 import { folderIconStyle } from '../../store/drive';
-import { t } from '../../i18n';
+import { t, locale } from '../../i18n';
 
 /** What to move: a note, or a folder (never into itself or one of its sub-folders). */
 export type NoteMoveTarget = { kind: 'note'; id: string; name: string; from: string | null } | { kind: 'folder'; id: string; name: string; from: string | null };
@@ -18,7 +18,7 @@ export default function NoteMoveDialog({ target, onClose }: { target: NoteMoveTa
   const level = (parent: string | null, depth: number): React.ReactNode =>
     folders
       .filter(f => f.parentId === parent && !forbidden.has(f.id))
-      .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
+      .sort((a, b) => a.name.localeCompare(b.name, locale()))
       .map(f => (
         <div key={f.id}>
           <Choice selected={dest === f.id} depth={depth} onClick={() => setDest(f.id)}>

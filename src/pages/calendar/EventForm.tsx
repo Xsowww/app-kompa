@@ -14,6 +14,7 @@ import { NewCategory } from './CategoriesDialog';
 import ReminderPicker from '../../components/ReminderPicker';
 import { DateField, TimeField } from '../../components/Pickers';
 import { eventReminders, followMoments } from '../../lib/reminders';
+import { t } from '../../i18n';
 
 interface Props {
   event?: CalendarEvent;
@@ -58,7 +59,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
     const data = { title: title.trim(), date: day, start: start || undefined, end: start && end ? end : undefined, category: effective, details: details.trim() || undefined, important: important || undefined, reminders: chosen, ...(shared && { people }) };
     if (event) update(event.id, data);
     else add(data);
-    toast(`${event ? 'Enregistré' : 'Ajouté'} : ${data.title}`, 'success');
+    toast(event ? t('Enregistré : {title}', { title: data.title }) : t('Ajouté : {title}', { title: data.title }), 'success');
     onSaved?.(data);
     onClose();
   };
@@ -66,10 +67,10 @@ export default function EventForm({ event, date, start: initialStart, end: initi
   return (
     <Modal open onClose={onClose} width={460}>
       <form onSubmit={submit}>
-        <h3 className="text-[15px] font-semibold">{event ? 'Modifier l’événement' : 'Nouvel événement'}</h3>
-        <input autoFocus value={title} onChange={e => setTitle(e.target.value)} aria-label="Titre de l’événement" placeholder={`Titre (ex. ${words.titleExample})`} className="field mt-4 h-10 w-full text-[14px]" />
+        <h3 className="text-[15px] font-semibold">{event ? t('Modifier l’événement') : t('Nouvel événement')}</h3>
+        <input autoFocus value={title} onChange={e => setTitle(e.target.value)} aria-label={t('Titre de l’événement')} placeholder={t('Titre (ex. {example})', { example: words.titleExample })} className="field mt-4 h-10 w-full text-[14px]" />
 
-        <p className="mb-2 mt-4 text-[12px] font-medium text-stone-600">Catégorie</p>
+        <p className="mb-2 mt-4 text-[12px] font-medium text-stone-600">{t('Catégorie')}</p>
         <div className="flex flex-wrap gap-2">
           {allCategories(custom).map(k => {
             const c = catOf(k);
@@ -92,7 +93,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
             aria-expanded={creating}
             className="flex h-8 items-center gap-1 rounded-md border border-dashed border-stone-300 px-2.5 text-[13px] pointer-coarse:h-9 text-stone-500 transition-colors hover:border-stone-400 hover:text-ink"
           >
-            <Plus size={14} /> Nouvelle
+            <Plus size={14} /> {t('Nouvelle')}
           </button>}
         </div>
         {creating && (
@@ -110,7 +111,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
         {/* At 320 px one field per line: « Sans heure » was cut in two columns. */}
         <div className="mt-4 grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-3">
           <div className="min-[360px]:col-span-2 sm:col-span-1">
-            <span className="mb-1.5 block text-[12px] font-medium text-stone-600">Jour</span>
+            <span className="mb-1.5 block text-[12px] font-medium text-stone-600">{t('Jour')}</span>
             <DateField
               value={day}
               onChange={v => {
@@ -118,16 +119,16 @@ export default function EventForm({ event, date, start: initialStart, end: initi
                 if (chosen && day && v) setChosen(followMoments(chosen, { date: day, time: start || undefined }, { date: v, time: start || undefined }, chosen));
                 setDay(v);
               }}
-              label="Jour de l’événement"
+              label={t('Jour de l’événement')}
               className="w-full"
             />
           </div>
           <div>
-            <span className="mb-1.5 block text-[12px] font-medium text-stone-600">Début</span>
+            <span className="mb-1.5 block text-[12px] font-medium text-stone-600">{t('Début')}</span>
             <TimeField
               value={start}
-              label="Heure de début"
-              placeholder="Sans heure"
+              label={t('Heure de début')}
+              placeholder={t('Sans heure')}
               clearable
               invalid={!!end && !start}
               onChange={v => {
@@ -139,12 +140,12 @@ export default function EventForm({ event, date, start: initialStart, end: initi
             />
           </div>
           <div>
-            <span className="mb-1.5 block text-[12px] font-medium text-stone-600">Fin</span>
-            <TimeField value={end} onChange={setEnd} label="Heure de fin" placeholder="Facultatif" clearable invalid={timeError} className="w-full" />
+            <span className="mb-1.5 block text-[12px] font-medium text-stone-600">{t('Fin')}</span>
+            <TimeField value={end} onChange={setEnd} label={t('Heure de fin')} placeholder={t('Facultatif')} clearable invalid={timeError} className="w-full" />
           </div>
         </div>
         {(timeError || (end && !start)) && (
-          <p className="mt-1.5 text-[12.5px] text-red-600">{end && !start ? 'Indique le début, ou efface la fin.' : 'La fin est avant le début.'}</p>
+          <p className="mt-1.5 text-[12.5px] text-red-600">{end && !start ? t('Indique le début, ou efface la fin.') : t('La fin est avant le début.')}</p>
         )}
 
         {/* What makes it a « big day » for the home page and Kompaly, whatever its category. */}
@@ -158,23 +159,23 @@ export default function EventForm({ event, date, start: initialStart, end: initi
           )}
         >
           <Flag size={14} className={important ? 'fill-current' : ''} />
-          {important ? 'Important' : 'Marquer comme important'}
+          {important ? t('Important') : t('Marquer comme important')}
         </button>}
 
         {!shared && <ReminderPicker value={reminders} onChange={setChosen} timed={!!start} date={day || undefined} time={start || undefined} />}
 
-        {shared && shared.people.length > 1 && <PeoplePicker people={shared.people} value={people} onChange={setPeople} what="l’événement" />}
-        <textarea value={details} onChange={e => setDetails(e.target.value)} placeholder={`Notes (${words.notesExample})`} aria-label="Notes" rows={3} className="field mt-3 h-auto w-full resize-none py-2" />
+        {shared && shared.people.length > 1 && <PeoplePicker people={shared.people} value={people} onChange={setPeople} what={t('l’événement')} />}
+        <textarea value={details} onChange={e => setDetails(e.target.value)} placeholder={t('Notes ({example})', { example: words.notesExample })} aria-label={t('Notes')} rows={3} className="field mt-3 h-auto w-full resize-none py-2" />
 
         {linked.length > 0 && (
           <div className="mt-4">
-            <p className="mb-1.5 text-[12px] font-medium text-stone-600">Notes liées</p>
+            <p className="mb-1.5 text-[12px] font-medium text-stone-600">{t('Notes liées')}</p>
             <ul className="-mx-1.5">
               {linked.map(n => (
                 <li key={n.id}>
                   <Link to={`/notes?note=${n.id}`} className="flex h-8 items-center gap-2 rounded-md px-1.5 text-[13px] text-stone-700 transition-colors hover:bg-stone-50 hover:text-ink">
                     <FileText size={14} className="shrink-0 text-stone-400" />
-                    <span className="truncate">{n.title || 'Sans titre'}</span>
+                    <span className="truncate">{n.title || t('Sans titre')}</span>
                   </Link>
                 </li>
               ))}
@@ -193,14 +194,14 @@ export default function EventForm({ event, date, start: initialStart, end: initi
                 onClose();
               }}
             >
-              <Trash2 size={15} /> <span className="max-sm:sr-only">Supprimer</span>
+              <Trash2 size={15} /> <span className="max-sm:sr-only">{t('Supprimer')}</span>
             </button>
           )}
           <button type="button" className="btn-secondary ml-auto" onClick={onClose}>
-            Annuler
+            {t('Annuler')}
           </button>
           <button type="submit" className="btn-primary" disabled={!title.trim() || (!!end && !start) || timeError}>
-            {event ? 'Enregistrer' : 'Ajouter'}
+            {event ? t('Enregistrer') : t('Ajouter')}
           </button>
         </div>
       </form>

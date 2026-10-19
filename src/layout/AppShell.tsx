@@ -26,20 +26,21 @@ import { JoinedDialog } from '../pages/groups/Joined';
 import RecPill, { RecBadge } from '../pages/record/RecPill';
 import { useInvitations } from '../pages/groups/join';
 import { needsCredentials, savedAccounts, type SavedAccount } from '../lib/accounts';
+import { t, tn } from '../i18n';
 
 const SPACE_COLORS = { home: 'var(--color-brand-500)', drive: '#3b6fd8', calendar: '#d9483b', notes: '#d48a17' };
 
 const NAV = [
-  { to: '/', label: 'Accueil', icon: House, end: true, color: SPACE_COLORS.home },
-  { to: '/calendrier', label: 'Calendrier', icon: CalendarDays, color: SPACE_COLORS.calendar },
-  { to: '/taches', label: 'Tâches', icon: ListChecks, color: '#2f9e6b' },
-  { to: '/notes', label: 'Notes', icon: NotebookText, color: SPACE_COLORS.notes },
-  { to: '/drive', label: 'Drive', icon: FolderClosed, color: SPACE_COLORS.drive },
+  { to: '/', label: t('Accueil'), icon: House, end: true, color: SPACE_COLORS.home },
+  { to: '/calendrier', label: t('Calendrier'), icon: CalendarDays, color: SPACE_COLORS.calendar },
+  { to: '/taches', label: t('Tâches'), icon: ListChecks, color: '#2f9e6b' },
+  { to: '/notes', label: t('Notes'), icon: NotebookText, color: SPACE_COLORS.notes },
+  { to: '/drive', label: t('Drive'), icon: FolderClosed, color: SPACE_COLORS.drive },
   // Phones: from the home page (the tab bar is full).
-  { to: '/enregistrer', label: 'Enregistrer', icon: Mic, color: '#e5484d', phone: false },
+  { to: '/enregistrer', label: t('Enregistrer'), icon: Mic, color: '#e5484d', phone: false },
   // `section`: a small title above this entry in the sidebar (what is shared with others comes after).
-  { to: '/groupes', label: 'Groupes', icon: Users, color: '#1f8a8a', section: 'Espaces partagés' },
-  { to: '/agendas', label: 'Agendas partagés', short: 'Agendas', icon: CalendarRange, color: '#7a5ad6' },
+  { to: '/groupes', label: t('Groupes'), icon: Users, color: '#1f8a8a', section: t('Espaces partagés') },
+  { to: '/agendas', label: t('Agendas partagés'), short: t('Agendas'), icon: CalendarRange, color: '#7a5ad6' },
 ];
 
 const HIT_ICON: Record<SearchHit['type'], typeof FileText> = {
@@ -49,6 +50,16 @@ const HIT_ICON: Record<SearchHit['type'], typeof FileText> = {
   'dossier de notes': Folder,
   événement: CalendarClock,
   tâche: ListChecks,
+};
+
+/** The kind of a result, as shown (the keys are codes). */
+const HIT_TYPE: Record<SearchHit['type'], string> = {
+  dossier: t('dossier'),
+  fichier: t('fichier'),
+  note: t('note'),
+  'dossier de notes': t('dossier de notes'),
+  événement: t('événement'),
+  tâche: t('tâche'),
 };
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
@@ -121,8 +132,9 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
             onDone?.(true);
           }
         }}
-        placeholder="Rechercher"
-        aria-label="Rechercher dans tes fichiers, notes, événements et tâches"
+        placeholder={t('Rechercher')}
+        // Also found by the guided tour (components/Tour), with the same t().
+        aria-label={t('Rechercher dans tes fichiers, notes, événements et tâches')}
         role="combobox"
         aria-autocomplete="list"
         aria-expanded={open && !!q.trim()}
@@ -131,10 +143,10 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
         // A card-like field (border + surface): the grey tint alone barely stood out from the page, light or dark.
         className="h-10 w-full rounded-[14px] border border-transparent bg-surface pl-9 pr-14 text-[13.5px] text-ink outline-none transition placeholder:text-stone-500 hover:border-stone-200 focus:border-focus focus:ring-1 focus:ring-focus"
       />
-      <span aria-hidden className="kbd pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 sm:inline-flex">{isMac ? '⌘' : 'Ctrl'} K</span>
+      <span aria-hidden className="kbd pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 sm:inline-flex">{isMac ? '⌘' : t('Ctrl')} K</span>
       {open && q.trim() && (
-        <div id="recherche-resultats" role="listbox" aria-label="Résultats de recherche" className="enter absolute left-0 right-0 top-12 z-40 overflow-hidden rounded-[18px] border border-stone-200 bg-surface p-1 shadow-pop">
-          {hits.length === 0 && <p className="px-3 py-5 text-center text-[13px] text-stone-500 [overflow-wrap:anywhere]">Aucun résultat pour «&nbsp;{q}&nbsp;»</p>}
+        <div id="recherche-resultats" role="listbox" aria-label={t('Résultats de recherche')} className="enter absolute left-0 right-0 top-12 z-40 overflow-hidden rounded-[18px] border border-stone-200 bg-surface p-1 shadow-pop">
+          {hits.length === 0 && <p className="px-3 py-5 text-center text-[13px] text-stone-500 [overflow-wrap:anywhere]">{t('Aucun résultat pour «\u00a0{q}\u00a0»', { q })}</p>}
           {hits.map((h, i) => {
             const Icon = HIT_ICON[h.type];
             return (
@@ -153,7 +165,7 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
                   <span className="block truncate text-[13px] font-medium">{h.title}</span>
                   <span className="block truncate text-[12px] text-stone-500">{h.where}</span>
                 </span>
-                <span className="inline-block shrink-0 text-[11px] text-stone-500 first-letter:uppercase">{h.type}</span>
+                <span className="inline-block shrink-0 text-[11px] text-stone-500 first-letter:uppercase">{HIT_TYPE[h.type]}</span>
               </button>
             );
           })}
@@ -178,8 +190,8 @@ function AccountSwitch({ currentId }: { currentId: string }) {
       <button
         type="button"
         className="icon-btn"
-        title="Changer de compte"
-        aria-label="Changer de compte"
+        title={t('Changer de compte')}
+        aria-label={t('Changer de compte')}
         aria-haspopup="menu"
         onClick={e => {
           const r = e.currentTarget.getBoundingClientRect();
@@ -192,12 +204,12 @@ function AccountSwitch({ currentId }: { currentId: string }) {
         <ContextMenu
           x={menu.x}
           y={menu.y}
-          label="Changer de compte"
+          label={t('Changer de compte')}
           onClose={() => setMenu(null)}
           items={[
             ...others.map(a => ({ label: `${a.name || a.email} · ${a.email}`, icon: <UserRound size={15} />, onClick: () => open(a) })),
             ...(others.length ? [{ label: '', divider: true, onClick: () => {} }] : []),
-            { label: 'Ajouter un compte', icon: <UserPlus size={15} />, onClick: () => void useAuth.getState().addAccount() },
+            { label: t('Ajouter un compte'), icon: <UserPlus size={15} />, onClick: () => void useAuth.getState().addAccount() },
           ]}
         />
       )}
@@ -231,7 +243,7 @@ export default function AppShell() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
-  const trashLabel = trashCount ? `Corbeille, ${trashCount} élément${trashCount > 1 ? 's' : ''}` : 'Corbeille';
+  const trashLabel = trashCount ? tn(trashCount, 'Corbeille, {n} élément', 'Corbeille, {n} éléments') : t('Corbeille');
 
   useEffect(() => registerNavigate(navigate), [navigate]);
   // Invitation links: joined, then a window says so (pages/groups/Joined). One opened before signing in
@@ -273,26 +285,26 @@ export default function AppShell() {
       if (document.visibilityState === 'visible') void adminPendingCount().then(n => n !== null && useUi.setState({ adminPending: n }));
     };
     refresh();
-    const t = setInterval(refresh, 120_000);
+    const timer = setInterval(refresh, 120_000);
     document.addEventListener('visibilitychange', refresh);
     return () => {
-      clearInterval(t);
+      clearInterval(timer);
       document.removeEventListener('visibilitychange', refresh);
     };
   }, [isAdmin]);
-  const adminLabel = adminPending ? `Administration, ${adminPending} élément${adminPending > 1 ? 's' : ''} à traiter` : 'Administration';
+  const adminLabel = adminPending ? tn(adminPending, 'Administration, {n} élément à traiter', 'Administration, {n} éléments à traiter') : t('Administration');
 
   return (
     <div className="flex h-full">
       <a href="#contenu" className="skip-link" onClick={e => { e.preventDefault(); document.getElementById('contenu')?.focus(); }}>
-        Aller au contenu
+        {t('Aller au contenu')}
       </a>
       {/* Sidebar (desktop) */}
-      <aside aria-label="Barre latérale" className="m-3 mr-0 hidden w-[244px] shrink-0 flex-col rounded-[24px] bg-surface px-3 pb-3 pt-4 lg:flex">
+      <aside aria-label={t('Barre latérale')} className="m-3 mr-0 hidden w-[244px] shrink-0 flex-col rounded-[24px] bg-surface px-3 pb-3 pt-4 lg:flex">
         <div className="mb-6 px-2">
           <Logo />
         </div>
-        <nav aria-label="Navigation principale" className="flex flex-1 flex-col gap-1">
+        <nav aria-label={t('Navigation principale')} className="flex flex-1 flex-col gap-1">
           {NAV.map(n => (
             <Fragment key={n.to}>
             {'section' in n && <p className="mb-1 mt-5 px-2.5 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-stone-500">{n.section}</p>}
@@ -314,7 +326,11 @@ export default function AppShell() {
                   {news(n.to) > 0 && (
                     <span
                       className={cx('ml-auto rounded-full px-1.5 text-[11px] font-semibold leading-[18px] tabular', n.to === '/agendas' ? 'bg-red-500 text-white' : 'bg-brand-solid text-on-brand')}
-                      aria-label={n.to === '/agendas' ? `${agendaNews} nouveautés dans tes agendas partagés` : `${groupNews} nouveautés dans tes ${groupsLabel.toLowerCase()}`}
+                      aria-label={
+                        n.to === '/agendas'
+                          ? tn(agendaNews, '{n} nouveauté dans tes agendas partagés', '{n} nouveautés dans tes agendas partagés')
+                          : tn(groupNews, '{n} nouveauté dans tes {groups}', '{n} nouveautés dans tes {groups}', { groups: groupsLabel.toLowerCase() })
+                      }
                     >
                       {news(n.to)}
                     </span>
@@ -335,9 +351,9 @@ export default function AppShell() {
               }
             >
               <ChartNoAxesColumn size={18} strokeWidth={1.9} />
-              Administration
+              {t('Administration')}
               {adminPending > 0 && (
-                <span className="ml-auto rounded-full bg-red-500 px-1.5 text-[11px] font-semibold leading-[18px] text-white tabular" aria-label={`${adminPending} à traiter`}>
+                <span className="ml-auto rounded-full bg-red-500 px-1.5 text-[11px] font-semibold leading-[18px] text-white tabular" aria-label={t('{n} à traiter', { n: adminPending })}>
                   {adminPending}
                 </span>
               )}
@@ -355,7 +371,7 @@ export default function AppShell() {
           }
         >
           <Trash2 size={18} strokeWidth={1.9} />
-          <span className="flex-1">Corbeille</span>
+          <span className="flex-1">{t('Corbeille')}</span>
           {trashCount > 0 && <span className="tabular text-[11px] text-stone-500">{trashCount}</span>}
         </NavLink>
         <FocusTimer />
@@ -363,12 +379,12 @@ export default function AppShell() {
         <NavLink
           to="/profil"
           className={({ isActive }) => cx('group flex min-w-0 flex-1 items-center gap-2.5 rounded-lg p-1.5 text-left transition-colors hover:bg-stone-100', isActive && 'bg-stone-100')}
-          title="Profil et réglages"
+          title={t('Profil et réglages')}
         >
           <Avatar size={28} />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[13px] font-medium">{user.name}</span>
-            <span className="block truncate text-[11px] text-stone-500">Profil et réglages</span>
+            <span className="block truncate text-[11px] text-stone-500">{t('Profil et réglages')}</span>
           </span>
           <Settings2 size={15} className="text-stone-400 transition-colors group-hover:text-ink" />
         </NavLink>
@@ -388,8 +404,8 @@ export default function AppShell() {
             ref={searchBtn}
             type="button"
             className="icon-btn ml-auto lg:hidden"
-            title="Rechercher"
-            aria-label="Rechercher"
+            title={t('Rechercher')}
+            aria-label={t('Rechercher')}
             aria-expanded={searchOpen}
             aria-controls={searchOpen ? 'recherche-mobile' : undefined}
             onClick={() => setSearchOpen(o => !o)}
@@ -397,7 +413,7 @@ export default function AppShell() {
             <Search size={18} strokeWidth={1.9} />
           </button>
           {isAdmin && (
-            <NavLink to="/admin" className="icon-btn relative lg:hidden" title="Administration" aria-label={adminLabel}>
+            <NavLink to="/admin" className="icon-btn relative lg:hidden" title={t('Administration')} aria-label={adminLabel}>
               <ChartNoAxesColumn size={18} strokeWidth={1.9} />
               {adminPending > 0 && (
                 <span className="absolute -right-0.5 -top-0.5 min-w-[16px] rounded-full bg-red-500 px-1 text-center text-[10px] font-semibold leading-[16px] text-white ring-2 ring-paper tabular" aria-hidden>
@@ -406,11 +422,11 @@ export default function AppShell() {
               )}
             </NavLink>
           )}
-          <NavLink to="/corbeille" className="icon-btn relative lg:hidden" title="Corbeille" aria-label={trashLabel}>
+          <NavLink to="/corbeille" className="icon-btn relative lg:hidden" title={t('Corbeille')} aria-label={trashLabel}>
             <Trash2 size={18} strokeWidth={1.9} />
             {trashCount > 0 && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-brand-500 ring-2 ring-paper" aria-hidden />}
           </NavLink>
-          <NavLink to="/profil" className="inline-flex h-9 w-9 items-center justify-center rounded-full lg:hidden" title="Profil et réglages" aria-label="Profil et réglages">
+          <NavLink to="/profil" className="inline-flex h-9 w-9 items-center justify-center rounded-full lg:hidden" title={t('Profil et réglages')} aria-label={t('Profil et réglages')}>
             <Avatar size={30} />
           </NavLink>
         </header>
@@ -438,18 +454,18 @@ export default function AppShell() {
           <button
             type="button"
             onClick={() => openFeedback()}
-            title="Donner mon avis ou signaler un bug"
-            aria-label="Donner mon avis ou signaler un bug"
+            title={t('Donner mon avis ou signaler un bug')}
+            aria-label={t('Donner mon avis ou signaler un bug')}
             className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] right-3 z-20 flex h-10 items-center gap-2 rounded-full border border-stone-200 bg-surface px-3 text-[12.5px] font-medium text-stone-600 shadow-pop transition-colors hover:border-stone-300 hover:text-ink lg:bottom-5 lg:right-5 lg:h-9"
           >
             <MessageSquareText size={16} strokeWidth={1.9} aria-hidden />
-            <span className="hidden lg:inline">Avis ou bug</span>
+            <span className="hidden lg:inline">{t('Avis ou bug')}</span>
           </button>
         </main>
       </div>
 
       {/* Bottom nav (mobile) */}
-      <nav aria-label="Navigation principale" className="fixed bottom-[max(12px,env(safe-area-inset-bottom))] left-[max(12px,env(safe-area-inset-left))] right-[max(12px,env(safe-area-inset-right))] z-30 flex rounded-[22px] bg-tile-dark p-1 shadow-pop ring-1 ring-white/10 lg:hidden">
+      <nav aria-label={t('Navigation principale')} className="fixed bottom-[max(12px,env(safe-area-inset-bottom))] left-[max(12px,env(safe-area-inset-left))] right-[max(12px,env(safe-area-inset-right))] z-30 flex rounded-[22px] bg-tile-dark p-1 shadow-pop ring-1 ring-white/10 lg:hidden">
         {NAV.filter(n => !('phone' in n)).map(n => (
           <NavLink
             key={n.to}
@@ -462,7 +478,7 @@ export default function AppShell() {
               <>
                 <span className="relative">
                   <n.icon size={19} strokeWidth={isActive ? 2.2 : 1.9} style={{ color: isActive ? n.color : undefined }} />
-                  {news(n.to) > 0 && <span className={cx('absolute -right-1 -top-0.5 h-2 w-2 rounded-full ring-2', isActive ? 'ring-white' : 'ring-tile-dark', n.to === '/agendas' ? 'bg-red-500' : 'bg-urgent')} aria-label="nouveautés" />}
+                  {news(n.to) > 0 && <span className={cx('absolute -right-1 -top-0.5 h-2 w-2 rounded-full ring-2', isActive ? 'ring-white' : 'ring-tile-dark', n.to === '/agendas' ? 'bg-red-500' : 'bg-urgent')} aria-label={t('nouveautés')} />}
                 </span>
                 <span className="max-w-full truncate">{'short' in n ? n.short : label(n)}</span>
               </>

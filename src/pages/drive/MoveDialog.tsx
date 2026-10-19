@@ -4,6 +4,7 @@ import { Modal } from '../../components/Overlays';
 import { useDrive, childrenOf, withDescendants, FOLDER_COLORS } from '../../store/drive';
 import { cx } from '../../lib/utils';
 import FileIcon from '../../components/FileIcon';
+import { t } from '../../i18n';
 
 interface Props {
   ids: string[];
@@ -15,13 +16,13 @@ interface Props {
   initial?: string | null;
 }
 
-export default function MoveDialog({ ids, onClose, onMove, title = 'Déplacer vers…', confirm = 'Déplacer ici', initial = null }: Props) {
+export default function MoveDialog({ ids, onClose, onMove, title = t('Déplacer vers…'), confirm = t('Déplacer ici'), initial = null }: Props) {
   const items = useDrive(s => s.items);
   const forbidden = new Set(withDescendants(items, ids));
   // Where the items already are (when they all share one folder): moving there would do nothing.
   const parents = new Set(items.filter(i => ids.includes(i.id)).map(i => i.parentId));
   const here = parents.size === 1 ? [...parents][0] : undefined;
-  const currentTag = <span className="ml-1 shrink-0 text-[11px] font-normal text-stone-500">(emplacement actuel)</span>;
+  const currentTag = <span className="ml-1 shrink-0 text-[11px] font-normal text-stone-500">{t('(emplacement actuel)')}</span>;
   const [target, setTarget] = useState<string | null>(initial);
   // The folders around the one chosen are unfolded.
   const [open, setOpen] = useState<Set<string>>(() => {
@@ -43,7 +44,7 @@ export default function MoveDialog({ ids, onClose, onMove, title = 'Déplacer ve
                 <button
                   type="button"
                   className={cx('hit-sm rounded p-0.5 text-stone-500 transition', expanded && 'rotate-90')}
-                  aria-label={expanded ? `Replier « ${f.name} »` : `Déplier « ${f.name} »`}
+                  aria-label={expanded ? t('Replier « {name} »', { name: f.name }) : t('Déplier « {name} »', { name: f.name })}
                   aria-expanded={expanded}
                   onClick={() =>
                     setOpen(s => {
@@ -80,16 +81,16 @@ export default function MoveDialog({ ids, onClose, onMove, title = 'Déplacer ve
           aria-pressed={target === null}
           onClick={() => setTarget(null)}
         >
-          <HardDrive size={16} /> Mon Drive
+          <HardDrive size={16} /> {t('Mon Drive')}
           {here === null && currentTag}
         </button>
         {renderLevel(null, 1)}
       </div>
       <div className="mt-5 flex justify-end gap-2">
         <button className="btn-secondary" onClick={onClose}>
-          Annuler
+          {t('Annuler')}
         </button>
-        <button className="btn-primary" disabled={ids.length > 0 && target === here} title={ids.length > 0 && target === here ? 'Choisis un autre dossier' : undefined} onClick={() => onMove(target)}>
+        <button className="btn-primary" disabled={ids.length > 0 && target === here} title={ids.length > 0 && target === here ? t('Choisis un autre dossier') : undefined} onClick={() => onMove(target)}>
           {confirm}
         </button>
       </div>

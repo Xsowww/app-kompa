@@ -9,6 +9,7 @@ import { isTourTodo, startTour } from '../../store/tour';
 import { confirmAction, toast } from '../../store/ui';
 import TaskDialog from './TaskDialog';
 import { DatePopover } from '../../components/Pickers';
+import { lang, t, tn } from '../../i18n';
 
 const OVERDUE = 'var(--cat-examen-text)';
 
@@ -18,7 +19,7 @@ const sortOpen = (a: Todo, b: Todo) =>
 function dueText(due: string, inOverdueGroup?: boolean) {
   const n = daysUntil(due);
   // Under the « En retard » heading, the date alone is enough.
-  if (n < -1) return inOverdueGroup ? fmtDay(fromKey(due), 'd MMM') : `En retard · ${fmtDay(fromKey(due), 'd MMM')}`;
+  if (n < -1) return inOverdueGroup ? fmtDay(fromKey(due), 'd MMM') : t('En retard · {day}', { day: fmtDay(fromKey(due), 'd MMM') });
   return n > 6 ? fmtDay(fromKey(due), 'd MMM') : n > 1 ? fmt(fromKey(due), 'EEE d') : countdownLabel(due);
 }
 
@@ -60,14 +61,14 @@ const refocusTodo = (id: string) =>
 /** A changed due date can move the task to another group (new row): find its date button again after the render. */
 const focusDueButton = (id: string) => setTimeout(() => document.querySelector<HTMLElement>(`[data-due="${id}"]`)?.focus(), 0);
 
-const confirmRemove = (t: Todo) => confirmAction(`Supprimer « ${t.title} » ?`, 'Tu pourras l’annuler juste après.', 'Supprimer');
+const confirmRemove = (todo: Todo) => confirmAction(t('Supprimer « {title} » ?', { title: todo.title }), t('Tu pourras l’annuler juste après.'), t('Supprimer'));
 
 /** Removes tasks with a way back: a single tap on the bin must not lose one for good. */
 function removeWithUndo(gone: Todo[]) {
   if (!gone.length) return;
-  const text = gone.length === 1 ? `Tâche « ${gone[0].title} » supprimée` : `${gone.length} tâches supprimées`;
+  const text = gone.length === 1 ? t('Tâche « {title} » supprimée', { title: gone[0].title }) : t('{n} tâches supprimées', { n: gone.length });
   toast(text, 'info', {
-    label: 'Annuler',
+    label: t('Annuler'),
     run: () => {
       useTodos.getState().restore(gone);
       // The toast's button goes away: the focus goes to the task that came back (once it's on screen).
@@ -78,17 +79,17 @@ function removeWithUndo(gone: Todo[]) {
 
 /** Under a ticked task: when it leaves the list. */
 const GoesIn = ({ minutes }: { minutes: number }) => (
-  <span className="block text-[11.5px] font-medium text-emerald-700 dark:text-emerald-400">Se supprime dans {minutes} min</span>
+  <span className="block text-[11.5px] font-medium text-emerald-700 dark:text-emerald-400">{t('Se supprime dans {n} min', { n: minutes })}</span>
 );
 
-function TodoRow({ t, editable, preview, now = 0 }: { t: Todo; editable?: boolean; preview?: boolean; now?: number }) {
+function TodoRow({ t: todo, editable, preview, now = 0 }: { t: Todo; editable?: boolean; preview?: boolean; now?: number }) {
   // A ticked task is shown green at the bottom of the list until it goes (SETTLE_MS).
-  const justDone = t.done;
+  const justDone = todo.done;
   // (`now` can lag behind a tick just made: never more than the 30 minutes)
-  const minutesLeft = justDone && t.doneAt ? Math.min(SETTLE_MS / 60_000, Math.max(1, Math.ceil((Date.parse(t.doneAt) + SETTLE_MS - now) / 60_000))) : 0;
+  const minutesLeft = justDone && todo.doneAt ? Math.min(SETTLE_MS / 60_000, Math.max(1, Math.ceil((Date.parse(todo.doneAt) + SETTLE_MS - now) / 60_000))) : 0;
   const { toggle, remove, update } = useTodos();
   const [editing, setEditing] = useState(false);
-  const [title, setTitle] = useState(t.title);
+  const [title, setTitle] = useState(todo.title);
   // The date button the small calendar hangs from while it is open.
   const [dating, setDating] = useState<HTMLElement | null>(null);
   const [openDialog, setOpenDialog] = useState<'edit' | 'remind' | null>(null);
@@ -97,12 +98,12 @@ function TodoRow({ t, editable, preview, now = 0 }: { t: Todo; editable?: boolea
   // A new date can move the task to another group (a new row): the focus follows it there.
   const pickDue = (value: string) => {
     setDating(null);
-    if (value !== (t.due ?? '')) update(t.id, { due: value || undefined });
-    focusDueButton(t.id);
+    if (value !== (todo.due ?? '')) update(todo.id, { due: value || undefined });
+    focusDueButton(todo.id);
   };
-  const overdue = !t.done && !!t.due && t.due < todayKey();
-  const canEdit = editable && !t.done;
-  const hasReminder = !!t.due && !!t.reminders?.length;
+  const overdue = !todo.done && !!todo.due && todo.due < todayKey();
+  const canEdit = editable && !todo.done;
+  const hasReminder = !!todo.due && !!todo.reminders?.length;
 
   // Back to the title after Enter or Escape, or the keyboard focus would fall to the top of the page.
   // Not on blur: the focus went elsewhere on purpose (another field…).
@@ -112,30 +113,30 @@ function TodoRow({ t, editable, preview, now = 0 }: { t: Todo; editable?: boolea
   };
   const save = (refocus: boolean) => {
     stopEditing(refocus);
-    if (title.trim() && title.trim() !== t.title) update(t.id, { title: title.trim() });
-    else setTitle(t.title);
+    if (title.trim() && title.trim() !== todo.title) update(todo.id, { title: title.trim() });
+    else setTitle(todo.title);
   };
 
   return (
     <li ref={rowRef} className="group flex min-h-9 items-center gap-2 rounded-lg sm:gap-3 px-1.5 py-1 transition-colors hover:bg-stone-50">
       <button
-        data-todo={t.id}
+        data-todo={todo.id}
         onClick={() => {
-          toggle(t.id);
-          refocusTodo(t.id);
+          toggle(todo.id);
+          refocusTodo(todo.id);
         }}
         className={cx(
           'hit flex h-4 w-4 shrink-0 items-center justify-center rounded-[5px] border-[1.5px] transition-colors',
           justDone ? 'border-emerald-500 bg-emerald-500' : overdue ? 'border-[#d9a19a] hover:border-[#b13428] dark:border-red-300 dark:hover:border-red-600' : 'border-stone-300 hover:border-stone-500',
         )}
-        title={t.done ? 'Remettre à faire' : 'Marquer comme faite'}
-        aria-label={t.done ? `Remettre « ${t.title} » à faire` : `Cocher « ${t.title} »`}
+        title={todo.done ? t('Remettre à faire') : t('Marquer comme faite')}
+        aria-label={todo.done ? t('Remettre « {title} » à faire', { title: todo.title }) : t('Cocher « {title} »', { title: todo.title })}
       >
-        {t.done && <Check size={10} strokeWidth={3} className="pop text-white" />}
+        {todo.done && <Check size={10} strokeWidth={3} className="pop text-white" />}
       </button>
       {preview ? (
-        <Link to={`/taches?tache=${t.id}`} className="min-w-0 flex-1 rounded text-[13px] hover:underline pointer-coarse:-my-1 pointer-coarse:py-2" title="Ouvrir dans Tâches">
-          <span className={cx('line-clamp-2 break-words', justDone ? 'text-stone-500 line-through decoration-emerald-500/70' : 'text-ink')}>{t.title}</span>
+        <Link to={`/taches?tache=${todo.id}`} className="min-w-0 flex-1 rounded text-[13px] hover:underline pointer-coarse:-my-1 pointer-coarse:py-2" title={t('Ouvrir dans Tâches')}>
+          <span className={cx('line-clamp-2 break-words', justDone ? 'text-stone-500 line-through decoration-emerald-500/70' : 'text-ink')}>{todo.title}</span>
           {justDone && <GoesIn minutes={minutesLeft} />}
         </Link>
       ) : editing ? (
@@ -147,11 +148,11 @@ function TodoRow({ t, editable, preview, now = 0 }: { t: Todo; editable?: boolea
           onKeyDown={e => {
             if (e.key === 'Enter') save(true);
             if (e.key === 'Escape') {
-              setTitle(t.title);
+              setTitle(todo.title);
               stopEditing(true);
             }
           }}
-          aria-label="Modifier la tâche"
+          aria-label={t('Modifier la tâche')}
           className="field h-7 min-w-0 flex-1 px-2"
         />
       ) : (
@@ -161,7 +162,7 @@ function TodoRow({ t, editable, preview, now = 0 }: { t: Todo; editable?: boolea
           {...(canEdit && {
             role: 'button',
             tabIndex: 0,
-            'aria-label': `Renommer « ${t.title} »`,
+            'aria-label': t('Renommer « {title} »', { title: todo.title }),
             onKeyDown: (e: React.KeyboardEvent) => {
               if (e.key !== 'Enter' && e.key !== 'F2') return;
               e.preventDefault();
@@ -170,31 +171,31 @@ function TodoRow({ t, editable, preview, now = 0 }: { t: Todo; editable?: boolea
           })}
           // As tall as the row on touch screens (36 px), the clamped text inside.
           className={cx('flex min-w-0 flex-1 items-center rounded text-[13px] pointer-coarse:-my-1 pointer-coarse:self-stretch pointer-coarse:py-1', 'text-ink')}
-          title={canEdit ? 'Double-clic pour renommer' : t.title}
+          title={canEdit ? t('Double-clic pour renommer') : todo.title}
         >
           <span className="min-w-0">
-            <span className={cx('line-clamp-2 break-words', justDone && 'text-stone-500 line-through decoration-emerald-500/70')}>{t.title}</span>
+            <span className={cx('line-clamp-2 break-words', justDone && 'text-stone-500 line-through decoration-emerald-500/70')}>{todo.title}</span>
             {justDone && <GoesIn minutes={minutesLeft} />}
           </span>
         </span>
       )}
-      {isTourTodo(t.title) && !t.done && (
+      {isTourTodo(todo.title) && !todo.done && (
         <button type="button" onClick={startTour} className="btn-primary h-7 shrink-0 px-2.5 text-[12px] pointer-coarse:h-9">
-          Lancer
+          {t('Lancer')}
         </button>
       )}
-      {canEdit && !isTourTodo(t.title) && (
+      {canEdit && !isTourTodo(todo.title) && (
         <button
           type="button"
           onClick={() => setOpenDialog('edit')}
           className="icon-btn touch-show h-9 w-9 shrink-0 opacity-0 sm:h-6 sm:w-6 group-hover:opacity-100 focus-visible:opacity-100"
-          title="Modifier"
-          aria-label={`Modifier «\u00a0${t.title}\u00a0»`}
+          title={t('Modifier')}
+          aria-label={t('Modifier «\u00a0{title}\u00a0»', { title: todo.title })}
         >
           <Pencil size={13} />
         </button>
       )}
-      {canEdit && !isTourTodo(t.title) && (
+      {canEdit && !isTourTodo(todo.title) && (
         <button
           type="button"
           onClick={() => setOpenDialog('remind')}
@@ -203,33 +204,33 @@ function TodoRow({ t, editable, preview, now = 0 }: { t: Todo; editable?: boolea
             // On a phone the empty bell, empty date and bin make way for the title: the pencil does all three.
             hasReminder ? 'px-1 py-0.5 font-medium text-brand-600 hover:bg-stone-100' : 'icon-btn touch-show h-9 w-9 opacity-0 max-sm:hidden sm:h-6 sm:w-6 group-hover:opacity-100 focus-visible:opacity-100',
           )}
-          title={hasReminder ? 'Changer le rappel' : 'Me le rappeler'}
-          aria-label={hasReminder ? `Changer le rappel de «\u00a0${t.title}\u00a0»` : `Me rappeler «\u00a0${t.title}\u00a0»`}
+          title={hasReminder ? t('Changer le rappel') : t('Me le rappeler')}
+          aria-label={hasReminder ? t('Changer le rappel de «\u00a0{title}\u00a0»', { title: todo.title }) : t('Me rappeler «\u00a0{title}\u00a0»', { title: todo.title })}
         >
           {hasReminder ? <BellRing size={13} /> : <Bell size={13} />}
-          {hasReminder && t.time && <span className="tabular">{t.time.replace(':', 'h').replace(/h00$/, 'h').replace(/^0(?=\d)/, '')}</span>}
+          {hasReminder && todo.time && <span className="tabular">{lang === 'fr' ? todo.time.replace(':', 'h').replace(/h00$/, 'h').replace(/^0(?=\d)/, '') : todo.time}</span>}
         </button>
       )}
       {openDialog && (
         <TaskDialog
-          todo={t}
+          todo={todo}
           remind={openDialog === 'remind'}
           onClose={() => {
             setOpenDialog(null);
-            refocusTodo(t.id);
+            refocusTodo(todo.id);
           }}
           onDelete={async () => {
-            if (!(await confirmRemove(t))) return refocusTodo(t.id);
+            if (!(await confirmRemove(todo))) return refocusTodo(todo.id);
             focusAfterRemoval(rowRef.current, true);
-            removeWithUndo([remove(t.id)].filter(x => !!x));
+            removeWithUndo([remove(todo.id)].filter(x => !!x));
           }}
         />
       )}
       {/* The tour task has « Lancer » in that column instead (no deadline to give it). */}
-      {!t.done && editable && !(isTourTodo(t.title) && !t.due) ? (
+      {!todo.done && editable && !(isTourTodo(todo.title) && !todo.due) ? (
         <>
           <button
-            data-due={t.id}
+            data-due={todo.id}
             type="button"
             aria-haspopup="dialog"
             aria-expanded={!!dating}
@@ -237,27 +238,27 @@ function TodoRow({ t, editable, preview, now = 0 }: { t: Todo; editable?: boolea
             className={cx(
               // Same width with or without a date: the reminder bells stay in one column.
               'hit min-w-[58px] shrink-0 rounded-md',
-              t.due ? 'px-1 py-0.5 text-right hover:bg-stone-100' : 'icon-btn touch-show h-9 w-9 opacity-0 max-sm:hidden sm:h-6 sm:w-6 group-hover:opacity-100 focus-visible:opacity-100',
+              todo.due ? 'px-1 py-0.5 text-right hover:bg-stone-100' : 'icon-btn touch-show h-9 w-9 opacity-0 max-sm:hidden sm:h-6 sm:w-6 group-hover:opacity-100 focus-visible:opacity-100',
             )}
-            title={t.due ? 'Changer l’échéance' : 'Ajouter une échéance'}
-            aria-label={t.due ? `Changer l’échéance de «\u00a0${t.title}\u00a0» (${dueText(t.due, overdue)})` : `Ajouter une échéance à «\u00a0${t.title}\u00a0»`}
+            title={todo.due ? t('Changer l’échéance') : t('Ajouter une échéance')}
+            aria-label={todo.due ? t('Changer l’échéance de «\u00a0{title}\u00a0» ({due})', { title: todo.title, due: dueText(todo.due, overdue) }) : t('Ajouter une échéance à «\u00a0{title}\u00a0»', { title: todo.title })}
           >
-            {t.due ? <DueLabel due={t.due} short={overdue} /> : <CalendarPlus size={13} />}
+            {todo.due ? <DueLabel due={todo.due} short={overdue} /> : <CalendarPlus size={13} />}
           </button>
-          {dating && <DatePopover anchor={dating} value={t.due ?? ''} clearable label={`Échéance de « ${t.title} »`} onPick={pickDue} onClose={() => setDating(null)} />}
+          {dating && <DatePopover anchor={dating} value={todo.due ?? ''} clearable label={t('Échéance de « {title} »', { title: todo.title })} onPick={pickDue} onClose={() => setDating(null)} />}
         </>
       ) : (
-        t.due && !t.done && <DueLabel due={t.due} />
+        todo.due && !todo.done && <DueLabel due={todo.due} />
       )}
       {!preview && <button
         data-remove
         onClick={async e => {
           const row = e.currentTarget.closest('li');
-          if (!(await confirmRemove(t))) return;
-          removeWithUndo([remove(t.id)].filter(x => !!x));
+          if (!(await confirmRemove(todo))) return;
+          removeWithUndo([remove(todo.id)].filter(x => !!x));
           focusAfterRemoval(row, true);
         }}
-        className="icon-btn touch-show h-9 w-9 opacity-0 max-sm:hidden sm:h-6 sm:w-6 group-hover:opacity-100 focus-visible:opacity-100 hover:text-red-600" title="Supprimer" aria-label={`Supprimer « ${t.title} »`}>
+        className="icon-btn touch-show h-9 w-9 opacity-0 max-sm:hidden sm:h-6 sm:w-6 group-hover:opacity-100 focus-visible:opacity-100 hover:text-red-600" title={t('Supprimer')} aria-label={t('Supprimer « {title} »', { title: todo.title })}>
         <Trash2 size={13} />
       </button>}
     </li>
@@ -288,8 +289,8 @@ function QuickAdd() {
           value={title}
           onChange={e => setTitle(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && submit()}
-          placeholder="Ajouter une tâche…"
-          aria-label="Nouvelle tâche"
+          placeholder={t('Ajouter une tâche…')}
+          aria-label={t('Nouvelle tâche')}
           maxLength={160}
           className="field w-full"
         />
@@ -301,11 +302,11 @@ function QuickAdd() {
         aria-expanded={!!dueMenu}
         onClick={e => setDueMenu(dueMenu ? null : e.currentTarget)}
         className={cx('flex h-10 shrink-0 items-center gap-1.5 rounded-[14px] px-3 text-[12.5px] font-semibold transition-colors', due ? 'bg-brand-50 text-brand-700 hover:bg-brand-100' : 'bg-stone-100 text-stone-600 hover:bg-stone-200 hover:text-ink')}
-        title={due ? 'Changer l’échéance' : 'Ajouter une échéance'}
-        aria-label={due ? `Échéance : ${fmtDay(fromKey(due), 'EEEE d MMMM')}` : 'Ajouter une échéance'}
+        title={due ? t('Changer l’échéance') : t('Ajouter une échéance')}
+        aria-label={due ? t('Échéance : {day}', { day: fmtDay(fromKey(due), 'EEEE d MMMM') }) : t('Ajouter une échéance')}
       >
         <CalendarPlus size={15} />
-        <span className="first-letter:uppercase max-sm:sr-only">{due ? fmtDay(fromKey(due), 'EEE d MMM') : 'Échéance'}</span>
+        <span className="first-letter:uppercase max-sm:sr-only">{due ? fmtDay(fromKey(due), 'EEE d MMM') : t('Échéance')}</span>
       </button>
       {dueMenu && (
         <DatePopover
@@ -313,7 +314,7 @@ function QuickAdd() {
           value={due}
           min={todayKey()}
           clearable
-          label="Échéance de la nouvelle tâche"
+          label={t('Échéance de la nouvelle tâche')}
           onPick={k => {
             setDue(k);
             setDueMenu(null);
@@ -323,7 +324,7 @@ function QuickAdd() {
         />
       )}
       <button type="button" onClick={submit} disabled={!title.trim()} className="btn h-10 shrink-0 bg-tile-blue px-4 text-white hover:brightness-110 disabled:opacity-50">
-        <Plus size={15} strokeWidth={2.4} aria-hidden /> <span className="max-sm:sr-only">Ajouter</span>
+        <Plus size={15} strokeWidth={2.4} aria-hidden /> <span className="max-sm:sr-only">{t('Ajouter')}</span>
       </button>
     </div>
   );
@@ -364,45 +365,45 @@ export default function TodoList({ limit, grouped }: { limit?: number; grouped?:
   const groups = (
     grouped
       ? [
-          { label: 'En retard', items: open.filter(t => t.due && t.due < today) },
-          { label: 'Aujourd’hui', items: open.filter(t => t.due === today) },
-          { label: 'À venir', items: open.filter(t => t.due && t.due > today) },
-          { label: 'Sans échéance', items: open.filter(t => !t.due) },
-          { label: 'Faites', items: ticked },
+          { key: 'late', label: t('En retard'), items: open.filter(x => x.due && x.due < today) },
+          { key: 'today', label: t('Aujourd’hui'), items: open.filter(x => x.due === today) },
+          { key: 'soon', label: t('À venir'), items: open.filter(x => x.due && x.due > today) },
+          { key: 'none', label: t('Sans échéance'), items: open.filter(x => !x.due) },
+          { key: 'done', label: t('Faites'), items: ticked },
         ]
-      : [{ label: '', items: [...openShown, ...tickedShown] }]
+      : [{ key: 'all', label: '', items: [...openShown, ...tickedShown] }]
   ).filter(g => g.items.length);
 
   return (
     <div className="flex flex-1 flex-col" data-todolist>
       {!preview && <QuickAdd />}
-      {open.length === 0 && <p className={cx('text-[13px] text-stone-500', ticked.length ? 'pt-3' : 'py-5')}>{ticked.length || todos.some(t => t.done) ? 'Tout est coché. Profites-en.' : 'Rien à faire pour l’instant.'}</p>}
+      {open.length === 0 && <p className={cx('text-[13px] text-stone-500', ticked.length ? 'pt-3' : 'py-5')}>{ticked.length || todos.some(x => x.done) ? t('Tout est coché. Profites-en.') : t('Rien à faire pour l’instant.')}</p>}
       {groups.length > 0 && (
         <div className="mt-2">
           {groups.map(g => (
-            <div key={g.label} className={cx(g.label && 'mt-3 first:mt-1')}>
+            <div key={g.key} className={cx(g.label && 'mt-3 first:mt-1')}>
               {g.label && (
-                <h2 className={cx('eyebrow mb-0.5 px-1.5', g.label === 'Faites' && 'text-emerald-700 dark:text-emerald-400')} style={g.label === 'En retard' ? { color: OVERDUE } : undefined}>
+                <h2 className={cx('eyebrow mb-0.5 px-1.5', g.key === 'done' && 'text-emerald-700 dark:text-emerald-400')} style={g.key === 'late' ? { color: OVERDUE } : undefined}>
                   {g.label}
                 </h2>
               )}
               <ul className="-mx-1.5">
-                {g.items.map(t => (
-                  <TodoRow key={t.id} t={t} editable={grouped} preview={preview} now={now} />
+                {g.items.map(x => (
+                  <TodoRow key={x.id} t={x} editable={grouped} preview={preview} now={now} />
                 ))}
               </ul>
             </div>
           ))}
           {limit && open.length > openShown.length && (
             <Link to="/taches" className="mt-1 inline-flex items-center gap-0.5 px-0.5 text-[12px] text-stone-500 hover:text-ink pointer-coarse:min-h-9">
-              {open.length - openShown.length} autre{open.length - openShown.length > 1 ? 's' : ''} <ChevronRight size={13} />
+              {tn(open.length - openShown.length, '{n} autre', '{n} autres')} <ChevronRight size={13} />
             </Link>
           )}
         </div>
       )}
       {preview && (
         <Link to="/taches?ajout=1" className="mt-auto inline-flex h-9 items-center gap-1.5 self-start rounded-full px-1.5 pt-2 text-[12.5px] font-semibold text-brand-600 hover:text-brand-700">
-          <Plus size={14} aria-hidden /> Ajouter une tâche
+          <Plus size={14} aria-hidden /> {t('Ajouter une tâche')}
         </Link>
       )}
     </div>

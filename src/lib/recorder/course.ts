@@ -2,6 +2,7 @@
 // then the course document (Markdown, turned into a Word file by lib/docx). No browser APIs here (tested).
 
 import { matchKeywords, type Keyword } from '../keywords';
+import { t, tn } from '../../i18n';
 
 export interface Segment {
   id: string;
@@ -47,7 +48,7 @@ export function clock(seconds: number): string {
 /** 5520 → « 1 h 32 », 300 → « 5 min ». */
 export function duration(seconds: number): string {
   const m = Math.round(seconds / 60);
-  return m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}` : `${Math.max(1, m)} min`;
+  return m >= 60 ? t('{h} h {min}', { h: Math.floor(m / 60), min: String(m % 60).padStart(2, '0') }) : t('{min} min', { min: Math.max(1, m) });
 }
 
 /** The end of a text, cut at a word: what was being said when a keyword was heard. */
@@ -95,7 +96,7 @@ export function nextPart(segments: readonly Segment[], upTo: number, all = false
 export function rawPart(segments: readonly Segment[], from: number, until: number, title: string): Part {
   const text = segments
     .filter(s => s.start >= from - 0.01 && s.end <= until + 0.01)
-    .map(s => `**${clock(s.start)}** ${flagged(s) ? '(⚑) ' : ''}${s.origin === 'manquant' ? '*(passage non transcrit)*' : s.text}`)
+    .map(s => `**${clock(s.start)}** ${flagged(s) ? '(⚑) ' : ''}${s.origin === 'manquant' ? `*(${t('passage non transcrit')})*` : s.text}`)
     .join('\n\n');
   return { title, text, points: [], until, raw: true };
 }
@@ -112,8 +113,11 @@ export interface CourseInfo {
 }
 
 /** Heading of the list that also lets a revision sheet or an exam be made later, from the document alone. */
-export const ESSENTIAL = 'L’essentiel à retenir';
-const MOMENTS = 'Moments signalés';
+export const ESSENTIAL = t('L’essentiel à retenir');
+const MOMENTS = t('Moments signalés');
+/** The same headings in French: a document made before switching language is still read back. */
+const ESSENTIAL_FR = 'L’essentiel à retenir';
+const MOMENTS_FR = 'Moments signalés';
 
 /** The moments marked (keyword heard, or by hand), as lines for the document and the AI. */
 export function momentLines(alerts: readonly Alert[]): string[] {
@@ -121,20 +125,20 @@ export function momentLines(alerts: readonly Alert[]): string[] {
   const groups: { time: number; words: string[]; excerpt: string }[] = [];
   for (const a of [...alerts].sort((x, y) => x.time - y.time)) {
     const same = groups.find(g => g.excerpt === a.excerpt && Math.abs(g.time - a.time) < 5);
-    const word = a.keyword ? `« ${a.keyword} »` : 'moment marqué';
+    const word = a.keyword ? t('« {keyword} »', { keyword: a.keyword }) : t('moment marqué');
     if (same) same.words.push(word);
     else groups.push({ time: a.time, words: [word], excerpt: a.excerpt });
   }
-  return groups.map(g => `${clock(g.time)} · ${g.words.join(', ')} : ${g.excerpt}`);
+  return groups.map(g => t('{time} · {words} : {excerpt}', { time: clock(g.time), words: g.words.join(', '), excerpt: g.excerpt }));
 }
 
 /** The course document, in the Markdown that lib/docx turns into Word. */
 export function courseMarkdown(c: CourseInfo): string {
-  const out = [`# ${c.title}`, `*${c.date} · ${duration(c.seconds)} · enregistré et rédigé avec Kompaly*`];
-  if (c.parts.some(p => p.raw)) out.push('> Une partie n’a pas pu être rédigée par l’IA : elle est recopiée telle qu’elle a été entendue.');
-  if (c.missing) out.push(`> ${c.missing > 1 ? `${c.missing} passages n’ont` : 'Un passage n’a'} pas pu être transcrit${c.missing > 1 ? 's' : ''} : ce document peut être incomplet.`);
+  const out = [`# ${c.title}`, `*${t('{date} · {duration} · enregistré et rédigé avec Kompaly', { date: c.date, duration: duration(c.seconds) })}*`];
+  if (c.parts.some(p => p.raw)) out.push(`> ${t('Une partie n’a pas pu être rédigée par l’IA : elle est recopiée telle qu’elle a été entendue.')}`);
+  if (c.missing) out.push(`> ${tn(c.missing, 'Un passage n’a pas pu être transcrit : ce document peut être incomplet.', '{n} passages n’ont pas pu être transcrits : ce document peut être incomplet.')}`);
   c.parts.forEach((p, i) => {
-    out.push(`## ${p.title || `Partie ${i + 1}`}`);
+    out.push(`## ${p.title || t('Partie {n}', { n: i + 1 })}`);
     // The AI writes its subtitles with ### : they stay below the part's title.
     out.push(p.text.replace(/^#{1,2}\s/gm, '### '));
   });
@@ -147,20 +151,23 @@ export function courseMarkdown(c: CourseInfo): string {
 /** The plan and the essentials of a course document made by Kompaly (read back from the file), else null. */
 export function essentialsOf(text: string): { points: string[]; moments: string[] } | null {
   const lines = text.replace(/\r/g, '').split('\n').map(l => l.trim());
-  const section = (title: string) => {
-    const at = lines.findIndex(l => l.replace(/[’']/g, "'").replace(/ pendant le cours$/, '') === title.replace(/[’']/g, "'"));
+  const plain = (l: string) => l.replace(/[’']/g, "'").replace(/ pendant le cours$/, '');
+  const is = (l: string, titles: string[]) => titles.some(title => plain(l) === plain(title));
+  const headings = [ESSENTIAL_FR, ESSENTIAL, MOMENTS_FR, MOMENTS];
+  const section = (titles: string[]) => {
+    const at = lines.findIndex(l => is(l, titles));
     if (at < 0) return [];
     const out: string[] = [];
     for (const l of lines.slice(at + 1)) {
       if (!l) continue;
       // The next heading: a short line that isn't an item (mammoth's raw text loses the markers).
-      if (/^(L’essentiel à retenir|L'essentiel à retenir|Moments signalés( pendant le cours)?)$/.test(l)) break;
+      if (is(l, headings)) break;
       out.push(l.replace(/^[-•◦]\s*/, ''));
     }
     return out;
   };
-  const points = section(ESSENTIAL);
-  return points.length ? { points, moments: section(MOMENTS) } : null;
+  const points = section([ESSENTIAL_FR, ESSENTIAL]);
+  return points.length ? { points, moments: section([MOMENTS_FR, MOMENTS]) } : null;
 }
 
 /** Long text → pieces of about `size` characters, cut between paragraphs (or sentences). */
@@ -188,5 +195,5 @@ export function chunkText(text: string, size = 10_000): string[] {
 /** « 2026-10-19 – Droit des contrats » : how the files of a class are named. */
 export function baseName(title: string, date: Date): string {
   const d = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-  return `${d} – ${title.replace(/[\\/:*?"<>|]+/g, '-').trim() || 'Enregistrement'}`;
+  return `${d} – ${title.replace(/[\\/:*?"<>|]+/g, '-').trim() || t('Enregistrement')}`;
 }

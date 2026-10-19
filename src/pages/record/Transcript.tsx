@@ -3,6 +3,7 @@ import { Bell, Star } from 'lucide-react';
 import { keywordRanges, type Keyword } from '../../lib/keywords';
 import { clock, type Alert, type Segment } from '../../lib/recorder/course';
 import { cx } from '../../lib/utils';
+import { t } from '../../i18n';
 
 /** A passage with its keywords highlighted. */
 function Marked({ text, keywords }: { text: string; keywords: readonly Keyword[] }) {
@@ -53,11 +54,11 @@ export default function Transcript({ segments, keywords, liveText, follow, empty
             <li key={s.id} id={`passage-${s.id}`} className={cx('flex gap-3 rounded-xl px-2 py-1.5 text-[14.5px] leading-relaxed', flagged && 'bg-amber-50')}>
               <span className="tabular w-[62px] shrink-0 pt-0.5 text-[11.5px] font-medium text-stone-500">{clock(s.start)}</span>
               <span className="min-w-0 flex-1">
-                {s.starred && <Star size={13} className="mr-1 inline -translate-y-px fill-amber-400 text-amber-500" aria-label="Moment marqué" />}
+                {s.starred && <Star size={13} className="mr-1 inline -translate-y-px fill-amber-400 text-amber-500" aria-label={t('Moment marqué')} />}
                 {s.origin === 'manquant' ? (
-                  <span className="italic text-stone-500">(passage non transcrit)</span>
+                  <span className="italic text-stone-500">{t('(passage non transcrit)')}</span>
                 ) : (
-                  <span className={cx(s.origin === 'navigateur' && 'text-stone-600')} title={s.origin === 'navigateur' ? 'Écrit par le navigateur (moins précis)' : undefined}>
+                  <span className={cx(s.origin === 'navigateur' && 'text-stone-600')} title={s.origin === 'navigateur' ? t('Écrit par le navigateur (moins précis)') : undefined}>
                     <Marked text={s.text} keywords={keywords} />
                   </span>
                 )}
@@ -69,15 +70,15 @@ export default function Transcript({ segments, keywords, liveText, follow, empty
       {/* Someone is speaking, its text is on its way (a few seconds). */}
       {writing && !liveText && (
         <p className="mt-2.5 flex items-center gap-3 px-2 text-[14px] text-stone-500" role="status">
-          <span className="w-[62px] shrink-0 text-[11px] font-semibold uppercase tracking-wide text-red-500">en direct</span>
-          <span className="flex gap-1" aria-label="Texte en cours d’écriture">
+          <span className="w-[62px] shrink-0 text-[11px] font-semibold uppercase tracking-wide text-red-500">{t('en direct')}</span>
+          <span className="flex gap-1" aria-label={t('Texte en cours d’écriture')}>
             {[0, 1, 2].map(i => <span key={i} className="h-1.5 w-1.5 animate-pulse rounded-full bg-stone-400" style={{ animationDelay: `${i * 0.2}s` }} />)}
           </span>
         </p>
       )}
       {liveText && (
         <p className="mt-2.5 flex gap-3 px-2 text-[14.5px] italic leading-relaxed text-stone-500">
-          <span className="w-[62px] shrink-0 pt-0.5 text-[11px] font-semibold not-italic uppercase tracking-wide text-red-500">en direct</span>
+          <span className="w-[62px] shrink-0 pt-0.5 text-[11px] font-semibold not-italic uppercase tracking-wide text-red-500">{t('en direct')}</span>
           <span className="min-w-0 flex-1">
             <Marked text={liveText} keywords={keywords} />
           </span>
@@ -89,7 +90,7 @@ export default function Transcript({ segments, keywords, liveText, follow, empty
 
 /** The moments: keywords heard, and the ones marked by hand. A click shows the passage. */
 export function Alerts({ alerts, segments }: { alerts: readonly Alert[]; segments: readonly Segment[] }) {
-  if (!alerts.length) return <p className="text-[13px] leading-relaxed text-stone-500">Aucune alerte pour l’instant.</p>;
+  if (!alerts.length) return <p className="text-[13px] leading-relaxed text-stone-500">{t('Aucune alerte pour l’instant.')}</p>;
   const show = (time: number) => {
     const seg = [...segments].reverse().find(s => s.start <= time + 1) ?? segments[0];
     const el = seg && document.getElementById(`passage-${seg.id}`);
@@ -102,7 +103,7 @@ export function Alerts({ alerts, segments }: { alerts: readonly Alert[]; segment
           <button type="button" onClick={() => show(a.time)} className="w-full rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-stone-100">
             <span className="flex items-center gap-1.5 text-[12.5px] font-semibold">
               {a.keyword ? <Bell size={13} className="text-amber-600" aria-hidden /> : <Star size={13} className="fill-amber-400 text-amber-500" aria-hidden />}
-              {a.keyword ? `« ${a.keyword} »` : 'Moment marqué'}
+              {a.keyword ? t('« {keyword} »', { keyword: a.keyword }) : t('Moment marqué')}
               <span className="tabular ml-auto text-[11px] font-medium text-stone-500">{clock(a.time)}</span>
             </span>
             <span className="mt-0.5 line-clamp-2 block text-[12.5px] text-stone-600">{a.excerpt}</span>

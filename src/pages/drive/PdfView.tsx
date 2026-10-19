@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { loadPdfjs } from '../../lib/pdf';
+import { t } from '../../i18n';
 
 const BATCH = 20; // pages drawn at once; more on demand
 
@@ -67,7 +68,7 @@ export default function PdfView({ url, title }: { url: string; title: string }) 
   }, [total, shown]);
 
   if (failed)
-    return <p className="rounded-md bg-surface px-6 py-10 text-center text-[13px] text-stone-600 shadow-2xl">Impossible d’afficher ce PDF. Télécharge-le pour l’ouvrir.</p>;
+    return <p className="rounded-md bg-surface px-6 py-10 text-center text-[13px] text-stone-600 shadow-2xl">{t('Impossible d’afficher ce PDF. Télécharge-le pour l’ouvrir.')}</p>;
 
   return (
     <div ref={box} role="document" aria-label={title} className="h-[82vh] w-[min(1000px,92vw)] overflow-y-auto rounded-md bg-stone-200 p-4 shadow-2xl">
@@ -77,11 +78,11 @@ export default function PdfView({ url, title }: { url: string; title: string }) 
         </div>
       )}
       {Array.from({ length: Math.min(total, shown) }, (_, i) => (
-        <canvas key={i} data-page={i + 1} aria-label={`Page ${i + 1} sur ${total}`} className="mx-auto mb-4 block bg-white shadow last:mb-0" />
+        <canvas key={i} data-page={i + 1} aria-label={t('Page {page} sur {total}', { page: i + 1, total })} className="mx-auto mb-4 block bg-white shadow last:mb-0" />
       ))}
       {total > shown && (
         <button type="button" className="btn-secondary mx-auto mt-2 flex" onClick={() => setShown(s => s + BATCH)}>
-          Afficher les pages suivantes ({shown} sur {total})
+          {t('Afficher les pages suivantes ({shown} sur {total})', { shown, total })}
         </button>
       )}
     </div>

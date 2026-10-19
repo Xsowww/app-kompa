@@ -17,6 +17,7 @@ import { WORDS } from '../lib/usage';
 import { startTitleBuffer } from './notes/titleBuffer';
 import { periodColor, periodText, periodTint, periodUntil, periodsOn } from '../lib/periods';
 import WeekProgress from './WeekProgress';
+import { t, tn } from '../i18n';
 
 /** A bento tile: white by default, `dark` for the big day (the strongest tile of the page). */
 function Widget({ title, to, linkLabel, className, dark, children }: { title: string; to?: string; linkLabel?: string; className?: string; dark?: boolean; children: React.ReactNode }) {
@@ -43,8 +44,8 @@ function EventRow({ e, showDay, muted }: { e: CalendarEvent; showDay?: boolean; 
       <button
         onClick={() => toggleDone(e.id)}
         className={cx('hit flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors', e.done ? 'border-ink bg-ink' : 'border-stone-300 hover:border-stone-500')}
-        title={e.done ? 'Marquer comme à faire' : 'Marquer comme fait'}
-        aria-label={e.done ? `Remettre « ${e.title} » à faire` : `Marquer « ${e.title} » comme fait`}
+        title={e.done ? t('Marquer comme à faire') : t('Marquer comme fait')}
+        aria-label={e.done ? t('Remettre « {title} » à faire', { title: e.title }) : t('Marquer « {title} » comme fait', { title: e.title })}
       >
         {e.done && <Check size={10} strokeWidth={3} className="text-paper" />}
       </button>
@@ -76,7 +77,7 @@ export default function Dashboard() {
   const now = new Date();
   const hour = now.getHours();
   // « Bonne nuit » is said when leaving, not to greet: late at night it is still « Bonsoir ».
-  const hello = hour >= 5 && hour < 18 ? 'Bonjour' : 'Bonsoir';
+  const hello = hour >= 5 && hour < 18 ? t('Bonjour') : t('Bonsoir');
 
   const todayEvents = events.filter(e => e.date === today).sort(sortEvents);
   // When the day is light, show what comes next so that the card is never a dead end.
@@ -107,12 +108,19 @@ export default function Dashboard() {
   const [tooLate, setTooLate] = useState<string>();
   const planExam = () => {
     if (!nextExam) return;
-    const r = runOffer({ label: 'Planifier', kind: 'plan_revisions', payload: { eventId: nextExam.id } });
+    const r = runOffer({ label: t('Planifier'), kind: 'plan_revisions', payload: { eventId: nextExam.id } });
     // Only a plan with sessions links to the schedule: too late, Kompaly only made the sheet.
-    const planned = r.links?.find(l => l.label === 'Voir le planning');
+    const planned = r.links?.find(l => l.label === t('Voir le planning'));
     const made = r.links?.find(l => l.to.startsWith('/notes'));
     // Straight to what was made: the note to fill in (else the first session in the calendar).
-    if (planned) return toast(`${words.planned} : ${r.links!.length > 1 ? `créneaux dans le calendrier et ${words === WORDS.etudes ? 'une fiche' : 'une note'} à remplir` : 'créneaux dans le calendrier'}`, 'success', { label: made ? 'Ouvrir' : 'Voir', run: () => navigate((made ?? planned).to) });
+    if (planned) return toast(
+        r.links!.length > 1
+          ? words === WORDS.etudes
+            ? t('{planned} : créneaux dans le calendrier et une fiche à remplir', { planned: words.planned })
+            : t('{planned} : créneaux dans le calendrier et une note à remplir', { planned: words.planned })
+          : t('{planned} : créneaux dans le calendrier', { planned: words.planned }),
+        'success',
+        { label: made ? t('Ouvrir') : t('Voir'), run: () => navigate((made ?? planned).to) });
     // Too late for a session: the sheet Kompaly made anyway is one tap away.
     const sheet = r.links?.find(l => l.to.startsWith('/notes'));
     setTooLate(nextExam.id); // the card now offers the sheet instead of the same message again
@@ -135,7 +143,7 @@ export default function Dashboard() {
           <div className="mr-auto">
             <p className="eyebrow first-letter:uppercase">{fmt(now, 'EEEE d MMMM')}</p>
             <h1 className="mt-0.5 text-[32px] font-extrabold tracking-[-0.035em]">
-              {hello}, {user.name}
+              {t('{hello}, {name}', { hello, name: user.name })}
             </h1>
             {nowPeriods.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1.5">
@@ -161,13 +169,13 @@ export default function Dashboard() {
               }}
               className="btn-ghost h-8 px-2.5 text-[13px]"
             >
-              <Plus size={15} /> Note
+              <Plus size={15} /> {t('Note')}
             </button>
             <button onClick={() => navigate('/calendrier?ajout=1')} className="btn-ghost h-8 px-2.5 text-[13px]">
-              <CalendarDays size={15} /> Événement
+              <CalendarDays size={15} /> {t('Événement')}
             </button>
             <button onClick={() => navigate('/enregistrer')} className="btn-ghost h-8 px-2.5 text-[13px]">
-              <Mic size={15} /> Enregistrer
+              <Mic size={15} /> {t('Enregistrer')}
             </button>
           </div>
         </div>
@@ -177,8 +185,8 @@ export default function Dashboard() {
           {/* Now (blue tile) */}
           <Link to={nowEvent ? linkToDay(today, nowEvent.id) : '/calendrier?ajout=1'} className="enter flex min-h-[150px] flex-col justify-between rounded-[24px] bg-tile-blue p-6 text-white transition-[filter] hover:brightness-110 lg:col-start-1 lg:row-start-1">
             <span className="flex justify-between text-[13px] font-semibold text-white/90">
-              <span>{nowEvent && minutesTo <= 0 ? 'En ce moment' : 'Ensuite aujourd’hui'}</span>
-              {nowEvent && minutesTo > 0 && <span>{minutesTo < 60 ? `dans ${minutesTo} min` : `dans ${Math.floor(minutesTo / 60)} h ${String(minutesTo % 60).padStart(2, '0')}`}</span>}
+              <span>{nowEvent && minutesTo <= 0 ? t('En ce moment') : t('Ensuite aujourd’hui')}</span>
+              {nowEvent && minutesTo > 0 && <span>{minutesTo < 60 ? t('dans {n} min', { n: minutesTo }) : t('dans {h} h {m}', { h: Math.floor(minutesTo / 60), m: String(minutesTo % 60).padStart(2, '0') })}</span>}
             </span>
             {nowEvent ? (
               <span className="flex items-end justify-between gap-4">
@@ -189,27 +197,27 @@ export default function Dashboard() {
                 <span className="tabular shrink-0 text-[34px] font-extrabold leading-none tracking-[-0.04em] sm:text-[40px]">{nowEvent.start}</span>
               </span>
             ) : (
-              <span className="text-[22px] font-extrabold tracking-[-0.02em]">{todayEvents.length ? 'Plus rien de prévu.' : 'Rien de prévu.'} Ajouter quelque chose ?</span>
+              <span className="text-[22px] font-extrabold tracking-[-0.02em]">{todayEvents.length ? t('Plus rien de prévu.') : t('Rien de prévu.')} {t('Ajouter quelque chose ?')}</span>
             )}
           </Link>
 
           {/* Next exam */}
-          <Widget dark title={notExam ? 'Prochain grand jour' : words.nextBig} className="lg:col-start-2 lg:row-span-2 lg:row-start-1">
+          <Widget dark title={notExam ? t('Prochain grand jour') : words.nextBig} className="lg:col-start-2 lg:row-span-2 lg:row-start-1">
             {nextExam ? (
               <div className="flex flex-1 flex-col">
                 <Link to={linkToDay(nextExam.date, nextExam.id)} className="group flex flex-col gap-3">
                   <span className="flex items-baseline gap-3">
                     {examDays === 0 ? (
                       // A word, not a number: « j » goes below the line, so no 0.8 line height here.
-                      <span className="text-[clamp(36px,11vw,52px)] font-extrabold leading-none tracking-[-0.045em] text-urgent lg:text-[clamp(36px,3.6vw,52px)]">Aujourd’hui</span>
+                      <span className="text-[clamp(36px,11vw,52px)] font-extrabold leading-none tracking-[-0.045em] text-urgent lg:text-[clamp(36px,3.6vw,52px)]">{t('Aujourd’hui')}</span>
                     ) : (
                       <span className="tabular text-[112px] font-extrabold leading-[0.8] tracking-[-0.06em] text-urgent">{examDays}</span>
                     )}
-                    {examDays > 0 && <span className="text-[18px] font-bold">jour{examDays > 1 ? 's' : ''}</span>}
+                    {examDays > 0 && <span className="text-[18px] font-bold">{tn(examDays, 'jour', 'jours')}</span>}
                   </span>
                   <span className="min-w-0">
                     <span className="flex min-w-0 items-center gap-1.5 text-[17px] font-bold group-hover:underline">
-                      {nextExam.important && <Flag size={14} className="shrink-0 fill-urgent text-urgent" aria-label="Important" />}
+                      {nextExam.important && <Flag size={14} className="shrink-0 fill-urgent text-urgent" aria-label={t('Important')} />}
                       <span className="truncate">{nextExam.title}</span>
                     </span>
                     <span className="block text-[13px] first-letter:uppercase text-white/65">
@@ -220,14 +228,14 @@ export default function Dashboard() {
                 </Link>
                 {laterBig.length > 0 && (
                   <div className="mt-5 border-t border-white/10 pt-4">
-                    <p className="mb-1 text-[12px] font-semibold text-white/60">Ensuite</p>
+                    <p className="mb-1 text-[12px] font-semibold text-white/60">{t('Ensuite')}</p>
                     <ul className="space-y-0.5">
                       {laterBig.map(e => {
                         const d = daysUntil(e.date);
                         return (
                           <li key={e.id}>
                             <Link to={linkToDay(e.date, e.id)} className="group flex items-center gap-2 rounded-md py-1 text-[12.5px] pointer-coarse:py-2">
-                              <span className={cx('tabular w-9 shrink-0 font-bold', d <= 3 ? 'text-urgent' : 'text-white/70')}>{d === 0 ? 'Auj.' : `J-${d}`}</span>
+                              <span className={cx('tabular w-9 shrink-0 font-bold', d <= 3 ? 'text-urgent' : 'text-white/70')}>{d === 0 ? t('Auj.') : t('J-{n}', { n: d })}</span>
                               <span className="min-w-0 truncate group-hover:underline">{e.title}</span>
                               <span className="ml-auto shrink-0 text-[12px] text-white/55">
                                 {/* The week day is enough within 7 days (the column is narrow on a 1024 px screen). */}
@@ -241,7 +249,7 @@ export default function Dashboard() {
                     </ul>
                     {bigDays.length > 3 && (
                       <Link to="/calendrier" className="mt-1 inline-block text-[12px] text-white/55 hover:text-white hover:underline pointer-coarse:py-2">
-                        +{bigDays.length - 3} autre{bigDays.length > 4 ? 's' : ''} dans le calendrier
+                        {tn(bigDays.length - 3, '+{n} autre dans le calendrier', '+{n} autres dans le calendrier')}
                       </Link>
                     )}
                   </div>
@@ -253,20 +261,20 @@ export default function Dashboard() {
                         <Check size={13} className="text-emerald-400" /> {words.planned}
                         {revisionSessions(nextExam)[0] && (
                           <Link to={linkToDay(revisionSessions(nextExam)[0].date, revisionSessions(nextExam)[0].id)} className="ml-auto font-semibold text-white/90 underline-offset-2 hover:text-white hover:underline">
-                            Voir les créneaux
+                            {t('Voir les créneaux')}
                           </Link>
                         )}
                       </p>
                       {examSheet && (
                         <Link to={linkToNote(examSheet.id)} className="btn w-full bg-white text-tile-dark hover:bg-white/90">
-                          {words === WORDS.etudes ? 'Ouvrir la fiche' : 'Ouvrir la note de préparation'}
+                          {words === WORDS.etudes ? t('Ouvrir la fiche') : t('Ouvrir la note de préparation')}
                         </Link>
                       )}
                     </div>
                   ) : examSheet && (examDays === 0 || tooLate === nextExam.id || noTimeLeft) ? (
                     // A sheet but no session and no time left for one: asking again would only repeat « Plus le temps… ».
                     <Link to={linkToNote(examSheet.id)} className="btn w-full bg-white text-tile-dark hover:bg-white/90">
-                      {words === WORDS.etudes ? 'Ouvrir la fiche' : 'Ouvrir la note'}
+                      {words === WORDS.etudes ? t('Ouvrir la fiche') : t('Ouvrir la note')}
                     </Link>
                   ) : hasStarted(nextExam) || notExam ? null : (
                     <button onClick={planExam} className="btn w-full bg-white text-tile-dark hover:bg-white/90">
@@ -279,16 +287,16 @@ export default function Dashboard() {
               <div className="py-1.5 text-[13px] text-white/65">
                 <p>{words.noBig}</p>
                 <p className="mt-1 flex items-center gap-1 text-[12px]">
-                  <Flag size={12} className="shrink-0" /> Marque un événement important pour le voir ici.
+                  <Flag size={12} className="shrink-0" /> {t('Marque un événement important pour le voir ici.')}
                 </p>
               </div>
             )}
           </Widget>
 
           {/* Today */}
-          <Widget title="Aujourd’hui" to={linkToDay(today)} linkLabel="Ouvrir la journée dans le calendrier" className="lg:col-start-1 lg:row-start-2">
+          <Widget title={t('Aujourd’hui')} to={linkToDay(today)} linkLabel={t('Ouvrir la journée dans le calendrier')} className="lg:col-start-1 lg:row-start-2">
             {todayEvents.length === 0 ? (
-              <p className="py-1.5 text-[13px] text-stone-500">Rien de prévu aujourd’hui.</p>
+              <p className="py-1.5 text-[13px] text-stone-500">{t('Rien de prévu aujourd’hui.')}</p>
             ) : (
               <ul className="-mx-1.5">
                 {todayEvents.map(e => (
@@ -298,7 +306,7 @@ export default function Dashboard() {
             )}
             {nextEvents.length > 0 && (
               <div className="mt-3 border-t border-stone-100 pt-3">
-                <p className="eyebrow mb-0.5">Ensuite</p>
+                <p className="eyebrow mb-0.5">{t('Ensuite')}</p>
                 <ul className="-mx-1.5">
                   {nextEvents.map(e => (
                     <EventRow key={e.id} e={e} showDay muted />
@@ -309,24 +317,24 @@ export default function Dashboard() {
           </Widget>
 
           {/* To-do */}
-          <Widget title="À faire" to="/taches" linkLabel="Ouvrir toutes les tâches" className="lg:col-start-1 lg:row-span-2 lg:row-start-3">
+          <Widget title={t('À faire')} to="/taches" linkLabel={t('Ouvrir toutes les tâches')} className="lg:col-start-1 lg:row-span-2 lg:row-start-3">
             <TodoList limit={6} />
           </Widget>
 
           {/* Week: a ring that fills as the week's tasks get ticked */}
-          <Widget title="Ma semaine" to="/taches" linkLabel="Ouvrir les tâches" className="lg:col-start-2 lg:row-start-3">
+          <Widget title={t('Ma semaine')} to="/taches" linkLabel={t('Ouvrir les tâches')} className="lg:col-start-2 lg:row-start-3">
             <WeekProgress from={weekDays[0]} to={weekDays[6]} />
           </Widget>
 
           {/* Notes */}
-          <Widget title="Notes récentes" to="/notes" linkLabel="Ouvrir les notes" className="lg:col-start-2 lg:row-start-4">
+          <Widget title={t('Notes récentes')} to="/notes" linkLabel={t('Ouvrir les notes')} className="lg:col-start-2 lg:row-start-4">
             {recentNotes.length === 0 ? (
-              <p className="py-1.5 text-[13px] text-stone-500">Aucune note pour l’instant.</p>
+              <p className="py-1.5 text-[13px] text-stone-500">{t('Aucune note pour l’instant.')}</p>
             ) : (
               <ul className="-mx-1.5">
                 {recentNotes.map(n => (
                   <li key={n.id}>
-                    <Link to={linkToNote(n.id)} className="flex items-baseline gap-2 rounded-lg px-1.5 py-1.5 transition-colors hover:bg-stone-50 pointer-coarse:py-2" title={`${folders.find(f => f.id === n.folderId)?.name ?? 'Notes'} · ${stripHtml(n.content).slice(0, 120) || 'Vide'}`}>
+                    <Link to={linkToNote(n.id)} className="flex items-baseline gap-2 rounded-lg px-1.5 py-1.5 transition-colors hover:bg-stone-50 pointer-coarse:py-2" title={`${folders.find(f => f.id === n.folderId)?.name ?? t('Notes')} · ${stripHtml(n.content).slice(0, 120) || t('Vide')}`}>
                       <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{n.title}</span>
                       <span className="shrink-0 text-[11px] text-stone-500">{relativeTime(n.updatedAt)}</span>
                     </Link>

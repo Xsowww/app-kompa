@@ -18,7 +18,7 @@ export const WORDS: Record<Usage, {
   /** Calendar: example in the quick add, empty « À venir », the box that ticks a deliverable, timetable slots. */
   quickExample: string; markDone: string; slot: string; slots: string;
   /** Calendar: the .ics import (a timetable from the school's ENT, or any agenda), examples of the event form and of a category. */
-  timetable: string; icsFrom: string; titleExample: string; notesExample: string; categoryExample: string; categoryHint: string;
+  timetable: string; titleExample: string; notesExample: string; categoryExample: string; categoryHint: string;
   /** Kompaly's message when a big event (exam, deadline…) is added. */
   bigNoted: string; prepare: string;
   /** Profile stats and Kompaly's lists: big events past (one / many) and coming up. */
@@ -38,7 +38,7 @@ export const WORDS: Record<Usage, {
     level: t('Année'), levels: ['', t('Lycée'), t('L1'), t('L2'), t('L3'), t('M1'), t('M2'), t('BTS / BUT'), t('Prépa'), t('École'), t('Doctorat'), t('Autre')],
     groups: t('Groupes'), profileTab: t('Études'),
     quickExample: t('Partiel de maths vendredi 14h'), markDone: t('rendu'), slot: t('cours'), slots: t('cours'),
-    timetable: t('emploi du temps'), icsFrom: t('ton ENT ou Google Agenda'), titleExample: t('Partiel de maths'), notesExample: t('salle, chapitres à réviser…'),
+    timetable: t('emploi du temps'), titleExample: t('Partiel de maths'), notesExample: t('salle, chapitres à réviser…'),
     categoryExample: t('Stage, Asso, Job…'), categoryHint: t('Stage chez Airbus'),
     bigNoted: t('Examen noté'), prepare: t('des révisions'),
     pastOne: t('examen passé'), pastMany: t('examens passés'), upcoming: t('Tes prochains examens'), bigOne: t('examen'), bigMany: t('examens'),
@@ -52,7 +52,7 @@ export const WORDS: Record<Usage, {
     level: t('Statut'), levels: ['', t('Indépendant·e / freelance'), t('Salarié·e'), t('Dirigeant·e'), t('Association'), t('Autre')],
     groups: t('Équipes'), profileTab: t('Travail'),
     quickExample: t('Réunion client jeudi 10h'), markDone: t('fait'), slot: t('créneau'), slots: t('créneaux'),
-    timetable: t('agenda'), icsFrom: t('Outlook, Google Agenda ou Apple Calendrier'), titleExample: t('Réunion client'), notesExample: t('lieu, ordre du jour…'),
+    timetable: t('agenda'), titleExample: t('Réunion client'), notesExample: t('lieu, ordre du jour…'),
     categoryExample: t('Projet, Formation, Salon…'), categoryHint: t('Formation Excel'),
     bigNoted: t('Échéance notée'), prepare: t('du temps pour préparer'),
     pastOne: t('échéance passée'), pastMany: t('échéances passées'), upcoming: t('Tes prochaines échéances'), bigOne: t('échéance'), bigMany: t('échéances'),
@@ -66,7 +66,7 @@ export const WORDS: Record<Usage, {
     level: t('Situation'), levels: ['', t('Étudiant·e'), t('En activité'), t('En recherche'), t('Parent'), t('Retraité·e'), t('Autre')],
     groups: t('Groupes'), profileTab: t('Organisation'),
     quickExample: t('Dentiste mardi 17h30'), markDone: t('fait'), slot: t('rendez-vous'), slots: t('rendez-vous'),
-    timetable: t('agenda'), icsFrom: t('Google Agenda, Outlook ou Apple Calendrier'), titleExample: t('Dentiste'), notesExample: t('adresse, choses à apporter…'),
+    timetable: t('agenda'), titleExample: t('Dentiste'), notesExample: t('adresse, choses à apporter…'),
     categoryExample: t('Famille, Vacances, Asso…'), categoryHint: t('Vacances à Biarritz'),
     bigNoted: t('C’est noté'), prepare: t('du temps pour préparer'),
     pastOne: t('grand jour passé'), pastMany: t('grands jours passés'), upcoming: t('Tes prochains grands jours'), bigOne: t('grand jour'), bigMany: t('grands jours'),
@@ -90,10 +90,10 @@ export function applyUsage(usage: Usage) {
 /** Shared spaces (« Groupes »): what the space and its meetings are called, with French agreement baked in. */
 export interface GroupWords {
   Groups: string; groups: string; a: string; the: string; The: string; of: string; this: string; all: string; none: string; yours: string;
-  created: string; deleted: string; namePlaceholder: string; mates: string; others: string; introTitle: string; introText: string; notesHint: string;
+  created: string; deleted: string; namePlaceholder: string; introTitle: string; introText: string;
   /** The meetings planned together (study sessions, work meetings, get-togethers). */
   meet: {
-    Tab: string; One: string; many: string; a: string; the: string; The: string; proposed: string; proposedMany: string; none: string; placeholder: string; hint: string;
+    Tab: string; One: string; many: string; a: string; the: string; The: string; proposed: string; proposedMany: string; none: string; placeholder: string;
   };
 }
 
@@ -101,37 +101,31 @@ export const GROUP_WORDS: Record<Usage, GroupWords> = {
   etudes: {
     Groups: t('Groupes'), groups: t('groupes'), a: t('un groupe'), the: t('le groupe'), The: t('Le groupe'), of: t('du groupe'), this: t('ce groupe'), all: t('tout le groupe'),
     none: t('Aucun groupe'), yours: t('un de tes groupes'), created: t('Groupe créé'), deleted: t('Groupe supprimé'),
-    namePlaceholder: t('Ex. L2 Bio — TD 3'), mates: t('tes camarades'), others: t('d’autres étudiants'),
+    namePlaceholder: t('Ex. L2 Bio — TD 3'),
     introTitle: t('Travaille avec ta promo'), introText: t('Notes partagées et séances de révision en commun, avec ceux qui ont le code du groupe.'),
-    notesHint: t('Écris une fiche à compléter ensemble, ou partage une de tes notes.'),
     meet: {
       Tab: t('Révisions'), One: t('Révision'), many: t('révisions'), a: t('une révision'), the: t('la révision'), The: t('La révision'), proposed: t('Révision proposée'), proposedMany: t('proposées'),
       none: t('Aucune révision prévue'), placeholder: t('Ex. Révision partiel d’anatomie'),
-      hint: t('Propose une séance : chacun dit s’il vient et peut l’ajouter à son calendrier.'),
     },
   },
   travail: {
     Groups: t('Équipes'), groups: t('équipes'), a: t('une équipe'), the: t('l’équipe'), The: t('L’équipe'), of: t('de l’équipe'), this: t('cette équipe'), all: t('toute l’équipe'),
     none: t('Aucune équipe'), yours: t('une de tes équipes'), created: t('Équipe créée'), deleted: t('Équipe supprimée'),
-    namePlaceholder: t('Ex. Équipe marketing, Projet Dupont'), mates: t('tes collègues'), others: t('tes collègues'),
+    namePlaceholder: t('Ex. Équipe marketing, Projet Dupont'),
     introTitle: t('Travaille avec ton équipe'), introText: t('Notes, fichiers et réunions partagés, avec ceux qui ont le code de l’équipe.'),
-    notesHint: t('Écris une note à compléter ensemble (compte rendu…), ou partage une de tes notes.'),
     meet: {
       Tab: t('Réunions'), One: t('Réunion'), many: t('réunions'), a: t('une réunion'), the: t('la réunion'), The: t('La réunion'), proposed: t('Réunion proposée'), proposedMany: t('proposées'),
       none: t('Aucune réunion prévue'), placeholder: t('Ex. Point hebdo projet'),
-      hint: t('Propose une réunion : chacun dit s’il vient et peut l’ajouter à son calendrier.'),
     },
   },
   perso: {
     Groups: t('Groupes'), groups: t('groupes'), a: t('un groupe'), the: t('le groupe'), The: t('Le groupe'), of: t('du groupe'), this: t('ce groupe'), all: t('tout le groupe'),
     none: t('Aucun groupe'), yours: t('un de tes groupes'), created: t('Groupe créé'), deleted: t('Groupe supprimé'),
-    namePlaceholder: t('Ex. Famille, Coloc, Asso du quartier'), mates: t('tes proches'), others: t('tes proches'),
+    namePlaceholder: t('Ex. Famille, Coloc, Asso du quartier'),
     introTitle: t('Organise-toi à plusieurs'), introText: t('Notes, fichiers et rendez-vous partagés, avec ceux qui ont le code du groupe.'),
-    notesHint: t('Écris une note à compléter ensemble (courses…), ou partage une de tes notes.'),
     meet: {
       Tab: t('Rendez-vous'), One: t('Rendez-vous'), many: t('rendez-vous'), a: t('un rendez-vous'), the: t('le rendez-vous'), The: t('Le rendez-vous'), proposed: t('Rendez-vous proposé'), proposedMany: t('proposés'),
       none: t('Aucun rendez-vous prévu'), placeholder: t('Ex. Repas de famille'),
-      hint: t('Propose un rendez-vous : chacun dit s’il vient et peut l’ajouter à son calendrier.'),
     },
   },
 };
@@ -143,13 +137,11 @@ export const AGENDA_EXAMPLES = { titleExample: t('Dîner chez Léa'), notesExamp
 export const AGENDA_WORDS: GroupWords = {
   Groups: t('Agendas partagés'), groups: t('agendas partagés'), a: t('un agenda partagé'), the: t('l’agenda'), The: t('L’agenda'), of: t('de l’agenda'), this: t('cet agenda'), all: t('tout l’agenda'),
   none: t('Aucun agenda partagé'), yours: t('un de tes agendas'), created: t('Agenda créé'), deleted: t('Agenda supprimé'),
-  namePlaceholder: t('Ex. Coloc, Famille, Nous deux'), mates: t('ceux avec qui tu le partages'), others: t('tes proches'),
+  namePlaceholder: t('Ex. Coloc, Famille, Nous deux'),
   introTitle: t('Un agenda à plusieurs'), introText: t('Un calendrier commun, séparé du tien : chacun y ajoute ses événements, les autres sont prévenus.'),
-  notesHint: '',
   meet: {
     Tab: t('Agenda'), One: t('Événement'), many: t('événements'), a: t('un événement'), the: t('l’événement'), The: t('L’événement'), proposed: t('Événement ajouté'), proposedMany: t('ajoutés'),
     none: t('Aucun événement prévu'), placeholder: t('Ex. Dîner chez Léa'),
-    hint: t('Ajoute un événement : les autres membres sont prévenus.'),
   },
 };
 

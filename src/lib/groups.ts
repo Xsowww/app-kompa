@@ -10,6 +10,7 @@ let space: GroupKind = 'groupe';
 export const setGroupSpace = (kind: GroupKind) => void (space = kind);
 const words = () => (space === 'agenda' ? AGENDA_WORDS : groupWords(getSettings().usage));
 import { QUOTA, StorageError, quotaLabel } from './blobStore';
+import { t } from '../i18n';
 
 // Groupes de travail : uniquement en ligne. Appels directs à Supabase (tables group_* et
 // fonctions de supabase/migrations/2026-10-13_groupes.sql), indépendants de cloudSync.
@@ -108,7 +109,7 @@ const toGroup = (r: Row): Group => ({
 export const toNote = (r: Row): GroupNote => ({
   id: String(r.id),
   groupId: String(r.group_id),
-  title: String(r.title ?? 'Sans titre'),
+  title: String(r.title ?? t('Sans titre')),
   content: String(r.content ?? ''),
   createdBy: s(r.created_by),
   updatedBy: s(r.updated_by),
@@ -132,7 +133,7 @@ export const toEvent = (r: Row): GroupEvent => ({
 });
 
 function db(): SupabaseClient {
-  if (!supabase) throw new Error(`Les ${words().groups} nécessitent la version en ligne.`);
+  if (!supabase) throw new Error(t('Les {groups} nécessitent la version en ligne.', { groups: words().groups }));
   return supabase;
 }
 
@@ -144,17 +145,17 @@ export function groupError(e: unknown): string {
   const w = words();
   if (e instanceof StorageError || e instanceof Refused) return e.message;
   const msg = String((e as { message?: string })?.message ?? e ?? '');
-  if (/too many attempts/i.test(msg)) return 'Trop de codes essayés. Réessaie dans un quart d’heure.';
-  if (/group full/i.test(msg)) return `Plus de place : 50 membres au maximum dans ${w.this}.`;
-  if (/too many groups/i.test(msg)) return `Tu fais déjà partie de 30 ${w.groups}, c’est le maximum.`;
-  if (/too large|exceeded the maximum|payload too large|413/i.test(msg)) return 'Fichier trop lourd : 50 Mo au maximum.';
-  if (/photo/i.test(msg) && /column|schema cache/i.test(msg)) return 'Les photos ne sont pas encore activées sur le serveur (migration 2026-10-19 à lancer).';
-  if (/group_periods|42P01|PGRST205/.test(msg)) return 'Les périodes ne sont pas encore activées sur le serveur (migration 2026-10-20 à lancer).';
-  if (/too many periods/i.test(msg)) return 'Trop de périodes dans cet agenda (300 au maximum).';
-  if (/mfa required/i.test(msg)) return 'Confirme d’abord ta connexion avec le code de ton téléphone.';
-  if (/forbidden|row-level security|permission denied/i.test(msg)) return `Tu n’as pas le droit de faire ça dans ${w.this}.`;
-  if (/fetch|network/i.test(msg)) return 'Pas de connexion. Réessaie dans un instant.';
-  return 'Une erreur est survenue. Réessaie.';
+  if (/too many attempts/i.test(msg)) return t('Trop de codes essayés. Réessaie dans un quart d’heure.');
+  if (/group full/i.test(msg)) return t('Plus de place : 50 membres au maximum dans {group}.', { group: w.this });
+  if (/too many groups/i.test(msg)) return t('Tu fais déjà partie de 30 {groups}, c’est le maximum.', { groups: w.groups });
+  if (/too large|exceeded the maximum|payload too large|413/i.test(msg)) return t('Fichier trop lourd : 50 Mo au maximum.');
+  if (/photo/i.test(msg) && /column|schema cache/i.test(msg)) return t('Les photos ne sont pas encore activées sur le serveur (migration 2026-10-19 à lancer).');
+  if (/group_periods|42P01|PGRST205/.test(msg)) return t('Les périodes ne sont pas encore activées sur le serveur (migration 2026-10-20 à lancer).');
+  if (/too many periods/i.test(msg)) return t('Trop de périodes dans cet agenda (300 au maximum).');
+  if (/mfa required/i.test(msg)) return t('Confirme d’abord ta connexion avec le code de ton téléphone.');
+  if (/forbidden|row-level security|permission denied/i.test(msg)) return t('Tu n’as pas le droit de faire ça dans {group}.', { group: w.this });
+  if (/fetch|network/i.test(msg)) return t('Pas de connexion. Réessaie dans un instant.');
+  return t('Une erreur est survenue. Réessaie.');
 }
 
 function check<T>(res: { data: T; error: unknown }): T {
@@ -172,7 +173,7 @@ function changed(res: { data: unknown; error: unknown }, refused: string) {
 export async function sessionUserId(): Promise<string> {
   const { data } = await db().auth.getSession();
   const id = data.session?.user.id;
-  if (!id) throw new Error('Ta session a expiré. Reconnecte-toi.');
+  if (!id) throw new Error(t('Ta session a expiré. Reconnecte-toi.'));
   return id;
 }
 
@@ -202,16 +203,16 @@ export async function copyInviteLink(secret: string, kind: GroupKind) {
   const link = inviteLink(secret, kind);
   try {
     await navigator.clipboard.writeText(link);
-    toast('Lien d’invitation copié', 'success');
+    toast(t('Lien d’invitation copié'), 'success');
   } catch {
-    toast(`Lien d’invitation : ${link}`);
+    toast(t('Lien d’invitation : {link}', { link }));
   }
 }
 
 /** A shared calendar's link token (null: not allowed to invite). Never in the groups table's readable columns. */
 export async function fetchAgendaToken(id: string): Promise<string | null> {
-  const t = check(await db().rpc('agenda_invite_token', { p_group: id }));
-  return typeof t === 'string' ? t : null;
+  const token = check(await db().rpc('agenda_invite_token', { p_group: id }));
+  return typeof token === 'string' ? token : null;
 }
 
 export async function regenerateAgendaToken(id: string): Promise<string> {
@@ -231,13 +232,13 @@ export async function joinGroup(code: string): Promise<string | null> {
 }
 
 export async function updateGroup(id: string, patch: { name?: string; color?: string | null; photo?: string | null }) {
-  changed(await db().from('groups').update(patch).eq('id', id).select('id'), `Seul le propriétaire peut modifier ${words().this}.`);
+  changed(await db().from('groups').update(patch).eq('id', id).select('id'), t('Seul le propriétaire peut modifier {group}.', { group: words().this }));
 }
 
 export async function deleteGroup(id: string) {
   // Le groupe d'abord : s'il reste (coupure, refus), ses fichiers restent aussi. Ensuite celui qui l'a supprimé
   // garde le droit d'effacer ses fichiers (table deleted_groups, migration 2026-10-18e).
-  changed(await db().from('groups').delete().eq('id', id).select('id'), `Seul le propriétaire peut supprimer ${words().this}.`);
+  changed(await db().from('groups').delete().eq('id', id).select('id'), t('Seul le propriétaire peut supprimer {group}.', { group: words().this }));
   await purgeFiles(id);
 }
 
@@ -272,14 +273,14 @@ export async function fetchMembers(groupId: string): Promise<GroupMember[]> {
 export async function removeMember(groupId: string, userId: string) {
   changed(
     await db().from('group_members').delete().eq('group_id', groupId).eq('user_id', userId).select('user_id'),
-    'Seul le propriétaire peut retirer un membre.',
+    t('Seul le propriétaire peut retirer un membre.'),
   );
 }
 
 /** Quitter le groupe avec le compte réellement connecté (`last` : le groupe disparaîtra avec ses fichiers). */
 export async function leaveGroup(groupId: string, last = false) {
   const me = await sessionUserId();
-  changed(await db().from('group_members').delete().eq('group_id', groupId).eq('user_id', me).select('user_id'), `Tu ne fais plus partie de ${words().this}.`);
+  changed(await db().from('group_members').delete().eq('group_id', groupId).eq('user_id', me).select('user_id'), t('Tu ne fais plus partie de {group}.', { group: words().this }));
   if (last) await purgeFiles(groupId);
 }
 
@@ -300,7 +301,7 @@ export async function fetchNote(id: string): Promise<GroupNote | null> {
   return row ? toNote(row as Row) : null;
 }
 
-export async function createNote(groupId: string, title = 'Sans titre', content = ''): Promise<GroupNote> {
+export async function createNote(groupId: string, title = t('Sans titre'), content = ''): Promise<GroupNote> {
   const row = check(await db().from('group_notes').insert({ group_id: groupId, title, content }).select('*').single());
   return toNote(row as Row);
 }
@@ -319,7 +320,7 @@ export async function saveNote(id: string, patch: { title?: string; content?: st
 }
 
 export async function deleteNote(id: string) {
-  changed(await db().from('group_notes').delete().eq('id', id).select('id'), 'Cette note n’existe plus ou tu n’y as plus accès.');
+  changed(await db().from('group_notes').delete().eq('id', id).select('id'), t('Cette note n’existe plus ou tu n’y as plus accès.'));
 }
 
 // ── Révisions en commun ───────────────────────────────────────────────────
@@ -335,7 +336,7 @@ export async function fetchEvents(groupId: string, fromDate: string): Promise<{ 
 }
 
 /** « Pour qui » needs the column of migration 2026-10-24: without it, a clear message rather than the server's. */
-const PEOPLE_MISSING = 'Choisir pour qui est un événement demande une mise à jour du serveur (migration 2026-10-24). En attendant, laisse « Tout le monde ».';
+const PEOPLE_MISSING = t('Choisir pour qui est un événement demande une mise à jour du serveur (migration 2026-10-24). En attendant, laisse « Tout le monde ».');
 const noPeopleColumn = (e: { code?: string; message?: string } | null) => e?.code === 'PGRST204' && /people/.test(e.message ?? '');
 
 export async function createEvent(groupId: string, e: NewGroupEvent): Promise<GroupEvent> {
@@ -370,7 +371,7 @@ export async function savePeriods(groupId: string, list: Period[]) {
   let res = await db().from('group_periods').upsert(rows);
   // Table made before the skipped days: a period in one piece is saved without them; one in pieces can't be.
   if (res.error?.code === 'PGRST204' && /skip/.test(res.error.message)) {
-    if (list.some(p => p.skip?.length)) throw new Refused('Une période en plusieurs morceaux demande une mise à jour du serveur (migration 2026-10-23). En attendant, choisis des jours qui se suivent.');
+    if (list.some(p => p.skip?.length)) throw new Refused(t('Une période en plusieurs morceaux demande une mise à jour du serveur (migration 2026-10-23). En attendant, choisis des jours qui se suivent.'));
     res = await db().from('group_periods').upsert(rows.map(({ skip: _s, ...r }) => r));
   }
   // Table made before « pour qui »: saved for everyone rather than refused.
@@ -379,7 +380,7 @@ export async function savePeriods(groupId: string, list: Period[]) {
 }
 
 export async function deletePeriod(id: string) {
-  changed(await db().from('group_periods').delete().eq('id', id).select('id'), 'Tu n’as pas le droit de modifier les périodes de cet agenda.');
+  changed(await db().from('group_periods').delete().eq('id', id).select('id'), t('Tu n’as pas le droit de modifier les périodes de cet agenda.'));
 }
 
 export async function updateEvent(id: string, patch: Partial<NewGroupEvent>) {
@@ -398,11 +399,11 @@ export async function updateEvent(id: string, patch: Partial<NewGroupEvent>) {
     delete row.people;
     res = await db().from('group_events').update(row).eq('id', id).select('id');
   }
-  changed(res, 'Tu peux seulement consulter cet agenda.');
+  changed(res, t('Tu peux seulement consulter cet agenda.'));
 }
 
 export async function deleteEvent(id: string) {
-  changed(await db().from('group_events').delete().eq('id', id).select('id'), 'Seul l’auteur ou le propriétaire peut le faire.');
+  changed(await db().from('group_events').delete().eq('id', id).select('id'), t('Seul l’auteur ou le propriétaire peut le faire.'));
 }
 
 export async function setAttendance(groupId: string, eventId: string, coming: boolean) {
@@ -414,9 +415,9 @@ export async function setAttendance(groupId: string, eventId: string, coming: bo
 export async function copyCode(code: string) {
   try {
     await navigator.clipboard.writeText(code);
-    toast('Code copié', 'success');
+    toast(t('Code copié'), 'success');
   } catch {
-    toast(`Code d’invitation : ${code}`);
+    toast(t('Code d’invitation : {code}', { code }));
   }
 }
 
@@ -446,7 +447,7 @@ export async function uploadFile(groupId: string, blob: Blob, name: string): Pro
   // asking first gives a clear message instead of a « not allowed »).
   if (QUOTA) {
     const used = await db().rpc('storage_used');
-    if (!used.error && Number(used.data) + blob.size > QUOTA) throw new StorageError(`Plus de place : ton espace en ligne (${quotaLabel()}) est plein. Vide la corbeille de ton Drive ou supprime des fichiers.`);
+    if (!used.error && Number(used.data) + blob.size > QUOTA) throw new StorageError(t('Plus de place : ton espace en ligne ({quota}) est plein. Vide la corbeille de ton Drive ou supprime des fichiers.', { quota: quotaLabel() }));
   }
   const id = crypto.randomUUID();
   const path = filePath({ groupId, id });
@@ -455,7 +456,7 @@ export async function uploadFile(groupId: string, blob: Blob, name: string): Pro
   if (up.error) throw up.error;
   try {
     const row = check(
-      await db().from('group_files').insert({ id, group_id: groupId, name: name.trim().slice(0, 255) || 'Fichier', mime: mime.slice(0, 200), size: blob.size }).select('*').single(),
+      await db().from('group_files').insert({ id, group_id: groupId, name: name.trim().slice(0, 255) || t('Fichier'), mime: mime.slice(0, 200), size: blob.size }).select('*').single(),
     );
     return toFile(row as Row);
   } catch (e) {
@@ -471,7 +472,7 @@ export async function downloadFile(f: GroupFile): Promise<Blob> {
 }
 
 export async function deleteFile(f: GroupFile) {
-  changed(await db().from('group_files').delete().eq('id', f.id).select('id'), `Tu ne peux pas supprimer de fichier dans ${words().this}.`);
+  changed(await db().from('group_files').delete().eq('id', f.id).select('id'), t('Tu ne peux pas supprimer de fichier dans {group}.', { group: words().this }));
   await db().storage.from(FILES).remove([filePath(f)]);
 }
 

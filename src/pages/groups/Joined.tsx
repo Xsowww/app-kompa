@@ -4,6 +4,7 @@ import { Modal } from '../../components/Overlays';
 import { AGENDA_WORDS, groupWords } from '../../lib/usage';
 import { useSettings } from '../../store/settings';
 import { useJoined } from './join';
+import { t } from '../../i18n';
 
 /** The window itself (in AppShell, over every page). */
 export function JoinedDialog() {
@@ -13,7 +14,7 @@ export function JoinedDialog() {
   const close = () => useJoined.setState({ joined: null });
   if (!joined) return null;
   const w = joined.kind === 'agenda' ? AGENDA_WORDS : groupWords(usage);
-  const name = joined.name ? `« ${joined.name} »` : w.the;
+  const name = joined.name ? t('« {name} »', { name: joined.name }) : w.the;
   const Icon = joined.kind === 'agenda' ? CalendarRange : Users;
   return (
     <Modal open onClose={close}>
@@ -21,11 +22,11 @@ export function JoinedDialog() {
         <span className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-50 text-brand-600">
           <Icon size={22} />
         </span>
-        <h3 className="mt-3 text-[16px] font-semibold [overflow-wrap:anywhere]">{joined.already ? `Tu fais déjà partie de ${name}` : `Tu as rejoint ${name}`}</h3>
+        <h3 className="mt-3 text-[16px] font-semibold [overflow-wrap:anywhere]">{joined.already ? t('Tu fais déjà partie de {name}', { name }) : t('Tu as rejoint {name}', { name })}</h3>
       </div>
       <div className="mt-6 grid grid-cols-2 gap-2">
         <button type="button" className="btn-secondary justify-center" onClick={close}>
-          Terminer
+          {t('Terminer')}
         </button>
         <button
           type="button"
@@ -35,7 +36,7 @@ export function JoinedDialog() {
             navigate(joined.kind === 'agenda' ? `/agendas?g=${joined.id}` : `/groupes?g=${joined.id}`);
           }}
         >
-          Y aller
+          {t('Y aller')}
         </button>
       </div>
     </Modal>

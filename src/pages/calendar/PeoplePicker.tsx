@@ -1,5 +1,6 @@
 import { Check } from 'lucide-react';
 import { cx } from '../../lib/utils';
+import { t } from '../../i18n';
 
 /**
  * « Pour qui » on a shared calendar (an event, a period): everyone, or some members, named next to it
@@ -9,10 +10,10 @@ export default function PeoplePicker({ people, value, onChange, what }: { people
   const toggle = (id: string) => onChange(value.includes(id) ? value.filter(x => x !== id) : [...value, id]);
   return (
     <div className="mt-4">
-      <p className="eyebrow">Pour qui</p>
-      <div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-label="Pour qui">
+      <p className="eyebrow">{t('Pour qui')}</p>
+      <div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-label={t('Pour qui')}>
         <button type="button" aria-pressed={value.length === 0} onClick={() => onChange([])} className={cx('h-8 rounded-full px-3 text-[12.5px] font-semibold transition-colors pointer-coarse:h-9', value.length === 0 ? 'bg-ink text-paper' : 'bg-surface text-stone-600 ring-1 ring-inset ring-stone-200 hover:text-ink')}>
-          Tout le monde
+          {t('Tout le monde')}
         </button>
         {people.map(m => {
           const on = value.includes(m.id);
@@ -24,7 +25,7 @@ export default function PeoplePicker({ people, value, onChange, what }: { people
           );
         })}
       </div>
-      {value.length > 0 && <p className="mt-1.5 text-[12px] text-stone-500">{value.length > 1 ? 'Leurs noms s’affichent' : 'Son nom s’affiche'} avec {what}.</p>}
+      {value.length > 0 && <p className="mt-1.5 text-[12px] text-stone-500">{value.length > 1 ? t('Leurs noms s’affichent avec {what}.', { what }) : t('Son nom s’affiche avec {what}.', { what })}</p>}
     </div>
   );
 }

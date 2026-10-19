@@ -15,6 +15,9 @@ export const notePrefix = (studying: boolean) => (studying ? t('Fiche · {title}
 const SESSION_PREFIXES = [...new Set(['Révision · ', 'Préparation · ', sessionPrefix(true), sessionPrefix(false)])];
 const NOTE_PREFIXES = [...new Set(['Fiche · ', 'À préparer · ', notePrefix(true), notePrefix(false)])];
 
+/** A session Kompaly planned, by its title (« Révision · … », « Préparation · … », in French or in the current language). */
+export const isSessionTitle = (title: string) => SESSION_PREFIXES.some(p => title.startsWith(p));
+
 /** Mark of the sessions planned for an exam, kept in `externalId` (like the meetings added from a group). */
 export const planTag = (examId: string) => `revision:${examId}`;
 

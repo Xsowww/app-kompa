@@ -16,6 +16,7 @@ import {
   useTrash, daysLeft, folderContent, restoreTrash, purgeTrash, emptyAllTrash, TRASH_TYPES, type TrashEntry, type TrashType,
 } from '../../lib/trash';
 import { TRASH_DAYS } from '../../store/drive';
+import { t, tn } from '../../i18n';
 
 /** `?type=` values (French, like the other URLs) ⇄ trash types. */
 const PARAM: Record<TrashType, string> = { notes: 'notes', drive: 'drive', calendar: 'calendrier' };
@@ -24,9 +25,8 @@ const fromParam = (v: string | null): TrashType | null => (Object.keys(PARAM) as
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
 // fmt: « 1er nov. », as everywhere else (the file preview says « supprimé le 1er nov. à 10:05 »).
 const deletedOn = (iso: string) => (iso ? fmt(new Date(iso), 'd MMM') : '');
-const deletedOnLong = (iso: string) => (iso ? fmt(new Date(iso), "d MMM 'à' HH:mm") : '');
-const leftShort = (d: number) => (d <= 0 ? 'aujourd’hui' : `dans ${d} j`);
-const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? 's' : ''}`;
+const deletedOnLong = (iso: string) => (iso ? fmt(new Date(iso), t("d MMM 'à' HH:mm")) : '');
+const leftShort = (d: number) => (d <= 0 ? t('aujourd’hui') : t('dans {n} j', { n: d }));
 
 const folderColor = (item: DriveItem) => (item.color ? FOLDER_COLORS[item.color]?.color : undefined);
 
@@ -53,10 +53,10 @@ function EntryIcon({ entry, size = 28 }: { entry: TrashEntry; size?: number }) {
 }
 
 function kindLabel(e: TrashEntry) {
-  if (e.kind === 'note') return 'Note';
-  if (e.kind === 'noteFolder') return 'Dossier de notes';
-  if (e.kind === 'event') return 'Événement';
-  return e.item.kind === 'folder' ? 'Dossier du Drive' : 'Fichier du Drive';
+  if (e.kind === 'note') return t('Note');
+  if (e.kind === 'noteFolder') return t('Dossier de notes');
+  if (e.kind === 'event') return t('Événement');
+  return e.item.kind === 'folder' ? t('Dossier du Drive') : t('Fichier du Drive');
 }
 
 /** Read-only look at a deleted thing, with Restore / Delete for good. */
@@ -71,10 +71,10 @@ function PreviewDialog({ entry, onClose, onRestore, onPurge }: { entry: TrashEnt
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-[16px] font-semibold tracking-[-0.01em]">{entry.name}</h2>
           <p className="mt-0.5 truncate text-[12px] text-stone-500">
-            {kindLabel(entry)} · {entry.kind === 'event' ? 'Calendrier' : entry.place}
+            {kindLabel(entry)} · {entry.kind === 'event' ? t('Calendrier') : entry.place}
           </p>
         </div>
-        <button className="icon-btn -mr-1.5 -mt-1" onClick={onClose} title="Fermer (Échap)" aria-label="Fermer">
+        <button className="icon-btn -mr-1.5 -mt-1" onClick={onClose} title={t('Fermer (Échap)')} aria-label={t('Fermer')}>
           <X size={16} />
         </button>
       </div>
@@ -86,26 +86,26 @@ function PreviewDialog({ entry, onClose, onRestore, onPurge }: { entry: TrashEnt
           </div>
         ) : entry.kind === 'event' ? (
           <dl className="grid grid-cols-[96px_1fr] gap-x-3 gap-y-2 text-[13px]">
-            <dt className="text-stone-500">Date</dt>
+            <dt className="text-stone-500">{t('Date')}</dt>
             <dd className="first-letter:uppercase">{fmt(parseISO(entry.event.date), 'EEEE d MMMM yyyy')}</dd>
-            <dt className="text-stone-500">Heure</dt>
-            <dd className="tabular">{entry.event.start ? `${entry.event.start}${entry.event.end ? ` – ${entry.event.end}` : ''}` : 'Toute la journée'}</dd>
-            <dt className="text-stone-500">Catégorie</dt>
+            <dt className="text-stone-500">{t('Heure')}</dt>
+            <dd className="tabular">{entry.event.start ? `${entry.event.start}${entry.event.end ? ` – ${entry.event.end}` : ''}` : t('Toute la journée')}</dd>
+            <dt className="text-stone-500">{t('Catégorie')}</dt>
             <dd className="flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full" style={{ background: catOf(entry.event.category).color }} aria-hidden />
               {catOf(entry.event.category).label}
-              {entry.event.done && <span className="text-stone-500"> · fait</span>}
+              {entry.event.done && <span className="text-stone-500"> · {t('fait')}</span>}
             </dd>
             {entry.event.details && (
               <>
-                <dt className="text-stone-500">Détails</dt>
+                <dt className="text-stone-500">{t('Détails')}</dt>
                 <dd className="whitespace-pre-wrap text-stone-700">{entry.event.details}</dd>
               </>
             )}
           </dl>
         ) : isFolder ? (
           content.length ? (
-            <ul className="max-h-[45vh] overflow-y-auto rounded-lg border border-stone-100 py-1" aria-label="Contenu du dossier">
+            <ul className="max-h-[45vh] overflow-y-auto rounded-lg border border-stone-100 py-1" aria-label={t('Contenu du dossier')}>
               {content.map(c => (
                 <li key={c.id} className="flex h-8 items-center gap-2 pr-3 text-[13px]" style={{ paddingLeft: 12 + c.depth * 18 }}>
                   {c.item ? (
@@ -120,18 +120,18 @@ function PreviewDialog({ entry, onClose, onRestore, onPurge }: { entry: TrashEnt
               ))}
             </ul>
           ) : (
-            <p className="text-[13px] text-stone-500">Dossier vide.</p>
+            <p className="text-[13px] text-stone-500">{t('Dossier vide.')}</p>
           )
         ) : null}
       </div>
 
       <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
-        <p className="mr-auto whitespace-nowrap text-[12px] text-stone-500">Supprimé le {deletedOnLong(entry.deletedAt)}</p>
+        <p className="mr-auto whitespace-nowrap text-[12px] text-stone-500">{t('Supprimé le {date}', { date: deletedOnLong(entry.deletedAt) })}</p>
         <button className="btn-ghost text-red-600 hover:bg-red-50 hover:text-red-700" onClick={onPurge}>
-          Supprimer définitivement
+          {t('Supprimer définitivement')}
         </button>
         <button className="btn-primary" onClick={onRestore}>
-          <RotateCcw size={14} /> Restaurer
+          <RotateCcw size={14} /> {t('Restaurer')}
         </button>
       </div>
     </Modal>
@@ -161,11 +161,11 @@ export default function TrashPage() {
   const selectedIds = useMemo(() => visible.filter(e => selected.has(e.id)).map(e => e.id), [visible, selected]);
   const preview = previewId ? all.find(e => e.id === previewId) : undefined;
 
-  const setFilter = (t: TrashType | null) => {
+  const setFilter = (type: TrashType | null) => {
     setSelected(new Set());
     setParams(p => {
       const n = new URLSearchParams(p);
-      if (t) n.set('type', PARAM[t]);
+      if (type) n.set('type', PARAM[type]);
       else n.delete('type');
       n.delete('apercu');
       return n;
@@ -205,9 +205,17 @@ export default function TrashPage() {
       setSelected(new Set());
       if (previewId && ids.includes(previewId)) openPreview(null);
       if (!r.names.length) return;
-      const text = r.names.length > 1 ? `${r.names.length} éléments restaurés` : `« ${r.names[0]} » restauré`;
-      const href = r.names.length === 1 ? r.href : null;
-      toast(r.orphan ? `${text} à la racine (dossier d’origine supprimé)` : text, 'success', href ? { label: 'Ouvrir', run: () => navigate(href) } : undefined);
+      const n = r.names.length;
+      const name = r.names[0];
+      const text = r.orphan
+        ? n > 1
+          ? tn(n, '{n} élément restauré à la racine (dossier d’origine supprimé)', '{n} éléments restaurés à la racine (dossier d’origine supprimé)')
+          : t('« {name} » restauré à la racine (dossier d’origine supprimé)', { name })
+        : n > 1
+          ? tn(n, '{n} élément restauré', '{n} éléments restaurés')
+          : t('« {name} » restauré', { name });
+      const href = n === 1 ? r.href : null;
+      toast(text, 'success', href ? { label: t('Ouvrir'), run: () => navigate(href) } : undefined);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [visible, previewId, openPreview, navigate],
@@ -218,16 +226,16 @@ export default function TrashPage() {
       if (!ids.length) return;
       const first = all.find(e => e.id === ids[0]);
       const ok = await confirmAction(
-        ids.length === 1 ? `Supprimer « ${first?.name} » définitivement ?` : `Supprimer ${ids.length} éléments définitivement ?`,
-        ids.length === 1 ? 'Impossible de le récupérer ensuite.' : 'Impossible de les récupérer ensuite.',
-        'Supprimer définitivement',
+        ids.length === 1 ? t('Supprimer « {name} » définitivement ?', { name: first?.name ?? '' }) : tn(ids.length, 'Supprimer {n} élément définitivement ?', 'Supprimer {n} éléments définitivement ?'),
+        ids.length === 1 ? t('Impossible de le récupérer ensuite.') : t('Impossible de les récupérer ensuite.'),
+        t('Supprimer définitivement'),
       );
       if (!ok) return;
       rememberFocus(ids);
       purgeTrash(ids);
       setSelected(new Set());
       if (previewId && ids.includes(previewId)) openPreview(null);
-      toast('Supprimé définitivement', 'success');
+      toast(t('Supprimé définitivement'), 'success');
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [all, visible, previewId, openPreview],
@@ -235,12 +243,12 @@ export default function TrashPage() {
 
   const emptyAll = async () => {
     if (!all.length) return;
-    const ok = await confirmAction('Vider la corbeille ?', `${plural(all.length, 'élément')} ${all.length > 1 ? 'seront supprimés' : 'sera supprimé'} définitivement.`, 'Vider la corbeille');
+    const ok = await confirmAction(t('Vider la corbeille ?'), tn(all.length, '{n} élément sera supprimé définitivement.', '{n} éléments seront supprimés définitivement.'), t('Vider la corbeille'));
     if (!ok) return;
     emptyAllTrash();
     setSelected(new Set());
     titleRef.current?.focus();
-    toast('Corbeille vidée', 'success');
+    toast(t('Corbeille vidée'), 'success');
   };
 
   const toggle = (id: string) =>
@@ -269,10 +277,10 @@ export default function TrashPage() {
   // No keyboard shortcuts in the menu on a touch screen (as in the Drive).
   const keys = !window.matchMedia('(pointer: coarse)').matches;
   const menuItems = (ids: string[]): MenuItem[] => [
-    ...(ids.length === 1 ? [{ label: 'Aperçu', icon: <Eye size={15} />, shortcut: keys ? 'Entrée' : undefined, onClick: () => openPreview(ids[0]) }] : []),
-    { label: ids.length > 1 ? `Restaurer (${ids.length})` : 'Restaurer', icon: <RotateCcw size={15} />, onClick: () => restore(ids) },
+    ...(ids.length === 1 ? [{ label: t('Aperçu'), icon: <Eye size={15} />, shortcut: keys ? t('Entrée') : undefined, onClick: () => openPreview(ids[0]) }] : []),
+    { label: ids.length > 1 ? t('Restaurer ({n})', { n: ids.length }) : t('Restaurer'), icon: <RotateCcw size={15} />, onClick: () => restore(ids) },
     { label: '', divider: true, onClick: () => {} },
-    { label: ids.length > 1 ? `Supprimer définitivement (${ids.length})` : 'Supprimer définitivement', icon: <Trash2 size={15} />, shortcut: keys ? 'Suppr' : undefined, danger: true, onClick: () => void purge(ids) },
+    { label: ids.length > 1 ? t('Supprimer définitivement ({n})', { n: ids.length }) : t('Supprimer définitivement'), icon: <Trash2 size={15} />, shortcut: keys ? t('Suppr') : undefined, danger: true, onClick: () => void purge(ids) },
   ];
 
   const onListKey = (e: React.KeyboardEvent) => {
@@ -322,41 +330,41 @@ export default function TrashPage() {
         <div className="flex flex-wrap items-start gap-3 pb-4 pt-2">
           <div className="min-w-0 flex-1">
             <h1 ref={titleRef} tabIndex={-1} className="text-[24px] font-semibold tracking-[-0.02em] outline-none">
-              Corbeille
+              {t('Corbeille')}
             </h1>
-            <p className="mt-0.5 text-[13px] text-stone-500">Suppression définitive après {TRASH_DAYS} jours.</p>
+            <p className="mt-0.5 text-[13px] text-stone-500">{t('Suppression définitive après {n} jours.', { n: TRASH_DAYS })}</p>
           </div>
           {all.length > 0 && (
             <button className="btn-ghost mt-1 h-8 text-[12px] text-red-600 hover:bg-red-50 hover:text-red-700" onClick={() => void emptyAll()}>
-              <Trash2 size={14} /> Vider la corbeille
+              <Trash2 size={14} /> {t('Vider la corbeille')}
             </button>
           )}
         </div>
 
         {all.length > 0 && (
-          <div role="group" aria-label="Filtrer" className="-mx-1 mb-3 flex flex-wrap items-center gap-1">
-            {chip(null, 'Tout', 0)}
-            {TRASH_TYPES.map(t => chip(t.key, t.label, counts[t.key]))}
+          <div role="group" aria-label={t('Filtrer')} className="-mx-1 mb-3 flex flex-wrap items-center gap-1">
+            {chip(null, t('Tout'), 0)}
+            {TRASH_TYPES.map(type => chip(type.key, type.label, counts[type.key]))}
           </div>
         )}
 
         {selectedIds.length > 0 && (
           <div className="enter mb-2 flex h-10 items-center gap-0.5 overflow-x-auto rounded-lg bg-inverse px-1.5 text-[13px] text-on-inverse shadow-pop">
-            <button className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md hover:bg-on-inverse/10 sm:h-8 sm:w-8" onClick={() => setSelected(new Set())} title="Désélectionner (Échap)" aria-label="Désélectionner">
+            <button className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md hover:bg-on-inverse/10 sm:h-8 sm:w-8" onClick={() => setSelected(new Set())} title={t('Désélectionner (Échap)')} aria-label={t('Désélectionner')}>
               <X size={15} />
             </button>
             {/* On a phone the count stands alone, so both buttons fit (the count is in the bar already). */}
             <span className="mr-2 whitespace-nowrap px-1 font-medium" aria-live="polite">
               {selectedIds.length}
-              <span className="max-sm:sr-only"> sélectionné{selectedIds.length > 1 ? 's' : ''}</span>
+              <span className="max-sm:sr-only"> {tn(selectedIds.length, 'sélectionné', 'sélectionnés')}</span>
             </span>
             <span className="mr-1 h-4 w-px shrink-0 bg-on-inverse/20" />
             <button className="flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-on-inverse/85 hover:bg-on-inverse/10 hover:text-on-inverse sm:h-8" onClick={() => restore(selectedIds)}>
-              <RotateCcw size={14} /> Restaurer<span className="max-sm:hidden"> ({selectedIds.length})</span>
+              <RotateCcw size={14} /> {t('Restaurer')}<span className="max-sm:hidden"> ({selectedIds.length})</span>
             </button>
             <button className="flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-on-inverse/85 hover:bg-on-inverse/10 hover:text-on-inverse sm:h-8" onClick={() => void purge(selectedIds)}>
-              <Trash2 size={14} /> <span className="sm:hidden">Supprimer</span>
-              <span className="hidden sm:inline">Supprimer définitivement ({selectedIds.length})</span>
+              <Trash2 size={14} /> <span className="sm:hidden">{t('Supprimer')}</span>
+              <span className="hidden sm:inline">{t('Supprimer définitivement ({n})', { n: selectedIds.length })}</span>
             </button>
           </div>
         )}
@@ -364,10 +372,10 @@ export default function TrashPage() {
         {visible.length === 0 ? (
           <div className="flex min-h-64 flex-col items-center justify-center text-center">
             <Trash2 size={26} strokeWidth={1.5} className="text-stone-300" aria-hidden />
-            <p className="mt-3 text-[13px] text-stone-500">{all.length ? 'Rien ici pour ce filtre.' : 'La corbeille est vide.'}</p>
+            <p className="mt-3 text-[13px] text-stone-500">{all.length ? t('Rien ici pour ce filtre.') : t('La corbeille est vide.')}</p>
           </div>
         ) : (
-          <ul ref={listRef} className="card overflow-hidden" aria-label="Éléments supprimés" onKeyDown={onListKey}>
+          <ul ref={listRef} className="card overflow-hidden" aria-label={t('Éléments supprimés')} onKeyDown={onListKey}>
             {visible.map(entry => {
               const sel = selected.has(entry.id);
               const left = daysLeft(entry.deletedAt);
@@ -391,7 +399,7 @@ export default function TrashPage() {
                         toggle(entry.id);
                         setAnchor(entry.id);
                       }}
-                      aria-label={`Sélectionner « ${entry.name} »`}
+                      aria-label={t('Sélectionner « {name} »', { name: entry.name })}
                       className="h-4 w-4 cursor-pointer accent-[var(--color-ink)]"
                     />
                   </label>
@@ -408,16 +416,16 @@ export default function TrashPage() {
                         <span className={cx(entry.placeGone && 'italic')}>{entry.place}</span>
                         <span className="sr-only">
                           {' '}
-                          · supprimé le {deletedOn(entry.deletedAt)} · effacé {left <= 0 ? 'aujourd’hui' : `dans ${plural(left, 'jour')}`}
+                          · {t('supprimé le {date}', { date: deletedOn(entry.deletedAt) })} · {left <= 0 ? t('effacé aujourd’hui') : tn(left, 'effacé dans {n} jour', 'effacé dans {n} jours')}
                         </span>
                       </span>
                     </span>
                     <span className="tabular hidden w-[120px] shrink-0 text-[12px] text-stone-500 md:block" aria-hidden>
-                      Supprimé le {deletedOn(entry.deletedAt)}
+                      {t('Supprimé le {date}', { date: deletedOn(entry.deletedAt) })}
                     </span>
                     <span
                       className={cx('tabular w-[64px] shrink-0 text-right text-[12px]', left <= 3 ? 'font-medium text-red-600' : 'text-stone-500')}
-                      title={`Supprimé définitivement ${left <= 0 ? 'aujourd’hui' : `dans ${plural(left, 'jour')}`}`}
+                      title={left <= 0 ? t('Supprimé définitivement aujourd’hui') : tn(left, 'Supprimé définitivement dans {n} jour', 'Supprimé définitivement dans {n} jours')}
                       aria-hidden
                     >
                       {leftShort(left)}
@@ -426,15 +434,15 @@ export default function TrashPage() {
                   <span className="relative z-10 flex shrink-0 items-center md:w-[72px] md:justify-end">
                     {/* Touch screens (no hover): shown, they were invisible yet tappable on a tablet. */}
                     <span className="hidden items-center opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 md:flex [@media(hover:none)]:opacity-100">
-                      <button className="icon-btn" tabIndex={-1} onClick={() => restore(targetsOf(entry.id))} title="Restaurer" aria-label={`Restaurer « ${entry.name} »`}>
+                      <button className="icon-btn" tabIndex={-1} onClick={() => restore(targetsOf(entry.id))} title={t('Restaurer')} aria-label={t('Restaurer « {name} »', { name: entry.name })}>
                         <RotateCcw size={15} />
                       </button>
                       <button
                         className="icon-btn hover:bg-red-50 hover:text-red-600"
                         tabIndex={-1}
                         onClick={() => void purge(targetsOf(entry.id))}
-                        title="Supprimer définitivement"
-                        aria-label={`Supprimer « ${entry.name} » définitivement`}
+                        title={t('Supprimer définitivement')}
+                        aria-label={t('Supprimer « {name} » définitivement', { name: entry.name })}
                       >
                         <Trash2 size={15} />
                       </button>
@@ -442,7 +450,7 @@ export default function TrashPage() {
                     <button
                       className="icon-btn md:hidden"
                       onClick={e => setMenu({ ...menuPoint(e), ids: targetsOf(entry.id) })}
-                      aria-label={`Actions pour « ${entry.name} »`}
+                      aria-label={t('Actions pour « {name} »', { name: entry.name })}
                       aria-haspopup="menu"
                     >
                       <MoreHorizontal size={16} />
@@ -463,11 +471,11 @@ export default function TrashPage() {
             onClose={() => openPreview(null)}
             actions={
               <>
-                <button onClick={() => restore([preview.id])} className="btn h-8 bg-white/10 text-white hover:bg-white/20 max-sm:w-9 max-sm:px-0" aria-label="Restaurer">
-                  <RotateCcw size={15} /> <span className="hidden sm:inline">Restaurer</span>
+                <button onClick={() => restore([preview.id])} className="btn h-8 bg-white/10 text-white hover:bg-white/20 max-sm:w-9 max-sm:px-0" aria-label={t('Restaurer')}>
+                  <RotateCcw size={15} /> <span className="hidden sm:inline">{t('Restaurer')}</span>
                 </button>
-                <button onClick={() => void purge([preview.id])} className="btn h-8 bg-white/10 text-white hover:bg-red-500/80 max-sm:w-9 max-sm:px-0" aria-label="Supprimer définitivement">
-                  <Trash2 size={15} /> <span className="hidden sm:inline">Supprimer</span>
+                <button onClick={() => void purge([preview.id])} className="btn h-8 bg-white/10 text-white hover:bg-red-500/80 max-sm:w-9 max-sm:px-0" aria-label={t('Supprimer définitivement')}>
+                  <Trash2 size={15} /> <span className="hidden sm:inline">{t('Supprimer')}</span>
                 </button>
               </>
             }

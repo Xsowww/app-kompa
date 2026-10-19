@@ -5,7 +5,7 @@
 
 import type Anthropic from '@anthropic-ai/sdk';
 import { fmt, todayKey } from '../lib/dates';
-import { lang } from '../i18n';
+import { lang, t, tn } from '../i18n';
 import { useCopilot, type CopilotLink, type CopilotOffer } from '../store/copilot';
 import { useCalendar, CATEGORIES, CATEGORY_LABELS, guessCategory, type EventCategory } from '../store/calendar';
 import type { Usage } from '../lib/usage';
@@ -58,7 +58,7 @@ function persona() {
 
 async function post<T>(path: string, body: unknown, timeoutMs = 90_000): Promise<T> {
   const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), timeoutMs);
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const token = await accessToken();
     const res = await fetch(`/api/copilot/${path}`, {
@@ -78,7 +78,7 @@ async function post<T>(path: string, body: unknown, timeoutMs = 90_000): Promise
     if (e instanceof CopilotApiError) throw e;
     throw new CopilotApiError((e as Error).name === 'AbortError' ? 'timeout' : 'network');
   } finally {
-    clearTimeout(t);
+    clearTimeout(timer);
   }
 }
 
@@ -131,7 +131,7 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
     case 'read_file': {
       const res = await readFileText(str(input.file_id));
       const s = findItem(str(input.file_id));
-      if (!('error' in res) && s) links.push({ label: `Ouvrir « ${itemName(s)} »`, to: linkToItem(s) });
+      if (!('error' in res) && s) links.push({ label: t('Ouvrir « {name} »', { name: itemName(s) }), to: linkToItem(s) });
       return res;
     }
     case 'list_drive_folder': {
@@ -141,7 +141,7 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
     }
     case 'analyze_calendar': {
       const a = analyzeCalendar();
-      links.push({ label: 'Calendrier', to: '/calendrier' });
+      links.push({ label: t('Calendrier'), to: '/calendrier' });
       const ev = (list: typeof a.today) => list.map(e => ({ id: e.id, desc: describeEvent(e) }));
       return { ...a, today: ev(a.today), exams: ev(a.exams), lateHomework: ev(a.lateHomework), nextDeadlines: ev(a.nextDeadlines) };
     }
@@ -160,7 +160,7 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
         category: !picked || (picked === 'perso' && guessed !== 'perso') ? guessed : picked,
         important: input.important === true || undefined,
       });
-      links.push({ label: 'Voir le jour', to: linkToDay(ev.date, ev.id) });
+      links.push({ label: t('Voir le jour'), to: linkToDay(ev.date, ev.id) });
       return { created: describeEvent(ev), id: ev.id };
     }
     case 'update_event': {
@@ -173,13 +173,13 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
         important: typeof input.important === 'boolean' ? input.important : undefined,
       });
       if (!ev) throw new Error('événement introuvable');
-      links.push({ label: 'Voir le jour', to: linkToDay(ev.date, ev.id) });
+      links.push({ label: t('Voir le jour'), to: linkToDay(ev.date, ev.id) });
       return { updated: describeEvent(ev) };
     }
     case 'delete_event': {
       const ev = useCalendar.getState().events.find(e => e.id === str(input.event_id));
       if (!ev) throw new Error('événement introuvable (il faut son id exact, voir list_events)');
-      offers.push({ label: `Supprimer « ${ev.title} »`, kind: 'confirm_delete', payload: { what: 'event', ids: ev.id } });
+      offers.push({ label: t('Supprimer « {title} »', { title: ev.title }), kind: 'confirm_delete', payload: { what: 'event', ids: ev.id } });
       return awaitingClick(describeEvent(ev));
     }
     case 'plan_revisions': {
@@ -191,7 +191,7 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
         return { exam: describeEvent(exam), already_planned: true, sessions: revisionSessions(exam).map(describeEvent) };
       }
       const res = planRevisions(exam.id, typeof input.sessions === 'number' ? input.sessions : 3)!;
-      if (res.created.length) links.push({ label: 'Voir le planning', to: linkToDay(res.created[0].date) });
+      if (res.created.length) links.push({ label: t('Voir le planning'), to: linkToDay(res.created[0].date) });
       if (res.note) links.push({ label: openNoteLabel(), to: linkToNote(res.note.id) });
       return {
         exam: describeEvent(exam),
@@ -202,13 +202,13 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
     }
     case 'create_note': {
       const n = createNote(str(input.title) || 'Note', typeof input.content === 'string' ? input.content : '', str(input.folder) || undefined);
-      links.push({ label: `Ouvrir « ${n.title} »`, to: linkToNote(n.id) });
+      links.push({ label: t('Ouvrir « {name} »', { name: n.title }), to: linkToNote(n.id) });
       return { created: n.title, id: n.id };
     }
     case 'append_to_note': {
       const n = appendToNote(str(input.note_id), typeof input.content === 'string' ? input.content : '');
       if (!n) throw new Error('note introuvable');
-      links.push({ label: `Ouvrir « ${n.title} »`, to: linkToNote(n.id) });
+      links.push({ label: t('Ouvrir « {name} »', { name: n.title }), to: linkToNote(n.id) });
       return { updated: n.title };
     }
     case 'create_folder': {
@@ -252,7 +252,7 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
       if (!found.length) throw new Error('aucun élément avec ces id exacts (trouve-les avec list_drive_folder ou search_site)');
       const names = found.map(itemName);
       offers.push({
-        label: found.length === 1 ? `Mettre « ${names[0]} » à la corbeille` : `Mettre ${found.length} éléments à la corbeille`,
+        label: found.length === 1 ? t('Mettre « {name} » à la corbeille', { name: names[0] }) : tn(found.length, 'Mettre {n} élément à la corbeille', 'Mettre {n} éléments à la corbeille'),
         kind: 'confirm_delete',
         payload: { what: 'items', ids: found.map(s => s.item.id).join(',') },
       });
@@ -260,7 +260,7 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
     }
     case 'list_trash': {
       const list = listTrash();
-      links.push({ label: 'Corbeille', to: '/corbeille' });
+      links.push({ label: t('Corbeille'), to: '/corbeille' });
       return list.length ? list : { result: 'la corbeille est vide' };
     }
     case 'restore_from_trash': {
@@ -275,19 +275,19 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
     }
     case 'add_todo': {
       if (!str(input.title)) throw new Error('title requis');
-      const t = addTodo(str(input.title), str(input.due) || undefined);
-      return { created: t.title, id: t.id, due: t.due };
+      const todo = addTodo(str(input.title), str(input.due) || undefined);
+      return { created: todo.title, id: todo.id, due: todo.due };
     }
     case 'complete_todo': {
-      const t = completeTodo(str(input.todo_id), input.done !== false);
-      if (!t) throw new Error('tâche introuvable');
-      return { todo: t.title, done: input.done !== false };
+      const todo = completeTodo(str(input.todo_id), input.done !== false);
+      if (!todo) throw new Error('tâche introuvable');
+      return { todo: todo.title, done: input.done !== false };
     }
     case 'delete_todo': {
-      const t = useTodos.getState().todos.find(x => x.id === str(input.todo_id));
-      if (!t) throw new Error('tâche introuvable (il faut son id exact, voir list_todos)');
-      offers.push({ label: `Supprimer « ${t.title} »`, kind: 'confirm_delete', payload: { what: 'todo', ids: t.id } });
-      return awaitingClick(t.title);
+      const todo = useTodos.getState().todos.find(x => x.id === str(input.todo_id));
+      if (!todo) throw new Error('tâche introuvable (il faut son id exact, voir list_todos)');
+      offers.push({ label: t('Supprimer « {title} »', { title: todo.title }), kind: 'confirm_delete', payload: { what: 'todo', ids: todo.id } });
+      return awaitingClick(todo.title);
     }
     case 'start_focus':
       return { started: startFocus(str(input.subject)) };
@@ -301,7 +301,7 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
         chattiness: str(input.chattiness) || undefined,
       });
       if (!changed) throw new Error('aucun réglage valide fourni');
-      links.push({ label: 'Réglages', to: '/profil' });
+      links.push({ label: t('Réglages'), to: '/profil' });
       return { changed };
     }
     case 'open_page':
@@ -372,7 +372,7 @@ export async function claudeReply(text: string, userName: string): Promise<BotRe
     for (let step = 0; step < 10; step++) {
       const res = await post<{ content: Block[]; stop_reason: string }>('chat', { messages: history, userName, ...persona() });
       history.push({ role: 'assistant', content: res.content as Anthropic.Beta.BetaContentBlockParam[] });
-      if (res.stop_reason === 'refusal') return { text: 'Là je préfère ne pas m’aventurer. On parle d’autre chose ?' };
+      if (res.stop_reason === 'refusal') return { text: t('Là je préfère ne pas m’aventurer. On parle d’autre chose ?') };
       if (res.stop_reason === 'pause_turn') continue;
 
       const toolUses = res.content.filter((b): b is Anthropic.Beta.BetaToolUseBlock => b.type === 'tool_use');
@@ -383,7 +383,7 @@ export async function claudeReply(text: string, userName: string): Promise<BotRe
           .join('\n')
           .trim();
         const unique = links.filter((l, i) => links.findIndex(x => x.to === l.to) === i).slice(0, 4);
-        return { text: answer || (offers.length ? 'Tu confirmes ?' : 'C’est fait.'), links: unique, offers };
+        return { text: answer || (offers.length ? t('Tu confirmes ?') : t('C’est fait.')), links: unique, offers };
       }
       const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];
       for (const tu of toolUses) {
@@ -397,7 +397,7 @@ export async function claudeReply(text: string, userName: string): Promise<BotRe
       }
       history.push({ role: 'user', content: results });
     }
-    return { text: 'J’ai fait plusieurs choses, jette un œil.', links, offers };
+    return { text: t('J’ai fait plusieurs choses, jette un œil.'), links, offers };
   } catch (e) {
     history = history.slice(0, before); // keep the conversation valid for the next try
     throw acted ? new PartlyDone(e, links.filter((l, i) => links.findIndex(x => x.to === l.to) === i).slice(0, 4)) : e;
@@ -416,8 +416,8 @@ export async function aiNudge(situation: Record<string, unknown>, userName: stri
       { situation: { ...situation, maintenant: fmt(new Date(), "EEEE d MMMM 'à' HH:mm") }, userName, kind, ...persona() },
       kind === 'remark' ? 9000 : 15000,
     );
-    const t = res.text?.trim();
-    return t && t.length <= NUDGE_MAX[kind] ? t : null;
+    const text = res.text?.trim();
+    return text && text.length <= NUDGE_MAX[kind] ? text : null;
   } catch {
     return null;
   }
@@ -429,20 +429,20 @@ export function describeApiError(e: unknown): string {
     const until = aiPausedUntil();
     // The same length as the countdown in the header (« IA dans 1:59 » → two minutes).
     const minutes = Math.max(1, Math.ceil((until - Date.now()) / 60_000));
-    const pause = minutes === 1 ? 'une minute' : minutes === 2 ? 'deux minutes' : minutes === 3 ? 'trois minutes' : `${minutes} minutes`;
+    const pause = minutes === 1 ? t('une minute') : minutes === 2 ? t('deux minutes') : minutes === 3 ? t('trois minutes') : t('{n} minutes', { n: minutes });
     return until - Date.now() > 10 * 60_000
-      ? `L’IA gratuite a atteint sa limite : je passe en mode simple jusqu’à ${fmt(new Date(until), "HH'h'mm")}.`
-      : `L’IA gratuite est très demandée : je passe en mode simple ${until ? pause : 'un instant'}.`;
+      ? t('L’IA gratuite a atteint sa limite : je passe en mode simple jusqu’à {time}.', { time: fmt(new Date(until), t("HH'h'mm")) })
+      : t('L’IA gratuite est très demandée : je passe en mode simple {pause}.', { pause: until ? pause : t('un instant') });
   }
-  if (code === 'daily_limit') return 'Tu as utilisé tes questions à l’IA du jour : je passe en mode simple jusqu’à minuit.';
-  if (code === 'site_limit') return 'L’IA gratuite a atteint sa limite du jour : je passe en mode simple jusqu’à minuit.';
-  if (code === 'too_large') return 'C’est trop long pour l’IA d’un coup : demande une partie précise ou ouvre une nouvelle conversation.';
+  if (code === 'daily_limit') return t('Tu as utilisé tes questions à l’IA du jour : je passe en mode simple jusqu’à minuit.');
+  if (code === 'site_limit') return t('L’IA gratuite a atteint sa limite du jour : je passe en mode simple jusqu’à minuit.');
+  if (code === 'too_large') return t('C’est trop long pour l’IA d’un coup : demande une partie précise ou ouvre une nouvelle conversation.');
   // The AI doesn't answer: simple mode for a while instead of the same apology at every message.
   if (code === 'bad_key') {
     pauseAi(30 * 60, 'error');
-    return 'Ma clé d’accès à l’IA ne marche pas (à vérifier sur le serveur) : je passe en mode simple.';
+    return t('Ma clé d’accès à l’IA ne marche pas (à vérifier sur le serveur) : je passe en mode simple.');
   }
   pauseAi(2 * 60, 'error');
-  if (code === 'network' || code === 'timeout') return 'J’ai perdu la connexion à l’IA : je passe en mode simple deux minutes.';
-  return 'L’IA a un souci technique : je passe en mode simple deux minutes.';
+  if (code === 'network' || code === 'timeout') return t('J’ai perdu la connexion à l’IA : je passe en mode simple deux minutes.');
+  return t('L’IA a un souci technique : je passe en mode simple deux minutes.');
 }

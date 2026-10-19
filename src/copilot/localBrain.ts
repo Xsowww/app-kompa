@@ -612,42 +612,49 @@ export function localReply(raw: string): BotReply {
   }
 
   // ── Navigation ────────────────────────────────────────────────────────────
-  if (/(ouvre|va|aller|emmene|montre).*(drive|fichiers)/.test(q)) return { text: 'On y va.', links: [{ label: 'Drive', to: '/drive' }] };
-  if (/(ouvre|va|aller|emmene|montre).*agendas? partages?/.test(q)) return { text: 'Tes agendas partagés, c’est par ici.', links: [{ label: 'Agendas partagés', to: '/agendas' }] };
-  if (/(ouvre|va|aller|emmene|montre).*(calendrier|agenda|planning)/.test(q)) return { text: 'Direction le calendrier.', links: [{ label: 'Calendrier', to: '/calendrier' }] };
-  if (/(ouvre|va|aller|emmene|montre).*notes/.test(q)) return { text: 'Tes notes t’attendent.', links: [{ label: 'Notes', to: '/notes' }] };
-  if (/(ouvre|va|aller|emmene|montre).*(taches|todo|to-do|a faire|progression|temps de travail)/.test(q)) return { text: 'Voilà ta liste.', links: [{ label: 'Tâches', to: '/taches' }] };
-  if (/(ouvre|va|aller|emmene|montre).*badges?/.test(q)) return { text: 'Tes badges sont dans ton profil.', links: [{ label: 'Mes badges', to: '/profil#badges' }] };
+  if (/(ouvre|va|aller|emmene|montre).*(drive|fichiers)/.test(q)) return { text: t('On y va.'), links: [{ label: t('Drive'), to: '/drive' }] };
+  if (/(ouvre|va|aller|emmene|montre).*agendas? partages?/.test(q)) return { text: t('Tes agendas partagés, c’est par ici.'), links: [{ label: t('Agendas partagés'), to: '/agendas' }] };
+  if (/(ouvre|va|aller|emmene|montre).*(calendrier|agenda|planning)/.test(q)) return { text: t('Direction le calendrier.'), links: [{ label: t('Calendrier'), to: '/calendrier' }] };
+  if (/(ouvre|va|aller|emmene|montre).*notes/.test(q)) return { text: t('Tes notes t’attendent.'), links: [{ label: t('Notes'), to: '/notes' }] };
+  if (/(ouvre|va|aller|emmene|montre).*(taches|todo|to-do|a faire|progression|temps de travail)/.test(q)) return { text: t('Voilà ta liste.'), links: [{ label: t('Tâches'), to: '/taches' }] };
+  if (/(ouvre|va|aller|emmene|montre).*badges?/.test(q)) return { text: t('Tes badges sont dans ton profil.'), links: [{ label: t('Mes badges'), to: '/profil#badges' }] };
   if (/(ouvre|va|aller|emmene|montre).*(groupes?|equipes?)/.test(q)) {
     const w = groupWords(getSettings().usage);
-    return { text: `Tes ${w.groups}, c’est par ici.`, links: [{ label: w.Groups, to: '/groupes' }] };
+    return { text: t('Tes {groups}, c’est par ici.', { groups: w.groups }), links: [{ label: w.Groups, to: '/groupes' }] };
   }
-  if (/(ouvre|va|aller|emmene|montre).*(dashboard|accueil|tableau)/.test(q)) return { text: 'Retour au QG.', links: [{ label: 'Accueil', to: '/' }] };
+  if (/(ouvre|va|aller|emmene|montre).*(dashboard|accueil|tableau)/.test(q)) return { text: t('Retour au QG.'), links: [{ label: t('Accueil'), to: '/' }] };
 
   // ── Overview ──────────────────────────────────────────────────────────────
   if (/(resume|bilan|vue d'ensemble|etat|statistiques|stats)/.test(q)) {
     const o = overview();
     return {
-      text: `Petit bilan 📊\n📁 Drive : ${count(o.drive.folders, 'dossier', 'dossiers')}, ${count(o.drive.files, 'fichier', 'fichiers')} (${o.drive.totalSize})\n📝 Notes : ${count(o.notes.count, 'note', 'notes')}\n📅 Cette semaine : ${count(o.calendar.weekCount, 'événement', 'événements')}${o.calendar.exams.length ? `, ${count(o.calendar.exams.length, words().bigOne, words().bigMany)} à venir` : ''}`,
+      text: [
+        t('Petit bilan 📊'),
+        t('📁 Drive : {folders}, {files} ({size})', { folders: tn(o.drive.folders, '{n} dossier', '{n} dossiers'), files: tn(o.drive.files, '{n} fichier', '{n} fichiers'), size: o.drive.totalSize }),
+        t('📝 Notes : {notes}', { notes: tn(o.notes.count, '{n} note', '{n} notes') }),
+        o.calendar.exams.length
+          ? t('📅 Cette semaine : {events}, {n} {big} à venir', { events: tn(o.calendar.weekCount, '{n} événement', '{n} événements'), n: o.calendar.exams.length, big: o.calendar.exams.length > 1 ? words().bigMany : words().bigOne })
+          : t('📅 Cette semaine : {events}', { events: tn(o.calendar.weekCount, '{n} événement', '{n} événements') }),
+      ].join('\n'),
     };
   }
 
   // ── Small talk ────────────────────────────────────────────────────────────
   if (/^(salut|bonjour|hello|hey|yo|coucou|bonsoir|wesh|cc)\b/.test(q)) {
-    return { text: pick(['Salut ! 👋 Je surveillais ton écran, tout roule ?', 'Hey ! Besoin d’un coup de main ?', 'Coucou 😄 Qu’est-ce que je peux faire pour toi ?']) };
+    return { text: pick([t('Salut ! 👋 Je surveillais ton écran, tout roule ?'), t('Hey ! Besoin d’un coup de main ?'), t('Coucou 😄 Qu’est-ce que je peux faire pour toi ?')]) };
   }
-  if (/\b(merci|super|genial|top|parfait|nickel)\b/.test(q)) return { text: pick(['Avec plaisir 😎', 'Toujours là pour toi !', 'De rien, je retourne me cacher derrière l’écran 👀']) };
+  if (/\b(merci|super|genial|top|parfait|nickel)\b/.test(q)) return { text: pick([t('Avec plaisir 😎'), t('Toujours là pour toi !'), t('De rien, je retourne me cacher derrière l’écran 👀')]) };
   if (/(qui es[- ]tu|t'es qui|c'est quoi ton nom|presente)/.test(q)) {
-    return { text: 'Moi c’est Kompaly 🤖 Je retrouve tes fichiers, j’analyse ton calendrier, je crée notes, dossiers et événements. Demande-moi !' };
+    return { text: t('Moi c’est Kompaly 🤖 Je retrouve tes fichiers, j’analyse ton calendrier, je crée notes, dossiers et événements. Demande-moi !') };
   }
   if (/(fatigue|stress|motivation|demotive|j'en peux plus|flemme)/.test(q)) {
-    return { text: pick(['Respire 🌬️ Fais d’abord la plus petite tâche, le reste suivra.', '25 min de focus, 5 min de pause : dis « lance une session focus » pour commencer.']) };
+    return { text: pick([t('Respire 🌬️ Fais d’abord la plus petite tâche, le reste suivra.'), t('25 min de focus, 5 min de pause : dis « lance une session focus » pour commencer.')]) };
   }
 
   const ex = EXAMPLES[getSettings().usage] ?? EXAMPLES.etudes;
   // A request for help, anywhere in a short sentence (« Aide ! », « aide-moi », « j'ai besoin d'aide », « qu'est-ce que tu sais faire ? »).
   if (/^\?+$|\b(aide|help|au secours)\b|(sais|peux)[- ]tu faire|tu (sais|peux) faire( quoi)?|tu (sers|peux servir) a quoi|a quoi (tu sers|sers[- ]tu|tu peux servir)/.test(q.replace(/[’‘]/g, "'"))) {
-    return { text: `Voilà ce que je sais faire sans IA :\n${ex.map(e => `- ${e}`).join('\n')}` };
+    return { text: `${t('Voilà ce que je sais faire sans IA :')}\n${ex.map(e => `- ${e}`).join('\n')}` };
   }
-  return { text: `Je n’ai pas tout compris. Essaie par exemple :\n${ex.slice(0, 4).map(e => `- ${e}`).join('\n')}\n(« aide » pour tout voir)` };
+  return { text: `${t('Je n’ai pas tout compris. Essaie par exemple :')}\n${ex.slice(0, 4).map(e => `- ${e}`).join('\n')}\n${t('(« aide » pour tout voir)')}` };
 }

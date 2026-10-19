@@ -278,7 +278,7 @@ function stylesXml(): string {
   return (
     `${HEAD}<w:styles xmlns:w="${W}">` +
     `<w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="${FONT}" w:eastAsia="${FONT}" w:hAnsi="${FONT}" w:cs="${FONT}"/>` +
-    '<w:sz w:val="22"/><w:szCs w:val="22"/><w:lang w:val="fr-FR" w:eastAsia="fr-FR" w:bidi="ar-SA"/></w:rPr></w:rPrDefault>' +
+    `<w:sz w:val="22"/><w:szCs w:val="22"/><w:lang w:val="${locale()}" w:eastAsia="fr-FR" w:bidi="ar-SA"/></w:rPr></w:rPrDefault>` +
     '<w:pPrDefault><w:pPr><w:spacing w:after="160" w:line="276" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults>' +
     '<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style>' +
     style('Title', 'Title', '<w:pBdr><w:bottom w:val="single" w:sz="8" w:space="6" w:color="8EAADB"/></w:pBdr><w:spacing w:after="300" w:line="240" w:lineRule="auto"/><w:contextualSpacing/>',

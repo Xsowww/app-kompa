@@ -1,5 +1,6 @@
 import { Minus, Plus } from 'lucide-react';
 import { cx } from '../../lib/utils';
+import { t } from '../../i18n';
 
 /** A settings card. Without a title (when it would only repeat the tab name), it is labelled by `label`. */
 export function Section({ title, label, description, children, danger }: { title?: string; label?: string; description?: string; children: React.ReactNode; danger?: boolean }) {
@@ -64,7 +65,7 @@ export function Stepper({ value, min, max, onChange, suffix, label }: { value: n
   return (
     <div className="flex h-9 items-center rounded-lg border border-stone-200 bg-surface shadow-card pointer-coarse:h-10" role="group" aria-label={label}>
       {/* aria-disabled, not disabled: a disabled button would drop the keyboard focus at the end of the range. */}
-      <button className="flex h-full w-9 items-center justify-center text-stone-500 hover:text-ink aria-disabled:opacity-30 pointer-coarse:w-10" aria-disabled={value <= min} onClick={() => value > min && onChange(value - 1)} aria-label={`${label}\u00a0: moins`}>
+      <button className="flex h-full w-9 items-center justify-center text-stone-500 hover:text-ink aria-disabled:opacity-30 pointer-coarse:w-10" aria-disabled={value <= min} onClick={() => value > min && onChange(value - 1)} aria-label={t('{label}\u00a0: moins', { label })}>
         <Minus size={13} />
       </button>
       {/* Announced after each change (the button keeps the focus). */}
@@ -72,7 +73,7 @@ export function Stepper({ value, min, max, onChange, suffix, label }: { value: n
         {value}
         {suffix && <span className="font-normal text-stone-500"> {suffix}</span>}
       </span>
-      <button className="flex h-full w-9 items-center justify-center text-stone-500 hover:text-ink aria-disabled:opacity-30 pointer-coarse:w-10" aria-disabled={value >= max} onClick={() => value < max && onChange(value + 1)} aria-label={`${label}\u00a0: plus`}>
+      <button className="flex h-full w-9 items-center justify-center text-stone-500 hover:text-ink aria-disabled:opacity-30 pointer-coarse:w-10" aria-disabled={value >= max} onClick={() => value < max && onChange(value + 1)} aria-label={t('{label}\u00a0: plus', { label })}>
         <Plus size={13} />
       </button>
     </div>

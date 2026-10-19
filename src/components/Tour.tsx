@@ -5,6 +5,7 @@ import { useCopilot } from '../store/copilot';
 import { trapTab, focusBeforeOverlay, focusables } from '../lib/a11y';
 import { useTour, endTour, TOUR_TODO_START } from '../store/tour';
 import { usageWords, type Usage } from '../lib/usage';
+import { t } from '../i18n';
 
 interface Step {
   /** Element pointed at (the first visible match); none = a card in the middle of the screen. */
@@ -16,72 +17,78 @@ interface Step {
   text: (usage: Usage, touch: boolean) => string;
 }
 
-const NEXT: Record<Usage, string> = { etudes: 'ton prochain examen', travail: 'ta prochaine échéance', perso: 'ton prochain grand jour' };
+const NEXT: Record<Usage, string> = { etudes: t('ton prochain examen'), travail: t('ta prochaine échéance'), perso: t('ton prochain grand jour') };
 
-const nav = (path: string) => `nav[aria-label="Navigation principale"] a[href="${path}"]`;
+// The same t() texts as the labels in AppShell, so the targets are found in every language.
+const nav = (path: string) => `nav[aria-label="${t('Navigation principale')}"] a[href="${path}"]`;
 
 const STEPS: Step[] = [
   {
-    title: 'Bienvenue sur Kompaly',
-    text: () => 'Voici où trouver chaque chose, en une minute.',
+    title: t('Bienvenue sur Kompaly'),
+    text: () => t('Voici où trouver chaque chose, en une minute.'),
   },
   {
     target: nav('/'),
-    title: 'L’accueil',
-    text: u => `Ta journée, ${NEXT[u]} et tes tâches, réunis sur une seule page.`,
+    title: t('L’accueil'),
+    text: u => t('Ta journée, {next} et tes tâches, réunis sur une seule page.', { next: NEXT[u] }),
   },
   {
     target: nav('/calendrier'),
-    title: 'Le calendrier',
+    title: t('Le calendrier'),
     text: u =>
-      `Écris simplement «\u00a0${u === 'travail' ? 'Réunion client jeudi 10h' : u === 'perso' ? 'Dentiste mardi 17h' : 'Partiel de maths vendredi 14h'}\u00a0»\u00a0: Kompaly le range tout seul.`,
+      t('Écris simplement «\u00a0{example}\u00a0»\u00a0: Kompaly le range tout seul.', {
+        example: u === 'travail' ? t('Réunion client jeudi 10h') : u === 'perso' ? t('Dentiste mardi 17h') : t('Partiel de maths vendredi 14h'),
+      }),
   },
   {
     target: nav('/taches'),
-    title: 'Les tâches',
-    text: () => 'Ta liste de choses à faire. Coche-les quand c’est fait.',
+    title: t('Les tâches'),
+    text: () => t('Ta liste de choses à faire. Coche-les quand c’est fait.'),
   },
   {
     target: nav('/notes'),
-    title: 'Les notes',
-    text: () => 'Prends tes notes et range-les en dossiers.',
+    title: t('Les notes'),
+    text: () => t('Prends tes notes et range-les en dossiers.'),
   },
   {
     target: nav('/drive'),
-    title: 'Le Drive',
-    text: (_, touch) => `${touch ? 'Ajoute tes fichiers avec le bouton d’import.' : 'Glisse tes fichiers dans la page.'} La recherche fouille même le texte de tes PDF.`,
+    title: t('Le Drive'),
+    text: (_, touch) =>
+      touch ? t('Ajoute tes fichiers avec le bouton d’import. La recherche fouille même le texte de tes PDF.') : t('Glisse tes fichiers dans la page. La recherche fouille même le texte de tes PDF.'),
   },
   {
     // Phones: not in the tab bar (reached from the home page), the card is then in the middle.
     target: nav('/enregistrer'),
-    title: 'Enregistrer',
+    title: t('Enregistrer'),
     text: (u, touch) => {
       const w = usageWords(u).recording;
-      const how = touch ? `Avec le bouton «\u00a0Enregistrer\u00a0» de l’accueil, enregistre ${w.a}` : `Enregistre ${w.a} au micro ou avec le son de l’ordinateur`;
-      return `${how}\u00a0: Kompaly écrit tout, te prévient des mots-clés et range ${w.doc} dans ton Drive.`;
+      return touch
+        ? t('Avec le bouton «\u00a0Enregistrer\u00a0» de l’accueil, enregistre {a}\u00a0: Kompaly écrit tout, te prévient des mots-clés et range {doc} dans ton Drive.', { a: w.a, doc: w.doc })
+        : t('Enregistre {a} au micro ou avec le son de l’ordinateur\u00a0: Kompaly écrit tout, te prévient des mots-clés et range {doc} dans ton Drive.', { a: w.a, doc: w.doc });
     },
   },
   {
     target: nav('/groupes'),
-    title: 'Le travail à plusieurs',
-    text: u => `Crée ${u === 'travail' ? 'une équipe' : 'un groupe'} ou un agenda partagé, puis invite avec un code.`,
+    title: t('Le travail à plusieurs'),
+    text: u => (u === 'travail' ? t('Crée une équipe ou un agenda partagé, puis invite avec un code.') : t('Crée un groupe ou un agenda partagé, puis invite avec un code.')),
   },
   {
-    target: 'input[aria-label^="Rechercher dans tes fichiers"], button[aria-label="Rechercher"]',
-    title: 'La recherche',
-    text: (_, touch) => `Retrouve n’importe quel fichier, note ou événement.${touch ? '' : ` Raccourci\u00a0: ${isMac ? '⌘' : 'Ctrl'} K.`}`,
+    target: `input[aria-label="${t('Rechercher dans tes fichiers, notes, événements et tâches')}"], button[aria-label="${t('Rechercher')}"]`,
+    title: t('La recherche'),
+    text: (_, touch) =>
+      touch ? t('Retrouve n’importe quel fichier, note ou événement.') : t('Retrouve n’importe quel fichier, note ou événement. Raccourci\u00a0: {key} K.', { key: isMac ? '⌘' : t('Ctrl') }),
   },
   {
     // His head, not the whole box: hidden at the edge, it is mostly empty.
     target: '[aria-controls="copilot-panel"] svg rect',
     enter: () => useCopilot.getState().pose === 'hidden' && useCopilot.getState().setPose('peek'),
-    title: 'Kompaly, ton ami',
-    text: (_, touch) => `${touch ? 'Touche-le' : 'Clique sur lui'} pour discuter\u00a0: il t’aide à t’organiser.`,
+    title: t('Kompaly, ton ami'),
+    text: (_, touch) => (touch ? t('Touche-le pour discuter\u00a0: il t’aide à t’organiser.') : t('Clique sur lui pour discuter\u00a0: il t’aide à t’organiser.')),
   },
   {
     target: 'a[href="/profil"]',
-    title: 'Ton profil',
-    text: () => 'Thème, couleur, ton de Kompaly, notifications\u00a0: tout se règle ici.',
+    title: t('Ton profil'),
+    text: () => t('Thème, couleur, ton de Kompaly, notifications\u00a0: tout se règle ici.'),
   },
 ];
 
@@ -204,11 +211,11 @@ export default function Tour() {
           <div className="mt-4 flex items-center gap-2">
             {!last && (
               <button type="button" onClick={endTour} className="hit text-[12px] text-stone-500 underline decoration-stone-300 underline-offset-2 hover:text-ink">
-                Passer l’intro
+                {t('Passer l’intro')}
               </button>
             )}
             <button ref={nextBtn} type="button" onClick={next} className="btn-primary ml-auto h-8">
-              {last ? 'C’est parti' : 'Suivant'}
+              {last ? t('C’est parti') : t('Suivant')}
             </button>
           </div>
         </div>

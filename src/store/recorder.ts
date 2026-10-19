@@ -21,6 +21,7 @@ import { startCapture, CaptureError, type Capture, type Piece, type SourceKind }
 import { startLive, type LiveLane } from '../lib/recorder/live';
 import { CoursError, alertOtherDevices, isFinal, listPoints, transcribe, withRetry, writeDoc, writePart } from '../lib/recorder/api';
 import { baseName, chunkText, clock, courseMarkdown, essentialsOf, excerpt, makeSegment, momentLines, nextPart, rawPart, type Alert, type Part, type Segment } from '../lib/recorder/course';
+import { t, lang, locale } from '../i18n';
 
 export type Make = 'fiche' | 'examen';
 
@@ -146,6 +147,8 @@ let partsRun: Promise<void> | null = null;
 let lastAudible = 0;
 let lastText = 0;
 let warned = { sound: false, silence: false };
+/** The « nobody speaks » problem shown, to clear it (and only it) when someone speaks again. */
+let silenceProblem = '';
 const lastAlert = new Map<string, number>();
 
 /** Seconds since the start of the class. */
@@ -196,7 +199,7 @@ async function alertUser(title: string, body: string, urgent = false) {
 async function systemAlert(title: string, body: string) {
   if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
   if (document.hasFocus() && !document.hidden) return;
-  const options = { body, tag: `cours-${Date.now()}`, lang: 'fr', icon: '/icon-192.png', badge: '/notification-badge.png', data: { url: '/enregistrer' } };
+  const options = { body, tag: `cours-${Date.now()}`, lang, icon: '/icon-192.png', badge: '/notification-badge.png', data: { url: '/enregistrer' } };
   try {
     const reg = await serviceWorker();
     if (reg) await reg.showNotification(title, options);
@@ -239,14 +242,14 @@ function spot(text: string, time: number) {
   patch(x => ({ alerts: [...heard.map(k => ({ id: uid(), time, keyword: k.word, excerpt: said })).reverse(), ...x.alerts] }));
   // Two keywords in one sentence (« ça tombera à l'examen »): one notification.
   const loud = heard.filter(k => k.notify);
-  if (loud.length) void alertUser(`🔔 ${loud.map(k => `« ${k.word} »`).join(', ')}`, said);
+  if (loud.length) void alertUser(`🔔 ${loud.map(k => t('« {keyword} »', { keyword: k.word })).join(', ')}`, said);
 }
 
 function heardSomething() {
   lastText = Date.now();
   if (warned.silence) {
     warned.silence = false;
-    if (useRecLive.getState().problem?.startsWith('Personne')) live({ problem: null });
+    if (silenceProblem && useRecLive.getState().problem === silenceProblem) live({ problem: null });
   }
 }
 
@@ -286,10 +289,10 @@ async function runPump() {
 }
 
 function offReason(e: CoursError) {
-  if (e.code === 'disabled') return 'La transcription n’est pas activée sur le serveur.';
-  if (e.code === 'site_limit') return 'Kompaly a atteint sa limite de transcription pour aujourd’hui.';
-  if (e.code === 'daily_limit') return 'Tu as atteint ta limite de transcription pour aujourd’hui.';
-  return 'La transcription ne répond plus.';
+  if (e.code === 'disabled') return t('La transcription n’est pas activée sur le serveur.');
+  if (e.code === 'site_limit') return t('Kompaly a atteint sa limite de transcription pour aujourd’hui.');
+  if (e.code === 'daily_limit') return t('Tu as atteint ta limite de transcription pour aujourd’hui.');
+  return t('La transcription ne répond plus.');
 }
 
 /** A piece written down (or not: then what the browser heard, or a gap). */
@@ -327,7 +330,7 @@ async function runParts(all: boolean) {
     const next = nextPart(s.segments, s.partsUpTo, all);
     if (!next) return;
     let part: Part;
-    if (s.aiOff) part = rawPart(s.segments, s.partsUpTo, next.until, `Partie ${s.parts.length + 1}`);
+    if (s.aiOff) part = rawPart(s.segments, s.partsUpTo, next.until, t('Partie {n}', { n: s.parts.length + 1 }));
     else {
       try {
         const before = s.parts.at(-1)?.text.slice(-300);
@@ -335,8 +338,8 @@ async function runParts(all: boolean) {
         part = { title: w.title, text: w.text, points: w.points, until: next.until };
       } catch (e) {
         // Kept as heard; the next parts too if the AI is out for today.
-        if (isFinal(e)) patch(() => ({ aiOff: 'L’IA n’est pas disponible pour le moment.' }));
-        part = rawPart(s.segments, s.partsUpTo, next.until, `Partie ${s.parts.length + 1}`);
+        if (isFinal(e)) patch(() => ({ aiOff: t('L’IA n’est pas disponible pour le moment.') }));
+        part = rawPart(s.segments, s.partsUpTo, next.until, t('Partie {n}', { n: s.parts.length + 1 }));
       } finally {
         live({ waiting: null });
       }
@@ -355,8 +358,8 @@ function check() {
   if (s.source === 'onglet' && now - lastAudible > 60_000) {
     if (!warned.sound) {
       warned.sound = true;
-      live({ problem: 'Plus aucun son depuis 1 min' });
-      void alertUser('⚠️ Plus aucun son', 'Aucun son depuis 1 min : la visio est peut-être finie.', true);
+      live({ problem: t('Plus aucun son depuis 1 min') });
+      void alertUser(`⚠️ ${t('Plus aucun son')}`, t('Aucun son depuis 1 min : la visio est peut-être finie.'), true);
     }
   } else if (warned.sound) {
     warned.sound = false;
@@ -365,8 +368,9 @@ function check() {
   const limit = useSettings.getState().courseSilenceMinutes * 60_000;
   if (!warned.sound && !warned.silence && now - lastText > limit) {
     warned.silence = true;
-    live({ problem: `Personne ne parle depuis ${Math.round(limit / 60_000)} min` });
-    void alertUser('Kompaly n’entend personne', `Personne n’a parlé depuis ${Math.round(limit / 60_000)} min. Vérifie la source du son.`);
+    silenceProblem = t('Personne ne parle depuis {min} min', { min: Math.round(limit / 60_000) });
+    live({ problem: silenceProblem });
+    void alertUser(t('Kompaly n’entend personne'), t('Personne n’a parlé depuis {min} min. Vérifie la source du son.', { min: Math.round(limit / 60_000) }));
   }
 }
 
@@ -395,8 +399,8 @@ async function listen(kind: SourceKind, offset: number) {
     onEnded: () => {
       capture = null;
       stopQuick();
-      live({ hearing: false, problem: kind === 'onglet' ? 'Le partage du son s’est arrêté' : 'Le micro s’est coupé', interim: '' });
-      void alertUser('⚠️ Écoute arrêtée', kind === 'onglet' ? 'Le partage du son s’est arrêté. Clique sur « Reprendre l’écoute ».' : 'Le micro s’est coupé. Clique sur « Reprendre l’écoute ».', true);
+      live({ hearing: false, problem: kind === 'onglet' ? t('Le partage du son s’est arrêté') : t('Le micro s’est coupé'), interim: '' });
+      void alertUser(`⚠️ ${t('Écoute arrêtée')}`, kind === 'onglet' ? t('Le partage du son s’est arrêté. Clique sur « Reprendre l’écoute ».') : t('Le micro s’est coupé. Clique sur « Reprendre l’écoute ».'), true);
     },
   });
   lastAudible = lastText = Date.now();
@@ -409,13 +413,13 @@ async function listen(kind: SourceKind, offset: number) {
         if (!text) return live({ interim: '' });
         quickHeardAt = Date.now();
         heardSomething();
-        const t = elapsed();
-        spot(text, t);
+        const at = elapsed();
+        spot(text, at);
         if (final) {
           // An alert raised on the start of this sentence gets the whole sentence.
           patch(x => ({
-            live: [...x.live, { time: t, text }].slice(-3000),
-            alerts: x.alerts.map(a => (a.keyword && t - a.time < 20 && text.startsWith(a.excerpt) && text.length > a.excerpt.length ? { ...a, excerpt: excerpt(text) } : a)),
+            live: [...x.live, { time: at, text }].slice(-3000),
+            alerts: x.alerts.map(a => (a.keyword && at - a.time < 20 && text.startsWith(a.excerpt) && text.length > a.excerpt.length ? { ...a, excerpt: excerpt(text) } : a)),
           }));
           live({ interim: '' });
         } else live({ interim: text });
@@ -523,7 +527,7 @@ export interface StartOptions {
 
 /** Starts a recording. Throws a CaptureError with a sentence for the student when the sound can't be heard. */
 export async function startRecording(o: StartOptions) {
-  if (session() && session()!.phase !== 'done') throw new CaptureError('Un enregistrement est déjà en cours.');
+  if (session() && session()!.phase !== 'done') throw new CaptureError(t('Un enregistrement est déjà en cours.'));
   const title = o.title.trim() || words().fallback;
   const s: Session = {
     id: uid(),
@@ -572,9 +576,9 @@ export function star() {
   patch(x => ({
     stars: [...x.stars, time],
     segments: x.segments.map(seg => (time >= seg.start - 1 && time < seg.end + 1 ? { ...seg, starred: true } : seg)),
-    alerts: [{ id: uid(), time, keyword: null, excerpt: excerpt(said) || 'Moment marqué' }, ...x.alerts],
+    alerts: [{ id: uid(), time, keyword: null, excerpt: excerpt(said) || t('Moment marqué') }, ...x.alerts],
   }));
-  toast('⭐ Moment marqué', 'success');
+  toast(`⭐ ${t('Moment marqué')}`, 'success');
 }
 
 /** Ends the class: last sound written down, last parts rewritten, then the documents in the Drive. */
@@ -586,7 +590,7 @@ export async function finishRecording() {
   capture = null;
   release();
   live({ hearing: false, interim: '', problem: null });
-  live({ step: 'Transcription des dernières secondes…', progress: null });
+  live({ step: t('Transcription des dernières secondes…'), progress: null });
   while (pieces.length || pumpRun) await pump();
   await completeDocuments();
 }
@@ -595,11 +599,11 @@ export async function finishRecording() {
 export async function completeDocuments() {
   if (session()?.phase !== 'finishing') return;
   try {
-    live({ step: `Rédaction ${words().ofDoc}…`, progress: [session()!.parts.length, session()!.parts.length + 1] });
+    live({ step: t('Rédaction {ofDoc}…', { ofDoc: words().ofDoc }), progress: [session()!.parts.length, session()!.parts.length + 1] });
     await writeParts(true);
     await saveDocuments();
   } catch (e) {
-    toast(e instanceof Error && e.message ? e.message : 'Les documents n’ont pas pu être enregistrés.', 'error');
+    toast(e instanceof Error && e.message ? e.message : t('Les documents n’ont pas pu être enregistrés.'), 'error');
     live({ step: null, progress: null });
     patch(() => ({ phase: 'running' }));
     throw e;
@@ -627,8 +631,8 @@ async function saveDocuments() {
   const when = new Date(s.startedAt);
   const name = baseName(s.title, when);
   const folderId = await folderFor(s);
-  live({ step: 'Enregistrement dans le Drive…', progress: null });
-  const md = courseMarkdown({ title: s.title, date: when.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }), seconds: elapsed(s), parts: s.parts, alerts: s.alerts, missing: s.segments.filter(x => x.origin === 'manquant').length });
+  live({ step: t('Enregistrement dans le Drive…'), progress: null });
+  const md = courseMarkdown({ title: s.title, date: when.toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }), seconds: elapsed(s), parts: s.parts, alerts: s.alerts, missing: s.segments.filter(x => x.origin === 'manquant').length });
   const cours = s.files.cours ?? (await upload(name, md, s.title, folderId)).id;
   patch(x => ({ files: { ...x.files, cours } }));
 
@@ -652,8 +656,8 @@ async function saveDocuments() {
   }));
   patch(() => ({ phase: 'done', ...(failed.length && { failed }) }));
   live({ step: null, progress: null });
-  notify(`${words().docDone} est prêt`, `« ${done.title} » est rangé dans ton Drive.`);
-  if (failed.length) toast(`Impossible de créer : ${failed.map(f => words().long[f].toLowerCase()).join(' et ')}. Tu peux réessayer.`, 'error');
+  notify(t('{doc} est prêt', { doc: words().docDone }), t('« {title} » est rangé dans ton Drive.', { title: done.title }));
+  if (failed.length) toast(t('Impossible de créer : {docs}. Tu peux réessayer.', { docs: failed.map(f => words().long[f].toLowerCase()).join(` ${t('et')} `) }), 'error');
 }
 
 /** The essentials of the class: the AI's points per part (or, when it couldn't write the parts, asked now). */
@@ -680,11 +684,11 @@ async function pointsFromText(title: string, text: string): Promise<string[]> {
 }
 
 async function makeDoc(kind: Make, title: string, info: Pick<Past, 'points' | 'parts' | 'moments'>, name: string, folderId: string | null): Promise<string> {
-  if (!info.points.length) throw new Error('Pas assez de contenu pour faire ce document.');
+  if (!info.points.length) throw new Error(t('Pas assez de contenu pour faire ce document.'));
   const md = await withRetry(() => writeDoc(kind, { title, ...info }), { onWait: w => live({ waiting: w }) });
   live({ waiting: null });
   const label = words().long[kind];
-  return (await upload(`${name} – ${label}`, md, `${label} : ${title}`, folderId)).id;
+  return (await upload(`${name} – ${label}`, md, t('{label} : {title}', { label, title }), folderId)).id;
 }
 
 /** The revision sheet or the exam of a class recorded before (when it wasn't ticked at the end). */
@@ -698,7 +702,7 @@ export async function makeLater(pastId: string, kind: Make) {
     useRecorder.setState(st => ({ history: st.history.map(h => (h.id === pastId ? { ...h, files: { ...h.files, [kind]: id } } : h)) }));
     const s = session();
     if (s?.id === pastId) patch(x => ({ files: { ...x.files, [kind]: id }, failed: x.failed?.filter(f => f !== kind) }));
-    toast(`« ${words().long[kind]} » est dans ton Drive`, 'success', { label: 'Ouvrir', run: () => openInDrive(id) });
+    toast(t('« {doc} » est dans ton Drive', { doc: words().long[kind] }), 'success', { label: t('Ouvrir'), run: () => openInDrive(id) });
   } catch (e) {
     toast(errorText(e), 'error');
   } finally {
@@ -709,7 +713,7 @@ export async function makeLater(pastId: string, kind: Make) {
 /** Opens a file of the Drive (its preview). */
 export function openInDrive(id: string) {
   const item = useDrive.getState().items.find(i => i.id === id);
-  if (!item) return toast('Ce fichier n’est plus dans le Drive.', 'error');
+  if (!item) return toast(t('Ce fichier n’est plus dans le Drive.'), 'error');
   const q = new URLSearchParams({ ...(item.parentId && { dossier: item.parentId }), fichier: id });
   window.history.pushState(null, '', `/drive?${q}`);
   dispatchEvent(new PopStateEvent('popstate'));
@@ -717,30 +721,30 @@ export function openInDrive(id: string) {
 
 export function errorText(e: unknown): string {
   if (e instanceof CoursError) {
-    if (e.code === 'disabled') return 'L’IA n’est pas activée sur le serveur.';
-    if (e.code === 'daily_limit') return 'Tu as utilisé toutes tes demandes à l’IA pour aujourd’hui : réessaie demain.';
-    if (e.code === 'site_limit') return 'L’IA gratuite de Kompaly a atteint sa limite du jour : réessaie demain.';
-    if (e.code === 'network' || e.code === 'timeout') return 'Pas de connexion au serveur : réessaie dans un instant.';
-    return 'L’IA n’a pas pu faire ce document : réessaie dans un instant.';
+    if (e.code === 'disabled') return t('L’IA n’est pas activée sur le serveur.');
+    if (e.code === 'daily_limit') return t('Tu as utilisé toutes tes demandes à l’IA pour aujourd’hui : réessaie demain.');
+    if (e.code === 'site_limit') return t('L’IA gratuite de Kompaly a atteint sa limite du jour : réessaie demain.');
+    if (e.code === 'network' || e.code === 'timeout') return t('Pas de connexion au serveur : réessaie dans un instant.');
+    return t('L’IA n’a pas pu faire ce document : réessaie dans un instant.');
   }
-  return e instanceof Error && e.message ? e.message : 'Une erreur est survenue.';
+  return e instanceof Error && e.message ? e.message : t('Une erreur est survenue.');
 }
 
 /** A revision sheet or an exam from any course document of the Drive (Word, PDF, text), saved next to it. */
 export async function makeFromFile(item: DriveItem, kind: Make) {
-  if (useRecLive.getState().making) return toast('Un document est déjà en cours de création.', 'info');
+  if (useRecLive.getState().making) return toast(t('Un document est déjà en cours de création.'), 'info');
   live({ making: { id: item.id, kind } });
-  toast(`Kompaly prépare : ${words().long[kind].toLowerCase()}…`, 'info');
+  toast(t('Kompaly prépare : {doc}…', { doc: words().long[kind].toLowerCase() }), 'info');
   try {
     const blob = await blobStore.get(blobKey(item.id));
-    if (!blob) throw new Error('Le fichier n’a pas pu être lu.');
+    if (!blob) throw new Error(t('Le fichier n’a pas pu être lu.'));
     const text = await fileText(item, blob);
-    if (text.trim().length < 200) throw new Error('Ce document est trop court pour en faire une fiche ou un examen.');
+    if (text.trim().length < 200) throw new Error(t('Ce document est trop court pour en faire une fiche ou un examen.'));
     const title = item.name.replace(/\.[^.]+$/, '').replace(/^\d{4}-\d{2}-\d{2} – /, '');
     const found = essentialsOf(text);
     const points = found?.points ?? (await pointsFromText(title, text));
     const id = await makeDoc(kind, title, { points, parts: [], moments: found?.moments ?? [] }, item.name.replace(/\.[^.]+$/, ''), item.parentId);
-    toast(`« ${words().long[kind]} » est rangé à côté du document`, 'success', { label: 'Ouvrir', run: () => openInDrive(id) });
+    toast(t('« {doc} » est rangé à côté du document', { doc: words().long[kind] }), 'success', { label: t('Ouvrir'), run: () => openInDrive(id) });
   } catch (e) {
     toast(errorText(e), 'error');
   } finally {

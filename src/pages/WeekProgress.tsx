@@ -4,6 +4,7 @@ import { fmtDay, fromKey, todayKey } from '../lib/dates';
 import { useTodos } from '../store/todos';
 import { cheer, weekItems } from '../lib/weekProgress';
 import { cx } from '../lib/utils';
+import { t, tn } from '../i18n';
 
 /** The ring of the week: how much of what was planned is done, filling up as things get ticked. */
 export default function WeekProgress({ from, to }: { from: string; to: string }) {
@@ -15,7 +16,7 @@ export default function WeekProgress({ from, to }: { from: string; to: string })
   const C = 2 * Math.PI * R;
   return (
     <div className="flex flex-1 flex-col">
-    <div className="flex items-center gap-5" role="group" aria-label={`${done} tâche${done > 1 ? 's' : ''} sur ${total} faite${done > 1 ? 's' : ''} cette semaine. ${cheer(done, total)}`}>
+    <div className="flex items-center gap-5" role="group" aria-label={`${tn(done, '{n} tâche sur {total} faite cette semaine.', '{n} tâches sur {total} faites cette semaine.', { total })} ${cheer(done, total)}`}>
       <span className="relative h-[116px] w-[116px] shrink-0">
         <svg viewBox="0 0 116 116" className="h-full w-full -rotate-90" aria-hidden>
           <circle cx="58" cy="58" r={R} fill="none" strokeWidth="12" className="stroke-stone-100" />
@@ -49,13 +50,13 @@ export default function WeekProgress({ from, to }: { from: string; to: string })
           {done}
           <span className="text-[16px] font-bold text-stone-500"> / {total}</span>
         </span>
-        <span className="mt-1 block text-[13px] font-medium text-stone-500">{total > 1 ? 'tâches faites' : 'tâche faite'} cette semaine</span>
+        <span className="mt-1 block text-[13px] font-medium text-stone-500">{tn(total, 'tâche faite cette semaine', 'tâches faites cette semaine')}</span>
         <span className={cx('mt-2.5 block text-[13px] font-semibold leading-snug', full ? 'text-emerald-700 dark:text-emerald-400' : 'text-ink')}>{cheer(done, total)}</span>
       </span>
     </div>
     {left.length > 0 && (
       <div className="mt-4 border-t border-stone-100 pt-3">
-        <p className="eyebrow mb-1">Ce qu’il reste</p>
+        <p className="eyebrow mb-1">{t('Ce qu’il reste')}</p>
         <ul className="-mx-1.5">
           {left.slice(0, 3).map(x => (
             <li key={x.id}>
@@ -67,7 +68,7 @@ export default function WeekProgress({ from, to }: { from: string; to: string })
                 <span className="min-w-0 flex-1 truncate font-medium">{x.title}</span>
                 {x.due && (
                   <span className={cx('shrink-0 text-[12px]', x.due < todayKey() ? 'font-semibold text-urgent-text' : 'capitalize text-stone-500')}>
-                    {x.due < todayKey() ? 'En retard' : x.due === todayKey() ? 'Auj.' : fmtDay(fromKey(x.due), 'EEE d')}
+                    {x.due < todayKey() ? t('En retard') : x.due === todayKey() ? t('Auj.') : fmtDay(fromKey(x.due), 'EEE d')}
                   </span>
                 )}
               </Link>
@@ -76,7 +77,7 @@ export default function WeekProgress({ from, to }: { from: string; to: string })
         </ul>
         {/* One left: straight to it. Several: the next one (the list shows them all from there). */}
         <Link to={`/taches?tache=${left[0].id}`} className="btn-secondary mt-2 h-9 w-full">
-          {left.length === 1 ? 'Aller à ma tâche' : left.length > 3 ? `Voir les ${left.length} qui restent` : 'Aller à mes tâches'} <ArrowRight size={15} />
+          {left.length === 1 ? t('Aller à ma tâche') : left.length > 3 ? t('Voir les {n} qui restent', { n: left.length }) : t('Aller à mes tâches')} <ArrowRight size={15} />
         </Link>
       </div>
     )}

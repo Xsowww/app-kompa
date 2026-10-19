@@ -8,6 +8,7 @@ import { toast } from '../../store/ui';
 import { useSettings } from '../../store/settings';
 import { WORDS } from '../../lib/usage';
 import { cx } from '../../lib/utils';
+import { t, tn } from '../../i18n';
 
 export interface IcsSource {
   name: string;
@@ -75,7 +76,7 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
   const read = async (file: File | undefined) => {
     if (!file) return;
     if (!isIcsFile(file)) {
-      toast('Choisis un fichier .ics', 'error');
+      toast(t('Choisis un fichier .ics'), 'error');
       return;
     }
     setSource({ name: file.name, text: await file.text() });
@@ -88,12 +89,11 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
     if (list.length) cal.addMany(list);
     for (const u of plan.updates) cal.update(u.id, u.patch);
     for (const e of plan.removals) cal.remove(e.id);
-    const s = (n: number) => (n > 1 ? 's' : '');
     const parts = [
-      list.length && `${list.length} événement${s(list.length)} importé${s(list.length)}`,
-      plan.updates.length && `${plan.updates.length} mis à jour`,
-      plan.removals.length && `${plan.removals.length} annulé${s(plan.removals.length)} (dans la corbeille)`,
-      plan.duplicates > 0 && `${plan.duplicates} déjà présent${s(plan.duplicates)}`,
+      list.length && tn(list.length, '{n} événement importé', '{n} événements importés'),
+      plan.updates.length && t('{n} mis à jour', { n: plan.updates.length }),
+      plan.removals.length && tn(plan.removals.length, '{n} annulé (dans la corbeille)', '{n} annulés (dans la corbeille)'),
+      plan.duplicates > 0 && tn(plan.duplicates, '{n} déjà présent', '{n} déjà présents'),
     ].filter(Boolean);
     toast(parts.join(' · '), 'success');
     const first = list.find(e => e.date >= today)?.date ?? list[0]?.date ?? plan.updates[0]?.patch.date;
@@ -106,7 +106,7 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
 
   return (
     <Modal open onClose={onClose} width={500}>
-      <h3 className="text-[15px] font-semibold">Importer un {words.timetable}</h3>
+      <h3 className="text-[15px] font-semibold">{t('Importer un {timetable}', { timetable: words.timetable })}</h3>
 
       {!source ? (
         <>
@@ -127,32 +127,35 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
             className={cx('mt-4 flex w-full flex-col items-center rounded-xl border-[1.5px] border-dashed px-4 py-8 text-center transition-colors', over ? 'border-brand-500 bg-brand-50' : 'border-stone-200 hover:border-stone-300 hover:bg-stone-50')}
           >
             <FileUp size={22} className="text-stone-400" />
-            <span className="mt-2 text-[14px] font-medium">Choisir un fichier .ics</span>
-            <span className="mt-0.5 text-[12px] text-stone-500">ou glisse-le ici</span>
+            <span className="mt-2 text-[14px] font-medium">{t('Choisir un fichier .ics')}</span>
+            <span className="mt-0.5 text-[12px] text-stone-500">{t('ou glisse-le ici')}</span>
           </button>
           <input ref={inputRef} type="file" accept=".ics,text/calendar" className="hidden" onChange={e => void read(e.target.files?.[0])} />
 
           <div className="mt-4 space-y-2.5 text-[13px] text-stone-600">
-            <p className="eyebrow">Où trouver ce fichier&nbsp;?</p>
+            <p className="eyebrow">{t('Où trouver ce fichier\u00a0?')}</p>
             {usage === 'etudes' || !usage ? (
               <p>
-                <span className="font-medium text-ink">ENT</span> (ADE, Hyperplanning…)&nbsp;: cherche «&nbsp;Exporter&nbsp;» ou «&nbsp;Export iCal&nbsp;».
+                <span className="font-medium text-ink">{t('ENT')}</span> {t('(ADE, Hyperplanning…)\u00a0: cherche «\u00a0Exporter\u00a0» ou «\u00a0Export iCal\u00a0».')}
               </p>
             ) : (
               <p>
-                <span className="font-medium text-ink">Outlook</span>&nbsp;: Fichier › Enregistrer le calendrier.{' '}
-                <span className="font-medium text-ink">Apple Calendrier</span>&nbsp;: Fichier › Exporter › Exporter.
+                <span className="font-medium text-ink">Outlook</span>
+                {t('\u00a0: Fichier › Enregistrer le calendrier.')}{' '}
+                <span className="font-medium text-ink">{t('Apple Calendrier')}</span>
+                {t('\u00a0: Fichier › Exporter › Exporter.')}
               </p>
             )}
             <p>
-              <span className="font-medium text-ink">Google Agenda</span>&nbsp;: Paramètres › Importer et exporter › Exporter (puis décompresse le .zip).
+              <span className="font-medium text-ink">{t('Google Agenda')}</span>
+              {t('\u00a0: Paramètres › Importer et exporter › Exporter (puis décompresse le .zip).')}
             </p>
-            <p className="text-[12px] text-stone-500">Un lien d’abonnement (URL) ne marche pas&nbsp;: télécharge le fichier.</p>
+            <p className="text-[12px] text-stone-500">{t('Un lien d’abonnement (URL) ne marche pas\u00a0: télécharge le fichier.')}</p>
           </div>
 
           <div className="mt-5 flex justify-end">
             <button type="button" className="btn-secondary" onClick={onClose}>
-              Annuler
+              {t('Annuler')}
             </button>
           </div>
         </>
@@ -162,7 +165,7 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
 
           {!parsed?.length ? (
             <div className="mt-4 rounded-lg border border-dashed border-stone-200 py-8 text-center">
-              <p className="text-[14px] font-medium">Aucun événement lisible dans ce fichier</p>
+              <p className="text-[14px] font-medium">{t('Aucun événement lisible dans ce fichier')}</p>
             </div>
           ) : (
             plan && (
@@ -170,11 +173,11 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
                 <div className="mt-4 flex items-baseline gap-2">
                   <span className="tabular text-[28px] font-semibold leading-none tracking-[-0.02em]">{plan.todo.length}</span>
                   <span className="text-[13px] text-stone-600">
-                    événement{plan.todo.length > 1 ? 's' : ''} à importer
+                    {tn(plan.todo.length, 'événement à importer', 'événements à importer')}
                     {range && (
                       <>
                         {' '}
-                        · du {fmt(fromKey(range[0]), 'd MMM')} au {fmt(fromKey(range[1]), 'd MMM yyyy')}
+                        · {t('du {start} au {end}', { start: fmt(fromKey(range[0]), 'd MMM'), end: fmt(fromKey(range[1]), 'd MMM yyyy') })}
                       </>
                     )}
                   </span>
@@ -196,35 +199,36 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
                     {sample.map(e => (
                       <li key={e.externalId} className="flex items-center gap-3 px-3 py-2 text-[13px]">
                         <span className="w-20 shrink-0 text-[12px] text-stone-500 first-letter:uppercase">{fmt(fromKey(e.date), 'EEE d MMM')}</span>
-                        <span className="tabular w-11 shrink-0 text-[12px] text-stone-500">{e.start ?? 'Journée'}</span>
+                        <span className="tabular w-11 shrink-0 text-[12px] text-stone-500">{e.start ?? t('Journée')}</span>
                         <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: catOf(categoryOf(e)).color }} />
                         <span className="min-w-0 flex-1 truncate font-medium">{e.title}</span>
                       </li>
                     ))}
-                    {plan.todo.length > sample.length && <li className="px-3 py-2 text-[12px] text-stone-500">et {plan.todo.length - sample.length} autre{plan.todo.length - sample.length > 1 ? 's' : ''}…</li>}
+                    {plan.todo.length > sample.length && <li className="px-3 py-2 text-[12px] text-stone-500">{tn(plan.todo.length - sample.length, 'et {n} autre…', 'et {n} autres…')}</li>}
                   </ul>
                 )}
 
                 <label className="mt-4 flex cursor-pointer items-center gap-2.5 text-[13px]">
                   <input type="checkbox" checked={skipPast} onChange={e => setSkipPast(e.target.checked)} className="h-4 w-4 accent-[var(--color-ink)]" />
-                  Ignorer les événements passés
+                  {t('Ignorer les événements passés')}
                   {plan.past > 0 && <span className="tabular text-stone-500">({plan.past})</span>}
                 </label>
                 {(plan.updates.length > 0 || plan.removals.length > 0) && (
                   <p className="mt-2 text-[12px] text-stone-600">
-                    {words.timetable.charAt(0).toUpperCase() + words.timetable.slice(1)} mis à jour&nbsp;:{' '}
-                    {[
-                      plan.updates.length && `${plan.updates.length} ${plan.updates.length > 1 ? words.slots : words.slot} modifié${plan.updates.length > 1 ? 's' : ''}`,
-                      plan.removals.length && `${plan.removals.length} ${plan.removals.length > 1 ? words.slots : words.slot} annulé${plan.removals.length > 1 ? 's' : ''}, mis à la corbeille`,
-                    ]
-                      .filter(Boolean)
-                      .join(', ')}
-                    .
+                    {t('{timetable} mis à jour\u00a0: {changes}.', {
+                      timetable: words.timetable.charAt(0).toUpperCase() + words.timetable.slice(1),
+                      changes: [
+                        plan.updates.length && tn(plan.updates.length, '{n} {slot} modifié', '{n} {slot} modifiés', { slot: plan.updates.length > 1 ? words.slots : words.slot }),
+                        plan.removals.length && tn(plan.removals.length, '{n} {slot} annulé, mis à la corbeille', '{n} {slot} annulés, mis à la corbeille', { slot: plan.removals.length > 1 ? words.slots : words.slot }),
+                      ]
+                        .filter(Boolean)
+                        .join(', '),
+                    })}
                   </p>
                 )}
                 {plan.duplicates > 0 && (
                   <p className="mt-2 text-[12px] text-stone-500">
-                    {plan.duplicates} déjà dans ton calendrier, ignoré{plan.duplicates > 1 ? 's' : ''}.
+                    {tn(plan.duplicates, '{n} déjà dans ton calendrier, ignoré.', '{n} déjà dans ton calendrier, ignorés.')}
                   </p>
                 )}
               </>
@@ -233,13 +237,13 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
 
           <div className="mt-5 flex items-center gap-2">
             <button type="button" className="btn-ghost" onClick={() => setSource(undefined)}>
-              Autre fichier
+              {t('Autre fichier')}
             </button>
             <button type="button" className="btn-secondary ml-auto" onClick={onClose}>
-              Annuler
+              {t('Annuler')}
             </button>
             <button type="button" className="btn-primary" disabled={!changes} onClick={submit}>
-              <CalendarArrowDown size={15} /> {plan?.todo.length || !changes ? 'Importer' : 'Mettre à jour'}
+              <CalendarArrowDown size={15} /> {plan?.todo.length || !changes ? t('Importer') : t('Mettre à jour')}
             </button>
           </div>
         </>

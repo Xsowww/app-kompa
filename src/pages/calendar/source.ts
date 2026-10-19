@@ -10,6 +10,7 @@ import { PERIOD_IDEAS, sortPeriods, type Period } from '../../lib/periods';
 import type { Usage } from '../../lib/usage';
 import { confirmAction } from '../../store/ui';
 import { useGroups } from '../../store/groups';
+import { t } from '../../i18n';
 
 /** Examples of periods that fit the account (« en cours, en entreprise » is for students): « congés, télétravail, déplacement ». */
 export const periodIdeas = (usage?: Usage) => (PERIOD_IDEAS[usage ?? 'etudes'] ?? PERIOD_IDEAS.etudes).slice(0, 3).map(i => i.title.toLowerCase()).join(', ');
@@ -68,15 +69,16 @@ export function useCalendarSource(): CalendarSource {
 export function eventTitle(ev: Pick<CalendarEvent, 'title' | 'people'>, shared: CalendarSource['shared']): string {
   if (!shared || !ev.people?.length) return ev.title;
   const names = ev.people.map(shared.nameOf);
-  return `${names.length > 2 ? `${names.slice(0, 2).join(', ')} +${names.length - 2}` : names.join(' et ')} · ${ev.title}`;
+  const who = names.length > 2 ? `${names.slice(0, 2).join(', ')} +${names.length - 2}` : names.length === 2 ? t('{a} et {b}', { a: names[0], b: names[1] }) : names.join('');
+  return `${who} · ${ev.title}`;
 }
 
 /** Asked before an event goes: on a shared calendar, it goes for every member. */
 export function confirmRemoveEvent(ev: Pick<CalendarEvent, 'title'>, shared: CalendarSource['shared']): Promise<boolean> {
   return confirmAction(
-    `Supprimer « ${ev.title} » ?`,
-    shared ? `L’événement disparaît pour tous les membres de « ${shared.group.name} ».` : 'Tu pourras le récupérer dans la corbeille.',
-    'Supprimer',
+    t('Supprimer « {title} » ?', { title: ev.title }),
+    shared ? t('L’événement disparaît pour tous les membres de « {name} ».', { name: shared.group.name }) : t('Tu pourras le récupérer dans la corbeille.'),
+    t('Supprimer'),
   );
 }
 
@@ -86,7 +88,7 @@ export function useImportSources(): { id: string; name: string }[] {
   const here = useContext(CalendarSourceContext)?.shared?.group.id ?? PERSO;
   const groups = useGroups(s => s.groups);
   return useMemo(
-    () => [...(here === PERSO ? [] : [{ id: PERSO, name: 'Mon agenda perso' }]), ...groups.filter(g => g.kind === 'agenda' && g.id !== here).map(g => ({ id: g.id, name: g.name }))],
+    () => [...(here === PERSO ? [] : [{ id: PERSO, name: t('Mon agenda perso') }]), ...groups.filter(g => g.kind === 'agenda' && g.id !== here).map(g => ({ id: g.id, name: g.name }))],
     [here, groups],
   );
 }

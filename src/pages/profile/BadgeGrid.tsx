@@ -2,8 +2,9 @@ import { Lock } from 'lucide-react';
 import { FAMILIES, type Badge } from '../../lib/badges';
 import { fmt, fromKey } from '../../lib/dates';
 import { cx } from '../../lib/utils';
+import { t } from '../../i18n';
 
-const earnedLabel = (at?: string) => (at ? `Obtenu le ${fmt(at.length === 10 ? fromKey(at) : new Date(at), 'd MMMM yyyy')}` : 'Obtenu');
+const earnedLabel = (at?: string) => (at ? t('Obtenu le {date}', { date: fmt(at.length === 10 ? fromKey(at) : new Date(at), 'd MMMM yyyy') }) : t('Obtenu'));
 
 function BadgeCard({ b }: { b: Badge }) {
   const color = FAMILIES[b.family].color;
@@ -27,8 +28,8 @@ function BadgeCard({ b }: { b: Badge }) {
         {b.earned ? (
           <p className="mt-2 text-[11px] text-stone-500">{earnedLabel(b.earnedAt)}</p>
         ) : (
-          <div className="mt-2 flex items-center gap-2" title={`${b.current} sur ${b.target}`}>
-            <span className="h-1 flex-1 overflow-hidden rounded-full bg-stone-200/70" role="progressbar" aria-valuemin={0} aria-valuemax={b.target} aria-valuenow={b.current} aria-label={`Progression vers « ${b.title} »`}>
+          <div className="mt-2 flex items-center gap-2" title={t('{current} sur {target}', { current: b.current, target: b.target })}>
+            <span className="h-1 flex-1 overflow-hidden rounded-full bg-stone-200/70" role="progressbar" aria-valuemin={0} aria-valuemax={b.target} aria-valuenow={b.current} aria-label={t('Progression vers « {title} »', { title: b.title })}>
               <span className="block h-full rounded-full bg-stone-500" style={{ width: `${pct}%` }} />
             </span>
             <span className="tabular text-[11px] text-stone-500">
@@ -49,7 +50,7 @@ export default function BadgeGrid({ badges }: { badges: Badge[] }) {
     <div className="space-y-5">
       {earned.length > 0 && (
         <div>
-          <p className="eyebrow mb-2">Obtenus</p>
+          <p className="eyebrow mb-2">{t('Obtenus')}</p>
           <ul className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
             {earned.map(b => (
               <BadgeCard key={b.id} b={b} />
@@ -59,7 +60,7 @@ export default function BadgeGrid({ badges }: { badges: Badge[] }) {
       )}
       {locked.length > 0 && (
         <div>
-          <p className="eyebrow mb-2">À débloquer</p>
+          <p className="eyebrow mb-2">{t('À débloquer')}</p>
           <ul className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
             {locked.map(b => (
               <BadgeCard key={b.id} b={b} />

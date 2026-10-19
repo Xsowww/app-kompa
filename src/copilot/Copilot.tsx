@@ -13,14 +13,15 @@ import Markdown from './Markdown';
 import { frenchSpacing, stripMarkdown } from './markdown';
 import { aiPausedUntil, aiPauseReason } from './aiPause';
 import { useDictation } from './voice';
+import { t } from '../i18n';
 
 // The AI part (and the Anthropic types it uses) is loaded on first use.
 // Already loaded with the app (proactive.ts uses it): the promise keeps the call sites unchanged.
 const brain = async () => claudeBrain;
 
 // Studies revise; work and personal life block time to prepare (localBrain understands both).
-const RECORD_QUESTION = { etudes: 'Comment enregistrer un cours ?', travail: 'Comment enregistrer une réunion ?', perso: 'Comment enregistrer une conférence ?' } as const;
-const suggestions = (usage: keyof typeof RECORD_QUESTION) => ['Analyse ma semaine', usage === 'etudes' ? 'Planifie mes révisions' : 'Bloque du temps pour préparer', RECORD_QUESTION[usage]];
+const RECORD_QUESTION = { etudes: t('Comment enregistrer un cours ?'), travail: t('Comment enregistrer une réunion ?'), perso: t('Comment enregistrer une conférence ?') };
+const suggestions = (usage: keyof typeof RECORD_QUESTION) => [t('Analyse ma semaine'), usage === 'etudes' ? t('Planifie mes révisions') : t('Bloque du temps pour préparer'), RECORD_QUESTION[usage]];
 const YES = /^(oui|ouais|ok|okay|vas[- ]y|go|carrement|d'accord|dac|yes|avec plaisir|je veux bien|volontiers)\b/;
 
 function Extras({ links, offers, onGo, onOffer, disabled }: { links?: CopilotLink[]; offers?: CopilotOffer[]; onGo: (to: string) => void; onOffer: (o: CopilotOffer) => void; disabled?: boolean }) {
@@ -57,8 +58,8 @@ function CopyButton({ text }: { text: string }) {
   const [done, setDone] = useState(false);
   return (
     <button
-      title={done ? 'Copié' : 'Copier'}
-      aria-label="Copier la réponse"
+      title={done ? t('Copié') : t('Copier')}
+      aria-label={t('Copier la réponse')}
       onClick={() => {
         void navigator.clipboard?.writeText(stripMarkdown(text)).then(() => {
           setDone(true);
@@ -86,7 +87,11 @@ export default function Copilot() {
   const usage = useSettings(s => s.usage ?? 'etudes');
   const studying = usage === 'etudes';
   const hello = () =>
-    greet(`Salut ${user?.name ?? ''} ! Je peux retrouver tes fichiers, ${studying ? 'organiser tes révisions' : 'organiser ton agenda'}, créer des notes… Dis-moi.`);
+    greet(
+      studying
+        ? t('Salut {name} ! Je peux retrouver tes fichiers, organiser tes révisions, créer des notes… Dis-moi.', { name: user?.name ?? '' })
+        : t('Salut {name} ! Je peux retrouver tes fichiers, organiser ton agenda, créer des notes… Dis-moi.', { name: user?.name ?? '' }),
+    );
 
   const [look, setLook] = useState({ x: -1, y: 0 });
   const [blink, setBlink] = useState(false);
@@ -107,7 +112,7 @@ export default function Copilot() {
       .then(m => m.checkAiStatus())
       .then(st => {
         useCopilot.getState().setAiEnabled(st.enabled);
-        setProviderInfo(st.enabled ? `IA : ${st.label ?? st.provider} · ${st.model}` : 'Mode simple, sans IA');
+        setProviderInfo(st.enabled ? t('IA : {provider} · {model}', { provider: st.label ?? st.provider ?? '', model: st.model ?? '' }) : t('Mode simple, sans IA'));
         setProviderLabel(st.label ?? st.provider ?? '');
       });
   }, []);
@@ -117,8 +122,8 @@ export default function Copilot() {
     if (pose !== 'open') return;
     const tick = () => (setPausedUntil(aiPausedUntil()), setNow(Date.now()));
     tick();
-    const t = setInterval(tick, 1000);
-    return () => clearInterval(t);
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
   }, [pose, thinking]);
 
   // Eyes follow the mouse; long inactivity sends him to sleep.
@@ -155,22 +160,22 @@ export default function Copilot() {
 
   // Blinking.
   useEffect(() => {
-    let t: ReturnType<typeof setTimeout>;
+    let timer: ReturnType<typeof setTimeout>;
     const loop = () => {
-      t = setTimeout(() => {
+      timer = setTimeout(() => {
         setBlink(true);
         setTimeout(() => setBlink(false), 120);
         loop();
       }, 2400 + Math.random() * 3600);
     };
     loop();
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, []);
 
   // Curious little peeks while hidden.
   useEffect(() => {
     if (pose !== 'hidden' || asleep) return;
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       if (useCopilot.getState().pose !== 'hidden') return;
       setPose('peek');
       setTimeout(() => {
@@ -178,7 +183,7 @@ export default function Copilot() {
         if (s.pose === 'peek' && !s.bubble) setPose('hidden');
       }, 2200);
     }, 30_000 + Math.random() * 40_000);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [pose, asleep, setPose]);
 
   useEffect(() => {
@@ -207,14 +212,14 @@ export default function Copilot() {
 
   useEffect(() => {
     if (pose !== 'open') return;
-    const t = setTimeout(() => inputRef.current?.focus(), 200);
+    const timer = setTimeout(() => inputRef.current?.focus(), 200);
     // Échap closes Kompaly, unless what was opened over it took the key (the search, a dialog…).
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !e.defaultPrevented && setPose('hidden');
     window.addEventListener('keydown', onKey);
     const panel = panelRef.current;
     const character = charRef.current;
     return () => {
-      clearTimeout(t);
+      clearTimeout(timer);
       window.removeEventListener('keydown', onKey);
       // Closing: give the focus back to the character rather than losing it.
       const now = document.activeElement;
@@ -269,7 +274,7 @@ export default function Copilot() {
         const b = await brain();
         if (e instanceof b.PartlyDone) {
           // Something was already created: doing the question again in simple mode would make it twice.
-          reply = { text: `${b.describeApiError(e.reason)} Ce que j’avais déjà fait est enregistré.`, links: e.links };
+          reply = { text: `${b.describeApiError(e.reason)} ${t('Ce que j’avais déjà fait est enregistré.')}`, links: e.links };
         } else {
           const local = localReply(clean);
           reply = { text: `${b.describeApiError(e)} ${local.text}`, links: local.links };
@@ -285,7 +290,7 @@ export default function Copilot() {
   }
 
   // Talking instead of typing: words appear as they're recognised, sent at the end.
-  const dictation = useDictation(setInput, t => void send(t));
+  const dictation = useDictation(setInput, said => void send(said));
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -347,18 +352,18 @@ export default function Copilot() {
               </p>
               <ModeLine ai={aiEnabled} label={providerLabel} until={pausedUntil} now={now} />
             </div>
-            <button title={wide ? 'Réduire' : 'Agrandir'} aria-label={wide ? 'Réduire' : 'Agrandir'} onClick={() => setWide(w => !w)} className="icon-btn hidden sm:flex" tabIndex={isOpen ? 0 : -1}>
+            <button title={wide ? t('Réduire') : t('Agrandir')} aria-label={wide ? t('Réduire') : t('Agrandir')} onClick={() => setWide(w => !w)} className="icon-btn hidden sm:flex" tabIndex={isOpen ? 0 : -1}>
               {wide ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
             </button>
-            <button title="Nouvelle conversation" aria-label="Nouvelle conversation" onClick={() => { clearHistory(); hello(); void brain().then(m => m.resetClaudeHistory()); }} className="icon-btn pointer-coarse:h-9 pointer-coarse:w-9" tabIndex={isOpen ? 0 : -1}>
+            <button title={t('Nouvelle conversation')} aria-label={t('Nouvelle conversation')} onClick={() => { clearHistory(); hello(); void brain().then(m => m.resetClaudeHistory()); }} className="icon-btn pointer-coarse:h-9 pointer-coarse:w-9" tabIndex={isOpen ? 0 : -1}>
               <RotateCcw size={15} />
             </button>
-            <button title="Fermer (Échap)" aria-label="Fermer (Échap)" onClick={() => setPose('hidden')} className="icon-btn pointer-coarse:h-9 pointer-coarse:w-9" tabIndex={isOpen ? 0 : -1}>
+            <button title={t('Fermer (Échap)')} aria-label={t('Fermer (Échap)')} onClick={() => setPose('hidden')} className="icon-btn pointer-coarse:h-9 pointer-coarse:w-9" tabIndex={isOpen ? 0 : -1}>
               <X size={16} />
             </button>
           </header>
 
-          <div ref={listRef} role="log" aria-live="polite" aria-label="Conversation avec Kompaly" className="flex-1 space-y-2.5 overflow-y-auto px-3.5 py-3.5">
+          <div ref={listRef} role="log" aria-live="polite" aria-label={t('Conversation avec Kompaly')} className="flex-1 space-y-2.5 overflow-y-auto px-3.5 py-3.5">
             {messages.map(m => (
               <div key={m.id} className={cx('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}>
                 <div
@@ -374,7 +379,7 @@ export default function Copilot() {
               </div>
             ))}
             {thinking && (
-              <div className="flex w-fit gap-1 rounded-2xl rounded-bl-md bg-stone-100 px-3 py-2.5" role="img" aria-label="Kompaly réfléchit…">
+              <div className="flex w-fit gap-1 rounded-2xl rounded-bl-md bg-stone-100 px-3 py-2.5" role="img" aria-label={t('Kompaly réfléchit…')}>
                 {[0, 1, 2].map(i => (
                   <span key={i} className="h-1.5 w-1.5 animate-bounce rounded-full bg-stone-400" style={{ animationDelay: `${i * 120}ms` }} />
                 ))}
@@ -397,8 +402,8 @@ export default function Copilot() {
               ref={inputRef}
               value={input}
               onChange={e => setInput(e.target.value)}
-              placeholder={dictation.listening ? 'Je t’écoute…' : 'Écris à Kompaly…'}
-              aria-label="Message pour Kompaly"
+              placeholder={dictation.listening ? t('Je t’écoute…') : t('Écris à Kompaly…')}
+              aria-label={t('Message pour Kompaly')}
               className={cx(
                 'h-9 min-w-0 flex-1 rounded-lg bg-stone-50 px-3 text-[13px] outline-none placeholder:text-stone-400 focus:bg-stone-100 focus-visible:ring-2 focus-visible:ring-focus',
                 dictation.listening && 'bg-brand-50 placeholder:text-brand-600',
@@ -414,21 +419,21 @@ export default function Copilot() {
                   'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors disabled:opacity-30',
                   dictation.listening ? 'bg-brand-solid text-on-brand' : 'text-stone-500 hover:bg-stone-100 hover:text-ink',
                 )}
-                title={dictation.listening ? 'Arrêter et envoyer' : 'Parler à Kompaly'}
-                aria-label={dictation.listening ? 'Arrêter la dictée' : 'Dicter un message'}
+                title={dictation.listening ? t('Arrêter et envoyer') : t('Parler à Kompaly')}
+                aria-label={dictation.listening ? t('Arrêter la dictée') : t('Dicter un message')}
                 tabIndex={isOpen ? 0 : -1}
               >
                 {dictation.listening ? <Square size={13} fill="currentColor" /> : <Mic size={16} />}
               </button>
             )}
-            <button type="submit" disabled={!input.trim() || thinking} className="flex h-9 w-9 items-center justify-center rounded-lg bg-ink text-paper transition-colors hover:bg-stone-800 disabled:opacity-30" title="Envoyer" aria-label="Envoyer" tabIndex={isOpen ? 0 : -1}>
+            <button type="submit" disabled={!input.trim() || thinking} className="flex h-9 w-9 items-center justify-center rounded-lg bg-ink text-paper transition-colors hover:bg-stone-800 disabled:opacity-30" title={t('Envoyer')} aria-label={t('Envoyer')} tabIndex={isOpen ? 0 : -1}>
               <ArrowUp size={16} />
             </button>
           </form>
           {dictation.error && <p className="px-3.5 pb-2 text-[11px] text-red-600">{dictation.error}</p>}
           {/* Required by the EU AI Act: the student knows they are talking to an AI (only true in smart mode). */}
           {aiEnabled && pausedUntil <= now && (
-            <p className="px-3.5 pb-2 text-center text-[10.5px] text-stone-500">Kompaly est une IA&nbsp;: il peut se tromper, vérifie ce qui compte.</p>
+            <p className="px-3.5 pb-2 text-center text-[10.5px] text-stone-500">{t('Kompaly est une IA\u00a0: il peut se tromper, vérifie ce qui compte.')}</p>
           )}
         </div>
 
@@ -440,7 +445,7 @@ export default function Copilot() {
         {/* Spontaneous remark */}
         {bubble && !isOpen && (
           <div className="pop pointer-events-auto absolute right-[92px] top-1/2 z-10 w-[min(270px,calc(100vw-110px))] -translate-y-[85%] rounded-2xl rounded-br-sm border border-stone-200 bg-surface px-3.5 py-3 text-[13px] leading-[1.5] text-stone-800 shadow-pop">
-            <button onClick={clearBubble} className="hit-sm absolute right-1.5 top-1.5 rounded p-1 text-stone-400 hover:text-stone-600" title="Fermer" aria-label="Fermer le message">
+            <button onClick={clearBubble} className="hit-sm absolute right-1.5 top-1.5 rounded p-1 text-stone-400 hover:text-stone-600" title={t('Fermer')} aria-label={t('Fermer le message')}>
               <X size={12} />
             </button>
             <div className="pr-3">
@@ -467,11 +472,11 @@ export default function Copilot() {
           onPointerUp={onPointerUp}
           onMouseEnter={() => pose === 'hidden' && setPose('peek')}
           onMouseLeave={() => pose === 'peek' && !bubble && setPose('hidden')}
-          title={isOpen ? 'Fermer' : 'Parler à Kompaly'}
+          title={isOpen ? t('Fermer') : t('Parler à Kompaly')}
           ref={charRef}
           role="button"
           tabIndex={0}
-          aria-label={isOpen ? 'Fermer Kompaly' : 'Parler à Kompaly'}
+          aria-label={isOpen ? t('Fermer Kompaly') : t('Parler à Kompaly')}
           aria-expanded={isOpen}
           aria-controls="copilot-panel"
           onKeyDown={e => {
@@ -494,10 +499,10 @@ export default function Copilot() {
 function ModeLine({ ai, label, until, now }: { ai: boolean; label: string; until: number; now: number }) {
   const left = Math.max(0, Math.ceil((until - now) / 1000));
   const paused = ai && left > 0;
-  const clock = left >= 3600 ? `${Math.floor(left / 3600)} h ${String(Math.floor((left % 3600) / 60)).padStart(2, '0')}` : `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
-  const text = !ai ? 'Mode simple' : paused ? `Mode simple · IA dans ${clock}` : `Mode intelligent${label ? ` · ${label}` : ''}`;
+  const clock = left >= 3600 ? t('{h} h {min}', { h: Math.floor(left / 3600), min: String(Math.floor((left % 3600) / 60)).padStart(2, '0') }) : `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+  const text = !ai ? t('Mode simple') : paused ? t('Mode simple · IA dans {clock}', { clock }) : label ? t('Mode intelligent · {label}', { label }) : t('Mode intelligent');
   // The pause follows a quota (« limite ») or a technical problem: say which.
-  const why = paused && aiPauseReason() === 'error' ? `L’IA ne répond pas pour le moment : elle revient dans ${clock}.` : `L’IA gratuite a atteint sa limite : elle revient dans ${clock}.`;
+  const why = paused && aiPauseReason() === 'error' ? t('L’IA ne répond pas pour le moment : elle revient dans {clock}.', { clock }) : t('L’IA gratuite a atteint sa limite : elle revient dans {clock}.', { clock });
   return (
     <p className="mt-0.5 flex items-center gap-1.5 text-[11px] leading-tight text-stone-500" title={paused ? why : text}>
       <span className={cx('h-1.5 w-1.5 shrink-0 rounded-full', !ai ? 'bg-stone-400' : paused ? 'bg-amber-500' : 'bg-emerald-500')} aria-hidden="true" />

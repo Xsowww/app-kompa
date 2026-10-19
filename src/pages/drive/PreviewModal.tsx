@@ -9,6 +9,7 @@ import FileIcon from '../../components/FileIcon';
 import PdfView from './PdfView';
 import { trapTab } from '../../lib/a11y';
 import { docxToHtml, pptxSlides, revokeSlides, type Slide } from './officePreview';
+import { t } from '../../i18n';
 
 // Word documents rendered as a clean page (mammoth's HTML carries no styling of its own). Theme surface, not white:
 // the stone-* text turns light in the dark theme.
@@ -19,10 +20,10 @@ const PAGE =
   '[&_a]:text-brand-700 [&_a]:underline [&_img]:my-3 [&_img]:max-w-full [&_table]:my-3 [&_table]:w-full [&_table]:border-collapse ' +
   '[&_td]:border [&_td]:border-stone-200 [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-stone-200 [&_th]:bg-stone-50 [&_th]:px-2 [&_th]:py-1 [&_*:first-child]:mt-0';
 
-/** « il y a 3 min », « hier », « le 3 oct. » */
-const when = (iso: string) => {
+/** « modifié il y a 3 min », « modifié hier », « modifié le 3 oct. » */
+const modified = (iso: string) => {
   const rel = relativeTime(iso);
-  return /^\d/.test(rel) ? `le ${rel}` : rel;
+  return /^\d/.test(rel) ? t('modifié le {date}', { date: rel }) : t('modifié {time}', { time: rel });
 };
 
 const extOf = (name: string) => name.split('.').pop()?.toLowerCase() ?? '';
@@ -137,27 +138,27 @@ export default function PreviewModal({
   }, []);
 
   return (
-    <div ref={rootRef} role="dialog" aria-modal="true" aria-label={`Aperçu de ${item.name}`} className="fixed inset-0 z-[60] flex flex-col bg-[#0c0a09]/85" onMouseDown={onClose}>
+    <div ref={rootRef} role="dialog" aria-modal="true" aria-label={t('Aperçu de {name}', { name: item.name })} className="fixed inset-0 z-[60] flex flex-col bg-[#0c0a09]/85" onMouseDown={onClose}>
       <header className="flex items-center gap-2 bg-[#0c0a09] px-3 py-3 text-white sm:gap-3 sm:px-5" onMouseDown={e => e.stopPropagation()}>
         <FileIcon category={cat} size={30} ext={item.name.split('.').pop()} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[13px] font-medium">{item.name}</p>
           <p className="truncate text-[12px] text-white/65">
-            {formatBytes(item.size)} · {item.deletedAt ? `supprimé le ${fmt(new Date(item.deletedAt), "d MMM 'à' HH:mm")}` : `modifié ${when(item.updatedAt)}`}
+            {formatBytes(item.size)} · {item.deletedAt ? t('supprimé le {date}', { date: fmt(new Date(item.deletedAt), t("d MMM 'à' HH:mm")) }) : modified(item.updatedAt)}
           </p>
         </div>
         {actions}
-        <button onClick={() => downloadItem(item, getUrl)} className="btn h-8 bg-white/10 text-white hover:bg-white/20 max-sm:w-9 max-sm:px-0" aria-label="Télécharger">
-          <Download size={15} /> <span className="hidden sm:inline">Télécharger</span>
+        <button onClick={() => downloadItem(item, getUrl)} className="btn h-8 bg-white/10 text-white hover:bg-white/20 max-sm:w-9 max-sm:px-0" aria-label={t('Télécharger')}>
+          <Download size={15} /> <span className="hidden sm:inline">{t('Télécharger')}</span>
         </button>
-        <button data-autofocus onClick={onClose} className="rounded-md p-2.5 text-white/70 hover:bg-white/10 hover:text-white" title="Fermer (Échap)" aria-label="Fermer (Échap)">
+        <button data-autofocus onClick={onClose} className="rounded-md p-2.5 text-white/70 hover:bg-white/10 hover:text-white" title={t('Fermer (Échap)')} aria-label={t('Fermer (Échap)')}>
           <X size={18} />
         </button>
       </header>
       <div className="flex min-h-0 flex-1 items-center justify-center p-4 md:p-8">
         <div className="flex max-h-full max-w-full items-center justify-center" onMouseDown={e => e.stopPropagation()}>
           {missing ? (
-            <p className="max-w-sm text-center text-white/70">Impossible d’afficher ce fichier. Vérifie ta connexion, puis réessaie.</p>
+            <p className="max-w-sm text-center text-white/70">{t('Impossible d’afficher ce fichier. Vérifie ta connexion, puis réessaie.')}</p>
           ) : !url ? (
             <Loader2 className="animate-spin text-white/70" />
           ) : cat === 'image' ? (
@@ -173,17 +174,17 @@ export default function PreviewModal({
               html === null ? (
                 <Loader2 className="animate-spin text-white/70" />
               ) : (
-                <article className={PAGE} dangerouslySetInnerHTML={{ __html: html || '<p>Document vide.</p>' }} />
+                <article className={PAGE} dangerouslySetInnerHTML={{ __html: html || `<p>${t('Document vide.')}</p>` }} />
               )
             ) : slides === null ? (
               <Loader2 className="animate-spin text-white/70" />
             ) : (
               <div className="max-h-[82vh] w-[min(860px,92vw)] space-y-4 overflow-auto pb-2">
-                {slides.length === 0 && <p className="text-center text-white/70">Cette présentation ne contient aucune diapositive.</p>}
+                {slides.length === 0 && <p className="text-center text-white/70">{t('Cette présentation ne contient aucune diapositive.')}</p>}
                 {slides.map((s, i) => (
                   <section key={i} className="rounded-lg bg-surface p-6 shadow-2xl md:p-8">
                     <p className="tabular text-[11px] font-medium uppercase tracking-wide text-stone-500">
-                      Diapositive {i + 1}/{slides.length}
+                      {t('Diapositive {n}/{total}', { n: i + 1, total: slides.length })}
                     </p>
                     {s.title && <h2 className="mt-2 text-[20px] font-semibold leading-snug tracking-[-0.01em] text-ink">{s.title}</h2>}
                     {s.paragraphs.length > 0 && (
@@ -203,20 +204,20 @@ export default function PreviewModal({
                         ))}
                       </div>
                     )}
-                    {!s.title && !s.paragraphs.length && !s.images.length && <p className="mt-3 text-[13px] text-stone-500">Diapositive sans texte.</p>}
+                    {!s.title && !s.paragraphs.length && !s.images.length && <p className="mt-3 text-[13px] text-stone-500">{t('Diapositive sans texte.')}</p>}
                   </section>
                 ))}
               </div>
             )
           ) : plain ? (
-            <pre className="max-h-[80vh] w-[min(900px,92vw)] overflow-auto rounded-md bg-surface p-5 font-mono text-[12px] text-stone-800">{text || <span className="font-sans text-stone-500">Ce fichier est vide.</span>}</pre>
+            <pre className="max-h-[80vh] w-[min(900px,92vw)] overflow-auto rounded-md bg-surface p-5 font-mono text-[12px] text-stone-800">{text || <span className="font-sans text-stone-500">{t('Ce fichier est vide.')}</span>}</pre>
           ) : (
             <div className="rounded-xl bg-surface p-10 text-center">
               <FileIcon category={cat} size={64} ext={item.name.split('.').pop()} />
-              <p className="mt-4 text-[14px] font-medium">{failed ? 'Ce fichier n’a pas pu être lu' : 'Pas d’aperçu pour ce type de fichier'}</p>
-              {(cat === 'doc' || cat === 'slides') && !failed && <p className="mt-1 text-[13px] text-stone-500">L’aperçu fonctionne avec les formats .docx et .pptx.</p>}
+              <p className="mt-4 text-[14px] font-medium">{failed ? t('Ce fichier n’a pas pu être lu') : t('Pas d’aperçu pour ce type de fichier')}</p>
+              {(cat === 'doc' || cat === 'slides') && !failed && <p className="mt-1 text-[13px] text-stone-500">{t('L’aperçu fonctionne avec les formats .docx et .pptx.')}</p>}
               <button onClick={() => downloadItem(item, getUrl)} className="btn-primary mt-4">
-                <Download size={15} /> Télécharger
+                <Download size={15} /> {t('Télécharger')}
               </button>
             </div>
           )}

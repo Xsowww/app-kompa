@@ -5,6 +5,7 @@ import { fetchGroups, groupError, joinAgenda, joinGroup, type GroupKind } from '
 import { cloudEnabled } from '../../lib/supabase';
 import { useGroups } from '../../store/groups';
 import { toast } from '../../store/ui';
+import { t } from '../../i18n';
 
 // Joining a group (code or link) or a shared calendar (link): a window says which one, with « Y aller » to open it
 // and « Terminer » to stay on the page underneath.
@@ -25,7 +26,7 @@ async function joinAndAnnounce(kind: GroupKind, secret: string) {
     const before = await fetchGroups().catch(() => []);
     const id = kind === 'agenda' ? await joinAgenda(secret) : await joinGroup(secret);
     if (!id) {
-      toast('Ce lien d’invitation ne marche plus : demandes-en un nouveau.', 'error');
+      toast(t('Ce lien d’invitation ne marche plus : demandes-en un nouveau.'), 'error');
       return;
     }
     const after = await fetchGroups().catch(() => before);

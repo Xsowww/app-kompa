@@ -8,6 +8,7 @@ import { getSettings, useSettings } from './settings';
 import { toast } from './ui';
 import { goTo } from '../copilot/actions';
 import { groupWords } from '../lib/usage';
+import { t, tn } from '../i18n';
 
 // Pastilles et notifications « du nouveau dans tes groupes » : ce que les AUTRES membres ont ajouté
 // ou modifié depuis ta dernière visite de l'onglet concerné. Tout passe par un recomptage depuis la
@@ -18,10 +19,10 @@ import { groupWords } from '../lib/usage';
 export type ActivityTab = 'notes' | 'fichiers' | 'revisions';
 type Counts = Partial<Record<ActivityTab, number>>;
 
-const TABLES: { table: string; tab: ActivityTab; at: string; by: string; one: string; many: string }[] = [
-  { table: 'group_notes', tab: 'notes', at: 'updated_at', by: 'updated_by', one: 'note', many: 'notes' },
-  { table: 'group_files', tab: 'fichiers', at: 'created_at', by: 'created_by', one: 'fichier', many: 'fichiers' },
-  { table: 'group_events', tab: 'revisions', at: 'created_at', by: 'created_by', one: 'révision', many: 'révisions' },
+const TABLES: { table: string; tab: ActivityTab; at: string; by: string; count?: (n: number) => string }[] = [
+  { table: 'group_notes', tab: 'notes', at: 'updated_at', by: 'updated_by', count: n => tn(n, '{n} note', '{n} notes') },
+  { table: 'group_files', tab: 'fichiers', at: 'created_at', by: 'created_by', count: n => tn(n, '{n} fichier', '{n} fichiers') },
+  { table: 'group_events', tab: 'revisions', at: 'created_at', by: 'created_by' },
 ];
 const POLL_MS = 30_000;
 /** Realtime connected: the count only runs every 10 polls (5 min), as a safety net. */
@@ -87,12 +88,12 @@ function announce(gid: string, more: Counts) {
   const w = groupWords(getSettings().usage);
   const name = names[gid] ?? w.yours;
   // The meetings are « révisions », « réunions » or « rendez-vous » depending on the account.
-  const label = (t: (typeof TABLES)[number], n: number) => (t.tab === 'revisions' ? (n === 1 ? w.meet.One.toLowerCase() : w.meet.many) : n === 1 ? t.one : t.many);
-  const parts = TABLES.filter(t => more[t.tab]).map(t => `${more[t.tab]} ${label(t, more[t.tab]!)}`);
-  const first = TABLES.find(t => more[t.tab])!.tab;
+  const label = (x: (typeof TABLES)[number], n: number) => x.count?.(n) ?? `${n} ${n === 1 ? w.meet.One.toLowerCase() : w.meet.many}`;
+  const parts = TABLES.filter(x => more[x.tab]).map(x => label(x, more[x.tab]!));
+  const first = TABLES.find(x => more[x.tab])!.tab;
   const to = `/groupes?g=${gid}${first === 'notes' ? '' : `&onglet=${first}`}`;
-  toast(`Du nouveau dans « ${name} » : ${parts.join(', ')}`, 'info', { label: 'Voir', run: () => goTo(to) });
-  notify(`Du nouveau dans « ${name} »`, parts.join(', '));
+  toast(t('Du nouveau dans « {name} » : {parts}', { name, parts: parts.join(', ') }), 'info', { label: t('Voir'), run: () => goTo(to) });
+  notify(t('Du nouveau dans « {name} »', { name }), parts.join(', '));
 }
 
 export const useGroupActivity = create<ActivityState>((set, get) => ({

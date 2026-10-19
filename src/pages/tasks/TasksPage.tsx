@@ -12,12 +12,13 @@ import { SubjectBars, DailyFocus, DataTable } from './FocusCharts';
 import { dailyMinutes, formatMinutes, minutesBySubject, noSubjectLabel, weekMinutes } from './focusStats';
 import { useSettings } from '../../store/settings';
 import { usageWords } from '../../lib/usage';
+import { t } from '../../i18n';
 
 type Range = '7' | '30' | 'all';
 const RANGES: { key: Range; label: string }[] = [
-  { key: '7', label: '7 jours' },
-  { key: '30', label: '30 jours' },
-  { key: 'all', label: 'Tout' },
+  { key: '7', label: t('7 jours') },
+  { key: '30', label: t('30 jours') },
+  { key: 'all', label: t('Tout') },
 ];
 
 /** Focus time: a quiet summary (this week, 7 days per subject), the charts behind « Voir le détail ». */
@@ -46,18 +47,18 @@ function WorkTime() {
       <div className="card p-5">
         <div className="flex items-baseline gap-2">
           <h2 id="travail-titre" className="mr-auto text-[13px] font-medium text-stone-600">
-            Temps de travail
+            {t('Temps de travail')}
           </h2>
           <p className="text-[12px] text-stone-500">
-            <span className="tabular text-[15px] font-semibold text-ink">{formatMinutes(week)}</span> cette semaine
+            <span className="tabular text-[15px] font-semibold text-ink">{formatMinutes(week)}</span> {t('cette semaine')}
           </p>
         </div>
 
         {sessions.length === 0 ? (
-          <p className="mt-3 text-[13px] text-stone-500">Lance une session focus pour suivre ton temps par {subject}.</p>
+          <p className="mt-3 text-[13px] text-stone-500">{t('Lance une session focus pour suivre ton temps par {subject}.', { subject })}</p>
         ) : (
           <div className="mt-3">
-            <p className="eyebrow mb-1">7 derniers jours</p>
+            <p className="eyebrow mb-1">{t('7 derniers jours')}</p>
             <SubjectBars rows={last7} />
           </div>
         )}
@@ -66,14 +67,14 @@ function WorkTime() {
           <div className="mt-4 border-t border-stone-100 pt-3">
             <button onClick={() => setOpen(v => !v)} aria-expanded={open} aria-controls="travail-detail" className="flex items-center gap-1 rounded px-0.5 text-[12px] text-stone-500 hover:text-ink pointer-coarse:min-h-9">
               <ChevronRight size={13} className={cx('transition-transform', open && 'rotate-90')} />
-              Voir le détail
+              {t('Voir le détail')}
             </button>
             {open && (
               <div id="travail-detail" className="mt-4 space-y-6">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="mr-auto text-[13px] font-medium text-stone-600">Par {subject}</h3>
-                    <div className="flex rounded-lg bg-stone-100 p-0.5" role="group" aria-label="Période">
+                    <h3 className="mr-auto text-[13px] font-medium text-stone-600">{t('Par {subject}', { subject })}</h3>
+                    <div className="flex rounded-lg bg-stone-100 p-0.5" role="group" aria-label={t('Période')}>
                       {RANGES.map(r => (
                         <button
                           key={r.key}
@@ -87,17 +88,17 @@ function WorkTime() {
                     </div>
                   </div>
                   <div className="mt-3">
-                    {asTable ? <DataTable head={[subject.charAt(0).toUpperCase() + subject.slice(1), 'Temps', 'Sessions']} rows={bySubject.map(r => [r.subject, formatMinutes(r.minutes), r.sessions])} /> : <SubjectBars rows={bySubject} />}
+                    {asTable ? <DataTable head={[subject.charAt(0).toUpperCase() + subject.slice(1), t('Temps'), t('Sessions')]} rows={bySubject.map(r => [r.subject, formatMinutes(r.minutes), r.sessions])} /> : <SubjectBars rows={bySubject} />}
                   </div>
                 </div>
                 <div>
                   <div className="flex items-baseline gap-2">
-                    <h3 className="mr-auto text-[13px] font-medium text-stone-600">Par jour</h3>
-                    <p className="tabular text-[12px] text-stone-500">{formatMinutes(month)} sur 30 jours</p>
+                    <h3 className="mr-auto text-[13px] font-medium text-stone-600">{t('Par jour')}</h3>
+                    <p className="tabular text-[12px] text-stone-500">{t('{time} sur 30 jours', { time: formatMinutes(month) })}</p>
                   </div>
                   <div className="mt-3">
                     {asTable ? (
-                      <DataTable head={['Jour', 'Temps']} rows={[...daily].reverse().map(d => [fmt(fromKey(d.day), 'EEE d MMM'), d.minutes ? formatMinutes(d.minutes) : '–'])} />
+                      <DataTable head={[t('Jour'), t('Temps')]} rows={[...daily].reverse().map(d => [fmt(fromKey(d.day), 'EEE d MMM'), d.minutes ? formatMinutes(d.minutes) : '–'])} />
                     ) : (
                       <DailyFocus data={daily} />
                     )}
@@ -105,7 +106,7 @@ function WorkTime() {
                 </div>
                 <button onClick={() => setAsTable(v => !v)} className="btn-ghost h-8 px-2 text-[12px]" aria-pressed={asTable}>
                   {asTable ? <ChartNoAxesColumn size={14} /> : <Table2 size={14} />}
-                  {asTable ? 'Voir en graphique' : 'Voir en tableau'}
+                  {asTable ? t('Voir en graphique') : t('Voir en tableau')}
                 </button>
               </div>
             )}
@@ -139,10 +140,10 @@ export default function TasksPage() {
   return (
     <div className="h-full overflow-y-auto px-4 pb-12 md:px-8">
       <div className="mx-auto max-w-[1180px]">
-        <h1 className="pb-7 pt-2 text-[24px] font-semibold tracking-[-0.02em]">Tâches</h1>
+        <h1 className="pb-7 pt-2 text-[24px] font-semibold tracking-[-0.02em]">{t('Tâches')}</h1>
 
         <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
-          <section id="taches" aria-label="Liste des tâches" className="card flex min-h-[240px] flex-col p-5">
+          <section id="taches" aria-label={t('Liste des tâches')} className="card flex min-h-[240px] flex-col p-5">
             <TodoList grouped />
           </section>
           <WorkTime />

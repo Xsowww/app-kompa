@@ -18,6 +18,8 @@ import { aiNudge, type NudgeKind } from './claudeBrain';
 import { getSettings } from '../store/settings';
 import { notify } from '../lib/notify';
 import { usageWords } from '../lib/usage';
+import { isSessionTitle } from './revisionPlan';
+import { t, tn } from '../i18n';
 
 /** minimum delay between two spontaneous remarks, depending on the student's preference */
 const MIN_GAP = { calme: 5 * 60_000, normal: 75_000, bavard: 30_000 };
@@ -87,33 +89,34 @@ const examOffers = (e: CalendarEvent): CopilotOffer[] | undefined =>
       ? undefined
       : [{ label: usageWords(getSettings().usage).plan, kind: 'plan_revisions', payload: { eventId: e.id } }]
     : hasRevisionPlan(e)
-      ? [{ label: 'Créer une fiche', kind: 'revision_note', payload: { eventId: e.id } }]
+      ? [{ label: t('Créer une fiche'), kind: 'revision_note', payload: { eventId: e.id } }]
       : [
-          { label: 'Planifier mes révisions', kind: 'plan_revisions', payload: { eventId: e.id } },
-          { label: 'Juste une fiche', kind: 'revision_note', payload: { eventId: e.id } },
+          { label: t('Planifier mes révisions'), kind: 'plan_revisions', payload: { eventId: e.id } },
+          { label: t('Juste une fiche'), kind: 'revision_note', payload: { eventId: e.id } },
         ];
 
 /** Kompaly's words when a big event is added, in the vocabulary of the account's usage. */
 function bigEventFallback(e: CalendarEvent, d: number) {
   const words = usageWords(getSettings().usage);
-  const day = d === 0 ? 'aujourd’hui' : d === 1 ? 'demain' : 'après-demain';
+  const day = d === 0 ? t('aujourd’hui') : d === 1 ? t('demain') : t('après-demain');
+  const vars = { title: e.title, day, noted: words.bigNoted, prepare: words.prepare };
   if (!studying()) {
     return d <= 2
-      ? `« ${e.title} » ${day} : je te bloque un moment pour t’y préparer ?`
-      : `${words.bigNoted}\u00a0: «\u00a0${e.title}\u00a0», dans ${d}\u00a0jours. On bloque ${words.prepare} maintenant\u00a0?`;
+      ? t('« {title} » {day} : je te bloque un moment pour t’y préparer ?', vars)
+      : tn(d, '{noted}\u00a0: «\u00a0{title}\u00a0», dans {n}\u00a0jour. On bloque {prepare} maintenant\u00a0?', '{noted}\u00a0: «\u00a0{title}\u00a0», dans {n}\u00a0jours. On bloque {prepare} maintenant\u00a0?', vars);
   }
   return d <= 2
-    ? `« ${e.title} » ${day} ? Je te prépare un mini-plan express ?`
+    ? t('« {title} » {day} ? Je te prépare un mini-plan express ?', vars)
     : pick([
-        `${words.bigNoted}\u00a0: «\u00a0${e.title}\u00a0», dans ${d}\u00a0jours. On cale ${words.prepare} maintenant\u00a0?`,
-        `« ${e.title} » dans ${d} jours. Je répartis des séances de révision d’ici là ?`,
+        tn(d, '{noted}\u00a0: «\u00a0{title}\u00a0», dans {n}\u00a0jour. On cale {prepare} maintenant\u00a0?', '{noted}\u00a0: «\u00a0{title}\u00a0», dans {n}\u00a0jours. On cale {prepare} maintenant\u00a0?', vars),
+        tn(d, '« {title} » dans {n} jour. Je répartis des séances de révision d’ici là ?', '« {title} » dans {n} jours. Je répartis des séances de révision d’ici là ?', vars),
       ]);
 }
 
 // ── Reactions to what the student does ──────────────────────────────────────
 
 function onEventAdded(e: CalendarEvent) {
-  if (e.title.startsWith('Révision · ') || e.title.startsWith('Préparation · ')) return; // created by Kompaly himself
+  if (isSessionTitle(e.title)) return; // created by Kompaly himself
   if (big(e)) {
     const d = daysUntil(e.date);
     if (hasStarted(e)) return; // added after the fact (or already under way) (« Exam hier », « Partiel aujourd'hui 8h » at 20h): nothing left to prepare
@@ -132,7 +135,7 @@ function onEventAdded(e: CalendarEvent) {
       key: `hw-added:${e.id}`,
       every: 365 * DAY,
       situation: { evenement: "l'étudiant ajoute un devoir à rendre très bientôt", devoir: e.title, quand: when(e) },
-      fallback: `« ${e.title} » pour ${daysUntil(e.date) === 0 ? 'aujourd’hui' : 'demain'}. Courage !`,
+      fallback: daysUntil(e.date) === 0 ? t('« {title} » pour aujourd’hui. Courage !', { title: e.title }) : t('« {title} » pour demain. Courage !', { title: e.title }),
     });
   }
 }
@@ -144,7 +147,7 @@ function onEventDone(e: CalendarEvent) {
       key: `exam-done:${e.id}`,
       every: 365 * DAY,
       situation: { evenement: "l'étudiant vient de cocher son examen comme passé", examen: e.title },
-      fallback: `« ${e.title} », c’est derrière toi. Alors, ça s’est passé comment ?`,
+      fallback: t('« {title} », c’est derrière toi. Alors, ça s’est passé comment ?', { title: e.title }),
       mood: 'happy',
     });
   } else if (today.length >= 2 && today.every(x => x.done)) {
@@ -152,7 +155,7 @@ function onEventDone(e: CalendarEvent) {
       key: `day-clear:${todayKey()}`,
       every: DAY,
       situation: { evenement: "l'étudiant a terminé tout ce qui était prévu aujourd'hui", nombre: today.length },
-      fallback: pick(['Tout est coché pour aujourd’hui. Bravo, pause méritée.', "Journée bouclée à 100 %. Franchement, chapeau."]),
+      fallback: pick([t('Tout est coché pour aujourd’hui. Bravo, pause méritée.'), t('Journée bouclée à 100 %. Franchement, chapeau.')]),
       mood: 'happy',
     });
   }
@@ -165,7 +168,7 @@ function onFilesUploaded(count: number) {
       key: 'first-upload',
       every: 365 * DAY,
       situation: { evenement: "premier import de fichiers dans le Drive de l'étudiant", nombre: count },
-      fallback: 'Premiers fichiers dans ton Drive. Demande-moi pour les retrouver.',
+      fallback: t('Premiers fichiers dans ton Drive. Demande-moi pour les retrouver.'),
     });
   }
 }
@@ -193,10 +196,12 @@ export function periodicNudges(now = new Date()): Nudge[] {
         ? { evenement: 'examen proche sans révisions planifiées', examen: exam.title, quand: when(exam), jours_restants: d }
         : { evenement: 'événement important proche (pas un examen), rien de prévu pour le préparer', titre: exam.title, quand: when(exam), jours_restants: d },
       fallback: !studying()
-        ? `« ${exam.title} » ${d === 0 ? 'c’est aujourd’hui' : d === 1 ? 'c’est demain' : `arrive dans ${d} jours`} et rien n’est prévu pour t’y préparer. Je te bloque un moment ?`
+        ? t('« {title} » {when} et rien n’est prévu pour t’y préparer. Je te bloque un moment ?', { title: exam.title, when: d === 0 ? t('c’est aujourd’hui') : d === 1 ? t('c’est demain') : tn(d, 'arrive dans {n} jour', 'arrive dans {n} jours') })
         : d <= 1
-          ? `« ${exam.title} » ${d === 0 ? 'c’est aujourd’hui' : 'c’est demain'}. On fait une dernière révision ciblée ensemble ?`
-          : `« ${exam.title} » arrive dans ${d} jours et rien n’est prévu pour réviser. Je te cale des créneaux ?`,
+          ? d === 0
+            ? t('« {title} » c’est aujourd’hui. On fait une dernière révision ciblée ensemble ?', { title: exam.title })
+            : t('« {title} » c’est demain. On fait une dernière révision ciblée ensemble ?', { title: exam.title })
+          : tn(d, '« {title} » arrive dans {n} jour et rien n’est prévu pour réviser. Je te cale des créneaux ?', '« {title} » arrive dans {n} jours et rien n’est prévu pour réviser. Je te cale des créneaux ?', { title: exam.title }),
       offers: examOffers(exam),
     });
   }
@@ -210,10 +215,14 @@ export function periodicNudges(now = new Date()): Nudge[] {
       situation: { evenement: 'devoirs non cochés dont la date est passée', devoirs: late.map(e => e.title) },
       fallback:
         late.length === 1
-          ? `« ${late[0].title} » : la date est passée. ${studying() ? 'Tu l’as rendu ?' : 'C’est fait ?'}`
-          : `${late.length} ${studying() ? 'devoirs sont' : 'choses à faire sont'} en retard dans ton calendrier. Tu veux faire le tri ?`,
-      offers: late.length === 1 ? [{ label: studying() ? 'Oui, c’est rendu' : 'Oui, c’est fait', kind: 'mark_done', payload: { eventId: late[0].id } }] : undefined,
-      links: late.length > 1 ? [{ label: 'Voir le calendrier', to: '/calendrier' }] : undefined,
+          ? studying()
+            ? t('« {title} » : la date est passée. Tu l’as rendu ?', { title: late[0].title })
+            : t('« {title} » : la date est passée. C’est fait ?', { title: late[0].title })
+          : studying()
+            ? t('{n} devoirs sont en retard dans ton calendrier. Tu veux faire le tri ?', { n: late.length })
+            : t('{n} choses à faire sont en retard dans ton calendrier. Tu veux faire le tri ?', { n: late.length }),
+      offers: late.length === 1 ? [{ label: studying() ? t('Oui, c’est rendu') : t('Oui, c’est fait'), kind: 'mark_done', payload: { eventId: late[0].id } }] : undefined,
+      links: late.length > 1 ? [{ label: t('Voir le calendrier'), to: '/calendrier' }] : undefined,
     });
   }
 
@@ -225,8 +234,8 @@ export function periodicNudges(now = new Date()): Nudge[] {
       key: `due-tomorrow:${due.id}`,
       every: DAY,
       situation: { evenement: 'devoir à rendre demain, pas encore coché', devoir: due.title, quand: when(due) },
-      fallback: `« ${due.title} » est ${studying() ? 'à rendre' : 'prévu'} demain. Il te reste beaucoup ?`,
-      offers: [{ label: 'C’est déjà fait', kind: 'mark_done', payload: { eventId: due.id } }],
+      fallback: studying() ? t('« {title} » est à rendre demain. Il te reste beaucoup ?', { title: due.title }) : t('« {title} » est prévu demain. Il te reste beaucoup ?', { title: due.title }),
+      offers: [{ label: t('C’est déjà fait'), kind: 'mark_done', payload: { eventId: due.id } }],
     });
   }
 
@@ -238,8 +247,8 @@ export function periodicNudges(now = new Date()): Nudge[] {
       every: DAY,
       situation: { evenement: "veille d'examen, il est tard", examen: examTomorrow.title, heure: examTomorrow.start },
       fallback: studying()
-        ? `Demain c’est « ${examTomorrow.title} ». Meilleur conseil : dormir.`
-        : `Demain c’est « ${examTomorrow.title} ». Meilleur conseil : une bonne nuit de sommeil.`,
+        ? t('Demain c’est « {title} ». Meilleur conseil : dormir.', { title: examTomorrow.title })
+        : t('Demain c’est « {title} ». Meilleur conseil : une bonne nuit de sommeil.', { title: examTomorrow.title }),
       mood: 'sleep',
     });
   }
@@ -251,8 +260,8 @@ export function periodicNudges(now = new Date()): Nudge[] {
       key: `empty-note:${empty.id}`,
       every: 30 * DAY,
       situation: { evenement: 'une note créée il y a plusieurs jours est toujours vide', note: empty.title },
-      fallback: `Ta note « ${empty.title} » est vide depuis un moment.`,
-      links: [{ label: 'Ouvrir la note', to: linkToNote(empty.id) }],
+      fallback: t('Ta note « {title} » est vide depuis un moment.', { title: empty.title }),
+      links: [{ label: t('Ouvrir la note'), to: linkToNote(empty.id) }],
     });
   }
   return out;
@@ -269,8 +278,6 @@ function periodicCheck() {
 
 // ── Morning brief & Sunday review ───────────────────────────────────────────
 
-const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? 's' : ''}`;
-
 /** « Ta journée en 3 lignes », on the first opening of the day before noon. Returns true if shown. */
 function morningBrief(): boolean {
   const settings = getSettings();
@@ -279,8 +286,8 @@ function morningBrief(): boolean {
   if (!settings.morningBrief || !settings.copilotVisible || new Date().getHours() >= 12 || useCopilot.getState().memory[key]) return false;
   const events = useCalendar.getState().events;
   const todays = events.filter(e => e.date === today).sort(sortEvents);
-  const todos = useTodos.getState().todos.filter(t => !t.done);
-  const dueTodos = todos.filter(t => t.due && t.due <= today);
+  const todos = useTodos.getState().todos.filter(x => !x.done);
+  const dueTodos = todos.filter(x => x.due && x.due <= today);
   const nextExam = events.filter(e => big(e) && !e.done && e.date >= today && !isOver(e)).sort(sortEvents)[0];
   // Discreet mode: only when there is something worth saying.
   if (settings.chattiness === 'calme' && !todays.length && !dueTodos.length && !(nextExam && daysUntil(nextExam.date) <= 7)) return false;
@@ -289,20 +296,24 @@ function morningBrief(): boolean {
   const words = usageWords(settings.usage);
   const lines = [
     todays.length
-      ? `Aujourd’hui : ${todays.slice(0, 4).map(e => `${e.title}${e.start ? ` (${e.start.replace(':', 'h')})` : ''}`).join(', ')}${todays.length > 4 ? '…' : '.'}`
-      : 'Aujourd’hui : rien au calendrier.',
+      ? `${t('Aujourd’hui : {list}', { list: todays.slice(0, 4).map(e => `${e.title}${e.start ? ` (${e.start.replace(':', 'h')})` : ''}`).join(', ') })}${todays.length > 4 ? '…' : '.'}`
+      : t('Aujourd’hui : rien au calendrier.'),
     dueTodos.length
-      ? `À faire : ${dueTodos.slice(0, 3).map(t => t.title).join(', ')}${dueTodos.length > 3 ? ` et ${dueTodos.length - 3} autre${dueTodos.length > 4 ? 's' : ''}` : ''}.`
+      ? dueTodos.length > 3
+        ? tn(dueTodos.length - 3, 'À faire : {list} et {n} autre.', 'À faire : {list} et {n} autres.', { list: dueTodos.slice(0, 3).map(x => x.title).join(', ') })
+        : t('À faire : {list}.', { list: dueTodos.map(x => x.title).join(', ') })
       : todos.length
-        ? `À faire : ${plural(todos.length, 'tâche')} dans ta liste, rien d’urgent.`
-        : 'À faire : rien.',
+        ? tn(todos.length, 'À faire : {n} tâche dans ta liste, rien d’urgent.', 'À faire : {n} tâches dans ta liste, rien d’urgent.')
+        : t('À faire : rien.'),
     nextExam
-      ? `${words.nextBig} : ${nextExam.title}, ${daysUntil(nextExam.date) <= 1 ? countdownLabel(nextExam.date).toLowerCase() : `dans ${daysUntil(nextExam.date)} jours`}.`
-      : `${words.nextBig} : ${words.none} à l’horizon.`,
+      ? daysUntil(nextExam.date) <= 1
+        ? t('{next} : {title}, {when}.', { next: words.nextBig, title: nextExam.title, when: countdownLabel(nextExam.date).toLowerCase() })
+        : tn(daysUntil(nextExam.date), '{next} : {title}, dans {n} jour.', '{next} : {title}, dans {n} jours.', { next: words.nextBig, title: nextExam.title })
+      : t('{next} : {none} à l’horizon.', { next: words.nextBig, none: words.none }),
   ];
-  const offers: CopilotOffer[] = [{ label: 'Ouvrir le calendrier', kind: 'open', payload: { to: todays.length ? linkToDay(today) : '/calendrier' } }];
+  const offers: CopilotOffer[] = [{ label: t('Ouvrir le calendrier'), kind: 'open', payload: { to: todays.length ? linkToDay(today) : '/calendrier' } }];
   if (nextExam && daysUntil(nextExam.date) <= 10 && !hasRevisionPlan(nextExam)) {
-    offers.unshift({ label: studying() ? 'Planifier mes révisions' : words.plan, kind: 'plan_revisions', payload: { eventId: nextExam.id } });
+    offers.unshift({ label: studying() ? t('Planifier mes révisions') : words.plan, kind: 'plan_revisions', payload: { eventId: nextExam.id } });
   }
   void nudge({
     key,
@@ -312,11 +323,11 @@ function morningBrief(): boolean {
     situation: {
       evenement: `point du matin de ${name || "l'étudiant"}`,
       aujourdhui: todays.map(e => `${e.title}${e.start ? ` à ${e.start}` : ''} (${e.category})${e.done ? ' fait' : ''}`),
-      taches_du_jour_ou_en_retard: dueTodos.map(t => t.title),
+      taches_du_jour_ou_en_retard: dueTodos.map(x => x.title),
       taches_restantes: todos.length,
       prochain_examen: nextExam ? `${nextExam.title} dans ${daysUntil(nextExam.date)} jours` : null,
     },
-    fallback: `${name ? `Salut ${name} !` : 'Salut !'} Ta journée en 3 lignes :\n${lines.join('\n')}`,
+    fallback: `${name ? t('Salut {name} ! Ta journée en 3 lignes :', { name }) : t('Salut ! Ta journée en 3 lignes :')}\n${lines.join('\n')}`,
     offers,
     mood: 'happy',
   });
@@ -336,10 +347,10 @@ function weeklyReview(): boolean {
   const events = useCalendar.getState().events;
   const week = events.filter(e => e.date >= from && e.date <= to && e.category !== 'cours');
   const done = week.filter(e => e.done).length;
-  const todosDone = useTodos.getState().todos.filter(t => t.doneAt && toKey(new Date(t.doneAt)) >= from).length;
+  const todosDone = useTodos.getState().todos.filter(x => x.doneAt && toKey(new Date(x.doneAt)) >= from).length;
   const sessions = useFocusLog.getState().sessions.filter(s => toKey(new Date(s.startedAt)) >= from);
   const bySubject = new Map<string, number>();
-  const none = `sans ${usageWords(settings.usage).subject}`;
+  const none = t('sans {subject}', { subject: usageWords(settings.usage).subject });
   for (const s of sessions) bySubject.set(s.subject || none, (bySubject.get(s.subject || none) ?? 0) + s.minutes);
   const focusMin = sessions.reduce((n, s) => n + s.minutes, 0);
   const top = [...bySubject.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
@@ -348,21 +359,27 @@ function weeklyReview(): boolean {
   const next = events.filter(e => e.date >= nFrom && e.date <= nTo);
   const nextExams = next.filter(e => big(e));
   // Discreet mode: only when there is something to act on (an exam next week, something late).
-  const late = events.some(e => isDeliverable(e) && !e.done && e.date < toKey(now)) || useTodos.getState().todos.some(t => !t.done && t.due && t.due < toKey(now));
+  const late = events.some(e => isDeliverable(e) && !e.done && e.date < toKey(now)) || useTodos.getState().todos.some(x => !x.done && x.due && x.due < toKey(now));
   if (settings.chattiness === 'calme' && !nextExams.length && !late) return false;
-  const hours = (m: number) => (m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}` : `${m} min`);
-  const ticked = todosDone ? `${plural(todosDone, 'tâche')} cochée${todosDone > 1 ? 's' : ''}` : '';
+  const hours = (m: number) => (m >= 60 ? t('{h} h {min}', { h: Math.floor(m / 60), min: String(m % 60).padStart(2, '0') }) : t('{n} min', { n: m }));
+  const ticked = todosDone ? tn(todosDone, '{n} tâche cochée', '{n} tâches cochées') : '';
+  const doneOf = { done: tn(done, '{n} fait', '{n} faits'), planned: tn(week.length, 'sur {n} prévu', 'sur {n} prévus') };
+  const nextCount = tn(next.length, '{n} événement', '{n} événements');
 
   const lines = [
     week.length
-      ? `Cette semaine : ${done} fait${done > 1 ? 's' : ''} sur ${week.length} prévu${week.length > 1 ? 's' : ''}${ticked ? `, plus ${ticked}` : ''}.`
-      : `Cette semaine : rien de prévu au calendrier${ticked ? `, mais ${ticked}` : ''}.`,
+      ? ticked ? t('Cette semaine : {done} {planned}, plus {ticked}.', { ...doneOf, ticked }) : t('Cette semaine : {done} {planned}.', doneOf)
+      : ticked ? t('Cette semaine : rien de prévu au calendrier, mais {ticked}.', { ticked }) : t('Cette semaine : rien de prévu au calendrier.'),
     focusMin
-      ? `Concentration : ${hours(focusMin)}${top.length ? ` (${top.map(([s, m]) => `${s} ${hours(m)}`).join(', ')})` : ''}.`
-      : 'Concentration : aucune session focus.',
+      ? top.length
+        ? t('Concentration : {time} ({details}).', { time: hours(focusMin), details: top.map(([s, m]) => `${s} ${hours(m)}`).join(', ') })
+        : t('Concentration : {time}.', { time: hours(focusMin) })
+      : t('Concentration : aucune session focus.'),
     next.length
-      ? `Semaine prochaine : ${plural(next.length, 'événement')}${nextExams.length ? `, dont ${nextExams.map(e => e.title).join(', ')}` : ''}.`
-      : 'Semaine prochaine : rien de prévu.',
+      ? nextExams.length
+        ? t('Semaine prochaine : {events}, dont {list}.', { events: nextCount, list: nextExams.map(e => e.title).join(', ') })
+        : t('Semaine prochaine : {events}.', { events: nextCount })
+      : t('Semaine prochaine : rien de prévu.'),
   ];
   void nudge({
     key,
@@ -377,15 +394,15 @@ function weeklyReview(): boolean {
       minutes_focus_par_matiere: Object.fromEntries(bySubject),
       semaine_prochaine: next.map(e => `${e.title} (${e.category}, ${fmt(fromKey(e.date), 'EEEE')})`).slice(0, 12),
     },
-    fallback: `Bilan de ta semaine :\n${lines.join('\n')}`,
-    offers: [{ label: 'Voir la semaine prochaine', kind: 'open', payload: { to: linkToDay(nFrom) } }],
+    fallback: `${t('Bilan de ta semaine :')}\n${lines.join('\n')}`,
+    offers: [{ label: t('Voir la semaine prochaine'), kind: 'open', payload: { to: linkToDay(nFrom) } }],
     mood: 'happy',
   });
   return true;
 }
 
 /** « arrive demain », « arrive dans 3 jours » (« c'est aujourd'hui » for a big event not in today's list). */
-const inDays = (d: number) => (d <= 0 ? 'c’est aujourd’hui' : d === 1 ? 'arrive demain' : `arrive dans ${d} jours`);
+const inDays = (d: number) => (d <= 0 ? t('c’est aujourd’hui') : d === 1 ? t('arrive demain') : tn(d, 'arrive dans {n} jour', 'arrive dans {n} jours'));
 
 /** Greeting when the app opens (once per browser session). */
 function greet() {
@@ -399,10 +416,10 @@ function greet() {
   const today = events.filter(e => e.date === todayKey()).sort(sortEvents);
   const nextExam = events.filter(e => big(e) && !e.done && e.date >= todayKey()).sort(sortEvents)[0];
   const h = new Date().getHours();
-  const hello = h < 5 ? `Encore debout, ${name} ?` : h < 12 ? `Salut ${name} !` : h < 18 ? `Hey ${name}.` : `Bonsoir ${name}.`;
+  const hello = h < 5 ? t('Encore debout, {name} ?', { name }) : h < 12 ? t('Salut {name} !', { name }) : h < 18 ? t('Hey {name}.', { name }) : t('Bonsoir {name}.', { name });
   const fallback = today.length
-    ? `${hello} Aujourd’hui : ${today.map(e => e.title).slice(0, 3).join(', ')}${today.length > 3 ? '…' : '.'}`
-    : `${hello} Rien de prévu aujourd’hui${nextExam ? `, mais « ${nextExam.title} » ${inDays(daysUntil(nextExam.date))}` : ''}.`;
+    ? `${hello} ${t('Aujourd’hui : {list}', { list: today.map(e => e.title).slice(0, 3).join(', ') })}${today.length > 3 ? '…' : '.'}`
+    : `${hello} ${nextExam ? t('Rien de prévu aujourd’hui, mais « {title} » {when}.', { title: nextExam.title, when: inDays(daysUntil(nextExam.date)) }) : t('Rien de prévu aujourd’hui.')}`;
   void nudge({
     key: 'greet',
     every: 0,

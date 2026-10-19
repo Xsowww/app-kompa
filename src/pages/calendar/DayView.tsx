@@ -5,6 +5,7 @@ import { fromMinutes, toMinutes } from '../../lib/dates';
 import { cx } from '../../lib/utils';
 import { eventTitle, useCalendarSource } from './source';
 import type { DragState } from './useEventDrag';
+import { t } from '../../i18n';
 
 const HOUR_PX = 52;
 /** Events without an end time are drawn one hour long. */
@@ -112,7 +113,7 @@ export default function DayView({ date, isToday, events, drag, onDragStart, onEd
     <div className="overflow-hidden rounded-lg border border-stone-200">
       {/* All-day band */}
       <div data-drop-day={date} className={cx('flex min-h-10 items-start gap-2 border-b border-stone-200 bg-stone-50/70 px-2 py-1.5', drag?.target?.day === date && drag.target.minutes === undefined && 'bg-brand-50')}>
-        <span className="w-10 shrink-0 pt-1 text-right text-[10px] font-medium leading-tight text-stone-500" title="Événements sur toute la journée">Journée</span>
+        <span className="w-10 shrink-0 pt-1 text-right text-[10px] font-medium leading-tight text-stone-500" title={t('Événements sur toute la journée')}>{t('Journée')}</span>
         <div className="flex min-w-0 flex-1 flex-wrap gap-1">
           {allDay.map(ev => {
             const c = catOf(ev.category);
@@ -139,7 +140,7 @@ export default function DayView({ date, isToday, events, drag, onDragStart, onEd
           <div className="relative w-12 shrink-0 select-none">
             {hours.map(h => (
               <span key={h} className="tabular absolute right-2 -translate-y-1/2 text-[11px] text-stone-500" style={{ top: y(h * 60) }}>
-                {h === firstHour ? '' : `${h}h`}
+                {h === firstHour ? '' : t('{n}h', { n: h })}
               </span>
             ))}
           </div>

@@ -2,6 +2,7 @@
 // YouTube… in Chrome). The sound is cut into pieces of about 20 s, at a pause, ready to be written down.
 
 import { RATE, Resampler, findCut, peak } from './audio';
+import { t } from '../../i18n';
 
 export type SourceKind = 'micro' | 'onglet';
 
@@ -28,17 +29,17 @@ export const canUseMic = () => typeof navigator !== 'undefined' && !!navigator.m
 
 async function openStream(kind: SourceKind): Promise<MediaStream> {
   if (kind === 'micro') {
-    if (!canUseMic()) throw new CaptureError('Ce navigateur ne donne pas accès au micro.');
+    if (!canUseMic()) throw new CaptureError(t('Ce navigateur ne donne pas accès au micro.'));
     try {
       return await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: true, autoGainControl: true } });
     } catch (e) {
       const name = (e as Error)?.name;
       throw new CaptureError(
-        name === 'NotAllowedError' ? 'Accès au micro refusé : autorise-le dans la barre d’adresse (icône à gauche), puis réessaie.' : name === 'NotFoundError' ? 'Aucun micro trouvé sur cet appareil.' : 'Le micro n’a pas pu démarrer.',
+        name === 'NotAllowedError' ? t('Accès au micro refusé : autorise-le dans la barre d’adresse (icône à gauche), puis réessaie.') : name === 'NotFoundError' ? t('Aucun micro trouvé sur cet appareil.') : t('Le micro n’a pas pu démarrer.'),
       );
     }
   }
-  if (!canShareComputer()) throw new CaptureError('Le son de l’ordinateur s’enregistre avec Chrome ou Edge, sur ordinateur.');
+  if (!canShareComputer()) throw new CaptureError(t('Le son de l’ordinateur s’enregistre avec Chrome ou Edge, sur ordinateur.'));
   let stream: MediaStream;
   try {
     stream = await navigator.mediaDevices.getDisplayMedia({
@@ -51,7 +52,7 @@ async function openStream(kind: SourceKind): Promise<MediaStream> {
       ...({ preferCurrentTab: false, selfBrowserSurface: 'exclude', surfaceSwitching: 'include', systemAudio: 'include', monitorTypeSurfaces: 'include', windowAudio: 'window' } as object),
     });
   } catch (e) {
-    throw new CaptureError((e as Error)?.name === 'NotAllowedError' ? 'Partage annulé.' : 'Le partage n’a pas pu démarrer.');
+    throw new CaptureError((e as Error)?.name === 'NotAllowedError' ? t('Partage annulé.') : t('Le partage n’a pas pu démarrer.'));
   }
   if (!stream.getAudioTracks().length) {
     const surface = (stream.getVideoTracks()[0]?.getSettings() as { displaySurface?: string } | undefined)?.displaySurface;
@@ -67,9 +68,9 @@ const isMac = () => /Mac/.test(navigator.userAgent) && !/iPhone|iPad/.test(navig
 export function noSoundHelp(surface: string | undefined, mac = isMac()): string {
   if (surface === 'monitor')
     return mac
-      ? 'Pas de son : active le son dans la fenêtre de partage. S’il n’y est pas, mets Chrome à jour et autorise-le dans Réglages Système › Confidentialité › Enregistrement de l’écran et de l’audio système.'
-      : 'Pas de son : active « Partager aussi l’audio du système » dans la fenêtre de partage.';
-  return 'Pas de son : choisis « Écran entier » et active le son.';
+      ? t('Pas de son : active le son dans la fenêtre de partage. S’il n’y est pas, mets Chrome à jour et autorise-le dans Réglages Système › Confidentialité › Enregistrement de l’écran et de l’audio système.')
+      : t('Pas de son : active « Partager aussi l’audio du système » dans la fenêtre de partage.');
+  return t('Pas de son : choisis « Écran entier » et active le son.');
 }
 
 /**
@@ -82,7 +83,7 @@ export async function startCapture(
 ): Promise<Capture> {
   // Made right away, while the click still counts: iPhone and Safari only let sound start from a click.
   const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-  if (!Ctx) throw new CaptureError('Ce navigateur ne sait pas traiter le son : mets-le à jour.');
+  if (!Ctx) throw new CaptureError(t('Ce navigateur ne sait pas traiter le son : mets-le à jour.'));
   const ctx = new Ctx();
   let stream: MediaStream;
   try {
@@ -98,7 +99,7 @@ export async function startCapture(
   } catch {
     stream.getTracks().forEach(t => t.stop());
     void ctx.close();
-    throw new CaptureError('Ce navigateur ne sait pas traiter le son en direct : mets-le à jour.');
+    throw new CaptureError(t('Ce navigateur ne sait pas traiter le son en direct : mets-le à jour.'));
   }
   const source = ctx.createMediaStreamSource(new MediaStream([audio]));
   const tap = new AudioWorkletNode(ctx, 'kompaly-tap');

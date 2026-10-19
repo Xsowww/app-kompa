@@ -34,15 +34,9 @@ const sameWords = (a: readonly Keyword[], b: readonly Keyword[]) => a.length ===
 export function keywordsFor(saved: readonly Keyword[], usage: Usage | undefined): Keyword[] {
   const own = KEYWORDS_BY_USAGE[usage ?? 'etudes'] ?? DEFAULT_KEYWORDS;
   const defaults = [...Object.values(KEYWORDS_BY_USAGE), ...Object.values(KEYWORDS_FR).map(words => list(...words))];
-  const fr = Object.entries(KEYWORDS_FR).find(([, words]) => sameWords(saved, list(...words)));
-  // Bells switched on or off are kept for the words both lists share (a French list matches word by word in its translation).
-  if (defaults.some(d => sameWords(saved, d))) {
-    return own.map(k => {
-      const at = fr ? fr[1].findIndex(w => normalize(t(w)) === normalize(k.word)) : -1;
-      const was = at >= 0 ? saved[at] : saved.find(x => normalize(x.word) === normalize(k.word));
-      return { ...k, notify: was?.notify ?? true };
-    });
-  }
+  // Bells switched on or off are kept for the words both lists share (a French word also matches its translation).
+  const same = (x: Keyword, k: Keyword) => normalize(x.word) === normalize(k.word) || normalize(t(x.word)) === normalize(k.word);
+  if (defaults.some(d => sameWords(saved, d))) return own.map(k => ({ ...k, notify: saved.find(x => same(x, k))?.notify ?? true }));
   return [...saved];
 }
 

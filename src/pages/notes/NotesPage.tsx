@@ -21,7 +21,7 @@ import { isTrashedNote } from '../../lib/trash';
 import NoteMoveDialog, { type NoteMoveTarget } from './NoteMoveDialog';
 import { takeContentBuffer, takeTitleBuffer } from './titleBuffer';
 import type { Editor } from '@tiptap/react';
-import { t } from '../../i18n';
+import { t, locale } from '../../i18n';
 
 const DRAG_NOTE = 'application/x-cop-note';
 const DRAG_FOLDER = 'application/x-cop-note-folder';
@@ -380,7 +380,7 @@ export default function NotesPage() {
 
   const renderFolder = (f: NoteFolder, depth: number): React.ReactNode => {
     const open = expanded.has(f.id);
-    const kids = folders.filter(x => x.parentId === f.id).sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+    const kids = folders.filter(x => x.parentId === f.id).sort((a, b) => a.name.localeCompare(b.name, locale()));
     const fnotes = sortNotes(notes.filter(n => n.folderId === f.id));
     return (
       <div key={f.id}>
@@ -460,7 +460,7 @@ export default function NotesPage() {
     );
   };
 
-  const rootFolders = folders.filter(f => f.parentId === null).sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+  const rootFolders = folders.filter(f => f.parentId === null).sort((a, b) => a.name.localeCompare(b.name, locale()));
   const rootNotes = sortNotes(notes.filter(n => n.folderId === null));
   const mainOpen = !!active;
 

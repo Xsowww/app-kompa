@@ -1,12 +1,13 @@
 import { useDrive } from '../../store/drive';
 import { SPACE } from '../../lib/blobStore';
 import { formatBytes, cx } from '../../lib/utils';
+import { t, tn } from '../../i18n';
 
 const fileBytes = (list: { kind: string; size?: number }[]) => list.reduce((s, i) => s + (i.kind === 'file' ? (i.size ?? 0) : 0), 0);
 
 /** How much of the Drive space is used (the trash counts until it is emptied). */
-/** « 1 Go libre », « 1,5 Go utilisé », « 12 Ko utilisés » : plural from 2, as in French. */
-const agree = (bytes: number, word: string) => (parseFloat(formatBytes(bytes).replace(',', '.')) >= 2 ? `${word}s` : word);
+/** The number shown (« 1,5 » for « 1,5 Go »), for the singular or plural of « 1 Go libre », « 12 Ko utilisés ». */
+const amount = (bytes: number) => parseFloat(formatBytes(bytes).replace(',', '.'));
 
 export default function StorageGauge() {
   const items = useDrive(s => s.items);
@@ -22,19 +23,19 @@ export default function StorageGauge() {
       <div
         className="h-1.5 w-full max-w-[220px] overflow-hidden rounded-full bg-stone-200"
         role="meter"
-        aria-label="Espace du Drive utilisé"
+        aria-label={t('Espace du Drive utilisé')}
         aria-valuemin={0}
         aria-valuemax={SPACE}
         aria-valuenow={used}
-        aria-valuetext={`${formatBytes(used)} ${agree(used, "utilisé")} sur ${formatBytes(SPACE)}`}
+        aria-valuetext={tn(amount(used), '{used} utilisé sur {total}', '{used} utilisés sur {total}', { used: formatBytes(used), total: formatBytes(SPACE) })}
       >
         <div className={cx('h-full rounded-full transition-[width] duration-500', tone)} style={{ width: `${Math.max(used ? 1 : 0, share * 100)}%` }} />
       </div>
       <span className="tabular">
-        <span className="font-medium text-ink">{formatBytes(used)}</span> {agree(used, 'utilisé')} sur {formatBytes(SPACE)} · {formatBytes(left)} {agree(left, 'libre')}
-        {inTrash > 0 && <> · dont {formatBytes(inTrash)} dans la corbeille</>}
+        <span className="font-medium text-ink">{formatBytes(used)}</span> {tn(amount(used), 'utilisé sur {total}', 'utilisés sur {total}', { total: formatBytes(SPACE) })} · {tn(amount(left), '{size} libre', '{size} libres', { size: formatBytes(left) })}
+        {inTrash > 0 && <> · {t('dont {size} dans la corbeille', { size: formatBytes(inTrash) })}</>}
       </span>
-      {share >= 0.8 && <span className={share >= 0.95 ? 'text-red-600' : 'text-amber-600'}>{share >= 1 ? 'Plein' : 'Bientôt plein'} : vide la corbeille ou supprime des fichiers.</span>}
+      {share >= 0.8 && <span className={share >= 0.95 ? 'text-red-600' : 'text-amber-600'}>{share >= 1 ? t('Plein : vide la corbeille ou supprime des fichiers.') : t('Bientôt plein : vide la corbeille ou supprime des fichiers.')}</span>}
     </div>
   );
 }

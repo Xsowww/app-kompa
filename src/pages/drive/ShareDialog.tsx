@@ -6,11 +6,12 @@ import { blobKey } from '../../lib/userStorage';
 import { toast } from '../../store/ui';
 import { cx } from '../../lib/utils';
 import type { DriveItem } from '../../store/drive';
+import { t } from '../../i18n';
 
 const DURATIONS = [
-  { days: 1, label: '1 jour' },
-  { days: 7, label: '7 jours' },
-  { days: 30, label: '30 jours' },
+  { days: 1, label: t('1 jour') },
+  { days: 7, label: t('7 jours') },
+  { days: 30, label: t('30 jours') },
 ];
 
 /**
@@ -27,9 +28,9 @@ export default function ShareDialog({ item, onClose }: { item: DriveItem; onClos
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
-      toast('Lien copié dans le presse-papiers', 'success');
+      toast(t('Lien copié dans le presse-papiers'), 'success');
     } catch {
-      toast('Copie impossible : sélectionne le lien et copie-le à la main', 'error');
+      toast(t('Copie impossible : sélectionne le lien et copie-le à la main'), 'error');
     }
   };
 
@@ -39,7 +40,7 @@ export default function ShareDialog({ item, onClose }: { item: DriveItem; onClos
     // Files live under "<userId>/<itemId>" in the private "drive" bucket (see blobStore).
     const { data, error } = await supabase.storage.from('drive').createSignedUrl(blobKey(item.id).replace(':', '/'), days * 86400);
     setBusy(false);
-    if (error || !data) return toast("Impossible de créer le lien. Le fichier est-il bien synchronisé ?", 'error');
+    if (error || !data) return toast(t('Impossible de créer le lien. Le fichier est-il bien synchronisé ?'), 'error');
     setLink({ url: data.signedUrl, days });
     setCopied(false);
     await copy(data.signedUrl);
@@ -52,19 +53,19 @@ export default function ShareDialog({ item, onClose }: { item: DriveItem; onClos
           <Link2 size={16} />
         </span>
         <div className="min-w-0">
-          <h3 className="text-[15px] font-semibold">Partager le lien</h3>
+          <h3 className="text-[15px] font-semibold">{t('Partager le lien')}</h3>
           <p className="truncate text-[12px] text-stone-500">{item.name}</p>
         </div>
       </div>
 
       {!cloudEnabled ? (
         <p className="mt-4 rounded-lg bg-stone-50 px-3.5 py-3 text-[13px] leading-relaxed text-stone-600">
-          Le partage par lien n’existe que dans la version en ligne de Kompaly.
+          {t('Le partage par lien n’existe que dans la version en ligne de Kompaly.')}
         </p>
       ) : (
         <>
-          <p className="mt-4 text-[13px] text-stone-600">Toute personne qui a le lien pourra télécharger ce fichier, sans compte.</p>
-          <p className="eyebrow mt-4">Le lien expire dans</p>
+          <p className="mt-4 text-[13px] text-stone-600">{t('Toute personne qui a le lien pourra télécharger ce fichier, sans compte.')}</p>
+          <p className="eyebrow mt-4">{t('Le lien expire dans')}</p>
           <div className="mt-1.5 flex h-9 w-fit items-center rounded-lg bg-stone-100 p-0.5 text-[13px] pointer-coarse:h-10">
             {DURATIONS.map(d => (
               <button
@@ -81,11 +82,11 @@ export default function ShareDialog({ item, onClose }: { item: DriveItem; onClos
               <div className="flex gap-2">
                 <input readOnly value={link.url} onFocus={e => e.target.select()} className="field min-w-0 flex-1 font-mono text-[11.5px] text-stone-600" />
                 <button className="btn-secondary" onClick={() => void copy(link.url)}>
-                  {copied ? <Check size={15} className="text-emerald-600" /> : <Copy size={15} />} {copied ? 'Copié' : 'Copier'}
+                  {copied ? <Check size={15} className="text-emerald-600" /> : <Copy size={15} />} {copied ? t('Copié') : t('Copier')}
                 </button>
               </div>
               <p className="mt-1.5 text-[12px] text-stone-500">
-                Valable {link.days === 1 ? '24 heures' : `${link.days} jours`}. Mettre le fichier à la corbeille coupe le lien.
+                {link.days === 1 ? t('Valable 24 heures.') : t('Valable {days} jours.', { days: link.days })} {t('Mettre le fichier à la corbeille coupe le lien.')}
               </p>
             </div>
           )}
@@ -94,10 +95,10 @@ export default function ShareDialog({ item, onClose }: { item: DriveItem; onClos
 
       <div className="mt-5 flex justify-end gap-2">
         <button className="btn-secondary" onClick={onClose}>
-          Fermer
+          {t('Fermer')}
         </button>
         <button className="btn-primary" disabled={!cloudEnabled || busy} onClick={() => void create()}>
-          {busy ? <Loader2 size={15} className="animate-spin" /> : <Link2 size={15} />} {link ? 'Nouveau lien' : 'Créer le lien'}
+          {busy ? <Loader2 size={15} className="animate-spin" /> : <Link2 size={15} />} {link ? t('Nouveau lien') : t('Créer le lien')}
         </button>
       </div>
     </Modal>

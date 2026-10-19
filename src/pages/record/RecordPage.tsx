@@ -31,6 +31,7 @@ import MoveDialog from '../drive/MoveDialog';
 import KeywordsEditor from './KeywordsEditor';
 import Transcript, { Alerts } from './Transcript';
 import { useRecWords } from './words';
+import { t, tn, locale } from '../../i18n';
 
 /** Ticks every second while `on`. */
 function useTick(on: boolean) {
@@ -47,7 +48,7 @@ export default function RecordPage() {
   return (
     <div className="h-full overflow-y-auto px-4 pb-12 md:px-8">
       <div className="mx-auto max-w-[1180px]">
-        <h1 className="pb-6 pt-2 text-[24px] font-semibold tracking-[-0.02em]">Enregistrer</h1>
+        <h1 className="pb-6 pt-2 text-[24px] font-semibold tracking-[-0.02em]">{t('Enregistrer')}</h1>
         {!session ? <Setup /> : session.phase === 'done' ? <Done s={session} /> : <Running s={session} />}
         {(!session || session.phase === 'done') && <History />}
       </div>
@@ -81,7 +82,7 @@ function Setup() {
   const name = title.trim() || w.fallback;
   const known = remembered[normalize(title)];
   const target = picked ? { id: picked.id, own: false } : known !== undefined ? { id: known, own: false } : { id: null, own: true };
-  const where = [...pathOf(items, target.id).map(i => i.name), ...(target.own ? [name] : [])].join(' / ') || 'Mon Drive';
+  const where = [...pathOf(items, target.id).map(i => i.name), ...(target.own ? [name] : [])].join(' / ') || t('Mon Drive');
   const titles = useMemo(() => [...new Set(history.map(h => h.title))].slice(0, 30), [history]);
 
   const start = async () => {
@@ -91,19 +92,19 @@ function Setup() {
     try {
       await startRecording({ title: name, source, folderId: target.id, ...(target.own && { newFolder: name }), make });
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'L’enregistrement n’a pas pu démarrer.');
+      setError(e instanceof Error ? e.message : t('L’enregistrement n’a pas pu démarrer.'));
     } finally {
       setBusy(false);
     }
   };
 
   const sources = [
-    { key: 'micro', icon: Mic, label: 'Micro', ok: canUseMic(), off: '' },
-    { key: 'onglet', icon: MonitorSpeaker, label: 'Son de l’ordinateur', ok: canShareComputer(), off: 'Avec Chrome' },
+    { key: 'micro', icon: Mic, label: t('Micro'), ok: canUseMic(), off: '' },
+    { key: 'onglet', icon: MonitorSpeaker, label: t('Son de l’ordinateur'), ok: canShareComputer(), off: t('Avec Chrome') },
   ] as const;
 
   return (
-    <section className="card mx-auto max-w-[620px] space-y-5 p-5 sm:p-7" aria-label="Nouvel enregistrement">
+    <section className="card mx-auto max-w-[620px] space-y-5 p-5 sm:p-7" aria-label={t('Nouvel enregistrement')}>
       <input
         className="field h-12 w-full text-[16px] font-medium"
         value={title}
@@ -114,10 +115,10 @@ function Setup() {
         maxLength={100}
         autoComplete="off"
       />
-      <datalist id="cours-titres">{titles.map(t => <option key={t} value={t} />)}</datalist>
+      <datalist id="cours-titres">{titles.map(x => <option key={x} value={x} />)}</datalist>
 
       <div>
-        <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Source du son">
+        <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label={t('Source du son')}>
           {sources.map(o => (
             <button
               key={o.key}
@@ -133,19 +134,19 @@ function Setup() {
             </button>
           ))}
         </div>
-        {source === 'onglet' && <p className="mt-2 text-[12.5px] text-stone-500">Dans la fenêtre qui s’ouvre : « Écran entier », active le son, puis « Partager ».</p>}
+        {source === 'onglet' && <p className="mt-2 text-[12.5px] text-stone-500">{t('Dans la fenêtre qui s’ouvre : « Écran entier », active le son, puis « Partager ».')}</p>}
       </div>
 
       <div className="flex flex-wrap items-center gap-2 text-[13.5px]">
         <FolderOpen size={17} className="shrink-0 text-stone-500" aria-hidden />
         <span className="min-w-0 flex-1 truncate font-medium" title={where}>{where}</span>
-        <button type="button" className="btn-ghost h-8 text-[12.5px]" onClick={() => setPicking(true)}>Changer</button>
+        <button type="button" className="btn-ghost h-8 text-[12.5px]" onClick={() => setPicking(true)}>{t('Changer')}</button>
       </div>
       {picking && (
         <MoveDialog
           ids={[]}
           title={w.where}
-          confirm="Choisir ce dossier"
+          confirm={t('Choisir ce dossier')}
           initial={target.id}
           onClose={() => setPicking(false)}
           onMove={id => {
@@ -156,7 +157,7 @@ function Setup() {
       )}
 
       <div className="flex flex-wrap items-center gap-2 text-[13.5px]">
-        <span className="mr-1 text-stone-500">Créer aussi</span>
+        <span className="mr-1 text-stone-500">{t('Créer aussi')}</span>
         {(['fiche', 'examen'] as Make[]).map(k => (
           <button
             key={k}
@@ -171,7 +172,7 @@ function Setup() {
         ))}
       </div>
 
-      {server && !server.transcription && <p className="text-[13px] text-amber-800">La transcription est indisponible pour le moment.</p>}
+      {server && !server.transcription && <p className="text-[13px] text-amber-800">{t('La transcription est indisponible pour le moment.')}</p>}
       {error && (
         <p role="alert" className="flex gap-2 rounded-xl bg-red-50 px-3 py-2.5 text-[13px] text-red-700">
           <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden /> {error}
@@ -180,9 +181,9 @@ function Setup() {
 
       <div className="flex items-center gap-3">
         <button type="button" className="btn-primary h-12 flex-1 text-[15px]" disabled={busy} onClick={() => void start()}>
-          {busy ? <Loader2 size={16} className="animate-spin" /> : <span className="h-2.5 w-2.5 rounded-full bg-red-500" aria-hidden />} Démarrer
+          {busy ? <Loader2 size={16} className="animate-spin" /> : <span className="h-2.5 w-2.5 rounded-full bg-red-500" aria-hidden />} {t('Démarrer')}
         </button>
-        <button type="button" className="btn-secondary h-12 px-3.5" onClick={() => setSettings(true)} title="Mots-clés et alertes" aria-label="Mots-clés et alertes">
+        <button type="button" className="btn-secondary h-12 px-3.5" onClick={() => setSettings(true)} title={t('Mots-clés et alertes')} aria-label={t('Mots-clés et alertes')}>
           <Bell size={16} /> <span className="tabular text-[13px]">{keywords.length}</span>
         </button>
       </div>
@@ -197,18 +198,18 @@ function AlertSettings({ onClose }: { onClose: () => void }) {
   const silence = useSettings(s => s.courseSilenceMinutes);
   return (
     <Modal open onClose={onClose} width={520}>
-      <h3 className="text-[17px] font-semibold">Mots-clés</h3>
-      <p className="mb-3 mt-0.5 text-[12.5px] text-stone-500">Surlignés quand ils sont prononcés ; la cloche envoie une notification.</p>
+      <h3 className="text-[17px] font-semibold">{t('Mots-clés')}</h3>
+      <p className="mb-3 mt-0.5 text-[12.5px] text-stone-500">{t('Surlignés quand ils sont prononcés ; la cloche envoie une notification.')}</p>
       <KeywordsEditor />
       <div className="mt-5 space-y-3 border-t border-stone-100 pt-4 text-[13.5px]">
         <div className="flex items-center gap-3">
-          <span className="min-w-0 flex-1 font-medium">Alertes aussi sur mon téléphone</span>
-          <Toggle checked={phone} onChange={v => useSettings.getState().set({ coursePhone: v })} label="Alertes aussi sur mon téléphone" />
+          <span className="min-w-0 flex-1 font-medium">{t('Alertes aussi sur mon téléphone')}</span>
+          <Toggle checked={phone} onChange={v => useSettings.getState().set({ coursePhone: v })} label={t('Alertes aussi sur mon téléphone')} />
         </div>
         <label className="flex items-center gap-3">
-          <span className="min-w-0 flex-1 font-medium">Prévenir si personne ne parle pendant</span>
+          <span className="min-w-0 flex-1 font-medium">{t('Prévenir si personne ne parle pendant')}</span>
           <select className="field h-8 w-auto py-0 text-[13px]" value={silence} onChange={e => useSettings.getState().set({ courseSilenceMinutes: Number(e.target.value) })}>
-            {[1, 2, 3, 5, 10].map(m => <option key={m} value={m}>{m} min</option>)}
+            {[1, 2, 3, 5, 10].map(m => <option key={m} value={m}>{t('{min} min', { min: m })}</option>)}
           </select>
         </label>
       </div>
@@ -246,7 +247,7 @@ function Running({ s }: { s: Session }) {
   }, []);
 
   const finish = async () => {
-    if (!(await confirmAction('Terminer l’enregistrement ?', w.finish, 'Terminer', false))) return;
+    if (!(await confirmAction(t('Terminer l’enregistrement ?'), w.finish, t('Terminer'), false))) return;
     void finishRecording().catch(() => undefined);
   };
   const resume = async () => {
@@ -254,7 +255,7 @@ function Running({ s }: { s: Session }) {
     try {
       await resumeListening();
     } catch (e) {
-      useRecLive.setState({ problem: e instanceof Error ? e.message : 'L’écoute n’a pas pu reprendre.' });
+      useRecLive.setState({ problem: e instanceof Error ? e.message : t('L’écoute n’a pas pu reprendre.') });
     } finally {
       setBusy(false);
     }
@@ -262,25 +263,25 @@ function Running({ s }: { s: Session }) {
 
   return (
     <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,8fr)_minmax(0,4fr)]">
-      <section className="card p-5 sm:p-6" aria-label="Transcription">
+      <section className="card p-5 sm:p-6" aria-label={t('Transcription')}>
         <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-stone-100 pb-4">
           <span className="flex items-center gap-2 text-[13px] font-semibold">
             <span className={cx('h-2.5 w-2.5 rounded-full', live.hearing ? 'animate-pulse bg-red-500' : 'bg-stone-400')} aria-hidden />
-            {finishing ? 'Terminé' : live.hearing ? 'Enregistrement' : 'En pause'}
+            {finishing ? t('Terminé') : live.hearing ? t('Enregistrement') : t('En pause')}
             <span className="tabular text-[15px] font-semibold">{clock(elapsed(s))}</span>
           </span>
           <span className="min-w-0 truncate text-[14px] font-semibold text-stone-700" title={s.title}>· {s.title}</span>
           {live.hearing && <Level value={live.level} />}
           {!finishing && (
             <span className="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto">
-              <button type="button" className="btn-secondary h-9 px-2.5" onClick={() => setSettings(true)} title="Mots-clés" aria-label="Mots-clés">
+              <button type="button" className="btn-secondary h-9 px-2.5" onClick={() => setSettings(true)} title={t('Mots-clés')} aria-label={t('Mots-clés')}>
                 <Bell size={15} /> <span className="tabular text-[12.5px]">{s.keywords.length}</span>
               </button>
-              <button type="button" className="btn-secondary h-9 flex-1 sm:flex-none" onClick={star} disabled={!live.hearing} title="Marque ce qui vient d’être dit (touche M)">
-                <Star size={15} className="fill-amber-400 text-amber-500" /> Moment important
+              <button type="button" className="btn-secondary h-9 flex-1 sm:flex-none" onClick={star} disabled={!live.hearing} title={t('Marque ce qui vient d’être dit (touche M)')}>
+                <Star size={15} className="fill-amber-400 text-amber-500" /> {t('Moment important')}
               </button>
               <button type="button" className="btn-primary h-9 flex-1 sm:flex-none" onClick={() => void finish()}>
-                <Square size={13} className="fill-current" /> Terminer
+                <Square size={13} className="fill-current" /> {t('Terminer')}
               </button>
             </span>
           )}
@@ -289,20 +290,20 @@ function Running({ s }: { s: Session }) {
 
         {finishing && !live.step ? (
           <Banner tone="warn">
-            <span className="min-w-48 flex-1">La création des documents s’est interrompue. Rien n’est perdu.</span>
+            <span className="min-w-48 flex-1">{t('La création des documents s’est interrompue. Rien n’est perdu.')}</span>
             <button type="button" className="btn-secondary h-8 bg-surface text-[12.5px]" onClick={() => void completeDocuments().catch(() => undefined)}>
-              <RotateCcw size={13} /> Reprendre
+              <RotateCcw size={13} /> {t('Reprendre')}
             </button>
           </Banner>
         ) : finishing ? (
           <Progress step={live.step} progress={live.progress} waiting={live.waiting} />
         ) : elsewhere ? (
-          <Banner tone="info">Enregistrement en cours dans un autre onglet.</Banner>
+          <Banner tone="info">{t('Enregistrement en cours dans un autre onglet.')}</Banner>
         ) : !live.hearing ? (
           <Banner tone="warn">
-            <span className="min-w-48 flex-1">{live.problem ?? 'L’écoute s’est arrêtée.'} Rien n’est perdu.</span>
+            <span className="min-w-48 flex-1">{live.problem ?? t('L’écoute s’est arrêtée.')} {t('Rien n’est perdu.')}</span>
             <button type="button" className="btn-secondary h-8 bg-surface text-[12.5px]" disabled={busy} onClick={() => void resume()}>
-              <RotateCcw size={13} /> Reprendre l’écoute
+              <RotateCcw size={13} /> {t('Reprendre l’écoute')}
             </button>
           </Banner>
         ) : live.problem ? (
@@ -316,12 +317,12 @@ function Running({ s }: { s: Session }) {
           liveText={liveText}
           writing={live.hearing && (live.speaking || live.queue > 0)}
           follow
-          empty={live.hearing ? 'J’écoute…' : 'Rien d’écrit pour l’instant.'}
+          empty={live.hearing ? t('J’écoute…') : t('Rien d’écrit pour l’instant.')}
         />
       </section>
-      <aside className="card p-5 sm:p-6 lg:sticky lg:top-2" aria-label="Moments signalés">
+      <aside className="card p-5 sm:p-6 lg:sticky lg:top-2" aria-label={t('Moments signalés')}>
         <h2 className="mb-3 flex items-center gap-2 text-[15px] font-semibold">
-          Alertes {s.alerts.length > 0 && <span className="rounded-full bg-amber-100 px-1.5 text-[11.5px] font-semibold text-amber-900">{s.alerts.length}</span>}
+          {t('Alertes')} {s.alerts.length > 0 && <span className="rounded-full bg-amber-100 px-1.5 text-[11.5px] font-semibold text-amber-900">{s.alerts.length}</span>}
         </h2>
         <Alerts alerts={s.alerts} segments={s.segments} />
       </aside>
@@ -332,7 +333,7 @@ function Running({ s }: { s: Session }) {
 function Level({ value }: { value: number }) {
   const w = Math.min(100, Math.round(Math.sqrt(value) * 140));
   return (
-    <span className="h-1.5 w-16 overflow-hidden rounded-full bg-stone-200" aria-hidden title="Niveau du son">
+    <span className="h-1.5 w-16 overflow-hidden rounded-full bg-stone-200" aria-hidden title={t('Niveau du son')}>
       <span className="block h-full rounded-full bg-emerald-500 transition-[width] duration-100" style={{ width: `${w}%` }} />
     </span>
   );
@@ -352,10 +353,10 @@ function Status({ s }: { s: Session }) {
   const live = useRecLive();
   const w = useRecWords();
   const bits: string[] = [];
-  if (s.transcriptionOff) bits.push(s.transcriptionOff + (s.source === 'micro' && live.quickLane ? ' La suite est écrite par le navigateur.' : ''));
-  else if (live.waiting) bits.push(`Le serveur est occupé : reprise dans ${live.waiting} s.`);
+  if (s.transcriptionOff) bits.push(s.source === 'micro' && live.quickLane ? `${s.transcriptionOff} ${t('La suite est écrite par le navigateur.')}` : s.transcriptionOff);
+  else if (live.waiting) bits.push(t('Le serveur est occupé : reprise dans {s} s.', { s: live.waiting }));
   if (s.aiOff) bits.push(s.aiOff);
-  else if (s.parts.length) bits.push(`${s.parts.length} partie${s.parts.length > 1 ? 's' : ''} ${w.ofDoc} déjà rédigée${s.parts.length > 1 ? 's' : ''}.`);
+  else if (s.parts.length) bits.push(tn(s.parts.length, '{n} partie {ofDoc} déjà rédigée.', '{n} parties {ofDoc} déjà rédigées.', { ofDoc: w.ofDoc }));
   if (!bits.length) return null;
   return <p className="mb-3 text-[12.5px] text-stone-500" role="status">{bits.join(' ')}</p>;
 }
@@ -364,14 +365,14 @@ function Progress({ step, progress, waiting }: { step: string | null; progress: 
   return (
     <div className="mb-5 rounded-2xl bg-stone-50 p-4" role="status">
       <p className="flex items-center gap-2 text-[14px] font-semibold">
-        <Loader2 size={16} className="animate-spin text-brand-600" aria-hidden /> {step ?? 'Préparation des documents…'}
+        <Loader2 size={16} className="animate-spin text-brand-600" aria-hidden /> {step ?? t('Préparation des documents…')}
       </p>
       {progress && progress[1] > 0 && (
         <span className="mt-3 block h-1.5 overflow-hidden rounded-full bg-stone-200">
           <span className="block h-full rounded-full bg-brand-500 transition-[width]" style={{ width: `${Math.round((progress[0] / progress[1]) * 100)}%` }} />
         </span>
       )}
-      <p className="mt-2 text-[12.5px] text-stone-500">{waiting ? `Reprise dans ${waiting} s.` : 'Ne ferme pas Kompaly.'}</p>
+      <p className="mt-2 text-[12.5px] text-stone-500">{waiting ? t('Reprise dans {s} s.', { s: waiting }) : t('Ne ferme pas Kompaly.')}</p>
     </div>
   );
 }
@@ -383,7 +384,7 @@ function Done({ s }: { s: Session }) {
   const w = useRecWords();
   const passages = s.segments.filter(x => x.text).length;
   const md = useMemo(
-    () => courseMarkdown({ title: s.title, date: new Date(s.startedAt).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }), seconds: elapsed(s), parts: s.parts, alerts: s.alerts, missing: s.segments.filter(x => x.origin === 'manquant').length }),
+    () => courseMarkdown({ title: s.title, date: new Date(s.startedAt).toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }), seconds: elapsed(s), parts: s.parts, alerts: s.alerts, missing: s.segments.filter(x => x.origin === 'manquant').length }),
     [s],
   );
   const [html, setHtml] = useState('');
@@ -395,17 +396,17 @@ function Done({ s }: { s: Session }) {
       <section className="card p-5 sm:p-7" aria-label={w.docDone}>
         <div className="doc-preview max-w-none text-[14.5px] leading-relaxed [&_blockquote]:border-l-2 [&_blockquote]:border-stone-300 [&_blockquote]:pl-3 [&_blockquote]:text-stone-600 [&_h1]:text-[24px] [&_h1]:font-bold [&_h2]:mt-6 [&_h2]:text-[18px] [&_h2]:font-semibold [&_h3]:mt-4 [&_h3]:text-[15px] [&_h3]:font-semibold [&_li]:my-1 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:my-2 [&_ul]:list-disc [&_ul]:pl-6" dangerouslySetInnerHTML={{ __html: html }} />
       </section>
-      <aside className="card order-first space-y-4 p-5 sm:p-6 lg:sticky lg:top-2 lg:order-none" aria-label="Documents créés">
+      <aside className="card order-first space-y-4 p-5 sm:p-6 lg:sticky lg:top-2 lg:order-none" aria-label={t('Documents créés')}>
         <div>
           <p className="flex items-center gap-2 text-[16px] font-semibold">
             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-white"><Check size={14} strokeWidth={3} /></span>
-            C’est rangé dans ton Drive
+            {t('C’est rangé dans ton Drive')}
           </p>
-          <p className="mt-1 text-[12.5px] text-stone-500">{duration(elapsed(s))} d’enregistrement · {passages} passage{passages > 1 ? 's' : ''}</p>
+          <p className="mt-1 text-[12.5px] text-stone-500">{tn(passages, '{duration} d’enregistrement · {n} passage', '{duration} d’enregistrement · {n} passages', { duration: duration(elapsed(s)) })}</p>
         </div>
         <Files files={s.files} pastId={s.id} making={making} />
         <button type="button" className="btn-primary h-10 w-full" onClick={() => useRecorder.getState().discard()}>
-          <Mic size={15} /> Nouvel enregistrement
+          <Mic size={15} /> {t('Nouvel enregistrement')}
         </button>
       </aside>
     </div>
@@ -427,10 +428,10 @@ function Files({ files, pastId, making, compact }: { files: Past['files']; pastI
       </button>
     ) : kind ? (
       <button type="button" className={cx('btn-ghost w-full justify-start whitespace-normal border border-dashed border-stone-300 text-left', size)} disabled={!!making} onClick={() => void makeLater(pastId, kind)}>
-        {busy ? <Loader2 size={15} className="animate-spin" /> : icon} {busy ? 'Création…' : (compact ? w.create : w.createLong)[kind]}
+        {busy ? <Loader2 size={15} className="animate-spin" /> : icon} {busy ? t('Création…') : (compact ? w.create : w.createLong)[kind]}
       </button>
     ) : (
-      <p className="text-[12.5px] text-stone-500">Le document n’est plus dans le Drive.</p>
+      <p className="text-[12.5px] text-stone-500">{t('Le document n’est plus dans le Drive.')}</p>
     );
   };
   return (
@@ -456,7 +457,7 @@ function History() {
             <div className="min-w-0 lg:w-[34%]">
               <p className="truncate text-[14.5px] font-semibold">{h.title}</p>
               <p className="text-[12.5px] text-stone-500">
-                {new Date(h.date).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })} · {duration(h.seconds)}
+                {new Date(h.date).toLocaleDateString(locale(), { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })} · {duration(h.seconds)}
               </p>
             </div>
             <div className="min-w-0 flex-1">
@@ -465,10 +466,10 @@ function History() {
             <button
               type="button"
               className="icon-btn self-end hover:text-red-600 lg:self-center"
-              title="Retirer de la liste"
-              aria-label={`Retirer « ${h.title} » de la liste`}
+              title={t('Retirer de la liste')}
+              aria-label={t('Retirer « {title} » de la liste', { title: h.title })}
               onClick={async () => {
-                if (await confirmAction(`Retirer « ${h.title} » de la liste ?`, 'Les documents restent dans ton Drive.', 'Retirer'))
+                if (await confirmAction(t('Retirer « {title} » de la liste ?', { title: h.title }), t('Les documents restent dans ton Drive.'), t('Retirer')))
                   useRecorder.setState(st => ({ history: st.history.filter(x => x.id !== h.id) }));
               }}
             >
