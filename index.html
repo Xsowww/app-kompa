@@ -9,9 +9,9 @@
       html[data-theme='dark'] { background: #0c0d12; color-scheme: dark; }
     </style>
     <title>Kompaly · Agenda, notes, fichiers et tâches au même endroit</title>
-    <meta name="description" content="Drive, calendrier, notes et tâches réunis dans une seule appli, pour les études, le travail ou la vie perso, avec Kompaly, un assistant qui aide à s’organiser. Gratuit." />
+    <meta name="description" content="Kompaly réunit ton agenda, tes tâches, tes notes et tes fichiers dans une seule appli gratuite, pour les études, le travail ou la vie perso." />
     <meta property="og:title" content="Kompaly" />
-    <meta property="og:description" content="Drive, calendrier, notes et tâches réunis, pour les études, le travail ou la vie perso, avec un assistant pour s’organiser." />
+    <meta property="og:description" content="Kompaly réunit ton agenda, tes tâches, tes notes et tes fichiers dans une seule appli gratuite, pour les études, le travail ou la vie perso." />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="https://kompaly.com/og-image.png" />
     <meta property="og:image:width" content="1200" />
@@ -20,17 +20,38 @@
     <meta property="og:site_name" content="Kompaly" />
     <meta property="og:locale" content="fr_FR" />
     <meta name="twitter:card" content="summary_large_image" />
+    <!-- What Google shows: the site's name (WebSite), its logo (Organization), the app itself (WebApplication). -->
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
-        "@type": "WebApplication",
-        "name": "Kompaly",
-        "url": "https://kompaly.com/",
-        "description": "Calendrier, tâches, notes et fichiers réunis dans une seule appli, pour les études, le travail ou la vie perso, avec Kompaly, un assistant qui aide à s’organiser.",
-        "applicationCategory": "ProductivityApplication",
-        "operatingSystem": "Web, Android, iOS",
-        "inLanguage": "fr",
-        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" }
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "https://kompaly.com/#site",
+            "name": "Kompaly",
+            "url": "https://kompaly.com/",
+            "inLanguage": ["fr", "en", "es", "de", "it"],
+            "publisher": { "@id": "https://kompaly.com/#org" }
+          },
+          {
+            "@type": "Organization",
+            "@id": "https://kompaly.com/#org",
+            "name": "Kompaly",
+            "url": "https://kompaly.com/",
+            "logo": "https://kompaly.com/icon-512.png"
+          },
+          {
+            "@type": "WebApplication",
+            "name": "Kompaly",
+            "url": "https://kompaly.com/",
+            "description": "Kompaly réunit ton agenda, tes tâches, tes notes et tes fichiers dans une seule appli gratuite, pour les études, le travail ou la vie perso.",
+            "applicationCategory": "ProductivityApplication",
+            "operatingSystem": "Web, Android, iOS",
+            "inLanguage": ["fr", "en", "es", "de", "it"],
+            "publisher": { "@id": "https://kompaly.com/#org" },
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" }
+          }
+        ]
       }
     </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -42,6 +63,12 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- For the rare robots and browsers without JavaScript: what Kompaly is, and where to go. -->
+    <noscript>
+      <h1>Kompaly</h1>
+      <p>Kompaly réunit ton agenda, tes tâches, tes notes et tes fichiers dans une seule appli gratuite, pour les études, le travail ou la vie perso.</p>
+      <p>Kompaly a besoin de JavaScript pour fonctionner. <a href="/inscription">Créer un compte</a> · <a href="/connexion">Se connecter</a> · <a href="/mentions-legales">Mentions légales</a> · <a href="/confidentialite">Confidentialité</a></p>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

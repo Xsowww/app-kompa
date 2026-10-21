@@ -9,6 +9,7 @@ import AuthPage from './pages/AuthPage';
 import MfaPage from './pages/MfaPage';
 import { DialogHost, Toasts } from './components/Overlays';
 import { t } from './i18n';
+import { PUBLIC_PAGES, pageHeads } from './lib/seoPages.mjs';
 
 // The app itself loads after the sign-in page: someone on /connexion doesn't wait for Kompaly and the editor.
 const AppShell = lazy(() => import('./layout/AppShell'));
@@ -52,8 +53,9 @@ const TITLES: Record<string, string> = {
   '/conditions': t('Conditions d’utilisation'),
 };
 
-/** Pages offered to search engines (same list as the sitemap, server/index.mjs). */
-const INDEXED = new Set(['/', '/connexion', '/inscription', '/mentions-legales', '/confidentialite', '/conditions']);
+/** Pages offered to search engines (the sitemap's, server/seo.mjs), with their title and description. */
+const INDEXED = new Set(PUBLIC_PAGES);
+const HEADS = pageHeads(t);
 
 /** The tab says where you are (history, several tabs open). */
 function PageTitle() {
@@ -71,6 +73,9 @@ function PageTitle() {
       document.head.appendChild(robots);
     }
     robots.content = INDEXED.has(pathname) ? 'index, follow' : 'noindex';
+    // In the page's language (the HTML's is French, or the one of ?lang=…).
+    const description = HEADS[pathname]?.description;
+    if (description) document.querySelector<HTMLMetaElement>('meta[name="description"]')?.setAttribute('content', description);
   }, [pathname, guest]);
   return null;
 }

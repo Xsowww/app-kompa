@@ -58,7 +58,7 @@ function preloadPlugin(): Plugin {
         home: withDeps('/src/pages/LandingPage.tsx'),
       };
       const code = `(function(){var m=${JSON.stringify(map)},d=document;function p(a){for(var i=0;i<a.length;i++){var l=d.createElement('link');l.rel='modulepreload';l.href=a[i];d.head.appendChild(l)}}
-var g;try{g=localStorage.getItem('cop-lang')}catch(e){}if(!g){var n=navigator.languages||[navigator.language];for(var i=0;i<n.length;i++){var c=String(n[i]||'').slice(0,2).toLowerCase();if(c==='fr'||m.dict[c]){g=c;break}}}if(g&&m.dict[g])p(m.dict[g]);
+var g=(/[?&]lang=([a-z]{2})/.exec(location.search)||[])[1];if(!g||!m.dict[g]&&g!=='fr'){g=void 0;try{g=localStorage.getItem('cop-lang')}catch(e){}}if(!g){var n=navigator.languages||[navigator.language];for(var i=0;i<n.length;i++){var c=String(n[i]||'').slice(0,2).toLowerCase();if(c==='fr'||m.dict[c]){g=c;break}}}if(g&&m.dict[g])p(m.dict[g]);
 var s=false;try{for(var k=0;k<localStorage.length;k++)if(/^sb-.+-auth-token$/.test(localStorage.key(k)||'')){s=true;break}if(!s)for(k=0;k<sessionStorage.length;k++)if(/^sb-.+-auth-token$/.test(sessionStorage.key(k)||'')){s=true;break}}catch(e){}
 p(s?m.app:location.pathname==='/'?m.home:[])})();`;
       const file = this.getFileName(this.emitFile({ type: 'asset', name: 'preload.js', source: code }));

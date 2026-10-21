@@ -28,8 +28,10 @@ const LOADERS: Record<Exclude<Lang, 'fr'>, () => Promise<{ default: Record<strin
 const KEY = 'cop-lang';
 const isLang = (l: unknown): l is Lang => LANGS.some(x => x.code === l);
 
-/** The language chosen on this device, else the browser's when it is one of ours, else French. */
+/** The language of the address (?lang=en: what search engines link to), else the one chosen on this device, else the browser's when it is one of ours, else French. */
 function detect(): Lang {
+  const asked = typeof location === 'undefined' ? null : new URLSearchParams(location.search).get('lang');
+  if (isLang(asked)) return asked;
   try {
     const saved = localStorage.getItem(KEY);
     if (isLang(saved)) return saved;
@@ -65,7 +67,11 @@ export function setLang(l: Lang) {
   } catch {
     /* storage blocked: only for this page */
   }
-  location.reload();
+  // The address's ?lang would win over the choice: it goes.
+  const url = new URL(location.href);
+  if (!url.searchParams.has('lang')) return location.reload();
+  url.searchParams.delete('lang');
+  location.replace(url);
 }
 
 /** « fr-FR », « en-GB »… for toLocaleDateString, Intl, speech recognition. */

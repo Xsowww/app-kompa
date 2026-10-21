@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { handleCopilot, copilotProvider, ipOf } from './copilot.mjs';
 import { handleCours } from './cours.mjs';
 import { loadPublicEnv } from './publicEnv.mjs';
+import { langOf, publicPage, robotsTxt, sitemapXml, withHead } from './seo.mjs';
 
 try {
   process.loadEnvFile();
@@ -88,6 +89,7 @@ async function serveStatic(req, res) {
     return res.end('Méthode non autorisée');
   }
   let path;
+  const search = (req.url ?? '').includes('?') ? (req.url ?? '').slice((req.url ?? '').indexOf('?')) : '';
   try {
     path = decodeURIComponent((req.url ?? '/').split('?')[0]);
   } catch {
@@ -96,6 +98,8 @@ async function serveStatic(req, res) {
   }
   path = normalize(path).replace(/^(\.\.[/\\])+/, '');
   let file = join(DIST, path);
+  /** A public page (home, sign-in, legal…): its own title, description and addresses (server/seo.mjs). */
+  let page = null;
   if (!(await stat(file).then(s => s.isFile(), () => false))) {
     // A missing code file must get a 404, not the page: a tab opened before an update asks for
     // old files, and only a real error lets it reload itself (see main.tsx).
@@ -104,15 +108,25 @@ async function serveStatic(req, res) {
       return res.end('Introuvable');
     }
     file = join(DIST, 'index.html'); // single-page app: every route is the page
+    page = publicPage(path);
     // …but an address the app doesn't have says so (the page shows « introuvable »; search engines drop it).
     if (!APP_ROUTES.has(path.replace(/(.)\/+$/, '$1').toLowerCase())) res.statusCode = 404;
+    // The app's own screens need an account: not for search results.
+    else if (!page) res.setHeader('X-Robots-Tag', 'noindex');
   }
-  let entry = files.get(file);
+  const lang = page ? langOf(search) : null;
+  const key = page ? `${file}|${page}|${lang}` : file;
+  let entry = files.get(key);
   if (!entry) {
     let raw = await readFile(file);
-    if (BEACON && file.endsWith('index.html')) raw = Buffer.from(raw.toString('utf8').replace('</body>', `${BEACON}\n  </body>`));
+    if (file.endsWith('index.html')) {
+      let html = raw.toString('utf8');
+      if (page) html = withHead(html, page, lang);
+      if (BEACON) html = html.replace('</body>', `${BEACON}\n  </body>`);
+      raw = Buffer.from(html);
+    }
     entry = { raw, gzip: COMPRESSIBLE.has(extname(file)) && raw.length > 1024 ? gzipSync(raw) : null };
-    files.set(file, entry);
+    files.set(key, entry);
   }
   res.setHeader('Content-Type', TYPES[extname(file)] ?? 'application/octet-stream');
   // Hashed file names change with each build; the page itself must always be checked again.
@@ -123,23 +137,17 @@ async function serveStatic(req, res) {
   res.end(gzip ? entry.gzip : entry.raw);
 }
 
-// ── Search engines ──────────────────────────────────────────────────────────
-// The public pages; everything else needs an account. SITE_URL = the site's address (https://…).
-const PUBLIC_PAGES = ['/', '/inscription', '/connexion', '/mentions-legales', '/confidentialite', '/conditions'];
-// Never the request's Host header: anyone could make robots.txt and sitemap.xml list their own site.
-const siteUrl = () => (process.env.SITE_URL || 'https://kompaly.com').replace(/\/+$/, '');
-
+// ── Search engines (server/seo.mjs) ─────────────────────────────────────────
 function serveSeo(req, res) {
   const path = (req.url ?? '').split('?')[0];
   if (path === '/robots.txt') {
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    res.end(`User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: ${siteUrl(req)}/sitemap.xml\n`);
+    res.end(robotsTxt());
     return true;
   }
   if (path === '/sitemap.xml') {
     res.setHeader('Content-Type', 'application/xml; charset=utf-8');
-    const urls = PUBLIC_PAGES.map(p => `  <url><loc>${siteUrl(req)}${p}</loc></url>`).join('\n');
-    res.end(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`);
+    res.end(sitemapXml());
     return true;
   }
   return false;
