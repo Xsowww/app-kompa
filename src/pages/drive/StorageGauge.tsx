@@ -21,7 +21,7 @@ export default function StorageGauge() {
 
   // Local version: files stay in this browser, whose room has nothing to do with the online 1 GB.
   if (!cloudEnabled && !QUOTA)
-    return (
+    return used === 0 ? null : (
       <div className="tabular mb-4 text-[12px] text-stone-500">
         <span className="font-medium text-ink">{formatBytes(used)}</span> {tn(amount(used), 'utilisé sur cet appareil', 'utilisés sur cet appareil')}
         {inTrash > 0 && <> · {t('dont {size} dans la corbeille', { size: formatBytes(inTrash) })}</>}
