@@ -101,7 +101,8 @@ function JoinForm({ onDone }: { onDone: () => void }) {
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const clean = code.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  // The pasted invitation link (or « Code : ABC234 ») works too: its code is taken from it.
+  const clean = (code.match(/rejoindre=([A-Za-z0-9]{6})/i)?.[1] ?? code).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(-6);
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
@@ -129,7 +130,6 @@ function JoinForm({ onDone }: { onDone: () => void }) {
       <input
         autoFocus
         value={code}
-        maxLength={8}
         onChange={e => setCode(e.target.value)}
         placeholder="ABC234"
         aria-label={t('Code d’invitation')}

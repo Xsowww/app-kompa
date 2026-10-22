@@ -1,3 +1,4 @@
+import { LoadFailed } from './shared';
 import { useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { FilePlus2, FileText } from 'lucide-react';
@@ -12,6 +13,7 @@ import { t, tn } from '../../i18n';
 export default function GroupNotes({ group }: { group: Group }) {
   const [params, setParams] = useSearchParams();
   const notes = useGroups(s => s.notes[group.id]);
+  const failed = useGroups(s => s.loadFailed[`${group.id}:notes`]);
   const nameOf = useMemberName(group.id);
   const { canEdit } = useRights(group);
   const [creating, setCreating] = useState(false);
@@ -77,7 +79,11 @@ export default function GroupNotes({ group }: { group: Group }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-2 pb-3">
-        <p className="eyebrow mr-auto">{notes?.length === 0 ? '' : notes ? tn(notes.length, '{n} note partagée', '{n} notes partagées') : t('Chargement…')}</p>
+        {!notes && failed ? (
+          <LoadFailed groupId={group.id} part="notes" className="mr-auto" />
+        ) : (
+          <p className="eyebrow mr-auto">{notes?.length === 0 ? '' : notes ? tn(notes.length, '{n} note partagée', '{n} notes partagées') : t('Chargement…')}</p>
+        )}
         {canEdit && (
           <button className="btn-primary h-8 px-3" disabled={creating} onClick={() => void newNote()}>
             <FilePlus2 size={14} /> {t('Nouvelle note')}

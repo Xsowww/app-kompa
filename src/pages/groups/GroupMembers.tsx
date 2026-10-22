@@ -6,7 +6,7 @@ import { useGroups } from '../../store/groups';
 import { confirmAction, toast } from '../../store/ui';
 import { copyCode, copyInviteLink, deleteGroup, groupError, leaveGroup, regenerateAgendaToken, regenerateCode, removeMember, setMemberRights, type Group, type GroupMember, type GroupRole } from '../../lib/groups';
 import { fmt } from '../../lib/dates';
-import { MemberDot } from './shared';
+import { MemberDot, LoadFailed } from './shared';
 import { useGroupWords } from './util';
 import { t, tn } from '../../i18n';
 
@@ -14,6 +14,7 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
   const w = useGroupWords();
   const me = useAuth(s => s.user?.id);
   const members = useGroups(s => s.members[group.id]);
+  const failed = useGroups(s => s.loadFailed[`${group.id}:members`]);
   const code = useGroups(s => s.codes[group.id]);
   const mine = members?.find(m => m.userId === me);
   const [busy, setBusy] = useState(false);
@@ -77,9 +78,13 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
         ? agenda
           ? t('Le membre le plus ancien deviendra propriétaire. Tu pourras revenir avec le lien.')
           : t('Le membre le plus ancien deviendra propriétaire. Tu pourras revenir avec le code.')
-        : agenda
-          ? t('Tes événements restent. Tu pourras revenir avec le lien.')
-          : t('Tes notes restent. Tu pourras revenir avec le code.');
+        : mine?.role !== 'editeur'
+          ? agenda
+            ? t('Tu pourras revenir avec le lien.')
+            : t('Tu pourras revenir avec le code.')
+          : agenda
+            ? t('Tes événements restent. Tu pourras revenir avec le lien.')
+            : t('Tes notes restent. Tu pourras revenir avec le code.');
     if (!(await confirmAction(t('Quitter « {name} » ?', { name: group.name }), message, t('Quitter')))) return;
     await run(async () => {
       await leaveGroup(group.id, alone);
@@ -128,7 +133,7 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
         <div className="card flex flex-wrap items-center gap-4 p-4">
           <div className="min-w-[220px] flex-1">
             <p className="text-[14px] font-medium">{t('Inviter quelqu’un')}</p>
-            <p className="mt-0.5 text-[13px] text-stone-500">{t('À saisir dans « Rejoindre {a} ».', { a: w.a })}</p>
+            <p className="mt-0.5 text-[13px] text-stone-500">{t('Envoie-lui ce code ou le lien « Inviter ».')}</p>
           </div>
           <span className="rounded-lg border border-dashed border-stone-300 bg-stone-50 px-3 py-1.5 font-mono text-[20px] font-semibold tracking-[0.25em]">{code}</span>
           <div className="flex gap-1.5">
@@ -153,7 +158,7 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
 
       <p className="eyebrow mb-2 mt-6">{members ? tn(members.length, '{n} membre', '{n} membres') : t('Membres')}</p>
       <div className="card divide-y divide-stone-100">
-        {!members && <p className="p-4 text-[13px] text-stone-500">{t('Chargement…')}</p>}
+        {!members && (failed ? <LoadFailed groupId={group.id} part="members" className="p-4" /> : <p className="p-4 text-[13px] text-stone-500">{t('Chargement…')}</p>)}
         {members?.map(m => (
           <div key={m.userId} className="group flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2.5">
             <MemberDot userId={m.userId} name={m.name} size={30} className="ring-0" />

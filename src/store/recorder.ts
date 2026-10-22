@@ -271,7 +271,8 @@ async function runPump() {
         const hint = `${s.title}. ${s.keywords.slice(0, 20).map(k => k.word).join(', ')}. ${before}`;
         try {
           heard = await withRetry(() => transcribe(encodeWav(piece.samples), hint), {
-            tries: useRecLive.getState().hearing ? 50 : 5,
+            // While listening, a long wait is fine; once « Terminer » is pressed, a few tries only, then the document is filed.
+            tries: () => (useRecLive.getState().hearing ? 50 : 5),
             onWait: w => live({ waiting: w }),
           });
         } catch (e) {

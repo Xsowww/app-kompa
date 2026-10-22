@@ -1,3 +1,4 @@
+import { LoadFailed } from './shared';
 import { useCallback, useRef, useState } from 'react';
 import { Download, Eye, Flag, FolderDown, Paperclip, Trash2 } from 'lucide-react';
 import { useAuth } from '../../store/auth';
@@ -19,6 +20,7 @@ const asItem = (f: GroupFile): DriveItem => ({ id: f.id, name: f.name, kind: 'fi
 export default function GroupFiles({ group }: { group: Group }) {
   const w = useGroupWords();
   const files = useGroups(s => s.files[group.id]);
+  const failed = useGroups(s => s.loadFailed[`${group.id}:files`]);
   const nameOf = useMemberName(group.id);
   const { canEdit } = useRights(group);
   const [preview, setPreview] = useState<GroupFile | null>(null);
@@ -81,7 +83,20 @@ export default function GroupFiles({ group }: { group: Group }) {
       onDragLeave={e => !e.currentTarget.contains(e.relatedTarget as Node) && setOver(false)}
       onDrop={drop}
     >
-      {files?.length !== 0 && <p className="eyebrow pb-3">{files ? tn(files.length, '{n} fichier partagé', '{n} fichiers partagés') : t('Chargement…')}</p>}
+      {!files && failed ? (
+        <LoadFailed groupId={group.id} part="files" className="pb-3" />
+      ) : (
+        files?.length !== 0 && (
+          <div className="flex items-center pb-3">
+            <p className="eyebrow mr-auto">{files ? tn(files.length, '{n} fichier partagé', '{n} fichiers partagés') : t('Chargement…')}</p>
+            {files && canEdit && (
+              <button className="btn-ghost h-7 px-2 text-[12.5px]" onClick={() => input.current?.click()} title={t('Ou dépose-les ici')}>
+                <Paperclip size={13} /> {t('Ajouter un fichier')}
+              </button>
+            )}
+          </div>
+        )
+      )}
       <div className={cx('min-h-0 flex-1 overflow-y-auto rounded-xl pb-16 lg:pb-14', over && 'outline-2 outline-dashed outline-stone-300')}>
         {files && files.length === 0 && (
           <div className="card flex flex-col items-center px-6 py-12 text-center">

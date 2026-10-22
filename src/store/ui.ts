@@ -59,7 +59,8 @@ export const useUi = create<UiState>((set, get) => ({
   dialog: null,
   toast(text, tone = 'info', action) {
     const t: Toast = { id: uid(), text, tone, action };
-    set(s => ({ toasts: [...s.toasts, t] }));
+    // A success makes an earlier error out of date (retried and done): it isn't left on screen beside it.
+    set(s => ({ toasts: [...(tone === 'success' ? s.toasts.filter(x => x.tone !== 'error') : s.toasts), t] }));
     setTimeout(() => get().dismissToast(t.id), action ? 6000 : 3500);
   },
   dismissToast: id => set(s => ({ toasts: s.toasts.filter(t => t.id !== id) })),

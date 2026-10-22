@@ -9,7 +9,7 @@ import { confirmAction, toast } from '../../store/ui';
 import { createEvent, deleteEvent, groupError, setAttendance, type Group, type GroupEvent } from '../../lib/groups';
 import { countdownLabel, fmt, fromKey, todayKey } from '../../lib/dates';
 import { cx } from '../../lib/utils';
-import { MemberDot } from './shared';
+import { MemberDot, LoadFailed } from './shared';
 import { groupColor, useGroupWords, useMemberName, useRights } from './util';
 import { useSettings } from '../../store/settings';
 import { t, tn } from '../../i18n';
@@ -121,6 +121,7 @@ function EventCard({ group, ev }: { group: Group; ev: GroupEvent }) {
     try {
       await deleteEvent(ev.id);
       await useGroups.getState().refresh(group.id, ['events']);
+      toast(t('Supprimé {of}', { of: w.of }), 'success');
     } catch (e) {
       toast(groupError(e), 'error');
     }
@@ -207,6 +208,7 @@ function EventCard({ group, ev }: { group: Group; ev: GroupEvent }) {
 export default function GroupEvents({ group }: { group: Group }) {
   const w = useGroupWords();
   const events = useGroups(s => s.events[group.id]);
+  const failed = useGroups(s => s.loadFailed[`${group.id}:events`]);
   const [adding, setAdding] = useState(false);
   const { canEdit } = useRights(group);
 
@@ -222,7 +224,7 @@ export default function GroupEvents({ group }: { group: Group }) {
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto pb-2">
         {adding && canEdit && <EventForm group={group} onDone={() => setAdding(false)} />}
-        {!events && <p className="text-[13px] text-stone-500">{t('Chargement…')}</p>}
+        {!events && (failed ? <LoadFailed groupId={group.id} part="events" /> : <p className="text-[13px] text-stone-500">{t('Chargement…')}</p>)}
         {events && events.length === 0 && !adding && (
           <div className="card flex flex-col items-center px-6 py-12 text-center">
             <CalendarPlus size={26} strokeWidth={1.5} className="text-stone-300" />

@@ -16,7 +16,7 @@ export class CoursError extends Error {
 }
 
 /** The server can't help (not set up, or today's allowance used): no use trying again soon. */
-export const isFinal = (e: unknown) => e instanceof CoursError && ['disabled', 'daily_limit', 'site_limit', 'bad_audio', 'bad_task'].includes(e.code);
+export const isFinal = (e: unknown) => e instanceof CoursError && ['disabled', 'daily_limit', 'site_limit', 'bad_audio', 'bad_task', 'http_404'].includes(e.code); // 404: no transcription server here at all
 
 async function call<T>(path: string, init: RequestInit, timeoutMs: number): Promise<T> {
   const ctrl = new AbortController();
@@ -69,13 +69,14 @@ export async function pause(ms: number, cancelled: () => boolean = () => false) 
 }
 
 /** Does `fn`, trying again after a short wait when the server is busy or the network drops (not when it's final). */
-export async function withRetry<T>(fn: () => Promise<T>, opts: { tries?: number; onWait?: (seconds: number) => void; cancelled?: () => boolean } = {}): Promise<T> {
-  const tries = opts.tries ?? 6;
+export async function withRetry<T>(fn: () => Promise<T>, opts: { tries?: number | (() => number); onWait?: (seconds: number) => void; cancelled?: () => boolean } = {}): Promise<T> {
+  // `tries` as a function is read at each failure: a limit that changes along the way (e.g. once recording ends).
+  const tries = () => (typeof opts.tries === 'function' ? opts.tries() : (opts.tries ?? 6));
   for (let i = 0; ; i++) {
     try {
       return await fn();
     } catch (e) {
-      if (isFinal(e) || i >= tries - 1 || opts.cancelled?.()) throw e;
+      if (isFinal(e) || i >= tries() - 1 || opts.cancelled?.()) throw e;
       const wait = e instanceof CoursError && e.retryAfter ? e.retryAfter : Math.min(60, 3 * 2 ** i);
       opts.onWait?.(wait);
       await pause(wait * 1000, opts.cancelled);

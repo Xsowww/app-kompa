@@ -2,6 +2,19 @@ import { GROUP_COLORS, type Group } from '../../lib/groups';
 import { groupColor } from './util';
 import { cx } from '../../lib/utils';
 import { t } from '../../i18n';
+import { useGroups } from '../../store/groups';
+
+/** A tab whose content couldn't be read (no connection…): said plainly, with « Réessayer », instead of loading forever. */
+export function LoadFailed({ groupId, part, className }: { groupId: string; part: 'members' | 'notes' | 'events' | 'files'; className?: string }) {
+  return (
+    <p className={cx('text-[13px] text-stone-500', className)}>
+      {t('Impossible de charger.')}{' '}
+      <button className="font-medium text-ink underline underline-offset-2" onClick={() => void useGroups.getState().refresh(groupId, [part])}>
+        {t('Réessayer')}
+      </button>
+    </p>
+  );
+}
 
 /** Pastille carrée du groupe : sa photo, sinon l'initiale sur sa couleur. */
 export function GroupBadge({ group, size = 28 }: { group: Pick<Group, 'name' | 'color'> & { photo?: string | null }; size?: number }) {
@@ -35,6 +48,15 @@ export function MemberDot({ userId, name, size = 24, className }: { userId: stri
   );
 }
 
+const COLOR_NAMES: Record<string, () => string> = {
+  '#e8613c': () => t('Orange'),
+  '#3b6fd8': () => t('Bleu'),
+  '#2f9e6b': () => t('Vert'),
+  '#7a5ad6': () => t('Violet'),
+  '#d48a17': () => t('Ambre'),
+  '#1f8a8a': () => t('Turquoise'),
+};
+
 export function ColorPicker({ value, onChange }: { value: string; onChange: (c: string) => void }) {
   return (
     <div className="flex gap-2" role="radiogroup" aria-label={t('Couleur')}>
@@ -44,6 +66,7 @@ export function ColorPicker({ value, onChange }: { value: string; onChange: (c: 
           type="button"
           role="radio"
           aria-checked={value === c}
+          aria-label={COLOR_NAMES[c]()}
           onClick={() => onChange(c)}
           className={cx('hit h-7 w-7 rounded-full transition-transform hover:scale-110', value === c && 'ring-2 ring-offset-2')}
           style={{ background: c, ['--tw-ring-color' as string]: c }}

@@ -73,20 +73,40 @@ const untitled = (s: string) => s === 'Sans titre' || s === t('Sans titre');
 /** `fresh` : la note qu'on vient de créer (pas de rechargement) et le titre déjà tapé pendant sa création. */
 export default function GroupNoteEditor({ noteId, onClose, readOnly = false, fresh }: { noteId: string; onClose: () => void; readOnly?: boolean; fresh?: { note: GroupNote; title: { current: string } } }) {
   const preset = fresh?.note.id === noteId ? fresh : undefined;
-  const [note, setNote] = useState<GroupNote | null | undefined>(preset?.note);
+  const [note, setNote] = useState<GroupNote | null | undefined | 'error'>(preset?.note);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     if (preset) return;
     let alive = true;
+    // A note that can't be read (no connection…) isn't a deleted note: « Réessayer » instead of « n'existe plus ».
     fetchNote(noteId).then(
       n => alive && setNote(n),
-      () => alive && setNote(null),
+      () => alive && setNote('error'),
     );
     return () => {
       alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- la note fraîche ne sert qu'au premier affichage
-  }, [noteId]);
+  }, [noteId, attempt]);
 
+  if (note === 'error')
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
+        <p className="text-[14px] font-medium">{t('Impossible d’ouvrir la note. Vérifie ta connexion.')}</p>
+        <div className="mt-4 flex gap-2">
+          <button className="btn-secondary" onClick={onClose}>{t('Retour à la liste')}</button>
+          <button
+            className="btn-primary"
+            onClick={() => {
+              setNote(undefined);
+              setAttempt(n => n + 1);
+            }}
+          >
+            {t('Réessayer')}
+          </button>
+        </div>
+      </div>
+    );
   if (note === undefined) return <div className="flex-1 p-8 text-[13px] text-stone-500">{t('Chargement de la note…')}</div>;
   if (note === null)
     return (
@@ -257,8 +277,14 @@ function LoadedEditor({ initial, onClose, readOnly, startTitle }: { initial: Gro
       clearTimeout(timer.current);
       if (dirty.current && !blocked.current) void save();
     };
+    // Closing the tab right after typing: the save can't finish in time, so the browser asks first.
+    const warn = (e: BeforeUnloadEvent) => {
+      if (dirty.current && !blocked.current) e.preventDefault();
+    };
+    window.addEventListener('beforeunload', warn);
     window.addEventListener('pagehide', flush);
     return () => {
+      window.removeEventListener('beforeunload', warn);
       window.removeEventListener('pagehide', flush);
       flush();
     };

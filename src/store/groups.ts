@@ -24,6 +24,8 @@ interface GroupsState {
   files: Record<string, GroupFile[]>;
   /** Code d'invitation (null : pas le droit d'inviter). Lu à part, jamais dans la table groups. */
   codes: Record<string, string | null>;
+  /** « groupId:part » whose last read failed (no connection…): the tab offers « Réessayer » instead of loading forever. */
+  loadFailed: Record<string, true>;
   loadGroups: () => Promise<void>;
   /** Ouvre un groupe : charge son contenu et écoute les changements des autres membres. */
   open: (id: string | null) => void;
@@ -108,6 +110,7 @@ export const useGroups = create<GroupsState>((set, get) => {
     attendance: {},
     files: {},
     codes: {},
+    loadFailed: {},
 
     async loadGroups() {
       try {
@@ -142,7 +145,24 @@ export const useGroups = create<GroupsState>((set, get) => {
           api.fetchEvents(id, agenda ? toKey(addDays(new Date(), -366)) : todayKey()).then(r => set(s => ({ events: { ...s.events, [id]: r.events }, attendance: { ...s.attendance, [id]: r.attendance } }))),
           ...(agenda ? [api.fetchPeriods(id).then(p => set(s => ({ periods: { ...s.periods, [id]: p } })))] : []),
         );
+      // Each part remembers whether its last read failed.
+      const mark = (part: Part, ok: boolean) =>
+        set(s => {
+          const k = `${id}:${part}`;
+          if (ok === !s.loadFailed[k]) return s;
+          const loadFailed = { ...s.loadFailed };
+          if (ok) delete loadFailed[k];
+          else loadFailed[k] = true;
+          return { loadFailed };
+        });
       const res = await Promise.allSettled(jobs);
+      const order = (['members', 'files', 'notes', 'events'] as Part[]).filter(p => parts.includes(p));
+      let i = 0;
+      for (const part of order) {
+        const n = part === 'members' ? 2 : part === 'events' && agenda ? 2 : 1;
+        mark(part, res.slice(i, i + n).every(r => r.status === 'fulfilled'));
+        i += n;
+      }
       // Plus membre (retiré par le propriétaire, groupe supprimé) : la liste des groupes le dira.
       if (res.some(r => r.status === 'rejected')) void get().loadGroups();
     },
@@ -160,7 +180,7 @@ export const useGroups = create<GroupsState>((set, get) => {
 
     reset() {
       subscribe(null);
-      set({ groups: [], loaded: false, failed: false, activeId: null, members: {}, notes: {}, events: {}, periods: {}, attendance: {}, files: {}, codes: {} });
+      set({ groups: [], loaded: false, failed: false, activeId: null, members: {}, notes: {}, events: {}, periods: {}, attendance: {}, files: {}, codes: {}, loadFailed: {} });
     },
   };
 });

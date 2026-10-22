@@ -6,9 +6,12 @@ import { useGroups } from '../../store/groups';
 import { toast } from '../../store/ui';
 import { createEvent, deleteEvent, deletePeriod, groupError, savePeriods, setAgendaCategories, updateEvent, type Group, type GroupEvent, type NewGroupEvent } from '../../lib/groups';
 import { useMemberName, useRights } from './util';
+import { LoadFailed } from './shared';
 import { useAuth } from '../../store/auth';
 import { sortPeriods } from '../../lib/periods';
 import { t } from '../../i18n';
+import { applyUsage } from '../../lib/usage';
+import { useSettings } from '../../store/settings';
 
 /** A built-in category or one of the calendar's own; anything else (deleted since, mine) shows as Perso. */
 const categoryIn = (custom: CustomCategory[]) => (c: string | null | undefined): EventCategory =>
@@ -50,15 +53,27 @@ const flushPending = () => [...pending.values()].forEach(send => send());
 /** The Calendar page (day, week, month…) on a shared calendar: every member sees the changes live. */
 export default function SharedCalendar({ group }: { group: Group }) {
   const raw = useGroups(s => s.events[group.id]);
+  // Events not read (no connection…): said, rather than an empty calendar that looks like « Rien de prévu ».
+  const failed = useGroups(s => !s.events[group.id] && !!s.loadFailed[`${group.id}:events`]);
   const periods = useGroups(s => s.periods[group.id]);
   const members = useGroups(s => s.members[group.id]);
   const me = useAuth(s => s.user?.id);
   const nameOf = useMemberName(group.id);
   const { canEdit } = useRights(group);
   const [, redraw] = useState(0);
+  // shortcut: a shared calendar (coloc, famille, équipe) names the built-in categories the same way for every member,
+  // whatever their own usage: the everyday names, set before the calendar draws and put back when it closes.
+  useState(() => applyUsage('perso'));
+  useEffect(() => () => applyUsage(useSettings.getState().usage), []);
   useEffect(() => {
+    // A removal still waiting for its « Annuler » can't reach the server once the tab is closing: the browser asks first.
+    const warn = (e: BeforeUnloadEvent) => {
+      if (pending.size) e.preventDefault();
+    };
+    addEventListener('beforeunload', warn);
     addEventListener('pagehide', flushPending);
     return () => {
+      removeEventListener('beforeunload', warn);
       removeEventListener('pagehide', flushPending);
       flushPending();
     };
@@ -102,20 +117,33 @@ export default function SharedCalendar({ group }: { group: Group }) {
         canEdit,
         author: id => nameOf(list.find(e => e.id === id)?.createdBy ?? null),
         people: [...(members ?? [])].sort((a, b) => Number(b.userId === me) - Number(a.userId === me) || a.name.localeCompare(b.name)).map(m => ({ id: m.userId, name: m.userId === me ? t('Moi') : m.name })),
-        nameOf: id => nameOf(id, t('Toi')).replace(/^./, c => c.toUpperCase()),
+        nameOf: id => nameOf(id, t('toi')),
       },
       events: list.map(e => toCalendar(e, category)),
       categories: group.categories,
       categoryScope,
       add: e => {
-        void createEvent(group.id, { title: e.title, date: e.date, start: e.start ?? null, end: e.end ?? null, place: null, category: category(e.category), details: e.details ?? null, people: e.people ?? [], reminders: e.reminders ?? [] })
-          .then(reload)
-          .catch(fail);
+        const row = { title: e.title, date: e.date, start: e.start ?? null, end: e.end ?? null, place: null, category: category(e.category), details: e.details ?? null, people: e.people ?? [], reminders: e.reminders ?? [] };
+        // Not added (no connection…): nothing typed is lost, « Réessayer » sends the very same event again.
+        const send = () =>
+          void createEvent(group.id, row)
+            .then(reload)
+            .catch(err => {
+              toast(t('« {title} » n’a pas été ajouté : {why}', { title: e.title, why: groupError(err) }), 'error', { label: t('Réessayer'), run: send });
+              void reload();
+            });
+        send();
       },
       update: (id, patch) => {
         const row = toRow(patch, category);
+        const title = list.find(e => e.id === id)?.title ?? '';
         patchLocal(l => l.map(e => (e.id === id ? { ...e, ...row } : e)));
-        void updateEvent(id, row).catch(fail);
+        const send = () =>
+          void updateEvent(id, row).catch(err => {
+            toast(t('Modification de « {title} » non enregistrée : {why}', { title, why: groupError(err) }), 'error', { label: t('Réessayer'), run: send });
+            void reload();
+          });
+        send();
       },
       toggleDone: () => undefined, // no « fait » in a shared calendar
       remove: id => {
@@ -151,6 +179,7 @@ export default function SharedCalendar({ group }: { group: Group }) {
 
   return (
     <CalendarSourceContext.Provider value={source}>
+      {failed && <LoadFailed groupId={group.id} part="events" className="px-1 pb-2" />}
       <CalendarPage />
     </CalendarSourceContext.Provider>
   );
