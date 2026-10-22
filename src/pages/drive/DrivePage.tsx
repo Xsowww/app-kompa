@@ -699,14 +699,14 @@ export default function DrivePage() {
                 setListSort(null);
                 setSelected(new Set());
               }}
-              className={cx('flex h-9 min-w-10 items-center justify-center gap-1.5 rounded-md px-2.5 font-medium transition-colors sm:h-7 sm:min-w-0 pointer-coarse:h-9', tab === k ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
+              className={cx('flex h-9 min-w-10 items-center justify-center gap-1.5 rounded-md px-2.5 font-medium transition-colors sm:h-7 sm:min-w-0 pointer-coarse:h-11 pointer-coarse:min-w-11', tab === k ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
             >
               <Icon size={13} />
               <span className="hidden sm:inline">{label}</span>
             </button>
           ))}
         </div>
-        <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5 pointer-coarse:gap-3">
           <label className="relative order-last w-full sm:order-none sm:w-auto">
             <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400" />
             <input
@@ -840,7 +840,7 @@ export default function DrivePage() {
             <button
               onClick={() => openFolder(null)}
               {...folderDropProps(null, 'crumb-root')}
-              className={cx('rounded-md px-1.5 py-1 font-medium transition-colors hover:bg-stone-100 pointer-coarse:py-2', breadcrumb.length ? 'text-stone-500' : 'text-ink', dropTarget === 'crumb-root' && 'bg-brand-50 text-brand-700')}
+              className={cx('rounded-md px-1.5 py-1 font-medium transition-colors hover:bg-stone-100 pointer-coarse:py-3', breadcrumb.length ? 'text-stone-500' : 'text-ink', dropTarget === 'crumb-root' && 'bg-brand-50 text-brand-700')}
             >
               {t('Mon Drive')}
             </button>
@@ -851,7 +851,7 @@ export default function DrivePage() {
                   onClick={() => openFolder(b.id)}
                   {...folderDropProps(b.id, `crumb-${b.id}`)}
                   className={cx(
-                    'max-w-48 truncate rounded-md px-1.5 py-1 font-medium transition-colors hover:bg-stone-100 pointer-coarse:py-2',
+                    'max-w-48 truncate rounded-md px-1.5 py-1 font-medium transition-colors hover:bg-stone-100 pointer-coarse:py-3',
                     b.id === parentId ? 'text-ink' : 'text-stone-500',
                     dropTarget === `crumb-${b.id}` && 'bg-brand-50 text-brand-700',
                   )}

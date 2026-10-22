@@ -114,7 +114,7 @@ export default function FocusTimer() {
       <button
         data-focus-start
         onClick={() => setPicking(true)}
-        className="mb-2 flex h-9 w-full items-center gap-2.5 rounded-lg border border-dashed border-stone-300 px-2.5 text-[13px] text-stone-600 transition-colors hover:border-brand-500 hover:bg-brand-50 hover:text-brand-700"
+        className="mb-2 flex h-9 w-full items-center gap-2.5 rounded-lg border border-dashed pointer-coarse:h-11 border-stone-300 px-2.5 text-[13px] text-stone-600 transition-colors hover:border-brand-500 hover:bg-brand-50 hover:text-brand-700"
         title={t('{focus} min de travail, {pause} min de pause', { focus: focusMinutes, pause: breakMinutes })}
       >
         <Timer size={15} />

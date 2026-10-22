@@ -58,7 +58,8 @@ export interface Settings {
   // (« notifications on this device » is per device: lib/push)
   /** Reminders given to a new event that has a time (minutes before); [] = none. */
   defaultReminders: number[];
-  focusSound: boolean;
+  focusSound: boolean; // end of a focus session
+  reminderSound: boolean; // a small sound with a reminder shown in the app
   groupNews: boolean; // what the others do in my groups and shared calendars (also read by server/push.mjs)
   copilotNotify: boolean; // Kompaly's suggestions as a notification while the app is in the background
   // motivation
@@ -102,6 +103,7 @@ export const DEFAULT_SETTINGS: Settings = {
   focusTotalMinutes: 0,
   defaultReminders: [15],
   focusSound: true,
+  reminderSound: true,
   groupNews: true,
   copilotNotify: true,
   badgesSeen: [],

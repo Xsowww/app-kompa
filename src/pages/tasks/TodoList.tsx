@@ -130,7 +130,7 @@ const TodoRow = memo(function TodoRow({ t: todo, editable, preview, now = 0, gro
   };
 
   return (
-    <li ref={rowRef} className="list-row group flex min-h-9 items-center gap-2 rounded-lg sm:gap-3 px-1.5 py-1 transition-colors hover:bg-stone-50">
+    <li ref={rowRef} className="list-row group flex min-h-9 items-center gap-2 rounded-lg sm:gap-3 pointer-coarse:gap-4 px-1.5 pointer-coarse:pl-3.5 py-1 transition-colors hover:bg-stone-50">
       <button
         data-todo={todo.id}
         onClick={() => {
@@ -148,7 +148,7 @@ const TodoRow = memo(function TodoRow({ t: todo, editable, preview, now = 0, gro
         {todo.done && <Check size={10} strokeWidth={3} className="pop text-white" />}
       </button>
       {preview ? (
-        <Link to={`/taches?tache=${todo.id}`} className="min-w-0 flex-1 rounded text-[13px] hover:underline pointer-coarse:-my-1 pointer-coarse:py-2" title={t('Ouvrir dans Tâches')}>
+        <Link to={`/taches?tache=${todo.id}`} className="min-w-0 flex-1 rounded text-[13px] hover:underline pointer-coarse:-my-2 pointer-coarse:py-3" title={t('Ouvrir dans Tâches')}>
           <span className={cx('line-clamp-2 break-words', justDone ? 'text-stone-500 line-through decoration-emerald-500/70' : 'text-ink')}>{todo.title}</span>
           {justDone && <GoesIn minutes={minutesLeft} />}
         </Link>
@@ -318,7 +318,7 @@ function QuickAdd() {
         aria-haspopup="dialog"
         aria-expanded={!!dueMenu}
         onClick={e => setDueMenu(dueMenu ? null : e.currentTarget)}
-        className={cx('flex h-10 shrink-0 items-center gap-1.5 rounded-[14px] px-3 text-[12.5px] font-semibold transition-colors', due ? 'bg-brand-50 text-brand-700 hover:bg-brand-100' : 'bg-stone-100 text-stone-600 hover:bg-stone-200 hover:text-ink')}
+        className={cx('flex h-10 shrink-0 items-center gap-1.5 rounded-[14px] px-3 text-[12.5px] font-semibold transition-colors pointer-coarse:h-11 pointer-coarse:min-w-11', due ? 'bg-brand-50 text-brand-700 hover:bg-brand-100' : 'bg-stone-100 text-stone-600 hover:bg-stone-200 hover:text-ink')}
         title={due ? t('Changer l’échéance') : t('Ajouter une échéance')}
         aria-label={due ? t('Échéance : {day}', { day: fmtDay(fromKey(due), 'EEEE d MMMM') }) : t('Ajouter une échéance')}
       >
@@ -340,7 +340,7 @@ function QuickAdd() {
           onClose={() => setDueMenu(null)}
         />
       )}
-      <button type="button" onClick={submit} disabled={!title.trim()} className="btn h-10 shrink-0 bg-tile-blue px-4 text-white hover:brightness-110 disabled:opacity-50">
+      <button type="button" onClick={submit} disabled={!title.trim()} className="btn h-10 shrink-0 bg-tile-blue px-4 text-white hover:brightness-110 disabled:opacity-50 pointer-coarse:h-11">
         <Plus size={15} strokeWidth={2.4} aria-hidden /> <span className="max-sm:sr-only">{t('Ajouter')}</span>
       </button>
     </div>
@@ -438,7 +438,7 @@ export default function TodoList({ limit, grouped }: { limit?: number; grouped?:
         </div>
       )}
       {preview && (
-        <Link to="/taches?ajout=1" className="mt-auto inline-flex h-9 items-center gap-1.5 self-start rounded-full px-1.5 pt-2 text-[12.5px] font-semibold text-brand-600 hover:text-brand-700">
+        <Link to="/taches?ajout=1" className="mt-auto inline-flex h-9 items-center gap-1.5 self-start rounded-full px-1.5 pt-2 text-[12.5px] font-semibold text-brand-600 hover:text-brand-700 pointer-coarse:h-12">
           <Plus size={14} aria-hidden /> {t('Ajouter une tâche')}
         </Link>
       )}

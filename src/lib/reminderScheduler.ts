@@ -83,7 +83,7 @@ function sources(): ReminderSource[] {
 // ── Showing one ─────────────────────────────────────────────────────────────
 function showInApp(r: { key: string; title: string; body: string; url: string }) {
   useUi.getState().showAlert({ key: r.key, title: r.title, body: r.body, url: r.url, at: Date.now() });
-  if (getSettings().focusSound) chime();
+  if (getSettings().reminderSound) chime();
 }
 
 function fire(group: DueReminder[]) {

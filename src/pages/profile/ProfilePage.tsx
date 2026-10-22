@@ -728,6 +728,9 @@ function NotificationsTab() {
         </Row>
       </Section>
       <Section title={t('Autres notifications')}>
+        <Row label={t('Son des rappels')}>
+          <Toggle label={t('Son des rappels')} checked={s.reminderSound} onChange={v => s.set({ reminderSound: v })} />
+        </Row>
         <Row label={t('Groupes et agendas partagés')}>
           <Toggle label={t('Groupes et agendas partagés')} checked={s.groupNews} onChange={v => s.set({ groupNews: v })} />
         </Row>

@@ -322,6 +322,8 @@ body {
     inset: min(0px, calc(50% - 22px));
   }
   .hit-sm::after { inset: -8px; }
+  /* Text fields: 44 px high under a finger (on computers they keep their size). */
+  input.field, select.field { min-height: 44px; }
   /* A checkbox has no ::after: the label around it gets the margin instead, without moving anything. */
   .check-hit { margin: -11px; padding: 11px; }
 }
