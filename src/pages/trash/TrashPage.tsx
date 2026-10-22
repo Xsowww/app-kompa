@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Eye, FileText, Folder, MoreHorizontal, RotateCcw, Trash2, X } from 'lucide-react';
 import { parseISO } from 'date-fns';
@@ -8,7 +8,6 @@ import { confirmAction, toast, useUi } from '../../store/ui';
 import { ContextMenu, Modal, type MenuItem } from '../../components/Overlays';
 import FileIcon from '../../components/FileIcon';
 import PreviewModal from '../drive/PreviewModal';
-import NoteEditor from '../notes/NoteEditor';
 import { cx } from '../../lib/utils';
 import { fmt } from '../../lib/dates';
 import { isMenuKey, menuPoint } from '../../lib/a11y';
@@ -24,6 +23,8 @@ const fromParam = (v: string | null): TrashType | null => (Object.keys(PARAM) as
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
 // fmt: « 1er nov. », as everywhere else (the file preview says « supprimé le 1er nov. à 10:05 »).
+// Heavy (Tiptap): only loaded when a trashed note is previewed.
+const NoteEditor = lazy(() => import('../notes/NoteEditor'));
 const deletedOn = (iso: string) => (iso ? fmt(new Date(iso), 'd MMM') : '');
 const deletedOnLong = (iso: string) => (iso ? fmt(new Date(iso), t("d MMM 'à' HH:mm")) : '');
 const leftShort = (d: number) => (d <= 0 ? t('aujourd’hui') : t('dans {n} j', { n: d }));
@@ -82,7 +83,9 @@ function PreviewDialog({ entry, onClose, onRestore, onPurge }: { entry: TrashEnt
       <div className="mt-4">
         {entry.kind === 'note' ? (
           <div className="-mx-5 flex max-h-[55vh] flex-col border-y border-stone-100 [&_.prose-note]:min-h-0">
-            <NoteEditor note={entry.note} readOnly inset="px-5 py-5" />
+            <Suspense fallback={<div className="min-h-24" />}>
+              <NoteEditor note={entry.note} readOnly inset="px-5 py-5" />
+            </Suspense>
           </div>
         ) : entry.kind === 'event' ? (
           <dl className="grid grid-cols-[96px_1fr] gap-x-3 gap-y-2 text-[13px]">

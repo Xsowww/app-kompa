@@ -28,6 +28,7 @@ import { isMenuKey, menuPoint } from '../../lib/a11y';
 import { isTrashedDriveItem } from '../../lib/trash';
 import { StorageError } from '../../lib/blobStore';
 import { cloudEnabled } from '../../lib/supabase';
+import { useProgressive } from '../../lib/useProgressive';
 import { t, tn, locale } from '../../i18n';
 
 type Tab = 'all' | 'starred' | 'recent';
@@ -171,6 +172,8 @@ export default function DrivePage() {
     return sortItems(items, list, activeSort ?? sort);
   }, [items, parentId, tab, sort, activeSort, q, activeTag, contentHits]);
 
+  // A big folder shows its first rows at once, the rest when the browser is free.
+  const shown = useProgressive(visible.length, 60);
   const selectedIds = useMemo(() => [...selected].filter(id => items.some(i => i.id === id)), [selected, items]);
   const single = selectedIds.length === 1 ? items.find(i => i.id === selectedIds[0]) : undefined;
   const selectedFolders = items.filter(i => i.kind === 'folder' && selected.has(i.id));
@@ -910,7 +913,7 @@ export default function DrivePage() {
           </div>
         ) : view === 'grid' && !q ? (
           <div role="listbox" aria-label={t('Contenu du dossier')} aria-multiselectable="true" className="grid grid-cols-[repeat(auto-fill,minmax(124px,1fr))] gap-1.5">
-            {visible.map(item => {
+            {visible.slice(0, shown).map(item => {
               const sel = selected.has(item.id);
               return (
                 <div
@@ -950,7 +953,7 @@ export default function DrivePage() {
               {sortBtn('size')}
             </div>
             <div role="listbox" aria-label={t('Contenu du dossier')} aria-multiselectable="true">
-            {visible.map(item => {
+            {visible.slice(0, shown).map(item => {
               const sel = selected.has(item.id);
               return (
                 <div

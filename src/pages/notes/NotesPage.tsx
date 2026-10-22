@@ -1,4 +1,4 @@
-import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { lazy, memo, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { flashWhenReady } from '../../lib/flash';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -16,7 +16,6 @@ import { FolderColorPicker } from '../../components/FolderColorPicker';
 import { folderIconStyle } from '../../store/drive';
 import { useProgressive } from '../../lib/useProgressive';
 import { cx, normalize, noteSearchText, noteText, relativeTime } from '../../lib/utils';
-import NoteEditor from './NoteEditor';
 import { LinkChips, LinkPicker } from './NoteLinks';
 import { noteTemplates, type NoteTemplate } from './templates';
 import { downloadMarkdown, printNote } from './exportNote';
@@ -27,6 +26,10 @@ import NoteMoveDialog, { type NoteMoveTarget } from './NoteMoveDialog';
 import { takeContentBuffer, takeTitleBuffer } from './titleBuffer';
 import type { Editor } from '@tiptap/react';
 import { t, locale } from '../../i18n';
+
+// The editor (Tiptap) is heavy: load it when a note opens, and ahead of time once the list is idle.
+const loadEditor = () => import('./NoteEditor');
+const NoteEditor = lazy(loadEditor);
 
 const DRAG_NOTE = 'application/x-cop-note';
 const DRAG_FOLDER = 'application/x-cop-note-folder';
@@ -53,6 +56,13 @@ export default function NotesPage() {
   // and the first keys typed after « Nouvelle note » must land in its title.
   const [created, setCreated] = useState<string | null>(null);
   useEffect(() => setCreated(null), [urlNoteId]);
+  // Fetch the editor while the list is idle, so opening a note stays instant.
+  useEffect(() => {
+    const idle = window.requestIdleCallback ?? ((f: () => void) => setTimeout(f, 300));
+    const cancel = window.cancelIdleCallback ?? clearTimeout;
+    const id = idle(() => void loadEditor(), { timeout: 3000 });
+    return () => cancel(id as number);
+  }, []);
   const noteId = created ?? urlNoteId;
   const folderParam = params.get('dossier');
   // Arriving on a note from elsewhere (search, Kompaly, a notification): its row in the list glows.
@@ -585,7 +595,9 @@ export default function NotesPage() {
                 <MoreHorizontal size={16} />
               </button>
             </div>
-            <NoteEditor key={active.id} note={active} />
+            <Suspense fallback={<div className="flex-1" />}>
+              <NoteEditor key={active.id} note={active} />
+            </Suspense>
             <LinkPicker note={active} open={linking} onClose={() => setLinking(false)} />
           </>
         ) : (

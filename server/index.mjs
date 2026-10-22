@@ -3,7 +3,7 @@
 
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
-import { gzipSync } from 'node:zlib';
+import { brotliCompress, constants as zlibConst, gzipSync } from 'node:zlib';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { handleCopilot, copilotProvider, ipOf } from './copilot.mjs';
@@ -125,16 +125,26 @@ async function serveStatic(req, res) {
       if (BEACON) html = html.replace('</body>', `${BEACON}\n  </body>`);
       raw = Buffer.from(html);
     }
-    entry = { raw, gzip: COMPRESSIBLE.has(extname(file)) && raw.length > 1024 ? gzipSync(raw) : null };
+    entry = { raw, gzip: COMPRESSIBLE.has(extname(file)) && raw.length > 1024 ? gzipSync(raw) : null, br: null };
     files.set(key, entry);
+    // Brotli is ~15 % smaller than gzip but slow at its best level: made in the background,
+    // gzip is served until it is ready.
+    if (entry.gzip) {
+      const done = entry;
+      brotliCompress(raw, { params: { [zlibConst.BROTLI_PARAM_QUALITY]: 11, [zlibConst.BROTLI_PARAM_SIZE_HINT]: raw.length } }, (err, out) => {
+        if (!err) done.br = out;
+      });
+    }
   }
   res.setHeader('Content-Type', TYPES[extname(file)] ?? 'application/octet-stream');
   // Hashed file names change with each build; the page itself must always be checked again.
   res.setHeader('Cache-Control', file.includes('/assets/') ? 'public, max-age=31536000, immutable' : 'no-cache');
-  const gzip = entry.gzip && /\bgzip\b/.test(String(req.headers['accept-encoding'] ?? ''));
+  const accept = String(req.headers['accept-encoding'] ?? '');
+  const br = entry.br && /\bbr\b/.test(accept);
+  const gzip = !br && entry.gzip && /\bgzip\b/.test(accept);
   if (entry.gzip) res.setHeader('Vary', 'Accept-Encoding');
-  if (gzip) res.setHeader('Content-Encoding', 'gzip');
-  res.end(gzip ? entry.gzip : entry.raw);
+  if (br || gzip) res.setHeader('Content-Encoding', br ? 'br' : 'gzip');
+  res.end(br ? entry.br : gzip ? entry.gzip : entry.raw);
 }
 
 // ── Search engines (server/seo.mjs) ─────────────────────────────────────────

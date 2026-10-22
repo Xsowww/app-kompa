@@ -1,5 +1,5 @@
 import { LoadFailed } from './shared';
-import { useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { FilePlus2, FileText } from 'lucide-react';
 import { useGroups } from '../../store/groups';
@@ -7,8 +7,11 @@ import { toast } from '../../store/ui';
 import { createNote, groupError, summary, type Group, type GroupNote } from '../../lib/groups';
 import { cx, relativeTime } from '../../lib/utils';
 import { useMemberName, useRights } from './util';
-import GroupNoteEditor from './GroupNoteEditor';
 import { t, tn } from '../../i18n';
+
+// Heavy (Tiptap): only loaded when a shared note is opened.
+const loadEditor = () => import('./GroupNoteEditor');
+const GroupNoteEditor = lazy(loadEditor);
 
 export default function GroupNotes({ group }: { group: Group }) {
   const [params, setParams] = useSearchParams();
@@ -16,6 +19,13 @@ export default function GroupNotes({ group }: { group: Group }) {
   const failed = useGroups(s => s.loadFailed[`${group.id}:notes`]);
   const nameOf = useMemberName(group.id);
   const { canEdit } = useRights(group);
+  // Fetch the editor while the list is idle, so opening a note stays instant.
+  useEffect(() => {
+    const idle = window.requestIdleCallback ?? ((f: () => void) => setTimeout(f, 300));
+    const cancel = window.cancelIdleCallback ?? clearTimeout;
+    const id = idle(() => void loadEditor(), { timeout: 3000 });
+    return () => cancel(id as number);
+  }, []);
   const [creating, setCreating] = useState(false);
   // Pendant la création (aller-retour réseau), le titre se tape déjà : il est repris par l'éditeur.
   const [draft, setDraft] = useState('');
@@ -50,7 +60,9 @@ export default function GroupNotes({ group }: { group: Group }) {
   if (openId) {
     return (
       <div className="card flex min-h-0 flex-1 flex-col overflow-hidden">
-        <GroupNoteEditor key={openId} noteId={openId} readOnly={!canEdit} onClose={() => open(null)} fresh={fresh && { note: fresh, title: draftRef }} />
+        <Suspense fallback={<div className="flex-1" />}>
+          <GroupNoteEditor key={openId} noteId={openId} readOnly={!canEdit} onClose={() => open(null)} fresh={fresh && { note: fresh, title: draftRef }} />
+        </Suspense>
       </div>
     );
   }

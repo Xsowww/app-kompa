@@ -3,6 +3,8 @@
 // src/i18n/{en,es,de,it}.json, keyed by that French text (`npm run i18n` lists what is missing).
 // The language is chosen before the app loads (main.tsx), so texts written at module level are translated too.
 
+import type { Locale } from 'date-fns';
+
 export type Lang = 'fr' | 'en' | 'es' | 'de' | 'it';
 
 export const LANGS: { code: Lang; name: string }[] = [
@@ -24,6 +26,16 @@ const LOADERS: Record<Exclude<Lang, 'fr'>, () => Promise<{ default: Record<strin
   de: () => import('./de.json'),
   it: () => import('./it.json'),
 };
+
+// date-fns month and day names: French is built in (lib/dates), the others load with their dictionary.
+const DATE_LOADERS: Record<Exclude<Lang, 'fr'>, () => Promise<Locale>> = {
+  en: () => import('date-fns/locale/en-GB').then(m => m.enGB),
+  es: () => import('date-fns/locale/es').then(m => m.es),
+  de: () => import('date-fns/locale/de').then(m => m.de),
+  it: () => import('date-fns/locale/it').then(m => m.it),
+};
+/** The date-fns locale of a language other than French, once loadLang() is done. */
+export let dateLocale: Locale | undefined;
 
 const KEY = 'cop-lang';
 const isLang = (l: unknown): l is Lang => LANGS.some(x => x.code === l);
@@ -53,11 +65,9 @@ export async function loadLang() {
   lang = detect();
   document.documentElement.lang = lang;
   if (lang === 'fr') return;
-  try {
-    dict = (await LOADERS[lang]()).default;
-  } catch {
-    dict = {}; // offline with an old cache: French rather than nothing
-  }
+  const [d, dl] = await Promise.allSettled([LOADERS[lang](), DATE_LOADERS[lang]()]);
+  dict = d.status === 'fulfilled' ? d.value.default : {}; // offline with an old cache: French rather than nothing
+  dateLocale = dl.status === 'fulfilled' ? dl.value : undefined;
 }
 
 /** Saves the choice on this device and reloads the page in that language. */

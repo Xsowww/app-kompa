@@ -6,12 +6,13 @@ import { cx } from './lib/utils';
 import { loadUserData, useWelcome } from './store/session';
 import { toast } from './store/ui';
 import AuthPage from './pages/AuthPage';
-import MfaPage from './pages/MfaPage';
 import { DialogHost, Toasts } from './components/Overlays';
 import { t } from './i18n';
 import { PUBLIC_PAGES, pageHeads } from './lib/seoPages.mjs';
 
 // The app itself loads after the sign-in page: someone on /connexion doesn't wait for Kompaly and the editor.
+// Two-step sign-in: only the few accounts that turned it on need this page.
+const MfaPage = lazy(() => import('./pages/MfaPage'));
 const AppShell = lazy(() => import('./layout/AppShell'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const DrivePage = lazy(() => import('./pages/drive/DrivePage'));
@@ -170,7 +171,7 @@ export default function App() {
         <Route path="/inscription" element={<GuestOnly><AuthPage key="register" mode="register" /></GuestOnly>} />
         <Route path="/mot-de-passe-oublie" element={<GuestOnly><AuthPage key="forgot" mode="forgot" /></GuestOnly>} />
         <Route path="/reinitialisation" element={<AuthPage key="reset" mode="reset" />} />
-        <Route path="/securite" element={<MfaPage />} />
+        <Route path="/securite" element={<Suspense fallback={<Loading full />}><MfaPage /></Suspense>} />
         <Route path="/bienvenue" element={<WelcomeOnly><Suspense fallback={<Loading full />}><WelcomePage /></Suspense></WelcomeOnly>} />
         <Route path="/mentions-legales" element={<Suspense fallback={<Loading full />}><LegalPage doc="mentions" /></Suspense>} />
         <Route path="/confidentialite" element={<Suspense fallback={<Loading full />}><LegalPage doc="confidentialite" /></Suspense>} />

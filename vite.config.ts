@@ -54,7 +54,7 @@ function preloadPlugin(): Plugin {
       if (!boot || html?.type !== 'asset') return;
       const css = [...(boot.viteMetadata?.importedCss ?? [])].map(f => `/${f}`);
       const map = {
-        dict: Object.fromEntries(['en', 'es', 'de', 'it'].map(l => [l, withDeps(`/src/i18n/${l}.json`)])),
+        dict: Object.fromEntries((['en', 'es', 'de', 'it'] as const).map(l => [l, [...withDeps(`/src/i18n/${l}.json`), ...withDeps(`/date-fns/locale/${l === 'en' ? 'en-GB' : l}.js`)]])),
         app: [...withDeps('/src/layout/AppShell.tsx'), ...withDeps('/src/pages/Dashboard.tsx')],
         home: withDeps('/src/pages/LandingPage.tsx'),
       };
@@ -79,6 +79,16 @@ export default defineConfig(({ mode }) => {
     plugins: [tailwindcss(), react(), copilotApi(env), preloadPlugin()],
     // The commit being deployed (lib/freshness: an old tab on a public page reloads to the new version).
     define: { __BUILD__: JSON.stringify((process.env.RENDER_GIT_COMMIT ?? '').slice(0, 7)) },
+    // Fewer, bigger files: all the icons (with React, which they need) in one instead of ~35 tiny ones,
+    // and date-fns in one (other languages' month names load apart, see i18n).
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: (id: string) =>
+            id.includes('/node_modules/lucide-react/') ? 'icons' : id.includes('/node_modules/date-fns/') && !/\/locale\/(?!fr\b)/.test(id) ? 'date' : undefined,
+        },
+      },
+    },
     // Only this checkout's tests (not the copies of the repo that tools keep under .claude/).
     test: { exclude: ['**/node_modules/**', '.claude/**', 'dist/**'] },
   };

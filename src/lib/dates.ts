@@ -1,9 +1,10 @@
 import { addDays, format, isValid, parseISO, startOfWeek, differenceInCalendarDays } from 'date-fns';
-import { de, enGB, es, fr, it } from 'date-fns/locale';
-import { lang, t } from '../i18n';
+import { fr } from 'date-fns/locale/fr';
+import { dateLocale, lang, t } from '../i18n';
 import { parseQuickAddIn } from './quickAddOther';
 
-const DATE_LOCALE = { fr, en: enGB, es, de, it }[lang];
+// Read once: the app (and this file) loads after loadLang().
+const DATE_LOCALE = lang === 'fr' ? fr : (dateLocale ?? fr);
 
 // Called thousands of times per render (calendar, badges, reminders): plain string work, not date-fns.
 const pad = (n: number) => (n < 10 ? `0${n}` : String(n));
