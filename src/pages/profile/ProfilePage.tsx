@@ -3,9 +3,8 @@ import { SelectField, TimeField } from '../../components/Pickers';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   User, Palette, Sparkles, GraduationCap, Bell, Database, ShieldCheck, Camera, Check, Download, Upload, CalendarArrowUp, LogOut, Trash2, ChevronRight,
-  Timer, HardDrive, Smartphone, Keyboard, Briefcase, House, UserPlus, Lightbulb, Bug,
+  HardDrive, Smartphone, Keyboard, Briefcase, House, UserPlus,
 } from 'lucide-react';
-import { openFeedback } from '../../lib/feedback';
 import AccountList from '../../components/AccountList';
 import PasswordStrength from '../../components/PasswordStrength';
 import Field, { FieldError } from '../../components/Field';
@@ -17,9 +16,8 @@ import { useCopilot } from '../../store/copilot';
 import { useDrive } from '../../store/drive';
 import { useNotes } from '../../store/notes';
 import { useCalendar } from '../../store/calendar';
-import { useFocus } from '../../store/focus';
 import { loadUserData } from '../../store/session';
-import { askText, confirmAction, toast } from '../../store/ui';
+import { confirmAction, toast } from '../../store/ui';
 import { exportBackup, importBackup, exportIcs, wipeUserData, clearBeforeAccountDeletion, resetLocalData, imageToAvatar } from '../../lib/backup';
 import { chime, showSystemNotification } from '../../lib/notify';
 import { deviceState, disableDevice, enableDevice, pushActive, sendTestPush } from '../../lib/push';
@@ -266,17 +264,6 @@ function ProfileTab() {
       )}
 
       <BadgesSection />
-
-      <Section title={t('Ton avis compte')}>
-        <div className="flex flex-wrap gap-2 px-5 py-4">
-          <button className="btn-secondary h-9" onClick={() => openFeedback('idea')}>
-            <Lightbulb size={14} /> {t('Donner mon avis')}
-          </button>
-          <button className="btn-secondary h-9" onClick={() => openFeedback('bug')}>
-            <Bug size={14} /> {t('Signaler un bug')}
-          </button>
-        </div>
-      </Section>
     </div>
   );
 }
@@ -499,7 +486,6 @@ function CopilotTab() {
 
 function StudiesTab() {
   const s = useSettings();
-  const focus = useFocus();
   return (
     <div className="space-y-5">
       <Section title={t('Sessions focus')}>
@@ -514,18 +500,6 @@ function StudiesTab() {
             {t('Écouter')}
           </button>
           <Toggle label={t('Son')} checked={s.focusSound} onChange={v => s.set({ focusSound: v })} />
-        </Row>
-        <Row label={t('Lancer une session')} hint={focus.phase ? t('Une session est déjà en cours.') : undefined}>
-          <button
-            className="btn-primary h-8"
-            disabled={!!focus.phase}
-            onClick={async () => {
-              const label = await askText(t('Sur quoi tu travailles ?'), '', t('Démarrer'));
-              if (label !== null) focus.start(label.trim());
-            }}
-          >
-            <Timer size={14} /> {t('Démarrer')}
-          </button>
         </Row>
       </Section>
 

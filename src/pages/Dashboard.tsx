@@ -98,6 +98,8 @@ export default function Dashboard() {
 
   // « Maintenant » : what is on now, else the next thing today (the blue tile).
   const nowEvent = todayEvents.find(e => !e.done && e.start && (e.end ?? e.start) > nowTime);
+  // The « Aujourd’hui » widget lists the rest of the day: not again the event the blue tile shows.
+  const dayList = todayEvents.filter(e => e !== nowEvent);
   const minutesTo = nowEvent?.start ? Number(nowEvent.start.slice(0, 2)) * 60 + Number(nowEvent.start.slice(3)) - (now.getHours() * 60 + now.getMinutes()) : 0;
 
   const nowPeriods = periodsOn(periods, today);
@@ -271,17 +273,17 @@ export default function Dashboard() {
           </Widget>
 
           {/* Today: left out when there is nothing at all (the blue tile already says « Rien de prévu »). */}
-          {(todayEvents.length > 0 || nextEvents.length > 0) && (
+          {(dayList.length > 0 || nextEvents.length > 0) && (
           <Widget title={t('Aujourd’hui')} className="lg:col-start-1 lg:row-start-2">
-            {todayEvents.length > 0 && (
+            {dayList.length > 0 && (
               <ul className="-mx-1.5">
-                {todayEvents.map(e => (
+                {dayList.map(e => (
                   <EventRow key={e.id} e={e} />
                 ))}
               </ul>
             )}
             {nextEvents.length > 0 && (
-              <div className={cx(todayEvents.length > 0 && 'mt-3 border-t border-stone-100 pt-3')}>
+              <div className={cx(dayList.length > 0 && 'mt-3 border-t border-stone-100 pt-3')}>
                 <p className="eyebrow mb-0.5">{t('Ensuite')}</p>
                 <ul className="-mx-1.5">
                   {nextEvents.map(e => (
@@ -294,7 +296,7 @@ export default function Dashboard() {
           )}
 
           {/* To-do */}
-          <Widget title={t('À faire')} to="/taches" linkLabel={t('Ouvrir toutes les tâches')} className={cx('lg:col-start-1 lg:row-span-2', todayEvents.length || nextEvents.length ? 'lg:row-start-3' : 'lg:row-start-2')}>
+          <Widget title={t('À faire')} to="/taches" linkLabel={t('Ouvrir toutes les tâches')} className={cx('lg:col-start-1 lg:row-span-2', dayList.length || nextEvents.length ? 'lg:row-start-3' : 'lg:row-start-2')}>
             <TodoList limit={6} />
           </Widget>
 

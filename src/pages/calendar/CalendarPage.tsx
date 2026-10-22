@@ -2,7 +2,7 @@ import { useToday } from '../../lib/useToday';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { addDays, addMonths, endOfMonth, startOfMonth, isSameMonth } from 'date-fns';
-import { Bell, Check, Flag, ListFilter, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, CornerDownLeft, CalendarArrowDown, CalendarArrowUp, CalendarRange, CalendarPlus, CalendarClock } from 'lucide-react';
+import { Bell, Check, Flag, ListFilter, ChevronLeft, ChevronRight, Plus, Trash2, CornerDownLeft, CalendarArrowDown, CalendarArrowUp, CalendarRange, CalendarPlus, CalendarClock } from 'lucide-react';
 import { EmptyState, Skeleton } from '../../components/EmptyState';
 import { catOf, allCategories, guessCategory, isDeliverable, isBigEvent, sortEvents, type CalendarEvent, type EventCategory } from '../../store/calendar';
 import { parseQuickAdd, toKey, fromKey, todayKey, validKey, fmt, fmtDay, weekStart, countdownLabel, daysUntil, toMinutes, fromMinutes, isOver } from '../../lib/dates';
@@ -117,11 +117,8 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
           </p>
           {ev.details && <p className="mt-1.5 whitespace-pre-line text-[13px] text-stone-600 [overflow-wrap:anywhere]">{ev.details}</p>}
         </button>
-        {/* On a phone the card itself opens the form (with « Supprimer »): the title keeps the width. */}
+        {/* The card itself opens the form (with « Supprimer »); on a phone the bin goes too: the title keeps the width. */}
         {!readOnly && <div className="touch-show flex shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:max-sm:hidden">
-          <button className="icon-btn" title={t('Modifier')} aria-label={t('Modifier « {title} »', { title: ev.title })} onClick={onEdit}>
-            <Pencil size={14} />
-          </button>
           <button
             className="icon-btn hover:text-red-600"
             title={t('Supprimer')} aria-label={t('Supprimer « {title} »', { title: ev.title })}
@@ -353,8 +350,8 @@ export default function CalendarPage() {
 
   const submitQuick = (e: FormEvent) => {
     e.preventDefault();
-    if (!parsed || parsed.impossible) return;
-    if (!parsed.title) return openForm();
+    if (parsed?.impossible) return;
+    if (!parsed?.title) return openForm();
     const date = quickDate;
     source.add({ title: parsed.title, date, start: parsed.start ?? undefined, end: parsed.end ?? undefined, category: parsedCat!, important: parsed.important });
     setQuick('');
@@ -435,12 +432,13 @@ export default function CalendarPage() {
   // Same filter as the calendar (the category chips sit in this block).
   // An exam of today already over (its end, else its start, passed) is no longer « à venir », as on the home page.
   // Exams and events marked important (they count as big days too).
-  const isUpcomingExam = (e: CalendarEvent) => isBigEvent(e) && !e.done && !isOver(e);
+  const isUpcomingExam = (e: CalendarEvent) => isBigEvent(e) && !e.done && !isOver(e) && e.date !== selected;
   // A shared calendar has no « fait »: what is past is just past, not « en retard ».
-  const isHomeworkSoon = (e: CalendarEvent) => isDeliverable(e) && !e.done && daysUntil(e.date) <= 14 && (!shared || daysUntil(e.date) >= 0);
+  const isHomeworkSoon = (e: CalendarEvent) => isDeliverable(e) && !e.done && daysUntil(e.date) <= 14 && (!shared || daysUntil(e.date) >= 0) && e.date !== selected;
   // « Rien à afficher » only when a hidden category holds something this block would list (not a hidden « Sport »).
   // Anything still to come (not done, not over): after the important ones, the next things, whatever they are.
-  const isComing = (e: CalendarEvent) => !e.done && e.date >= today && !isOver(e);
+  // Not the day shown below the calendar: its events are already listed there.
+  const isComing = (e: CalendarEvent) => !e.done && e.date >= today && !isOver(e) && e.date !== selected;
   // Sorted once per change of the events (and once a minute, for « over »), not at each key typed in the quick add.
   const minute = Math.floor(Date.now() / 60_000);
   const { upcomingHidden, upcomingExams, moreExams, nextUp } = useMemo(() => {
@@ -456,7 +454,7 @@ export default function CalendarPage() {
     const nextUp = [...homework, ...others].sort(sortEvents);
     return { upcomingHidden, allUpcomingExams, upcomingExams, moreExams, nextUp };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the helpers above only read these values
-  }, [events, visible, passes, filtering, allExams, shared, today, minute]);
+  }, [events, visible, passes, filtering, allExams, shared, today, minute, selected]);
 
   const monthDays = useMemo(() => {
     const ref = fromKey(selected);
@@ -557,13 +555,10 @@ export default function CalendarPage() {
               aria-label={t('Ajouter un événement en une phrase')}
               className="h-full min-w-0 flex-1 text-ellipsis bg-transparent text-[14px] outline-none placeholder:text-stone-400"
             />
-            {parsed?.title ? (
+            {/* Nothing typed (or no title, « demain 14h »): Entrée opens the full form, as « + Ajouter » of the day does. */}
+            {parsed?.title && (
               <button type="submit" disabled={parsed.impossible} className="btn-primary h-8 px-3 disabled:opacity-50">
                 {t('Ajouter')} <CornerDownLeft size={13} />
-              </button>
-            ) : (
-              <button type="button" className="btn-ghost h-8 px-2.5 text-[12px]" onClick={openForm}>
-                {t('Formulaire')}
               </button>
             )}
           </div>
@@ -605,19 +600,18 @@ export default function CalendarPage() {
             {mode !== 'month' ? (
               <>
               {weekBands.length > 0 && (
-                <div className="mb-1 grid grid-cols-7 gap-1" aria-label={t('Périodes de la semaine')}>
+                <div className="mb-1 grid grid-cols-7 gap-1" role="group" aria-label={t('Périodes de la semaine')}>
                   {weekLanes(weekBands, weekKeys).filter(b => b.lane < 3).map(({ period: p, from, to, lane }) => {
                     return (
-                      <button
+                      <span
                         key={`${p.id}-${from}`}
-                        onClick={() => setPeriodsOpen(true)}
                         title={`${label(p)} · ${periodRange(p, fmtDay)}`}
-                        className="hit-sm flex h-6 min-w-0 items-center gap-1.5 rounded-md px-2 text-left text-[11.5px] font-semibold"
+                        className="flex h-6 min-w-0 items-center gap-1.5 rounded-md px-2 text-left text-[11.5px] font-semibold"
                         style={{ gridColumn: `${from + 1} / ${to + 2}`, gridRow: lane + 1, background: periodTint(p, 20), color: periodText(p) }}
                       >
                         <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: periodColor(p) }} aria-hidden />
                         <span className="truncate">{label(p)}</span>
-                      </button>
+                      </span>
                     );
                   })}
                 </div>
@@ -742,12 +736,12 @@ export default function CalendarPage() {
                   })}
                 </div>
                 {monthBands.length > 0 && (
-                  <div className="mt-2.5 flex flex-wrap gap-1.5" aria-label={t('Périodes du mois')}>
+                  <div className="mt-2.5 flex flex-wrap gap-1.5" role="group" aria-label={t('Périodes du mois')}>
                     {monthBands.slice(0, 8).map(p => (
-                      <button key={p.id} onClick={() => setPeriodsOpen(true)} className="hit-sm flex h-6 min-w-0 max-w-full items-center gap-1.5 rounded-full px-2.5 text-[11.5px] font-semibold" style={{ background: periodTint(p, 16), color: periodText(p) }}>
+                      <span key={p.id} className="flex h-6 min-w-0 max-w-full items-center gap-1.5 rounded-full px-2.5 text-[11.5px] font-semibold" style={{ background: periodTint(p, 16), color: periodText(p) }}>
                         <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: periodColor(p) }} aria-hidden />
                         <span className="min-w-0 truncate">{label(p)}</span> <span className="shrink-0 font-medium">{periodRange(p, fmtDay)}</span>
-                      </button>
+                      </span>
                     ))}
                     {monthBands.length > 8 && <span className="self-center text-[11.5px] text-stone-500">+{monthBands.length - 8}</span>}
                   </div>
@@ -760,16 +754,15 @@ export default function CalendarPage() {
               <div className="mb-4 flex flex-wrap items-baseline gap-x-2 gap-y-1">
                 <h2 className="text-[16px] font-semibold first-letter:uppercase">{selected === today ? t('Aujourd’hui') : fmt(selDate, 'EEEE d MMMM')}</h2>
                 {selPeriods.map(p => (
-                  <button
+                  <span
                     key={p.id}
-                    onClick={() => setPeriodsOpen(true)}
-                    className="hit-sm flex h-6 min-w-0 max-w-[16rem] items-center gap-1 self-center rounded-full px-2.5 text-[12px] font-semibold"
+                    className="flex h-6 min-w-0 max-w-[16rem] items-center gap-1 self-center rounded-full px-2.5 text-[12px] font-semibold"
                     style={{ background: periodTint(p, 18), color: periodText(p) }}
                     title={`${label(p)} · ${periodRange(p, fmtDay)}`}
                   >
                     <span className="min-w-0 truncate">{label(p)}</span>
                     {periodUntil(p, selected) && <span className="shrink-0 font-medium max-sm:hidden">· {periodUntil(p, selected)}</span>}
-                  </button>
+                  </span>
                 ))}
                 {!readOnly && <button className="btn-ghost ml-auto h-8 text-[12px]" onClick={() => setForm({ date: selected })}>
                   <Plus size={14} /> {t('Ajouter')}
@@ -816,7 +809,8 @@ export default function CalendarPage() {
               shared.unread === 'loading' && <Skeleton rows={2} className="py-1" />
             ) : upcomingExams.length === 0 && nextUp.length === 0 ? (
               upcomingHidden ? (
-                <EmptyState size="sm" tone="search" icon={ListFilter} title={t('Rien à afficher avec ce filtre.')} action={{ label: t('Retirer les filtres'), onClick: clearFilter }} />
+                // « Retirer les filtres » is in the day's section (and the filter button is up there).
+                <EmptyState size="sm" tone="search" icon={ListFilter} title={t('Rien à afficher avec ce filtre.')} />
               ) : (
                 <EmptyState size="sm" icon={CalendarClock} title={t('Rien de prévu pour la suite.')} />
               )

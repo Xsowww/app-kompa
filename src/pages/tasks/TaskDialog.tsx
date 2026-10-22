@@ -4,29 +4,20 @@ import { DateField, TimeField } from '../../components/Pickers';
 import { Modal } from '../../components/Overlays';
 import Field from '../../components/Field';
 import ReminderPicker from '../../components/ReminderPicker';
-import { followMoments, reminderMoment } from '../../lib/reminders';
+import { followMoments } from '../../lib/reminders';
 import { useTodos, type Todo } from '../../store/todos';
 import { toast } from '../../store/ui';
 import { t } from '../../i18n';
 
 /**
- * « Modifier la tâche » : its title, due day, optional time and reminders. Opened from the bell
- * (`remind`: a reminder is offered straight away) or from the pencil.
+ * « Modifier la tâche » : its title, due day, optional time and reminders. Opened from the pencil, or from
+ * the bell of a task that has reminders (`remind`: about them, the title not focused).
  */
 export default function TaskDialog({ todo, onClose, remind, onDelete }: { todo: Todo; onClose: () => void; remind?: boolean; onDelete?: () => void }) {
   const [title, setTitle] = useState(todo.title);
   const [due, setDue] = useState(todo.due ?? '');
   const [time, setTime] = useState(todo.time ?? '');
-  // A task without reminders yet: the evening before, or 15 min before when it has a time.
-  // Not one already past (« la veille à 18h » of a task due today): the moment itself instead.
-  const [reminders, setReminders] = useState<number[]>(() => {
-    if (todo.reminders) return todo.reminders;
-    if (!remind) return [];
-    const first = todo.time ? 15 : 900;
-    // Never a moment already gone (a task due today, opened after 9:00): the next one still ahead, else none.
-    const ahead = (m: number) => reminderMoment(todo.due!, todo.time, m).getTime() > Date.now();
-    return !todo.due || ahead(first) ? [first] : ahead(0) ? [0] : [];
-  });
+  const [reminders, setReminders] = useState<number[]>(todo.reminders ?? []);
 
   // The title is required: said when it is emptied and left, or at the submit (the focus goes back to it).
   const [titleError, setTitleError] = useState('');

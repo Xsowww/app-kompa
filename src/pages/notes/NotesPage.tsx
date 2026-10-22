@@ -334,12 +334,15 @@ export default function NotesPage() {
   // Keyboard shortcuts shown in the menus, not on touch screens.
   const keyHint = (k: string) => (window.matchMedia('(pointer: coarse)').matches ? undefined : k);
 
+  // `open` false: the menu of the note already open (header), whose title and pin are right beside it:
+  // no « Ouvrir », « Renommer » nor « Épingler » there.
   const noteMenu = (n: Note, open = true): MenuItem[] => [
-    // Not for the note already open (header menu): it would do nothing.
-    ...(open ? [{ label: t('Ouvrir'), icon: <FileText size={15} />, onClick: () => openNote(n.id) }] : []),
-    { label: t('Renommer'), icon: <Pencil size={15} />, shortcut: keyHint('F2'), onClick: () => void renameNote(n) },
+    ...(open ? [
+      { label: t('Ouvrir'), icon: <FileText size={15} />, onClick: () => openNote(n.id) },
+      { label: t('Renommer'), icon: <Pencil size={15} />, shortcut: keyHint('F2'), onClick: () => void renameNote(n) },
+    ] : []),
     { label: t('Dupliquer'), icon: <CopyPlus size={15} />, onClick: () => { const c = store.duplicateNote(n.id); if (c) openNote(c.id); } },
-    { label: n.pinned ? t('Désépingler') : t('Épingler en haut'), icon: n.pinned ? <PinOff size={15} /> : <Pin size={15} />, onClick: () => store.updateNote(n.id, { pinned: !n.pinned }) },
+    ...(open ? [{ label: n.pinned ? t('Désépingler') : t('Épingler en haut'), icon: n.pinned ? <PinOff size={15} /> : <Pin size={15} />, onClick: () => store.updateNote(n.id, { pinned: !n.pinned }) }] : []),
     { label: t('Déplacer vers…'), icon: <FolderInput size={15} />, onClick: () => setMoving({ kind: 'note', id: n.id, name: n.title, from: n.folderId }) },
     ...(n.folderId ? [{ label: t('Sortir du dossier'), icon: <FolderOpen size={15} />, onClick: () => store.updateNote(n.id, { folderId: null }) }] : []),
     { label: '', divider: true, onClick: () => {} },
@@ -349,8 +352,9 @@ export default function NotesPage() {
     { label: t('Supprimer'), icon: <Trash2 size={15} />, shortcut: keyHint(t('Suppr')), danger: true, onClick: () => void deleteNote(n) },
   ];
 
-  const folderMenu = (f: NoteFolder): MenuItem[] => [
-    { label: t('Nouvelle note ici'), icon: <FilePlus2 size={15} />, onClick: () => newNote(f.id) },
+  // `withNew`: the right-click / keyboard menu; the « … » button has the « Nouvelle note » icon beside it.
+  const folderMenu = (f: NoteFolder, withNew = true): MenuItem[] => [
+    ...(withNew ? [{ label: t('Nouvelle note ici'), icon: <FilePlus2 size={15} />, onClick: () => newNote(f.id) }] : []),
     { label: t('Nouveau sous-dossier'), icon: <FolderPlus size={15} />, onClick: () => void newFolder(f.id) },
     { label: t('Renommer'), icon: <Pencil size={15} />, shortcut: keyHint('F2'), onClick: () => void renameFolder(f) },
     { label: t('Déplacer vers…'), icon: <FolderInput size={15} />, onClick: () => setMoving({ kind: 'folder', id: f.id, name: f.name, from: f.parentId }) },
@@ -486,7 +490,7 @@ export default function NotesPage() {
             tabIndex={-1}
             title={t('Plus d’actions')}
             aria-label={t('Plus d’actions pour «\u00a0{name}\u00a0»', { name: f.name })}
-            onClick={e => setMenu({ ...menuUnder(e), items: folderMenu(f) })}
+            onClick={e => setMenu({ ...menuUnder(e), items: folderMenu(f, false) })}
           >
             <MoreHorizontal size={14} />
           </button>
@@ -606,15 +610,8 @@ export default function NotesPage() {
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
             <NotebookPen size={28} strokeWidth={1.5} className="text-stone-300" />
-            <p className="mt-3 text-[13px] text-stone-500">{t('Choisis une note, ou pars d’un modèle.')}</p>
-            <div className="mt-4 flex max-w-[460px] flex-wrap justify-center gap-1.5">
-              {/* The blank note is « Nouvelle note » above: only the templates here. */}
-              {noteTemplates().slice(1).map(tpl => (
-                <button key={tpl.id} onClick={() => newNote(targetFolder, tpl)} title={tpl.hint} className="btn-secondary h-8 px-3 text-[12px]">
-                  {tpl.label}
-                </button>
-              ))}
-            </div>
+            {/* No note at all: the list already says so (and « Nouvelle note ▾ » offers the templates). */}
+            {notes.length > 0 && <p className="mt-3 text-[13px] text-stone-500">{t('Choisis une note.')}</p>}
           </div>
         )}
       </section>
