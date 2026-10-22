@@ -209,5 +209,5 @@ export const isTrashedDriveItem = (id: string) => useDrive.getState().trash.some
 /** Deletes a calendar event (to the trash), with « Annuler » in the toast. */
 export function trashEvent(id: string) {
   useCalendar.getState().remove(id);
-  toast(t('Mis à la corbeille'), 'info', { label: t('Annuler'), run: () => useCalendar.getState().restore([id]) });
+  toast(t('Mis à la corbeille'), 'info', { label: t('Annuler||l’action'), run: () => useCalendar.getState().restore([id]) });
 }

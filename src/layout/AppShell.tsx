@@ -13,7 +13,7 @@ import Avatar from '../components/Avatar';
 import FocusTimer from '../components/FocusTimer';
 import { cx } from '../lib/utils';
 import { adminPendingCount, checkIsAdmin, cloudEnabled } from '../lib/supabase';
-import { prefetchGroups } from '../store/groups';
+import { prefetchGroups, useGroups } from '../store/groups';
 import { startReminders } from '../lib/reminderScheduler';
 import { useAgendaNews, totalAgendaNews, watchAgendaNews } from '../store/agendaNews';
 import { useUi } from '../store/ui';
@@ -51,6 +51,8 @@ const HIT_ICON: Record<SearchHit['type'], typeof FileText> = {
   'dossier de notes': Folder,
   événement: CalendarClock,
   tâche: ListChecks,
+  'note partagée': NotebookText,
+  'événement partagé': CalendarClock,
 };
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
@@ -62,7 +64,8 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-  const hits = q.trim() ? search(q, 8) : [];
+  // The groups' and shared calendars' notes and events already read too (no request to the server).
+  const hits = q.trim() ? search(q, 8, useGroups.getState()) : [];
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -154,7 +157,7 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
                 <Icon size={15} className="shrink-0 text-stone-400" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[13px] font-medium">{h.title}</span>
-                  <span className="block truncate text-[12px] text-stone-500">{h.where}</span>
+                  {h.where && <span className="block truncate text-[12px] text-stone-500">{h.where}</span>}
                 </span>
                 <span className="inline-block shrink-0 text-[11px] text-stone-500 first-letter:uppercase">{HIT_LABEL[h.type]}</span>
               </button>

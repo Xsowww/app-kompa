@@ -13,9 +13,9 @@ export function cx(...parts: (string | false | null | undefined)[]): string {
   return parts.filter(Boolean).join(' ');
 }
 
-/** For searches: no case, no accents, and the typographic apostrophe of phone keyboards (’) is a plain one. */
+/** For searches: no case, no accents, « œ » and « æ » spelled out (« oeufs » finds « œufs »), and the typographic apostrophe of phone keyboards (’) is a plain one. */
 export function normalize(s: string): string {
-  return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[’‘]/g, "'").trim();
+  return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/œ/g, 'oe').replace(/æ/g, 'ae').replace(/[’‘]/g, "'").trim();
 }
 
 let decimalMark: string | undefined;
