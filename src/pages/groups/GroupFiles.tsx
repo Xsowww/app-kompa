@@ -1,4 +1,5 @@
 import { LoadFailed } from './shared';
+import { EmptyState, Skeleton } from '../../components/EmptyState';
 import { useCallback, useRef, useState } from 'react';
 import { Download, Eye, Flag, FolderDown, MoreHorizontal, Paperclip, Trash2 } from 'lucide-react';
 import { useAuth } from '../../store/auth';
@@ -92,31 +93,26 @@ export default function GroupFiles({ group }: { group: Group }) {
       onDragLeave={e => !e.currentTarget.contains(e.relatedTarget as Node) && setOver(false)}
       onDrop={drop}
     >
-      {!files && failed ? (
-        <LoadFailed groupId={group.id} part="files" className="pb-3" />
-      ) : (
-        files?.length !== 0 && (
-          <div className="flex items-center pb-3">
-            <p className="eyebrow mr-auto">{files ? tn(files.length, '{n} fichier partagé', '{n} fichiers partagés') : t('Chargement…')}</p>
-            {files && canEdit && (
-              <button className="btn-ghost h-7 px-2 text-[12.5px]" onClick={() => input.current?.click()} title={t('Ou dépose-les ici')}>
-                <Paperclip size={13} /> {t('Ajouter un fichier')}
-              </button>
-            )}
-          </div>
-        )
+      {files && files.length > 0 && (
+        <div className="flex items-center pb-3">
+          <p className="eyebrow mr-auto">{tn(files.length, '{n} fichier partagé', '{n} fichiers partagés')}</p>
+          {canEdit && (
+            <button className="btn-ghost h-7 px-2 text-[12.5px]" onClick={() => input.current?.click()} title={t('Ou dépose-les ici')}>
+              <Paperclip size={13} /> {t('Ajouter un fichier')}
+            </button>
+          )}
+        </div>
       )}
       <div className={cx('min-h-0 flex-1 overflow-y-auto rounded-xl pb-room', over && 'outline-2 outline-dashed outline-stone-300')}>
+        {!files && (failed ? <LoadFailed groupId={group.id} part="files" className="card" /> : <Skeleton className="card p-3" />)}
         {files && files.length === 0 && (
-          <div className="card flex flex-col items-center px-6 py-12 text-center">
-            <Paperclip size={26} strokeWidth={1.5} className="text-stone-300" />
-            <p className="mt-3 text-[14px] font-medium">{t('Aucun fichier pour l’instant.')}</p>
-            {canEdit && (
-              <button className="btn-secondary mt-4 h-8 px-3" onClick={() => input.current?.click()} title={t('Ou dépose-les ici')}>
-                <Paperclip size={14} /> {t('Ajouter un fichier')}
-              </button>
-            )}
-          </div>
+          <EmptyState
+            className="card"
+            icon={Paperclip}
+            title={t('Aucun fichier pour l’instant.')}
+            action={canEdit ? { label: t('Ajouter un fichier'), icon: Paperclip, onClick: () => input.current?.click() } : undefined}
+            preview="list"
+          />
         )}
         {files && files.length > 0 && (
           <div className="card divide-y divide-stone-100 overflow-hidden">

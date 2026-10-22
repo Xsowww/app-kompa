@@ -1,4 +1,5 @@
 import { LoadFailed } from './shared';
+import { EmptyState, Skeleton } from '../../components/EmptyState';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { FilePlus2, FileText } from 'lucide-react';
@@ -90,25 +91,28 @@ export default function GroupNotes({ group }: { group: Group }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex flex-wrap items-center gap-2 pb-3">
-        {!notes && failed ? (
-          <LoadFailed groupId={group.id} part="notes" className="mr-auto" />
-        ) : (
-          <p className="eyebrow mr-auto">{notes?.length === 0 ? '' : notes ? tn(notes.length, '{n} note partagée', '{n} notes partagées') : t('Chargement…')}</p>
-        )}
-        {canEdit && (
-          <button className="btn-primary h-8 px-3" disabled={creating} onClick={() => void newNote()}>
-            <FilePlus2 size={14} /> {t('Nouvelle note')}
-          </button>
-        )}
-      </div>
+      {/* Empty, loading or failed: the state below says it (and holds the one button). */}
+      {notes && notes.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 pb-3">
+          <p className="eyebrow mr-auto">{tn(notes.length, '{n} note partagée', '{n} notes partagées')}</p>
+          {canEdit && (
+            <button className="btn-primary h-8 px-3" disabled={creating} onClick={() => void newNote()}>
+              <FilePlus2 size={14} /> {t('Nouvelle note')}
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="min-h-0 flex-1 overflow-y-auto pb-room">
+        {!notes && (failed ? <LoadFailed groupId={group.id} part="notes" className="card" /> : <Skeleton className="card p-3" />)}
         {notes && notes.length === 0 && (
-          <div className="card flex flex-col items-center px-6 py-12 text-center">
-            <FileText size={26} strokeWidth={1.5} className="text-stone-300" />
-            <p className="mt-3 text-[14px] font-medium">{t('Aucune note pour l’instant.')}</p>
-          </div>
+          <EmptyState
+            className="card"
+            icon={FileText}
+            title={t('Aucune note pour l’instant.')}
+            action={canEdit ? { label: t('Nouvelle note'), icon: FilePlus2, onClick: () => void newNote() } : undefined}
+            preview="list"
+          />
         )}
         {notes && notes.length > 0 && (
           <div className="card divide-y divide-stone-100 overflow-hidden">

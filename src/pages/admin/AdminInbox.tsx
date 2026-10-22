@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Bug, Check, Flag, Lightbulb, Loader2, RotateCcw, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { EmptyState } from '../../components/EmptyState';
 import type { Feedback, Inbox, Report } from './inbox';
 import { REPORT_REASONS } from '../../lib/feedback';
 import { confirmAction, toast } from '../../store/ui';
@@ -45,7 +46,8 @@ export default function AdminInbox({ inbox, missing, reload }: { inbox: Inbox | 
       </p>
     );
   }
-  if (!inbox) return null;
+  // Not read (the first load failed): said, with « Réessayer », not an empty tab.
+  if (!inbox) return <EmptyState className="card" tone="error" title={t('Impossible de charger.')} onRetry={reload} />;
   const reports = inbox.reports.filter(r => (r.status === 'open') !== history);
   const feedback = inbox.feedback.filter(f => (f.status === 'open') !== history);
   const openReports = inbox.reports.filter(r => r.status === 'open').length;
@@ -75,7 +77,7 @@ export default function AdminInbox({ inbox, missing, reload }: { inbox: Inbox | 
             {!history && openReports > 0 && <span className="rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-700">{openReports}</span>}
           </h2>
           {reports.length === 0 ? (
-            <p className="px-4 py-8 text-center text-[13px] text-stone-500">{history ? t('Aucun signalement traité.') : t('Rien à traiter.')}</p>
+            <EmptyState size="sm" className="py-8" icon={Flag} title={history ? t('Aucun signalement traité.') : t('Rien à traiter.')} />
           ) : (
             <ul className="divide-y divide-stone-100">
               {reports.map(r => (
@@ -129,7 +131,7 @@ export default function AdminInbox({ inbox, missing, reload }: { inbox: Inbox | 
             {!history && openFeedback > 0 && <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-700">{openFeedback}</span>}
           </h2>
           {feedback.length === 0 ? (
-            <p className="px-4 py-8 text-center text-[13px] text-stone-500">{history ? t('Aucun message traité.') : t('Rien à traiter.')}</p>
+            <EmptyState size="sm" className="py-8" icon={Lightbulb} title={history ? t('Aucun message traité.') : t('Rien à traiter.')} />
           ) : (
             <ul className="divide-y divide-stone-100">
               {feedback.map(f => (

@@ -8,6 +8,7 @@ import { cloudEnabled } from '../../lib/supabase';
 import { copyInviteLink, setGroupSpace } from '../../lib/groups';
 import { cx } from '../../lib/utils';
 import { GroupBadge } from './shared';
+import { EmptyState, Skeleton } from '../../components/EmptyState';
 import { KindContext } from './util';
 import { GroupForm } from './GroupsPage';
 import GroupMembers from './GroupMembers';
@@ -32,11 +33,7 @@ function Offline() {
   return (
     <div className="flex h-full flex-col px-4 pb-10 md:px-8">
       <h1 className="pb-4 pt-2 text-[24px] font-semibold tracking-[-0.02em]">{t('Agendas partagés')}</h1>
-      <div className="flex flex-1 flex-col items-center justify-center text-center">
-        <CloudOff size={26} strokeWidth={1.5} className="text-stone-300" />
-        <p className="mt-3 text-[14px] font-medium">{t('Disponible dans la version en ligne')}</p>
-        <p className="mt-1 max-w-sm text-[13px] text-stone-500">{t('Ici, tes données restent dans ce navigateur.')}</p>
-      </div>
+      <EmptyState className="flex-1 justify-center" icon={CloudOff} title={t('Disponible dans la version en ligne')} text={t('Ici, tes données restent dans ce navigateur.')} />
     </div>
   );
 }
@@ -134,26 +131,23 @@ function Agendas() {
       </div>
 
       {!loaded ? (
-        <p className="px-4 text-[13px] text-stone-500 md:px-8">{t('Chargement…')}</p>
+        <div className="px-4 md:px-8">
+          <Skeleton shape="slots" className="card mx-auto mt-4 max-w-[520px] p-5" />
+        </div>
       ) : failed ? (
-        <p className="px-4 text-[13px] text-stone-500 md:px-8">
-          {t('Impossible de charger tes agendas.')}{' '}
-          <button className="font-medium text-ink underline underline-offset-2" onClick={() => void useGroups.getState().loadGroups()}>
-            {t('Réessayer')}
-          </button>
-        </p>
+        <div className="px-4 md:px-8">
+          <EmptyState className="card mx-auto mt-4 max-w-[520px]" tone="error" title={t('Impossible de charger tes agendas.')} onRetry={() => void useGroups.getState().loadGroups()} />
+        </div>
       ) : !active ? (
         <div className="px-4 md:px-8">
-          <div className="card mx-auto mt-4 max-w-[520px] p-6 md:p-8">
-            <CalendarRange size={26} strokeWidth={1.6} className="text-brand-600" />
-            <h2 className="mt-3 text-[18px] font-semibold tracking-[-0.01em]">{t('Un agenda à plusieurs')}</h2>
-            <p className="mt-1.5 text-[13px] leading-relaxed text-stone-600">
-              {t('Un calendrier commun, séparé du tien. On le rejoint avec son lien d’invitation.')}
-            </p>
-            <button className="btn-primary mt-5" onClick={() => setDialog('create')}>
-              <Plus size={15} /> {t('Créer un agenda partagé')}
-            </button>
-          </div>
+          <EmptyState
+            className="card mx-auto mt-4 max-w-[520px]"
+            icon={CalendarRange}
+            title={t('{none} pour l’instant.', { none: t('Aucun agenda partagé') })}
+            text={t('Un calendrier commun, séparé du tien. On le rejoint avec son lien d’invitation.')}
+            action={{ label: t('Créer un agenda partagé'), icon: Plus, onClick: () => setDialog('create') }}
+            preview="slots"
+          />
         </div>
       ) : (
         <>

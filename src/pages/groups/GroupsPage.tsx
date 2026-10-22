@@ -18,6 +18,7 @@ import GroupMembers from './GroupMembers';
 import GroupFiles from './GroupFiles';
 import ShareButton from './GroupShare';
 import { showJoined } from './join';
+import { EmptyState, Skeleton } from '../../components/EmptyState';
 import { t, tn, locale } from '../../i18n';
 
 type Tab = 'notes' | 'fichiers' | 'revisions' | 'membres';
@@ -146,17 +147,19 @@ function JoinForm({ onDone }: { onDone: () => void }) {
   );
 }
 
+/** No group yet: what one holds, « Créer » first (joining with a code stays beside it, quieter). */
 function Intro({ onCreate, onJoin }: { onCreate: () => void; onJoin: () => void }) {
   const w = useGroupWords();
   return (
-    <div className="mx-auto flex max-w-[480px] flex-col py-10 md:py-16">
-      <h2 className="text-[18px] font-semibold tracking-[-0.01em]">{w.introTitle}</h2>
-      <p className="mt-1.5 text-[13px] text-stone-500">{w.introText}</p>
-      <div className="mt-6 flex flex-wrap gap-2">
-        <button className="btn-primary" onClick={onCreate}><Plus size={15} /> {t('Créer {a}', { a: w.a })}</button>
-        <button className="btn-secondary" onClick={onJoin}><LogIn size={15} /> {t('J’ai un code')}</button>
-      </div>
-    </div>
+    <EmptyState
+      className="mx-auto max-w-[480px] md:py-16"
+      icon={Users}
+      title={t('{none} pour l’instant.', { none: w.none })}
+      text={w.introText}
+      action={{ label: t('Créer {a}', { a: w.a }), icon: Plus, onClick: onCreate }}
+      secondary={{ label: t('J’ai un code'), icon: LogIn, onClick: onJoin }}
+      preview="people"
+    />
   );
 }
 
@@ -165,11 +168,7 @@ function OfflineNotice() {
   return (
     <div className="flex h-full flex-col px-4 pb-10 md:px-8">
       <h1 className="pb-4 pt-2 text-[24px] font-semibold tracking-[-0.02em]">{w.Groups}</h1>
-      <div className="flex flex-1 flex-col items-center justify-center text-center">
-        <CloudOff size={26} strokeWidth={1.5} className="text-stone-300" />
-        <p className="mt-3 text-[14px] font-medium">{t('Disponible dans la version en ligne')}</p>
-        <p className="mt-1 max-w-sm text-[13px] text-stone-500">{t('Ici, tes données restent dans ce navigateur.')}</p>
-      </div>
+      <EmptyState className="flex-1 justify-center" icon={CloudOff} title={t('Disponible dans la version en ligne')} text={t('Ici, tes données restent dans ce navigateur.')} />
     </div>
   );
 }
@@ -240,12 +239,9 @@ function Groups() {
           </button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto pb-room">
-          {!loaded && <p className="p-4 text-[13px] text-stone-500">{t('Chargement…')}</p>}
+          {!loaded && <Skeleton shape="people" className="p-1" />}
           {loaded && failed && (
-            <div className="p-4 text-[13px] text-stone-500">
-              {t('Impossible de charger tes {groups}.', { groups: w.groups })}{' '}
-              <button className="font-medium text-ink underline underline-offset-2" onClick={() => void useGroups.getState().loadGroups()}>{t('Réessayer')}</button>
-            </div>
+            <EmptyState size="sm" tone="error" title={t('Impossible de charger tes {groups}.', { groups: w.groups })} onRetry={() => void useGroups.getState().loadGroups()} />
           )}
           {sorted.map(g => (
             <button
@@ -270,12 +266,10 @@ function Groups() {
             </button>
           ))}
           {loaded && !failed && groups.length === 0 && (
-            <>
-              <p className="hidden px-2 py-3 text-[13px] text-stone-500 md:block">{t('{none} pour l’instant.', { none: w.none })}</p>
-              <div className="card px-5 md:hidden">
-                <Intro onCreate={() => setDialog('create')} onJoin={() => setDialog('join')} />
-              </div>
-            </>
+            // Computers: said once, in the panel beside the list.
+            <div className="card md:hidden">
+              <Intro onCreate={() => setDialog('create')} onJoin={() => setDialog('join')} />
+            </div>
           )}
         </div>
       </aside>
@@ -350,13 +344,18 @@ function Groups() {
             </div>
           </>
         ) : loaded && groups.length === 0 && !failed ? (
-          <div className="card flex-1 overflow-y-auto px-6 pb-room">
+          <div className="card flex-1 overflow-y-auto pb-room">
             <Intro onCreate={() => setDialog('create')} onJoin={() => setDialog('join')} />
           </div>
         ) : (
+          // Still loading, or not read (said in the list): no « Choisis… » yet.
           <div className="card flex flex-1 flex-col items-center justify-center p-8 text-center">
-            <Users size={28} strokeWidth={1.5} className="text-stone-300" />
-            <p className="mt-3 text-[14px] font-medium">{t('Choisis {a}', { a: w.a })}</p>
+            {loaded && !failed && (
+              <>
+                <Users size={28} strokeWidth={1.5} className="text-stone-300" />
+                <p className="mt-3 text-[14px] font-medium">{t('Choisis {a}', { a: w.a })}</p>
+              </>
+            )}
           </div>
         )}
       </section>

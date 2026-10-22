@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Bell, BookOpenCheck, Check, ClipboardList, FileText, FolderOpen, Loader2, Mic, MonitorSpeaker, RotateCcw, Square, Star, Trash2 } from 'lucide-react';
 import { Modal } from '../../components/Overlays';
+import { EmptyState } from '../../components/EmptyState';
 import { useSettings } from '../../store/settings';
 import { SelectField } from '../../components/Pickers';
 import { useDrive, pathOf } from '../../store/drive';
@@ -463,7 +464,14 @@ function History() {
   const history = useRecorder(s => s.history);
   const making = useRecLive(s => s.making);
   const w = useRecWords();
-  if (!history.length) return null;
+  // Nothing recorded yet: the shape of what will be listed here, under the form (its « Démarrer » is the way to start).
+  if (!history.length)
+    return (
+      <section className="mx-auto mt-8 max-w-[620px]" aria-labelledby="cours-passes">
+        <h2 id="cours-passes" className="mb-3 text-[16px] font-semibold">{w.history}</h2>
+        <EmptyState className="card" size="sm" icon={Mic} title={t('Aucun enregistrement pour l’instant.')} preview="list" />
+      </section>
+    );
   return (
     <section className="mt-8" aria-labelledby="cours-passes">
       <h2 id="cours-passes" className="mb-3 text-[16px] font-semibold">{w.history}</h2>

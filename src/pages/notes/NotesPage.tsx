@@ -3,8 +3,9 @@ import { flashWhenReady } from '../../lib/flash';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ChevronRight, ChevronDown, FilePlus2, FolderPlus, Folder, FolderOpen, FolderInput, FileText, Pencil, Trash2, CopyPlus, Pin, PinOff, Search, ArrowLeft, MoreHorizontal, NotebookPen,
-  Paperclip, Printer, FileDown, BookOpenCheck, FlaskConical, ScrollText, GraduationCap, Presentation, Users,
+  Paperclip, Printer, FileDown, BookOpenCheck, FlaskConical, ScrollText, GraduationCap, Presentation, Users, X,
 } from 'lucide-react';
+import { EmptyState } from '../../components/EmptyState';
 import { useNotes, type Note, type NoteFolder } from '../../store/notes';
 import { useGroups } from '../../store/groups';
 import { useAuth } from '../../store/auth';
@@ -555,14 +556,16 @@ export default function NotesPage() {
                 </button>
               ))
             ) : (
-              <p className="p-4 text-center text-[13px] text-stone-500">{t('Aucune note trouvée')}</p>
+              <EmptyState size="sm" tone="search" title={t('Aucun résultat pour « {q} »', { q: query.trim() })} action={{ label: t('Effacer la recherche'), icon: X, onClick: () => setQuery('') }} />
             )
           ) : (
             <div onClick={e => e.stopPropagation()}>
               {rootFolders.map(f => renderFolder(f, 0))}
               {rootNotes.length > 0 && rootFolders.length > 0 && <div className="mx-2 my-2 h-px bg-stone-200/70" />}
               {rootNotes.map(n => renderNote(n, 0))}
-              {notes.length === 0 && folders.length === 0 && <p className="p-6 text-center text-[13px] text-stone-500">{t('Aucune note pour l’instant.')}</p>}
+              {notes.length === 0 && folders.length === 0 && (
+                <EmptyState size="sm" icon={NotebookPen} title={t('Aucune note pour l’instant.')} action={{ label: t('Nouvelle note'), icon: FilePlus2, onClick: () => newNote() }} preview="list" />
+              )}
             </div>
           )}
         </div>
