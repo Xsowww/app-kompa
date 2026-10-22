@@ -137,7 +137,7 @@ export default function Dashboard() {
   const noTimeLeft = !!nextExam && (hasStarted(nextExam) || (examDays === 1 && nowTime > revisionTime && nowTime >= '22:30'));
 
   return (
-    <div className="h-full overflow-y-auto px-4 pb-12 md:px-8">
+    <div className="h-full overflow-y-auto px-4 pb-room md:px-8">
       <div className="mx-auto max-w-[1180px]">
         <div className="flex flex-wrap items-end gap-2 pb-7 pt-2">
           <div className="mr-auto">

@@ -233,6 +233,14 @@ body {
 }
 
 /* ── Design system ───────────────────────────────────────────── */
+/* The end of a page's scroll area: on phones it clears the tab bar, « Avis ou bug » and the REC pill
+   (the page itself scrolls on under the floating bar); on computers, « Avis ou bug » in the corner. */
+@utility pb-room {
+  padding-bottom: calc(8.75rem + env(safe-area-inset-bottom));
+  @media (width >= 64rem) {
+    padding-bottom: 4rem;
+  }
+}
 @utility card {
   @apply rounded-[24px] bg-surface;
 }

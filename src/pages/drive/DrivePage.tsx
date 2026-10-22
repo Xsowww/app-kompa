@@ -880,7 +880,7 @@ export default function DrivePage() {
       {/* Content */}
       <div
         className={cx(
-          'relative -mx-[9px] mt-2 min-h-0 flex-1 overflow-y-auto rounded-xl border p-2 pb-16 transition-colors lg:pb-14',
+          'relative -mx-[9px] mt-2 min-h-0 flex-1 overflow-y-auto rounded-xl border p-2 pb-room transition-colors',
           dropTarget === 'here' ? 'border-dashed border-brand-500 bg-brand-50/50' : 'border-transparent',
         )}
         onClick={() => setSelected(new Set())}

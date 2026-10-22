@@ -466,7 +466,7 @@ export default function CalendarPage() {
 
   return (
     <div
-      className={cx('h-full overflow-y-auto pb-12', !shared && 'px-4 md:px-8')}
+      className={cx('h-full overflow-y-auto pb-room', !shared && 'px-4 md:px-8')}
       onDragOver={e => {
         if (!hasFiles(e) || shared) return;
         e.preventDefault();

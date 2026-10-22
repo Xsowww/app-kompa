@@ -148,9 +148,14 @@ create policy "drive : supprimer mes fichiers" on storage.objects for delete to 
 -- ── 1. Double authentification : la base refuse l'accès sans le code du téléphone ─
 -- Un compte qui a associé un téléphone doit être en niveau « aal2 » (mot de passe + code)
 -- pour lire ou modifier ses données, même en interrogeant l'API directement.
+-- Une connexion par passkey (Face ID, empreinte : « passkey » dans amr) suffit : elle vérifie déjà l'appareil et la personne.
 create or replace function public.mfa_ok() returns boolean
 language sql stable security definer set search_path = '' as $$
   select coalesce(auth.jwt() ->> 'aal', '') = 'aal2'
+      or exists (
+        select 1 from jsonb_array_elements(case when jsonb_typeof(auth.jwt() -> 'amr') = 'array' then auth.jwt() -> 'amr' else '[]'::jsonb end) e
+        where (case when jsonb_typeof(e) = 'object' then e ->> 'method' else e #>> '{}' end) = 'passkey'
+      )
       or not exists (select 1 from auth.mfa_factors where user_id = auth.uid() and status = 'verified');
 $$;
 revoke all on function public.mfa_ok() from public, anon;

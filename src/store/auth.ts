@@ -227,12 +227,27 @@ function deviceName(): string {
   return name || t('Cet appareil');
 }
 
+/** The session was opened with a passkey (Supabase writes « passkey » in the token's amr). */
+async function signedInWithPasskey(): Promise<boolean> {
+  const { data } = await supabase!.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) return false;
+  try {
+    const claims = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))) as { amr?: ({ method?: string } | string)[] };
+    return (claims.amr ?? []).some(e => (typeof e === 'string' ? e : e.method) === 'passkey');
+  } catch {
+    return false;
+  }
+}
+
 /** What remains to do with the second factor for the current session. */
 async function nextMfaStep(): Promise<MfaStep> {
   if (!supabase) return null;
   const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
   if (error || !data) return null;
   if (data.currentLevel === 'aal2') return null;
+  // Face ID or a fingerprint already checks two things (the device and the person): no code on top (the base agrees, mfa_ok).
+  if (await signedInWithPasskey()) return null;
   // A phone is paired: its code is asked at each sign-in. Without one, nothing to do (two-factor is optional, Profile › Account).
   return data.nextLevel === 'aal2' ? 'verify' : null;
 }

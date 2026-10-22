@@ -103,7 +103,7 @@ export default function GroupNotes({ group }: { group: Group }) {
         )}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto pb-16 lg:pb-14">
+      <div className="min-h-0 flex-1 overflow-y-auto pb-room">
         {notes && notes.length === 0 && (
           <div className="card flex flex-col items-center px-6 py-12 text-center">
             <FileText size={26} strokeWidth={1.5} className="text-stone-300" />

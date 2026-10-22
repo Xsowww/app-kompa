@@ -130,7 +130,7 @@ function Toolbar({ editor }: { editor: Editor }) {
 /** The same note, give or take the empty line the editor adds at the end. */
 const sameContent = (a: string, b: string) => a.replace(/(<p><\/p>)+$/, '') === b.replace(/(<p><\/p>)+$/, '');
 
-export default function NoteEditor({ note, readOnly = false, inset = 'px-4 pb-16 pt-6 md:px-12' }: { note: Note; readOnly?: boolean; inset?: string }) {
+export default function NoteEditor({ note, readOnly = false, inset = 'px-4 pb-room pt-6 md:px-12' }: { note: Note; readOnly?: boolean; inset?: string }) {
   const saveTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   /** Typing not saved yet in the store. */
   const unsaved = useRef(false);

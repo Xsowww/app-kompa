@@ -239,7 +239,7 @@ function Groups() {
             <Plus size={14} /> {t('Créer')}
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-y-auto pb-room">
           {!loaded && <p className="p-4 text-[13px] text-stone-500">{t('Chargement…')}</p>}
           {loaded && failed && (
             <div className="p-4 text-[13px] text-stone-500">
@@ -350,7 +350,7 @@ function Groups() {
             </div>
           </>
         ) : loaded && groups.length === 0 && !failed ? (
-          <div className="card flex-1 overflow-y-auto px-6">
+          <div className="card flex-1 overflow-y-auto px-6 pb-room">
             <Intro onCreate={() => setDialog('create')} onJoin={() => setDialog('join')} />
           </div>
         ) : (

@@ -446,8 +446,8 @@ export default function AppShell() {
             />
           </div>
         )}
-        {/* The bottom strip is kept free for « Avis ou bug » (and the tab bar on phones): it never covers a page's last buttons. */}
-        <main id="contenu" tabIndex={-1} className="min-h-0 flex-1 overflow-hidden pb-[calc(8.5rem+env(safe-area-inset-bottom))] outline-none lg:pb-12">
+        {/* Pages scroll to the bottom edge (under the tab bar on phones); their scroll area ends with `pb-room`, so « Avis ou bug » and the tab bar never cover the last buttons. */}
+        <main id="contenu" tabIndex={-1} className="min-h-0 flex-1 overflow-hidden outline-none">
           <Outlet />
           <FeedbackDialog />
           <ReminderAlerts />

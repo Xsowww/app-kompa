@@ -1034,7 +1034,7 @@ export default function ProfilePage() {
   const usage = useSettings(s => s.usage);
 
   return (
-    <div className="h-full overflow-y-auto px-4 pb-16 md:px-8">
+    <div className="h-full overflow-y-auto px-4 pb-room md:px-8">
       <div className="mx-auto max-w-[1180px]">
         <div className="pb-5 pt-2">
           <h1 className="text-[24px] font-semibold tracking-[-0.02em]">{t('Profil et réglages')}</h1>

@@ -138,7 +138,7 @@ export default function TasksPage() {
   }, [wanted]);
 
   return (
-    <div className="h-full overflow-y-auto px-4 pb-12 md:px-8">
+    <div className="h-full overflow-y-auto px-4 pb-room md:px-8">
       <div className="mx-auto max-w-[1180px]">
         <h1 className="pb-7 pt-2 text-[24px] font-semibold tracking-[-0.02em]">{t('Tâches')}</h1>
 

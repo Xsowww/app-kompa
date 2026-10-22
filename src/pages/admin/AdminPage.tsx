@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Navigate, useSearchParams } from 'react-router-dom';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { useAuth } from '../../store/auth';
+import { rememberAfterLogin } from '../../lib/afterLogin';
 import { RefreshCw, Search, ShieldCheck, Users, Activity, HardDrive, NotebookText, CalendarDays, FolderClosed, Loader2, LayoutDashboard, Inbox } from 'lucide-react';
 import { supabase, cloudEnabled, checkIsAdmin } from '../../lib/supabase';
 import { CATEGORIES, type BuiltinCategory } from '../../store/calendar';
@@ -138,6 +140,8 @@ export default function AdminPage() {
   const [inbox, setInbox] = useState<InboxData | null>(null);
   const [inboxMissing, setInboxMissing] = useState(false);
   const [error, setError] = useState('');
+  const [needCode, setNeedCode] = useState(false);
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState('');
   const [params, setParams] = useSearchParams();
@@ -156,9 +160,11 @@ export default function AdminPage() {
       setInboxMissing(box.missing);
     }
     if (err) {
-      setError(err.message.includes('mfa') ? t('Reconnecte-toi avec ton code de sécurité pour voir ces chiffres.') : boxFailed ? t('Impossible d’actualiser : les chiffres affichés ne sont peut-être pas à jour.') : t('Impossible de charger les statistiques.'));
+      setNeedCode(err.message.includes('mfa'));
+      setError(err.message.includes('mfa') ? t('L’administration demande aussi le code de ton téléphone (connexion faite avec Face ID ou l’empreinte).') : boxFailed ? t('Impossible d’actualiser : les chiffres affichés ne sont peut-être pas à jour.') : t('Impossible de charger les statistiques.'));
       return;
     }
+    setNeedCode(false);
     setError(boxFailed ? t('Impossible d’actualiser les signalements.') : '');
     setStats(data as Stats);
   }, []);
@@ -200,7 +206,7 @@ export default function AdminPage() {
   const count: Partial<Record<View, number>> = { traiter: pending, comptes: stats?.accounts.length };
 
   return (
-    <div className="h-full overflow-y-auto px-4 pb-16 md:px-8">
+    <div className="h-full overflow-y-auto px-4 pb-room md:px-8">
       <div className="mx-auto max-w-[1180px]">
         <div className="flex flex-wrap items-center gap-3 pb-4 pt-2">
           <div className="mr-auto">
@@ -257,7 +263,24 @@ export default function AdminPage() {
           </div>
         </nav>
 
-        {error && <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-700">{error}</p>}
+        {error && (
+          <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-700">
+            <p className="min-w-0 flex-1">{error}</p>
+            {needCode && (
+              <button
+                className="btn-primary h-8"
+                onClick={() => {
+                  // Step up: the code of the phone, then back here.
+                  rememberAfterLogin('/admin');
+                  useAuth.setState({ mfaStep: 'verify' });
+                  navigate('/securite');
+                }}
+              >
+                <ShieldCheck size={14} /> {t('Entrer mon code')}
+              </button>
+            )}
+          </div>
+        )}
 
         {!stats ? (
           !error && (

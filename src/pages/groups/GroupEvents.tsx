@@ -222,7 +222,7 @@ export default function GroupEvents({ group }: { group: Group }) {
           </button>
         )}
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto pb-2">
+      <div className="min-h-0 flex-1 overflow-y-auto pb-room">
         {adding && canEdit && <EventForm group={group} onDone={() => setAdding(false)} />}
         {!events && (failed ? <LoadFailed groupId={group.id} part="events" /> : <p className="text-[13px] text-stone-500">{t('Chargement…')}</p>)}
         {events && events.length === 0 && !adding && (

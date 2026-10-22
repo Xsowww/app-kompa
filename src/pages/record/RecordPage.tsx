@@ -47,7 +47,7 @@ function useTick(on: boolean) {
 export default function RecordPage() {
   const session = useRecorder(s => s.session);
   return (
-    <div className="h-full overflow-y-auto px-4 pb-12 md:px-8">
+    <div className="h-full overflow-y-auto px-4 pb-room md:px-8">
       <div className="mx-auto max-w-[1180px]">
         <h1 className="pb-6 pt-2 text-[24px] font-semibold tracking-[-0.02em]">{t('Enregistrer')}</h1>
         {!session ? <Setup /> : session.phase === 'done' ? <Done s={session} /> : <Running s={session} />}

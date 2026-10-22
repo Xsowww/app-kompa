@@ -106,7 +106,7 @@ export default function GroupFiles({ group }: { group: Group }) {
           </div>
         )
       )}
-      <div className={cx('min-h-0 flex-1 overflow-y-auto rounded-xl pb-16 lg:pb-14', over && 'outline-2 outline-dashed outline-stone-300')}>
+      <div className={cx('min-h-0 flex-1 overflow-y-auto rounded-xl pb-room', over && 'outline-2 outline-dashed outline-stone-300')}>
         {files && files.length === 0 && (
           <div className="card flex flex-col items-center px-6 py-12 text-center">
             <Paperclip size={26} strokeWidth={1.5} className="text-stone-300" />

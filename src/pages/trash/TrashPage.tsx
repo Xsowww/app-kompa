@@ -328,7 +328,7 @@ export default function TrashPage() {
   );
 
   return (
-    <div className="h-full overflow-y-auto px-4 pb-16 md:px-8">
+    <div className="h-full overflow-y-auto px-4 pb-room md:px-8">
       <div className="mx-auto max-w-[1180px]">
         <div className="flex flex-wrap items-start gap-3 pb-4 pt-2">
           <div className="min-w-0 flex-1">

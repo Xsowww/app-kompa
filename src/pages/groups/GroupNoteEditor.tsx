@@ -385,7 +385,7 @@ function LoadedEditor({ initial, onClose, readOnly, startTitle }: { initial: Gro
           <Toolbar editor={editor} />
         </div>
       )}
-      <div className="min-h-0 flex-1 cursor-text overflow-y-auto px-4 py-5 md:px-11" onClick={() => !editor.isFocused && editor.commands.focus('end')}>
+      <div className="min-h-0 flex-1 cursor-text overflow-y-auto px-4 pt-5 pb-room md:px-11" onClick={() => !editor.isFocused && editor.commands.focus('end')}>
         <EditorContent editor={editor} onClick={e => e.stopPropagation()} />
       </div>
     </div>

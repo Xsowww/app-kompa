@@ -542,7 +542,7 @@ export default function NotesPage() {
           <input value={query} onChange={e => setQuery(e.target.value)} placeholder={t('Rechercher dans les notes')} aria-label={t('Rechercher dans les notes')} className="field w-full pl-8" />
         </div>
         <div
-          className={cx('min-h-0 flex-1 overflow-y-auto rounded-lg p-1 pb-16 lg:pb-1', dropOn === 'root' && 'ring-1 ring-brand-500')}
+          className={cx('min-h-0 flex-1 overflow-y-auto rounded-lg p-1 pb-room', dropOn === 'root' && 'ring-1 ring-brand-500')}
           {...dropProps(null, 'root')}
           onClick={() => setFocusFolder(null)}
         >
