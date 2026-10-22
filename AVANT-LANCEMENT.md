@@ -73,7 +73,7 @@ Ensuite : le document de lancement (hébergement, domaine, stores, légal).
 
 ## Plus tard (idées validées)
 - [x] Connexion par Face ID / empreinte digitale sur les appareils qui le permettent (clés d’accès « passkeys », WebAuthn) — prête, visible dès que « Passkeys » est activé dans Supabase
-- [ ] Indicateur d'import de fichiers (Drive, groupes, autres espaces) : montrer que l'envoi est en cours et qu'il avance
+- [x] Indicateur d'import de fichiers (Drive, groupes, autres espaces) : montrer que l'envoi est en cours et qu'il avance
 - [ ] Bouton « Retour » du téléphone qui ferme la fenêtre ouverte au lieu de quitter la page (essai fait le 22/10, mis de côté : il fallait modifier l'historique du navigateur pour tout le site, trop risqué avant le lancement)
 - [ ] Synchro plus légère : ne relire que ce qui a changé (`updated_at`) au lieu de tout le compte toutes les 2 min et à chaque retour sur l'onglet (lib/cloudSync.ts refresh). À tester sur deux appareils
 - [ ] Ouverture plus rapide pour un habitué : afficher la copie de l'appareil tout de suite et relire le compte en arrière-plan (store/session.ts, `pushLeftovers` puis `pullAll`). Risque : modifications faites pendant la relecture, à tester sur deux appareils

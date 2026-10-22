@@ -4,6 +4,7 @@ import { createContext, useContext } from 'react';
 import { AGENDA_WORDS, groupWords } from '../../lib/usage';
 import { useGroups } from '../../store/groups';
 import { toast } from '../../store/ui';
+import { trackUpload } from '../../store/uploads';
 import { GROUP_COLORS, MAX_GROUP_FILE, groupError, uploadFile, type Group, type GroupKind } from '../../lib/groups';
 import { t, tn } from '../../i18n';
 
@@ -48,19 +49,22 @@ class FileRefused extends Error {}
 export async function shareFiles(group: Group, files: { blob: Blob | (() => Promise<Blob | undefined>); name: string }[]): Promise<number> {
   let ok = 0;
   let error = '';
-  for (const f of files) {
+  // All on the upload card from the start (the size of a Drive file comes once it is read).
+  const tracks = files.map(f => trackUpload(f.name, f.blob instanceof Blob ? f.blob.size : 0, `group:${group.id}`));
+  for (const [i, f] of files.entries()) {
     try {
       const blob = typeof f.blob === 'function' ? await f.blob() : f.blob;
       if (!blob) throw new FileRefused(t('Le contenu de « {name} » est introuvable.', { name: f.name }));
       if (blob.size > MAX_GROUP_FILE) throw new FileRefused(t('« {name} » dépasse 50 Mo.', { name: f.name }));
-      await uploadFile(group.id, blob, f.name);
+      await uploadFile(group.id, blob, f.name, loaded => tracks[i].progress(loaded, blob.size));
+      tracks[i].done();
       ok++;
     } catch (e) {
+      tracks[i].fail();
       error = e instanceof FileRefused ? e.message : groupError(e);
     }
   }
   if (ok) void useGroups.getState().refresh(group.id, ['files']);
   if (error) toast(ok ? tn(ok, '{n} fichier partagé. {error}', '{n} fichiers partagés. {error}', { error }) : error, 'error');
-  else if (ok) toast(tn(ok, 'Fichier partagé avec {group}', '{n} fichiers partagés avec {group}', { group: groupWordsNow().the }), 'success');
   return ok;
 }

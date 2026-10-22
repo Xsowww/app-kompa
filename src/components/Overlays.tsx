@@ -56,7 +56,8 @@ export function Toasts() {
   }, []);
   return (
     // Full width minus 16 px each side: centred with left-1/2 alone, the toast shrank to half the screen on phones.
-    <div className="pointer-events-none fixed inset-x-4 bottom-[calc(6.5rem+env(safe-area-inset-bottom))] z-[70] flex flex-col items-center gap-2 lg:bottom-6">
+    // --uploads-room: set by the upload card while it shows, so that toasts stack above it.
+    <div className="pointer-events-none fixed inset-x-4 bottom-[calc(6.5rem+var(--uploads-room,0px)+env(safe-area-inset-bottom))] z-[70] flex flex-col items-center gap-2 lg:bottom-[calc(1.5rem+var(--uploads-room,0px))]">
       <div role="status" aria-live="polite" className="flex flex-col items-center gap-2">
         {toasts.filter(t => t.tone !== 'error').map(t => <ToastRow key={t.id} t={t} />)}
       </div>

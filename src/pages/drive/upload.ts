@@ -1,6 +1,7 @@
 import { useDrive } from '../../store/drive';
 import { indexFile } from '../../lib/textIndex';
 import { MAX_FILE } from '../../lib/blobStore';
+import { driveWhere, trackUpload, type UploadHandle } from '../../store/uploads';
 
 export interface PendingFile {
   file: File | null; // null = empty folder
@@ -46,24 +47,11 @@ export function filesFromInput(list: FileList): PendingFile[] {
   });
 }
 
-// Closing the tab mid-upload loses the files not stored yet: the browser asks first.
-let uploading = 0;
-const warnUnload = (e: BeforeUnloadEvent) => e.preventDefault();
-
 /**
  * Recreate the folder structure under `parentId` and upload every file.
  * Files over the size limit are skipped (the rest still goes in) and returned by name.
  */
 export async function uploadPending(pending: PendingFile[], parentId: string | null): Promise<{ count: number; tooBig: string[] }> {
-  if (uploading++ === 0) window.addEventListener('beforeunload', warnUnload);
-  try {
-    return await uploadAll(pending, parentId);
-  } finally {
-    if (--uploading === 0) window.removeEventListener('beforeunload', warnUnload);
-  }
-}
-
-async function uploadAll(pending: PendingFile[], parentId: string | null) {
   const drive = useDrive.getState();
   const folderIds = new Map<string, string | null>([['', parentId]]);
 
@@ -82,22 +70,34 @@ async function uploadAll(pending: PendingFile[], parentId: string | null) {
   };
 
   let count = 0;
-  const tooBig: string[] = [];
-  const byFolder = new Map<string | null, File[]>();
+  const tooBig: { name: string; track: UploadHandle }[] = [];
+  const byFolder = new Map<string | null, { files: File[]; tracks: UploadHandle[] }>();
   for (const p of pending) {
     if (p.file && p.file.size > MAX_FILE) {
-      tooBig.push(p.file.name);
+      // On the upload card too, as « Échec ».
+      tooBig.push({ name: p.file.name, track: trackUpload(p.file.name, p.file.size, driveWhere(parentId)) });
       continue;
     }
     const target = ensure(p.dirs);
     if (!p.file) continue;
-    byFolder.set(target, [...(byFolder.get(target) ?? []), p.file]);
+    const batch = byFolder.get(target) ?? { files: [], tracks: [] };
+    batch.files.push(p.file);
+    // The whole import is on the card from the start.
+    batch.tracks.push(trackUpload(p.file.name, p.file.size, driveWhere(target)));
+    byFolder.set(target, batch);
   }
-  for (const [target, files] of byFolder) {
-    const created = await drive.uploadFiles(files, target);
-    // Index the text for the search right away, from the file we already have in hand.
-    created.forEach((item, i) => void indexFile(item, files[i]));
-    count += files.length;
+  tooBig.forEach(b => b.track.fail());
+  try {
+    for (const [target, { files, tracks }] of byFolder) {
+      const created = await drive.uploadFiles(files, target, tracks);
+      // Index the text for the search right away, from the file we already have in hand.
+      created.forEach((item, i) => void indexFile(item, files[i]));
+      count += files.length;
+    }
+  } catch (e) {
+    // The next folders are not sent either.
+    for (const { tracks } of byFolder.values()) tracks.forEach(h => h.fail());
+    throw e;
   }
-  return { count, tooBig };
+  return { count, tooBig: tooBig.map(b => b.name) };
 }
