@@ -25,6 +25,7 @@ import { ContextMenu, ReminderAlerts } from '../components/Overlays';
 import { PENDING_INVITE } from '../App';
 import { JoinedDialog } from '../pages/groups/Joined';
 import RecPill, { RecBadge } from '../pages/record/RecPill';
+import UploadCard from '../components/UploadCard';
 import { useInvitations } from '../pages/groups/join';
 import { needsCredentials, savedAccounts, type SavedAccount } from '../lib/accounts';
 import { t, tn } from '../i18n';
@@ -453,6 +454,7 @@ export default function AppShell() {
           <ReminderAlerts />
           <JoinedDialog />
           <RecPill />
+          <UploadCard />
           {/* « Avis ou bug » : always at hand, bottom right (above the tab bar on phones). */}
           <button
             type="button"

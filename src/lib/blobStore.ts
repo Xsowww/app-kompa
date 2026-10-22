@@ -2,6 +2,7 @@
 // Supabase Storage in cloud mode.
 
 import { supabase } from './supabase';
+import { storageUpload } from './storageUpload';
 import { t } from '../i18n';
 
 const DB_NAME = 'cop-pilot';
@@ -69,14 +70,13 @@ const BUCKET = 'drive';
 const path = (key: string) => key.replace(':', '/');
 
 const cloud = {
-  async put(key: string, blob: Blob) {
-    const { error } = await supabase!.storage.from(BUCKET).upload(path(key), blob, {
+  async put(key: string, blob: Blob, onProgress?: (loaded: number) => void) {
+    const { error } = await storageUpload(BUCKET, path(key), blob, {
       upsert: true,
-      contentType: blob.type || undefined,
       // Share links are served through a cache: one minute instead of one hour, so a file put in
       // the trash stops being reachable through its links within a minute.
       cacheControl: '60',
-    });
+    }, onProgress);
     if (error) throw storageError(error);
   },
   async get(key: string) {
@@ -91,7 +91,8 @@ const cloud = {
 const backend = supabase ? cloud : local;
 
 export const blobStore = {
-  put: (key: string, blob: Blob) => backend.put(key, blob),
+  /** `onProgress`: bytes sent so far (online only; in this browser it is stored at once). */
+  put: (key: string, blob: Blob, onProgress?: (loaded: number) => void) => backend.put(key, blob, onProgress),
   get: (key: string): Promise<Blob | undefined> => backend.get(key),
   delete: (key: string) => backend.delete(key),
   async copy(from: string, to: string) {

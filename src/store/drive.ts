@@ -4,6 +4,7 @@ import { uid, nowIso, uniqueName } from '../lib/utils';
 import { userStorage, blobKey, trashBlobKey } from '../lib/userStorage';
 import { blobStore, MAX_FILE, QUOTA, StorageError } from '../lib/blobStore';
 import { cloudEnabled } from '../lib/supabase';
+import { driveWhere, trackUpload, type UploadHandle } from './uploads';
 import { t, locale } from '../i18n';
 
 export type DriveKind = 'folder' | 'file';
@@ -40,7 +41,8 @@ interface DriveState {
   trash: DriveItem[];
   clipboard: Clipboard | null;
   createFolder: (name: string, parentId: string | null) => DriveItem;
-  uploadFiles: (files: File[], parentId: string | null) => Promise<DriveItem[]>;
+  /** Shown on the upload card as it goes. `tracks`: one per file, when the caller has put them on the card already. */
+  uploadFiles: (files: File[], parentId: string | null, tracks?: UploadHandle[]) => Promise<DriveItem[]>;
   rename: (id: string, name: string) => void;
   /** Moves items (and their content) to the trash. */
   remove: (ids: string[]) => void;
@@ -168,34 +170,42 @@ export const useDrive = create<DriveState>()(
         return folder;
       },
 
-      async uploadFiles(files, parentId) {
-        const big = files.find(f => f.size > MAX_FILE);
-        if (big) throw new StorageError(t('« {name} » est trop lourd : 50 Mo maximum par fichier.', { name: big.name }));
-        if (cloudEnabled && QUOTA) {
-          const used = [...get().items, ...get().trash].reduce((s, i) => s + (i.kind === 'file' ? (i.size ?? 0) : 0), 0);
-          const adding = files.reduce((s, f) => s + f.size, 0);
-          if (used + adding > QUOTA)
-            throw new StorageError(t('Plus assez de place : {free} Mo libres sur {total} Mo. Vide la corbeille ou supprime des fichiers.', { free: Math.max(0, Math.floor((QUOTA - used) / 1048576)), total: Math.round(QUOTA / 1048576) }));
+      async uploadFiles(files, parentId, tracks) {
+        const handles = tracks ?? files.map(f => trackUpload(f.name, f.size, driveWhere(parentId)));
+        try {
+          const big = files.find(f => f.size > MAX_FILE);
+          if (big) throw new StorageError(t('« {name} » est trop lourd : 50 Mo maximum par fichier.', { name: big.name }));
+          if (cloudEnabled && QUOTA) {
+            const used = [...get().items, ...get().trash].reduce((s, i) => s + (i.kind === 'file' ? (i.size ?? 0) : 0), 0);
+            const adding = files.reduce((s, f) => s + f.size, 0);
+            if (used + adding > QUOTA)
+              throw new StorageError(t('Plus assez de place : {free} Mo libres sur {total} Mo. Vide la corbeille ou supprime des fichiers.', { free: Math.max(0, Math.floor((QUOTA - used) / 1048576)), total: Math.round(QUOTA / 1048576) }));
+          }
+          const created: DriveItem[] = [];
+          for (const [n, file] of files.entries()) {
+            const time = nowIso();
+            const item: DriveItem = {
+              id: uid(),
+              name: uniqueName(file.name, siblingNames(get().items, parentId)),
+              kind: 'file',
+              parentId,
+              mime: file.type || 'application/octet-stream',
+              size: file.size,
+              createdAt: time,
+              updatedAt: time,
+            };
+            await blobStore.put(blobKey(item.id), file, loaded => handles[n].progress(loaded));
+            handles[n].done();
+            created.push(item);
+            // Shown as soon as it is stored: if a later file fails, nothing stays invisible in storage.
+            set(s => ({ items: [...s.items, item] }));
+          }
+          return created;
+        } catch (e) {
+          // The file that failed and those not sent yet (the ones already done keep their tick).
+          handles.forEach(h => h.fail());
+          throw e;
         }
-        const created: DriveItem[] = [];
-        for (const file of files) {
-          const time = nowIso();
-          const item: DriveItem = {
-            id: uid(),
-            name: uniqueName(file.name, siblingNames(get().items, parentId)),
-            kind: 'file',
-            parentId,
-            mime: file.type || 'application/octet-stream',
-            size: file.size,
-            createdAt: time,
-            updatedAt: time,
-          };
-          await blobStore.put(blobKey(item.id), file);
-          created.push(item);
-          // Shown as soon as it is stored: if a later file fails, nothing stays invisible in storage.
-          set(s => ({ items: [...s.items, item] }));
-        }
-        return created;
       },
 
       rename(id, name) {

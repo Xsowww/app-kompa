@@ -29,6 +29,8 @@ import { isTrashedDriveItem } from '../../lib/trash';
 import { StorageError } from '../../lib/blobStore';
 import { cloudEnabled } from '../../lib/supabase';
 import { useProgressive } from '../../lib/useProgressive';
+import { useShallow } from 'zustand/react/shallow';
+import { driveWhere, useUploads } from '../../store/uploads';
 import { t, tn, locale } from '../../i18n';
 
 type Tab = 'all' | 'starred' | 'recent';
@@ -136,6 +138,9 @@ export default function DrivePage() {
   const allTags = useMemo(() => [...new Set(items.flatMap(i => i.tags ?? []))].sort((a, b) => a.localeCompare(b, locale())), [items]);
   const activeTag = tagFilter && allTags.includes(tagFilter) ? tagFilter : null;
   const filtering = !!q || !!activeTag;
+  // Files on their way into this folder: greyed rows with their percentage, above the folder's content.
+  const here = driveWhere(parentId);
+  const showPending = useUploads(s => s.items.some(u => u.status === 'active' && u.where === here)) && tab === 'all' && !filtering;
   // null: search results in their own order (name matches, then content matches).
   const activeSort = useMemo<Sort | null>(() => (filtering ? listSort : tab === 'recent' ? (listSort ?? { key: 'date', asc: false }) : sort), [filtering, listSort, tab, sort]);
 
@@ -890,8 +895,9 @@ export default function DrivePage() {
           setMenu({ x: e.clientX, y: e.clientY, target: null });
         }}
       >
+        {showPending && <PendingUploads where={here} />}
         {visible.length === 0 ? (
-          <div className="flex h-full min-h-72 flex-col items-center justify-center text-center">
+          showPending ? null : <div className="flex h-full min-h-72 flex-col items-center justify-center text-center">
             {filtering ? (
               <Search size={28} strokeWidth={1.5} className="text-stone-300" />
             ) : tab === 'starred' ? (
@@ -1064,5 +1070,21 @@ export default function DrivePage() {
         />
       )}
     </div>
+  );
+}
+
+/** Its own component: the percentages change often, the rest of the page stays still. */
+function PendingUploads({ where }: { where: string }) {
+  const pending = useUploads(useShallow(s => s.items.filter(u => u.status === 'active' && u.where === where)));
+  return (
+    <ul aria-label={t('Import…')} className="card mb-2 overflow-hidden opacity-60">
+      {pending.map(u => (
+        <li key={u.id} className="flex min-h-11 items-center gap-2.5 border-b border-stone-100 px-4 text-[13px] last:border-0">
+          <FileIcon category={categoryOf({ kind: 'file', name: u.name })} size={26} ext={u.name.split('.').pop()} />
+          <span className="min-w-0 flex-1 truncate font-medium">{u.name}</span>
+          <span className="tabular text-[12px] text-stone-500">{u.size ? Math.floor((u.loaded / u.size) * 100) : 0}&nbsp;%</span>
+        </li>
+      ))}
+    </ul>
   );
 }

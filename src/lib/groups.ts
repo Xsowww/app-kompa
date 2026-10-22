@@ -11,6 +11,7 @@ let space: GroupKind = 'groupe';
 export const setGroupSpace = (kind: GroupKind) => void (space = kind);
 const words = () => (space === 'agenda' ? AGENDA_WORDS : groupWords(getSettings().usage));
 import { QUOTA, StorageError, quotaLabel } from './blobStore';
+import { storageUpload } from './storageUpload';
 import { t } from '../i18n';
 
 // Groupes de travail : uniquement en ligne. Appels directs à Supabase (tables group_* et
@@ -471,7 +472,7 @@ export async function fetchFiles(groupId: string): Promise<GroupFile[]> {
 }
 
 /** Envoie le contenu puis enregistre le fichier ; rien ne reste à moitié si l'une des deux étapes est refusée. */
-export async function uploadFile(groupId: string, blob: Blob, name: string): Promise<GroupFile> {
+export async function uploadFile(groupId: string, blob: Blob, name: string, onProgress?: (loaded: number) => void): Promise<GroupFile> {
   if (blob.size > MAX_GROUP_FILE) throw new Error('file too large');
   // Group files count in the uploader's quota, like their Drive (the storage policy checks it too:
   // asking first gives a clear message instead of a « not allowed »).
@@ -482,7 +483,8 @@ export async function uploadFile(groupId: string, blob: Blob, name: string): Pro
   const id = crypto.randomUUID();
   const path = filePath({ groupId, id });
   const mime = blob.type || 'application/octet-stream';
-  const up = await db().storage.from(FILES).upload(path, blob, { contentType: mime, upsert: false });
+  // As supabase-js's upload, with progress (the multipart part carries the file's own type).
+  const up = await storageUpload(FILES, path, blob, { upsert: false }, onProgress);
   if (up.error) throw up.error;
   try {
     const row = check(
