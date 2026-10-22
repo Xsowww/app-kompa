@@ -22,7 +22,7 @@ import {
   type Past,
   type Session,
 } from '../../store/recorder';
-import { canShareComputer, canUseMic, type SourceKind } from '../../lib/recorder/capture';
+import { canShareComputer, canUseMic, onPhone, type SourceKind } from '../../lib/recorder/capture';
 import { serverState } from '../../lib/recorder/api';
 import { clock, courseMarkdown, duration } from '../../lib/recorder/course';
 import { keywordsFor, normalize } from '../../lib/keywords';
@@ -77,7 +77,8 @@ function Setup() {
   const setError = (startError: string) => useRecLive.setState({ startError });
   const [server, setServer] = useState<{ transcription: boolean } | null>(null);
   useEffect(() => {
-    serverState().then(setServer, () => setServer(null));
+    // No answer at all (no server, network): said like a server without transcription.
+    serverState().then(setServer, () => setServer({ transcription: false }));
   }, []);
 
   const name = title.trim() || w.fallback;
@@ -101,7 +102,7 @@ function Setup() {
 
   const sources = [
     { key: 'micro', icon: Mic, label: t('Micro'), ok: canUseMic(), off: '' },
-    { key: 'onglet', icon: MonitorSpeaker, label: t('Son de l’ordinateur'), ok: canShareComputer(), off: t('Avec Chrome') },
+    { key: 'onglet', icon: MonitorSpeaker, label: t('Son de l’ordinateur'), ok: canShareComputer(), off: onPhone() ? t('Sur ordinateur') : t('Avec Chrome') },
   ] as const;
 
   return (
@@ -252,7 +253,7 @@ function Running({ s }: { s: Session }) {
   }, []);
 
   const finish = async () => {
-    if (!(await confirmAction(t('Terminer l’enregistrement ?'), w.finish, t('Terminer'), false))) return;
+    if (!(await confirmAction(t('Terminer l’enregistrement ?'), w.finish, t('Terminer||l’enregistrement'), false))) return;
     void finishRecording().catch(() => undefined);
   };
   const resume = async () => {
@@ -275,7 +276,8 @@ function Running({ s }: { s: Session }) {
             {finishing ? t('Terminé') : live.hearing ? t('Enregistrement') : t('En pause')}
             <span className="tabular text-[15px] font-semibold">{clock(elapsed(s))}</span>
           </span>
-          <span className="min-w-0 truncate text-[14px] font-semibold text-stone-700" title={s.title}>· {s.title}</span>
+          {/* On a phone the title often goes to the next line: no « · » left alone in front of it. */}
+          <span className="min-w-0 truncate text-[14px] font-semibold text-stone-700" title={s.title}><span className="max-sm:hidden">· </span>{s.title}</span>
           {live.hearing && <Level value={live.level} />}
           {!finishing && (
             <span className="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto">
@@ -286,7 +288,7 @@ function Running({ s }: { s: Session }) {
                 <Star size={15} className="fill-amber-400 text-amber-500" /> {t('Moment important')}
               </button>
               <button type="button" className="btn-primary h-9 flex-1 sm:flex-none" onClick={() => void finish()}>
-                <Square size={13} className="fill-current" /> {t('Terminer')}
+                <Square size={13} className="fill-current" /> {t('Terminer||l’enregistrement')}
               </button>
             </span>
           )}
@@ -358,7 +360,9 @@ function Status({ s }: { s: Session }) {
   const live = useRecLive();
   const w = useRecWords();
   const bits: string[] = [];
-  if (s.transcriptionOff) bits.push(s.source === 'micro' && live.quickLane ? `${s.transcriptionOff} ${t('La suite est écrite par le navigateur.')}` : s.transcriptionOff);
+  // « Written by the browser » only while it really writes something.
+  const browserWrites = s.source === 'micro' && live.quickLane && s.segments.at(-1)?.origin !== 'manquant';
+  if (s.transcriptionOff) bits.push(browserWrites ? `${s.transcriptionOff} ${t('La suite est écrite par le navigateur.')}` : s.transcriptionOff);
   else if (live.waiting) bits.push(t('Le serveur est occupé : reprise dans {s} s.', { s: live.waiting }));
   if (s.aiOff) bits.push(s.aiOff);
   else if (s.parts.length) bits.push(tn(s.parts.length, '{n} partie {ofDoc} déjà rédigée.', '{n} parties {ofDoc} déjà rédigées.', { ofDoc: w.ofDoc }));
@@ -388,6 +392,8 @@ function Done({ s }: { s: Session }) {
   const making = useRecLive(st => st.making);
   const w = useRecWords();
   const passages = s.segments.filter(x => x.text).length;
+  // What a summary or questions would be made from (none: their « Créer… » buttons would only fail).
+  const canMake = !!useRecorder(st => st.history.find(h => h.id === s.id))?.points.length;
   const md = useMemo(
     () => courseMarkdown({ title: s.title, date: new Date(s.startedAt).toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }), seconds: elapsed(s), parts: s.parts, alerts: s.alerts, missing: s.segments.filter(x => x.origin === 'manquant').length }),
     [s],
@@ -407,9 +413,14 @@ function Done({ s }: { s: Session }) {
             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-white"><Check size={14} strokeWidth={3} /></span>
             {t('C’est rangé dans ton Drive')}
           </p>
-          <p className="mt-1 text-[12.5px] text-stone-500">{tn(passages, '{duration} d’enregistrement · {n} passage', '{duration} d’enregistrement · {n} passages', { duration: duration(elapsed(s)) })}</p>
+          <p className="mt-1 text-[12.5px] text-stone-500">
+            {passages
+              ? tn(passages, '{duration} d’enregistrement · {n} passage', '{duration} d’enregistrement · {n} passages', { duration: duration(elapsed(s)) })
+              : t('{duration} d’enregistrement', { duration: duration(elapsed(s)) })}
+          </p>
         </div>
-        <Files files={s.files} pastId={s.id} making={making} />
+        {!passages && <p className="text-[13px] text-amber-800">{t('Rien n’a pu être transcrit : pas de quoi faire d’autres documents.')}</p>}
+        <Files files={s.files} pastId={s.id} making={making} canMake={canMake} />
         <button type="button" className="btn-primary h-10 w-full" onClick={() => useRecorder.getState().discard()}>
           <Mic size={15} /> {t('Nouvel enregistrement')}
         </button>
@@ -419,7 +430,7 @@ function Done({ s }: { s: Session }) {
 }
 
 /** The course, its revision sheet and its exam: open them, or make the ones not made yet. */
-function Files({ files, pastId, making, compact }: { files: Past['files']; pastId: string; making: { id: string; kind: Make } | null; compact?: boolean }) {
+function Files({ files, pastId, making, compact, canMake }: { files: Past['files']; pastId: string; making: { id: string; kind: Make } | null; compact?: boolean; canMake: boolean }) {
   const items = useDrive(st => st.items);
   const w = useRecWords();
   const there = (id?: string) => !!id && items.some(i => i.id === id);
@@ -432,7 +443,7 @@ function Files({ files, pastId, making, compact }: { files: Past['files']; pastI
         {icon} {label}
       </button>
     ) : kind ? (
-      <button type="button" className={cx('btn-ghost w-full justify-start whitespace-normal border border-dashed border-stone-300 text-left', size)} disabled={!!making} onClick={() => void makeLater(pastId, kind)}>
+      canMake && <button type="button" className={cx('btn-ghost w-full justify-start whitespace-normal border border-dashed border-stone-300 text-left', size)} disabled={!!making} onClick={() => void makeLater(pastId, kind)}>
         {busy ? <Loader2 size={15} className="animate-spin" /> : icon} {busy ? t('Création…') : (compact ? w.create : w.createLong)[kind]}
       </button>
     ) : (
@@ -466,7 +477,7 @@ function History() {
               </p>
             </div>
             <div className="min-w-0 flex-1">
-              <Files files={h.files} pastId={h.id} making={making} compact />
+              <Files files={h.files} pastId={h.id} making={making} compact canMake={h.points.length > 0} />
             </div>
             <button
               type="button"

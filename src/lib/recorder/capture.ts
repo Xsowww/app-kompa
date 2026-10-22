@@ -22,9 +22,11 @@ export interface Capture {
 export class CaptureError extends Error {}
 
 
+/** A phone or a tablet: the computer's sound can't be shared from there at all. */
+export const onPhone = () => typeof navigator !== 'undefined' && /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
 /** The computer's sound: only Chrome and Edge (and the Kompaly app installed from them) share it, on a computer. */
 export const canShareComputer = () =>
-  typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getDisplayMedia && /Chrome|Chromium|Edg\//.test(navigator.userAgent) && !/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+  typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getDisplayMedia && /Chrome|Chromium|Edg\//.test(navigator.userAgent) && !onPhone();
 export const canUseMic = () => typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia;
 
 async function openStream(kind: SourceKind): Promise<MediaStream> {

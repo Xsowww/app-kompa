@@ -123,7 +123,7 @@ export default function GroupFiles({ group }: { group: Group }) {
                   </span>
                 </button>
                 <div className="flex shrink-0 items-center gap-0.5">
-                  <button className="icon-btn hidden sm:flex" title={t('Aperçu')} aria-label={t('Aperçu de {name}', { name: f.name })} onClick={() => setPreview(f)}>
+                  <button className="icon-btn hidden sm:flex" title={t('Aperçu||d’un fichier')} aria-label={t('Aperçu de {name}', { name: f.name })} onClick={() => setPreview(f)}>
                     <Eye size={15} />
                   </button>
                   <button className="icon-btn" title={t('Télécharger')} aria-label={t('Télécharger {name}', { name: f.name })} onClick={() => downloadItem(f, getUrl)}>

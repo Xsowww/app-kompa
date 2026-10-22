@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import {
   useDrive, childrenOf, pathOf, categoryOf, folderSize, FOLDER_COLORS, type DriveItem,
-  pasteForbidden,
+  pasteForbidden, keepExtension,
 } from '../../store/drive';
 import { askText, confirmAction, toast, useUi } from '../../store/ui';
 import { canMakeFrom, makeFromFile, useRecLive } from '../../store/recorder';
@@ -27,6 +27,7 @@ import { filesFromDrop, filesFromInput, uploadPending } from './upload';
 import { isMenuKey, menuPoint } from '../../lib/a11y';
 import { isTrashedDriveItem } from '../../lib/trash';
 import { StorageError } from '../../lib/blobStore';
+import { cloudEnabled } from '../../lib/supabase';
 import { t, tn, locale } from '../../i18n';
 
 type Tab = 'all' | 'starred' | 'recent';
@@ -248,8 +249,16 @@ export default function DrivePage() {
       if (!pending.length) return;
       setBusy(true);
       try {
-        const n = await uploadPending(pending, target);
-        toast(n ? tn(n, '{n} fichier importé', '{n} fichiers importés') : t('Dossier importé'), 'success');
+        const { count: n, tooBig } = await uploadPending(pending, target);
+        // Only the files over the limit are refused; everything else of the batch is in.
+        if (n || tooBig.length < pending.length) toast(n ? tn(n, '{n} fichier importé', '{n} fichiers importés') : t('Dossier importé'), 'success');
+        if (tooBig.length)
+          toast(
+            tooBig.length === 1
+              ? t('« {name} » n’a pas été importé : 50 Mo maximum par fichier.', { name: tooBig[0] })
+              : t('{n} fichiers n’ont pas été importés (plus de 50 Mo chacun) : {names}.', { n: tooBig.length, names: tooBig.join(', ') }),
+            'error',
+          );
       } catch (e) {
         toast(e instanceof StorageError ? e.message : t('L’import a échoué. Réessaie.'), 'error');
       } finally {
@@ -268,8 +277,10 @@ export default function DrivePage() {
   }, [parentId]);
 
   const rename = useCallback(async (item: DriveItem) => {
-    const name = await askText(item.kind === 'folder' ? t('Renommer le dossier') : t('Renommer le fichier'), item.name, t('Renommer'), { fileName: item.kind !== 'folder' });
-    if (name !== null && name.trim() && name !== item.name) useDrive.getState().rename(item.id, name);
+    const typed = await askText(item.kind === 'folder' ? t('Renommer le dossier') : t('Renommer le fichier'), item.name, t('Renommer'), { fileName: item.kind !== 'folder' });
+    if (typed === null || !typed.trim()) return;
+    const name = item.kind === 'file' ? keepExtension(item.name, typed) : typed;
+    if (name !== item.name) useDrive.getState().rename(item.id, name);
   }, []);
 
   // Asked first, then the toast still offers to undo (and the trash keeps them 30 days).
@@ -499,6 +510,8 @@ export default function DrivePage() {
   });
 
   const tabAll = tab === 'all' && !filtering;
+  // Inside a folder everything sits in the same place: the « Emplacement » column only helps search, favorites and recents.
+  const listCols = tabAll ? 'md:grid-cols-[minmax(0,1fr)_130px_90px]' : 'md:grid-cols-[minmax(0,1fr)_200px_130px_90px]';
 
   // ── Context menu definitions ──────────────────────────────────────────────
   /** « 3 éléments » under a folder, nothing when it is empty. */
@@ -543,7 +556,7 @@ export default function DrivePage() {
         ]
       : [];
     const list: MenuItem[] = [
-      ...(one ? [{ label: item.kind === 'folder' ? t('Ouvrir') : t('Aperçu'), icon: <Eye size={15} />, shortcut: t('Entrée'), onClick: () => openItem(item) }] : []),
+      ...(one ? [{ label: item.kind === 'folder' ? t('Ouvrir') : t('Aperçu||d’un fichier'), icon: <Eye size={15} />, shortcut: t('Entrée'), onClick: () => openItem(item) }] : []),
       ...(one && item.kind === 'file' ? [{ label: t('Télécharger'), icon: <Download size={15} />, onClick: () => downloadItem(item) }] : []),
       ...(one ? [{ label: '', divider: true, onClick: () => {} }] : []),
       { label: t('Copier'), icon: <Copy size={15} />, shortcut: `${MOD}C`, onClick: () => copy(ids) },
@@ -554,7 +567,8 @@ export default function DrivePage() {
       ...(one ? [{ label: t('Renommer'), icon: <Pencil size={15} />, shortcut: 'F2', onClick: () => void rename(item) }] : []),
       ...(one ? [{ label: item.starred ? t('Retirer des favoris') : t('Ajouter aux favoris'), icon: <Star size={15} />, onClick: () => useDrive.getState().toggleStar(item.id) }] : []),
       { label: t('Étiquettes…'), icon: <Tag size={15} />, onClick: () => setTagIds(ids) },
-      ...(one && item.kind === 'file' ? [{ label: t('Partager le lien…'), icon: <Link2 size={15} />, onClick: () => setShareItem(item) }] : []),
+      // Links only exist online: no dead-end entry in the local version.
+      ...(one && item.kind === 'file' && cloudEnabled ? [{ label: t('Partager le lien…'), icon: <Link2 size={15} />, onClick: () => setShareItem(item) }] : []),
       // A course (Word, PDF, text): Kompaly makes its revision sheet or a practice exam, saved next to it.
       ...(one && canMakeFrom(item)
         ? [
@@ -883,10 +897,10 @@ export default function DrivePage() {
               <FileIcon category="folder" size={56} />
             )}
             <p className="mt-3 text-[14px] font-medium">
-              {filtering ? t('Aucun résultat') : tab === 'starred' ? t('Aucun favori') : tab === 'recent' ? t('Aucun fichier récent') : t('Ce dossier est vide')}
+              {filtering ? t('Aucun résultat') : tab === 'starred' ? t('Aucun favori') : tab === 'recent' ? t('Aucun fichier récent') : busy ? t('Import…') : t('Ce dossier est vide')}
             </p>
             {/* Fingers can't drop files on the page, nor right-click (a long press opens the menu). */}
-            {!filtering && tab === 'all' && <p className="mt-1 max-w-xs text-[13px] text-stone-500 pointer-coarse:hidden">{t('Dépose des fichiers ici.')}</p>}
+            {!filtering && tab === 'all' && !busy && <p className="mt-1 max-w-xs text-[13px] text-stone-500 pointer-coarse:hidden">{t('Dépose des fichiers ici.')}</p>}
             {!filtering && tab === 'starred' && (
               <p className="mt-1 max-w-xs text-[13px] text-stone-500">
                 <span className="pointer-coarse:hidden">{t('Ajoute un favori avec un clic droit sur un élément.')}</span>
@@ -929,9 +943,9 @@ export default function DrivePage() {
           </div>
         ) : (
           <div className="card overflow-hidden">
-            <div className="grid grid-cols-[minmax(0,1fr)_64px] gap-3 border-b border-stone-100 px-4 py-2 text-[12px] font-medium text-stone-500 sm:grid-cols-[minmax(0,1fr)_110px_80px] md:grid-cols-[minmax(0,1fr)_200px_130px_90px]">
+            <div className={cx('grid grid-cols-[minmax(0,1fr)_64px] gap-3 border-b border-stone-100 px-4 py-2 text-[12px] font-medium text-stone-500 sm:grid-cols-[minmax(0,1fr)_110px_80px]', listCols)}>
               {sortBtn('name')}
-              <span className="hidden md:block">{t('Emplacement')}</span>
+              {!tabAll && <span className="hidden md:block">{t('Emplacement')}</span>}
               <span className="hidden sm:block">{sortBtn('date')}</span>
               {sortBtn('size')}
             </div>
@@ -943,7 +957,8 @@ export default function DrivePage() {
                   key={item.id}
                   {...itemProps(item)}
                   className={cx(
-                    'grid min-h-11 cursor-default select-none grid-cols-[minmax(0,1fr)_64px] items-center gap-3 border-b border-stone-100 px-4 text-[13px] transition-colors last:border-0 sm:grid-cols-[minmax(0,1fr)_110px_80px] md:grid-cols-[minmax(0,1fr)_200px_130px_90px]',
+                    'grid min-h-11 cursor-default select-none grid-cols-[minmax(0,1fr)_64px] items-center gap-3 border-b border-stone-100 px-4 text-[13px] transition-colors last:border-0 sm:grid-cols-[minmax(0,1fr)_110px_80px]',
+                    listCols,
                     snippetOf(item) && 'py-2',
                     sel ? 'bg-brand-50' : 'hover:bg-stone-50',
                     dropTarget === item.id && 'bg-brand-50 ring-2 ring-inset ring-brand-500',
@@ -966,7 +981,7 @@ export default function DrivePage() {
                       )}
                     </span>
                   </span>
-                  <span className="hidden truncate text-[12px] text-stone-500 md:block">{[t('Drive'), ...pathOf(items, item.parentId).map(p => p.name)].join(' / ')}</span>
+                  {!tabAll && <span className="hidden truncate text-[12px] text-stone-500 md:block">{[t('Mon Drive'), ...pathOf(items, item.parentId).map(p => p.name)].join(' / ')}</span>}
                   <span className="hidden text-[12px] text-stone-500 sm:block">{relativeTime(item.updatedAt)}</span>
                   <span className="tabular text-[12px] text-stone-500">{item.kind === 'folder' ? (folderSize(items, item.id) ? formatBytes(folderSize(items, item.id)) : '') : formatBytes(item.size)}</span>
                 </div>

@@ -78,8 +78,9 @@ export default function PreviewModal({
           if (revoked) return;
           u = URL.createObjectURL(img);
         } catch {
+          // A drawing that can't be read: the download stays offered.
           URL.revokeObjectURL(original);
-          if (!revoked) setMissing(true);
+          if (!revoked) setFailed(true);
           return;
         }
       }
@@ -160,9 +161,10 @@ export default function PreviewModal({
           {missing ? (
             <p className="max-w-sm text-center text-white/70">{t('Impossible d’afficher ce fichier. Vérifie ta connexion, puis réessaie.')}</p>
           ) : !url ? (
-            <Loader2 className="animate-spin text-white/70" />
-          ) : cat === 'image' ? (
-            <img src={url} alt={item.name} className="max-h-[80vh] max-w-full rounded-md object-contain shadow-2xl" />
+            failed ? <p className="max-w-sm text-center text-white/70">{t('Ce fichier n’a pas pu être lu')}</p> : <Loader2 className="animate-spin text-white/70" />
+          ) : cat === 'image' && !failed ? (
+            // A damaged or mislabelled picture: say so instead of a broken image.
+            <img src={url} alt={item.name} onError={() => setFailed(true)} className="max-h-[80vh] max-w-full rounded-md object-contain shadow-2xl" />
           ) : cat === 'pdf' ? (
             <PdfView url={url} title={item.name} />
           ) : cat === 'video' ? (

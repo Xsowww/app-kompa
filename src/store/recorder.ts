@@ -577,7 +577,8 @@ export function star() {
   patch(x => ({
     stars: [...x.stars, time],
     segments: x.segments.map(seg => (time >= seg.start - 1 && time < seg.end + 1 ? { ...seg, starred: true } : seg)),
-    alerts: [{ id: uid(), time, keyword: null, excerpt: excerpt(said) || t('Moment marqué') }, ...x.alerts],
+    // Nothing said yet: no excerpt (the line already says « Moment marqué »).
+    alerts: [{ id: uid(), time, keyword: null, excerpt: excerpt(said) }, ...x.alerts],
   }));
   toast(`⭐ ${t('Moment marqué')}`, 'success');
 }
@@ -640,7 +641,8 @@ async function saveDocuments() {
   const info = await pointsOf(s);
   const failed: Make[] = [];
   for (const kind of ['fiche', 'examen'] as Make[]) {
-    if (!s.make[kind] || session()!.files[kind]) continue;
+    // Nothing written down: no summary to make (not a failure to retry).
+    if (!s.make[kind] || session()!.files[kind] || !info.points.length) continue;
     live({ step: `${words().long[kind]}…`, progress: null });
     try {
       const id = await makeDoc(kind, s.title, info, name, folderId);
