@@ -405,12 +405,11 @@ export default function TodoList({ limit, grouped }: { limit?: number; grouped?:
         (ticked.length || todos.some(x => x.done) ? (
           <p className={cx('text-[13px] text-stone-500', ticked.length ? 'pt-3' : 'py-5')}>{t('Tout est coché. Profites-en.')}</p>
         ) : (
-          // The home preview has its own « Ajouter une tâche » link below.
+          // No button here: the add field (Tâches) or the « Ajouter une tâche » link (home) is right there.
           <EmptyState
             size="sm"
             icon={ListTodo}
             title={t('Aucune tâche pour l’instant.')}
-            action={preview ? undefined : { label: t('Ajouter une tâche'), icon: Plus, onClick: () => document.querySelector<HTMLElement>('[data-quickadd]')?.focus() }}
             preview="list"
           />
         ))}

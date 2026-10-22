@@ -262,12 +262,17 @@ function Groups() {
       <aside className={cx('w-full shrink-0 flex-col md:flex md:w-[248px]', active ? 'hidden' : 'flex')}>
         <div className="flex items-center gap-1.5 pb-4 pt-2">
           <h1 className="text-[24px] font-semibold tracking-[-0.02em]">{w.Groups}</h1>
+          {/* None yet: « Créer » and « J'ai un code » are in the card below, once. */}
+          {!(loaded && !failed && groups.length === 0) && (
+          <>
           <button className="icon-btn ml-auto" title={t('Rejoindre avec un code')} aria-label={t('Rejoindre avec un code')} onClick={() => setDialog('join')}>
             <LogIn size={16} />
           </button>
           <button className="btn-primary h-8 px-3" onClick={() => setDialog('create')}>
             <Plus size={14} /> {t('Créer')}
           </button>
+          </>
+          )}
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto pb-room">
           {!loaded && <Skeleton shape="people" className="p-1" />}

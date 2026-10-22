@@ -198,7 +198,7 @@ export default function Dashboard() {
                 <span className="tabular shrink-0 text-[34px] font-extrabold leading-none tracking-[-0.04em] sm:text-[40px]">{nowEvent.start}</span>
               </span>
             ) : (
-              <span className="text-[22px] font-extrabold tracking-[-0.02em]">{todayEvents.length ? t('Plus rien de prévu.') : t('Rien de prévu.')} {t('Ajouter quelque chose ?')}</span>
+              <span className="text-[22px] font-extrabold tracking-[-0.02em]">{todayEvents.length ? t('Plus rien de prévu.') : t('Rien de prévu.')}</span>
             )}
           </Link>
 
@@ -334,14 +334,6 @@ export default function Dashboard() {
                 size="sm"
                 icon={NotebookPen}
                 title={t('Aucune note pour l’instant.')}
-                action={{
-                  label: t('Nouvelle note'),
-                  icon: Plus,
-                  onClick: () => {
-                    startTitleBuffer();
-                    navigate('/notes?nouvelle=1');
-                  },
-                }}
                 preview="list"
               />
             ) : (

@@ -100,9 +100,12 @@ function Agendas() {
       {/* Title, the shared calendars (scroll sideways on a phone), « Nouveau » */}
       <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 px-4 pb-3 pt-2 md:px-8">
         <h1 className="text-[24px] font-semibold tracking-[-0.02em]">{t('Agendas partagés')}</h1>
-        <button className="btn-primary ml-auto h-8 px-3" onClick={() => setDialog('create')}>
-          <Plus size={14} /> {t('Nouveau')}
-        </button>
+        {/* None yet: the empty card's « Créer » is the only one. */}
+        {(agendas.length > 0 || !loaded || failed) && (
+          <button className="btn-primary ml-auto h-8 px-3" onClick={() => setDialog('create')}>
+            <Plus size={14} /> {t('Nouveau')}
+          </button>
+        )}
         {agendas.length > 0 && (
           <div className="-mx-4 flex w-[calc(100%+2rem)] gap-1.5 overflow-x-auto px-4 pb-1 md:-mx-8 md:w-[calc(100%+4rem)] md:px-8" role="tablist" aria-label={t('Agendas partagés')}>
             {agendas.map(g => (

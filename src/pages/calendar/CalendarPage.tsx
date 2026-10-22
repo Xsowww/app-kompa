@@ -795,7 +795,6 @@ export default function CalendarPage() {
                     size="sm"
                     icon={CalendarPlus}
                     title={selected === today ? t('Rien de prévu aujourd’hui.') : t('Rien de prévu ce jour-là.')}
-                    action={readOnly ? undefined : { label: t('Ajouter un événement'), icon: Plus, onClick: () => setForm({ date: selected }) }}
                     preview="slots"
                   />
                 )

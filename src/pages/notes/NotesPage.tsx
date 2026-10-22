@@ -564,7 +564,7 @@ export default function NotesPage() {
               {rootNotes.length > 0 && rootFolders.length > 0 && <div className="mx-2 my-2 h-px bg-stone-200/70" />}
               {rootNotes.map(n => renderNote(n, 0))}
               {notes.length === 0 && folders.length === 0 && (
-                <EmptyState size="sm" icon={NotebookPen} title={t('Aucune note pour l’instant.')} action={{ label: t('Nouvelle note'), icon: FilePlus2, onClick: () => newNote() }} preview="list" />
+                <EmptyState size="sm" icon={NotebookPen} title={t('Aucune note pour l’instant.')} preview="list" />
               )}
             </div>
           )}
@@ -608,8 +608,9 @@ export default function NotesPage() {
             <NotebookPen size={28} strokeWidth={1.5} className="text-stone-300" />
             <p className="mt-3 text-[13px] text-stone-500">{t('Choisis une note, ou pars d’un modèle.')}</p>
             <div className="mt-4 flex max-w-[460px] flex-wrap justify-center gap-1.5">
-              {noteTemplates().map((tpl, i) => (
-                <button key={tpl.id} onClick={() => newNote(targetFolder, i === 0 ? undefined : tpl)} title={tpl.hint} className="btn-secondary h-8 px-3 text-[12px]">
+              {/* The blank note is « Nouvelle note » above: only the templates here. */}
+              {noteTemplates().slice(1).map(tpl => (
+                <button key={tpl.id} onClick={() => newNote(targetFolder, tpl)} title={tpl.hint} className="btn-secondary h-8 px-3 text-[12px]">
                   {tpl.label}
                 </button>
               ))}

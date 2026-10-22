@@ -907,8 +907,7 @@ export default function DrivePage() {
               className="py-16"
               tone="search"
               title={q ? t('Aucun résultat pour « {q} »', { q }) : t('Aucun résultat')}
-              action={q ? { label: t('Effacer la recherche'), icon: X, onClick: () => setQuery('') } : undefined}
-              secondary={activeTag ? { label: t('Retirer les filtres'), icon: Tag, onClick: () => setTagFilter(null) } : undefined}
+              action={activeTag ? { label: t('Retirer les filtres'), icon: Tag, onClick: () => setTagFilter(null) } : undefined}
             />
           ) : tab === 'starred' ? (
             <EmptyState
@@ -925,7 +924,7 @@ export default function DrivePage() {
               preview={view === 'grid' ? 'tiles' : 'list'}
             />
           ) : tab === 'recent' ? (
-            <EmptyState className="py-16" icon={Clock} title={t('Aucun fichier récent')} action={{ label: t('Importer'), icon: Upload, onClick: () => fileInput.current?.click() }} preview="list" />
+            <EmptyState className="py-16" icon={Clock} title={t('Aucun fichier récent')} preview="list" />
           ) : (
             <EmptyState
               className="py-16"
@@ -933,7 +932,6 @@ export default function DrivePage() {
               title={parentId ? t('Ce dossier est vide') : t('Aucun fichier pour l’instant.')}
               // Fingers can't drop files on the page.
               text={<span className="pointer-coarse:hidden">{t('Dépose des fichiers ici.')}</span>}
-              action={{ label: t('Importer'), icon: Upload, onClick: () => fileInput.current?.click() }}
               preview={view === 'grid' ? 'tiles' : 'list'}
             />
           )
