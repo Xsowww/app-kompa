@@ -72,7 +72,7 @@ Ensuite : le document de lancement (hébergement, domaine, stores, légal).
 - [ ] (avant l'ouverture au public) « Enregistrer » : vérifier la clé de transcription (`TRANSCRIBE_API_KEY`, ou la clé Groq de l'IA), les limites `TRANSCRIBE_DAILY_MINUTES` / `TRANSCRIBE_SITE_MINUTES` (Groq gratuit : environ 8 h de son par jour pour tout le site) et que la « zéro conservation » de Groq couvre aussi l'audio (promis dans la page confidentialité)
 
 ## Plus tard (idées validées)
-- [ ] Connexion par Face ID / empreinte digitale sur les appareils qui le permettent (clés d'accès « passkeys », WebAuthn)
+- [x] Connexion par Face ID / empreinte digitale sur les appareils qui le permettent (clés d’accès « passkeys », WebAuthn) — prête, visible dès que « Passkeys » est activé dans Supabase
 - [ ] Indicateur d'import de fichiers (Drive, groupes, autres espaces) : montrer que l'envoi est en cours et qu'il avance
 - [ ] Bouton « Retour » du téléphone qui ferme la fenêtre ouverte au lieu de quitter la page (essai fait le 22/10, mis de côté : il fallait modifier l'historique du navigateur pour tout le site, trop risqué avant le lancement)
 - [ ] Synchro plus légère : ne relire que ce qui a changé (`updated_at`) au lieu de tout le compte toutes les 2 min et à chaque retour sur l'onglet (lib/cloudSync.ts refresh). À tester sur deux appareils

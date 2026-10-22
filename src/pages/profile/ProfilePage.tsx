@@ -30,6 +30,7 @@ import { fmt, todayKey } from '../../lib/dates';
 import Avatar from '../../components/Avatar';
 import Character from '../../copilot/Character';
 import { Section, Row, Toggle, Segmented, Stepper } from './controls';
+import PasskeySection from './PasskeySection';
 import { cloudEnabled, remembered } from '../../lib/supabase';
 import { getStorageUser } from '../../lib/userStorage';
 import { currentStreak, useBadges } from '../../lib/badges';
@@ -927,6 +928,8 @@ function AccountTab() {
           )}
         </Section>
       )}
+
+      {cloudEnabled && <PasskeySection />}
 
       <Section title={t('Mot de passe')}>
         <form onSubmit={onChange} className="grid gap-3 px-5 py-4 sm:grid-cols-3">

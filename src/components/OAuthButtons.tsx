@@ -29,13 +29,14 @@ function AppleIcon() {
 const NAMES: Record<OAuthProvider, string> = { google: 'Google', apple: 'Apple' };
 
 /** « Continuer avec Google / Apple », only for the providers switched on in Supabase. */
-export default function OAuthButtons({ remember, onError, children }: { remember: boolean; onError: (message: string) => void; children?: ReactNode }) {
+/** `first`: a button shown above Google and Apple (Face ID / fingerprint on the sign-in page). */
+export default function OAuthButtons({ remember, onError, first, children }: { remember: boolean; onError: (message: string) => void; first?: ReactNode; children?: ReactNode }) {
   const [list, setList] = useState<OAuthProvider[]>([]);
   const [going, setGoing] = useState<OAuthProvider | null>(null);
   useEffect(() => {
     void oauthProviders().then(setList);
   }, []);
-  if (!list.length) return null;
+  if (!list.length && !first) return null;
 
   const go = async (p: OAuthProvider) => {
     setGoing(p);
@@ -51,6 +52,7 @@ export default function OAuthButtons({ remember, onError, children }: { remember
   return (
     <div className="mt-6">
       <div className="space-y-2">
+        {first}
         {list.map(p => (
           <button key={p} type="button" className="btn-secondary h-10 w-full justify-center gap-2.5" disabled={!!going} onClick={() => void go(p)}>
             {going === p ? <Loader2 size={15} className="animate-spin" /> : p === 'google' ? <GoogleIcon /> : <AppleIcon />}

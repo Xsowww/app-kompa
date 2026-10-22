@@ -91,15 +91,24 @@ export async function checkPassword(email: string, password: string): Promise<bo
 export const cloudEnabled = supabase !== null;
 
 export type OAuthProvider = 'google' | 'apple';
-let providers: Promise<OAuthProvider[]> | null = null;
+type AuthSettings = { external?: Record<string, boolean>; passkeys_enabled?: boolean };
+let settings: Promise<AuthSettings> | null = null;
+/** What is switched on in Supabase (read once). */
+const authSettings = () =>
+  (settings ??= fetch(`${url}/auth/v1/settings`, { headers: { apikey: key! } })
+    .then((r): Promise<AuthSettings> | AuthSettings => (r.ok ? r.json() : {}))
+    .catch((): AuthSettings => ({})));
+
 /** Google and Apple sign-in buttons show only once they are switched on in Supabase (Authentication › Providers). */
 export function oauthProviders(): Promise<OAuthProvider[]> {
   if (!url || !key) return Promise.resolve([]);
-  providers ??= fetch(`${url}/auth/v1/settings`, { headers: { apikey: key } })
-    .then(r => (r.ok ? r.json() : {}))
-    .then((s: { external?: Record<string, boolean> }) => (['google', 'apple'] as const).filter(p => s.external?.[p] === true))
-    .catch(() => []);
-  return providers;
+  return authSettings().then(s => (['google', 'apple'] as const).filter(p => s.external?.[p] === true));
+}
+
+/** Face ID / fingerprint sign-in: switched on in Supabase (Authentication › Passkeys) and possible in this browser. */
+export function passkeysAvailable(): Promise<boolean> {
+  if (!url || !key || typeof window === 'undefined' || !window.PublicKeyCredential) return Promise.resolve(false);
+  return authSettings().then(s => s.passkeys_enabled === true);
 }
 
 /** Ends a session kept for an account that is not the one in use (« Retirer de cet appareil »). */

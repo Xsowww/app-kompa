@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { CheckCircle2, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { CheckCircle2, Eye, EyeOff, Fingerprint, Loader2 } from 'lucide-react';
 import { AUTH_MSG, awaitConfirmation, useAuth } from '../store/auth';
 import AccountList from '../components/AccountList';
 import { needsCredentials, reloginHint, savedAccounts, type SavedAccount } from '../lib/accounts';
 import { takeAfterLogin } from '../lib/afterLogin';
 import { toast } from '../store/ui';
 import { loadUserData, markLocalWelcome } from '../store/session';
-import { cloudEnabled, linkError, setRememberMe } from '../lib/supabase';
+import { cloudEnabled, linkError, passkeysAvailable, setRememberMe } from '../lib/supabase';
 import { prefetchCaptcha } from '../lib/captcha';
+import { offerPasskey } from '../lib/passkeyOffer';
 import Character from '../copilot/Character';
 import Logo from '../components/Logo';
 import FileIcon from '../components/FileIcon';
@@ -143,6 +144,28 @@ export default function AuthPage({ mode }: { mode: Mode }) {
   useEffect(() => {
     if (mode === 'reset' && cloudEnabled) void useAuth.getState().resetNeedsCode().then(setNeedsCode);
   }, [mode]);
+  // Face ID / fingerprint: offered once switched on in Supabase and possible on this device.
+  const [passkeys, setPasskeys] = useState(false);
+  useEffect(() => {
+    if (mode === 'login') void passkeysAvailable().then(setPasskeys);
+  }, [mode]);
+
+  async function passkeyLogin() {
+    setError('');
+    setErrField(null);
+    setBusy(true);
+    try {
+      setRememberMe(remember);
+      if (!(await useAuth.getState().loginWithPasskey())) return; // prompt closed
+      if (useAuth.getState().mfaStep) return navigate('/securite');
+      await loadUserData();
+      navigate(takeAfterLogin());
+    } catch (err) {
+      fail(null, (err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -187,9 +210,10 @@ export default function AuthPage({ mode }: { mode: Mode }) {
         await loadUserData();
       } else {
         setRememberMe(remember);
-        await login(email, password);
+        const user = await login(email, password);
         if (useAuth.getState().mfaStep) return navigate('/securite');
         await loadUserData();
+        if (cloudEnabled) void offerPasskey(user.id);
       }
       navigate(takeAfterLogin());
     } catch (err) {
@@ -308,7 +332,18 @@ export default function AuthPage({ mode }: { mode: Mode }) {
             )}
 
             {cloudEnabled && !adding && (mode === 'login' || isRegister) && (
-              <OAuthButtons remember={isRegister || remember} onError={m => fail(null, m)}>
+              <OAuthButtons
+                remember={isRegister || remember}
+                onError={m => fail(null, m)}
+                first={
+                  mode === 'login' && passkeys ? (
+                    <button type="button" className="btn-secondary h-10 w-full justify-center gap-2.5" disabled={busy} onClick={() => void passkeyLogin()}>
+                      {busy ? <Loader2 size={15} className="animate-spin" /> : <Fingerprint size={16} />}
+                      {t('Face ID ou empreinte')}
+                    </button>
+                  ) : undefined
+                }
+              >
                 <p className="mt-2 text-[11.5px] leading-snug text-stone-500">
                   {t('En continuant, tu acceptes les')}{' '}
                   <Link to="/conditions" target="_blank" className="underline decoration-stone-300 underline-offset-2 hover:text-ink">

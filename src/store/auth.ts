@@ -6,7 +6,7 @@ import { supabase, checkPassword, remembered, authStorageKey, revokeSession, OAU
 import { captchaToken } from '../lib/captcha';
 import { forgetAfterLogin } from '../lib/afterLogin';
 import { rememberAccount, updateSession, forgetAccount, lockAccount, savedAccount, needsCredentials } from '../lib/accounts';
-import type { AuthError, User as SupabaseUser } from '@supabase/supabase-js';
+import type { AuthError, PasskeyListItem, User as SupabaseUser } from '@supabase/supabase-js';
 import { t } from '../i18n';
 
 // Two modes:
@@ -113,6 +113,12 @@ interface AuthState {
   login: (email: string, password: string) => Promise<User>;
   /** Leaves for Google or Apple, which come back to /connexion signed in. */
   loginWith: (provider: OAuthProvider) => Promise<void>;
+  /** Face ID, fingerprint or the device's code (a passkey). Null when the person closed the prompt. */
+  loginWithPasskey: () => Promise<User | null>;
+  /** Saves a passkey of this device for the account. False when the person closed the prompt. */
+  addPasskey: () => Promise<boolean>;
+  listPasskeys: () => Promise<PasskeyListItem[]>;
+  removePasskey: (id: string) => Promise<void>;
   logout: () => Promise<void>;
   /** Opens another account saved on this device; 'credentials' when its session is gone (unused too long, revoked…). */
   /** `to`: the page to open once switched (a notification of that account). */
@@ -203,6 +209,22 @@ async function cloud<R extends { data: unknown; error: AuthError | null }>(p: Pr
   }
   if (res.error) throw new Error(authMessage(res.error));
   return res.data;
+}
+
+// ── Passkeys (Face ID, fingerprint, the device's code) ─────────────────────
+type PasskeyError = Error & { code?: string; cause?: unknown };
+/** The person closed the prompt of the device (or it timed out): nothing to say. */
+const closedPrompt = (e: PasskeyError) => e.code === 'ERROR_CEREMONY_ABORTED' || ['NotAllowedError', 'AbortError'].includes((e.cause as Error | undefined)?.name ?? e.name);
+function passkeyMessage(e: PasskeyError): string {
+  if (e.code === 'ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED') return t('Cet appareil est déjà enregistré pour ton compte.');
+  if (e.name === 'AuthApiError' || e.name === 'AuthRetryableFetchError' || (e as AuthError).status) return authMessage(e);
+  return t('Face ID ou l’empreinte n’a pas marché. Réessaie, ou utilise ton mot de passe.');
+}
+/** A name the person recognises in Profile › Account (« iPhone », « Mac »…). */
+function deviceName(): string {
+  const ua = navigator.userAgent;
+  const name = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android' : /Mac/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : /CrOS/.test(ua) ? 'Chromebook' : /Linux/.test(ua) ? 'Linux' : '';
+  return name || t('Cet appareil');
 }
 
 /** What remains to do with the second factor for the current session. */
@@ -372,6 +394,48 @@ export const useAuth = create<AuthState>((set, get) => ({
       /* storage blocked: an error on the way back reads as a link error */
     }
     await cloud(supabase.auth.signInWithOAuth({ provider, options: { redirectTo: `${location.origin}/connexion` } }));
+  },
+
+  async loginWithPasskey() {
+    if (!supabase) return null;
+    ownSignIn = true;
+    try {
+      const { data, error } = await supabase.auth.signInWithPasskey({ options: { captchaToken: await captchaToken() } });
+      if (error) {
+        if (closedPrompt(error)) return null;
+        throw new Error(passkeyMessage(error));
+      }
+      if (!data.user) throw new Error(passkeyMessage(new Error('no user')));
+      const user = fromSupabase(data.user);
+      const mfaStep = await nextMfaStep(); // a phone paired for two-factor still asks its code
+      if (!mfaStep) setStorageUser(user.id);
+      awaitConfirmation(false);
+      set({ user, mfaStep });
+      return user;
+    } finally {
+      setTimeout(() => (ownSignIn = false), 1500);
+    }
+  },
+
+  async addPasskey() {
+    if (!supabase) return false;
+    const { data, error } = await supabase.auth.registerPasskey();
+    if (error) {
+      if (closedPrompt(error)) return false;
+      throw new Error(passkeyMessage(error));
+    }
+    if (data?.id) await supabase.auth.passkey.update({ passkeyId: data.id, friendlyName: deviceName() }).catch(() => undefined);
+    return true;
+  },
+
+  async listPasskeys() {
+    if (!supabase) return [];
+    return (await cloud(supabase.auth.passkey.list())) ?? [];
+  },
+
+  async removePasskey(id) {
+    if (!supabase) return;
+    await cloud(supabase.auth.passkey.delete({ passkeyId: id }));
   },
 
   async login(email, password) {

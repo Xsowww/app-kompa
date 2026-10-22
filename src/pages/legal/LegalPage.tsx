@@ -53,6 +53,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
         title: t('Données collectées'),
         body: [
           t('Compte : prénom, adresse e-mail, mot de passe (enregistré sous forme chiffrée, jamais lisible), double authentification.'),
+          t('Face ID ou empreinte, si tu l’actives : la vérification se fait sur ton appareil. Kompaly ne reçoit ni ton visage ni ton empreinte, seulement une clé publique (qui prouve que c’est bien ton appareil), son nom (« iPhone », « Mac »…) et ses dates d’ajout et de dernière utilisation.'),
           t('Contenus : fichiers du Drive, notes, événements, tâches, sessions de concentration, groupes et agendas partagés et ce que tu y partages, enregistrements (le texte écrit à partir du son, tes mots-clés et les documents créés), réglages (thème, profil d’études ou de travail facultatif).'),
           t('Technique : journaux d’erreurs du serveur (page concernée et message d’erreur, sans le contenu de tes documents) pour corriger les bugs.'),
           t('Messages « Avis ou bug » : ton message, la page ouverte et le type d’appareil (navigateur, système, taille d’écran).'),
