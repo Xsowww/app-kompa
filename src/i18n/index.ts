@@ -44,6 +44,8 @@ const isLang = (l: unknown): l is Lang => LANGS.some(x => x.code === l);
 function detect(): Lang {
   const asked = typeof location === 'undefined' ? null : new URLSearchParams(location.search).get('lang');
   if (isLang(asked)) return asked;
+  // Search engines crawl with an English browser: an address without ?lang must show what its head says (French).
+  if (typeof navigator !== 'undefined' && /bot|crawl|spider|slurp|preview/i.test(navigator.userAgent)) return 'fr';
   try {
     const saved = localStorage.getItem(KEY);
     if (isLang(saved)) return saved;
