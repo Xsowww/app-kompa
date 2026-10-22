@@ -406,7 +406,7 @@ export default function CalendarPage() {
     update(ev.id, patch);
     const day = fmt(fromKey(target.day), 'EEEE d MMM');
     const label = dayChanged ? (timeChanged ? t('Déplacé au {day} à {time}', { day, time: patch.start! }) : t('Déplacé au {day}', { day })) : t('Déplacé à {time}', { time: patch.start! });
-    toast(label, 'success', { label: t('Annuler'), run: () => update(ev.id, before) });
+    toast(label, 'success', { label: t('Annuler||l’action'), run: () => update(ev.id, before) });
   };
   const { drag, ghostRef, start: dragStart } = useEventDrag(moveEvent);
   const startDrag: typeof dragStart = (...a) => (readOnly ? undefined : dragStart(...a));

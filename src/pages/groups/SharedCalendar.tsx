@@ -156,7 +156,7 @@ export default function SharedCalendar({ group }: { group: Group }) {
         pending.set(id, send);
         redraw(n => n + 1);
         toast(t('Supprimé de l’agenda'), 'info', {
-          label: t('Annuler'),
+          label: t('Annuler||l’action'),
           run: () => {
             clearTimeout(timer);
             pending.delete(id);

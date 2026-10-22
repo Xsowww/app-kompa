@@ -75,7 +75,7 @@ function removeWithUndo(gone: Todo[]) {
   if (!gone.length) return;
   const text = gone.length === 1 ? t('Tâche « {title} » supprimée', { title: gone[0].title }) : t('{n} tâches supprimées', { n: gone.length });
   toast(text, 'info', {
-    label: t('Annuler'),
+    label: t('Annuler||l’action'),
     run: () => {
       useTodos.getState().restore(gone);
       // The toast's button goes away: the focus goes to the task that came back (once it's on screen).

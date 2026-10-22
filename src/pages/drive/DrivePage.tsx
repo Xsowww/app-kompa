@@ -297,7 +297,7 @@ export default function DrivePage() {
     useDrive.getState().remove(ids);
     setSelected(new Set());
     toast(ids.length > 1 ? tn(ids.length, '{n} élément mis à la corbeille', '{n} éléments mis à la corbeille') : t('Mis à la corbeille'), 'info', {
-      label: t('Annuler'),
+      label: t('Annuler||l’action'),
       run: () => useDrive.getState().restore(ids),
     });
   }, []);
