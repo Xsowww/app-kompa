@@ -107,7 +107,7 @@ function HeroDemo() {
       {/* Kompaly leans out from the edge, under the window (never over it); the room is kept so nothing jumps. */}
       <div className="mt-3 flex items-start justify-between gap-3">
         {step === 2 && !reducedMotion() ? (
-          <button type="button" onClick={replay} className="mt-1 shrink-0 text-[12px] text-stone-500 underline decoration-stone-300 underline-offset-4 hover:text-ink">
+          <button type="button" onClick={replay} className="mt-1 shrink-0 text-[12px] text-stone-500 underline decoration-stone-300 underline-offset-4 hover:text-ink pointer-coarse:-mt-1 pointer-coarse:py-2">
             {t('Revoir l’exemple')}
           </button>
         ) : (
@@ -158,19 +158,18 @@ function Usages() {
     <section id="usages" aria-labelledby="usages-title" className="mx-auto max-w-[1120px] px-5 py-20 md:px-8">
       <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,420px)_1fr]">
         <div>
-          <h2 id="usages-title" className="text-[30px] font-extrabold leading-[1.05] tracking-[-0.035em] md:text-[36px]">
+          <h2 id="usages-title" className="text-[30px] font-extrabold leading-[1.05] tracking-[-0.025em] md:text-[36px]">
             {t('Pour tes études, ton travail ou ta vie perso.')}
           </h2>
           <p className="mt-4 text-[15px] leading-relaxed text-stone-600">
             {t('L’appli adapte ses mots et ses conseils à ton usage.')}
           </p>
-          <div className="mt-6 inline-flex rounded-xl bg-stone-100 p-1" role="radiogroup" aria-label={t('Kompaly sert pour')}>
+          <div className="mt-6 inline-flex rounded-xl bg-stone-100 p-1" role="group" aria-label={t('Kompaly sert pour')}>
             {USAGES.map(u => (
               <button
                 key={u.key}
                 type="button"
-                role="radio"
-                aria-checked={usage === u.key}
+                aria-pressed={usage === u.key}
                 onClick={() => setUsage(u.key)}
                 className={cx('h-9 rounded-lg px-3.5 text-[13.5px] font-semibold transition-colors', usage === u.key ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
               >
@@ -225,13 +224,13 @@ const TRUST = [
 ] as const;
 
 const FAQ = [
-  { q: t('C’est gratuit ?'), a: t('Oui. Limites : 50 Mo par fichier, 1 Go d’espace, un nombre de questions par jour à Kompaly en mode intelligent et quelques heures d’enregistrement par jour.') },
-  { q: t('Ça marche sur téléphone ?'), a: t('Oui. Ouvre kompaly.com et ajoute-le à ton écran d’accueil (iPhone : Partager › Sur l’écran d’accueil ; Android : Installer l’application). Tout se synchronise, et l’essentiel marche hors connexion.') },
-  { q: t('Qui peut voir mes notes et mes fichiers ?'), a: t('Toi seul. Dans un groupe, les membres voient seulement ce que tu y partages.') },
-  { q: t('Que devient ce que je demande à Kompaly ?'), a: t('En mode intelligent, ta question est envoyée à notre fournisseur d’IA, qui ne la conserve pas. Le mode simple fonctionne sans rien envoyer.') },
-  { q: t('Le son de mes enregistrements est-il gardé ?'), a: t('Non. Le son est envoyé par petits morceaux pour être écrit en texte, puis effacé : seuls le texte et les documents restent. Demande l’accord des personnes que tu enregistres.') },
+  { q: t('C’est gratuit\u00a0?'), a: t('Oui. Limites : 50 Mo par fichier, 1 Go d’espace, un nombre de questions par jour à Kompaly en mode intelligent et quelques heures d’enregistrement par jour.') },
+  { q: t('Ça marche sur téléphone\u00a0?'), a: t('Oui. Ouvre kompaly.com et ajoute-le à ton écran d’accueil (iPhone : Partager › Sur l’écran d’accueil ; Android : Installer l’application). Tout se synchronise, et l’essentiel marche hors connexion.') },
+  { q: t('Qui peut voir mes notes et mes fichiers\u00a0?'), a: t('Toi seul. Dans un groupe, les membres voient seulement ce que tu y partages.') },
+  { q: t('Que devient ce que je demande à Kompaly\u00a0?'), a: t('En mode intelligent, ta question est envoyée à notre fournisseur d’IA, qui ne la conserve pas. Le mode simple fonctionne sans rien envoyer.') },
+  { q: t('Le son de mes enregistrements est-il gardé\u00a0?'), a: t('Non. Le son est envoyé par petits morceaux pour être écrit en texte, puis effacé : seuls le texte et les documents restent. Demande l’accord des personnes que tu enregistres.') },
   { q: t('J’ai un compte perso et un compte travail.'), a: t('Ajoute les deux sur ton appareil et passe de l’un à l’autre en un clic.') },
-  { q: t('À partir de quel âge ?'), a: t('Dès 15 ans. Avant, il faut l’accord d’un parent.') },
+  { q: t('À partir de quel âge\u00a0?'), a: t('Dès 15 ans. Avant, il faut l’accord d’un parent.') },
 ] as const;
 
 export default function LandingPage() {
@@ -265,9 +264,9 @@ export default function LandingPage() {
         {/* Hero */}
         <section className="mx-auto grid max-w-[1120px] items-center gap-14 px-5 pb-24 pt-10 md:px-8 md:pt-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,520px)]">
           <div>
-            <h1 className="max-w-[13ch] text-[42px] font-extrabold leading-[1.0] tracking-[-0.045em] md:text-[60px]">{t('Ton agenda, tes notes et tes fichiers, enfin au même endroit.')}</h1>
+            <h1 className="max-w-[13ch] text-[42px] font-extrabold leading-[1.0] tracking-[-0.03em] md:text-[60px]">{t('Ton agenda, tes notes et tes fichiers, enfin au même endroit.')}</h1>
             <p className="mt-6 max-w-[46ch] text-[16.5px] leading-relaxed text-stone-600">
-              {t('Calendrier, tâches, notes et fichiers dans une seule appli. Et Kompaly, ton ami, te rappelle ce qui compte.')}
+              {t('Tes tâches aussi. Et Kompaly, ton ami, te rappelle ce qui compte.')}
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link to="/inscription" className="btn-primary h-11 px-5 text-[15px]">
@@ -286,7 +285,7 @@ export default function LandingPage() {
         <section id="fonctions" aria-labelledby="fonctions-title" className="border-y border-stone-200 bg-surface">
           <div className="mx-auto grid max-w-[1120px] gap-12 px-5 py-20 md:px-8 lg:grid-cols-[minmax(0,360px)_1fr]">
             <div className="lg:sticky lg:top-24 lg:self-start">
-              <h2 id="fonctions-title" className="text-[30px] font-extrabold leading-[1.05] tracking-[-0.035em] md:text-[36px]">
+              <h2 id="fonctions-title" className="text-[30px] font-extrabold leading-[1.05] tracking-[-0.025em] md:text-[36px]">
                 {t('Sept outils qui se parlent.')}
               </h2>
               <p className="mt-4 text-[15px] leading-relaxed text-stone-600">{t('Un rendez-vous ajouté apparaît sur ton accueil, chez Kompaly et dans ton groupe si tu le partages.')}</p>
@@ -312,7 +311,7 @@ export default function LandingPage() {
         <section id="confiance" aria-labelledby="confiance-title" className="bg-ink text-paper">
           <div className="mx-auto grid max-w-[1120px] gap-10 px-5 py-20 md:px-8 lg:grid-cols-[minmax(0,420px)_1fr]">
             <div>
-              <h2 id="confiance-title" className="text-[30px] font-extrabold leading-[1.05] tracking-[-0.035em] md:text-[36px]">
+              <h2 id="confiance-title" className="text-[30px] font-extrabold leading-[1.05] tracking-[-0.025em] md:text-[36px]">
                 {t('Tes affaires restent les tiennes.')}
               </h2>
               <p className="mt-4 text-[15px] leading-relaxed text-paper/70">
@@ -336,7 +335,7 @@ export default function LandingPage() {
 
         {/* FAQ */}
         <section id="questions" aria-labelledby="questions-title" className="mx-auto max-w-[760px] px-5 py-20 md:px-8">
-          <h2 id="questions-title" className="text-[30px] font-extrabold leading-[1.05] tracking-[-0.035em] md:text-[36px]">
+          <h2 id="questions-title" className="text-[30px] font-extrabold leading-[1.05] tracking-[-0.025em] md:text-[36px]">
             {t('Questions fréquentes')}
           </h2>
           <div className="mt-8 divide-y divide-stone-200 border-y border-stone-200">
@@ -371,13 +370,13 @@ export default function LandingPage() {
       <footer className="border-t border-stone-200">
         <div className="mx-auto flex max-w-[1120px] flex-wrap items-center gap-x-6 gap-y-3 px-5 py-8 text-[13px] text-stone-500 md:px-8">
           <Logo />
-          <nav aria-label={t('Informations légales')} className="flex flex-wrap gap-x-4 gap-y-2">
+          <nav aria-label={t('Informations légales')} className="flex flex-wrap gap-x-4 gap-y-2 pointer-coarse:gap-y-0">
             {LEGAL_LINKS.map(l => (
-              <Link key={l.to} to={l.to} className="hover:text-ink">
+              <Link key={l.to} to={l.to} className="hover:text-ink pointer-coarse:py-2">
                 {l.label}
               </Link>
             ))}
-            <a href="mailto:contact@kompaly.com" className="hover:text-ink">
+            <a href="mailto:contact@kompaly.com" className="hover:text-ink pointer-coarse:py-2">
               contact@kompaly.com
             </a>
           </nav>

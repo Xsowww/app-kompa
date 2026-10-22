@@ -37,7 +37,8 @@ const TIME_QUESTION: Record<Usage, string> = {
 
 const STEPS = 6;
 
-const DEFAULT_ANSWERS: WelcomeAnswers = { usage: 'etudes', year: '', school: '', program: '', needs: [], persona: 'pote', revisionTime: '18:00' };
+// « Passer le questionnaire » before any choice: the everyday wording (no « cours », no « échéances »).
+const DEFAULT_ANSWERS: WelcomeAnswers = { usage: 'perso', year: '', school: '', program: '', needs: [], persona: 'pote', revisionTime: '18:00' };
 
 // Longer than the double-click delay of the systems (500 ms on Windows): the second click of a
 // double click lands on the next question, often on the answer just under the pointer.
@@ -53,6 +54,8 @@ export default function WelcomePage() {
   const [step, setStep] = useState(draft?.step ?? 0);
   const [busy, setBusy] = useState(false);
   const [a, setA] = useState<WelcomeAnswers>(draft?.answers ?? DEFAULT_ANSWERS);
+  // Nothing looks chosen on the first question until it is answered (coming back to it shows the answer).
+  const [picked, setPicked] = useState(step > 0);
   const words = WORDS[a.usage];
   useEffect(() => {
     if (userId && !busy) saveWelcomeDraft(userId, { step, answers: a });
@@ -113,7 +116,17 @@ export default function WelcomePage() {
               {USAGES.map(u => {
                 const Icon = USAGE_ICONS[u.key];
                 return (
-                  <button key={u.key} type="button" className={choice(a.usage === u.key)} onClick={() => set({ usage: u.key, year: '' })}>
+                  <button
+                    key={u.key}
+                    type="button"
+                    className={choice(picked && a.usage === u.key)}
+                    onClick={() => {
+                      if (moving.current) return;
+                      setPicked(true);
+                      // Another usage: the year, school and job given for the old one don't fit it.
+                      set(u.key === a.usage ? {} : { usage: u.key, year: '', school: '', program: '' });
+                    }}
+                  >
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600"><Icon size={18} /></span>
                     <span>
                       <span className="block text-[14px] font-medium">{u.label}</span>

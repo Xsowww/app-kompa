@@ -207,13 +207,13 @@ export default function Dashboard() {
               <div className="flex flex-1 flex-col">
                 <Link to={linkToDay(nextExam.date, nextExam.id)} className="group flex flex-col gap-3">
                   <span className="flex items-baseline gap-3">
-                    {examDays === 0 ? (
-                      // A word, not a number: « j » goes below the line, so no 0.8 line height here.
-                      <span className="text-[clamp(36px,11vw,52px)] font-extrabold leading-none tracking-[-0.045em] text-urgent lg:text-[clamp(36px,3.6vw,52px)]">{t('Aujourd’hui')}</span>
+                    {examDays <= 1 ? (
+                      // A word, not a number (« Demain », not « 1 jour »): « j » goes below the line, so no 0.8 line height here.
+                      <span className="text-[clamp(36px,11vw,52px)] font-extrabold leading-none tracking-[-0.045em] text-urgent lg:text-[clamp(36px,3.6vw,52px)]">{examDays === 0 ? t('Aujourd’hui') : t('Demain')}</span>
                     ) : (
                       <span className="tabular text-[112px] font-extrabold leading-[0.8] tracking-[-0.06em] text-urgent">{examDays}</span>
                     )}
-                    {examDays > 0 && <span className="text-[18px] font-bold">{tn(examDays, 'jour', 'jours')}</span>}
+                    {examDays > 1 && <span className="text-[18px] font-bold">{tn(examDays, 'jour', 'jours')}</span>}
                   </span>
                   <span className="min-w-0">
                     <span className="flex min-w-0 items-center gap-1.5 text-[17px] font-bold group-hover:underline">
@@ -267,7 +267,7 @@ export default function Dashboard() {
                       </p>
                       {examSheet && (
                         <Link to={linkToNote(examSheet.id)} className="btn w-full bg-white text-tile-dark hover:bg-white/90">
-                          {words === WORDS.etudes ? t('Ouvrir la fiche') : t('Ouvrir la note de préparation')}
+                          {words === WORDS.etudes ? t('Ouvrir la fiche') : t('Ouvrir la note')}
                         </Link>
                       )}
                     </div>
@@ -293,11 +293,10 @@ export default function Dashboard() {
             )}
           </Widget>
 
-          {/* Today */}
+          {/* Today: left out when there is nothing at all (the blue tile already says « Rien de prévu »). */}
+          {(todayEvents.length > 0 || nextEvents.length > 0) && (
           <Widget title={t('Aujourd’hui')} to={linkToDay(today)} linkLabel={t('Ouvrir la journée dans le calendrier')} className="lg:col-start-1 lg:row-start-2">
-            {todayEvents.length === 0 ? (
-              <p className="py-1.5 text-[13px] text-stone-500">{t('Rien de prévu aujourd’hui.')}</p>
-            ) : (
+            {todayEvents.length > 0 && (
               <ul className="-mx-1.5">
                 {todayEvents.map(e => (
                   <EventRow key={e.id} e={e} />
@@ -305,7 +304,7 @@ export default function Dashboard() {
               </ul>
             )}
             {nextEvents.length > 0 && (
-              <div className="mt-3 border-t border-stone-100 pt-3">
+              <div className={cx(todayEvents.length > 0 && 'mt-3 border-t border-stone-100 pt-3')}>
                 <p className="eyebrow mb-0.5">{t('Ensuite')}</p>
                 <ul className="-mx-1.5">
                   {nextEvents.map(e => (
@@ -315,9 +314,10 @@ export default function Dashboard() {
               </div>
             )}
           </Widget>
+          )}
 
           {/* To-do */}
-          <Widget title={t('À faire')} to="/taches" linkLabel={t('Ouvrir toutes les tâches')} className="lg:col-start-1 lg:row-span-2 lg:row-start-3">
+          <Widget title={t('À faire')} to="/taches" linkLabel={t('Ouvrir toutes les tâches')} className={cx('lg:col-start-1 lg:row-span-2', todayEvents.length || nextEvents.length ? 'lg:row-start-3' : 'lg:row-start-2')}>
             <TodoList limit={6} />
           </Widget>
 

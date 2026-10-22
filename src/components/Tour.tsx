@@ -12,7 +12,8 @@ interface Step {
   target?: string;
   /** Prepares the page before measuring the target (Kompaly leans out for its step). */
   enter?: () => void;
-  title: string;
+  /** Or one per usage (« Le travail à plusieurs » is no word for the family). */
+  title: string | ((usage: Usage) => string);
   /** `touch`: phone or tablet (no keyboard shortcut, no drag and drop, « touche » rather than « clique »). */
   text: (usage: Usage, touch: boolean) => string;
 }
@@ -36,9 +37,8 @@ const STEPS: Step[] = [
     target: nav('/calendrier'),
     title: t('Le calendrier'),
     text: u =>
-      t('Écris simplement «\u00a0{example}\u00a0»\u00a0: Kompaly le range tout seul.', {
-        example: u === 'travail' ? t('Réunion client jeudi 10h') : u === 'perso' ? t('Dentiste mardi 17h') : t('Partiel de maths vendredi 14h'),
-      }),
+      // The same example as the calendar's own field and the presentation page.
+      t('Écris simplement «\u00a0{example}\u00a0»\u00a0: Kompaly le range tout seul.', { example: usageWords(u).quickExample }),
   },
   {
     target: nav('/taches'),
@@ -69,7 +69,7 @@ const STEPS: Step[] = [
   },
   {
     target: nav('/groupes'),
-    title: t('Le travail à plusieurs'),
+    title: u => (u === 'perso' ? t('À plusieurs') : t('Le travail à plusieurs')),
     text: u => (u === 'travail' ? t('Crée une équipe ou un agenda partagé, puis invite avec un code.') : t('Crée un groupe ou un agenda partagé, puis invite avec un code.')),
   },
   {
@@ -204,7 +204,7 @@ export default function Tour() {
           {/* Read out at each step: the focus stays on « Suivant », so nothing else would announce it. */}
           <div aria-live="polite" aria-atomic="true">
             <h2 id="tour-title" className="mt-1 text-[15px] font-semibold">
-              {current.title}
+              {typeof current.title === 'function' ? current.title(usage) : current.title}
             </h2>
             <p id="tour-text" className="mt-1 text-[13px] leading-relaxed text-stone-600">{current.text(usage, isTouch())}</p>
           </div>

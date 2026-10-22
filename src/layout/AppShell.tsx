@@ -443,7 +443,8 @@ export default function AppShell() {
             />
           </div>
         )}
-        <main id="contenu" tabIndex={-1} className="min-h-0 flex-1 overflow-hidden pb-[calc(5.25rem+env(safe-area-inset-bottom))] outline-none lg:pb-0">
+        {/* The bottom strip is kept free for « Avis ou bug » (and the tab bar on phones): it never covers a page's last buttons. */}
+        <main id="contenu" tabIndex={-1} className="min-h-0 flex-1 overflow-hidden pb-[calc(8.5rem+env(safe-area-inset-bottom))] outline-none lg:pb-12">
           <Outlet />
           <FeedbackDialog />
           <ReminderAlerts />
@@ -455,7 +456,7 @@ export default function AppShell() {
             onClick={() => openFeedback()}
             title={t('Donner mon avis ou signaler un bug')}
             aria-label={t('Donner mon avis ou signaler un bug')}
-            className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] right-3 z-20 flex h-10 items-center gap-2 rounded-full border border-stone-200 bg-surface px-3 text-[12.5px] font-medium text-stone-600 shadow-pop transition-colors hover:border-stone-300 hover:text-ink lg:bottom-5 lg:right-5 lg:h-9"
+            className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] right-3 z-20 flex h-10 items-center gap-2 rounded-full border border-stone-200 bg-surface px-3 text-[12.5px] font-medium text-stone-600 shadow-pop transition-colors hover:border-stone-300 hover:text-ink lg:bottom-2.5 lg:right-5 lg:h-9"
           >
             <MessageSquareText size={16} strokeWidth={1.9} aria-hidden />
             <span className="hidden lg:inline">{t('Avis ou bug')}</span>

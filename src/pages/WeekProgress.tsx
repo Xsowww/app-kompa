@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight, Check } from 'lucide-react';
-import { fmtDay, fromKey, todayKey } from '../lib/dates';
 import { useTodos } from '../store/todos';
 import { cheer, weekItems } from '../lib/weekProgress';
 import { cx } from '../lib/utils';
@@ -46,37 +45,24 @@ export default function WeekProgress({ from, to }: { from: string; to: string })
         </span>
       </span>
       <span className="min-w-0">
-        <span className="tabular block text-[26px] font-extrabold leading-none tracking-[-0.03em]">
-          {done}
-          <span className="text-[16px] font-bold text-stone-500"> / {total}</span>
-        </span>
-        <span className="mt-1 block text-[13px] font-medium text-stone-500">{tn(total, 'tâche faite cette semaine', 'tâches faites cette semaine')}</span>
-        <span className={cx('mt-2.5 block text-[13px] font-semibold leading-snug', full ? 'text-emerald-700 dark:text-emerald-400' : 'text-ink')}>{cheer(done, total)}</span>
+        {/* Nothing ticked yet: « 0 / 3 » would only repeat the sentence (« C’est parti : 3 tâches… »). */}
+        {done > 0 && (
+          <>
+            <span className="tabular block text-[26px] font-extrabold leading-none tracking-[-0.03em]">
+              {done}
+              <span className="text-[16px] font-bold text-stone-500"> / {total}</span>
+            </span>
+            <span className="mt-1 block text-[13px] font-medium text-stone-500">{tn(total, 'tâche faite cette semaine', 'tâches faites cette semaine')}</span>
+          </>
+        )}
+        <span className={cx('block text-[13px] font-semibold leading-snug', done > 0 && 'mt-2.5', full ? 'text-emerald-700 dark:text-emerald-400' : 'text-ink')}>{cheer(done, total)}</span>
       </span>
     </div>
+    {/* The tasks left are listed in « À faire » next to it: just the way to the next one. */}
     {left.length > 0 && (
-      <div className="mt-4 border-t border-stone-100 pt-3">
-        <p className="eyebrow mb-1">{t('Ce qu’il reste')}</p>
-        <ul className="-mx-1.5">
-          {left.slice(0, 3).map(x => (
-            <li key={x.id}>
-              <Link
-                to={`/taches?tache=${x.id}`}
-                className="flex items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-[13px] transition-colors hover:bg-stone-50 pointer-coarse:py-2"
-              >
-                <span className="h-4 w-4 shrink-0 rounded-full border-[1.5px] border-stone-300" aria-hidden />
-                <span className="min-w-0 flex-1 truncate font-medium">{x.title}</span>
-                {x.due && (
-                  <span className={cx('shrink-0 text-[12px]', x.due < todayKey() ? 'font-semibold text-urgent-text' : 'capitalize text-stone-500')}>
-                    {x.due < todayKey() ? t('En retard') : x.due === todayKey() ? t('Auj.') : fmtDay(fromKey(x.due), 'EEE d')}
-                  </span>
-                )}
-              </Link>
-            </li>
-          ))}
-        </ul>
+      <div className="mt-auto pt-4">
         {/* One left: straight to it. Several: the next one (the list shows them all from there). */}
-        <Link to={`/taches?tache=${left[0].id}`} className="btn-secondary mt-2 h-9 w-full">
+        <Link to={`/taches?tache=${left[0].id}`} className="btn-secondary h-9 w-full">
           {left.length === 1 ? t('Aller à ma tâche') : left.length > 3 ? t('Voir les {n} qui restent', { n: left.length }) : t('Aller à mes tâches')} <ArrowRight size={15} />
         </Link>
       </div>
