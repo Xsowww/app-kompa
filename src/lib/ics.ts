@@ -320,9 +320,18 @@ function toEvents(ev: RawEvent, start: Date, durationMs: number, allDay: boolean
     });
   }
   const end = new Date(start.getTime() + durationMs);
-  // Events running past midnight are cut at the end of their first day.
-  const endTime = durationMs > 0 ? (dateKey(end) === dateKey(start) ? hhmm(end) : '23:59') : undefined;
-  return [{ ...base, externalId: externalId(start), date: dateKey(start), start: hhmm(start), end: endTime }];
+  if (durationMs <= 0 || dateKey(end) === dateKey(start)) return [{ ...base, externalId: externalId(start), date: dateKey(start), start: hhmm(start), end: durationMs > 0 ? hhmm(end) : undefined }];
+  // Over several days (a seminar from Monday 9:00 to Wednesday 17:00): one event a day — the first until 23:59,
+  // the days between all day, the last from 0:00 (nothing when it ends at midnight). The first keeps its id.
+  const out: IcsEvent[] = [];
+  for (let d = start, i = 0; i < 31 && dateKey(d) <= dateKey(end); d = addDays(start, ++i)) {
+    const first = i === 0;
+    const last = dateKey(d) === dateKey(end);
+    if (last && hhmm(end) === '00:00') break;
+    const id = first ? externalId(start) : `${ev.uid}_${compactKey(d)}`;
+    out.push(first ? { ...base, externalId: id, date: dateKey(d), start: hhmm(start), end: '23:59' } : last ? { ...base, externalId: id, date: dateKey(d), start: '00:00', end: hhmm(end) } : { ...base, externalId: id, date: dateKey(d) });
+  }
+  return out;
 }
 
 /**
@@ -337,10 +346,13 @@ export function cancelledBy(text: string): (externalId: string) => boolean {
     for (const k of e.exdates) ids.add(`${e.uid}_${k}`);
     if (e.status !== 'CANCELLED') continue;
     if (e.recurrenceId) ids.add(`${e.uid}_${e.recurrenceId}`);
-    else if (e.rrule) series.add(`${e.uid}_`);
-    else ids.add(e.uid);
+    else {
+      // A series, or one event over several days (its days after the first are « uid_AAAAMMJJ »).
+      series.add(`${e.uid}_`);
+      if (!e.rrule) ids.add(e.uid);
+    }
   }
-  return id => ids.has(id) || [...series].some(p => id.startsWith(p));
+  return id => ids.has(id) || [...series].some(p => id.startsWith(p) && /^\d{8}$/.test(id.slice(p.length)));
 }
 
 /** Parses an .ics file into individual, single-day events sorted by date. */

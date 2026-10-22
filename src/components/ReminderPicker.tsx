@@ -43,7 +43,7 @@ function customMinutes(c: Custom, date: string | undefined, time: string | undef
   } else {
     if (!date || !c.day || !/^\d{2}:\d{2}$/.test(c.at)) return { error: t('Indique un jour et une heure.') };
     minutes = minutesBefore(date, time, c.day, c.at);
-    if (minutes < 0) return { error: time ? t('C’est après le début : choisis un moment avant.') : t('C’est après 9h le jour même : choisis un moment avant.') };
+    if (minutes < 0) return { error: time ? t('C’est après le début : choisis un moment avant.') : t('C’est après 09:00 le jour même : choisis un moment avant.') };
   }
   if (minutes > MAX_MINUTES) return { error: t('4 semaines avant au plus.') };
   if (taken.includes(minutes)) return { error: t('Ce rappel est déjà dans la liste.') };
@@ -59,11 +59,12 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
   const check = custom ? customMinutes(custom, date, time, value) : null;
   const customRef = useRef<HTMLDivElement>(null);
   const openCustom = () => {
-    // Starts one hour before (or at 8:00 the same day for an item without a time); when that moment is
-    // already past (an item in less than an hour), « Durée avant » rather than an error before anything is typed.
-    const start = date ? new Date(anchorOf(date, time).getTime() - 60 * 60_000) : null;
-    const past = !!start && start.getTime() <= Date.now();
-    setCustom({ mode: date && !past ? 'moment' : 'duree', day: start ? dayKey(start) : '', at: start ? `${pad(start.getHours())}:${pad(start.getMinutes())}` : '', amount: past ? '15' : '1', unit: past ? 'min' : 'h' });
+    // Starts one hour before (or at 8:00 the same day for an item without a time), else another moment not in
+    // the list yet and still to come: never an error before anything is typed (« déjà dans la liste », « passé »).
+    const free = date ? [60, 120, 30, 1440, 15, 5].find(k => !value.includes(k) && reminderMoment(date, time, k).getTime() > Date.now()) : undefined;
+    const start = date ? reminderMoment(date, time, free ?? 60) : null;
+    const unit: Unit = free === undefined || free % 60 ? 'min' : free % 1440 ? 'h' : 'j';
+    setCustom({ mode: date && free !== undefined ? 'moment' : 'duree', day: start ? dayKey(start) : '', at: start ? `${pad(start.getHours())}:${pad(start.getMinutes())}` : '', amount: String((free ?? 15) / UNITS[unit]), unit });
     // The menu that opened it goes away: the keyboard focus goes into the new panel.
     requestAnimationFrame(() => customRef.current?.querySelector<HTMLElement>('button, input, select')?.focus());
   };
@@ -78,8 +79,10 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
   const eve = date ? minutesBefore(date, time, date, '09:00') + 1440 : -1;
   // The item's own moment is past (an all-day event today after 9:00, a time gone by): no reminder can ring any more.
   const over = !!date && anchorOf(date, time).getTime() <= openedAt;
+  // Today without an hour: the day isn't over, only its 9:00 is — an hour lets a reminder ring later today.
+  const needsTime = over && !time && date === dayKey(new Date(openedAt));
   const left = [
-    usable(eve) ? { minutes: eve, label: t('La veille à 9h') } : usable(60) ? { minutes: 60, label: timed ? t('1 h avant') : t('Le jour même à 8h') } : null,
+    usable(eve) ? { minutes: eve, label: t('La veille à 09:00') } : usable(60) ? { minutes: 60, label: timed ? t('1 h avant') : t('Le jour même à 08:00') } : null,
   ].filter((o): o is { minutes: number; label: string } => !!o);
   const [menu, setMenu] = useState<HTMLElement | null>(null);
   const sorted = [...value].sort((a, b) => a - b);
@@ -116,7 +119,11 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
             </span>
           ))}
           {!value.length && !over && <span className="mr-1 text-[13px] text-stone-500">{t('Aucun')}</span>}
-          {over && !custom && <span className="text-[12.5px] text-stone-500">{value.length ? t('Ce moment est passé.') : t('Ce moment est déjà passé : plus de rappel possible.')}</span>}
+          {over && !custom && (
+            <span className="text-[12.5px] text-stone-500">
+              {needsTime ? t('Pour un rappel aujourd’hui, indique une heure.') : value.length ? t('Ce moment est passé.') : t('Ce moment est déjà passé : plus de rappel possible.')}
+            </span>
+          )}
           {value.length < 10 && !custom && !over && (
             <button
               type="button"

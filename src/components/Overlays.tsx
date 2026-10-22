@@ -67,9 +67,99 @@ export function Toasts() {
   );
 }
 
+// ── « Back » closes the dialog on top ─────────────────────────────────────────
+// Each open Modal adds one entry to the history (same address, `kModal` = how many dialogs then open): the phone's
+// « Back » takes it off and closes the dialog instead of leaving the page. A dialog closed another way (Escape, its
+// buttons) takes its entry off again, and a page opened from a dialog takes the dialog's entry: « Back » is never
+// needed twice. These steps stay on the same page, so the router never sees them (capture listener, first).
+const openModals: { close: () => void }[] = [];
+let push: History['pushState'] | null = null;
+let replace: History['replaceState'] = () => undefined;
+let travelling = false; // our own history.go() on its way
+let queued: (() => void)[] = [];
+let last: { state: unknown; url: string } = { state: null, url: '' };
+const remember = () => (last = { state: history.state, url: location.href });
+const levelOf = (state: unknown) => {
+  const k = state && typeof state === 'object' ? (state as { kModal?: unknown }).kModal : undefined;
+  return typeof k === 'number' ? k : 0;
+};
+const withLevel = (state: unknown, level: number): unknown => {
+  if (!state || typeof state !== 'object') return level ? { kModal: level } : state;
+  const { kModal: _k, ...rest } = state as Record<string, unknown>;
+  return level ? { ...rest, kModal: level } : rest;
+};
+
+/** The history holds one entry per open dialog: one more for a dialog just opened, one less for one closed. */
+function syncHistory(down: boolean) {
+  if (!push || travelling) return;
+  const level = levelOf(history.state);
+  if (level < openModals.length) {
+    for (let k = level + 1; k <= openModals.length; k++) push(withLevel(history.state, k), '');
+    remember();
+  } else if (down && level > openModals.length) {
+    travelling = true;
+    history.go(openModals.length - level);
+  }
+}
+let syncTimer = 0;
+const syncSoon = () => {
+  clearTimeout(syncTimer);
+  syncTimer = window.setTimeout(() => syncHistory(true), 0);
+};
+
+function installHistory() {
+  if (push || typeof window === 'undefined' || typeof history === 'undefined') return;
+  push = history.pushState.bind(history);
+  replace = history.replaceState.bind(history);
+  remember();
+  history.pushState = (state, unused, url) => {
+    if (travelling) return void queued.push(() => history.pushState(state, unused, url));
+    // A page opened from a dialog replaces the dialog's entry (« Back » goes to the page under it).
+    if (levelOf(history.state)) replace(withLevel(state, 0), unused, url);
+    else push!(state, unused, url);
+    remember();
+    if (openModals.length) syncSoon();
+  };
+  history.replaceState = (state, unused, url) => {
+    if (travelling) return void queued.push(() => history.replaceState(state, unused, url));
+    replace(withLevel(state, levelOf(history.state)), unused, url);
+    remember();
+  };
+  addEventListener(
+    'popstate',
+    e => {
+      if (!e.isTrusted) return; // one sent by the app itself (lib/recorder)
+      const level = levelOf(history.state);
+      const ours = travelling || (level < openModals.length && location.href === last.url);
+      if (ours) {
+        e.stopImmediatePropagation();
+        // The page as it was under the dialog (its address may have changed while it was open).
+        replace(withLevel(last.state, level), '', last.url);
+      }
+      remember();
+      if (travelling) {
+        travelling = false;
+        const later = queued;
+        queued = [];
+        later.forEach(run => run());
+        syncHistory(true);
+        return;
+      }
+      // « Back » (or further back): the dialogs above that entry close; one that stays open gets its entry back.
+      if (level < openModals.length) {
+        openModals.slice(level).reverse().forEach(m => m.close());
+        setTimeout(() => syncHistory(false), 300);
+      }
+    },
+    true,
+  );
+}
+// Before the router listens to « popstate »: ours runs first.
+installHistory();
+
 /**
- * Modal dialog: keeps Tab inside, closes on Escape, gives the focus back to whatever had it
- * before, and takes its accessible name from its first heading.
+ * Modal dialog: keeps Tab inside, closes on Escape (and with the phone's « Back »), gives the focus back to
+ * whatever had it before, and takes its accessible name from its first heading.
  */
 export function Modal({ open, onClose, children, width = 420, label }: { open: boolean; onClose: () => void; children: React.ReactNode; width?: number; label?: string }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -78,6 +168,17 @@ export function Modal({ open, onClose, children, width = 420, label }: { open: b
   useEffect(() => {
     closeRef.current = onClose;
   });
+  // One history entry while open (see above).
+  useEffect(() => {
+    if (!open) return;
+    const entry = { close: () => closeRef.current() };
+    openModals.push(entry);
+    syncHistory(false);
+    return () => {
+      openModals.splice(openModals.indexOf(entry), 1);
+      syncSoon();
+    };
+  }, [open]);
   useEffect(() => {
     if (!open) return;
     const el = ref.current!;

@@ -3,30 +3,35 @@ import { memo, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Bell, BellRing, CalendarPlus, Check, ChevronRight, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useTodos, type Todo } from '../../store/todos';
-import { countdownLabel, daysUntil, fmt, fmtDay, fromKey, todayKey } from '../../lib/dates';
+import { countdownLabel, daysUntil, fmt, fmtDay, fromKey, parseQuickAdd, todayKey } from '../../lib/dates';
 import { cx } from '../../lib/utils';
 import { isTourTodo, startTour } from '../../store/tour';
 import { useProgressive } from '../../lib/useProgressive';
 import { confirmAction, toast } from '../../store/ui';
 import TaskDialog from './TaskDialog';
 import { DatePopover } from '../../components/Pickers';
-import { lang, t, tn } from '../../i18n';
+import { t, tn } from '../../i18n';
 
 const OVERDUE = 'var(--cat-examen-text)';
 
+// By day, then by hour on the same day (a task without an hour after those with one).
 const sortOpen = (a: Todo, b: Todo) =>
-  (a.due ?? '9999').localeCompare(b.due ?? '9999') || a.createdAt.localeCompare(b.createdAt);
+  (a.due ?? '9999').localeCompare(b.due ?? '9999') || (a.time ?? '99').localeCompare(b.time ?? '99') || a.createdAt.localeCompare(b.createdAt);
 
 function dueText(due: string, inOverdueGroup?: boolean) {
   const n = daysUntil(due);
-  // Under the « En retard » heading, the date alone is enough.
-  if (n < -1) return inOverdueGroup ? fmtDay(fromKey(due), 'd MMM') : t('En retard · {day}', { day: fmtDay(fromKey(due), 'd MMM') });
+  // Under the « En retard » heading, the day alone is enough; elsewhere yesterday is late too (« En retard · hier »).
+  if (n < 0) {
+    const day = n === -1 ? countdownLabel(due) : fmtDay(fromKey(due), 'd MMM');
+    return inOverdueGroup ? day : t('En retard · {day}', { day: n === -1 ? day.toLowerCase() : day });
+  }
   return n > 6 ? fmtDay(fromKey(due), 'd MMM') : n > 1 ? fmt(fromKey(due), 'EEE d') : countdownLabel(due);
 }
 
-function DueLabel({ due, short }: { due: string; short?: boolean }) {
+/** The due day (none under the « Aujourd’hui » heading: `noDay`), and its hour as in the lists (« 18:00 »). */
+function DueLabel({ due, time, short, noDay }: { due: string; time?: string; short?: boolean; noDay?: boolean }) {
   const n = daysUntil(due);
-  const label = dueText(due, short);
+  const label = [!noDay && dueText(due, short), time].filter(Boolean).join(' · ');
   return (
     // inline-block: ::first-letter only works on a block (« Mar. 20 »).
     <span className={cx('tabular inline-block shrink-0 text-[12px] first-letter:uppercase', n < 0 ? 'font-medium' : n === 0 ? 'text-ink' : 'text-stone-500')} style={n < 0 ? { color: OVERDUE } : undefined}>
@@ -62,7 +67,8 @@ const refocusTodo = (id: string) =>
 /** A changed due date can move the task to another group (new row): find its date button again after the render. */
 const focusDueButton = (id: string) => setTimeout(() => document.querySelector<HTMLElement>(`[data-due="${id}"]`)?.focus(), 0);
 
-const confirmRemove = (todo: Todo) => confirmAction(t('Supprimer « {title} » ?', { title: todo.title }), t('Tu pourras l’annuler juste après.'), t('Supprimer'));
+// A task doesn't go to the trash: said before it goes (« Annuler » stays a few seconds in the message after).
+const confirmRemove = (todo: Todo) => confirmAction(t('Supprimer définitivement «\u00a0{title}\u00a0» ?', { title: todo.title }), t('Les tâches ne vont pas à la corbeille.'), t('Supprimer'));
 
 /** Removes tasks with a way back: a single tap on the bin must not lose one for good. */
 function removeWithUndo(gone: Todo[]) {
@@ -80,11 +86,12 @@ function removeWithUndo(gone: Todo[]) {
 
 /** Under a ticked task: when it leaves the list. */
 const GoesIn = ({ minutes }: { minutes: number }) => (
-  <span className="block text-[11.5px] font-medium text-emerald-700 dark:text-emerald-400">{t('Se supprime dans {n} min', { n: minutes })}</span>
+  <span className="block text-[11.5px] font-medium text-emerald-700 dark:text-emerald-400">{t('Masquée dans {n} min', { n: minutes })}</span>
 );
 
 // memo: ticking one task re-renders its row only, not the whole list.
-const TodoRow = memo(function TodoRow({ t: todo, editable, preview, now = 0 }: { t: Todo; editable?: boolean; preview?: boolean; now?: number }) {
+// `group`: the heading the row is under (« Aujourd’hui » already says the day).
+const TodoRow = memo(function TodoRow({ t: todo, editable, preview, now = 0, group }: { t: Todo; editable?: boolean; preview?: boolean; now?: number; group?: string }) {
   // A ticked task is shown green at the bottom of the list until it goes (SETTLE_MS).
   const justDone = todo.done;
   // (`now` can lag behind a tick just made: never more than the 30 minutes)
@@ -106,6 +113,8 @@ const TodoRow = memo(function TodoRow({ t: todo, editable, preview, now = 0 }: {
   const overdue = !todo.done && !!todo.due && todo.due < todayKey();
   const canEdit = editable && !todo.done;
   const hasReminder = !!todo.due && !!todo.reminders?.length;
+  const noDay = group === 'today';
+  const showDue = !!todo.due && !(noDay && !todo.time);
 
   // Back to the title after Enter or Escape, or the keyboard focus would fall to the top of the page.
   // Not on blur: the focus went elsewhere on purpose (another field…).
@@ -191,7 +200,8 @@ const TodoRow = memo(function TodoRow({ t: todo, editable, preview, now = 0 }: {
         <button
           type="button"
           onClick={() => setOpenDialog('edit')}
-          className="icon-btn touch-show h-9 w-9 shrink-0 opacity-0 sm:h-6 sm:w-6 group-hover:opacity-100 focus-visible:opacity-100"
+          // Last on phones (the bin is hidden there): the pencils stay in one column, whatever the date beside them.
+          className="icon-btn touch-show h-9 w-9 shrink-0 opacity-0 max-sm:order-last sm:h-6 sm:w-6 group-hover:opacity-100 focus-visible:opacity-100"
           title={t('Modifier')}
           aria-label={t('Modifier «\u00a0{title}\u00a0»', { title: todo.title })}
         >
@@ -211,7 +221,6 @@ const TodoRow = memo(function TodoRow({ t: todo, editable, preview, now = 0 }: {
           aria-label={hasReminder ? t('Changer le rappel de «\u00a0{title}\u00a0»', { title: todo.title }) : t('Me rappeler «\u00a0{title}\u00a0»', { title: todo.title })}
         >
           {hasReminder ? <BellRing size={13} /> : <Bell size={13} />}
-          {hasReminder && todo.time && <span className="tabular">{lang === 'fr' ? todo.time.replace(':', 'h').replace(/h00$/, 'h').replace(/^0(?=\d)/, '') : todo.time}</span>}
         </button>
       )}
       {openDialog && (
@@ -241,17 +250,17 @@ const TodoRow = memo(function TodoRow({ t: todo, editable, preview, now = 0 }: {
             className={cx(
               // Same width with or without a date: the reminder bells stay in one column.
               'hit min-w-[58px] shrink-0 rounded-md',
-              todo.due ? 'px-1 py-0.5 text-right hover:bg-stone-100' : 'icon-btn touch-show h-9 w-9 opacity-0 max-sm:hidden sm:h-6 sm:w-6 group-hover:opacity-100 focus-visible:opacity-100',
+              showDue ? 'px-1 py-0.5 text-right hover:bg-stone-100' : 'icon-btn touch-show h-9 w-9 opacity-0 max-sm:hidden sm:h-6 sm:w-6 group-hover:opacity-100 focus-visible:opacity-100',
             )}
             title={todo.due ? t('Changer l’échéance') : t('Ajouter une échéance')}
             aria-label={todo.due ? t('Changer l’échéance de «\u00a0{title}\u00a0» ({due})', { title: todo.title, due: dueText(todo.due, overdue) }) : t('Ajouter une échéance à «\u00a0{title}\u00a0»', { title: todo.title })}
           >
-            {todo.due ? <DueLabel due={todo.due} short={overdue} /> : <CalendarPlus size={13} />}
+            {showDue ? <DueLabel due={todo.due!} time={todo.time} short={overdue} noDay={noDay} /> : <CalendarPlus size={13} />}
           </button>
           {dating && <DatePopover anchor={dating} value={todo.due ?? ''} clearable label={t('Échéance de « {title} »', { title: todo.title })} onPick={pickDue} onClose={() => setDating(null)} />}
         </>
       ) : (
-        todo.due && !todo.done && <DueLabel due={todo.due} />
+        todo.due && !todo.done && <DueLabel due={todo.due} time={todo.time} />
       )}
       {!preview && <button
         data-remove
@@ -277,7 +286,11 @@ function QuickAdd() {
 
   const submit = () => {
     if (!title.trim()) return;
-    add(title, due || undefined);
+    // « Appeler la banque demain 14h »: the day and the hour come out of the sentence, as in the calendar
+    // (not a day already past, a repeat or an « urgent » the task has no place for: then as typed).
+    const p = due ? null : parseQuickAdd(title);
+    const found = p?.title && p.date && p.date >= todayKey() && !p.weekly && !p.important && !p.impossible ? p : null;
+    add(found ? found.title : title, due || found?.date || undefined, found?.start ?? undefined);
     setTitle('');
     setDue('');
     titleRef.current?.focus(); // ready for the next one, even from the date field that just went away
@@ -399,7 +412,7 @@ export default function TodoList({ limit, grouped }: { limit?: number; grouped?:
               )}
               <ul className="-mx-1.5">
                 {g.rows.map(x => (
-                  <TodoRow key={x.id} t={x} editable={grouped} preview={preview} now={x.done ? now : 0} />
+                  <TodoRow key={x.id} t={x} editable={grouped} preview={preview} now={x.done ? now : 0} group={grouped ? g.key : undefined} />
                 ))}
               </ul>
             </div>

@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { FileText, Flag, Plus, Trash2 } from 'lucide-react';
+import { Check, FileText, Flag, Plus, Trash2 } from 'lucide-react';
 import { Modal } from '../../components/Overlays';
 import { useNotes } from '../../store/notes';
 import { catOf, allCategories, guessCategory, type CalendarEvent, type EventCategory } from '../../store/calendar';
@@ -82,9 +82,12 @@ export default function EventForm({ event, date, start: initialStart, end: initi
                 key={k}
                 type="button"
                 onClick={() => setCategory(k)}
-                className={cx('flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[13px] font-medium transition-colors pointer-coarse:h-9', active ? 'border-stone-300 bg-stone-50 text-ink' : 'border-stone-200 text-stone-500 hover:bg-stone-50')}
+                aria-pressed={active}
+                // The chosen one in its own colours, with a tick: seen at a glance (and not by colour alone).
+                className={cx('flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[13px] font-medium transition-colors pointer-coarse:h-9', active ? 'font-semibold' : 'border-stone-200 text-stone-500 hover:bg-stone-50')}
+                style={active ? { borderColor: c.color, background: c.soft, color: c.text } : undefined}
               >
-                <span className="h-2 w-2 rounded-full" style={{ background: c.color }} />
+                {active ? <Check size={13} strokeWidth={3} aria-hidden /> : <span className="h-2 w-2 rounded-full" style={{ background: c.color }} />}
                 {c.label}
               </button>
             );
@@ -206,7 +209,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
             {t('Annuler')}
           </button>
           <button type="submit" className="btn-primary" disabled={!title.trim() || (!!end && !start) || timeError}>
-            {event ? t('Enregistrer') : t('Ajouter')}
+            {event ? t('Enregistrer||sauver') : t('Ajouter')}
           </button>
         </div>
       </form>

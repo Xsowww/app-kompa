@@ -35,6 +35,29 @@ describe('parseIcs', () => {
   });
 });
 
+describe('parseIcs : plusieurs jours avec des heures', () => {
+  it('découpe par jour : le premier jusqu’à 23:59, les jours du milieu entiers, le dernier dès 00:00', () => {
+    const list = parseIcs(cal(ev('UID:sem', 'DTSTART:20261102T090000', 'DTEND:20261104T170000', 'SUMMARY:Séminaire')), { now });
+    expect(list.map(e => `${e.externalId} ${e.date} ${e.start ?? '-'} ${e.end ?? '-'}`)).toEqual([
+      'sem 2026-11-02 09:00 23:59',
+      'sem_20261103 2026-11-03 - -',
+      'sem_20261104 2026-11-04 00:00 17:00',
+    ]);
+  });
+
+  it('finit à minuit : pas de jour vide en plus', () => {
+    const list = parseIcs(cal(ev('UID:n', 'DTSTART:20261102T220000', 'DTEND:20261103T000000', 'SUMMARY:Soirée')), { now });
+    expect(list.map(e => `${e.date} ${e.start} ${e.end}`)).toEqual(['2026-11-02 22:00 23:59']);
+  });
+
+  it('annulé : tous ses jours partent', () => {
+    const cancelled = cancelledBy(cal(ev('UID:sem', 'DTSTART:20261102T090000', 'DTEND:20261104T170000', 'STATUS:CANCELLED')));
+    expect(['sem', 'sem_20261103', 'sem_20261104'].every(cancelled)).toBe(true);
+    expect(cancelled('sem_autre')).toBe(false);
+    expect(cancelled('semaine')).toBe(false);
+  });
+});
+
 describe('cancelledBy', () => {
   it('reconnaît une séance annulée, une séance exclue et une série annulée', () => {
     const cancelled = cancelledBy(

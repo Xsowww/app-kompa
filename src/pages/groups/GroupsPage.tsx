@@ -90,7 +90,7 @@ export function GroupForm({ group, onDone }: { group?: Group; onDone: (g?: Group
       </div>
       <div className="mt-6 flex justify-end gap-2">
         <button type="button" className="btn-secondary" onClick={() => onDone()}>{t('Annuler')}</button>
-        <button type="submit" className="btn-primary" disabled={!name.trim() || busy}>{group ? t('Enregistrer') : t('Créer {the}', { the: w.the })}</button>
+        <button type="submit" className="btn-primary" disabled={!name.trim() || busy}>{group ? t('Enregistrer||sauver') : t('Créer {the}', { the: w.the })}</button>
       </div>
     </form>
   );

@@ -86,7 +86,7 @@ export default function TaskDialog({ todo, onClose, remind, onDelete }: { todo: 
             {t('Annuler')}
           </button>
           <button type="submit" className="btn-primary" disabled={!title.trim()}>
-            {t('Enregistrer')}
+            {t('Enregistrer||sauver')}
           </button>
         </div>
       </form>

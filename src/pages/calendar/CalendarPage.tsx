@@ -331,6 +331,8 @@ export default function CalendarPage() {
 
   const parsed = quick.trim() ? parseQuickAdd(quick) : null;
   const parsedCat = parsed ? guessCategory(parsed.title || quick, !!parsed.start, custom) : null;
+  // No day in the sentence: the day shown, unless it is past (an event typed while looking back lands today).
+  const quickDate = parsed?.date ?? (selected < today ? today : selected);
 
   // The form, with what the sentence already gives (« demain 14h » has a day and an hour but no title).
   const openForm = () => setForm({ date: parsed?.date ?? selected, start: parsed?.start ?? undefined, end: parsed?.end ?? undefined, fromQuick: !!quick.trim() });
@@ -346,9 +348,9 @@ export default function CalendarPage() {
 
   const submitQuick = (e: FormEvent) => {
     e.preventDefault();
-    if (!parsed) return;
+    if (!parsed || parsed.impossible) return;
     if (!parsed.title) return openForm();
-    const date = parsed.date ?? selected;
+    const date = quickDate;
     source.add({ title: parsed.title, date, start: parsed.start ?? undefined, end: parsed.end ?? undefined, category: parsedCat!, important: parsed.important });
     setQuick('');
     showSaved({ date, category: parsedCat!, important: parsed.important });
@@ -441,7 +443,8 @@ export default function CalendarPage() {
     const allUpcomingExams = visible.filter(isUpcomingExam).sort(sortEvents);
     const upcomingExams = allExams ? allUpcomingExams : allUpcomingExams.slice(0, EXAMS_SHOWN);
     const moreExams = allUpcomingExams.length - EXAMS_SHOWN;
-    const homework = visible.filter(isHomeworkSoon).sort(sortEvents).slice(0, 6);
+    // An important homework to come is already in the list above: not twice.
+    const homework = visible.filter(e => isHomeworkSoon(e) && !isUpcomingExam(e)).sort(sortEvents).slice(0, 6);
     // After the important ones, one list in time order: homework to hand in (late first) and the next events.
     const listed = new Set([...allUpcomingExams, ...homework].map(e => e.id));
     const others = visible.filter(e => isComing(e) && !listed.has(e.id)).sort(sortEvents).slice(0, Math.max(1, EXAMS_SHOWN - upcomingExams.length));
@@ -553,7 +556,7 @@ export default function CalendarPage() {
               className="h-full min-w-0 flex-1 text-ellipsis bg-transparent text-[14px] outline-none placeholder:text-stone-400"
             />
             {parsed?.title ? (
-              <button type="submit" className="btn-primary h-8 px-3">
+              <button type="submit" disabled={parsed.impossible} className="btn-primary h-8 px-3 disabled:opacity-50">
                 {t('Ajouter')} <CornerDownLeft size={13} />
               </button>
             ) : (
@@ -567,7 +570,7 @@ export default function CalendarPage() {
               <Dot color={catOf(parsedCat).color} />
               <span className="font-medium text-ink">{parsed.title}</span>
               <span>·</span>
-              <span>{fmtDay(fromKey(parsed.date ?? selected), 'EEEE d MMMM')}</span>
+              <span>{fmtDay(fromKey(quickDate), 'EEEE d MMMM')}</span>
               {parsed.start && (
                 <>
                   <span>·</span>
@@ -588,6 +591,7 @@ export default function CalendarPage() {
                 </>
               )}
               {parsed.weekly && <span className="w-full text-stone-500">{t('Une seule fois\u00a0: pas encore de répétition.')}</span>}
+              {parsed.impossible && <span className="w-full font-medium text-red-600 dark:text-red-400">{t('Cette date n’existe pas : corrige-la pour ajouter.')}</span>}
             </div>
           )}
         </form>

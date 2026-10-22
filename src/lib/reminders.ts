@@ -4,7 +4,7 @@
 // A reminder is a number of minutes before the item's moment: its start time, or 9:00 that day for an
 // event without a time or a task without a time (« la veille, 18 h » = 15 h before 9:00).
 
-import { lang, locale, t } from '../i18n';
+import { t } from '../i18n';
 
 export interface ReminderOption {
   minutes: number;
@@ -26,18 +26,17 @@ export const TIMED_OPTIONS: ReminderOption[] = [
 
 /** For an item without a time (all day): relative to 9:00 that day. */
 export const DAY_OPTIONS: ReminderOption[] = [
-  { minutes: 0, label: t('Le jour même à 9h') },
-  { minutes: 900, label: t('La veille à 18h') },
-  { minutes: 2880, label: t('2 jours avant à 9h') },
-  { minutes: 10080, label: t('1 semaine avant à 9h') },
+  { minutes: 0, label: t('Le jour même à 09:00') },
+  { minutes: 900, label: t('La veille à 18:00') },
+  { minutes: 2880, label: t('2 jours avant à 09:00') },
+  { minutes: 10080, label: t('1 semaine avant à 09:00') },
 ];
 
 export const DAY_ANCHOR = '09:00';
 
 const pad = (n: number) => String(n).padStart(2, '0');
-/** « 9h », « 14h30 ». */
-const hhmm = (d: Date) =>
-  lang === 'fr' ? `${d.getHours()}h${pad(d.getMinutes())}`.replace(/h00$/, 'h') : new Intl.DateTimeFormat(locale(), { hour: 'numeric', minute: '2-digit' }).format(d);
+/** « 09:00 », « 14:30 »: as in the lists. */
+const hhmm = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 /** 4 weeks: the furthest a reminder can be before its item. */
 export const MAX_MINUTES = 10080 * 4;
 
