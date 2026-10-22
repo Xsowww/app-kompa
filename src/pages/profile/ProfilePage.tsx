@@ -131,6 +131,18 @@ function ProfileTab() {
   const settings = useSettings();
   const words = WORDS[settings.usage] ?? WORDS.etudes;
   const stats = useStats();
+  const statTiles = [
+    { value: stats.streak, label: tn(stats.streak, 'jour d’affilée', 'jours d’affilée') },
+    { value: stats.done, label: tn(stats.done, 'élément coché', 'éléments cochés') },
+    { value: stats.exams, label: plural(stats.exams, words.pastOne, words.pastMany) },
+    {
+      value: stats.focusSessions,
+      label: tn(stats.focusSessions, 'session focus', 'sessions focus'),
+      sub: stats.focusHours ? t('{hours} h', { hours: stats.focusHours.toLocaleString(locale(), { maximumFractionDigits: 1 }) }) : undefined,
+    },
+    { value: stats.notes, label: tn(stats.notes, 'note', 'notes'), sub: stats.words ? tn(stats.words, '{count} mot', '{count} mots', { count: stats.words.toLocaleString(locale()) }) : undefined },
+    { value: stats.files, label: tn(stats.files, 'fichier', 'fichiers'), sub: stats.files ? formatBytes(stats.size) : undefined },
+  ].filter(s => s.value > 0);
   const [name, setName] = useState(user.name);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -228,20 +240,16 @@ function ProfileTab() {
         </Row>
       </Section>
 
-      <Section title={t('Statistiques')}>
-        <div className="grid grid-cols-2 md:grid-cols-3">
-          <Stat value={stats.streak} label={tn(stats.streak, 'jour d’affilée', 'jours d’affilée')} />
-          <Stat value={stats.done} label={tn(stats.done, 'élément coché', 'éléments cochés')} />
-          <Stat value={stats.exams} label={plural(stats.exams, words.pastOne, words.pastMany)} />
-          <Stat
-            value={stats.focusSessions}
-            label={tn(stats.focusSessions, 'session focus', 'sessions focus')}
-            sub={stats.focusHours ? t('{hours} h', { hours: stats.focusHours.toLocaleString(locale(), { maximumFractionDigits: 1 }) }) : undefined}
-          />
-          <Stat value={stats.notes} label={tn(stats.notes, 'note', 'notes')} sub={stats.words ? tn(stats.words, '{count} mot', '{count} mots', { count: stats.words.toLocaleString(locale()) }) : undefined} />
-          <Stat value={stats.files} label={tn(stats.files, 'fichier', 'fichiers')} sub={stats.files ? formatBytes(stats.size) : undefined} />
-        </div>
-      </Section>
+      {/* Only what is not zero: a new account had six tiles at 0 (all zero: no block at all). */}
+      {statTiles.length > 0 && (
+        <Section title={t('Statistiques')}>
+          <div className="grid grid-cols-2 md:grid-cols-3">
+            {statTiles.map(s => (
+              <Stat key={s.label} {...s} />
+            ))}
+          </div>
+        </Section>
+      )}
 
       <BadgesSection />
 

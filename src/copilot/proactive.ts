@@ -68,7 +68,7 @@ async function nudge(n: Nudge) {
       const ai = await aiNudge({ ...n.situation, actions_proposees: n.offers?.map(o => o.label) ?? [] }, useAuth.getState().user?.name ?? '', n.kind);
       if (ai) text = ai;
     }
-    useCopilot.getState().say({ text, offers: n.offers, links: n.links, mood: n.mood ?? (n.offers ? 'alert' : 'happy') });
+    useCopilot.getState().say({ text, offers: n.offers, links: n.links, mood: n.mood ?? (n.offers ? 'alert' : 'happy'), brief: n.kind === 'brief' || undefined });
     notify('Kompaly', n.kind ? text.split('\n')[0] : text);
   } finally {
     busy = false;
@@ -278,7 +278,18 @@ function periodicCheck() {
 
 // ── Morning brief & Sunday review ───────────────────────────────────────────
 
-/** « Ta journée en 3 lignes », on the first opening of the day before noon. Returns true if shown. */
+/** Phones and tablets: the brief would cover the page being used (a note being written); it waits for the home page
+ *  (in the browser session, like the greeting: a reload of the page does not lose it). */
+const BRIEF_WAITING = 'cop:brief-waiting';
+
+/** The home page is on screen: the morning brief kept for it comes now (called by Copilot). */
+export function homeVisited() {
+  if (!sessionStorage.getItem(BRIEF_WAITING)) return;
+  sessionStorage.removeItem(BRIEF_WAITING);
+  morningBrief();
+}
+
+/** « Ta journée en 3 lignes », on the first opening of the day before noon. Returns true if shown (or kept for the home page). */
 function morningBrief(): boolean {
   const settings = getSettings();
   const today = todayKey();
@@ -291,6 +302,11 @@ function morningBrief(): boolean {
   const nextExam = events.filter(e => big(e) && !e.done && e.date >= today && !isOver(e)).sort(sortEvents)[0];
   // Discreet mode: only when there is something worth saying.
   if (settings.chattiness === 'calme' && !todays.length && !dueTodos.length && !(nextExam && daysUntil(nextExam.date) <= 7)) return false;
+  // Not used up: it stays due until the home page shows it.
+  if (typeof location !== 'undefined' && location.pathname !== '/' && matchMedia('(max-width: 1023px)').matches) {
+    sessionStorage.setItem(BRIEF_WAITING, '1');
+    return true;
+  }
 
   const name = useAuth.getState().user?.name ?? '';
   const words = usageWords(settings.usage);

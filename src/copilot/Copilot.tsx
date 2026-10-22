@@ -1,5 +1,5 @@
 import { memo, useEffect, useLayoutEffect, useRef, useState, type ComponentProps, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowUp, Check, Copy, Maximize2, Mic, Minimize2, RotateCcw, Square, X } from 'lucide-react';
 import Character, { CopilotAvatar, type CopilotMood } from './Character';
 import { useCopilot, type CopilotLink, type CopilotOffer } from '../store/copilot';
@@ -13,6 +13,9 @@ import Markdown from './Markdown';
 import { frenchSpacing, stripMarkdown } from './markdown';
 import { aiPausedUntil, aiPauseReason } from './aiPause';
 import { useDictation } from './voice';
+import { homeVisited } from './proactive';
+import { trapTab } from '../lib/a11y';
+import { toKey, todayKey } from '../lib/dates';
 import { t } from '../i18n';
 
 // The AI part (and the Anthropic types it uses) is loaded on first use.
@@ -21,7 +24,10 @@ const brain = async () => claudeBrain;
 
 // Studies revise; work and personal life block time to prepare (localBrain understands both).
 const RECORD_QUESTION = { etudes: t('Comment enregistrer un cours ?'), travail: t('Comment enregistrer une réunion ?'), perso: t('Comment enregistrer une conférence ?') };
-const suggestions = (usage: keyof typeof RECORD_QUESTION) => [t('Analyse ma semaine'), usage === 'etudes' ? t('Planifie mes révisions') : t('Bloque du temps pour préparer'), RECORD_QUESTION[usage]];
+// `planOffered`: his last message already has a « Planifier mes révisions » button, no second one.
+const suggestions = (usage: keyof typeof RECORD_QUESTION, planOffered = false) =>
+  [t('Analyse ma semaine'), ...(planOffered ? [] : [usage === 'etudes' ? t('Planifie mes révisions') : t('Bloque du temps pour préparer')]), RECORD_QUESTION[usage]];
+const NARROW = '(max-width: 1023px)';
 const YES = /^(oui|ouais|ok|okay|vas[- ]y|go|carrement|d'accord|dac|yes|yeah|yep|sure|si|vale|claro|dale|ja|klar|gerne|certo|va bene|avec plaisir|je veux bien|volontiers)\b/;
 
 /**
@@ -121,6 +127,8 @@ export default function Copilot() {
   const usage = useSettings(s => s.usage ?? 'etudes');
   const studying = usage === 'etudes';
   const hello = () =>
+    // Today's morning brief already says hello (« Salut Léa ! Ta journée en 3 lignes »): not a second one above it.
+    !useCopilot.getState().messages.some(m => m.brief && toKey(new Date(m.at)) === todayKey()) &&
     greet(
       studying
         ? t('Salut {name} ! Je peux retrouver tes fichiers, organiser tes révisions, créer des notes… Dis-moi.', { name: user?.name ?? '' })
@@ -136,6 +144,9 @@ export default function Copilot() {
   const panelRef = useRef<HTMLDivElement>(null);
   const charRef = useRef<HTMLDivElement>(null);
   const [shift, setShift] = useState(0);
+  // Phones and tablets: the open panel covers the page, so it is a modal dialog there (Tab stays inside).
+  const [narrow, setNarrow] = useState(() => matchMedia(NARROW).matches);
+  const { pathname } = useLocation();
   const inputRef = useRef<HTMLInputElement>(null);
   const drag = useRef<{ startY: number; moved: boolean } | null>(null);
 
@@ -158,6 +169,21 @@ export default function Copilot() {
     const timer = setInterval(tick, 1000);
     return () => clearInterval(timer);
   }, [pose, thinking]);
+
+  useEffect(() => {
+    const mq = matchMedia(NARROW);
+    const onChange = () => setNarrow(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
+  // The morning brief kept back on a phone (it would cover the page) comes on the home page, once it has
+  // settled (like the greeting, 1.5 s after the app opens).
+  useEffect(() => {
+    if (pathname !== '/') return;
+    const timer = setTimeout(homeVisited, 1500);
+    return () => clearTimeout(timer);
+  }, [pathname]);
 
   // Long inactivity sends him to sleep (his eyes follow the mouse in WatchingCharacter).
   useEffect(() => {
@@ -208,7 +234,7 @@ export default function Copilot() {
   // Phones and tablets: a remark covers the page (Drive files, the month, « À venir »). It goes after a few
   // seconds, or at the first touch, scroll or key in the page (not on the bubble or on Kompaly himself).
   useEffect(() => {
-    if (!bubble || pose === 'open' || !matchMedia('(max-width: 1023px)').matches) return;
+    if (!bubble || pose === 'open' || !matchMedia(NARROW).matches) return;
     // A little longer with a button to tap (« Ouvrir le calendrier »).
     const gone = setTimeout(clearBubble, bubble.offers?.length ? 8000 : 6000);
     const onGesture = (e: Event) => {
@@ -252,9 +278,16 @@ export default function Copilot() {
     if (pose !== 'open') return;
     const timer = setTimeout(() => inputRef.current?.focus(), 200);
     // Échap closes Kompaly, unless what was opened over it took the key (the search, a dialog…).
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !e.defaultPrevented && setPose('hidden');
-    window.addEventListener('keydown', onKey);
     const panel = panelRef.current;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !e.defaultPrevented) setPose('hidden');
+      // Modal on phones and tablets: Tab goes round inside (unless a dialog opened over it has it).
+      else if (panel && !e.defaultPrevented && matchMedia(NARROW).matches) {
+        const dialogs = document.querySelectorAll('[aria-modal="true"]');
+        if (dialogs[dialogs.length - 1] === panel) trapTab(e, panel);
+      }
+    };
+    window.addEventListener('keydown', onKey);
     const character = charRef.current;
     return () => {
       clearTimeout(timer);
@@ -370,6 +403,7 @@ export default function Copilot() {
           id="copilot-panel"
           role="dialog"
           aria-label="Kompaly"
+          aria-modal={isOpen && narrow ? true : undefined}
           aria-hidden={!isOpen}
           inert={!isOpen}
           style={{ marginTop: shift }}
@@ -380,7 +414,8 @@ export default function Copilot() {
             isOpen ? 'pointer-events-auto scale-100 opacity-100' : 'pointer-events-none scale-95 opacity-0',
           )}
         >
-          <header className="flex items-center gap-2.5 border-b border-stone-100 px-3.5 py-2.5">
+          {/* Not a <header>: a banner landmark inside a dialog confuses the page's landmarks. */}
+          <div className="flex items-center gap-2.5 border-b border-stone-100 px-3.5 py-2.5">
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-stone-100">
               <CopilotAvatar size={24} />
             </span>
@@ -399,7 +434,7 @@ export default function Copilot() {
             <button title={t('Fermer (Échap)')} aria-label={t('Fermer (Échap)')} onClick={() => setPose('hidden')} className="icon-btn pointer-coarse:h-9 pointer-coarse:w-9" tabIndex={isOpen ? 0 : -1}>
               <X size={16} />
             </button>
-          </header>
+          </div>
 
           <div ref={listRef} role="log" aria-live="polite" aria-label={t('Conversation avec Kompaly')} className="flex-1 space-y-2.5 overflow-y-auto px-3.5 py-3.5">
             {messages.map(m => (
@@ -427,7 +462,7 @@ export default function Copilot() {
 
           {messages.length <= 2 && (
             <div className="flex flex-wrap gap-1.5 px-3.5 pb-2.5">
-              {suggestions(usage).map(s => (
+              {suggestions(usage, !!lastBot?.offers?.some(o => o.kind === 'plan_revisions')).map(s => (
                 <button key={s} onClick={() => void send(s)} tabIndex={isOpen ? 0 : -1} className="h-7 rounded-full border border-stone-200 px-2.5 text-[12px] text-stone-600 transition-colors hover:bg-stone-50 hover:text-ink pointer-coarse:h-9">
                   {s}
                 </button>

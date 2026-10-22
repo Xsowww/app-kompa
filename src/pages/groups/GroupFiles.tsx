@@ -1,12 +1,13 @@
 import { LoadFailed } from './shared';
 import { useCallback, useRef, useState } from 'react';
-import { Download, Eye, Flag, FolderDown, Paperclip, Trash2 } from 'lucide-react';
+import { Download, Eye, Flag, FolderDown, MoreHorizontal, Paperclip, Trash2 } from 'lucide-react';
 import { useAuth } from '../../store/auth';
 import { ReportDialog } from '../../components/FeedbackDialogs';
 import { useGroups } from '../../store/groups';
 import { categoryOf, useDrive, type DriveItem } from '../../store/drive';
 import { confirmAction, toast } from '../../store/ui';
 import FileIcon from '../../components/FileIcon';
+import { ContextMenu, type MenuItem } from '../../components/Overlays';
 import PreviewModal from '../drive/PreviewModal';
 import { downloadItem } from '../drive/download';
 import { deleteFile, downloadFile, groupError, type Group, type GroupFile } from '../../lib/groups';
@@ -25,6 +26,7 @@ export default function GroupFiles({ group }: { group: Group }) {
   const { canEdit } = useRights(group);
   const [preview, setPreview] = useState<GroupFile | null>(null);
   const [reporting, setReporting] = useState<GroupFile | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
   const me = useAuth(s => s.user?.id);
   const [over, setOver] = useState(false);
   const input = useRef<HTMLInputElement>(null);
@@ -63,6 +65,13 @@ export default function GroupFiles({ group }: { group: Group }) {
       toast(groupError(e), 'error');
     }
   };
+
+  // Phones: only « Télécharger » stays beside the name, the rest goes in « Plus d’actions » (4 icons cut the name short).
+  const moreItems = (f: GroupFile): MenuItem[] => [
+    { label: t('Copier dans mon Drive'), icon: <FolderDown size={15} />, onClick: () => void toDrive(f) },
+    ...(f.createdBy !== me ? [{ label: t('Signaler'), icon: <Flag size={15} />, onClick: () => setReporting(f) }] : []),
+    ...(canEdit ? [{ label: t('Supprimer'), icon: <Trash2 size={15} />, danger: true, onClick: () => void remove(f) }] : []),
+  ];
 
   const drop = (e: React.DragEvent) => {
     if (!canEdit || !e.dataTransfer.types.includes('Files')) return;
@@ -129,19 +138,32 @@ export default function GroupFiles({ group }: { group: Group }) {
                   <button className="icon-btn" title={t('Télécharger')} aria-label={t('Télécharger {name}', { name: f.name })} onClick={() => downloadItem(f, getUrl)}>
                     <Download size={15} />
                   </button>
-                  <button className="icon-btn" title={t('Copier dans mon Drive')} aria-label={t('Copier {name} dans mon Drive', { name: f.name })} onClick={() => void toDrive(f)}>
+                  <button className="icon-btn max-sm:hidden" title={t('Copier dans mon Drive')} aria-label={t('Copier {name} dans mon Drive', { name: f.name })} onClick={() => void toDrive(f)}>
                     <FolderDown size={15} />
                   </button>
                   {f.createdBy !== me && (
-                    <button className="icon-btn" title={t('Signaler')} aria-label={t('Signaler {name}', { name: f.name })} onClick={() => setReporting(f)}>
+                    <button className="icon-btn max-sm:hidden" title={t('Signaler')} aria-label={t('Signaler {name}', { name: f.name })} onClick={() => setReporting(f)}>
                       <Flag size={15} />
                     </button>
                   )}
                   {canEdit && (
-                    <button className="icon-btn hover:text-red-600" title={t('Supprimer')} aria-label={t('Supprimer {name}', { name: f.name })} onClick={() => void remove(f)}>
+                    <button className="icon-btn hover:text-red-600 max-sm:hidden" title={t('Supprimer')} aria-label={t('Supprimer {name}', { name: f.name })} onClick={() => void remove(f)}>
                       <Trash2 size={15} />
                     </button>
                   )}
+                  <button
+                    className="icon-btn sm:hidden"
+                    title={t('Plus d’actions')}
+                    aria-label={t('Plus d’actions pour «\u00a0{name}\u00a0»', { name: f.name })}
+                    aria-haspopup="menu"
+                    onClick={e => {
+                      // Under the button, right-aligned (clientX is 0 from the keyboard).
+                      const r = e.currentTarget.getBoundingClientRect();
+                      setMenu({ x: r.right - 208, y: r.bottom + 4, items: moreItems(f) });
+                    }}
+                  >
+                    <MoreHorizontal size={15} />
+                  </button>
                 </div>
               </div>
             ))}
@@ -160,6 +182,7 @@ export default function GroupFiles({ group }: { group: Group }) {
         }}
       />
       <ReportDialog target={reporting && { kind: 'file', id: reporting.id, title: reporting.name }} onClose={() => setReporting(null)} />
+      {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
       {preview && <PreviewModal item={asItem(preview)} getUrl={getUrl} onClose={() => setPreview(null)} />}
     </div>
   );

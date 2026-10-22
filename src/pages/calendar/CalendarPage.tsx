@@ -184,7 +184,7 @@ function CalendarFilter({ categories, shown, importantOnly, onToggle, onImportan
         onClick={() => setOpen(v => !v)}
         aria-expanded={open}
         aria-controls="filtre-calendrier"
-        className={cx('btn-secondary h-8 px-2.5', count > 0 && 'border-ink/40 text-ink')}
+        className={cx('btn-secondary hit-sm h-8 px-2.5', count > 0 && 'border-ink/40 text-ink')}
         title={t('Filtrer les événements affichés')}
       >
         <ListFilter size={15} />
@@ -493,9 +493,9 @@ export default function CalendarPage() {
           <button className="btn-secondary h-8" onClick={() => selectDay(today)}>
             {t('Aujourd’hui')}
           </button>
-          <div className="flex h-8 items-center rounded-lg bg-stone-100 p-0.5 text-[13px] pointer-coarse:h-10" role="group" aria-label={t('Affichage')}>
+          <div className="flex h-8 items-center rounded-lg bg-stone-100 p-0.5 text-[13px] pointer-coarse:h-11" role="group" aria-label={t('Affichage')}>
             {MODES.map(m => (
-              <button key={m.id} onClick={() => setMode(m.id)} aria-pressed={mode === m.id} className={cx('h-7 rounded-md px-2 font-medium transition-colors pointer-coarse:h-9 sm:px-3', mode === m.id ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}>
+              <button key={m.id} onClick={() => setMode(m.id)} aria-pressed={mode === m.id} className={cx('h-7 rounded-md px-2 font-medium transition-colors pointer-coarse:h-10 sm:px-3', mode === m.id ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}>
                 {m.label}
               </button>
             ))}
@@ -503,7 +503,7 @@ export default function CalendarPage() {
           {/* Filter and import wrap together: on a phone the import icon was left alone on its own line. */}
           <div className="flex items-center gap-2">
           {(!readOnly || periods.length > 0) && (
-            <button className="btn-secondary h-8 px-2.5" onClick={() => setPeriodsOpen(true)} title={t('Périodes : {ideas}…', { ideas: periodIdeas(usage) })} aria-label={t('Périodes')}>
+            <button className="btn-secondary hit-sm h-8 px-2.5" onClick={() => setPeriodsOpen(true)} title={t('Périodes : {ideas}…', { ideas: periodIdeas(usage) })} aria-label={t('Périodes')}>
               <CalendarRange size={15} /> <span className="max-sm:sr-only">{t('Périodes')}</span>
             </button>
           )}
