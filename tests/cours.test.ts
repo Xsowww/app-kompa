@@ -132,9 +132,15 @@ describe('le cours', () => {
       '00:01:00 · moment marqué : autre',
     ]);
   });
+  it('un moment marqué avant toute parole : l’heure seule, une fois', () => {
+    expect(momentLines([{ id: '1', time: 3, keyword: null, excerpt: '' }, { id: '2', time: 5, keyword: null, excerpt: '' }])).toEqual(['00:00:03 · moment marqué']);
+  });
   it('petits outils', () => {
     expect(clock(3754)).toBe('01:02:34');
     expect(duration(300)).toBe('5 min');
+    expect(duration(26)).toBe('26 s');
+    expect(duration(59.6)).toBe('1 min');
+    expect(duration(5520)).toBe('1 h 32');
     expect(baseName('Droit / civil', new Date(2026, 9, 9))).toBe('2026-10-09 – Droit - civil');
     const chunks = chunkText(`${'a'.repeat(6000)}\n${'b'.repeat(6000)}\n${'c'.repeat(100)}`, 10_000);
     expect(chunks.map(c => c.length)).toEqual([6000, 6101]);

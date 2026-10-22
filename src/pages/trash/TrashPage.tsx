@@ -277,7 +277,7 @@ export default function TrashPage() {
   // No keyboard shortcuts in the menu on a touch screen (as in the Drive).
   const keys = !window.matchMedia('(pointer: coarse)').matches;
   const menuItems = (ids: string[]): MenuItem[] => [
-    ...(ids.length === 1 ? [{ label: t('Aperçu'), icon: <Eye size={15} />, shortcut: keys ? t('Entrée') : undefined, onClick: () => openPreview(ids[0]) }] : []),
+    ...(ids.length === 1 ? [{ label: t('Aperçu||d’un fichier'), icon: <Eye size={15} />, shortcut: keys ? t('Entrée') : undefined, onClick: () => openPreview(ids[0]) }] : []),
     { label: ids.length > 1 ? t('Restaurer ({n})', { n: ids.length }) : t('Restaurer'), icon: <RotateCcw size={15} />, onClick: () => restore(ids) },
     { label: '', divider: true, onClick: () => {} },
     { label: ids.length > 1 ? t('Supprimer définitivement ({n})', { n: ids.length }) : t('Supprimer définitivement'), icon: <Trash2 size={15} />, shortcut: keys ? t('Suppr') : undefined, danger: true, onClick: () => void purge(ids) },

@@ -5,7 +5,7 @@ Object.assign(globalThis, {
   location: new URL('http://localhost/'),
   localStorage: { getItem: (k: string) => memory.get(k) ?? null, setItem: (k: string, v: string) => memory.set(k, v), removeItem: (k: string) => memory.delete(k) },
 });
-const { useDrive, isPlainText, pasteForbidden, FOLDER_COLORS, folderColorKey } = await import('../src/store/drive');
+const { useDrive, isPlainText, pasteForbidden, FOLDER_COLORS, folderColorKey, keepExtension } = await import('../src/store/drive');
 
 beforeEach(() => {
   useDrive.setState({ items: [], trash: [], clipboard: null });
@@ -94,5 +94,18 @@ describe('folderColorKey', () => {
   });
   it('drops anything else (server rows, imported files)', () => {
     for (const v of [null, undefined, '', 'Bleu', '#3b6fd8', 'constructor', 'toString', 42]) expect(folderColorKey(v)).toBeUndefined();
+  });
+});
+
+describe('keepExtension', () => {
+  it('puts the old extension back when the new name has none', () => {
+    expect(keepExtension('notes.txt', 'Notes cours')).toBe('Notes cours.txt');
+    expect(keepExtension('notes.txt', '  Notes  ')).toBe('Notes.txt');
+    expect(keepExtension('rapport.final.docx', 'Rapport')).toBe('Rapport.docx');
+  });
+  it('keeps a name that already has an extension, or a file that had none', () => {
+    expect(keepExtension('notes.txt', 'notes.md')).toBe('notes.md');
+    expect(keepExtension('README', 'Lisez-moi')).toBe('Lisez-moi');
+    expect(keepExtension('.env', 'config')).toBe('config');
   });
 });

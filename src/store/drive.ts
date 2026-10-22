@@ -135,6 +135,13 @@ function cloneTree(items: DriveItem[], ids: string[], targetId: string | null, k
   return { created, blobCopies };
 }
 
+/** A file renamed without any extension keeps its old one (« Notes » → « Notes.txt »), so it still opens. */
+export function keepExtension(oldName: string, newName: string) {
+  const clean = newName.trim();
+  const dot = oldName.lastIndexOf('.');
+  return dot > 0 && clean.lastIndexOf('.') <= 0 ? `${clean}${oldName.slice(dot)}` : clean;
+}
+
 function copyName(name: string) {
   const dot = name.lastIndexOf('.');
   return dot > 0 ? `${t('{name} - copie', { name: name.slice(0, dot) })}${name.slice(dot)}` : t('{name} - copie', { name });

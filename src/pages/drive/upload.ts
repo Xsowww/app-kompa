@@ -1,5 +1,6 @@
 import { useDrive } from '../../store/drive';
 import { indexFile } from '../../lib/textIndex';
+import { MAX_FILE } from '../../lib/blobStore';
 
 export interface PendingFile {
   file: File | null; // null = empty folder
@@ -45,8 +46,24 @@ export function filesFromInput(list: FileList): PendingFile[] {
   });
 }
 
-/** Recreate the folder structure under `parentId` and upload every file. Returns the number of files. */
-export async function uploadPending(pending: PendingFile[], parentId: string | null): Promise<number> {
+// Closing the tab mid-upload loses the files not stored yet: the browser asks first.
+let uploading = 0;
+const warnUnload = (e: BeforeUnloadEvent) => e.preventDefault();
+
+/**
+ * Recreate the folder structure under `parentId` and upload every file.
+ * Files over the size limit are skipped (the rest still goes in) and returned by name.
+ */
+export async function uploadPending(pending: PendingFile[], parentId: string | null): Promise<{ count: number; tooBig: string[] }> {
+  if (uploading++ === 0) window.addEventListener('beforeunload', warnUnload);
+  try {
+    return await uploadAll(pending, parentId);
+  } finally {
+    if (--uploading === 0) window.removeEventListener('beforeunload', warnUnload);
+  }
+}
+
+async function uploadAll(pending: PendingFile[], parentId: string | null) {
   const drive = useDrive.getState();
   const folderIds = new Map<string, string | null>([['', parentId]]);
 
@@ -65,8 +82,13 @@ export async function uploadPending(pending: PendingFile[], parentId: string | n
   };
 
   let count = 0;
+  const tooBig: string[] = [];
   const byFolder = new Map<string | null, File[]>();
   for (const p of pending) {
+    if (p.file && p.file.size > MAX_FILE) {
+      tooBig.push(p.file.name);
+      continue;
+    }
     const target = ensure(p.dirs);
     if (!p.file) continue;
     byFolder.set(target, [...(byFolder.get(target) ?? []), p.file]);
@@ -77,5 +99,5 @@ export async function uploadPending(pending: PendingFile[], parentId: string | n
     created.forEach((item, i) => void indexFile(item, files[i]));
     count += files.length;
   }
-  return count;
+  return { count, tooBig };
 }

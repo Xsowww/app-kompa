@@ -1,5 +1,6 @@
 import { useDrive } from '../../store/drive';
-import { SPACE } from '../../lib/blobStore';
+import { QUOTA, SPACE } from '../../lib/blobStore';
+import { cloudEnabled } from '../../lib/supabase';
 import { formatBytes, cx } from '../../lib/utils';
 import { t, tn } from '../../i18n';
 
@@ -17,6 +18,15 @@ export default function StorageGauge() {
   const share = Math.min(1, used / SPACE);
   const left = Math.max(0, SPACE - used);
   const tone = share >= 0.95 ? 'bg-red-500' : share >= 0.8 ? 'bg-amber-500' : 'bg-brand-500';
+
+  // Local version: files stay in this browser, whose room has nothing to do with the online 1 GB.
+  if (!cloudEnabled && !QUOTA)
+    return (
+      <div className="tabular mb-4 text-[12px] text-stone-500">
+        <span className="font-medium text-ink">{formatBytes(used)}</span> {tn(amount(used), 'utilisé sur cet appareil', 'utilisés sur cet appareil')}
+        {inTrash > 0 && <> · {t('dont {size} dans la corbeille', { size: formatBytes(inTrash) })}</>}
+      </div>
+    );
 
   return (
     <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12px] text-stone-500">

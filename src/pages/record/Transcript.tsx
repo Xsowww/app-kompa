@@ -35,6 +35,13 @@ export default function Transcript({ segments, keywords, liveText, follow, empty
     const el = box.current;
     if (el && follow && stuck.current) el.scrollTop = el.scrollHeight;
   }, [segments.length, liveText, follow, writing]);
+  // Gaps in a row (transcription off, network down…) on one line instead of one every few seconds.
+  const shown = segments.reduce<{ seg: Segment; until?: number }[]>((out, seg) => {
+    const prev = out.at(-1);
+    if (prev && seg.origin === 'manquant' && prev.seg.origin === 'manquant' && !seg.starred && !prev.seg.starred) prev.until = seg.end;
+    else out.push({ seg });
+    return out;
+  }, []);
 
   return (
     <div
@@ -48,7 +55,7 @@ export default function Transcript({ segments, keywords, liveText, follow, empty
     >
       {!segments.length && !liveText && !writing && <p className="py-10 text-center text-[13.5px] text-stone-500">{empty}</p>}
       <ol className="space-y-2.5">
-        {segments.map(s => {
+        {shown.map(({ seg: s, until }) => {
           const flagged = s.starred || s.hits.length > 0;
           return (
             <li key={s.id} id={`passage-${s.id}`} className={cx('flex gap-3 rounded-xl px-2 py-1.5 text-[14.5px] leading-relaxed', flagged && 'bg-amber-50')}>
@@ -56,7 +63,7 @@ export default function Transcript({ segments, keywords, liveText, follow, empty
               <span className="min-w-0 flex-1">
                 {s.starred && <Star size={13} className="mr-1 inline -translate-y-px fill-amber-400 text-amber-500" aria-label={t('Moment marqué')} />}
                 {s.origin === 'manquant' ? (
-                  <span className="italic text-stone-500">{t('(passage non transcrit)')}</span>
+                  <span className="italic text-stone-500">{until ? t('(non transcrit jusqu’à {time})', { time: clock(until) }) : t('(passage non transcrit)')}</span>
                 ) : (
                   <span className={cx(s.origin === 'navigateur' && 'text-stone-600')} title={s.origin === 'navigateur' ? t('Écrit par le navigateur (moins précis)') : undefined}>
                     <Marked text={s.text} keywords={keywords} />
@@ -92,8 +99,9 @@ export default function Transcript({ segments, keywords, liveText, follow, empty
 export function Alerts({ alerts, segments }: { alerts: readonly Alert[]; segments: readonly Segment[] }) {
   if (!alerts.length) return <p className="text-[13px] leading-relaxed text-stone-500">{t('Aucune alerte pour l’instant.')}</p>;
   const show = (time: number) => {
-    const seg = [...segments].reverse().find(s => s.start <= time + 1) ?? segments[0];
-    const el = seg && document.getElementById(`passage-${seg.id}`);
+    // The passage of that time, or the line its gap was merged into.
+    const before = segments.filter(s => s.start <= time + 1).reverse();
+    const el = [...before, ...segments].map(s => document.getElementById(`passage-${s.id}`)).find(Boolean);
     el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
   };
   return (
@@ -106,7 +114,7 @@ export function Alerts({ alerts, segments }: { alerts: readonly Alert[]; segment
               {a.keyword ? t('« {keyword} »', { keyword: a.keyword }) : t('Moment marqué')}
               <span className="tabular ml-auto text-[11px] font-medium text-stone-500">{clock(a.time)}</span>
             </span>
-            <span className="mt-0.5 line-clamp-2 block text-[12.5px] text-stone-600">{a.excerpt}</span>
+            {a.excerpt && <span className="mt-0.5 line-clamp-2 block text-[12.5px] text-stone-600">{a.excerpt}</span>}
           </button>
         </li>
       ))}

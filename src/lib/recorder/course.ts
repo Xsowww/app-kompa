@@ -45,10 +45,11 @@ export function clock(seconds: number): string {
   return [Math.floor(t / 3600), Math.floor(t / 60) % 60, t % 60].map(n => String(n).padStart(2, '0')).join(':');
 }
 
-/** 5520 → « 1 h 32 », 300 → « 5 min ». */
+/** 5520 → « 1 h 32 », 300 → « 5 min », 26 → « 26 s ». */
 export function duration(seconds: number): string {
+  if (seconds < 59.5) return t('{s} s', { s: Math.max(0, Math.round(seconds)) });
   const m = Math.round(seconds / 60);
-  return m >= 60 ? t('{h} h {min}', { h: Math.floor(m / 60), min: String(m % 60).padStart(2, '0') }) : t('{min} min', { min: Math.max(1, m) });
+  return m >= 60 ? t('{h} h {min}', { h: Math.floor(m / 60), min: String(m % 60).padStart(2, '0') }) : t('{min} min', { min: m });
 }
 
 /** The end of a text, cut at a word: what was being said when a keyword was heard. */
@@ -126,10 +127,12 @@ export function momentLines(alerts: readonly Alert[]): string[] {
   for (const a of [...alerts].sort((x, y) => x.time - y.time)) {
     const same = groups.find(g => g.excerpt === a.excerpt && Math.abs(g.time - a.time) < 5);
     const word = a.keyword ? t('« {keyword} »', { keyword: a.keyword }) : t('moment marqué');
-    if (same) same.words.push(word);
-    else groups.push({ time: a.time, words: [word], excerpt: a.excerpt });
+    if (same) {
+      if (!same.words.includes(word)) same.words.push(word);
+    } else groups.push({ time: a.time, words: [word], excerpt: a.excerpt });
   }
-  return groups.map(g => t('{time} · {words} : {excerpt}', { time: clock(g.time), words: g.words.join(', '), excerpt: g.excerpt }));
+  // Marked before anything was said: the time alone, not « moment marqué : Moment marqué ».
+  return groups.map(g => (g.excerpt ? t('{time} · {words} : {excerpt}', { time: clock(g.time), words: g.words.join(', '), excerpt: g.excerpt }) : `${clock(g.time)} · ${g.words.join(', ')}`));
 }
 
 /** The course document, in the Markdown that lib/docx turns into Word. */

@@ -565,7 +565,7 @@ const SHORTCUTS: { group: string; keys: [string, string][] }[] = [
   {
     group: t('Corbeille'),
     keys: [
-      [t('Entrée'), t('Aperçu')],
+      [t('Entrée'), t('Aperçu||d’un fichier')],
       ['↑ ↓', t('Élément précédent, suivant')],
       ['Ctrl A', t('Tout sélectionner')],
       [t('Suppr'), t('Supprimer définitivement')],

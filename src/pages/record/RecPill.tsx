@@ -6,6 +6,9 @@ import { clock } from '../../lib/recorder/course';
 import { cx } from '../../lib/utils';
 import { t } from '../../i18n';
 
+// Tab bar room (AppShell's 5.25rem) + the pill (2.75rem) and a small gap.
+const ROOM = 'max-lg:pb-[calc(8.75rem+env(safe-area-inset-bottom))]';
+
 /** On every other page while a class is recorded: the time, a way back, and « Moment important ». */
 export default function RecPill() {
   const session = useRecorder(s => s.session);
@@ -18,7 +21,13 @@ export default function RecPill() {
   useEffect(() => {
     if (!on) return;
     const t = setInterval(() => tick(n => n + 1), 1000);
-    return () => clearInterval(t);
+    // Phones: the pill floats above the tab bar; the page ends above it so its last lines stay reachable.
+    const main = document.getElementById('contenu');
+    main?.classList.add(ROOM);
+    return () => {
+      clearInterval(t);
+      main?.classList.remove(ROOM);
+    };
   }, [on]);
   if (!on || !session) return null;
   const finishing = session.phase === 'finishing';
