@@ -8,7 +8,7 @@ import {
 import { openFeedback } from '../../lib/feedback';
 import AccountList from '../../components/AccountList';
 import PasswordStrength from '../../components/PasswordStrength';
-import { needsCredentials, STALE_DAYS } from '../../lib/accounts';
+import { needsCredentials, savedAccounts, STALE_DAYS } from '../../lib/accounts';
 import { useAuth } from '../../store/auth';
 import { useFocusLog } from '../../store/focusLog';
 import { useSettings, ACCENTS, AVATAR_COLORS, applyAppearance, type AccentKey, type ThemeMode, type Chattiness } from '../../store/settings';
@@ -186,6 +186,7 @@ function ProfileTab() {
           <input
             className="field w-56"
             aria-label={t('Prénom')}
+            maxLength={40}
             value={name}
             onChange={e => setName(e.target.value)}
             onBlur={() => {
@@ -208,7 +209,7 @@ function ProfileTab() {
           />
         </Row>
         <Row label={t('Kompaly sert pour')}>
-          <SelectField<Usage> className="w-56" label={t('Kompaly sert pour')} value={settings.usage} options={USAGES.map(u => ({ value: u.key, label: u.label }))} onChange={usage => { settings.set({ usage }); applyUsage(usage); }} />
+          <SelectField<Usage> className="w-56" label={t('Kompaly sert pour')} value={settings.usage} options={USAGES.map(u => ({ value: u.key, label: u.label }))} onChange={usage => { if (usage === settings.usage) return; settings.set({ usage, year: '', school: '', program: '' }); applyUsage(usage); }} />
         </Row>
         <Row label={words.school}>
           <input className="field w-56" aria-label={words.school} value={settings.school} placeholder={words.schoolHint} onChange={e => settings.set({ school: e.target.value })} />
@@ -379,7 +380,7 @@ function CopilotTab() {
         <Row label={t('Afficher Kompaly')}>
           <Toggle label={t('Afficher Kompaly')} checked={s.copilotVisible} onChange={v => s.set({ copilotVisible: v })} />
         </Row>
-        <Row label={t('Initiatives')} hint={s.usage === 'etudes' ? t('Propose des révisions, rappelle les rendus.') : t('Propose du temps de préparation, rappelle les échéances.')}>
+        <Row label={t('Initiatives')} hint={s.usage === 'etudes' ? t('Propose des révisions, rappelle les rendus.') : s.usage === 'perso' ? t('Propose du temps de préparation, rappelle les grands jours.') : t('Propose du temps de préparation, rappelle les échéances.')}>
           <Toggle label={t('Initiatives')} checked={s.proactive} onChange={v => s.set({ proactive: v })} />
         </Row>
         <Row label={t('Bavardage')}>
@@ -836,7 +837,7 @@ function AccountTab() {
   const onChange = async (e: FormEvent) => {
     e.preventDefault();
     if (next.length < 8 || !/\p{L}/u.test(next) || !/\d/.test(next)) return toast(t('Au moins 8 caractères, avec des lettres et des chiffres.'), 'error');
-    if (next !== confirmPw) return toast(t('Les deux mots de passe ne correspondent pas'), 'error');
+    if (next !== confirmPw) return toast(t('Les deux mots de passe ne correspondent pas.'), 'error');
     if (!noPassword && next === current) return toast(t('Choisis un mot de passe différent de l’actuel.'), 'error');
     setBusy(true);
     try {
@@ -941,6 +942,8 @@ function AccountTab() {
         <div className="space-y-3 px-5 py-4">
           <p className="text-[12.5px] text-stone-500">
             {t('Après {n}\u00a0jours sans utilisation, le mot de passe est redemandé.', { n: STALE_DAYS })}
+            {/* Local mode: the other tabs keep showing the old account until they are reloaded. */}
+            {!cloudEnabled && ` ${t('Tes autres onglets passent au nouveau compte une fois rechargés.')}`}
           </p>
           <AccountList
             currentId={userId}
@@ -963,7 +966,15 @@ function AccountTab() {
       <Section title={t('Session')}>
         <Row
           label={t('Se déconnecter')}
-          hint={!cloudEnabled ? t('Tes données restent sur cet appareil.') : remembered() ? t('Ton compte reste proposé sur la page de connexion.') : undefined}
+          hint={
+            !cloudEnabled
+              ? savedAccounts().some(a => a.id !== userId && !needsCredentials(a))
+                ? t('Tes données restent sur cet appareil. Tes autres comptes restent ouverts.')
+                : t('Tes données restent sur cet appareil.')
+              : remembered()
+                ? t('Ton compte reste proposé sur la page de connexion.')
+                : undefined
+          }
         >
           <button className="btn-secondary h-8" onClick={() => void logout().then(leave)}>
             <LogOut size={14} /> {t('Se déconnecter')}
@@ -978,6 +989,12 @@ function AccountTab() {
             className="btn-danger h-8"
             disabled={!noPassword && !deletePw}
             onClick={async () => {
+              // A wrong password is said at once, not after « Supprimer ton compte ? ».
+              try {
+                await useAuth.getState().verifyPassword(deletePw);
+              } catch (err) {
+                return toast((err as Error).message, 'error');
+              }
               if (!(await confirmAction(t('Supprimer ton compte ?'), t('Cette action est irréversible.'), t('Supprimer')))) return;
               try {
                 // Password and server checks come first: never wipe the Drive for a refused deletion.

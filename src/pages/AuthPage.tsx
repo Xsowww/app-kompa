@@ -258,7 +258,9 @@ export default function AuthPage({ mode }: { mode: Mode }) {
     <div className="flex h-full overflow-y-auto">
       <main className="flex flex-1 flex-col px-6 py-6 sm:px-10">
         <div className="flex items-center justify-between">
-          <Logo />
+          <Link to="/" aria-label={t('Kompaly, accueil')} className="shrink-0">
+            <Logo />
+          </Link>
           <LanguagePicker />
         </div>
         <div className="flex flex-1 items-center justify-center py-10">
@@ -321,7 +323,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
               {isRegister && (
                 <label className="block">
                   <span className="mb-1.5 block text-[12px] font-medium text-stone-600">{t('Prénom')}</span>
-                  <input ref={el => { refs.current.name = el; }} {...invalid('name')} className="field w-full" value={name} onChange={e => setName(e.target.value)} autoComplete="given-name" autoFocus />
+                  <input ref={el => { refs.current.name = el; }} {...invalid('name')} className="field w-full" value={name} maxLength={40} onChange={e => setName(e.target.value)} autoComplete="given-name" autoFocus />
                   {errAt('name')}
                 </label>
               )}
@@ -453,7 +455,8 @@ export default function AuthPage({ mode }: { mode: Mode }) {
           {LEGAL_LINKS.map(l => (
             <span key={l.to}>
               {'\u00a0· '}
-              <Link to={l.to} className="whitespace-nowrap underline decoration-stone-300 underline-offset-2 hover:text-ink">
+              {/* Taller on touch screens: 13 px high was too small to tap. */}
+              <Link to={l.to} className="whitespace-nowrap underline decoration-stone-300 underline-offset-2 hover:text-ink pointer-coarse:inline-block pointer-coarse:py-2">
                 {l.label}
               </Link>
             </span>

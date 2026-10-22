@@ -13,6 +13,8 @@ const LEVELS = [
 export default function PasswordStrength({ password, avoid = [], id }: { password: string; avoid?: string[]; id?: string }) {
   const level = passwordStrength(password, avoid);
   const now = LEVELS[level - 1];
+  // The rule that blocks (AuthPage, Profile), not the strength.
+  const meetsRule = password.length >= 8 && /\p{L}/u.test(password) && /\d/.test(password);
   return (
     <div className="mt-2">
       <div className="flex gap-1" aria-hidden>
@@ -21,7 +23,10 @@ export default function PasswordStrength({ password, avoid = [], id }: { passwor
         ))}
       </div>
       <p id={id} className="mt-1 text-[11.5px] text-stone-500" aria-live="polite">
-        {now ? t('Sécurité : {level}', { level: now.label }) : t('8 caractères minimum, lettres et chiffres')}
+        {now && t('Sécurité : {level}', { level: now.label })}
+        {/* The rule stays in sight until it is met (the bar alone said « Faible » without saying why). */}
+        {now && !meetsRule && ' · '}
+        {!meetsRule && t('8 caractères minimum, lettres et chiffres')}
       </p>
     </div>
   );
