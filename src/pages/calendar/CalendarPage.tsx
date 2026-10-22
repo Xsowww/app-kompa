@@ -2,7 +2,8 @@ import { useToday } from '../../lib/useToday';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { addDays, addMonths, endOfMonth, startOfMonth, isSameMonth } from 'date-fns';
-import { Bell, Check, Flag, ListFilter, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, CornerDownLeft, CalendarArrowDown, CalendarArrowUp, CalendarRange } from 'lucide-react';
+import { Bell, Check, Flag, ListFilter, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, CornerDownLeft, CalendarArrowDown, CalendarArrowUp, CalendarRange, CalendarPlus, CalendarClock } from 'lucide-react';
+import { EmptyState, Skeleton } from '../../components/EmptyState';
 import { catOf, allCategories, guessCategory, isDeliverable, isBigEvent, sortEvents, type CalendarEvent, type EventCategory } from '../../store/calendar';
 import { parseQuickAdd, toKey, fromKey, todayKey, validKey, fmt, fmtDay, weekStart, countdownLabel, daysUntil, toMinutes, fromMinutes, isOver } from '../../lib/dates';
 import { toast } from '../../store/ui';
@@ -248,6 +249,10 @@ export default function CalendarPage() {
   const [shown, setShown] = useState<Set<EventCategory>>(new Set());
   const [importantOnly, setImportantOnly] = useState(false);
   const filtering = shown.size > 0 || importantOnly;
+  const clearFilter = () => {
+    setShown(new Set());
+    setImportantOnly(false);
+  };
   const custom = source.categories; // a shared calendar: its own (mine aren't the others')
   const usage = useSettings(s => s.usage);
   const words = { ...(WORDS[usage] ?? WORDS.etudes), ...(shared && AGENDA_EXAMPLES) };
@@ -520,10 +525,7 @@ export default function CalendarPage() {
               })
             }
             onImportant={shared ? undefined : () => setImportantOnly(v => !v)}
-            onReset={() => {
-              setShown(new Set());
-              setImportantOnly(false);
-            }}
+            onReset={clearFilter}
             onManage={readOnly ? undefined : () => setManaging(true)}
           />
           {/* Together: on a tablet the header wraps, and the export icon was left alone on a second line. */}
@@ -783,8 +785,20 @@ export default function CalendarPage() {
                   onEdit={ev => setForm({ event: ev, date: ev.date })}
                   onCreate={(start, end) => setForm({ date: selected, start, end })}
                 />
+              ) : shared?.unread ? (
+                shared.unread === 'loading' && <Skeleton shape="slots" rows={2} className="py-2" />
               ) : dayEvents.length === 0 ? (
-                <p className="py-8 text-center text-[13px] text-stone-500">{events.some(e => e.date === selected) ? t('Rien à afficher avec ce filtre.') : selected === today ? t('Rien de prévu aujourd’hui.') : t('Rien de prévu ce jour-là.')}</p>
+                events.some(e => e.date === selected) ? (
+                  <EmptyState size="sm" tone="search" icon={ListFilter} title={t('Rien à afficher avec ce filtre.')} action={{ label: t('Retirer les filtres'), onClick: clearFilter }} />
+                ) : (
+                  <EmptyState
+                    size="sm"
+                    icon={CalendarPlus}
+                    title={selected === today ? t('Rien de prévu aujourd’hui.') : t('Rien de prévu ce jour-là.')}
+                    action={readOnly ? undefined : { label: t('Ajouter un événement'), icon: Plus, onClick: () => setForm({ date: selected }) }}
+                    preview="slots"
+                  />
+                )
               ) : (
                 <div className="space-y-2">
                   {dayEvents.map(ev => (
@@ -799,10 +813,14 @@ export default function CalendarPage() {
             <h2 id="a-venir-titre" className="mb-2 text-[13px] font-medium text-stone-600">
               {t('À venir')}
             </h2>
-            {upcomingExams.length === 0 && nextUp.length === 0 ? (
-              <p className="py-1 text-[13px] text-stone-500">
-                {upcomingHidden ? t('Rien à afficher avec ce filtre.') : t('Rien de prévu pour la suite.')}
-              </p>
+            {shared?.unread ? (
+              shared.unread === 'loading' && <Skeleton rows={2} className="py-1" />
+            ) : upcomingExams.length === 0 && nextUp.length === 0 ? (
+              upcomingHidden ? (
+                <EmptyState size="sm" tone="search" icon={ListFilter} title={t('Rien à afficher avec ce filtre.')} action={{ label: t('Retirer les filtres'), onClick: clearFilter }} />
+              ) : (
+                <EmptyState size="sm" icon={CalendarClock} title={t('Rien de prévu pour la suite.')} />
+              )
             ) : (
               <ul className="-mx-1.5">
                 {upcomingExams.map(e => {

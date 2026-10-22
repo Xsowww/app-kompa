@@ -7,6 +7,7 @@ import { confirmAction, toast } from '../../store/ui';
 import { copyCode, copyInviteLink, deleteGroup, groupError, leaveGroup, regenerateAgendaToken, regenerateCode, removeMember, setMemberRights, type Group, type GroupMember, type GroupRole } from '../../lib/groups';
 import { fmt } from '../../lib/dates';
 import { MemberDot, LoadFailed } from './shared';
+import { Skeleton } from '../../components/EmptyState';
 import { useGroupWords } from './util';
 import { t, tn } from '../../i18n';
 
@@ -158,7 +159,7 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
 
       <p className="eyebrow mb-2 mt-6">{members ? tn(members.length, '{n} membre', '{n} membres') : t('Membres')}</p>
       <div className="card divide-y divide-stone-100">
-        {!members && (failed ? <LoadFailed groupId={group.id} part="members" className="p-4" /> : <p className="p-4 text-[13px] text-stone-500">{t('Chargement…')}</p>)}
+        {!members && (failed ? <LoadFailed groupId={group.id} part="members" /> : <Skeleton shape="people" rows={2} className="p-3" />)}
         {members?.map(m => (
           <div key={m.userId} className="group flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2.5">
             <MemberDot userId={m.userId} name={m.name} size={30} className="ring-0" />

@@ -161,9 +161,7 @@ function Usages() {
           <h2 id="usages-title" className="text-[30px] font-extrabold leading-[1.05] tracking-[-0.025em] md:text-[36px]">
             {t('Pour tes études, ton travail ou ta vie perso.')}
           </h2>
-          <p className="mt-4 text-[15px] leading-relaxed text-stone-600">
-            {t('L’appli adapte ses mots et ses conseils à ton usage.')}
-          </p>
+          {/* No sentence to explain it: the switch and the cards beside it show it. */}
           <div className="mt-6 inline-flex rounded-xl bg-stone-100 p-1" role="group" aria-label={t('Kompaly sert pour')}>
             {USAGES.map(u => (
               <button

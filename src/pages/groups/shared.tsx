@@ -3,17 +3,16 @@ import { groupColor } from './util';
 import { cx } from '../../lib/utils';
 import { t } from '../../i18n';
 import { useGroups } from '../../store/groups';
+import { EmptyState, LoadErrorLine } from '../../components/EmptyState';
 
-/** A tab whose content couldn't be read (no connection…): said plainly, with « Réessayer », instead of loading forever. */
-export function LoadFailed({ groupId, part, className }: { groupId: string; part: 'members' | 'notes' | 'events' | 'files'; className?: string }) {
-  return (
-    <p className={cx('text-[13px] text-stone-500', className)}>
-      {t('Impossible de charger.')}{' '}
-      <button className="font-medium text-ink underline underline-offset-2" onClick={() => void useGroups.getState().refresh(groupId, [part])}>
-        {t('Réessayer')}
-      </button>
-    </p>
-  );
+/**
+ * A tab whose content couldn't be read (no connection…): said plainly, with « Réessayer », instead of loading forever.
+ * `inline`: one line above content that stays on screen (the shared calendar).
+ */
+export function LoadFailed({ groupId, part, className, inline }: { groupId: string; part: 'members' | 'notes' | 'events' | 'files'; className?: string; inline?: boolean }) {
+  const retry = () => void useGroups.getState().refresh(groupId, [part]);
+  if (inline) return <LoadErrorLine onRetry={retry} className={className} />;
+  return <EmptyState tone="error" title={t('Impossible de charger.')} onRetry={retry} className={className} />;
 }
 
 /** Pastille carrée du groupe : sa photo, sinon l'initiale sur sa couleur. */

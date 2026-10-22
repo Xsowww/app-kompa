@@ -1,7 +1,8 @@
 import { useToday } from '../../lib/useToday';
 import { memo, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Bell, BellRing, CalendarPlus, Check, ChevronRight, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Bell, BellRing, CalendarPlus, Check, ChevronRight, ListTodo, Pencil, Plus, Trash2 } from 'lucide-react';
+import { EmptyState } from '../../components/EmptyState';
 import { useTodos, type Todo } from '../../store/todos';
 import { countdownLabel, daysUntil, fmt, fmtDay, fromKey, parseQuickAdd, todayKey } from '../../lib/dates';
 import { cx } from '../../lib/utils';
@@ -400,7 +401,19 @@ export default function TodoList({ limit, grouped }: { limit?: number; grouped?:
   return (
     <div className="flex flex-1 flex-col" data-todolist>
       {!preview && <QuickAdd />}
-      {open.length === 0 && <p className={cx('text-[13px] text-stone-500', ticked.length ? 'pt-3' : 'py-5')}>{ticked.length || todos.some(x => x.done) ? t('Tout est coché. Profites-en.') : t('Rien à faire pour l’instant.')}</p>}
+      {open.length === 0 &&
+        (ticked.length || todos.some(x => x.done) ? (
+          <p className={cx('text-[13px] text-stone-500', ticked.length ? 'pt-3' : 'py-5')}>{t('Tout est coché. Profites-en.')}</p>
+        ) : (
+          // The home preview has its own « Ajouter une tâche » link below.
+          <EmptyState
+            size="sm"
+            icon={ListTodo}
+            title={t('Aucune tâche pour l’instant.')}
+            action={preview ? undefined : { label: t('Ajouter une tâche'), icon: Plus, onClick: () => document.querySelector<HTMLElement>('[data-quickadd]')?.focus() }}
+            preview="list"
+          />
+        ))}
       {groups.length > 0 && (
         <div className="mt-2">
           {rendered.filter(g => g.rows.length).map(g => (

@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useToday } from '../lib/useToday';
 import { Link, useNavigate } from 'react-router-dom';
 import { addDays } from 'date-fns';
-import { ArrowUpRight, CalendarDays, Check, Flag, Mic, Plus } from 'lucide-react';
+import { ArrowUpRight, CalendarDays, Check, Flag, Mic, NotebookPen, Plus } from 'lucide-react';
+import { EmptyState } from '../components/EmptyState';
 import { useAuth } from '../store/auth';
 import { useNotes } from '../store/notes';
 import { useCalendar, catOf, isBigEvent, sortEvents, type CalendarEvent } from '../store/calendar';
@@ -329,7 +330,20 @@ export default function Dashboard() {
           {/* Notes */}
           <Widget title={t('Notes récentes')} to="/notes" linkLabel={t('Ouvrir les notes')} className="lg:col-start-2 lg:row-start-4">
             {recentNotes.length === 0 ? (
-              <p className="py-1.5 text-[13px] text-stone-500">{t('Aucune note pour l’instant.')}</p>
+              <EmptyState
+                size="sm"
+                icon={NotebookPen}
+                title={t('Aucune note pour l’instant.')}
+                action={{
+                  label: t('Nouvelle note'),
+                  icon: Plus,
+                  onClick: () => {
+                    startTitleBuffer();
+                    navigate('/notes?nouvelle=1');
+                  },
+                }}
+                preview="list"
+              />
             ) : (
               <ul className="-mx-1.5">
                 {recentNotes.map(n => (

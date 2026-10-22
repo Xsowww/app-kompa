@@ -10,6 +10,7 @@ import { createEvent, deleteEvent, groupError, setAttendance, type Group, type G
 import { countdownLabel, fmt, fromKey, todayKey } from '../../lib/dates';
 import { cx } from '../../lib/utils';
 import { MemberDot, LoadFailed } from './shared';
+import { EmptyState, Skeleton } from '../../components/EmptyState';
 import { groupColor, useGroupWords, useMemberName, useRights } from './util';
 import { useSettings } from '../../store/settings';
 import { t, tn } from '../../i18n';
@@ -216,7 +217,8 @@ export default function GroupEvents({ group }: { group: Group }) {
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center gap-2 pb-3">
         <p className="eyebrow mr-auto">{t('{Tab} à venir', { Tab: w.meet.Tab })}</p>
-        {!adding && canEdit && (
+        {/* Nothing planned: the empty state below holds the button. */}
+        {!adding && canEdit && events?.length !== 0 && (
           <button className="btn-primary h-8 px-3" onClick={() => setAdding(true)}>
             <Plus size={14} /> {t('Proposer {a}', { a: w.meet.a })}
           </button>
@@ -224,12 +226,15 @@ export default function GroupEvents({ group }: { group: Group }) {
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto pb-room">
         {adding && canEdit && <EventForm group={group} onDone={() => setAdding(false)} />}
-        {!events && (failed ? <LoadFailed groupId={group.id} part="events" /> : <p className="text-[13px] text-stone-500">{t('Chargement…')}</p>)}
+        {!events && (failed ? <LoadFailed groupId={group.id} part="events" className="card" /> : <Skeleton shape="slots" className="card p-4" />)}
         {events && events.length === 0 && !adding && (
-          <div className="card flex flex-col items-center px-6 py-12 text-center">
-            <CalendarPlus size={26} strokeWidth={1.5} className="text-stone-300" />
-            <p className="mt-3 text-[14px] font-medium">{w.meet.none}</p>
-          </div>
+          <EmptyState
+            className="card"
+            icon={CalendarPlus}
+            title={w.meet.none}
+            action={canEdit ? { label: t('Proposer {a}', { a: w.meet.a }), icon: Plus, onClick: () => setAdding(true) } : undefined}
+            preview="slots"
+          />
         )}
         <div className="flex flex-col gap-2">
           {events?.map(ev => <EventCard key={ev.id} group={group} ev={ev} />)}

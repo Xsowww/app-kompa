@@ -3,8 +3,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ChevronDown, ChevronRight, ClipboardPaste, Copy, CopyPlus, Download, Eye, FolderInput, FolderPlus, FolderUp, HardDrive, LayoutGrid,
   List, Pencil, Scissors, Star, Trash2, Upload, Clock, ArrowUpDown, ArrowUp, ArrowDown, X, MousePointer2, Search, Tag, Link2, Check, Palette,
-  MoreHorizontal, ClipboardList, BookOpenCheck,
+  MoreHorizontal, ClipboardList, BookOpenCheck, FolderOpen,
 } from 'lucide-react';
+import { EmptyState, Skeleton } from '../../components/EmptyState';
 import {
   useDrive, childrenOf, pathOf, categoryOf, folderSize, FOLDER_COLORS, type DriveItem,
   pasteForbidden, keepExtension,
@@ -826,7 +827,8 @@ export default function DrivePage() {
             </button>
           </div>
         ) : filtering ? (
-          <p className="truncate px-1.5 font-medium text-stone-500">
+          // No result: the empty state below says it (once).
+          visible.length > 0 && <p className="truncate px-1.5 font-medium text-stone-500">
             {tn(visible.length, '{n} résultat', '{n} résultats')}
             {q && <> {t('pour')} « <span className="text-ink">{q}</span> »</>}
             {activeTag && <> {t('avec l’étiquette')} « <span className="text-ink">{activeTag}</span> »</>}
@@ -897,26 +899,44 @@ export default function DrivePage() {
       >
         {showPending && <PendingUploads where={here} />}
         {visible.length === 0 ? (
-          showPending ? null : <div className="flex h-full min-h-72 flex-col items-center justify-center text-center">
-            {filtering ? (
-              <Search size={28} strokeWidth={1.5} className="text-stone-300" />
-            ) : tab === 'starred' ? (
-              <Star size={28} strokeWidth={1.5} className="text-stone-300" />
-            ) : (
-              <FileIcon category="folder" size={56} />
-            )}
-            <p className="mt-3 text-[14px] font-medium">
-              {filtering ? t('Aucun résultat') : tab === 'starred' ? t('Aucun favori') : tab === 'recent' ? t('Aucun fichier récent') : busy ? t('Import…') : t('Ce dossier est vide')}
-            </p>
-            {/* Fingers can't drop files on the page, nor right-click (a long press opens the menu). */}
-            {!filtering && tab === 'all' && !busy && <p className="mt-1 max-w-xs text-[13px] text-stone-500 pointer-coarse:hidden">{t('Dépose des fichiers ici.')}</p>}
-            {!filtering && tab === 'starred' && (
-              <p className="mt-1 max-w-xs text-[13px] text-stone-500">
-                <span className="pointer-coarse:hidden">{t('Ajoute un favori avec un clic droit sur un élément.')}</span>
-                <span className="hidden pointer-coarse:inline">{t('Ajoute un favori en appuyant longuement sur un élément.')}</span>
-              </p>
-            )}
-          </div>
+          showPending ? null : busy && !filtering ? (
+            <Skeleton shape={view === 'grid' ? 'tiles' : 'list'} className="mx-auto max-w-[420px] py-10" />
+          ) : filtering ? (
+            // The search field and the labels stay above, as typed: one click to undo each.
+            <EmptyState
+              className="py-16"
+              tone="search"
+              title={q ? t('Aucun résultat pour « {q} »', { q }) : t('Aucun résultat')}
+              action={q ? { label: t('Effacer la recherche'), icon: X, onClick: () => setQuery('') } : undefined}
+              secondary={activeTag ? { label: t('Retirer les filtres'), icon: Tag, onClick: () => setTagFilter(null) } : undefined}
+            />
+          ) : tab === 'starred' ? (
+            <EmptyState
+              className="py-16"
+              icon={Star}
+              title={t('Aucun favori')}
+              text={
+                <>
+                  {/* Fingers can't right-click (a long press opens the menu). */}
+                  <span className="pointer-coarse:hidden">{t('Ajoute un favori avec un clic droit sur un élément.')}</span>
+                  <span className="hidden pointer-coarse:inline">{t('Ajoute un favori en appuyant longuement sur un élément.')}</span>
+                </>
+              }
+              preview={view === 'grid' ? 'tiles' : 'list'}
+            />
+          ) : tab === 'recent' ? (
+            <EmptyState className="py-16" icon={Clock} title={t('Aucun fichier récent')} action={{ label: t('Importer'), icon: Upload, onClick: () => fileInput.current?.click() }} preview="list" />
+          ) : (
+            <EmptyState
+              className="py-16"
+              icon={FolderOpen}
+              title={parentId ? t('Ce dossier est vide') : t('Aucun fichier pour l’instant.')}
+              // Fingers can't drop files on the page.
+              text={<span className="pointer-coarse:hidden">{t('Dépose des fichiers ici.')}</span>}
+              action={{ label: t('Importer'), icon: Upload, onClick: () => fileInput.current?.click() }}
+              preview={view === 'grid' ? 'tiles' : 'list'}
+            />
+          )
         ) : view === 'grid' && !q ? (
           <div role="listbox" aria-label={t('Contenu du dossier')} aria-multiselectable="true" className="grid grid-cols-[repeat(auto-fill,minmax(124px,1fr))] gap-1.5">
             {visible.slice(0, shown).map(item => {

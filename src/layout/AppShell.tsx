@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Mic, House, FolderClosed, CalendarDays, CalendarRange, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn, ListChecks, Users, Trash2, ArrowLeftRight, UserRound, UserPlus, MessageSquareText } from 'lucide-react';
+import { Mic, House, FolderClosed, CalendarDays, CalendarRange, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn, ListChecks, Users, Trash2, ArrowLeftRight, UserRound, UserPlus, MessageSquareText, X } from 'lucide-react';
+import { EmptyState } from '../components/EmptyState';
 import { FeedbackDialog } from '../components/FeedbackDialogs';
 import { openFeedback } from '../lib/feedback';
 import { useAuth } from '../store/auth';
@@ -141,7 +142,12 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
       <span aria-hidden className="kbd pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 sm:inline-flex">{isMac ? '⌘' : t('Ctrl')} K</span>
       {open && q.trim() && (
         <div id="recherche-resultats" role="listbox" aria-label={t('Résultats de recherche')} className="enter absolute left-0 right-0 top-12 z-40 overflow-hidden rounded-[18px] border border-stone-200 bg-surface p-1 shadow-pop">
-          {hits.length === 0 && <p className="px-3 py-5 text-center text-[13px] text-stone-500 [overflow-wrap:anywhere]">{t('Aucun résultat pour «\u00a0{q}\u00a0»', { q })}</p>}
+          {/* The field keeps the focus (and the list stays open) while « Effacer la recherche » is pressed. */}
+          {hits.length === 0 && (
+            <div onMouseDown={e => e.preventDefault()}>
+              <EmptyState size="sm" tone="search" title={t('Aucun résultat pour «\u00a0{q}\u00a0»', { q: q.trim() })} action={{ label: t('Effacer la recherche'), icon: X, onClick: () => (setQ(''), inputRef.current?.focus()) }} />
+            </div>
+          )}
           {hits.map((h, i) => {
             const Icon = HIT_ICON[h.type];
             return (

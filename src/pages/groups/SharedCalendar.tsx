@@ -118,6 +118,7 @@ export default function SharedCalendar({ group }: { group: Group }) {
         author: id => nameOf(list.find(e => e.id === id)?.createdBy ?? null),
         people: [...(members ?? [])].sort((a, b) => Number(b.userId === me) - Number(a.userId === me) || a.name.localeCompare(b.name)).map(m => ({ id: m.userId, name: m.userId === me ? t('Moi') : m.name })),
         nameOf: id => nameOf(id, t('toi')),
+        unread: raw ? undefined : failed ? 'failed' : 'loading',
       },
       events: list.map(e => toCalendar(e, category)),
       categories: group.categories,
@@ -175,11 +176,11 @@ export default function SharedCalendar({ group }: { group: Group }) {
         void deletePeriod(id).then(reload).catch(fail);
       },
     };
-  }, [raw, periods, members, me, group, nameOf, canEdit]);
+  }, [raw, failed, periods, members, me, group, nameOf, canEdit]);
 
   return (
     <CalendarSourceContext.Provider value={source}>
-      {failed && <LoadFailed groupId={group.id} part="events" className="px-1 pb-2" />}
+      {failed && <LoadFailed inline groupId={group.id} part="events" className="mb-2" />}
       <CalendarPage />
     </CalendarSourceContext.Provider>
   );

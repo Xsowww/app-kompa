@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Eye, FileText, Folder, MoreHorizontal, RotateCcw, Trash2, X } from 'lucide-react';
+import { Eye, FileText, Folder, ListFilter, MoreHorizontal, RotateCcw, Trash2, X } from 'lucide-react';
+import { EmptyState } from '../../components/EmptyState';
 import { parseISO } from 'date-fns';
 import { categoryOf, FOLDER_COLORS, folderIconStyle, type DriveItem } from '../../store/drive';
 import { catOf } from '../../store/calendar';
@@ -374,10 +375,12 @@ export default function TrashPage() {
         )}
 
         {visible.length === 0 ? (
-          <div className="flex min-h-64 flex-col items-center justify-center text-center">
-            <Trash2 size={26} strokeWidth={1.5} className="text-stone-300" aria-hidden />
-            <p className="mt-3 text-[13px] text-stone-500">{all.length ? t('Rien ici pour ce filtre.') : t('La corbeille est vide.')}</p>
-          </div>
+          all.length ? (
+            <EmptyState className="py-16" tone="search" icon={ListFilter} title={t('Rien ici pour ce filtre.')} action={{ label: t('Retirer les filtres'), onClick: () => setFilter(null) }} />
+          ) : (
+            // Nothing to start here: no button, just what will be listed.
+            <EmptyState className="py-16" icon={Trash2} title={t('La corbeille est vide.')} preview="list" />
+          )
         ) : (
           <ul ref={listRef} className="card overflow-hidden" aria-label={t('Éléments supprimés')} onKeyDown={onListKey}>
             {visible.map(entry => {

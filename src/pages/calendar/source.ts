@@ -25,6 +25,8 @@ export interface CalendarSource {
     people: { id: string; name: string }[];
     /** A member's name for labels (« Toi » for me). */
     nameOf: (userId: string) => string;
+    /** Its events not read yet (the lists show their shape), or not read at all (said above the calendar): never « Rien de prévu ». */
+    unread?: 'loading' | 'failed';
   } | null;
   events: CalendarEvent[];
   /** Own categories: mine (settings), or the shared calendar's, for all its members. */

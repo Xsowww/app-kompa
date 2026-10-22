@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../store/auth';
 import { rememberAfterLogin } from '../../lib/afterLogin';
-import { RefreshCw, Search, ShieldCheck, Users, Activity, HardDrive, NotebookText, CalendarDays, FolderClosed, Loader2, LayoutDashboard, Inbox } from 'lucide-react';
+import { RefreshCw, Search, ShieldCheck, Users, Activity, HardDrive, NotebookText, CalendarDays, FolderClosed, Loader2, LayoutDashboard, Inbox, X } from 'lucide-react';
+import { EmptyState } from '../../components/EmptyState';
 import { supabase, cloudEnabled, checkIsAdmin } from '../../lib/supabase';
 import { CATEGORIES, type BuiltinCategory } from '../../store/calendar';
 import { formatBytes, relativeTime, cx } from '../../lib/utils';
@@ -217,7 +218,9 @@ export default function AdminPage() {
                 {!error && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />}
                 <span className={cx('relative inline-flex h-2 w-2 rounded-full', error ? 'bg-stone-400' : 'bg-emerald-500')} />
               </span>
-              {error ? t('Pas à jour') : t('En direct')} · {stats ? t('mis à jour à {time}', { time: fmt(new Date(stats.generated_at), 'HH:mm:ss') }) : t('chargement…')}
+              {error ? t('Pas à jour') : t('En direct')}
+              {/* Not read at all: no « chargement… » left on screen (the error below says it). */}
+              {stats ? ` · ${t('mis à jour à {time}', { time: fmt(new Date(stats.generated_at), 'HH:mm:ss') })}` : !error && ` · ${t('chargement…')}`}
             </p>
           </div>
           <button className="btn-secondary h-8" onClick={() => void load()} disabled={loading}>
@@ -263,7 +266,7 @@ export default function AdminPage() {
           </div>
         </nav>
 
-        {error && (
+        {error && (stats || needCode) && (
           <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-700">
             <p className="min-w-0 flex-1">{error}</p>
             {needCode && (
@@ -283,10 +286,12 @@ export default function AdminPage() {
         )}
 
         {!stats ? (
-          !error && (
-            <div className="flex justify-center py-20">
-              <Loader2 className="animate-spin text-stone-400" />
+          !error ? (
+            <div className="flex justify-center py-20" role="status" aria-label={t('Chargement')}>
+              <Loader2 className="animate-spin text-stone-400 motion-reduce:animate-none" />
             </div>
+          ) : (
+            !needCode && <EmptyState className="card" tone="error" title={error} onRetry={() => void load()} />
           )
         ) : view === 'apercu' ? (
           <div className="space-y-6">
@@ -373,7 +378,11 @@ function AccountsTable({ accounts, total, query, setQuery }: { accounts: Account
         </div>
       </div>
       {accounts.length === 0 ? (
-        <p className="px-4 py-8 text-center text-[13px] text-stone-500">{t('Aucun compte ne correspond.')}</p>
+        query.trim() ? (
+          <EmptyState tone="search" title={t('Aucun résultat pour « {q} »', { q: query.trim() })} action={{ label: t('Effacer la recherche'), icon: X, onClick: () => setQuery('') }} />
+        ) : (
+          <EmptyState icon={Users} title={t('Aucun compte ne correspond.')} />
+        )
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[820px] text-[13px]">
