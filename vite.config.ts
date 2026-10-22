@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
@@ -78,5 +79,7 @@ export default defineConfig(({ mode }) => {
     plugins: [tailwindcss(), react(), copilotApi(env), preloadPlugin()],
     // The commit being deployed (lib/freshness: an old tab on a public page reloads to the new version).
     define: { __BUILD__: JSON.stringify((process.env.RENDER_GIT_COMMIT ?? '').slice(0, 7)) },
+    // Only this checkout's tests (not the copies of the repo that tools keep under .claude/).
+    test: { exclude: ['**/node_modules/**', '.claude/**', 'dist/**'] },
   };
 });
