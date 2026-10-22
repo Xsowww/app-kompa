@@ -331,12 +331,12 @@ function Groups() {
                   ref={tab === x.id ? el => el?.scrollIntoView({ inline: 'nearest', block: 'nearest' }) : undefined}
                   onClick={() => go(active.id, x.id)}
                   className={cx(
-                    '-mb-px flex h-9 shrink-0 items-center gap-1.5 border-b-2 px-2.5 text-[13px] font-medium transition-[color]',
+                    '-mb-px flex h-9 shrink-0 items-center gap-1.5 border-b-2 px-2 text-[13px] sm:px-2.5 font-medium transition-[color]',
                     tab === x.id ? 'text-ink' : 'border-transparent text-stone-500 hover:text-ink',
                   )}
                   style={tab === x.id ? { borderColor: groupColor(active) } : undefined}
                 >
-                  <x.icon size={15} strokeWidth={1.9} />
+                  <x.icon size={15} strokeWidth={1.9} className="max-[400px]:hidden" />
                   {x.id === 'revisions' ? w.meet.Tab : x.label}
                   {tab !== x.id && (unread[active.id]?.[x.id as 'notes'] ?? 0) > 0 && <span className="h-1.5 w-1.5 rounded-full bg-brand-solid" aria-label={t('nouveau')} />}
                 </button>
