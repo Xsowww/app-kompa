@@ -19,9 +19,9 @@ describe('rappels', () => {
   it('plusieurs rappels sur un même événement, dans l’ordre', () => {
     const r = upcomingReminders([{ kind: 'event', id: 'e1', title: 'Réunion client', date: '2026-10-16', time: '14:00', reminders: [60, 15, 0] }], now);
     expect(r.map(x => `${x.fireAt.getHours()}:${x.fireAt.getMinutes()}`)).toEqual(['13:0', '13:45', '14:0']);
-    expect(r[0].body).toBe('Aujourd’hui · 14h\nAgenda');
-    expect(r[1].body).toBe('Dans 15 min · 14h\nAgenda');
-    expect(r[2].body).toBe('Maintenant · 14h\nAgenda');
+    expect(r[0].body).toBe('Aujourd’hui · 14:00\nAgenda');
+    expect(r[1].body).toBe('Dans 15 min · 14:00\nAgenda');
+    expect(r[2].body).toBe('Maintenant · 14:00\nAgenda');
     expect(r[0].url).toBe('/calendrier?jour=2026-10-16');
   });
 
@@ -58,18 +58,18 @@ describe('rappels', () => {
 
   it('textes', () => {
     expect(reminderLabel(15, true)).toBe('15 min avant');
-    expect(reminderLabel(900, false)).toBe('La veille à 18h');
+    expect(reminderLabel(900, false)).toBe('La veille à 18:00');
     expect(reminderLabel(180, true)).toBe('3 h avant');
     expect(reminderBody({ kind: 'event', id: 'e', title: 'X', date: '2026-10-23' }, new Date(2026, 9, 16, 9, 0))).toBe('Vendredi 23 oct.\nAgenda');
-    expect(reminderBody({ kind: 'event', id: 'e', title: 'X', date: '2026-10-16', time: '14:00', end: '15:30' }, new Date(2026, 9, 16, 13, 45))).toBe('Dans 15 min · 14h – 15h30\nAgenda');
-    expect(reminderBody({ kind: 'task', id: 't', title: 'X', date: '2026-10-17', time: '09:30' }, new Date(2026, 9, 16, 18, 0))).toBe('À faire demain · 9h30\nTâches');
+    expect(reminderBody({ kind: 'event', id: 'e', title: 'X', date: '2026-10-16', time: '14:00', end: '15:30' }, new Date(2026, 9, 16, 13, 45))).toBe('Dans 15 min · 14:00 – 15:30\nAgenda');
+    expect(reminderBody({ kind: 'task', id: 't', title: 'X', date: '2026-10-17', time: '09:30' }, new Date(2026, 9, 16, 18, 0))).toBe('À faire demain · 09:30\nTâches');
   });
 
   it('rappel personnalisé : le moment choisi, ou la durée', () => {
     // Événement le vendredi 17 à 14h ; rappel la veille à 20h30 = 17 h 30 avant.
-    expect(reminderLabel(17 * 60 + 30, true, '2026-10-17', '14:00')).toBe('La veille à 20h30');
-    expect(reminderLabel(6 * 60 + 15, true, '2026-10-17', '14:00')).toBe('Le jour même à 7h45');
-    expect(reminderLabel(3 * 1440 + 120, true, '2026-10-17', '14:00')).toBe('Mer. 14 oct. à 12h');
+    expect(reminderLabel(17 * 60 + 30, true, '2026-10-17', '14:00')).toBe('La veille à 20:30');
+    expect(reminderLabel(6 * 60 + 15, true, '2026-10-17', '14:00')).toBe('Le jour même à 07:45');
+    expect(reminderLabel(3 * 1440 + 120, true, '2026-10-17', '14:00')).toBe('Mer. 14 oct. à 12:00');
     expect(reminderLabel(15, true, '2026-10-17', '14:00')).toBe('15 min avant'); // les choix habituels gardent leur nom
     expect(offsetLabel(45)).toBe('45 min avant');
     expect(offsetLabel(210)).toBe('3 h 30 avant');
@@ -80,13 +80,13 @@ describe('rappels', () => {
     const eve = minutesBefore('2026-10-21', '14:30', '2026-10-20', '09:00');
     const at = (l: number[], date: string, time?: string) => l.map(m => reminderLabel(m, !!time, date, time));
     // nouvelle heure : « La veille à 9h » reste, « 15 min avant » suit
-    expect(at(followMoments([eve, 15], { date: '2026-10-21', time: '14:30' }, { date: '2026-10-21', time: '10:00' }, []), '2026-10-21', '10:00')).toEqual(['La veille à 9h', '15 min avant']);
+    expect(at(followMoments([eve, 15], { date: '2026-10-21', time: '14:30' }, { date: '2026-10-21', time: '10:00' }, []), '2026-10-21', '10:00')).toEqual(['La veille à 09:00', '15 min avant']);
     // autre jour : la veille du nouveau jour, toujours à 9h
-    expect(at(followMoments([eve], { date: '2026-10-21', time: '14:30' }, { date: '2026-10-24', time: '14:30' }, []), '2026-10-24', '14:30')).toEqual(['La veille à 9h']);
+    expect(at(followMoments([eve], { date: '2026-10-21', time: '14:30' }, { date: '2026-10-24', time: '14:30' }, []), '2026-10-24', '14:30')).toEqual(['La veille à 09:00']);
     // plus d’heure : « 15 min avant » n’a plus de sens, la veille à 9h reste
-    expect(at(followMoments([eve, 15], { date: '2026-10-21', time: '14:30' }, { date: '2026-10-21' }, [0]), '2026-10-21')).toEqual(['La veille à 9h']);
+    expect(at(followMoments([eve, 15], { date: '2026-10-21', time: '14:30' }, { date: '2026-10-21' }, [0]), '2026-10-21')).toEqual(['La veille à 09:00']);
     expect(followMoments([15], { date: '2026-10-21', time: '14:30' }, { date: '2026-10-21' }, [0])).toEqual([0]);
     // une heure ajoutée : « La veille à 18h » reste à 18h
-    expect(at(followMoments([900], { date: '2026-10-21' }, { date: '2026-10-21', time: '14:00' }, [15]), '2026-10-21', '14:00')).toEqual(['La veille à 18h']);
+    expect(at(followMoments([900], { date: '2026-10-21' }, { date: '2026-10-21', time: '14:00' }, [15]), '2026-10-21', '14:00')).toEqual(['La veille à 18:00']);
   });
 });

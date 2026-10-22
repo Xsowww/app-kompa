@@ -21,7 +21,7 @@ describe('parseQuickAdd', () => {
     ['Exam la semaine prochaine', { title: 'Exam', date: '2026-10-19', start: null, end: null }],
     ['Sport tous les jeudis à 18h', { title: 'Sport', date: '2026-10-15', start: '18:00', end: null, weekly: true }],
     ['Révisions 14-16', { title: 'Révisions 14-16', date: null, start: null, end: null }], // pas un 16e mois
-    ['Anniversaire le 31/02', { title: 'Anniversaire le 31/02', date: null, start: null, end: null }],
+    ['Anniversaire le 31/02', { title: 'Anniversaire le 31/02', date: null, start: null, end: null, impossible: true }],
     ['Rdv lundi 14h75', { title: 'Rdv 14h75', date: '2026-10-19', start: null, end: null }],
     ['Sport lundi de 18h à 9h', { title: 'Sport', date: '2026-10-19', start: '18:00', end: null }],
     ['Exam aujourd’hui 14h', { title: 'Exam', date: '2026-10-13', start: '14:00', end: null }], // apostrophe des téléphones
@@ -84,5 +84,28 @@ describe('parseQuickAdd : important', () => {
   });
   it('sans mot-clé : pas important', () => {
     expect(parseQuickAdd('Sport demain 18h', base).important).toBeUndefined();
+  });
+});
+
+describe('parseQuickAdd : durées et dates impossibles', () => {
+  const base = new Date(2026, 9, 13, 10, 0);
+  it.each([
+    ['Réunion demain 10h pendant 2h', { title: 'Réunion', date: '2026-10-14', start: '10:00', end: '12:00' }],
+    ['Réunion de 2h demain 10h', { title: 'Réunion', date: '2026-10-14', start: '10:00', end: '12:00' }], // « de 2h » : une durée, l’heure est 10h
+    ['Réunion 10h pendant 1h30', { title: 'Réunion', date: null, start: '10:00', end: '11:30' }],
+    ['Atelier demain 14h (1h)', { title: 'Atelier', date: '2026-10-14', start: '14:00', end: '15:00' }],
+    ['Pause de 10 min à 15h', { title: 'Pause', date: null, start: '15:00', end: '15:10' }],
+    ['Réunion 10h à midi demain', { title: 'Réunion', date: '2026-10-14', start: '10:00', end: '12:00' }],
+    ['Cours de 9h à midi et demi', { title: 'Cours', date: null, start: '09:00', end: '12:30' }],
+    ['Cours de 8h', { title: 'Cours', date: null, start: '08:00', end: null }], // seule heure : c’est le début
+    ['Réunion de 14h à 16h', { title: 'Réunion', date: null, start: '14:00', end: '16:00' }],
+  ])('%s', (input, expected) => {
+    expect(parseQuickAdd(input, base)).toEqual(expected);
+  });
+
+  it('une date qui n’existe pas est signalée, pas remplacée en silence', () => {
+    expect(parseQuickAdd('Visite le 31/11', base)).toMatchObject({ title: 'Visite le 31/11', date: null, impossible: true });
+    expect(parseQuickAdd('Rdv 30 février', base)).toMatchObject({ date: null, impossible: true });
+    expect(parseQuickAdd('Visite le 30/11', base).impossible).toBeUndefined();
   });
 });

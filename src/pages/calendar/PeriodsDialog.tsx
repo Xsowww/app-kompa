@@ -15,7 +15,7 @@ import ImportPeriods from './ImportPeriods';
 import { useGroups } from '../../store/groups';
 import { cloudEnabled } from '../../lib/supabase';
 import { catOf, sortEvents, type CalendarEvent } from '../../store/calendar';
-import { lang, locale, t, tn } from '../../i18n';
+import { locale, t, tn } from '../../i18n';
 
 type Draft = { id?: string; title: string; start: string; end: string; color: string; people?: string[]; skip?: string[] };
 
@@ -113,7 +113,7 @@ function DaysPicker({ days, color, around, others, events, onChange }: {
           const on = days.has(key);
           const dayEvents = (eventsOn.get(key) ?? []).sort(sortEvents);
           const dayPeriods = shownOthers.filter(p => covers(p, key));
-          const already = [...dayPeriods.map(p => p.title), ...dayEvents.map(e => `${e.start ? `${lang === 'fr' ? e.start.replace(':', 'h').replace(/h00$/, 'h').replace(/^0(?=\d)/, '') : e.start} ` : ''}${e.title}`)];
+          const already = [...dayPeriods.map(p => p.title), ...dayEvents.map(e => `${e.start ? `${e.start} ` : ''}${e.title}`)];
           const before = days.has(near(key, -1));
           const after = days.has(near(key, 1));
           const d = fromKey(key);
@@ -342,7 +342,7 @@ function PeriodForm({ draft, around, onDone }: { draft: Draft; around: string; o
       <div className="mt-5 flex flex-wrap justify-end gap-2">
         <button type="button" className="btn-secondary" onClick={onDone}>{t('Annuler')}</button>
         <button type="submit" className="btn-primary" disabled={!base.title || !!error}>
-          {d.id ? t('Enregistrer') : copies.length > 1 ? t('Ajouter {n} périodes', { n: copies.length }) : t('Ajouter')}
+          {d.id ? t('Enregistrer||sauver') : copies.length > 1 ? t('Ajouter {n} périodes', { n: copies.length }) : t('Ajouter')}
         </button>
       </div>
     </form>

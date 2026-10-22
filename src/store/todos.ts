@@ -20,7 +20,7 @@ export interface Todo {
 
 interface TodosState {
   todos: Todo[];
-  add: (title: string, due?: string) => Todo;
+  add: (title: string, due?: string, time?: string) => Todo;
   update: (id: string, patch: Partial<Pick<Todo, 'title' | 'due' | 'time' | 'reminders'>>) => void;
   toggle: (id: string) => void;
   /** Returns the removed task, for « Annuler ». */
@@ -33,8 +33,8 @@ export const useTodos = create<TodosState>()(
   persist(
     (set, get) => ({
       todos: [],
-      add(title, due) {
-        const todo: Todo = { id: uid(), title: title.trim() || t('Tâche'), done: false, due: due || undefined, createdAt: nowIso() };
+      add(title, due, time) {
+        const todo: Todo = { id: uid(), title: title.trim() || t('Tâche'), done: false, due: due || undefined, ...(due && time && { time }), createdAt: nowIso() };
         set(s => ({ todos: [...s.todos, todo] }));
         return todo;
       },

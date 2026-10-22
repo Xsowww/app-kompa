@@ -387,7 +387,8 @@ export function TimeField({ value, onChange, label, placeholder = t('Heure'), cl
   return (
     <>
       <FieldButton buttonRef={btn} open={open} onOpen={() => setOpen(o => !o)} icon={<Clock size={15} />} placeholder={placeholder} className={className} label={value ? t('{label} : {value}', { label, value }) : label} invalid={invalid} disabled={disabled}>
-        {value ? <span className="tabular">{t('{h} h {m}', { h: value.slice(0, 2), m: value.slice(3) })}</span> : undefined}
+        {/* Shown as in the lists (« 14:30 »); typed as one likes (« 14h30 »). */}
+        {value ? <span className="tabular">{value}</span> : undefined}
       </FieldButton>
       {anchor && (
         <Popover anchor={anchor} onClose={() => setOpen(false)} label={label}>

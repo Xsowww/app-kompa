@@ -9,16 +9,20 @@ import { useCalendarSource } from './source';
 import { cx } from '../../lib/utils';
 import { t, tn } from '../../i18n';
 
+/** Said by screen readers instead of « #d48a17 » (same order as CATEGORY_COLORS). */
+const COLOR_NAMES = [t('Bleu'), t('Rouge'), t('Orange'), t('Vert'), t('Violet'), t('Turquoise'), t('Rose'), t('Gris')];
+
 export function ColorChoice({ value, onChange }: { value: string; onChange: (color: string) => void }) {
   return (
     <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={t('Couleur')}>
-      {CATEGORY_COLORS.map(c => (
+      {CATEGORY_COLORS.map((c, i) => (
         <button
           key={c}
           type="button"
           role="radio"
           aria-checked={value === c}
-          aria-label={t('Couleur {color}', { color: c })}
+          aria-label={t('Couleur {color}', { color: COLOR_NAMES[i] ?? c })}
+          title={COLOR_NAMES[i]}
           onClick={() => onChange(c)}
           className={cx('hit-sm flex h-6 w-6 items-center justify-center rounded-full ring-offset-2 ring-offset-surface transition', value === c && 'ring-2 ring-stone-400')}
           style={{ background: c }}
@@ -43,7 +47,7 @@ export function NewCategory({ onCreated, autoFocus }: { onCreated: (c: CustomCat
     const builtin = builtinLabel(name);
     if (builtin === 'current') return toast(t('« {name} » existe déjà.', { name }), 'error');
     // A name kept for the other usages (« Cours » in a work account): it would come back twice after switching.
-    if (builtin === 'other') return toast(t('« {name} » est réservé par Kompaly.', { name }), 'error');
+    if (builtin === 'other') return toast(t('Kompaly garde «\u00a0{name}\u00a0» pour ses propres catégories : choisis un autre nom.', { name }), 'error');
     const same = customNamed(name, undefined, scope);
     if (same) return toast(shared ? t('L’agenda a déjà une catégorie « {name} ».', { name: same.label }) : t('Tu as déjà une catégorie « {name} ».', { name: same.label }), 'error');
     onCreated(createCategory(label, color, scope));
@@ -103,7 +107,7 @@ function Row({ cat }: { cat: CustomCategory }) {
               return setLabel(label.trim().replace(/\s+/g, ' ')); // the name as saved
             }
             if (label.trim() && label.trim() !== cat.label) {
-              toast(builtinLabel(label) === 'other' ? t('« {name} » est réservé par Kompaly.', { name: label.trim() }) : t('Une catégorie s’appelle déjà « {name} ».', { name: label.trim() }), 'error');
+              toast(builtinLabel(label) === 'other' ? t('Kompaly garde «\u00a0{name}\u00a0» pour ses propres catégories : choisis un autre nom.', { name: label.trim() }) : t('Une catégorie s’appelle déjà « {name} ».', { name: label.trim() }), 'error');
             }
             setLabel(cat.label);
           }}

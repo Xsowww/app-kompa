@@ -74,3 +74,4 @@ Ensuite : le document de lancement (hébergement, domaine, stores, légal).
 ## Plus tard (idées validées)
 - [ ] Connexion par Face ID / empreinte digitale sur les appareils qui le permettent (clés d'accès « passkeys », WebAuthn)
 - [ ] Indicateur d'import de fichiers (Drive, groupes, autres espaces) : montrer que l'envoi est en cours et qu'il avance
+- [ ] Bouton « Retour » du téléphone qui ferme la fenêtre ouverte au lieu de quitter la page (essai fait le 22/10, mis de côté : il fallait modifier l'historique du navigateur pour tout le site, trop risqué avant le lancement)

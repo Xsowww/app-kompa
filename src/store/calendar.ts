@@ -121,13 +121,34 @@ export function customCategoryIn(title: string, custom: CustomCategory[] = myCat
 /** Something to hand in (« Marquer comme rendu »): a revision session is homework-coloured but not one. */
 export const isDeliverable = (e: Pick<CalendarEvent, 'category' | 'title'>) => e.category === 'devoir' && !/^(r[ée]vis|pr[ée]paration)/i.test(e.title.trim()); // révision(s), réviser
 
+/**
+ * Words at the start of a word only (« secours » is not « cours », « prendre » not « rendre »); `$` marks the end
+ * of a word too, for short ones that start longer words (« math » in « Mathilde », « bio » in « Biocoop »).
+ */
+const wordRe = (list: string) => new RegExp(`(?<![\\p{L}\\p{N}])(?:${list.replace(/\$/g, '(?![\\p{L}\\p{N}])')})`, 'u');
+// « Déco du salon » is the living room, « Salon de l'agriculture » a trade show.
+const SALON = '(?<!(?:du|le|au|ce|mon|ton|son|notre|votre) )salons?$';
+const WORK_PERSO = wordRe('m[ée]decin|dentiste|kin[ée]|ost[ée]o|docteur|pharmacie|anniversaire|mariage|bapt[eê]me|vacances|cong[ée]s?$');
+// « Point avec Marc », « Appel client », « Visio » (not « Point relais », « Appel d'offres »).
+const WORK_MEETING = wordRe("r[ée]union|meeting|call$|visio(?!n)|point$(?! relais)|appels?$(?! d['’]offres?)|entretien|rendez-vous|rdv$|revue$|s[ée]minaire|atelier|comit[ée]|formation|conf[ée]rence|webinaire");
+const WORK_QUOTE = wordRe('devis|facture|relance|proposition|contrat|payer|paiement|imp[oô]ts?$|d[ée]claration|urssaf|tva$');
+const WORK_DEADLINE = wordRe(`deadline|[ée]ch[ée]ance|date limite|livraison|lancement|audits?$|${SALON}|d[ée]m[ée]nagement|rendre|rendu|remise|soutenance|pr[ée]sentation|d[ée]mo$|bouclage|cl[ôo]ture`);
+const HOME_MEETING = wordRe("r[ée]union|meeting|call$|visio(?!n)|point (?:d['’][ée]quipe|client|hebdo)|entretien|rendez-vous|rdv$|m[ée]decin|dentiste|kin[ée]");
+const HOME_TODO = wordRe('devis|facture|relance|proposition|contrat|payer|imp[oô]ts?$|d[ée]claration');
+const HOME_BIG = wordRe(`deadline|[ée]ch[ée]ance|livraison|lancement|audits?$|${SALON}|anniversaire|mariage|d[ée]m[ée]nagement`);
+const STUDY_EXAM = wordRe('exam|partiel|contr[oô]le|ds$|qcm$|interro|oral(?:e|es|s)?$|soutenance|concours');
+const STUDY_HOMEWORK = wordRe('devoir|tp$|td$|rendre|rendu|dm$|projet|dossier|exos?$|exercice|r[ée]vis');
+const SPORT = wordRe('sport|foot|basket|gym|muscu|course$|piscine|natation|yoga|tennis|danse');
+// « Courses » (faire les courses) n'est ni du sport ni un cours.
+const STUDY_CLASS = wordRe('cours(?!es$)|amphi|cm$|lecture|classes?$|profs?$|professeur|maths?$|math[ée]matiques|physique|chimie|histoire|anglais|fran[cç]ais|info$|informatique|bio$|biologie|[ée]co$|[ée]conomie|philo$|philosophie');
+
 /** A work title: Réunion (cours), Devis (devoir), Échéance (examen), or the private life (perso). */
 function workCategory(t: string, timed: boolean): EventCategory | undefined {
   // Private life seen from a work calendar: the dentist or a birthday is not a meeting nor a deadline.
-  if (/(m[ée]decin|dentiste|kin[ée]|ost[ée]o|docteur|pharmacie|anniversaire|mariage|bapt[eê]me|vacances|cong[ée]s?\b)/.test(t)) return 'perso';
-  if (/(r[ée]union|meeting|\bcall\b|visio(?!n)|point (d['’][ée]quipe|client|hebdo)|entretien|rendez-vous|\brdv\b|\brevue\b|s[ée]minaire|atelier|comit[ée]|formation|conf[ée]rence|webinaire)/.test(t)) return 'cours';
-  if (/(devis|facture|relance|proposition|contrat|payer|paiement|imp[oô]ts?|d[ée]claration|urssaf|\btva\b)/.test(t)) return 'devoir';
-  if (/(deadline|[ée]ch[ée]ance|date limite|livraison|lancement|audit|salon|d[ée]m[ée]nagement|rendre|rendu|remise|soutenance|pr[ée]sentation|d[ée]mo\b|bouclage|cl[ôo]ture)/.test(t)) return 'examen';
+  if (WORK_PERSO.test(t)) return 'perso';
+  if (WORK_MEETING.test(t)) return 'cours';
+  if (WORK_QUOTE.test(t)) return 'devoir';
+  if (WORK_DEADLINE.test(t)) return 'examen';
   // « Projet Dupont lundi 10h »: a work session on it; without an hour, a project milestone.
   if (/\bprojet\b/.test(t)) return timed ? 'cours' : 'examen';
   return undefined;
@@ -146,21 +167,20 @@ export function guessCategory(title: string, timed = false, custom?: CustomCateg
   if (usage === 'travail') {
     const work = workCategory(t, timed);
     if (work) return work;
-    return /(sport|foot|basket|gym|muscu|\bcourse\b|piscine|natation|yoga|tennis|danse)/.test(t) ? 'sport' : 'perso';
+    return SPORT.test(t) ? 'sport' : 'perso';
   }
   if (usage === 'perso') {
-    if (/(r[ée]union|meeting|\bcall\b|visio(?!n)|point (d['’][ée]quipe|client|hebdo)|entretien|rendez-vous|\brdv\b|m[ée]decin|dentiste|kin[ée])/.test(t)) return 'cours';
-    if (/(devis|facture|relance|proposition|contrat|payer|imp[oô]ts?|d[ée]claration)/.test(t)) return 'devoir';
-    if (/(deadline|[ée]ch[ée]ance|livraison|lancement|audit|salon|anniversaire|mariage|d[ée]m[ée]nagement)/.test(t)) return 'examen';
+    if (HOME_MEETING.test(t)) return 'cours';
+    if (HOME_TODO.test(t)) return 'devoir';
+    if (HOME_BIG.test(t)) return 'examen';
   }
   // A revision session typed by hand (« Révision partiel de droit », « Réviser le contrôle de maths ») is not the exam itself.
-  if (/(exam|partiel|contr[oô]le|\bds\b|\bqcm\b|interro|oral|soutenance|concours)/.test(t)) return /(^|[^\p{L}])r[ée]vis/u.test(t) ? 'devoir' : 'examen';
+  if (STUDY_EXAM.test(t)) return /(^|[^\p{L}])r[ée]vis/u.test(t) ? 'devoir' : 'examen';
   // « Rendre TP le 12/11 à 9h30 » is handing it in, not the class: checked before the timed TD/TP rule.
   if (timed && /\b(td|tp|cm)\b/.test(t) && !/(rendre|rendu)/.test(t)) return 'cours';
-  if (/(devoir|\btp\b|\btd\b|rendre|rendu|dm\b|projet|dossier|exo|exercice|r[ée]vis)/.test(t)) return 'devoir';
-  if (/(sport|foot|basket|gym|muscu|\bcourse\b|piscine|natation|yoga|tennis|danse)/.test(t)) return 'sport';
-  // « Courses » (faire les courses) n'est ni du sport ni un cours.
-  if (/(cours(?!es\b)|amphi|cm\b|lecture|classe|prof|math|physique|chimie|histoire|anglais|fran[cç]ais|info|bio|[ée]co|philo)/.test(t)) return 'cours';
+  if (STUDY_HOMEWORK.test(t)) return 'devoir';
+  if (SPORT.test(t)) return 'sport';
+  if (STUDY_CLASS.test(t)) return 'cours';
   return 'perso';
 }
 

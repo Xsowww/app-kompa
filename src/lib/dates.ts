@@ -56,6 +56,8 @@ export interface ParsedQuickAdd {
   weekly?: boolean;
   /** « important », « urgent » or « ! » in the sentence: the event is flagged important. */
   important?: boolean;
+  /** A date that doesn't exist (« le 31/11 », « 30 février »): left in the title, to be corrected. */
+  impossible?: boolean;
 }
 
 const hm = (h: string | number, m?: string) => (Number(h) < 24 && Number(m ?? 0) < 60 ? `${String(h).padStart(2, '0')}:${m ?? '00'}` : null);
@@ -112,11 +114,31 @@ export function parseQuickAdd(input: string, base = new Date(), language = lang)
     return null;
   };
 
-  // Times: "14h", "14h30", "14:30", "de 14h à 16h", "14h-16h", "14h–16h" (dash of the autocorrect), "midi"
-  const range = find(/\s(?:de\s)?(\d{1,2})\s?(?:heures?|h|:)\s?(\d{2})?\s?(?:-|–|—|a|à|jusqu'a)\s?(\d{1,2})\s?(?:heures?|h|:)\s?(\d{2})?(?=\s)/);
+  // A length, not a time: « pendant 2h », « durant 30 min », « (1h) », « de 2h » when another hour gives the start
+  // (« Réunion de 2h demain 10h »). It gives the end once the start is known.
+  let length = 0;
+  const TIME = /\s(?:a\s|vers\s)?(\d{1,2})\s?(?:heures?|h|:)\s?(\d{2})?(?=\s)|\s(?:midi|minuit)(?=\s)/;
+  const lasting =
+    find(/\s(?:pendant|durant)\s(\d{1,2}|une)\s?(?:heures?|h)\s?(\d{2})?(?=\s)|\s\((\d{1,2})\s?h\s?(\d{2})?\)(?=\s)/) ??
+    find(/\s(?:pendant|durant|de)\s(\d{1,3})\s?(?:min|mn|minutes?)(?=\s)/) ??
+    find(/\sde\s(\d{1,2})\s?(?:heures?|h)\s?(\d{2})?(?=\s)(?!\s?(?:-|–|—|a|jusqu'a)\s?(?:\d|midi))/);
+  if (lasting) {
+    const minutesOnly = /min|mn/.test(lasting[0]);
+    const h = lasting[1] === 'une' ? 1 : Number(lasting[1] ?? lasting[3]);
+    const m = Number(lasting[2] ?? lasting[4] ?? 0);
+    const rest = n().slice(0, lasting.index) + ' ' + n().slice(lasting.index! + lasting[0].length);
+    // « de 14h » alone is the start (« Cours de 8h »): a length only with another hour in the sentence.
+    if ((!/^\sde\s/.test(lasting[0]) || minutesOnly || TIME.test(rest)) && m < 60) {
+      length = minutesOnly ? h : h * 60 + m;
+      remove(lasting);
+    }
+  }
+
+  // Times: "14h", "14h30", "14:30", "de 14h à 16h", "14h-16h", "14h–16h" (dash of the autocorrect), "midi", "10h à midi"
+  const range = find(/\s(?:de\s)?(\d{1,2})\s?(?:heures?|h|:)\s?(\d{2})?\s?(?:-|–|—|a|à|jusqu'a)\s?(?:(\d{1,2})\s?(?:heures?|h|:)\s?(\d{2})?|(midi)(\set\sdemie?)?)(?=\s)/);
   if (range) {
     start = hm(range[1], range[2]);
-    end = hm(range[3], range[4]);
+    end = range[5] ? (range[6] ? '12:30' : '12:00') : hm(range[3], range[4]);
     if (start) remove(range);
     if (!start || !end || end <= start) end = null; // « de 18h à 9h »: only the start makes sense
   }
@@ -142,6 +164,9 @@ export function parseQuickAdd(input: string, base = new Date(), language = lang)
     if (end && Number(end.slice(0, 2)) < 12) end = later(end);
     if (pm[1] || pm[2]) remove(pm);
   }
+
+  // The length typed: the end, on the same day.
+  if (start && !end && length > 0 && toMinutes(start) + length < 24 * 60) end = fromMinutes(toMinutes(start) + length);
 
   // « Rendre le dossier vendredi important », « Réunion urgente demain », « Payer les impôts ! ».
   let important = false;
@@ -247,6 +272,7 @@ export function parseQuickAdd(input: string, base = new Date(), language = lang)
     end,
     ...(weekly && { weekly }),
     ...(important && { important }),
+    ...(impossible && { impossible }),
   };
 }
 

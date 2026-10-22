@@ -79,13 +79,13 @@ export function eventTitle(ev: Pick<CalendarEvent, 'title' | 'people'>, shared: 
   return `${who} · ${ev.title}`;
 }
 
-/** Asked before an event goes: on a shared calendar, it goes for every member. */
+/**
+ * Asked before an event goes on a shared calendar (it goes for every member, without « Annuler »).
+ * Mine goes to the trash with « Annuler » in its message: no question first.
+ */
 export function confirmRemoveEvent(ev: Pick<CalendarEvent, 'title'>, shared: CalendarSource['shared']): Promise<boolean> {
-  return confirmAction(
-    t('Supprimer « {title} » ?', { title: ev.title }),
-    shared ? t('L’événement disparaît pour tous les membres de « {name} ».', { name: shared.group.name }) : t('Tu pourras le récupérer dans la corbeille.'),
-    t('Supprimer'),
-  );
+  if (!shared) return Promise.resolve(true);
+  return confirmAction(t('Supprimer « {title} » ?', { title: ev.title }), t('L’événement disparaît pour tous les membres de « {name} ».', { name: shared.group.name }), t('Supprimer'));
 }
 
 /** Where periods can be imported from: my own calendar (« perso »), my other shared calendars. */

@@ -65,3 +65,35 @@ describe('guessed category', () => {
     expect(guessCategory('Cours de droit', true)).toBe('cours');
   });
 });
+
+describe('guessed category: whole words', () => {
+  it('a word inside another is not the category (« Mathilde », « Déco », « secours », « prendre »)', () => {
+    for (const usage of ['etudes', 'perso'] as const) {
+      useSettings.setState({ usage });
+      expect(guessCategory('Apéro chez Mathilde', true)).toBe('perso');
+      expect(guessCategory('Déco du salon')).toBe('perso');
+      expect(guessCategory('Biocoop')).toBe('perso');
+      expect(guessCategory('Prendre le train', true)).toBe('perso');
+      expect(guessCategory('Profiter du soleil')).toBe('perso');
+      expect(guessCategory('Chorale', true)).toBe('perso');
+    }
+    useSettings.setState({ usage: 'etudes' });
+    expect(guessCategory('Formation premiers secours')).toBe('perso');
+    expect(guessCategory('Cours de maths', true)).toBe('cours');
+    expect(guessCategory('Économie', true)).toBe('cours');
+    expect(guessCategory('Oral d’anglais')).toBe('examen');
+    useSettings.setState({ usage: 'travail' });
+    expect(guessCategory('Déco du salon')).toBe('perso');
+    expect(guessCategory('Prendre le train', true)).toBe('perso');
+    expect(guessCategory('Salon de l’agriculture')).toBe('examen');
+  });
+
+  it('work: a « Point », a call or a video call is a meeting', () => {
+    useSettings.setState({ usage: 'travail' });
+    expect(guessCategory('Point équipe', true)).toBe('cours');
+    expect(guessCategory('Point avec Marc', true)).toBe('cours');
+    expect(guessCategory('Appel client', true)).toBe('cours');
+    expect(guessCategory('Visio avec Sophie')).toBe('cours');
+    expect(guessCategory('Point relais colis')).toBe('perso');
+  });
+});
