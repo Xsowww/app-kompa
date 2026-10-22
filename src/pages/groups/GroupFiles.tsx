@@ -1,7 +1,7 @@
 import { LoadFailed } from './shared';
 import { EmptyState, Skeleton } from '../../components/EmptyState';
 import { useCallback, useRef, useState } from 'react';
-import { Download, Eye, Flag, FolderDown, MoreHorizontal, Paperclip, Trash2 } from 'lucide-react';
+import { Download, Flag, FolderDown, MoreHorizontal, Paperclip, Trash2 } from 'lucide-react';
 import { useAuth } from '../../store/auth';
 import { ReportDialog } from '../../components/FeedbackDialogs';
 import { useGroups } from '../../store/groups';
@@ -94,14 +94,8 @@ export default function GroupFiles({ group }: { group: Group }) {
       onDrop={drop}
     >
       {files && files.length > 0 && (
-        <div className="flex items-center pb-3">
-          <p className="eyebrow mr-auto">{tn(files.length, '{n} fichier partagé', '{n} fichiers partagés')}</p>
-          {canEdit && (
-            <button className="btn-ghost h-7 px-2 text-[12.5px]" onClick={() => input.current?.click()} title={t('Ou dépose-les ici')}>
-              <Paperclip size={13} /> {t('Ajouter un fichier')}
-            </button>
-          )}
-        </div>
+        // Adding: « Partager › Un fichier de l’appareil » in the header, or a drop here.
+        <p className="eyebrow pb-3">{tn(files.length, '{n} fichier partagé', '{n} fichiers partagés')}</p>
       )}
       <div className={cx('min-h-0 flex-1 overflow-y-auto rounded-xl pb-room', over && 'outline-2 outline-dashed outline-stone-300')}>
         {!files && (failed ? <LoadFailed groupId={group.id} part="files" className="card" /> : <Skeleton className="card p-3" />)}
@@ -128,9 +122,6 @@ export default function GroupFiles({ group }: { group: Group }) {
                   </span>
                 </button>
                 <div className="flex shrink-0 items-center gap-0.5">
-                  <button className="icon-btn hidden sm:flex" title={t('Aperçu||d’un fichier')} aria-label={t('Aperçu de {name}', { name: f.name })} onClick={() => setPreview(f)}>
-                    <Eye size={15} />
-                  </button>
                   <button className="icon-btn" title={t('Télécharger')} aria-label={t('Télécharger {name}', { name: f.name })} onClick={() => downloadItem(f, getUrl)}>
                     <Download size={15} />
                   </button>

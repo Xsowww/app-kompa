@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  ChevronDown, ChevronRight, ClipboardPaste, Copy, CopyPlus, Download, Eye, FolderInput, FolderPlus, FolderUp, HardDrive, LayoutGrid,
+  ChevronRight, ClipboardPaste, Copy, CopyPlus, Download, Eye, FolderInput, FolderPlus, FolderUp, HardDrive, LayoutGrid,
   List, Pencil, Scissors, Star, Trash2, Upload, Clock, ArrowUpDown, ArrowUp, ArrowDown, X, MousePointer2, Search, Tag, Link2, Check, Palette,
   MoreHorizontal, ClipboardList, BookOpenCheck, FolderOpen,
 } from 'lucide-react';
@@ -107,10 +107,10 @@ export default function DrivePage() {
   const [sortMenu, setSortMenu] = useState<{ x: number; y: number } | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [anchor, setAnchor] = useState<string | null>(null);
-  const [menu, setMenu] = useState<{ x: number; y: number; target: string | null } | null>(null);
+  // `bar`: opened from « Plus d’actions » of the selection bar, which already shows some actions.
+  const [menu, setMenu] = useState<{ x: number; y: number; target: string | null; bar?: boolean } | null>(null);
   const making = useRecLive(s => s.making);
   const rec = useRecWords();
-  const [importMenu, setImportMenu] = useState<{ x: number; y: number } | null>(null);
   const [colorMenu, setColorMenu] = useState<{ x: number; y: number } | null>(null);
   const [dropTarget, setDropTarget] = useState<string | 'here' | null>(null);
   const [moveIds, setMoveIds] = useState<string[] | null>(null);
@@ -543,10 +543,12 @@ export default function DrivePage() {
     }
     const ids = selectedIds.length ? selectedIds : [menu.target];
     const item = items.find(i => i.id === menu.target);
+    // Everything but what the phone selection bar shows next to « Plus d’actions ».
+    const full = !menu.bar;
     const one = ids.length === 1 && item;
     const targets = items.filter(i => ids.includes(i.id));
     const allFolders = targets.length > 0 && targets.every(i => i.kind === 'folder');
-    const palette: MenuItem[] = allFolders
+    const palette: MenuItem[] = allFolders && full
       ? [
           { label: '', divider: true, onClick: () => {} },
           {
@@ -572,10 +574,10 @@ export default function DrivePage() {
       { label: t('Couper'), icon: <Scissors size={15} />, shortcut: `${MOD}X`, onClick: () => cut(ids) },
       ...(one && item.kind === 'folder' ? [{ label: t('Coller dans ce dossier'), icon: <ClipboardPaste size={15} />, disabled: !clipboard?.ids.length, onClick: () => void paste(item.id) }] : []),
       { label: t('Dupliquer'), icon: <CopyPlus size={15} />, shortcut: `${MOD}D`, onClick: () => void duplicate(ids) },
-      { label: t('Déplacer vers…'), icon: <FolderInput size={15} />, onClick: () => setMoveIds(ids) },
-      ...(one ? [{ label: t('Renommer'), icon: <Pencil size={15} />, shortcut: 'F2', onClick: () => void rename(item) }] : []),
+      ...(full ? [{ label: t('Déplacer vers…'), icon: <FolderInput size={15} />, onClick: () => setMoveIds(ids) }] : []),
+      ...(one && full ? [{ label: t('Renommer'), icon: <Pencil size={15} />, shortcut: 'F2', onClick: () => void rename(item) }] : []),
       ...(one ? [{ label: item.starred ? t('Retirer des favoris') : t('Ajouter aux favoris'), icon: <Star size={15} />, onClick: () => useDrive.getState().toggleStar(item.id) }] : []),
-      { label: t('Étiquettes…'), icon: <Tag size={15} />, onClick: () => setTagIds(ids) },
+      ...(full ? [{ label: t('Étiquettes…'), icon: <Tag size={15} />, onClick: () => setTagIds(ids) }] : []),
       // Links only exist online: no dead-end entry in the local version.
       ...(one && item.kind === 'file' && cloudEnabled ? [{ label: t('Partager le lien…'), icon: <Link2 size={15} />, onClick: () => setShareItem(item) }] : []),
       // A course (Word, PDF, text): Kompaly makes its revision sheet or a practice exam, saved next to it.
@@ -587,8 +589,12 @@ export default function DrivePage() {
           ]
         : []),
       ...palette,
-      { label: '', divider: true, onClick: () => {} },
-      { label: t('Mettre à la corbeille'), icon: <Trash2 size={15} />, shortcut: t('Suppr'), danger: true, onClick: () => void remove(ids) },
+      ...(full
+        ? [
+            { label: '', divider: true, onClick: () => {} },
+            { label: t('Mettre à la corbeille'), icon: <Trash2 size={15} />, shortcut: t('Suppr'), danger: true, onClick: () => void remove(ids) },
+          ]
+        : []),
     ];
     return list;
   }, [menu, selectedIds, items, clipboard, tabAll, parentId, visible, newFolder, paste, openItem, copy, cut, duplicate, rename, remove, making, rec]);
@@ -760,18 +766,15 @@ export default function DrivePage() {
               <button className="btn-primary rounded-r-none" onClick={() => fileInput.current?.click()} disabled={busy} title={t('Importer des fichiers')}>
                 <Upload size={15} /> <span className="hidden sm:inline">{busy ? t('Import…') : t('Importer')}</span>
               </button>
+              {/* « Importer » takes files; this one is the only way to bring a whole folder. */}
               <button
-                className="btn-primary w-9 justify-center rounded-l-none border-l border-on-brand/20 px-0 sm:w-auto sm:px-1.5 pointer-coarse:w-9 pointer-coarse:px-0"
+                className="btn-primary w-9 justify-center rounded-l-none border-l border-on-brand/20 px-0"
                 disabled={busy}
-                title={t('Plus d’options d’import')}
-                aria-label={t('Plus d’options d’import')}
-                aria-haspopup="menu"
-                onClick={e => {
-                  const r = e.currentTarget.getBoundingClientRect();
-                  setImportMenu({ x: r.right - 208, y: r.bottom + 6 });
-                }}
+                title={t('Importer un dossier')}
+                aria-label={t('Importer un dossier')}
+                onClick={() => folderInput.current?.click()}
               >
-                <ChevronDown size={14} />
+                <FolderUp size={15} />
               </button>
             </div>
         </div>
@@ -817,7 +820,7 @@ export default function DrivePage() {
               </button>
             ))}
             <button
-              onClick={e => setMenu({ ...under(e), target: selectedIds[0] })}
+              onClick={e => setMenu({ ...under(e), target: selectedIds[0], bar: true })}
               className="flex h-9 min-w-9 shrink-0 items-center justify-center rounded-md text-on-inverse/85 hover:bg-on-inverse/10 sm:hidden"
               title={t('Plus d’actions')}
               aria-label={t('Plus d’actions')}
@@ -836,14 +839,17 @@ export default function DrivePage() {
           </p>
         ) : tabAll ? (
           <>
-            {/* Shown at the root too: the row stays the same height for the selection bar, and is not left empty. */}
-            <button
-              onClick={() => openFolder(null)}
-              {...folderDropProps(null, 'crumb-root')}
-              className={cx('rounded-md px-1.5 py-1 font-medium transition-colors hover:bg-stone-100 pointer-coarse:py-3', breadcrumb.length ? 'text-stone-500' : 'text-ink', dropTarget === 'crumb-root' && 'bg-brand-50 text-brand-700')}
-            >
-              {t('Mon Drive')}
-            </button>
+            {/* Only inside a folder: at the root the « Mon Drive » tab and the title already say where we are
+                (and everything shown is already at the root, so it is no use as a drop target there). */}
+            {breadcrumb.length > 0 && (
+              <button
+                onClick={() => openFolder(null)}
+                {...folderDropProps(null, 'crumb-root')}
+                className={cx('rounded-md px-1.5 py-1 font-medium text-stone-500 transition-colors hover:bg-stone-100 pointer-coarse:py-3', dropTarget === 'crumb-root' && 'bg-brand-50 text-brand-700')}
+              >
+                {t('Mon Drive')}
+              </button>
+            )}
             {breadcrumb.map(b => (
               <span key={b.id} className="flex min-w-0 items-center gap-1">
                 <ChevronRight size={14} className="shrink-0 text-stone-300" />
@@ -876,11 +882,6 @@ export default function DrivePage() {
           {allTags.map(tag => (
             <TagPill key={tag} tag={tag} size="md" active={activeTag === tag} onClick={() => { setTagFilter(activeTag === tag ? null : tag); setSelected(new Set()); }} />
           ))}
-          {activeTag && (
-            <button className="ml-1 shrink-0 text-[12px] text-stone-500 hover:text-ink" onClick={() => setTagFilter(null)}>
-              {t('Effacer le filtre')}
-            </button>
-          )}
         </div>
       )}
 
@@ -1060,17 +1061,6 @@ export default function DrivePage() {
               onClick: () => changeSort(key),
             };
           })}
-        />
-      )}
-      {importMenu && (
-        <ContextMenu
-          x={importMenu.x}
-          y={importMenu.y}
-          onClose={() => setImportMenu(null)}
-          items={[
-            { label: t('Importer des fichiers'), icon: <Upload size={15} />, onClick: () => fileInput.current?.click() },
-            { label: t('Importer un dossier'), icon: <FolderUp size={15} />, onClick: () => folderInput.current?.click() },
-          ]}
         />
       )}
       {previewItem && <PreviewModal item={previewItem} onClose={closePreview} />}

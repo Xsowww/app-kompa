@@ -4,7 +4,7 @@ import { Copy, LogOut, RefreshCw, Trash2, UserMinus } from 'lucide-react';
 import { useAuth } from '../../store/auth';
 import { useGroups } from '../../store/groups';
 import { confirmAction, toast } from '../../store/ui';
-import { copyCode, copyInviteLink, deleteGroup, groupError, leaveGroup, regenerateAgendaToken, regenerateCode, removeMember, setMemberRights, type Group, type GroupMember, type GroupRole } from '../../lib/groups';
+import { copyInviteLink, deleteGroup, groupError, leaveGroup, regenerateAgendaToken, regenerateCode, removeMember, setMemberRights, type Group, type GroupMember, type GroupRole } from '../../lib/groups';
 import { fmt } from '../../lib/dates';
 import { MemberDot, LoadFailed } from './shared';
 import { Skeleton } from '../../components/EmptyState';
@@ -131,23 +131,18 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
           </div>
         </div>
       ) : code ? (
-        <div className="card flex flex-wrap items-center gap-4 p-4">
-          <div className="min-w-[220px] flex-1">
-            <p className="text-[14px] font-medium">{t('Inviter quelqu’un')}</p>
-            <p className="mt-0.5 text-[13px] text-stone-500">{t('Envoie-lui ce code ou le lien « Inviter ».')}</p>
-          </div>
-          <span className="rounded-lg border border-dashed border-stone-300 bg-stone-50 px-3 py-1.5 font-mono text-[20px] font-semibold tracking-[0.25em]">{code}</span>
-          <div className="flex gap-1.5">
-            <button className="btn-secondary h-8 px-3" onClick={() => void copyCode(code)}>
-              <Copy size={14} /> {t('Copier')}
+        // The code and « Inviter » sit in the group's header (every tab): here only what the owner alone can do.
+        isOwner && (
+          <div className="card flex flex-wrap items-center gap-3 p-4">
+            <div className="min-w-[220px] flex-1">
+              <p className="text-[14px] font-medium">{t('Inviter quelqu’un')}</p>
+              <p className="mt-0.5 text-[13px] text-stone-500">{t('Envoie-lui ce code ou le lien « Inviter ».')}</p>
+            </div>
+            <button className="btn-secondary h-8 px-3" title={t('Nouveau code (l’ancien ne marchera plus)')} disabled={busy} onClick={() => void newCode()}>
+              <RefreshCw size={14} /> {t('Nouveau code')}
             </button>
-            {isOwner && (
-              <button className="icon-btn" title={t('Nouveau code (l’ancien ne marchera plus)')} aria-label={t('Nouveau code (l’ancien ne marchera plus)')} disabled={busy} onClick={() => void newCode()}>
-                <RefreshCw size={15} />
-              </button>
-            )}
           </div>
-        </div>
+        )
       ) : (
         code === null && <p className="card px-4 py-3 text-[13px] text-stone-500">{t('Pour inviter quelqu’un, demande au propriétaire.')}</p>
       )}

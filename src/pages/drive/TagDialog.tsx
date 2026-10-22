@@ -21,6 +21,7 @@ export function TagPill({ tag, active, onClick, onRemove, size = 'sm' }: { tag: 
   return (
     <Comp
       onClick={onClick}
+      aria-pressed={onClick && active !== undefined ? active : undefined}
       className={cx(
         'inline-flex max-w-full shrink-0 items-center gap-1.5 rounded-full border font-medium transition-colors',
         size === 'md' ? 'h-7 px-2.5 text-[12px] pointer-coarse:h-9' : 'h-[18px] px-1.5 text-[10.5px]',
@@ -31,6 +32,8 @@ export function TagPill({ tag, active, onClick, onRemove, size = 'sm' }: { tag: 
     >
       <span className={cx('shrink-0 rounded-full', size === 'md' ? 'h-2 w-2' : 'h-1.5 w-1.5')} style={{ background: tagColor(tag) }} />
       <span className="truncate">{tag}</span>
+      {/* An active filter: tapping it again removes it, the ✕ says so. */}
+      {active && onClick && <X size={11} aria-hidden className="-mr-0.5 shrink-0" />}
       {onRemove && (
         <button
           type="button"

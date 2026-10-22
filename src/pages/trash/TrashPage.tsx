@@ -151,7 +151,8 @@ export default function TrashPage() {
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [anchor, setAnchor] = useState<string | null>(null);
-  const [menu, setMenu] = useState<{ x: number; y: number; ids: string[] } | null>(null);
+  // `row`: opened from the ⋯ of a row, whose tap already opens the preview.
+  const [menu, setMenu] = useState<{ x: number; y: number; ids: string[]; row?: boolean } | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const refocusAt = useRef<number | null>(null);
@@ -280,8 +281,8 @@ export default function TrashPage() {
 
   // No keyboard shortcuts in the menu on a touch screen (as in the Drive).
   const keys = !window.matchMedia('(pointer: coarse)').matches;
-  const menuItems = (ids: string[]): MenuItem[] => [
-    ...(ids.length === 1 ? [{ label: t('Aperçu||d’un fichier'), icon: <Eye size={15} />, shortcut: keys ? t('Entrée') : undefined, onClick: () => openPreview(ids[0]) }] : []),
+  const menuItems = (ids: string[], row?: boolean): MenuItem[] => [
+    ...(ids.length === 1 && !row ? [{ label: t('Aperçu||d’un fichier'), icon: <Eye size={15} />, shortcut: keys ? t('Entrée') : undefined, onClick: () => openPreview(ids[0]) }] : []),
     { label: ids.length > 1 ? t('Restaurer ({n})', { n: ids.length }) : t('Restaurer'), icon: <RotateCcw size={15} />, onClick: () => restore(ids) },
     { label: '', divider: true, onClick: () => {} },
     { label: ids.length > 1 ? t('Supprimer définitivement ({n})', { n: ids.length }) : t('Supprimer définitivement'), icon: <Trash2 size={15} />, shortcut: keys ? t('Suppr') : undefined, danger: true, onClick: () => void purge(ids) },
@@ -456,7 +457,7 @@ export default function TrashPage() {
                     </span>
                     <button
                       className="icon-btn md:hidden"
-                      onClick={e => setMenu({ ...menuPoint(e), ids: targetsOf(entry.id) })}
+                      onClick={e => setMenu({ ...menuPoint(e), ids: targetsOf(entry.id), row: true })}
                       aria-label={t('Actions pour « {name} »', { name: entry.name })}
                       aria-haspopup="menu"
                     >
@@ -470,7 +471,7 @@ export default function TrashPage() {
         )}
       </div>
 
-      {menu && <ContextMenu x={menu.x} y={menu.y} items={menuItems(menu.ids)} onClose={() => setMenu(null)} />}
+      {menu && <ContextMenu x={menu.x} y={menu.y} items={menuItems(menu.ids, menu.row)} onClose={() => setMenu(null)} />}
       {preview &&
         (preview.kind === 'drive' && preview.item.kind === 'file' ? (
           <PreviewModal
