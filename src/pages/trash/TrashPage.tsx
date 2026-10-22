@@ -332,7 +332,8 @@ export default function TrashPage() {
             <h1 ref={titleRef} tabIndex={-1} className="text-[24px] font-semibold tracking-[-0.02em] outline-none">
               {t('Corbeille')}
             </h1>
-            <p className="mt-0.5 text-[13px] text-stone-500">{t('Suppression définitive après {n} jours.', { n: TRASH_DAYS })}</p>
+            {/* Balanced lines: on a phone, beside « Vider la corbeille », « jours. » no longer wraps alone. */}
+            <p className="mt-0.5 text-balance text-[13px] text-stone-500">{t('Suppression définitive après {n} jours.', { n: TRASH_DAYS })}</p>
           </div>
           {all.length > 0 && (
             <button className="btn-ghost mt-1 h-8 text-[12px] text-red-600 hover:bg-red-50 hover:text-red-700" onClick={() => void emptyAll()}>

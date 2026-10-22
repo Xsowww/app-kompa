@@ -205,6 +205,25 @@ export default function Copilot() {
     return () => clearTimeout(timer);
   }, [pose, asleep, setPose]);
 
+  // Phones and tablets: a remark covers the page (Drive files, the month, « À venir »). It goes after a few
+  // seconds, or at the first touch, scroll or key in the page (not on the bubble or on Kompaly himself).
+  useEffect(() => {
+    if (!bubble || pose === 'open' || !matchMedia('(max-width: 1023px)').matches) return;
+    // A little longer with a button to tap (« Ouvrir le calendrier »).
+    const gone = setTimeout(clearBubble, bubble.offers?.length ? 8000 : 6000);
+    const onGesture = (e: Event) => {
+      if (!(e.target instanceof Node && rootRef.current?.contains(e.target))) clearBubble();
+    };
+    const events = ['pointerdown', 'scroll', 'keydown'] as const;
+    // A moment first: the tap or the scroll that made it appear does not hide it at once.
+    const listen = setTimeout(() => events.forEach(type => window.addEventListener(type, onGesture, { capture: true, passive: true })), 400);
+    return () => {
+      clearTimeout(gone);
+      clearTimeout(listen);
+      events.forEach(type => window.removeEventListener(type, onGesture, { capture: true }));
+    };
+  }, [bubble, pose, clearBubble]);
+
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages.length, thinking, pose]);
@@ -519,7 +538,7 @@ function ModeLine({ ai, label, until, now }: { ai: boolean; label: string; until
   const left = Math.max(0, Math.ceil((until - now) / 1000));
   const paused = ai && left > 0;
   const clock = left >= 3600 ? t('{h} h {min}', { h: Math.floor(left / 3600), min: String(Math.floor((left % 3600) / 60)).padStart(2, '0') }) : `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
-  const text = !ai ? t('Mode simple') : paused ? t('Mode simple · IA dans {clock}', { clock }) : label ? t('Mode intelligent · {label}', { label }) : t('Mode intelligent');
+  const text = !ai ? t('Mode simple, sans IA') : paused ? t('Mode simple · IA dans {clock}', { clock }) : label ? t('Mode intelligent · {label}', { label }) : t('Mode intelligent');
   // The pause follows a quota (« limite ») or a technical problem: say which.
   const why = paused && aiPauseReason() === 'error' ? t('L’IA ne répond pas pour le moment : elle revient dans {clock}.', { clock }) : t('L’IA gratuite a atteint sa limite : elle revient dans {clock}.', { clock });
   return (

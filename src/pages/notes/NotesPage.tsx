@@ -3,9 +3,13 @@ import { flashWhenReady } from '../../lib/flash';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ChevronRight, ChevronDown, FilePlus2, FolderPlus, Folder, FolderOpen, FolderInput, FileText, Pencil, Trash2, CopyPlus, Pin, PinOff, Search, ArrowLeft, MoreHorizontal, NotebookPen,
-  Paperclip, Printer, FileDown, BookOpenCheck, FlaskConical, ScrollText, GraduationCap, Presentation,
+  Paperclip, Printer, FileDown, BookOpenCheck, FlaskConical, ScrollText, GraduationCap, Presentation, Users,
 } from 'lucide-react';
 import { useNotes, type Note, type NoteFolder } from '../../store/notes';
+import { useGroups } from '../../store/groups';
+import { useAuth } from '../../store/auth';
+import { createNote as createGroupNote, groupError, summary, type Group } from '../../lib/groups';
+import { groupWordsNow } from '../groups/util';
 import { askText, confirmAction, toast } from '../../store/ui';
 import { ContextMenu, type MenuItem } from '../../components/Overlays';
 import { FolderColorPicker } from '../../components/FolderColorPicker';
@@ -17,7 +21,7 @@ import { LinkChips, LinkPicker } from './NoteLinks';
 import { noteTemplates, type NoteTemplate } from './templates';
 import { downloadMarkdown, printNote } from './exportNote';
 import { arrowNav, isMenuKey, menuPoint } from '../../lib/a11y';
-import { flushNoteEditor } from './noteUtils';
+import { flushNoteEditor, isBlankNote } from './noteUtils';
 import { isTrashedNote } from '../../lib/trash';
 import NoteMoveDialog, { type NoteMoveTarget } from './NoteMoveDialog';
 import { takeContentBuffer, takeTitleBuffer } from './titleBuffer';
@@ -41,6 +45,9 @@ export default function NotesPage() {
   const navigate = useNavigate();
   const { notes, folders } = useNotes();
   const store = useNotes.getState();
+  const allGroups = useGroups(s => s.groups);
+  const groupMembers = useGroups(s => s.members);
+  const me = useAuth(s => s.user?.id);
   const urlNoteId = params.get('note');
   // A note just created is shown at once: the URL (a router transition) can take a few hundred ms,
   // and the first keys typed after « Nouvelle note » must land in its title.
@@ -102,6 +109,14 @@ export default function NotesPage() {
     if (active?.folderId) setExpanded(s => (s.has(active.folderId!) ? s : new Set([...s, active.folderId!])));
   }, [active?.folderId]);
 
+  // Blank notes left by a reload or a closed tab go when the page opens (before « + Note » below makes one), except
+  // the one the link opens and any touched in the last minute (maybe being written on another device).
+  useLayoutEffect(() => {
+    const stale = (n: Note) => isBlankNote(n) && n.id !== urlNoteId && Date.now() - Date.parse(n.updatedAt) > 60_000;
+    if (useNotes.getState().notes.some(stale)) useNotes.setState(s => ({ notes: s.notes.filter(n => !stale(n)) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the page opens
+  }, []);
+
   // Dashboard "+ Note" shortcut (guarded: StrictMode runs effects twice in dev).
   const handledNew = useRef(false);
   const wantsNew = !!params.get('nouvelle');
@@ -122,6 +137,22 @@ export default function NotesPage() {
   };
 
   const activeId = active?.id;
+  // An empty « Sans titre » note left (another note opened, list shown again, page left) is deleted for good,
+  // not trashed: blank notes no longer pile up. Checked once the editor has saved, and only if it was not opened
+  // again (effects run twice in dev).
+  const openNow = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    openNow.current = activeId;
+    if (!activeId) return;
+    return () => {
+      openNow.current = undefined;
+      setTimeout(() => {
+        const n = useNotes.getState().notes.find(x => x.id === activeId);
+        if (openNow.current !== activeId && n && isBlankNote(n)) useNotes.setState(s => ({ notes: s.notes.filter(x => x.id !== activeId) }));
+      }, 0);
+    };
+  }, [activeId]);
+
   // Before paint (no timer): the first letters typed right after the click must land in the title.
   useLayoutEffect(() => {
     if (!activeId || focusTitleFor.current !== activeId) return;
@@ -212,7 +243,7 @@ export default function NotesPage() {
     const nextSel = next ? (next.dataset.folderOpen ? `[data-folder-open="${next.dataset.folderOpen}"]` : `[data-note-open="${next.dataset.noteOpen}"]`) : '#new-note';
     setTimeout(() => document.querySelector<HTMLElement>(nextSel)?.focus({ preventScroll: true }), 0);
     store.removeFolder(f.id);
-    toast(t('Mis à la corbeille'), 'info', { label: t('Annuler'), run: () => restoreAndFocus(f.id, 'folder') });
+    toast(t('Mis à la corbeille'), 'info', { label: t('Annuler||l’action'), run: () => restoreAndFocus(f.id, 'folder') });
   };
 
   // After a deletion the keyboard focus goes to the next note in the list (or the previous one),
@@ -236,7 +267,7 @@ export default function NotesPage() {
       openNote(null);
     }
     store.removeNote(n.id);
-    toast(t('Mis à la corbeille'), 'info', { label: t('Annuler'), run: () => restoreAndFocus(n.id, 'note') });
+    toast(t('Mis à la corbeille'), 'info', { label: t('Annuler||l’action'), run: () => restoreAndFocus(n.id, 'note') });
   };
 
   const folderPath = (id: string | null) => {
@@ -256,6 +287,34 @@ export default function NotesPage() {
     downloadMarkdown(useNotes.getState().notes.find(x => x.id === n.id) ?? n);
   };
 
+  // « Partager dans un groupe… »: a copy goes to the group, as with the group's own « Partager » (the note stays private).
+  // Only the groups already read (online accounts) where I may add notes; the base checks the rights again.
+  const shareGroups = allGroups.filter(g => g.kind === 'groupe' && (g.ownerId === me || (groupMembers[g.id]?.find(m => m.userId === me)?.role ?? 'editeur') === 'editeur'));
+  const shareToGroup = async (n: Note, g: Group) => {
+    flushNoteEditor();
+    const fresh = useNotes.getState().notes.find(x => x.id === n.id) ?? n;
+    try {
+      const copy = await createGroupNote(g.id, fresh.title, fresh.content);
+      useGroups.getState().upsertNote(summary(copy));
+      toast(t('Note partagée avec {group}', { group: `«\u00a0${g.name}\u00a0»` }), 'success', { label: t('Voir'), run: () => navigate(`/groupes?g=${g.id}&onglet=notes&note=${copy.id}`) });
+    } catch (e) {
+      toast(groupError(e), 'error');
+    }
+  };
+  // The list of groups opens where the note's menu was.
+  const menuAt = useRef({ x: 0, y: 0 });
+  useEffect(() => {
+    if (menu) menuAt.current = { x: menu.x, y: menu.y };
+  }, [menu]);
+  const shareItems = (n: Note): MenuItem[] =>
+    shareGroups.length
+      ? [{
+          label: t('Partager dans {a}…', { a: groupWordsNow().a }),
+          icon: <Users size={15} />,
+          onClick: () => setMenu({ ...menuAt.current, items: shareGroups.map(g => ({ label: g.name, icon: <Users size={15} />, onClick: () => void shareToGroup(n, g) })) }),
+        }]
+      : [];
+
   const exportItems = (n: Note): MenuItem[] => [
     { label: t('Exporter en PDF'), icon: <Printer size={15} />, onClick: () => exportPdf(n) },
     { label: t('Exporter en Markdown'), icon: <FileDown size={15} />, onClick: () => exportMd(n) },
@@ -273,6 +332,7 @@ export default function NotesPage() {
     { label: t('Déplacer vers…'), icon: <FolderInput size={15} />, onClick: () => setMoving({ kind: 'note', id: n.id, name: n.title, from: n.folderId }) },
     ...(n.folderId ? [{ label: t('Sortir du dossier'), icon: <FolderOpen size={15} />, onClick: () => store.updateNote(n.id, { folderId: null }) }] : []),
     { label: '', divider: true, onClick: () => {} },
+    ...shareItems(n),
     ...exportItems(n),
     { label: '', divider: true, onClick: () => {} },
     { label: t('Supprimer'), icon: <Trash2 size={15} />, shortcut: keyHint(t('Suppr')), danger: true, onClick: () => void deleteNote(n) },
@@ -451,7 +511,7 @@ export default function NotesPage() {
             <FolderPlus size={16} />
           </button>
           <div className="flex">
-            <button id="new-note" className="btn-primary h-8 rounded-r-none px-3 pointer-coarse:h-9" onClick={() => newNote()} title={t('Nouvelle note vide')}>
+            <button id="new-note" className="btn-primary h-8 rounded-r-none px-3 pointer-coarse:h-9" onClick={e => e.detail < 2 && newNote()} /* the 2nd click of a double-click makes no 2nd note */ title={t('Nouvelle note vide')}>
               <FilePlus2 size={14} /> {t('Nouvelle note')}
             </button>
             <button
@@ -635,6 +695,7 @@ function NoteTitle({ note }: { note: Note }) {
       id="note-title"
       rows={1}
       defaultValue={shown}
+      maxLength={200}
       placeholder={t('Sans titre')}
       aria-label={t('Titre de la note')}
       onChange={e => {

@@ -295,8 +295,9 @@ function morningBrief(): boolean {
   const name = useAuth.getState().user?.name ?? '';
   const words = usageWords(settings.usage);
   const lines = [
+    // Times as in the lists (« 10:16 »), not « 06h00 ».
     todays.length
-      ? `${t('Aujourd’hui : {list}', { list: todays.slice(0, 4).map(e => `${e.title}${e.start ? ` (${e.start.replace(':', 'h')})` : ''}`).join(', ') })}${todays.length > 4 ? '…' : '.'}`
+      ? `${t('Aujourd’hui : {list}', { list: todays.slice(0, 4).map(e => `${e.title}${e.start ? ` (${e.start})` : ''}`).join(', ') })}${todays.length > 4 ? '…' : '.'}`
       : t('Aujourd’hui : rien au calendrier.'),
     dueTodos.length
       ? dueTodos.length > 3

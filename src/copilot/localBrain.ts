@@ -107,7 +107,7 @@ const ACCENT_WORDS: Record<string, string> = { orange: 'orange', bleu: 'bleu', b
 
 /** Commands added for the to-dos, the trash, the Drive organisation, focus, settings and quizzes. */
 function moreCommands(input: string, q: string): BotReply | null {
-  // `q` is normalize(input): same length, so indices found in `q` cut the original text.
+  // `q` is normalize(input) kept to the same length (see localReply), so indices found in `q` cut the original text.
   const grab = (re: RegExp) => {
     const m = re.exec(q);
     if (!m) return null;
@@ -128,6 +128,21 @@ function moreCommands(input: string, q: string): BotReply | null {
     if (!z) return { text: t('« {title} » manque de structure pour un quiz : ajoute des titres, des listes « terme : définition » ou des mots en gras.', { title: note.title }), links: [{ label: t('Ouvrir la note'), to: linkToNote(note.id) }] };
     quiz = z;
     return { text: `${tn(z.questions.length, 'C’est parti : {n} question sur « {title} ». « passe » pour voir la réponse, « stop » pour arrêter.', 'C’est parti : {n} questions sur « {title} ». « passe » pour voir la réponse, « stop » pour arrêter.', { title: note.title })}\n\n${quizQuestion(z)}` };
+  }
+
+  // ── Summing up a note: only the AI can (not the general « bilan » further down) ──
+  // « résume ma note Biologie », « fais-moi un résumé de la note Biologie », or « résume Biologie » when a note has that exact title.
+  g = grab(/^(?:(?:resume|resumer|synthetise)(?:[- ]moi)?|fais(?:[- ]moi)?\s+(?:un|le)\s+resume\s+(?:de|d'))\s*(?:la\s+|ma\s+|cette\s+)?note\s+(.+?)\s*[.!?]*$/d);
+  const named = g ? null : grab(/^(?:resume|resumer)(?:[- ]moi)?\s+(?:la\s+|le\s+|ma\s+|mon\s+)?(.+?)\s*[.!?]*$/d);
+  const exact = named && useNotes.getState().notes.find(n => normalize(n.title) === normalize(named(1)));
+  if (g || exact) {
+    const term = g ? g(1) : '';
+    const note = exact || findNote(term) || (() => {
+      const hit = search(term).find(h => h.type === 'note');
+      return hit ? findNote(hit.id) : undefined;
+    })();
+    if (!note) return { text: t('Je ne trouve pas de note « {term} ». Donne-moi le titre exact ?', { term }) };
+    return { text: t('Résumer «\u00a0{title}\u00a0» demande l’IA, qui n’est pas disponible pour le moment.', { title: note.title }), links: [{ label: t('Ouvrir la note'), to: linkToNote(note.id) }] };
   }
 
   // ── To-dos ──
@@ -185,7 +200,10 @@ function moreCommands(input: string, q: string): BotReply | null {
     }
     // A note is « la », a file or a folder « le ».
     const feminine = hit.type === 'note';
-    return ask(t('Je mets « {title} » ({type}, {where}) à la corbeille (récupérable 30 jours) ?', { title: hit.title, type: HIT_LABEL[hit.type], where: hit.where }), () => {
+    const question = hit.where
+      ? t('Je mets « {title} » ({type}, {where}) à la corbeille (récupérable 30 jours) ?', { title: hit.title, type: HIT_LABEL[hit.type], where: hit.where })
+      : t('Je mets «\u00a0{title}\u00a0» ({type}) à la corbeille (récupérable 30 jours) ?', { title: hit.title, type: HIT_LABEL[hit.type] });
+    return ask(question, () => {
       const res = trashItems([hit.id]);
       return { text: res.done.length ? t('« {title} » est dans la corbeille (dis « restaure {title} » pour annuler).', { title: hit.title }) : feminine ? t('Elle a déjà disparu.') : t('Il a déjà disparu.') };
     });
@@ -364,7 +382,8 @@ const SUGGESTED: [string, string][] = [
 export function localReply(raw: string): BotReply {
   const typed = raw.trim();
   const input = SUGGESTED.find(([, shown]) => shown.toLowerCase() === typed.toLowerCase())?.[0] ?? typed;
-  const q = normalize(input);
+  // Only read by patterns (the words searched are cut from `input`): « œ », « æ » stay one letter, as normalize would spell them out.
+  const q = normalize(input.replace(/[œŒ]/g, 'o').replace(/[æÆ]/g, 'a'));
 
   // ── Waiting for a confirmation ────────────────────────────────────────────
   if (pendingConfirm) {
@@ -563,8 +582,10 @@ export function localReply(raw: string): BotReply {
   // ── What's on a day: « qu'est-ce que j'ai jeudi prochain ? », « je fais quoi demain », « demain ? » ──
   const day = askedDay(input);
   if (day) {
-    const list = eventsBetween(day, day);
     const d = daysUntil(day);
+    // The tasks of that day too (today: the late ones with them), after its events.
+    const todos = listTodos().filter(x => x.due && (d === 0 ? x.due <= day : x.due === day));
+    const list = [...eventsBetween(day, day).map(describeEvent), ...(todos.length ? [t('À faire : {list}.', { list: todos.map(x => x.title).join(', ') })] : [])];
     const date = fmt(fromKey(day), 'EEEE d MMMM');
     const near = d === 0 ? t('aujourd’hui') : d === 1 ? t('demain') : d === 2 ? t('après-demain') : '';
     // « jeudi », « le 15 » asked: the answer names that day too (« Demain, jeudi 15 octobre »).
@@ -578,8 +599,8 @@ export function localReply(raw: string): BotReply {
           ? named ? t('Rien de prévu {near}, {date}, pour le moment.', { near, date }) : t('Rien de prévu {near} pour le moment.', { near })
           : t('Rien de prévu le {date} pour le moment.', { date });
     return {
-      text: list.length ? `${name.charAt(0).toUpperCase()}${name.slice(1)} :\n${list.map(describeEvent).join('\n')}` : empty,
-      links: [{ label: d === 0 ? t('Voir aujourd’hui') : d === 1 ? t('Voir demain') : t('Voir le jour'), to: linkToDay(day) }],
+      text: list.length ? `${name.charAt(0).toUpperCase()}${name.slice(1)} :\n${list.join('\n')}` : empty,
+      links: [{ label: d === 0 ? t('Voir aujourd’hui') : d === 1 ? t('Voir demain') : t('Voir le jour'), to: linkToDay(day) }, ...(todos.length ? [{ label: t('Tâches'), to: '/taches' }] : [])],
     };
   }
   if (/(examen|exam|partiel|controle|echeance|deadline|grand jour)s?/.test(q) && /(quand|prochain|liste|quels|quelles|mes|a venir)/.test(q)) {
@@ -612,10 +633,10 @@ export function localReply(raw: string): BotReply {
     const hits = search(term);
     if (!hits.length) return { text: t('Rien trouvé pour « {term} ». Essaie un autre mot ?', { term }) };
     return {
-      text: `${tn(hits.length, 'J’ai trouvé {n} résultat pour « {term} » :', 'J’ai trouvé {n} résultats pour « {term} » :', { term })}\n${hits.map(h => `• ${h.title} (${HIT_LABEL[h.type]}) — ${h.where}`).join('\n')}`,
+      text: `${tn(hits.length, 'J’ai trouvé {n} résultat pour « {term} » :', 'J’ai trouvé {n} résultats pour « {term} » :', { term })}\n${hits.map(h => `• ${h.title} (${HIT_LABEL[h.type]})${h.where ? ` — ${h.where}` : ''}`).join('\n')}`,
       // Two hits with the same name (the sessions of a plan, a note in two folders): their day or place tells them apart.
       links: hits.slice(0, 4).map((h, _i, shown) => {
-        const label = h.type === 'événement' || hits.filter(x => x.title === h.title).length > 1 ? `${h.title} · ${h.where}` : h.title;
+        const label = (h.type === 'événement' || hits.filter(x => x.title === h.title).length > 1) && h.where ? `${h.title} · ${h.where}` : h.title;
         // Still the same (two notes of the same name in one folder): numbered.
         const same = shown.filter(x => x.title === h.title && x.where === h.where);
         return { label: same.length > 1 ? `${label} (${same.indexOf(h) + 1})` : label, to: h.to };
@@ -668,5 +689,6 @@ export function localReply(raw: string): BotReply {
   if (/^\?+$|\b(aide|help|au secours)\b|(sais|peux)[- ]tu faire|tu (sais|peux) faire( quoi)?|tu (sers|peux servir) a quoi|a quoi (tu sers|sers[- ]tu|tu peux servir)/.test(q.replace(/[’‘]/g, "'"))) {
     return { text: `${t('Voilà ce que je sais faire sans IA :')}\n${ex.map(e => `- ${e}`).join('\n')}` };
   }
-  return { text: `${t('Je n’ai pas tout compris. Essaie par exemple :')}\n${ex.slice(0, 4).map(e => `- ${e}`).join('\n')}\n${t('(« aide » pour tout voir)')}` };
+  // Said plainly: without the AI (none set up, paused or failing), only simple requests are understood.
+  return { text: `${t('Je n’ai pas tout compris : l’IA n’est pas disponible, je comprends seulement des demandes simples. Essaie par exemple :')}\n${ex.slice(0, 4).map(e => `- ${e}`).join('\n')}\n${t('(« aide » pour tout voir)')}` };
 }

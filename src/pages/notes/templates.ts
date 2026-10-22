@@ -57,9 +57,9 @@ export const NOTE_TEMPLATES: NoteTemplate[] = [
   },
   {
     id: 'tp',
-    label: t('Compte-rendu de TP'),
+    label: t('Compte rendu de TP'),
     hint: t('Objectif, protocole, résultats, analyse'),
-    title: t('Compte-rendu de TP'),
+    title: t('Compte rendu de TP'),
     html: () =>
       [
         `<p><strong>${t('Date :')}</strong> ${today()}</p>`,

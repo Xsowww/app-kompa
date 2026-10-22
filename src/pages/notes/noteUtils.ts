@@ -1,5 +1,17 @@
 import type { DriveItem } from '../../store/drive';
 import type { CalendarEvent } from '../../store/calendar';
+import type { Note } from '../../store/notes';
+import { t } from '../../i18n';
+
+/**
+ * Nothing in it: « Sans titre », no text, picture, list or other block, not pinned, no link.
+ * Such a note, left behind (opened by mistake, « Nouvelle note » clicked twice), is deleted for good.
+ */
+export const isBlankNote = (n: Note) =>
+  (!n.title.trim() || n.title === 'Sans titre' || n.title === t('Sans titre')) &&
+  !n.pinned &&
+  !n.links?.length &&
+  !n.content.replace(/<\/?(?:p|br)\b[^>]*>|&nbsp;|\s/g, '');
 
 // ── Open editor bridge ─────────────────────────────────────────────
 let flushOpen: (() => void) | null = null;

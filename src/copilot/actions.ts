@@ -11,6 +11,7 @@ import { useFocus, focusLeft } from '../store/focus';
 import { normalize, noteText, stripHtml, formatBytes } from '../lib/utils';
 import { toKey, todayKey, daysUntil, fromKey, fmt, fmtDay, weekStart, countdownLabel } from '../lib/dates';
 import type { CopilotLink } from '../store/copilot';
+import type { Group, GroupEvent, GroupNoteSummary } from '../lib/groups';
 import { getSettings, useSettings, applyAppearance, ACCENTS, type Settings, type AccentKey, type ThemeMode, type Chattiness } from '../store/settings';
 import { usageWords } from '../lib/usage';
 import { hasTwin, noteFor, noteTitle, notePrefix, pickExam, planTag, sessionPrefix, sessionsFor } from './revisionPlan';
@@ -31,7 +32,7 @@ export const linkToNote = (id: string) => `/notes?note=${id}`;
 export const linkToDay = (date: string, eventId?: string) => `/calendrier?jour=${date}${eventId ? `&evt=${eventId}` : ''}`;
 
 export interface SearchHit {
-  type: 'dossier' | 'fichier' | 'note' | 'dossier de notes' | 'événement' | 'tâche';
+  type: 'dossier' | 'fichier' | 'note' | 'dossier de notes' | 'événement' | 'tâche' | 'note partagée' | 'événement partagé';
   id: string;
   title: string;
   where: string;
@@ -46,7 +47,16 @@ export const HIT_LABEL: Record<SearchHit['type'], string> = {
   'dossier de notes': t('dossier de notes'),
   événement: t('événement'),
   tâche: t('tâche'),
+  'note partagée': t('note partagée'),
+  'événement partagé': t('événement partagé'),
 };
+
+/** What the groups and shared calendars already read hold (store/groups), searched without asking the server. */
+export interface SharedContent {
+  groups: Group[];
+  notes: Record<string, GroupNoteSummary[]>;
+  events: Record<string, GroupEvent[]>;
+}
 
 // Texts prepared for searching, kept per object: an item, note or event is a new object when it changes,
 // so only what changed is prepared again (a note's full text was stripped and normalised at each key typed).
@@ -67,7 +77,8 @@ const score = (h: string, q: string) => {
   return q.split(/\s+/).every(w => h.includes(w)) ? 0.5 : 0;
 };
 
-export function search(query: string, limit = 8): SearchHit[] {
+// `where` never repeats what the hit is (« Notes » for a note, « Tâches » for a task): its type is shown beside it.
+export function search(query: string, limit = 8, shared?: SharedContent): SearchHit[] {
   const q = normalize(query);
   if (!q) return [];
   const hits: (SearchHit & { s: number })[] = [];
@@ -88,13 +99,13 @@ export function search(query: string, limit = 8): SearchHit[] {
   const { notes, folders } = useNotes.getState();
   for (const f of folders) {
     const s = score(prep(f, 'name', () => normalize(f.name)), q);
-    if (s) hits.push({ s, type: 'dossier de notes', id: f.id, title: f.name, where: t('Notes'), to: `/notes?dossier=${f.id}` });
+    if (s) hits.push({ s, type: 'dossier de notes', id: f.id, title: f.name, where: folders.find(p => p.id === f.parentId)?.name ?? '', to: `/notes?dossier=${f.id}` });
   }
   for (const n of notes) {
     const s = Math.max(score(prep(n, 'title', () => normalize(n.title)), q), score(prep(n, 'text', () => normalize(noteText(n))), q) * 0.6);
     if (s) {
       const folder = folders.find(f => f.id === n.folderId);
-      hits.push({ s, type: 'note', id: n.id, title: n.title, where: folder ? `${t('Notes')} › ${folder.name}` : t('Notes'), to: linkToNote(n.id) });
+      hits.push({ s, type: 'note', id: n.id, title: n.title, where: folder?.name ?? '', to: linkToNote(n.id) });
     }
   }
   for (const e of useCalendar.getState().events) {
@@ -104,7 +115,19 @@ export function search(query: string, limit = 8): SearchHit[] {
   // Tasks still to do (a ticked one leaves the list: nothing to open there).
   for (const todo of useTodos.getState().todos) {
     const s = todo.done ? 0 : score(prep(todo, 'title', () => normalize(todo.title)), q);
-    if (s) hits.push({ s, type: 'tâche', id: todo.id, title: todo.title, where: todo.due ? `${t('Tâches')} · ${fmtDay(fromKey(todo.due), 'EEEE d MMMM')}` : t('Tâches'), to: `/taches?tache=${todo.id}` });
+    if (s) hits.push({ s, type: 'tâche', id: todo.id, title: todo.title, where: todo.due ? fmtDay(fromKey(todo.due), 'EEEE d MMMM') : '', to: `/taches?tache=${todo.id}` });
+  }
+  // Groups and shared calendars: their notes (titles) and events, a little after my own things.
+  for (const g of shared?.groups ?? []) {
+    for (const n of shared?.notes[g.id] ?? []) {
+      const s = score(prep(n, 'title', () => normalize(n.title)), q);
+      if (s) hits.push({ s: s * 0.9, type: 'note partagée', id: n.id, title: n.title, where: g.name, to: `/groupes?g=${g.id}&onglet=notes&note=${n.id}` });
+    }
+    for (const e of shared?.events[g.id] ?? []) {
+      const s = score(prep(e, 'title', () => normalize(e.title)), q);
+      const to = g.kind === 'agenda' ? `/agendas?g=${g.id}` : `/groupes?g=${g.id}&onglet=revisions`;
+      if (s) hits.push({ s: s * 0.9, type: 'événement partagé', id: e.id, title: e.title, where: `${g.name} · ${fmtDay(fromKey(e.date), 'EEEE d MMMM')}`, to });
+    }
   }
   return hits.sort((a, b) => b.s - a.s).slice(0, limit).map(({ s: _s, ...h }) => h);
 }
