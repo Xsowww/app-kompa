@@ -135,7 +135,15 @@ export default function DayView({ date, isToday, events, drag, onDragStart, onEd
       </div>
 
       {/* Hourly grid */}
-      <div ref={scrollRef} data-autoscroll className="relative max-h-[max(360px,calc(100dvh-420px))] overflow-y-auto overscroll-contain">
+      {/* Reachable from the keyboard: arrows then scroll the hours. */}
+      <div
+        ref={scrollRef}
+        data-autoscroll
+        tabIndex={0}
+        role="region"
+        aria-label={t('Heures de la journée')}
+        className="relative max-h-[max(360px,calc(100dvh-420px))] overflow-y-auto overscroll-contain outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus"
+      >
         <div className="relative flex" style={{ height: hours.length * HOUR_PX }}>
           <div className="relative w-12 shrink-0 select-none">
             {hours.map(h => (

@@ -125,16 +125,16 @@ function HeroDemo() {
 }
 
 const FEATURES = [
-  { icon: CalendarDays, title: t('Calendrier'), text: t('Écris « Dentiste mardi 17h30 » : l’événement se range tout seul. Importe ton agenda existant (.ics).') },
-  { icon: ListChecks, title: t('Tâches'), text: t('La liste du jour, des sessions de concentration et des badges.') },
-  { icon: NotebookText, title: t('Notes'), text: t('Rangées en dossiers, avec des modèles et l’export PDF.') },
-  { icon: FolderClosed, title: t('Drive'), text: t('Une recherche qui lit jusque dans les PDF. Un clic droit, et Kompaly fait une fiche du document.') },
-  { icon: Users, title: t('Groupes et agendas partagés'), text: t('Notes, fichiers et agenda communs pour l’équipe, la coloc ou la famille, avec un simple code d’invitation.') },
-  { icon: Bot, title: t('Kompaly'), text: t('Il ajoute tes rendez-vous, retrouve tes fichiers et te prévient avant les grands jours.') },
+  { icon: CalendarDays, title: t('Calendrier'), text: t('Écris « Dentiste mardi 17h30 » : c’est rangé.') },
+  { icon: ListChecks, title: t('Tâches'), text: t('La liste du jour, des sessions focus et des badges.') },
+  { icon: NotebookText, title: t('Notes'), text: t('En dossiers, avec des modèles et l’export PDF.') },
+  { icon: FolderClosed, title: t('Drive'), text: t('La recherche lit jusque dans les PDF.') },
+  { icon: Users, title: t('Groupes et agendas partagés'), text: t('Notes, fichiers et agenda en commun, avec un code.') },
+  { icon: Bot, title: t('Kompaly'), text: t('Il ajoute tes rendez-vous et te prévient avant les grands jours.') },
   {
     icon: Mic,
     title: t('Enregistrer'),
-    text: t('Kompaly écrit ton cours ou ta réunion en direct, te prévient des mots-clés, puis range le tout dans ton Drive avec une fiche ou un résumé.'),
+    text: t('Ton cours ou ta réunion écrit en direct, puis rangé.'),
     wide: true,
   },
 ] as const;
@@ -314,13 +314,8 @@ export default function LandingPage() {
               <h2 id="confiance-title" className="text-[30px] font-extrabold leading-[1.05] tracking-[-0.025em] md:text-[36px]">
                 {t('Tes affaires restent les tiennes.')}
               </h2>
-              <p className="mt-4 text-[15px] leading-relaxed text-paper/70">
-                {t('Kompaly garde seulement le nécessaire. Tout est expliqué, sans jargon, dans la')}{' '}
-                <Link to="/confidentialite" className="underline decoration-paper/40 underline-offset-4 hover:decoration-paper">
-                  {t('politique de confidentialité')}
-                </Link>
-                .
-              </p>
+              {/* The privacy policy is in the footer (« Confidentialité »). */}
+              <p className="mt-4 text-[15px] leading-relaxed text-paper/70">{t('Kompaly garde seulement le nécessaire.')}</p>
             </div>
             <ul className="grid gap-6 sm:grid-cols-2">
               {TRUST.map(item => (

@@ -24,6 +24,8 @@ export interface CopilotMessage {
   links?: CopilotLink[];
   offers?: CopilotOffer[];
   proactive?: boolean;
+  /** the morning brief (it already says hello) */
+  brief?: boolean;
   at: string;
 }
 
@@ -35,6 +37,7 @@ export interface Bubble {
   links?: CopilotLink[];
   offers?: CopilotOffer[];
   mood?: CopilotMood;
+  brief?: boolean;
 }
 
 interface CopilotState {
@@ -48,7 +51,7 @@ interface CopilotState {
   memory: Record<string, number>;
   /** the last proposal made, so that a plain "oui" can accept it */
   pendingOffer: CopilotOffer | null;
-  push: (role: CopilotMessage['role'], text: string, extra?: Partial<Pick<CopilotMessage, 'links' | 'offers' | 'proactive'>>) => void;
+  push: (role: CopilotMessage['role'], text: string, extra?: Partial<Pick<CopilotMessage, 'links' | 'offers' | 'proactive' | 'brief'>>) => void;
   setPose: (pose: CopilotPose) => void;
   say: (bubble: Bubble) => void;
   clearBubble: () => void;
@@ -90,7 +93,7 @@ export const useCopilot = create<CopilotState>()(
       say(bubble) {
         // In the middle of a conversation, a suggestion with buttons would hijack the next « oui ».
         if (get().pose === 'open' && bubble.offers?.length) return;
-        get().push('bot', bubble.text, { links: bubble.links, offers: bubble.offers, proactive: true });
+        get().push('bot', bubble.text, { links: bubble.links, offers: bubble.offers, proactive: true, brief: bubble.brief });
         if (get().pose === 'open') return;
         clearTimeout(bubbleTimer);
         set({ bubble, pose: 'peek' });

@@ -184,10 +184,12 @@ export default function LegalPage({ doc }: { doc: LegalDoc }) {
   const { title, sections } = DOCS[doc];
   return (
     <div className="h-full overflow-y-auto bg-paper px-6 py-6 sm:px-10">
-      {/* inline-flex: around a block child, the focus outline of an inline link was drawn on an empty box. */}
-      <Link to="/" aria-label={t('Accueil')} className="inline-flex rounded-md pointer-coarse:py-1">
-        <Logo />
-      </Link>
+      <header>
+        {/* inline-flex: around a block child, the focus outline of an inline link was drawn on an empty box. */}
+        <Link to="/" aria-label={t('Accueil')} className="inline-flex rounded-md pointer-coarse:py-1">
+          <Logo />
+        </Link>
+      </header>
       <main>
       <article className="mx-auto max-w-[680px] py-10">
         <h1 className="text-[26px] font-semibold tracking-[-0.02em]">{title}</h1>

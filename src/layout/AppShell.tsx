@@ -41,7 +41,7 @@ const NAV = [
   { to: '/enregistrer', label: t('Enregistrer'), icon: Mic, color: '#e5484d', phone: false },
   // `section`: a small title above this entry in the sidebar (what is shared with others comes after).
   { to: '/groupes', label: t('Groupes'), icon: Users, color: '#1f8a8a', section: t('Espaces partagés') },
-  { to: '/agendas', label: t('Agendas partagés'), short: t('Agendas'), icon: CalendarRange, color: '#7a5ad6' },
+  { to: '/agendas', label: t('Agendas partagés'), short: t('Agendas||court'), icon: CalendarRange, color: '#7a5ad6' },
 ];
 
 const HIT_ICON: Record<SearchHit['type'], typeof FileText> = {
@@ -428,12 +428,12 @@ export default function AppShell() {
             <Trash2 size={18} strokeWidth={1.9} />
             {trashCount > 0 && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-brand-500 ring-2 ring-paper" aria-hidden />}
           </NavLink>
-          <NavLink to="/profil" className="inline-flex h-9 w-9 items-center justify-center rounded-full lg:hidden" title={t('Profil et réglages')} aria-label={t('Profil et réglages')}>
+          <NavLink to="/profil" className="hit inline-flex h-9 w-9 items-center justify-center rounded-full lg:hidden" title={t('Profil et réglages')} aria-label={t('Profil et réglages')}>
             <Avatar size={30} />
           </NavLink>
         </header>
         {searchOpen && (
-          <div id="recherche-mobile" className="px-4 pb-2 md:px-8 lg:hidden">
+          <div id="recherche-mobile" role="search" className="px-4 pb-2 md:px-8 lg:hidden">
             <GlobalSearch
               autoFocus
               onDone={cancelled => {
