@@ -51,7 +51,7 @@ export function Segmented<T extends string | number>({ value, options, onChange,
           key={String(o.value)}
           aria-pressed={value === o.value}
           onClick={() => onChange(o.value)}
-          className={cx('h-7 rounded-md px-2.5 font-medium pointer-coarse:h-9 transition-colors', value === o.value ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
+          className={cx('hit h-7 rounded-md px-2.5 font-medium pointer-coarse:h-9 transition-colors', value === o.value ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
         >
           {o.label}
         </button>
@@ -65,7 +65,7 @@ export function Stepper({ value, min, max, onChange, suffix, label }: { value: n
   return (
     <div className="flex h-9 items-center rounded-lg border border-stone-200 bg-surface shadow-card pointer-coarse:h-10" role="group" aria-label={label}>
       {/* aria-disabled, not disabled: a disabled button would drop the keyboard focus at the end of the range. */}
-      <button className="flex h-full w-9 items-center justify-center text-stone-500 hover:text-ink aria-disabled:opacity-30 pointer-coarse:w-10" aria-disabled={value <= min} onClick={() => value > min && onChange(value - 1)} aria-label={t('{label}\u00a0: moins', { label })}>
+      <button className="hit flex h-full w-9 items-center justify-center text-stone-500 hover:text-ink aria-disabled:opacity-30 pointer-coarse:w-10" aria-disabled={value <= min} onClick={() => value > min && onChange(value - 1)} aria-label={t('{label}\u00a0: moins', { label })}>
         <Minus size={13} />
       </button>
       {/* Announced after each change (the button keeps the focus). */}
@@ -73,7 +73,7 @@ export function Stepper({ value, min, max, onChange, suffix, label }: { value: n
         {value}
         {suffix && <span className="font-normal text-stone-500"> {suffix}</span>}
       </span>
-      <button className="flex h-full w-9 items-center justify-center text-stone-500 hover:text-ink aria-disabled:opacity-30 pointer-coarse:w-10" aria-disabled={value >= max} onClick={() => value < max && onChange(value + 1)} aria-label={t('{label}\u00a0: plus', { label })}>
+      <button className="hit flex h-full w-9 items-center justify-center text-stone-500 hover:text-ink aria-disabled:opacity-30 pointer-coarse:w-10" aria-disabled={value >= max} onClick={() => value < max && onChange(value + 1)} aria-label={t('{label}\u00a0: plus', { label })}>
         <Plus size={13} />
       </button>
     </div>

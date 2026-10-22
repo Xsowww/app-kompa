@@ -71,7 +71,7 @@ export default function ShareDialog({ item, onClose }: { item: DriveItem; onClos
               <button
                 key={d.days}
                 onClick={() => setDays(d.days)}
-                className={cx('h-8 rounded-md px-3 font-medium transition-colors pointer-coarse:h-9', days === d.days ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
+                className={cx('hit h-8 rounded-md px-3 font-medium transition-colors pointer-coarse:h-9', days === d.days ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
               >
                 {d.label}
               </button>
@@ -93,7 +93,7 @@ export default function ShareDialog({ item, onClose }: { item: DriveItem; onClos
         </>
       )}
 
-      <div className="mt-5 flex justify-end gap-2">
+      <div className="mt-6 flex justify-end gap-2">
         <button className="btn-secondary" onClick={onClose}>
           {t('Fermer')}
         </button>

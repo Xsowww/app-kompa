@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState, type FormEvent } from 'react';
+import { useContext, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, CalendarClock, CloudOff, Copy, ImagePlus, Link2, LogIn, NotebookText, Paperclip, Plus, Settings2, Users } from 'lucide-react';
 import { imageToAvatar } from '../../lib/backup';
@@ -7,6 +7,7 @@ import { prefetchGroup, useGroups, watchFocus } from '../../store/groups';
 import { useGroupActivity, totalUnread } from '../../store/groupActivity';
 import { toast } from '../../store/ui';
 import { Modal } from '../../components/Overlays';
+import { FieldError } from '../../components/Field';
 import { cloudEnabled } from '../../lib/supabase';
 import { GROUP_COLORS, copyCode, copyInviteLink, createGroup, groupError, joinGroup, updateGroup, type Group } from '../../lib/groups';
 import { cx } from '../../lib/utils';
@@ -37,6 +38,9 @@ export function GroupForm({ group, onDone }: { group?: Group; onDone: (g?: Group
   const [color, setColor] = useState<string>(group?.color ?? GROUP_COLORS[0]);
   const [photo, setPhoto] = useState<string | null>(group?.photo ?? null);
   const [busy, setBusy] = useState(false);
+  // The name is required: said under it when emptied and left, or at the submit (the focus goes back to it).
+  const [nameError, setNameError] = useState('');
+  const nameRef = useRef<HTMLInputElement>(null);
   const pickPhoto = async (f: File | undefined) => {
     if (!f) return;
     try {
@@ -47,7 +51,10 @@ export function GroupForm({ group, onDone }: { group?: Group; onDone: (g?: Group
   };
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim()) {
+      setNameError(t('Donne un nom.'));
+      return nameRef.current?.focus();
+    }
     setBusy(true);
     try {
       if (group) {
@@ -71,7 +78,20 @@ export function GroupForm({ group, onDone }: { group?: Group; onDone: (g?: Group
     <form onSubmit={submit}>
       <h3 className="text-[15px] font-semibold">{group ? t('Paramètres {of}', { of: w.of }) : t('Créer {a}', { a: w.a })}</h3>
       <label className="eyebrow mt-4 block" htmlFor="group-name">{t('Nom')}</label>
-      <input id="group-name" autoFocus value={name} maxLength={60} onChange={e => setName(e.target.value)} placeholder={w.namePlaceholder} className="field mt-1.5 w-full" />
+      <input
+        ref={nameRef}
+        id="group-name"
+        autoFocus
+        value={name}
+        maxLength={60}
+        onChange={e => (setName(e.target.value), e.target.value.trim() && setNameError(''))}
+        onBlur={() => name && !name.trim() && setNameError(t('Donne un nom.'))}
+        aria-invalid={nameError ? true : undefined}
+        aria-describedby={nameError ? 'group-name-err' : undefined}
+        placeholder={w.namePlaceholder}
+        className="field mt-1.5 w-full"
+      />
+      <FieldError id="group-name-err">{nameError}</FieldError>
       <p className="eyebrow mt-4">{t('Photo')}</p>
       <div className="mt-2 flex items-center gap-3">
         <GroupBadge group={{ name: name || '?', color, photo }} size={52} />
@@ -91,7 +111,7 @@ export function GroupForm({ group, onDone }: { group?: Group; onDone: (g?: Group
       </div>
       <div className="mt-6 flex justify-end gap-2">
         <button type="button" className="btn-secondary" onClick={() => onDone()}>{t('Annuler')}</button>
-        <button type="submit" className="btn-primary" disabled={!name.trim() || busy}>{group ? t('Enregistrer||sauver') : t('Créer {the}', { the: w.the })}</button>
+        <button type="submit" className="btn-primary" disabled={busy}>{group ? t('Enregistrer||sauver') : t('Créer {the}', { the: w.the })}</button>
       </div>
     </form>
   );
@@ -104,8 +124,15 @@ function JoinForm({ onDone }: { onDone: () => void }) {
   const [busy, setBusy] = useState(false);
   // The pasted invitation link (or « Code : ABC234 ») works too: its code is taken from it.
   const clean = (code.match(/rejoindre=([A-Za-z0-9]{6})/i)?.[1] ?? code).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(-6);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const short = t('Le code contient 6 caractères.');
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    // A code too short: said under the field, the focus back in it.
+    if (clean.length !== 6) {
+      setError(short);
+      return inputRef.current?.focus();
+    }
     setBusy(true);
     setError('');
     try {
@@ -129,19 +156,23 @@ function JoinForm({ onDone }: { onDone: () => void }) {
       <h3 className="text-[15px] font-semibold">{t('Rejoindre {a}', { a: w.a })}</h3>
       <p className="mt-1 text-[13px] text-stone-500">{t('Le code à 6 caractères reçu d’un membre.')}</p>
       <input
+        ref={inputRef}
         autoFocus
         value={code}
-        onChange={e => setCode(e.target.value)}
+        onChange={e => (setCode(e.target.value), setError(''))}
+        onBlur={() => code.trim() && clean.length !== 6 && setError(short)}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? 'join-code-err' : undefined}
         placeholder="ABC234"
         aria-label={t('Code d’invitation')}
         autoCapitalize="characters"
         spellCheck={false}
         className="field mt-4 h-11 w-full text-center font-mono text-[18px] tracking-[0.3em] uppercase"
       />
-      {error && <p className="mt-2 text-[12px] text-red-600">{error}</p>}
+      <FieldError id="join-code-err">{error}</FieldError>
       <div className="mt-6 flex justify-end gap-2">
         <button type="button" className="btn-secondary" onClick={() => onDone()}>{t('Annuler')}</button>
-        <button type="submit" className="btn-primary" disabled={clean.length !== 6 || busy}>{t('Rejoindre')}</button>
+        <button type="submit" className="btn-primary" disabled={busy}>{t('Rejoindre')}</button>
       </div>
     </form>
   );

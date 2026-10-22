@@ -467,7 +467,7 @@ export default function AppShell() {
             onClick={() => openFeedback()}
             title={t('Donner mon avis ou signaler un bug')}
             aria-label={t('Donner mon avis ou signaler un bug')}
-            className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] right-3 z-20 flex h-10 items-center gap-2 rounded-full border border-stone-200 bg-surface px-3 text-[12.5px] font-medium text-stone-600 shadow-pop transition-colors hover:border-stone-300 hover:text-ink lg:bottom-2.5 lg:right-5 lg:h-9"
+            className="hit fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] right-3 z-20 flex h-10 items-center gap-2 rounded-full border border-stone-200 bg-surface px-3 text-[12.5px] font-medium text-stone-600 shadow-pop transition-colors hover:border-stone-300 hover:text-ink lg:bottom-2.5 lg:right-5 lg:h-9"
           >
             <MessageSquareText size={16} strokeWidth={1.9} aria-hidden />
             <span className="hidden lg:inline">{t('Avis ou bug')}</span>

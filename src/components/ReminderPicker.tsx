@@ -97,7 +97,7 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
   };
 
   return (
-    <div className="mt-3">
+    <div className="mt-4">
       <p className="mb-1.5 flex items-center gap-1.5 text-[12px] font-medium text-stone-600">
         <Bell size={13} aria-hidden /> {t('Rappels')}
       </p>
@@ -111,7 +111,7 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
               <button
                 type="button"
                 onClick={() => onChange(value.filter(x => x !== m))}
-                className="hit-sm flex h-6 w-6 items-center justify-center rounded text-brand-600 transition-colors hover:bg-brand-100"
+                className="hit flex h-6 w-6 items-center justify-center rounded text-brand-600 transition-colors hover:bg-brand-100"
                 aria-label={t('Retirer le rappel « {reminder} »', { reminder: reminderLabel(m, timed, date, time) })}
               >
                 <X size={13} />
@@ -130,7 +130,7 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
               aria-haspopup="menu"
               aria-expanded={!!menu}
               onClick={e => setMenu(menu ? null : e.currentTarget)}
-              className="flex h-8 items-center gap-1 rounded-full border border-dashed border-stone-300 px-3 text-[13px] font-semibold text-stone-600 transition-colors hover:border-stone-400 hover:text-ink pointer-coarse:h-9"
+              className="hit flex h-8 items-center gap-1 rounded-full border border-dashed border-stone-300 px-3 text-[13px] font-semibold text-stone-600 transition-colors hover:border-stone-400 hover:text-ink pointer-coarse:h-9"
             >
               <Plus size={14} aria-hidden /> {t('Ajouter un rappel')}
             </button>
@@ -148,7 +148,7 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
                       onChange([...value, o.minutes]);
                       setMenu(null);
                     }}
-                    className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-[13.5px] transition-colors hover:bg-stone-100 focus-visible:bg-stone-100"
+                    className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-[13.5px] transition-colors hover:bg-stone-100 focus-visible:bg-stone-100 pointer-coarse:py-3"
                   >
                     <Bell size={15} className="text-stone-400" aria-hidden /> {o.label}
                   </button>
@@ -161,7 +161,7 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
                     setMenu(null);
                     openCustom();
                   }}
-                  className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-[13.5px] transition-colors hover:bg-stone-100 focus-visible:bg-stone-100"
+                  className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-[13.5px] transition-colors hover:bg-stone-100 focus-visible:bg-stone-100 pointer-coarse:py-3"
                 >
                   <SlidersHorizontal size={15} className="text-stone-400" aria-hidden /> {t('Personnaliser…')}
                 </button>
@@ -196,7 +196,7 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
                   type="button"
                   aria-pressed={custom.mode === mode}
                   onClick={() => setCustom({ ...custom, mode })}
-                  className={cx('h-7 flex-1 rounded-md px-2 transition-colors', custom.mode === mode ? 'bg-surface text-ink shadow-card' : 'text-stone-600 hover:text-ink')}
+                  className={cx('hit h-7 flex-1 rounded-md px-2 transition-colors', custom.mode === mode ? 'bg-surface text-ink shadow-card' : 'text-stone-600 hover:text-ink')}
                 >
                   {label}
                 </button>
@@ -254,7 +254,7 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
                 <BellOff size={13} className="mt-px shrink-0 text-stone-400" aria-hidden />
                 {t('Sur cet appareil, tu ne seras prévenu que si Kompaly est ouvert.')}
               </span>
-              <button type="button" onClick={() => void turnOn()} className="hit-sm font-medium text-brand-600 underline-offset-2 hover:underline">
+              <button type="button" onClick={() => void turnOn()} className="hit font-medium text-brand-600 underline-offset-2 hover:underline">
                 {t('Activer les notifications')}
               </button>
             </>

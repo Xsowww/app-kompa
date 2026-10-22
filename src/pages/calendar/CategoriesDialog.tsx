@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Check, Plus, Tags, Trash2 } from 'lucide-react';
 import { Modal } from '../../components/Overlays';
-import { confirmAction, toast } from '../../store/ui';
+import { FieldError } from '../../components/Field';
+import { confirmAction } from '../../store/ui';
 import { useSettings } from '../../store/settings';
 import { CATEGORIES, CATEGORY_COLORS, builtinLabel, createCategory, customNamed, deleteCategory, labelTaken, updateCategory, type CustomCategory } from '../../store/calendar';
 import { AGENDA_EXAMPLES, WORDS } from '../../lib/usage';
@@ -14,7 +15,8 @@ const COLOR_NAMES = [t('Bleu'), t('Rouge'), t('Orange'), t('Vert'), t('Violet'),
 
 export function ColorChoice({ value, onChange }: { value: string; onChange: (color: string) => void }) {
   return (
-    <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={t('Couleur')}>
+    // Touch: 36 px dots 8 px apart, each with a 44 px tap zone (.hit).
+    <div className="flex flex-wrap gap-1.5 pointer-coarse:gap-2" role="radiogroup" aria-label={t('Couleur')}>
       {CATEGORY_COLORS.map((c, i) => (
         <button
           key={c}
@@ -24,7 +26,7 @@ export function ColorChoice({ value, onChange }: { value: string; onChange: (col
           aria-label={t('Couleur {color}', { color: COLOR_NAMES[i] ?? c })}
           title={COLOR_NAMES[i]}
           onClick={() => onChange(c)}
-          className={cx('hit-sm flex h-6 w-6 items-center justify-center rounded-full ring-offset-2 ring-offset-surface transition', value === c && 'ring-2 ring-stone-400')}
+          className={cx('hit flex h-6 w-6 items-center justify-center rounded-full ring-offset-2 ring-offset-surface transition pointer-coarse:h-9 pointer-coarse:w-9', value === c && 'ring-2 ring-stone-400')}
           style={{ background: c }}
         >
           {value === c && <Check size={12} strokeWidth={3} className="text-white" />}
@@ -41,26 +43,30 @@ export function NewCategory({ onCreated, autoFocus }: { onCreated: (c: CustomCat
   const words = { ...(WORDS[useSettings(s => s.usage)] ?? WORDS.etudes), ...(shared && AGENDA_EXAMPLES) };
   const [label, setLabel] = useState('');
   const [color, setColor] = useState(CATEGORY_COLORS[(used + 5) % CATEGORY_COLORS.length]);
+  // A name already taken: said under the field (cleared as soon as it changes).
+  const [error, setError] = useState('');
   const submit = () => {
     const name = label.trim().replace(/\s+/g, ' ');
     if (!name) return;
     const builtin = builtinLabel(name);
-    if (builtin === 'current') return toast(t('« {name} » existe déjà.', { name }), 'error');
+    if (builtin === 'current') return setError(t('« {name} » existe déjà.', { name }));
     // A name kept for the other usages (« Cours » in a work account): it would come back twice after switching.
-    if (builtin === 'other') return toast(t('Kompaly garde «\u00a0{name}\u00a0» pour ses propres catégories : choisis un autre nom.', { name }), 'error');
+    if (builtin === 'other') return setError(t('Kompaly garde «\u00a0{name}\u00a0» pour ses propres catégories : choisis un autre nom.', { name }));
     const same = customNamed(name, undefined, scope);
-    if (same) return toast(shared ? t('L’agenda a déjà une catégorie « {name} ».', { name: same.label }) : t('Tu as déjà une catégorie « {name} ».', { name: same.label }), 'error');
+    if (same) return setError(shared ? t('L’agenda a déjà une catégorie « {name} ».', { name: same.label }) : t('Tu as déjà une catégorie « {name} ».', { name: same.label }));
     onCreated(createCategory(label, color, scope));
     setLabel('');
     setColor(CATEGORY_COLORS[(used + 6) % CATEGORY_COLORS.length]); // the next one gets another colour
   };
   return (
-    <div className="space-y-2.5">
+    <div>
       <div className="flex gap-2">
         <input
           autoFocus={autoFocus}
           value={label}
-          onChange={e => setLabel(e.target.value)}
+          onChange={e => (setLabel(e.target.value), setError(''))}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? 'new-category-err' : undefined}
           onKeyDown={e => {
             if (e.key === 'Enter') {
               e.preventDefault();
@@ -77,7 +83,10 @@ export function NewCategory({ onCreated, autoFocus }: { onCreated: (c: CustomCat
           <Plus size={15} /> {t('Créer')}
         </button>
       </div>
-      <ColorChoice value={color} onChange={setColor} />
+      <FieldError id="new-category-err">{error}</FieldError>
+      <div className="mt-2.5">
+        <ColorChoice value={color} onChange={setColor} />
+      </div>
     </div>
   );
 }
@@ -85,6 +94,7 @@ export function NewCategory({ onCreated, autoFocus }: { onCreated: (c: CustomCat
 function Row({ cat }: { cat: CustomCategory }) {
   const [label, setLabel] = useState(cat.label);
   const [editingColor, setEditingColor] = useState(false);
+  const [error, setError] = useState('');
   const { events, categoryScope: scope } = useCalendarSource();
   const count = events.filter(e => e.category === cat.id).length;
   const remove = async () => {
@@ -97,20 +107,24 @@ function Row({ cat }: { cat: CustomCategory }) {
   return (
     <li className="py-2">
       <div className="flex items-center gap-2">
-        <button type="button" onClick={() => setEditingColor(v => !v)} className="hit-sm h-5 w-5 shrink-0 rounded-full ring-1 ring-stone-200" style={{ background: cat.color }} aria-label={t('Changer la couleur de « {name} »', { name: cat.label })} aria-expanded={editingColor} />
+        <button type="button" onClick={() => setEditingColor(v => !v)} className="hit h-5 w-5 shrink-0 rounded-full ring-1 ring-stone-200" style={{ background: cat.color }} aria-label={t('Changer la couleur de « {name} »', { name: cat.label })} aria-expanded={editingColor} />
         <input
           value={label}
-          onChange={e => setLabel(e.target.value)}
+          onChange={e => (setLabel(e.target.value), setError(''))}
           onBlur={() => {
             if (label.trim() && !labelTaken(label, cat.id, scope)) {
+              setError('');
               if (label.trim().replace(/\s+/g, ' ') !== cat.label) updateCategory(cat.id, { label }, scope);
               return setLabel(label.trim().replace(/\s+/g, ' ')); // the name as saved
             }
+            // A name already taken: said under the field, which keeps it to be corrected.
             if (label.trim() && label.trim() !== cat.label) {
-              toast(builtinLabel(label) === 'other' ? t('Kompaly garde «\u00a0{name}\u00a0» pour ses propres catégories : choisis un autre nom.', { name: label.trim() }) : t('Une catégorie s’appelle déjà « {name} ».', { name: label.trim() }), 'error');
+              return setError(builtinLabel(label) === 'other' ? t('Kompaly garde «\u00a0{name}\u00a0» pour ses propres catégories : choisis un autre nom.', { name: label.trim() }) : t('Une catégorie s’appelle déjà « {name} ».', { name: label.trim() }));
             }
             setLabel(cat.label);
           }}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? `category-err-${cat.id}` : undefined}
           onKeyDown={e => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
           aria-label={t('Nom de la catégorie « {name} »', { name: cat.label })}
           maxLength={24}
@@ -121,6 +135,9 @@ function Row({ cat }: { cat: CustomCategory }) {
           <Trash2 size={14} />
         </button>
       </div>
+      <FieldError id={`category-err-${cat.id}`} className="pl-7">
+        {error}
+      </FieldError>
       {editingColor && (
         <div className="mt-2 pl-7">
           <ColorChoice
@@ -177,7 +194,7 @@ export default function CategoriesDialog({ onClose }: { onClose: () => void }) {
       </div>
       <p className="mt-2 text-[12px] text-stone-500">{t('Écris son nom dans un titre («\u00a0{example}\u00a0»)\u00a0: elle est choisie toute seule.', { example: words.categoryHint })}</p>
 
-      <div className="mt-5 flex justify-end">
+      <div className="mt-6 flex justify-end">
         <button className="btn-primary" onClick={onClose}>
           {t('Terminé')}
         </button>

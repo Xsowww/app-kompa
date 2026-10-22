@@ -88,7 +88,7 @@ export function Popover({ anchor, onClose, label, children, className }: { ancho
 }
 
 /** The button that looks like a field (same height, border and focus ring as `field`). */
-function FieldButton({ open, onOpen, icon, children, placeholder, className, label, invalid, buttonRef, disabled }: {
+function FieldButton({ open, onOpen, icon, children, placeholder, className, label, invalid, describedBy, buttonRef, disabled }: {
   open: boolean;
   onOpen: () => void;
   icon: ReactNode;
@@ -97,6 +97,8 @@ function FieldButton({ open, onOpen, icon, children, placeholder, className, lab
   className?: string;
   label: string;
   invalid?: boolean;
+  /** The id of the error (or hint) under the field. */
+  describedBy?: string;
   buttonRef: React.RefObject<HTMLButtonElement | null>;
   disabled?: boolean;
 }) {
@@ -108,8 +110,10 @@ function FieldButton({ open, onOpen, icon, children, placeholder, className, lab
       aria-label={label}
       aria-haspopup="dialog"
       aria-expanded={open}
+      aria-invalid={invalid || undefined}
+      aria-describedby={describedBy}
       onClick={onOpen}
-      className={cx('field flex items-center gap-2 text-left disabled:cursor-not-allowed disabled:opacity-50', open && 'border-focus ring-1 ring-focus', invalid && 'border-red-400', className)}
+      className={cx('field flex items-center gap-2 text-left disabled:cursor-not-allowed disabled:opacity-50', open && 'border-focus ring-1 ring-focus', className)}
     >
       <span className="shrink-0 text-stone-400" aria-hidden>{icon}</span>
       <span className={cx('min-w-0 flex-1 truncate', !children && 'text-stone-500')}>{children ?? placeholder}</span>
@@ -234,7 +238,7 @@ export function DatePopover({ anchor, value, onPick, onClose, min, max, label, c
 }
 
 /** A day (YYYY-MM-DD), chosen on a small calendar. */
-export function DateField({ value, onChange, min, max, label, placeholder = t('Choisir un jour'), className, clearable, invalid, disabled }: {
+export function DateField({ value, onChange, min, max, label, placeholder = t('Choisir un jour'), className, clearable, invalid, describedBy, disabled }: {
   value: string;
   onChange: (key: string) => void;
   min?: string;
@@ -244,6 +248,7 @@ export function DateField({ value, onChange, min, max, label, placeholder = t('C
   className?: string;
   clearable?: boolean;
   invalid?: boolean;
+  describedBy?: string;
   disabled?: boolean;
 }) {
   const btn = useRef<HTMLButtonElement>(null);
@@ -259,7 +264,7 @@ export function DateField({ value, onChange, min, max, label, placeholder = t('C
   const shown = validKey(value);
   return (
     <>
-      <FieldButton buttonRef={btn} open={open} onOpen={() => setOpen(o => !o)} icon={<CalendarDays size={15} />} placeholder={placeholder} className={className} label={shown ? t('{label} : {value}', { label, value: fmt(fromKey(shown), 'EEEE d MMMM yyyy') }) : label} invalid={invalid} disabled={disabled}>
+      <FieldButton buttonRef={btn} open={open} onOpen={() => setOpen(o => !o)} icon={<CalendarDays size={15} />} placeholder={placeholder} className={className} label={shown ? t('{label} : {value}', { label, value: fmt(fromKey(shown), 'EEEE d MMMM yyyy') }) : label} invalid={invalid} describedBy={describedBy} disabled={disabled}>
         {shown && <span className="inline-block first-letter:uppercase">{fmtDay(fromKey(shown), 'EEE d MMM')}</span>}
       </FieldButton>
       {anchor && <DatePopover anchor={anchor} value={value} min={min} max={max} label={label} clearable={clearable} onPick={pick} onClose={() => setOpen(false)} />}
@@ -369,7 +374,7 @@ function TimePanel({ value, onPick, clearable }: { value: string; onPick: (v: st
 }
 
 /** A time (HH:mm), typed (« 14h30 ») or picked from an hours / minutes list. */
-export function TimeField({ value, onChange, label, placeholder = t('Heure'), className, clearable, invalid, disabled }: {
+export function TimeField({ value, onChange, label, placeholder = t('Heure'), className, clearable, invalid, describedBy, disabled }: {
   value: string;
   onChange: (v: string) => void;
   label: string;
@@ -377,6 +382,7 @@ export function TimeField({ value, onChange, label, placeholder = t('Heure'), cl
   className?: string;
   clearable?: boolean;
   invalid?: boolean;
+  describedBy?: string;
   disabled?: boolean;
 }) {
   const btn = useRef<HTMLButtonElement>(null);
@@ -386,7 +392,7 @@ export function TimeField({ value, onChange, label, placeholder = t('Heure'), cl
   const setOpen = (v: boolean | ((o: boolean) => boolean)) => setAnchor(a => ((typeof v === 'function' ? v(!!a) : v) ? btn.current : null));
   return (
     <>
-      <FieldButton buttonRef={btn} open={open} onOpen={() => setOpen(o => !o)} icon={<Clock size={15} />} placeholder={placeholder} className={className} label={value ? t('{label} : {value}', { label, value }) : label} invalid={invalid} disabled={disabled}>
+      <FieldButton buttonRef={btn} open={open} onOpen={() => setOpen(o => !o)} icon={<Clock size={15} />} placeholder={placeholder} className={className} label={value ? t('{label} : {value}', { label, value }) : label} invalid={invalid} describedBy={describedBy} disabled={disabled}>
         {/* Shown as in the lists (« 14:30 »); typed as one likes (« 14h30 »). */}
         {value ? <span className="tabular">{value}</span> : undefined}
       </FieldButton>
@@ -450,7 +456,7 @@ export function SelectField<T extends string | number>({ value, options, onChang
         onClick={() => setOpen(o => !o)}
         className={cx(
           bare
-            ? 'inline-flex items-center gap-1.5 rounded-lg px-1.5 text-[12px] font-medium text-stone-500 transition-colors hover:text-ink'
+            ? 'hit inline-flex items-center gap-1.5 rounded-lg px-1.5 text-[12px] font-medium text-stone-500 transition-colors hover:text-ink'
             : cx('field flex items-center gap-2 text-left', open && 'border-focus ring-1 ring-focus'),
           'disabled:cursor-not-allowed disabled:opacity-50',
           className,

@@ -266,6 +266,11 @@ body {
 @utility field {
   @apply h-10 rounded-[14px] border border-stone-200 bg-surface px-3.5 text-[13.5px] text-ink outline-none transition placeholder:text-stone-500 focus:border-focus focus:ring-1 focus:ring-focus pointer-coarse:min-h-9;
 }
+/* A field with an error (aria-invalid, see components/Field): red border and ring. */
+.field[aria-invalid='true'] {
+  border-color: var(--color-red-600);
+  --tw-ring-color: var(--color-red-600);
+}
 /* A row of a long list (notes, tasks, files): the browser lays out and paints only the rows on screen.
    `auto` keeps the size measured once the row was shown, so scrolling doesn't jump. */
 @utility list-row {
@@ -301,17 +306,21 @@ body {
 @media (hover: none) {
   .touch-show { opacity: 1; }
 }
-/* Fingers: small buttons get an invisible margin that can be tapped (about 44 px in all;
-   .hit-sm adds 8 px around controls set close together, like colour dots).
+/* Fingers: small buttons get an invisible margin that can be tapped, up to 44 × 44 px in all
+   (a control 36 px high grows 4 px above and below, one already 44 px or more doesn't grow);
+   .hit-sm adds 8 px around controls set close together, like colour dots.
    In the base layer, so a position class the button already has (absolute…) still wins. */
 @layer base {
   @media (pointer: coarse) {
-    .icon-btn, .hit, .hit-sm { position: relative; }
+    .icon-btn, .hit, .hit-sm, .btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-danger, button.field { position: relative; }
   }
 }
 @media (pointer: coarse) {
-  .icon-btn::after, .hit::after, .hit-sm::after { content: ''; position: absolute; inset: -6px; }
-  .hit::after { inset: -13px; }
+  .icon-btn::after, .hit::after, .hit-sm::after, .btn::after, .btn-primary::after, .btn-secondary::after, .btn-ghost::after, .btn-danger::after, button.field::after {
+    content: '';
+    position: absolute;
+    inset: min(0px, calc(50% - 22px));
+  }
   .hit-sm::after { inset: -8px; }
   /* A checkbox has no ::after: the label around it gets the margin instead, without moving anything. */
   .check-hit { margin: -11px; padding: 11px; }

@@ -142,7 +142,7 @@ export default function WelcomePage() {
             <Question title={a.usage === 'etudes' ? t('Tu es en…') : a.usage === 'travail' ? t('Tu es…') : t('Aujourd’hui, tu es…')}>
               <div className="flex flex-wrap gap-2">
                 {words.levels.filter(Boolean).map(l => (
-                  <button key={l} type="button" onClick={() => set({ year: l })} className={cx('rounded-full border px-3.5 py-2 text-[13px]', a.year === l ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-stone-200 hover:bg-stone-50')}>
+                  <button key={l} type="button" onClick={() => set({ year: l })} className={cx('hit rounded-full border px-3.5 py-2 text-[13px]', a.year === l ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-stone-200 hover:bg-stone-50')}>
                     {l}
                   </button>
                 ))}
@@ -152,15 +152,18 @@ export default function WelcomePage() {
 
           {step === 2 && (
             <Question title={a.usage === 'etudes' ? t('Où étudies-tu\u00a0?') : a.usage === 'travail' ? t('Où travailles-tu\u00a0?') : t('Un peu plus sur toi')} hint={t('Facultatif.')}>
-              <label className="block text-[13px] font-medium">
-                {words.school}
-                <input className="field mt-1 h-10 w-full" value={a.school} placeholder={words.schoolHint} onChange={e => set({ school: e.target.value }, false)} onKeyDown={e => e.key === 'Enter' && go(3)} />
-              </label>
-              <label className="block text-[13px] font-medium">
-                {words.program}
-                <input className="field mt-1 h-10 w-full" value={a.program} placeholder={words.programHint} onChange={e => set({ program: e.target.value }, false)} onKeyDown={e => e.key === 'Enter' && go(3)} />
-              </label>
-              <button type="button" className="btn-primary mt-2 w-full" onClick={() => go(3)}>
+              <div className="space-y-4">
+                <label className="block text-[13px] font-medium">
+                  <span className="mb-1.5 block">{words.school}</span>
+                  <input className="field h-10 w-full" value={a.school} placeholder={words.schoolHint} onChange={e => set({ school: e.target.value }, false)} onKeyDown={e => e.key === 'Enter' && go(3)} />
+                </label>
+                <label className="block text-[13px] font-medium">
+                  <span className="mb-1.5 block">{words.program}</span>
+                  <input className="field h-10 w-full" value={a.program} placeholder={words.programHint} onChange={e => set({ program: e.target.value }, false)} onKeyDown={e => e.key === 'Enter' && go(3)} />
+                </label>
+              </div>
+              {/* 10 px from the list + 14 px: 24 px before the main button, as in every form. */}
+              <button type="button" className="btn-primary mt-3.5 w-full" onClick={() => go(3)}>
                 {a.school || a.program ? t('Continuer') : t('Passer')}
               </button>
             </Question>
@@ -177,7 +180,7 @@ export default function WelcomePage() {
                   </button>
                 );
               })}
-              <button type="button" className="btn-primary mt-2 w-full" onClick={() => go(4)}>
+              <button type="button" className="btn-primary mt-3.5 w-full" onClick={() => go(4)}>
                 {t('Continuer')}
               </button>
             </Question>
@@ -224,7 +227,7 @@ export default function WelcomePage() {
           )}
 
           {step === 0 && (
-            <button type="button" disabled={busy} onClick={() => void finish(a)} className="mt-3 w-full py-3 text-center text-[12px] text-stone-500 underline decoration-stone-300 underline-offset-2 hover:text-ink">
+            <button type="button" disabled={busy} onClick={() => void finish(a)} className="hit mt-3 w-full py-3 text-center text-[12px] text-stone-500 underline decoration-stone-300 underline-offset-2 hover:text-ink">
               {t('Passer le questionnaire')}
             </button>
           )}

@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { Check, FileText, Flag, Plus, Trash2 } from 'lucide-react';
 import { Modal } from '../../components/Overlays';
@@ -13,6 +13,7 @@ import { cx } from '../../lib/utils';
 import { NewCategory } from './CategoriesDialog';
 import ReminderPicker from '../../components/ReminderPicker';
 import { DateField, TimeField } from '../../components/Pickers';
+import { FieldError } from '../../components/Field';
 import { eventReminders, followMoments } from '../../lib/reminders';
 import { t } from '../../i18n';
 
@@ -54,9 +55,17 @@ export default function EventForm({ event, date, start: initialStart, end: initi
   const linked = event ? notes.filter(n => n.links?.some(l => l.kind === 'event' && l.id === event.id)) : [];
 
   const timeError = !!start && !!end && end <= start;
+  // The title is required: said when leaving it empty after typing, or at the submit (the focus goes back to it).
+  const [titleError, setTitleError] = useState('');
+  const titleRef = useRef<HTMLInputElement>(null);
+  const timeMsg = end && !start ? t('Indique le début, ou efface la fin.') : timeError ? t('La fin est avant le début.') : '';
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !day || (end && !start) || timeError) return;
+    if (!title.trim()) {
+      setTitleError(t('Donne un titre.'));
+      return titleRef.current?.focus();
+    }
+    if (!day || timeMsg) return;
     // An end without a start can't be sent: the start field is required then (see below).
     const data = { title: title.trim(), date: day, start: start || undefined, end: start && end ? end : undefined, category: effective, details: details.trim() || undefined, important: important || undefined, reminders: chosen, ...(shared && { people }) };
     if (event) update(event.id, data);
@@ -70,9 +79,21 @@ export default function EventForm({ event, date, start: initialStart, end: initi
     <Modal open onClose={onClose} width={460}>
       <form onSubmit={submit}>
         <h3 className="text-[15px] font-semibold">{event ? t('Modifier l’événement') : t('Nouvel événement')}</h3>
-        <input autoFocus value={title} onChange={e => setTitle(e.target.value)} aria-label={t('Titre de l’événement')} placeholder={t('Titre (ex. {example})', { example: words.titleExample })} className="field mt-4 h-10 w-full text-[14px]" />
+        <input
+          ref={titleRef}
+          autoFocus
+          value={title}
+          onChange={e => (setTitle(e.target.value), e.target.value.trim() && setTitleError(''))}
+          onBlur={() => title && !title.trim() && setTitleError(t('Donne un titre.'))}
+          aria-label={t('Titre de l’événement')}
+          aria-invalid={titleError ? true : undefined}
+          aria-describedby={titleError ? 'event-title-err' : undefined}
+          placeholder={t('Titre (ex. {example})', { example: words.titleExample })}
+          className="field mt-4 h-10 w-full text-[14px]"
+        />
+        <FieldError id="event-title-err">{titleError}</FieldError>
 
-        <p className="mb-2 mt-4 text-[12px] font-medium text-stone-600">{t('Catégorie')}</p>
+        <p className="mb-1.5 mt-4 text-[12px] font-medium text-stone-600">{t('Catégorie')}</p>
         <div className="flex flex-wrap gap-2">
           {allCategories(custom).map(k => {
             const c = catOf(k);
@@ -84,7 +105,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
                 onClick={() => setCategory(k)}
                 aria-pressed={active}
                 // The chosen one in its own colours, with a tick: seen at a glance (and not by colour alone).
-                className={cx('flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[13px] font-medium transition-colors pointer-coarse:h-9', active ? 'font-semibold' : 'border-stone-200 text-stone-500 hover:bg-stone-50')}
+                className={cx('hit flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[13px] font-medium transition-colors pointer-coarse:h-9', active ? 'font-semibold' : 'border-stone-200 text-stone-500 hover:bg-stone-50')}
                 style={active ? { borderColor: c.color, background: c.soft, color: c.text } : undefined}
               >
                 {active ? <Check size={13} strokeWidth={3} aria-hidden /> : <span className="h-2 w-2 rounded-full" style={{ background: c.color }} />}
@@ -96,7 +117,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
             type="button"
             onClick={() => setCreating(v => !v)}
             aria-expanded={creating}
-            className="flex h-8 items-center gap-1 rounded-md border border-dashed border-stone-300 px-2.5 text-[13px] pointer-coarse:h-9 text-stone-500 transition-colors hover:border-stone-400 hover:text-ink"
+            className="hit flex h-8 items-center gap-1 rounded-md border border-dashed border-stone-300 px-2.5 text-[13px] pointer-coarse:h-9 text-stone-500 transition-colors hover:border-stone-400 hover:text-ink"
           >
             <Plus size={14} /> {t('Nouvelle')}
           </button>
@@ -114,7 +135,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
         )}
 
         {/* At 320 px one field per line: « Sans heure » was cut in two columns. */}
-        <div className="mt-4 grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-3">
+        <div className="mt-4 grid grid-cols-1 gap-x-2 gap-y-4 min-[360px]:grid-cols-2 sm:grid-cols-3">
           <div className="min-[360px]:col-span-2 sm:col-span-1">
             <span className="mb-1.5 block text-[12px] font-medium text-stone-600">{t('Jour')}</span>
             <DateField
@@ -136,6 +157,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
               placeholder={t('Sans heure')}
               clearable
               invalid={!!end && !start}
+              describedBy={end && !start ? 'event-time-err' : undefined}
               onChange={v => {
                 // « 15 min avant » follows the new time, « La veille à 9h » stays at 9:00 (lib/reminders).
                 if (chosen && day && v !== start) setChosen(followMoments(chosen, { date: day, time: start || undefined }, { date: day, time: v || undefined }, v ? defaults : [0]));
@@ -146,12 +168,11 @@ export default function EventForm({ event, date, start: initialStart, end: initi
           </div>
           <div>
             <span className="mb-1.5 block text-[12px] font-medium text-stone-600">{t('Fin')}</span>
-            <TimeField value={end} onChange={setEnd} label={t('Heure de fin')} placeholder={t('Facultatif')} clearable invalid={timeError} className="w-full" />
+            <TimeField value={end} onChange={setEnd} label={t('Heure de fin')} placeholder={t('Facultatif')} clearable invalid={timeError} describedBy={timeError ? 'event-time-err' : undefined} className="w-full" />
           </div>
         </div>
-        {(timeError || (end && !start)) && (
-          <p className="mt-1.5 text-[12.5px] text-red-600">{end && !start ? t('Indique le début, ou efface la fin.') : t('La fin est avant le début.')}</p>
-        )}
+        {/* Said as soon as the times are chosen, under them. */}
+        <FieldError id="event-time-err">{timeMsg}</FieldError>
 
         {/* What makes it a « big day » for the home page and Kompaly, whatever its category. */}
         {!shared && <button
@@ -159,7 +180,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
           onClick={() => setImportant(v => !v)}
           aria-pressed={important}
           className={cx(
-            'mt-3 flex h-9 items-center gap-2 rounded-lg border px-3 text-[13px] font-medium transition-colors',
+            'hit mt-4 flex h-9 items-center gap-2 rounded-lg border px-3 text-[13px] font-medium transition-colors',
             important ? 'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300' : 'border-stone-200 text-stone-600 hover:bg-stone-50',
           )}
         >
@@ -173,7 +194,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
         )}
 
         {shared && shared.people.length > 1 && <PeoplePicker people={shared.people} value={people} onChange={setPeople} what={t('l’événement')} />}
-        <textarea value={details} onChange={e => setDetails(e.target.value)} placeholder={t('Notes ({example})', { example: words.notesExample })} aria-label={t('Notes')} rows={3} className="field mt-3 h-auto w-full resize-none py-2" />
+        <textarea value={details} onChange={e => setDetails(e.target.value)} placeholder={t('Notes ({example})', { example: words.notesExample })} aria-label={t('Notes')} rows={3} className="field mt-4 h-auto w-full resize-none py-2" />
 
         {linked.length > 0 && (
           <div className="mt-4">
@@ -181,7 +202,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
             <ul className="-mx-1.5">
               {linked.map(n => (
                 <li key={n.id}>
-                  <Link to={`/notes?note=${n.id}`} className="flex h-8 items-center gap-2 rounded-md px-1.5 text-[13px] text-stone-700 transition-colors hover:bg-stone-50 hover:text-ink">
+                  <Link to={`/notes?note=${n.id}`} className="flex h-8 items-center pointer-coarse:h-11 gap-2 rounded-md px-1.5 text-[13px] text-stone-700 transition-colors hover:bg-stone-50 hover:text-ink">
                     <FileText size={14} className="shrink-0 text-stone-400" />
                     <span className="truncate">{n.title || t('Sans titre')}</span>
                   </Link>
@@ -191,7 +212,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
           </div>
         )}
 
-        <div className="mt-5 flex items-center gap-2">
+        <div className="mt-6 flex items-center gap-2">
           {event && (
             <button
               type="button"
@@ -208,7 +229,8 @@ export default function EventForm({ event, date, start: initialStart, end: initi
           <button type="button" className="btn-secondary ml-auto" onClick={onClose}>
             {t('Annuler')}
           </button>
-          <button type="submit" className="btn-primary" disabled={!title.trim() || (!!end && !start) || timeError}>
+          {/* Not disabled for an empty title: the submit says what is missing, under the field. */}
+          <button type="submit" className="btn-primary" disabled={!!timeMsg}>
             {event ? t('Enregistrer||sauver') : t('Ajouter')}
           </button>
         </div>
