@@ -262,7 +262,7 @@ export default function LandingPage() {
 
       <main>
         {/* Hero */}
-        <section className="mx-auto grid max-w-[1120px] items-center gap-14 px-5 pb-24 pt-10 md:px-8 md:pt-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,520px)]">
+        <section className="mx-auto grid max-w-[1120px] items-center gap-14 px-5 pb-24 pt-10 md:px-8 md:pt-16 grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_minmax(0,520px)]">
           <div>
             <h1 className="max-w-[13ch] text-[42px] font-extrabold leading-[1.0] tracking-[-0.03em] md:text-[60px]">{t('Ton agenda, tes notes et tes fichiers, enfin au même endroit.')}</h1>
             <p className="mt-6 max-w-[46ch] text-[16.5px] leading-relaxed text-stone-600">
