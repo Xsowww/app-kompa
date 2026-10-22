@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useToday } from '../lib/useToday';
 import { Link, useNavigate } from 'react-router-dom';
 import { addDays } from 'date-fns';
-import { ArrowUpRight, CalendarDays, Check, Flag, Mic, NotebookPen, Plus } from 'lucide-react';
+import { ArrowUpRight, Check, Flag, NotebookPen } from 'lucide-react';
 import { EmptyState } from '../components/EmptyState';
 import { useAuth } from '../store/auth';
 import { useNotes } from '../store/notes';
@@ -15,7 +15,6 @@ import { toast } from '../store/ui';
 import TodoList from './tasks/TodoList';
 import { useSettings } from '../store/settings';
 import { WORDS } from '../lib/usage';
-import { startTitleBuffer } from './notes/titleBuffer';
 import { periodColor, periodText, periodTint, periodUntil, periodsOn } from '../lib/periods';
 import WeekProgress from './WeekProgress';
 import { t, tn } from '../i18n';
@@ -62,8 +61,6 @@ function EventRow({ e, showDay, muted }: { e: CalendarEvent; showDay?: boolean; 
     </li>
   );
 }
-
-const preloadNotes = () => void import('./notes/NotesPage');
 
 export default function Dashboard() {
   const words = WORDS[useSettings(st => st.usage)] ?? WORDS.etudes;
@@ -157,27 +154,6 @@ export default function Dashboard() {
                 ))}
               </div>
             )}
-          </div>
-          {/* Together: when the title is long, both shortcuts go to the next line, not just one (at 320 px « Enregistrer » wraps alone). */}
-          <div className="flex flex-wrap gap-2">
-            {/* The page takes ~0.5 s to show up: what is typed meanwhile is kept and lands in the new note's title. */}
-            <button
-              onPointerEnter={preloadNotes}
-              onFocus={preloadNotes}
-              onClick={() => {
-                startTitleBuffer();
-                navigate('/notes?nouvelle=1');
-              }}
-              className="btn-ghost h-8 px-2.5 text-[13px]"
-            >
-              <Plus size={15} /> {t('Note')}
-            </button>
-            <button onClick={() => navigate('/calendrier?ajout=1')} className="btn-ghost h-8 px-2.5 text-[13px]">
-              <CalendarDays size={15} /> {t('Événement')}
-            </button>
-            <button onClick={() => navigate('/enregistrer')} className="btn-ghost h-8 px-2.5 text-[13px]">
-              <Mic size={15} /> {t('Enregistrer')}
-            </button>
           </div>
         </div>
 
@@ -296,7 +272,7 @@ export default function Dashboard() {
 
           {/* Today: left out when there is nothing at all (the blue tile already says « Rien de prévu »). */}
           {(todayEvents.length > 0 || nextEvents.length > 0) && (
-          <Widget title={t('Aujourd’hui')} to={linkToDay(today)} linkLabel={t('Ouvrir la journée dans le calendrier')} className="lg:col-start-1 lg:row-start-2">
+          <Widget title={t('Aujourd’hui')} className="lg:col-start-1 lg:row-start-2">
             {todayEvents.length > 0 && (
               <ul className="-mx-1.5">
                 {todayEvents.map(e => (
@@ -323,7 +299,7 @@ export default function Dashboard() {
           </Widget>
 
           {/* Week: a ring that fills as the week's tasks get ticked */}
-          <Widget title={t('Ma semaine')} to="/taches" linkLabel={t('Ouvrir les tâches')} className="lg:col-start-2 lg:row-start-3">
+          <Widget title={t('Ma semaine')} className="lg:col-start-2 lg:row-start-3">
             <WeekProgress from={weekDays[0]} to={weekDays[6]} />
           </Widget>
 

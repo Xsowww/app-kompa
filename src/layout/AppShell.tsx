@@ -39,7 +39,7 @@ const NAV = [
   { to: '/taches', label: t('Tâches'), icon: ListChecks, color: '#2f9e6b' },
   { to: '/notes', label: t('Notes'), icon: NotebookText, color: SPACE_COLORS.notes },
   { to: '/drive', label: t('Drive'), icon: FolderClosed, color: SPACE_COLORS.drive },
-  // Phones: from the home page (the tab bar is full).
+  // Phones: the microphone in the header (the tab bar is full).
   { to: '/enregistrer', label: t('Enregistrer'), icon: Mic, color: '#e5484d', phone: false },
   // `section`: a small title above this entry in the sidebar (what is shared with others comes after).
   { to: '/groupes', label: t('Groupes'), icon: Users, color: '#1f8a8a', section: t('Espaces partagés') },
@@ -431,6 +431,9 @@ export default function AppShell() {
               )}
             </NavLink>
           )}
+          <NavLink to="/enregistrer" className="icon-btn lg:hidden" title={t('Enregistrer')} aria-label={t('Enregistrer un cours ou une réunion')}>
+            <Mic size={18} strokeWidth={1.9} />
+          </NavLink>
           <NavLink to="/corbeille" className="icon-btn relative lg:hidden" title={t('Corbeille')} aria-label={trashLabel}>
             <Trash2 size={18} strokeWidth={1.9} />
             {trashCount > 0 && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-brand-500 ring-2 ring-paper" aria-hidden />}

@@ -57,13 +57,13 @@ const STEPS: Step[] = [
       touch ? t('Ajoute tes fichiers avec le bouton d’import. La recherche fouille même le texte de tes PDF.') : t('Glisse tes fichiers dans la page. La recherche fouille même le texte de tes PDF.'),
   },
   {
-    // Phones: not in the tab bar (reached from the home page), the card is then in the middle.
-    target: nav('/enregistrer'),
+    // Phones: not in the tab bar, the microphone of the header instead.
+    target: `${nav('/enregistrer')}, header a[href="/enregistrer"]`,
     title: t('Enregistrer'),
     text: (u, touch) => {
       const w = usageWords(u).recording;
       return touch
-        ? t('Avec le bouton «\u00a0Enregistrer\u00a0» de l’accueil, enregistre {a}\u00a0: Kompaly écrit tout, te prévient des mots-clés et range {doc} dans ton Drive.', { a: w.a, doc: w.doc })
+        ? t('Avec le micro en haut de l’écran, enregistre {a}\u00a0: Kompaly écrit tout, te prévient des mots-clés et range {doc} dans ton Drive.', { a: w.a, doc: w.doc })
         : t('Enregistre {a} au micro ou avec le son de l’ordinateur\u00a0: Kompaly écrit tout, te prévient des mots-clés et range {doc} dans ton Drive.', { a: w.a, doc: w.doc });
     },
   },
