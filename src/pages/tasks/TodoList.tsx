@@ -1,7 +1,7 @@
 import { useToday } from '../../lib/useToday';
 import { memo, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Bell, BellRing, CalendarPlus, Check, ChevronRight, ListTodo, Pencil, Plus, Trash2 } from 'lucide-react';
+import { BellRing, CalendarPlus, Check, ListTodo, Pencil, Plus, Trash2 } from 'lucide-react';
 import { EmptyState } from '../../components/EmptyState';
 import { useTodos, type Todo } from '../../store/todos';
 import { countdownLabel, daysUntil, fmt, fmtDay, fromKey, parseQuickAdd, todayKey } from '../../lib/dates';
@@ -11,7 +11,7 @@ import { useProgressive } from '../../lib/useProgressive';
 import { confirmAction, toast } from '../../store/ui';
 import TaskDialog from './TaskDialog';
 import { DatePopover } from '../../components/Pickers';
-import { t, tn } from '../../i18n';
+import { t } from '../../i18n';
 
 const OVERDUE = 'var(--cat-examen-text)';
 
@@ -209,19 +209,16 @@ const TodoRow = memo(function TodoRow({ t: todo, editable, preview, now = 0, gro
           <Pencil size={13} />
         </button>
       )}
-      {canEdit && !isTourTodo(todo.title) && (
+      {/* The bell only when a reminder is set (it says so): to add one, the pencil opens the same dialog. */}
+      {canEdit && hasReminder && !isTourTodo(todo.title) && (
         <button
           type="button"
           onClick={() => setOpenDialog('remind')}
-          className={cx(
-            'hit flex shrink-0 items-center gap-1 rounded-md text-[11.5px]',
-            // On a phone the empty bell, empty date and bin make way for the title: the pencil does all three.
-            hasReminder ? 'px-1 py-0.5 font-medium text-brand-600 hover:bg-stone-100' : 'icon-btn touch-show h-9 w-9 opacity-0 max-sm:hidden sm:h-6 sm:w-6 group-hover:opacity-100 focus-visible:opacity-100',
-          )}
-          title={hasReminder ? t('Changer le rappel') : t('Me le rappeler')}
-          aria-label={hasReminder ? t('Changer le rappel de «\u00a0{title}\u00a0»', { title: todo.title }) : t('Me rappeler «\u00a0{title}\u00a0»', { title: todo.title })}
+          className="hit flex shrink-0 items-center gap-1 rounded-md px-1 py-0.5 text-[11.5px] font-medium text-brand-600 hover:bg-stone-100"
+          title={t('Changer le rappel')}
+          aria-label={t('Changer le rappel de «\u00a0{title}\u00a0»', { title: todo.title })}
         >
-          {hasReminder ? <BellRing size={13} /> : <Bell size={13} />}
+          <BellRing size={13} />
         </button>
       )}
       {openDialog && (
@@ -429,11 +426,6 @@ export default function TodoList({ limit, grouped }: { limit?: number; grouped?:
               </ul>
             </div>
           ))}
-          {limit && open.length > openShown.length && (
-            <Link to="/taches" className="mt-1 inline-flex items-center gap-0.5 px-0.5 text-[12px] text-stone-500 hover:text-ink pointer-coarse:min-h-9">
-              {tn(open.length - openShown.length, '{n} autre', '{n} autres')} <ChevronRight size={13} />
-            </Link>
-          )}
         </div>
       )}
       {preview && (

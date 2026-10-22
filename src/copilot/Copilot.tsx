@@ -369,7 +369,7 @@ export default function Copilot() {
     void send(input);
   };
 
-  // Drag the character along the edge; a click without movement opens/closes him.
+  // Drag the character along the edge; a click without movement opens the chat (he is hidden while it is open: its ✕ closes).
   const onPointerDown = (e: React.PointerEvent) => {
     drag.current = { startY: e.clientY, moved: false };
     (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
@@ -382,10 +382,7 @@ export default function Copilot() {
   const onPointerUp = () => {
     const d = drag.current;
     drag.current = null;
-    if (d && !d.moved) {
-      if (pose === 'open') setPose('hidden');
-      else open();
-    }
+    if (d && !d.moved) open();
   };
 
   if (!visible) return null;
@@ -531,13 +528,13 @@ export default function Copilot() {
         {/* The character */}
         {/* Only the drawn shapes take clicks (Character): the empty corners of its
             box sit over page buttons near the right edge. */}
-        {/* Phones: a bit smaller and, hidden, a little further out (only in the page margin, not over the cards);
-            open, the panel takes his place (his hands stuck out over its edge). */}
+        {/* Phones: a bit smaller and, hidden, a little further out (only in the page margin, not over the cards).
+            Open, he is hidden on every screen (the panel's ✕ closes it; the focus comes back to him then). */}
         <div
           className={cx(
             'relative origin-right cursor-pointer touch-none transition-[translate] duration-300 max-sm:scale-[0.8]',
             pose === 'hidden' && 'max-sm:translate-x-1.5',
-            isOpen && 'max-sm:invisible',
+            isOpen && 'invisible',
           )}
           style={{ clipPath: 'inset(-80px 0 -80px -80px)' }}
           onPointerDown={onPointerDown}
@@ -545,18 +542,17 @@ export default function Copilot() {
           onPointerUp={onPointerUp}
           onMouseEnter={() => pose === 'hidden' && setPose('peek')}
           onMouseLeave={() => pose === 'peek' && !bubble && setPose('hidden')}
-          title={isOpen ? t('Fermer') : t('Parler à Kompaly')}
+          title={t('Parler à Kompaly')}
           ref={charRef}
           role="button"
           tabIndex={0}
-          aria-label={isOpen ? t('Fermer Kompaly') : t('Parler à Kompaly')}
+          aria-label={t('Parler à Kompaly')}
           aria-expanded={isOpen}
           aria-controls="copilot-panel"
           onKeyDown={e => {
             if (e.key !== 'Enter' && e.key !== ' ') return;
             e.preventDefault();
-            if (isOpen) setPose('hidden');
-            else open();
+            open();
           }}
         >
           <WatchingCharacter offsetY={offsetY} pose={pose} blink={blink} mood={mood} size={104} />

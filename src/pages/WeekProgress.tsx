@@ -1,14 +1,13 @@
-import { Link } from 'react-router-dom';
-import { ArrowRight, Check } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { useTodos } from '../store/todos';
 import { cheer, weekItems } from '../lib/weekProgress';
 import { cx } from '../lib/utils';
-import { t, tn } from '../i18n';
+import { tn } from '../i18n';
 
 /** The ring of the week: how much of what was planned is done, filling up as things get ticked. */
 export default function WeekProgress({ from, to }: { from: string; to: string }) {
   const todos = useTodos(s => s.todos);
-  const { total, done, left } = weekItems(todos, from, to);
+  const { total, done } = weekItems(todos, from, to);
   const ratio = total ? done / total : 0;
   const full = total > 0 && done === total;
   const R = 46;
@@ -58,15 +57,6 @@ export default function WeekProgress({ from, to }: { from: string; to: string })
         <span className={cx('block text-[13px] font-semibold leading-snug', done > 0 && 'mt-2.5', full ? 'text-emerald-700 dark:text-emerald-400' : 'text-ink')}>{cheer(done, total)}</span>
       </span>
     </div>
-    {/* The tasks left are listed in « À faire » next to it: just the way to the next one. */}
-    {left.length > 0 && (
-      <div className="mt-auto pt-4">
-        {/* One left: straight to it. Several: the next one (the list shows them all from there). */}
-        <Link to={`/taches?tache=${left[0].id}`} className="btn-secondary h-9 w-full">
-          {left.length === 1 ? t('Aller à ma tâche') : left.length > 3 ? t('Voir les {n} qui restent', { n: left.length }) : t('Aller à mes tâches')} <ArrowRight size={15} />
-        </Link>
-      </div>
-    )}
     </div>
   );
 }
