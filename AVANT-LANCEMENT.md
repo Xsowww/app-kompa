@@ -70,3 +70,7 @@ Ensuite : le document de lancement (hébergement, domaine, stores, légal).
 - [ ] (avant l'ouverture au public) Vérifier le nom « Kompaly » : marque sur data.inpi.fr et nom de domaine (kompaly.app, getkompa.fr…)
 - [ ] Supabase › Authentication › Emails : remplacer « COP-PILOT » par « Kompaly » dans les e-mails (confirmation, mot de passe)
 - [ ] (avant l'ouverture au public) « Enregistrer » : vérifier la clé de transcription (`TRANSCRIBE_API_KEY`, ou la clé Groq de l'IA), les limites `TRANSCRIBE_DAILY_MINUTES` / `TRANSCRIBE_SITE_MINUTES` (Groq gratuit : environ 8 h de son par jour pour tout le site) et que la « zéro conservation » de Groq couvre aussi l'audio (promis dans la page confidentialité)
+
+## Plus tard (idées validées)
+- [ ] Connexion par Face ID / empreinte digitale sur les appareils qui le permettent (clés d'accès « passkeys », WebAuthn)
+- [ ] Indicateur d'import de fichiers (Drive, groupes, autres espaces) : montrer que l'envoi est en cours et qu'il avance
