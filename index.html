@@ -6,8 +6,24 @@
     <meta name="theme-color" content="#ECEEF3" />
     <script src="/theme.js"></script>
     <style>
+      html { background: #eceef3; }
       html[data-theme='dark'] { background: #0c0d12; color-scheme: dark; }
+      /* Startup screen: shown from the first paint, before any script; the app removes it once a page is ready
+         (App.tsx › Loading draws the same one later). Plain CSS here: index.css isn't there yet in development. */
+      .boot { position: fixed; inset: 0; z-index: 90; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: #eceef3; color: #14161f; font: 600 17px/20px ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif; letter-spacing: -0.035em; -webkit-font-smoothing: antialiased; }
+      .boot svg { display: block; overflow: visible; }
+      .boot-tile { fill: #14161f; }
+      .boot-me { fill: #eceef3; }
+      .boot-friend { fill: #3d63dd; animation: boot-friend 1.8s ease-in-out infinite; }
+      [data-theme='dark'] .boot { background: #0c0d12; color: #f1f2f6; }
+      [data-theme='dark'] .boot-tile { fill: #f1f2f6; }
+      [data-theme='dark'] .boot-me { fill: #0c0d12; }
+      /* The small dot (the friend) leans towards the big one (you), and back. */
+      @keyframes boot-friend { 50% { transform: translate(-1.25px, 1.25px); } }
+      @media (prefers-reduced-motion: reduce) { .boot-friend { animation: none; } }
+      .reduce-motion .boot-friend { animation: none; }
     </style>
+    <noscript><style>.boot { display: none; }</style></noscript>
     <title>Kompaly · Agenda, notes, fichiers et tâches au même endroit</title>
     <meta name="description" content="Kompaly réunit ton agenda, tes tâches, tes notes et tes fichiers dans une seule appli gratuite, pour les études, le travail ou la vie perso." />
     <meta property="og:title" content="Kompaly" />
@@ -62,6 +78,10 @@
     <meta name="mobile-web-app-capable" content="yes" />
   </head>
   <body>
+    <div id="boot" class="boot" role="status" aria-label="Chargement">
+      <svg viewBox="0 0 32 32" width="56" height="56" aria-hidden="true"><rect class="boot-tile" width="32" height="32" rx="8" /><circle class="boot-me" cx="13.5" cy="16.5" r="5.5" /><circle class="boot-friend" cx="22" cy="12.5" r="2.75" /></svg>
+      <span>kompaly</span>
+    </div>
     <div id="root"></div>
     <!-- For the rare robots and browsers without JavaScript: what Kompaly is, and where to go. -->
     <noscript>

@@ -22,7 +22,11 @@ import { isSessionTitle } from './revisionPlan';
 import { t, tn } from '../i18n';
 
 /** minimum delay between two spontaneous remarks, depending on the student's preference */
-const MIN_GAP = { calme: 5 * 60_000, normal: 75_000, bavard: 30_000 };
+const MIN_GAP = { calme: 20 * 60_000, normal: 5 * 60_000, bavard: 2 * 60_000 };
+/** At most this many remarks a day (the greeting, the morning brief and answers to what was just done still come). */
+export const DAILY_CAP = { calme: 3, normal: 6, bavard: 10 };
+/** Nothing unasked for at night (22:00 – 7:00). */
+const quiet = (now: Date) => now.getHours() >= 22 || now.getHours() < 7;
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
 const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
@@ -42,7 +46,13 @@ interface Nudge {
   kind?: NudgeKind; // 'brief' and 'review' are longer, several lines
 }
 
-function canSpeak(n: Nudge) {
+/** Remarks made today (the memory keeps the last time of each). */
+export const saidToday = (memory: Record<string, number>, now = new Date()) => {
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  return Object.values(memory).filter(at => at >= start && at <= now.getTime()).length;
+};
+
+function canSpeak(n: Nudge, now = new Date()) {
   const s = useCopilot.getState();
   const settings = getSettings();
   if (s.thinking || !settings.copilotVisible) return false;
@@ -52,8 +62,9 @@ function canSpeak(n: Nudge) {
   if (!allowed) return false;
   const last = s.memory[n.key];
   if (last && Date.now() - last < n.every) return false;
-  if (!n.urgent && Date.now() - lastNudge < MIN_GAP[settings.chattiness]) return false;
-  return true;
+  if (n.urgent) return true;
+  if (quiet(now) || saidToday(s.memory, now) >= DAILY_CAP[settings.chattiness]) return false;
+  return now.getTime() - lastNudge >= MIN_GAP[settings.chattiness];
 }
 
 async function nudge(n: Nudge) {
@@ -69,7 +80,8 @@ async function nudge(n: Nudge) {
       if (ai) text = ai;
     }
     useCopilot.getState().say({ text, offers: n.offers, links: n.links, mood: n.mood ?? (n.offers ? 'alert' : 'happy'), brief: n.kind === 'brief' || undefined });
-    notify('Kompaly', n.kind ? text.split('\n')[0] : text);
+    // Out of the app (another tab): only a suggestion to act on, never a greeting, a bravo or a summary.
+    if (getSettings().copilotNotify && n.offers?.length && !n.kind) notify('Kompaly', text.length > 160 ? `${text.slice(0, 159)}…` : text);
   } finally {
     busy = false;
   }
@@ -268,7 +280,7 @@ export function periodicNudges(now = new Date()): Nudge[] {
 }
 
 /** The remark the periodic look makes now: the first of the list Kompaly may make (tested in tests/proactive.test.ts). */
-export const nextNudge = (now = new Date()) => periodicNudges(now).find(canSpeak);
+export const nextNudge = (now = new Date()) => periodicNudges(now).find(n => canSpeak(n, now));
 
 function periodicCheck() {
   if (weeklyReview()) return;

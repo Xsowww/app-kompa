@@ -5,12 +5,18 @@ import { addDays, format } from 'date-fns';
 const memory = new Map<string, string>();
 const storage = { getItem: (k: string) => memory.get(k) ?? null, setItem: (k: string, v: string) => memory.set(k, v), removeItem: (k: string) => memory.delete(k) };
 Object.assign(globalThis, { location: new URL('http://localhost/'), localStorage: storage, sessionStorage: storage });
-const { nextNudge } = await import('../src/copilot/proactive');
+const { nextNudge, saidToday, DAILY_CAP } = await import('../src/copilot/proactive');
 const { useCalendar } = await import('../src/store/calendar');
 const { useCopilot } = await import('../src/store/copilot');
 const { useSettings } = await import('../src/store/settings');
 
 const day = (n: number) => format(addDays(new Date(), n), 'yyyy-MM-dd');
+/** In the day (Kompaly is quiet at night): the tests don't depend on when they run. */
+const noon = () => {
+  const d = new Date();
+  d.setHours(12, 0, 0, 0);
+  return d;
+};
 const ev = (id: string, title: string, date: string, category: 'examen' | 'devoir') => ({ id, title, date, category, done: false, createdAt: '2026-10-01T00:00:00Z' });
 
 beforeEach(() => {
@@ -21,10 +27,10 @@ beforeEach(() => {
 describe('periodic remarks', () => {
   it('a remark already made today does not hold back the next ones', () => {
     useCalendar.setState({ events: [ev('exam', 'Partiel de droit', day(4), 'examen'), ev('dm', 'Rendre DM', day(-1), 'devoir')] });
-    expect(nextNudge()?.key).toBe('exam-soon:exam');
+    expect(nextNudge(noon())?.key).toBe('exam-soon:exam');
     // The exam remark was made (and the bubble closed): the late homework comes next.
     useCopilot.setState({ memory: { 'exam-soon:exam': Date.now() } });
-    const next = nextNudge();
+    const next = nextNudge(noon());
     expect(next?.key).toBe(`late:${day(0)}`);
     expect(next?.fallback).toContain('Rendre DM');
   });
@@ -41,7 +47,25 @@ describe('periodic remarks', () => {
   it('says nothing when everything has already been said', () => {
     useCalendar.setState({ events: [ev('exam', 'Partiel de droit', day(4), 'examen')] });
     useCopilot.setState({ memory: { 'exam-soon:exam': Date.now() } });
-    expect(nextNudge()).toBeUndefined();
+    expect(nextNudge(noon())).toBeUndefined();
+  });
+
+  it('stays quiet at night and after its remarks of the day', () => {
+    useCalendar.setState({ events: [ev('exam', 'Partiel de droit', day(4), 'examen')] });
+    const night = noon();
+    night.setHours(23, 15);
+    expect(nextNudge(night)).toBeUndefined();
+    const morning = noon();
+    morning.setHours(7, 30);
+    expect(nextNudge(morning)?.key).toBe('exam-soon:exam');
+    // Six remarks already made today in « Normal »: nothing more until tomorrow.
+    const earlier = noon().getTime() - 3_600_000;
+    const memory = Object.fromEntries(Array.from({ length: DAILY_CAP.normal }, (_, i) => [`autre:${i}`, earlier]));
+    useCopilot.setState({ memory });
+    expect(saidToday(memory, noon())).toBe(DAILY_CAP.normal);
+    expect(nextNudge(noon())).toBeUndefined();
+    // Yesterday's don't count.
+    expect(saidToday({ a: earlier - 86_400_000 }, noon())).toBe(0);
   });
 });
 

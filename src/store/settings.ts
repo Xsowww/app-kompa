@@ -59,6 +59,8 @@ export interface Settings {
   /** Reminders given to a new event that has a time (minutes before); [] = none. */
   defaultReminders: number[];
   focusSound: boolean;
+  groupNews: boolean; // what the others do in my groups and shared calendars (also read by server/push.mjs)
+  copilotNotify: boolean; // Kompaly's suggestions as a notification while the app is in the background
   // motivation
   badgesSeen: string[]; // badges already announced
   badgeAnnouncements: boolean; // Kompaly announces newly earned badges
@@ -100,6 +102,8 @@ export const DEFAULT_SETTINGS: Settings = {
   focusTotalMinutes: 0,
   defaultReminders: [15],
   focusSound: true,
+  groupNews: true,
+  copilotNotify: true,
   badgesSeen: [],
   badgeAnnouncements: false,
   groupsSeen: {},

@@ -14,6 +14,7 @@
 import { createECDH, hkdfSync } from 'node:crypto';
 import webpush from 'web-push';
 import { ipOf } from './copilot.mjs';
+import { familyOf, isGroupNews, mergeNotifications } from '../src/lib/notifyGroups.mjs';
 
 const SUPABASE = (() => {
   try {
@@ -109,9 +110,37 @@ export async function pushToUser(userId, payload, except = '') {
 /** lastCode: the HTTP status of the last failure (or 'réseau'), shown by /api/sante — never the message itself. */
 export const pushStatus = { active: false, lastRun: null, lastError: null, lastCode: null, lastHint: null, sent: 0 };
 
+/** The people who turned off the news of their groups and shared calendars (Profil › Notifications). */
+async function newsOff(rows) {
+  const ids = [...new Set(rows.filter(r => isGroupNews(r.key)).map(r => r.user_id))];
+  if (!ids.length) return new Set();
+  const list = await rest(`/rest/v1/profiles?select=id,news:settings->>groupNews&id=in.(${ids.join(',')})`).catch(() => []);
+  return new Set((list ?? []).filter(p => p.news === 'false').map(p => p.id));
+}
+
+/**
+ * Due together for one person (same 30 s turn), of the same kind and by the same person: one notification
+ * (« Réunion +2 », « Léo a ajouté un événement ×5 ») instead of a pile (src/lib/notifyGroups.mjs).
+ */
+function grouped(rows) {
+  const groups = new Map();
+  for (const r of rows) {
+    const k = `${r.user_id}|${r.actor ?? ''}|${familyOf(r.key)}`;
+    groups.set(k, [...(groups.get(k) ?? []), r]);
+  }
+  return [...groups.values()].map(list => {
+    list.sort((a, b) => Date.parse(a.fire_at) - Date.parse(b.fire_at));
+    const m = mergeNotifications(list.map(r => ({ key: r.key, title: r.title, body: r.body ?? '', url: r.url })));
+    return { ...list[0], title: m.title, body: m.body, keys: m.keys };
+  });
+}
+
 async function deliverDue() {
-  const due = await rest('/rest/v1/rpc/claim_due_reminders', { method: 'POST', body: '{}' });
-  if (!Array.isArray(due) || !due.length) return;
+  const claimed = await rest('/rest/v1/rpc/claim_due_reminders', { method: 'POST', body: '{}' });
+  if (!Array.isArray(claimed) || !claimed.length) return;
+  const off = await newsOff(claimed);
+  const due = grouped(claimed.filter(r => !(off.has(r.user_id) && isGroupNews(r.key))));
+  if (!due.length) return;
   // The people who made the changes too: their own phone (another account on it) isn't told of what they just did.
   const users = [...new Set(due.flatMap(r => [r.user_id, r.actor].filter(Boolean)))];
   const subs = await rest(`/rest/v1/push_subscriptions?select=user_id,endpoint,p256dh,auth&user_id=in.(${users.join(',')})`);
@@ -123,7 +152,7 @@ async function deliverDue() {
     due.map(async r => {
       // Late (server restarted…): kept useful for 30 min at most, the time the reminder still makes sense.
       const ttl = Math.max(60, 1800 - Math.round((Date.now() - Date.parse(r.fire_at)) / 1000));
-      const payload = { title: r.title, body: r.body, url: r.url, tag: r.key, user: r.user_id };
+      const payload = { title: r.title, body: r.body, url: r.url, tag: r.key, user: r.user_id, ...(r.keys.length > 1 && { keys: r.keys }) };
       const actorDevices = r.actor ? endpointsOf(r.actor) : new Set();
       for (const s of byUser.get(r.user_id) ?? []) {
         if (actorDevices.has(s.endpoint)) continue;

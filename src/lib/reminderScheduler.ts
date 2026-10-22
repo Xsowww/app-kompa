@@ -7,7 +7,8 @@
 //   and the app's own timer, a little later, sees it is done.
 // - Shared calendars: the database prepares their reminders for each member (migration 2026-10-27); the app
 //   reads the next day's ones (RPC my_shared_reminders) and times them the same way.
-// Every reminder has a key (lib/reminders): shown once, whichever way it came.
+// Every reminder has a key (lib/reminders): shown once, whichever way it came. Several due at the same moment
+// (a morning's tasks at 9:00): one notification for all (lib/notifyGroups, as the server does).
 
 import { eventReminders, upcomingReminders, type DueReminder, type ReminderSource } from './reminders';
 import { useCalendar } from '../store/calendar';
@@ -22,6 +23,7 @@ import { useAgendaNews, viewingAgenda } from '../store/agendaNews';
 import { useAuth } from '../store/auth';
 import { useGroups } from '../store/groups';
 import { savedAccount, savedAccounts } from './accounts';
+import { groupByMoment, mergeNotifications } from './notifyGroups.mjs';
 import { t } from '../i18n';
 
 /** Push on this device: the server's notification comes first; the app shows it only if it didn't come. */
@@ -84,9 +86,11 @@ function showInApp(r: { key: string; title: string; body: string; url: string })
   if (getSettings().focusSound) chime();
 }
 
-function fire(r: DueReminder) {
-  if (wasShown(r.key) || Date.now() - r.fireAt.getTime() > TOO_LATE) return;
-  markShown(r.key);
+function fire(group: DueReminder[]) {
+  const due = group.filter(x => !wasShown(x.key) && Date.now() - x.fireAt.getTime() <= TOO_LATE);
+  if (!due.length) return;
+  due.forEach(x => markShown(x.key));
+  const r = mergeNotifications(due);
   if (document.visibilityState === 'visible' || !canNotify()) showInApp(r);
   else {
     // Same last line as the server's notifications when this device holds several accounts (public/sw.js).
@@ -132,14 +136,12 @@ function plan() {
   const now = Date.now();
   const list = upcomingReminders(sources(), new Date(now));
   void sendToServer(list).catch(() => undefined); // offline: sent again at the next change or hour
-  for (const r of list) {
-    const wait = r.fireAt.getTime() - now + (push ? FALLBACK_DELAY : 0);
-    if (wait > LOCAL_HORIZON) break;
-    if (!wasShown(r.key)) timers.push(setTimeout(() => fire(r), Math.max(0, wait)));
-  }
-  for (const r of shared) {
-    const wait = r.fireAt.getTime() - now + (push ? FALLBACK_DELAY : 0);
-    if (wait <= LOCAL_HORIZON && !wasShown(r.key)) timers.push(setTimeout(() => fire(r), Math.max(0, wait)));
+  const delay = push ? FALLBACK_DELAY : 0;
+  const next = [...list, ...shared]
+    .filter(r => r.fireAt.getTime() - now + delay <= LOCAL_HORIZON && !wasShown(r.key))
+    .sort((a, b) => a.fireAt.getTime() - b.fireAt.getTime());
+  for (const group of groupByMoment(next)) {
+    timers.push(setTimeout(() => fire(group), Math.max(0, group[0].fireAt.getTime() - now + delay)));
   }
 }
 
@@ -155,6 +157,8 @@ interface PushedReminder {
   body?: string;
   url?: string;
   tag?: string;
+  /** Several reminders sent as one (server/push.mjs): all of them. */
+  keys?: string[];
   user?: string;
   test?: boolean;
 }
@@ -169,8 +173,9 @@ function onWorkerMessage(e: MessageEvent) {
   const reply = (v: 'shown' | 'no') => e.ports[0]?.postMessage(v);
   if (!userId || (r.user && r.user !== userId)) return reply('no'); // another account's reminder: the system shows it
   const key = r.tag || `push:${Date.now()}`;
-  const seen = !r.test && wasShown(key);
-  if (!r.test) markShown(key);
+  const keys = Array.isArray(r.keys) && r.keys.length ? r.keys.map(String) : [key];
+  const seen = !r.test && keys.every(wasShown);
+  if (!r.test) keys.forEach(markShown);
   // A shared calendar's news: the badge follows; nothing to announce when that calendar is on screen (seen live).
   const agenda = key.startsWith('agenda') || key.startsWith('periode') ? /[?&]g=([0-9a-f-]{36})/.exec(r.url ?? '')?.[1] : undefined;
   if (agenda) {
@@ -232,6 +237,13 @@ function followNotificationAccount() {
   if (target !== userId) openFor(url, target);
 }
 
+/** What the service worker showed while no Kompaly page was open (public/sw.js): not shown again here. */
+async function shownByWorker() {
+  const res = await (await caches.open('kompaly-meta')).match('/__kompaly/vus');
+  const list = res ? ((await res.json()) as { user?: string; keys?: string[] }[]) : [];
+  for (const x of Array.isArray(list) ? list : []) if (x.user === userId && Array.isArray(x.keys)) x.keys.forEach(k => !wasShown(k) && markShown(k));
+}
+
 /** Starts the reminders of the signed-in account; returns the function that stops them. */
 export function startReminders(id: string): () => void {
   userId = id;
@@ -254,6 +266,7 @@ export function startReminders(id: string): () => void {
   void (async () => {
     await refreshDevice().catch(() => undefined);
     push = await pushActive().catch(() => false);
+    if (push) await shownByWorker().catch(() => undefined);
     await loadShared().catch(() => undefined);
     if (userId === id) plan();
   })();

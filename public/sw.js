@@ -1,5 +1,6 @@
 // Kompaly's service worker: only for notifications (no offline cache, every request goes to the network).
-// Registered by src/lib/push.ts. A push comes from server/push.mjs: { title, body, url, tag, user }.
+// Registered by src/lib/push.ts. A push comes from server/push.mjs: { title, body, url, tag, user, keys }
+// (`keys`: several reminders due together, sent as one).
 // With several accounts on the device, its last line names the account (« Compte Léa »).
 
 self.addEventListener('install', () => self.skipWaiting());
@@ -75,6 +76,22 @@ function notificationOptions(data) {
   };
 }
 
+// Shown here while no page was open: the app, opened later, doesn't show them again (src/lib/reminderScheduler.ts).
+const SHOWN = '/__kompaly/vus';
+async function rememberShown(data) {
+  if (!data.user || data.test) return;
+  try {
+    const cache = await caches.open(META);
+    const res = await cache.match(SHOWN);
+    const list = res ? await res.json() : [];
+    const keys = Array.isArray(data.keys) ? data.keys : data.tag ? [data.tag] : [];
+    const next = [...(Array.isArray(list) ? list : []), { user: data.user, keys }].slice(-50);
+    await cache.put(SHOWN, new Response(JSON.stringify(next), { headers: { 'Content-Type': 'application/json' } }));
+  } catch {
+    /* no cache: at worst the app shows it once more */
+  }
+}
+
 self.addEventListener('push', e => {
   let data;
   try {
@@ -88,6 +105,7 @@ self.addEventListener('push', e => {
       const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
       if ((await shownInPage(windows, data)) && inPageAllowed) return;
       await self.registration.showNotification(title, notificationOptions(await withAccount(data)));
+      await rememberShown(data);
     })(),
   );
 });

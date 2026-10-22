@@ -714,6 +714,14 @@ function NotificationsTab() {
           />
         </Row>
       </Section>
+      <Section title={t('Autres notifications')}>
+        <Row label={t('Groupes et agendas partagés')}>
+          <Toggle label={t('Groupes et agendas partagés')} checked={s.groupNews} onChange={v => s.set({ groupNews: v })} />
+        </Row>
+        <Row label={t('Kompaly')} hint={t('Ses suggestions, quand tu es ailleurs.')}>
+          <Toggle label={t('Kompaly')} checked={s.copilotNotify} onChange={v => s.set({ copilotNotify: v })} />
+        </Row>
+      </Section>
     </div>
   );
 }

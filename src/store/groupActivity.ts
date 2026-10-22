@@ -85,6 +85,7 @@ function watching(gid: string, tab: ActivityTab) {
 }
 
 function announce(gid: string, more: Counts) {
+  if (!getSettings().groupNews) return; // turned off in Profil › Notifications (the badges stay)
   const w = groupWords(getSettings().usage);
   const name = names[gid] ?? w.yours;
   // The meetings are « révisions », « réunions » or « rendez-vous » depending on the account.

@@ -1,8 +1,7 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from './store/auth';
 import { peekAfterLogin, rememberAfterLogin } from './lib/afterLogin';
-import { cx } from './lib/utils';
 import { loadUserData, useWelcome } from './store/session';
 import { toast } from './store/ui';
 import AuthPage from './pages/AuthPage';
@@ -115,11 +114,44 @@ function GuestOnly({ children }: { children: React.ReactNode }) {
   return user ? <Navigate to={mfaStep ? '/securite' : peekAfterLogin()} replace /> : children;
 }
 
-/** While a page's code arrives (slow network): the name pulsing, shown only after a short moment. */
+/** Kompaly's mark, styled by index.html (.boot-*): the same as the startup screen, its small dot moving. */
+const BootMark = ({ size }: { size: number }) => (
+  <svg viewBox="0 0 32 32" width={size} height={size} aria-hidden>
+    <rect className="boot-tile" width="32" height="32" rx="8" />
+    <circle className="boot-me" cx="13.5" cy="16.5" r="5.5" />
+    <circle className="boot-friend" cx="22" cy="12.5" r="2.75" />
+  </svg>
+);
+
+// The startup screen of index.html (#boot) stays while the first loadings follow one another (session, the shell,
+// the page), and goes once none is left: the very same element, so no jump and no restart of its motion.
+let bootHolds = 0;
+function BootHold() {
+  useLayoutEffect(() => {
+    bootHolds++;
+    return () => {
+      bootHolds--;
+      // After the commit: the next loading (if any) holds it before this runs, else the page is already there.
+      queueMicrotask(() => bootHolds || document.getElementById('boot')?.remove());
+    };
+  }, []);
+  return null;
+}
+
+/** While a page's code arrives (slow network): the startup screen, or (later) the same drawn again after a short moment. */
 function Loading({ full }: { full?: boolean }) {
+  const [boot] = useState(() => !!document.getElementById('boot'));
+  if (boot) return <BootHold />;
+  if (full)
+    return (
+      <div className="boot late-show" role="status" aria-label={t('Chargement')}>
+        <BootMark size={56} />
+        <span>kompaly</span>
+      </div>
+    );
   return (
-    <div className={cx('late-show flex items-center justify-center', full ? 'min-h-dvh bg-paper' : 'h-full min-h-40')} role="status" aria-label={t('Chargement')}>
-      <span className="animate-pulse text-[15px] font-semibold tracking-tight text-stone-500">kompaly</span>
+    <div className="late-show flex h-full min-h-40 items-center justify-center" role="status" aria-label={t('Chargement')}>
+      <BootMark size={28} />
     </div>
   );
 }
@@ -156,12 +188,7 @@ export default function App() {
       });
   }, []);
 
-  if (!ready)
-    return (
-      <div className="flex min-h-dvh items-center justify-center bg-paper" role="status" aria-label={t('Chargement')}>
-        <span className="animate-pulse text-[15px] font-semibold tracking-tight text-stone-400">kompaly</span>
-      </div>
-    );
+  if (!ready) return <Loading full />;
 
   return (
     <BrowserRouter>
