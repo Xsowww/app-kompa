@@ -79,3 +79,16 @@ Ensuite : le document de lancement (hébergement, domaine, stores, légal).
 - [ ] Ouverture plus rapide pour un habitué : afficher la copie de l'appareil tout de suite et relire le compte en arrière-plan (store/session.ts, `pushLeftovers` puis `pullAll`). Risque : modifications faites pendant la relecture, à tester sur deux appareils
 - [ ] Landing plus légère pour un visiteur : ne charger Supabase (≈65 Ko) que s'il a une session ou va sur /connexion (lib/supabase.ts)
 - [ ] Enregistrer un cours : bouton Pause, chrono arrêté pendant la pause
+
+## Conseils d'interface (22/10)
+- [ ] 1. Espacements réfléchis dans les formulaires : libellé collé à son champ (≈ 6 px), groupes espacés (≈ 16 px), plus d'air avant le bouton (≈ 24 px)
+- [ ] 2. Moins, c'est mieux : pas tout d'un coup, des sections courtes à parcourir d'un coup d'œil, le détail replié
+- [ ] 3. Erreurs immédiates, sous le champ concerné (dès qu'on quitte le champ), pas en bas du formulaire
+- [ ] 4. Zones tactiles d'au moins 44 × 44 px sur téléphone (icône 24 px possible, zone autour plus grande)
+- [ ] 5. Notifications : courtes, utiles, pas trop souvent, réglables, adaptées à l'usage
+- [ ] 6. Écran de démarrage : logo pendant le chargement, sobre, moins de 3 s
+- [ ] 7. États vides : dire précisément ce qui manque
+- [ ] 8. États vides : une seule action principale pour commencer
+- [ ] 9. États vides : montrer à quoi ressemblera le contenu
+- [ ] 10. Distinguer vide / chargement / erreur (avec « Réessayer »)
+- [ ] 11. Recherche sans résultat : garder la recherche et les filtres, « Aucun résultat pour « … » », proposer de les retirer
