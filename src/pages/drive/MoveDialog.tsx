@@ -39,11 +39,11 @@ export default function MoveDialog({ ids, onClose, onMove, title = t('Déplacer 
         const expanded = open.has(f.id);
         return (
           <div key={f.id}>
-            <div className={cx('flex h-8 items-center gap-1.5 rounded-md pr-2 text-[13px] pointer-coarse:h-10', target === f.id ? 'bg-brand-50 font-medium text-brand-700' : 'hover:bg-stone-100')} style={{ paddingLeft: 8 + depth * 18 }}>
+            <div className={cx('flex h-8 items-center gap-1.5 rounded-md pr-2 text-[13px] pointer-coarse:h-11', target === f.id ? 'bg-brand-50 font-medium text-brand-700' : 'hover:bg-stone-100')} style={{ paddingLeft: 8 + depth * 18 }}>
               {hasKids ? (
                 <button
                   type="button"
-                  className={cx('hit-sm rounded p-0.5 text-stone-500 transition', expanded && 'rotate-90')}
+                  className={cx('hit rounded p-0.5 text-stone-500 transition', expanded && 'rotate-90')}
                   aria-label={expanded ? t('Replier « {name} »', { name: f.name }) : t('Déplier « {name} »', { name: f.name })}
                   aria-expanded={expanded}
                   onClick={() =>
@@ -77,7 +77,7 @@ export default function MoveDialog({ ids, onClose, onMove, title = t('Déplacer 
       <div className="mt-4 max-h-80 overflow-y-auto rounded-lg border border-stone-200 p-1">
         <button
           type="button"
-          className={cx('flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] font-medium pointer-coarse:h-10', target === null ? 'bg-brand-50 text-brand-700' : 'hover:bg-stone-100')}
+          className={cx('flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] font-medium pointer-coarse:h-11', target === null ? 'bg-brand-50 text-brand-700' : 'hover:bg-stone-100')}
           aria-pressed={target === null}
           onClick={() => setTarget(null)}
         >
@@ -86,7 +86,7 @@ export default function MoveDialog({ ids, onClose, onMove, title = t('Déplacer 
         </button>
         {renderLevel(null, 1)}
       </div>
-      <div className="mt-5 flex justify-end gap-2">
+      <div className="mt-6 flex justify-end gap-2">
         <button className="btn-secondary" onClick={onClose}>
           {t('Annuler')}
         </button>

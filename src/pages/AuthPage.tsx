@@ -15,6 +15,7 @@ import Logo from '../components/Logo';
 import FileIcon from '../components/FileIcon';
 import OAuthButtons from '../components/OAuthButtons';
 import PasswordStrength from '../components/PasswordStrength';
+import { FieldError } from '../components/Field';
 import LanguagePicker from '../components/LanguagePicker';
 import { LEGAL_LINKS } from './legal/links';
 import { t, tn } from '../i18n';
@@ -126,13 +127,13 @@ export default function AuthPage({ mode }: { mode: Mode }) {
   const needsEmail = mode !== 'reset';
   const needsPassword = mode !== 'forgot';
   const passwordRef = useRef<HTMLInputElement>(null);
-  // The field an error is about: the message goes right under it and the focus into it.
-  const [errField, setErrField] = useState<Field | null>(null);
+  // Errors about a field go right under it (and the focus into it); the others in the banner (`error`).
+  const [errs, setErrs] = useState<Partial<Record<Field, string>>>({});
   const refs = useRef<Partial<Record<Field, HTMLInputElement | null>>>({});
   const fail = (field: Field | null, message: string) => {
-    setError(message);
-    setErrField(field);
-    if (field) setTimeout(() => refs.current[field]?.focus(), 0);
+    if (!field) return setError(message);
+    setErrs(e => ({ ...e, [field]: message }));
+    setTimeout(() => refs.current[field]?.focus(), 0);
   };
   // Reset link of an account with a phone paired: the new password also needs its code.
   const [code, setCode] = useState('');
@@ -150,9 +151,33 @@ export default function AuthPage({ mode }: { mode: Mode }) {
     if (mode === 'login') void passkeysAvailable().then(setPasskeys);
   }, [mode]);
 
+  // What is wrong with a field ('' when nothing), with its current value or the one being typed.
+  const values = { name, email, password, code, agreed, age: oldEnough };
+  const check = (field: Field, v: string | boolean = values[field]): string => {
+    const s = typeof v === 'string' ? v : '';
+    if (field === 'name') return isRegister && s.trim().length < 2 ? t('Ton prénom doit contenir au moins 2 caractères.') : '';
+    if (field === 'email') return needsEmail && !/^\S+@\S+\.\S+$/.test(s) ? (s.trim() ? t('Adresse e-mail invalide.') : t('Entre ton adresse e-mail.')) : '';
+    if (field === 'password') {
+      if ((isRegister || mode === 'reset') && (s.length < 8 || !/\p{L}/u.test(s) || !/\d/.test(s))) return t('Au moins 8 caractères, avec des lettres et des chiffres.');
+      return mode === 'login' && !s ? t('Entre ton mot de passe.') : '';
+    }
+    if (field === 'code') return mode === 'reset' && needsCode && !/^\d{6}$/.test(s.replace(/\s/g, '')) ? t('Entre le code à 6 chiffres de ton téléphone.') : '';
+    if (field === 'agreed') return isRegister && !v ? t('Accepte les conditions pour continuer.') : '';
+    return isRegister && !v ? t('Kompaly est ouvert dès 15 ans, ou avant avec l’accord d’un parent.') : '';
+  };
+  // Leaving a filled-in field checks it; an empty one waits for the submit.
+  const blurCheck = (field: Field) => () => {
+    const v = values[field];
+    if (typeof v === 'string' && v && check(field)) setErrs(e => ({ ...e, [field]: check(field) }));
+  };
+  // Typing (or ticking) clears the field's error as soon as it is right.
+  const edit = (field: Field, v: string | boolean) => {
+    if (errs[field] && !check(field, v)) setErrs(e => ({ ...e, [field]: undefined }));
+  };
+
   async function passkeyLogin() {
     setError('');
-    setErrField(null);
+    setErrs({});
     setBusy(true);
     try {
       setRememberMe(remember);
@@ -170,17 +195,11 @@ export default function AuthPage({ mode }: { mode: Mode }) {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError('');
-    setErrField(null);
     setInfo('');
-    if (isRegister && name.trim().length < 2) return fail('name', t('Ton prénom doit contenir au moins 2 caractères.'));
-    if (needsEmail && !/^\S+@\S+\.\S+$/.test(email)) return fail('email', email.trim() ? t('Adresse e-mail invalide.') : t('Entre ton adresse e-mail.'));
-    if ((isRegister || mode === 'reset') && (password.length < 8 || !/\p{L}/u.test(password) || !/\d/.test(password))) {
-      return fail('password', t('Au moins 8 caractères, avec des lettres et des chiffres.'));
-    }
-    if (mode === 'reset' && needsCode && !/^\d{6}$/.test(code.replace(/\s/g, ''))) return fail('code', t('Entre le code à 6 chiffres de ton téléphone.'));
-    if (isRegister && !agreed) return fail('agreed', t('Accepte les conditions pour continuer.'));
-    if (isRegister && !oldEnough) return fail('age', t('Kompaly est ouvert dès 15 ans, ou avant avec l’accord d’un parent.'));
-    if (mode === 'login' && !password) return fail('password', t('Entre ton mot de passe.'));
+    // Every wrong field at once, each under itself; the focus goes to the first one.
+    const found = (['name', 'email', 'password', 'code', 'agreed', 'age'] as Field[]).map(f => [f, check(f)] as const).filter(([, m]) => m);
+    setErrs(Object.fromEntries(found));
+    if (found.length) return fail(found[0][0], found[0][1]);
     setBusy(true);
     try {
       if (mode === 'forgot') {
@@ -222,7 +241,9 @@ export default function AuthPage({ mode }: { mode: Mode }) {
       // Compared with the same t() texts as the store's (AUTH_MSG), so in every language.
       const aboutEmail = message === AUTH_MSG.accountExists || message === AUTH_MSG.accountExistsSignIn || message === AUTH_MSG.notConfirmed;
       const aboutCode = /\bcode\b/i.test(message) || message === AUTH_MSG.wrongCode || message === AUTH_MSG.needCode;
-      const field: Field | null = aboutEmail ? 'email' : aboutCode && mode === 'reset' ? 'code' : needsPassword ? 'password' : 'email';
+      const aboutPassword = [AUTH_MSG.wrongPassword, t('E-mail ou mot de passe incorrect.'), t('Mot de passe trop faible : au moins 8 caractères, avec lettres et chiffres.'), t('Le nouveau mot de passe doit être différent de l’ancien.')].includes(message);
+      // The others (network, too many tries, expired link…) are about no field: in the banner.
+      const field: Field | null = aboutEmail ? 'email' : aboutCode && mode === 'reset' ? 'code' : aboutPassword && needsPassword ? 'password' : null;
       if (field === 'code') setNeedsCode(true);
       fail(field, message);
       if (message === AUTH_MSG.notConfirmed) setCanResend(true);
@@ -234,7 +255,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
   async function resend() {
     setError('');
     setInfo('');
-    if (!/^\S+@\S+\.\S+$/.test(email)) return setError(t('Entre ton e-mail ci-dessus, puis réessaie.'));
+    if (!/^\S+@\S+\.\S+$/.test(email)) return fail('email', t('Entre ton e-mail ci-dessus, puis réessaie.'));
     setBusy(true);
     try {
       await resendConfirmation(email);
@@ -247,13 +268,13 @@ export default function AuthPage({ mode }: { mode: Mode }) {
     }
   }
 
-  const invalid = (field: Field) => (error && errField === field ? { 'aria-invalid': true, 'aria-describedby': 'auth-error' } : {});
-  const errAt = (field: Field) =>
-    error && errField === field ? (
-      <span id="auth-error" role="alert" className="mt-1.5 block text-[12.5px] text-red-600">
-        {error}
-      </span>
-    ) : null;
+  // `also`: what the field is already described by (the strength line under a new password).
+  const invalid = (field: Field, also?: string) => ({
+    'aria-invalid': errs[field] ? true : undefined,
+    'aria-describedby': [also, errs[field] && `auth-err-${field}`].filter(Boolean).join(' ') || undefined,
+    onBlur: blurCheck(field),
+  });
+  const errAt = (field: Field) => <FieldError id={`auth-err-${field}`}>{errs[field]}</FieldError>;
 
   const copy = COPY[mode];
   const adding = mode === 'login' && new URLSearchParams(location.search).has('ajout');
@@ -264,6 +285,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
       setEmail(a.email);
       setPassword('');
       setError('');
+      setErrs({});
       setInfo(msg);
       setTimeout(() => passwordRef.current?.focus(), 0);
     };
@@ -282,7 +304,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
     <div className="flex h-full overflow-y-auto">
       <main className="flex flex-1 flex-col px-6 py-6 sm:px-10">
         <div className="flex items-center justify-between">
-          <Link to="/" aria-label={t('Kompaly, accueil')} className="shrink-0">
+          <Link to="/" aria-label={t('Kompaly, accueil')} className="hit shrink-0">
             <Logo />
           </Link>
           <LanguagePicker />
@@ -354,18 +376,18 @@ export default function AuthPage({ mode }: { mode: Mode }) {
               </OAuthButtons>
             )}
 
-            <div className="mt-7 space-y-3.5">
+            <div className="mt-7 space-y-4">
               {isRegister && (
                 <label className="block">
                   <span className="mb-1.5 block text-[12px] font-medium text-stone-600">{t('Prénom')}</span>
-                  <input ref={el => { refs.current.name = el; }} {...invalid('name')} className="field w-full" value={name} maxLength={40} onChange={e => setName(e.target.value)} autoComplete="given-name" autoFocus />
+                  <input ref={el => { refs.current.name = el; }} {...invalid('name')} className="field w-full" value={name} maxLength={40} onChange={e => (setName(e.target.value), edit('name', e.target.value))} autoComplete="given-name" autoFocus />
                   {errAt('name')}
                 </label>
               )}
               {needsEmail && (
                 <label className="block">
                   <span className="mb-1.5 block text-[12px] font-medium text-stone-600">{t('E-mail')}</span>
-                  <input ref={el => { refs.current.email = el; }} {...invalid('email')} className="field w-full" type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="username" autoFocus={!isRegister && !askedEmail} placeholder={t('prenom@exemple.fr')} />
+                  <input ref={el => { refs.current.email = el; }} {...invalid('email')} className="field w-full" type="email" value={email} onChange={e => (setEmail(e.target.value), edit('email', e.target.value))} autoComplete="username" autoFocus={!isRegister && !askedEmail} placeholder={t('prenom@exemple.fr')} />
                   {errAt('email')}
                 </label>
               )}
@@ -386,17 +408,16 @@ export default function AuthPage({ mode }: { mode: Mode }) {
                         passwordRef.current = el;
                         refs.current.password = el;
                       }}
-                      aria-describedby={mode === 'login' ? undefined : 'password-strength'}
-                      {...invalid('password')}
+                      {...invalid('password', mode === 'login' ? undefined : 'password-strength')}
                       id="auth-password"
                       className="field w-full pr-10"
                       type={show ? 'text' : 'password'}
                       value={password}
-                      onChange={e => setPassword(e.target.value)}
+                      onChange={e => (setPassword(e.target.value), edit('password', e.target.value))}
                       autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                       autoFocus={mode === 'reset' || !!askedEmail}
                     />
-                    <button type="button" onClick={() => setShow(s => !s)} className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center justify-center rounded p-1.5 text-stone-500 hover:text-stone-700 pointer-coarse:h-9 pointer-coarse:w-9" title={show ? t('Masquer le mot de passe') : t('Afficher le mot de passe')} aria-label={show ? t('Masquer le mot de passe') : t('Afficher le mot de passe')}>
+                    <button type="button" onClick={() => setShow(s => !s)} className="hit absolute right-1 top-1/2 flex -translate-y-1/2 items-center justify-center rounded p-1.5 text-stone-500 hover:text-stone-700 pointer-coarse:h-9 pointer-coarse:w-9" title={show ? t('Masquer le mot de passe') : t('Afficher le mot de passe')} aria-label={show ? t('Masquer le mot de passe') : t('Afficher le mot de passe')}>
                       {show ? <EyeOff size={15} /> : <Eye size={15} />}
                     </button>
                   </span>
@@ -417,7 +438,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
                     autoComplete="one-time-code"
                     maxLength={7}
                     value={code}
-                    onChange={e => setCode(e.target.value)}
+                    onChange={e => (setCode(e.target.value), edit('code', e.target.value))}
                     placeholder="123456"
                   />
                   {errAt('code')}
@@ -426,8 +447,8 @@ export default function AuthPage({ mode }: { mode: Mode }) {
             </div>
 
             {mode === 'login' && cloudEnabled && (
-              <label className="mt-4 flex cursor-pointer items-center gap-2.5 text-[12.5px] text-stone-600">
-                <input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} className="h-4 w-4 shrink-0 accent-[var(--color-ink)]" />
+              <label className="hit mt-4 flex cursor-pointer items-center gap-2.5 text-[12.5px] text-stone-600">
+                <input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} className="relative z-[1] h-4 w-4 shrink-0 accent-[var(--color-ink)]" />
                 <span>
                   {t('Rester connecté')}
                   <span className="block text-[11.5px] text-stone-500">{t('Décoche sur un ordinateur partagé.')}</span>
@@ -436,30 +457,37 @@ export default function AuthPage({ mode }: { mode: Mode }) {
             )}
 
             {isRegister && (
-              <label className="mt-4 flex cursor-pointer items-start gap-2.5 text-[12.5px] leading-snug text-stone-600">
-                <input ref={el => { refs.current.agreed = el; }} {...invalid('agreed')} type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-ink)]" />
+              // .hit: the label takes taps up to 44 px high; its box and links stay above that margin (z-[1]).
+              <>
+              <label className="hit mt-4 flex cursor-pointer items-start gap-2.5 text-[12.5px] leading-snug text-stone-600">
+                <input ref={el => { refs.current.agreed = el; }} {...invalid('agreed')} type="checkbox" checked={agreed} onChange={e => (setAgreed(e.target.checked), edit('agreed', e.target.checked))} className="relative z-[1] mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-ink)]" />
                 <span>
                   {t('J’accepte les')}{' '}
-                  <Link to="/conditions" target="_blank" className="font-medium text-ink underline decoration-stone-300 underline-offset-2">
+                  <Link to="/conditions" target="_blank" className="relative z-[1] font-medium text-ink underline decoration-stone-300 underline-offset-2">
                     {t('conditions d’utilisation')}
                   </Link>{' '}
                   {t('et la')}{' '}
-                  <Link to="/confidentialite" target="_blank" className="font-medium text-ink underline decoration-stone-300 underline-offset-2">
+                  <Link to="/confidentialite" target="_blank" className="relative z-[1] font-medium text-ink underline decoration-stone-300 underline-offset-2">
                     {t('politique de confidentialité')}
                   </Link>
                   .
                 </span>
               </label>
+              {errAt('agreed')}
+              </>
             )}
             {isRegister && (
-              // Touch: 10 px more above and below to tap, taken back by the margins (same layout).
-              <label className="mt-2.5 flex cursor-pointer items-start gap-2.5 text-[12.5px] leading-snug text-stone-600 pointer-coarse:-mb-2.5 pointer-coarse:mt-0 pointer-coarse:py-2.5">
-                <input ref={el => { refs.current.age = el; }} {...invalid('age')} type="checkbox" checked={oldEnough} onChange={e => setOldEnough(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-ink)]" />
+              // Touch: 20 px apart, so the two 44 px tap zones don't overlap.
+              <>
+              <label className="hit mt-2.5 flex cursor-pointer items-start gap-2.5 text-[12.5px] leading-snug text-stone-600 pointer-coarse:mt-5">
+                <input ref={el => { refs.current.age = el; }} {...invalid('age')} type="checkbox" checked={oldEnough} onChange={e => (setOldEnough(e.target.checked), edit('age', e.target.checked))} className="relative z-[1] mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-ink)]" />
                 <span>{t('J’ai 15\u00a0ans ou plus, ou l’accord d’un parent.')}</span>
               </label>
+              {errAt('age')}
+              </>
             )}
 
-            {error && (errField === null || errField === 'agreed' || errField === 'age') && (
+            {error && (
               <p id="auth-error" role="alert" className="mt-3 text-[13px] text-red-600">
                 {error}
               </p>
@@ -490,8 +518,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
           {LEGAL_LINKS.map(l => (
             <span key={l.to}>
               {'\u00a0· '}
-              {/* Taller on touch screens: 13 px high was too small to tap. */}
-              <Link to={l.to} className="whitespace-nowrap underline decoration-stone-300 underline-offset-2 hover:text-ink pointer-coarse:inline-block pointer-coarse:py-2">
+              <Link to={l.to} className="hit whitespace-nowrap underline decoration-stone-300 underline-offset-2 hover:text-ink">
                 {l.label}
               </Link>
             </span>

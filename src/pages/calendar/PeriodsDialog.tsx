@@ -3,6 +3,7 @@ import { DateField } from '../../components/Pickers';
 import { addDays, addMonths, differenceInCalendarDays, isSameMonth, startOfMonth } from 'date-fns';
 import { Check, ChevronLeft, ChevronRight, Import, Pencil, Plus, Repeat, Trash2, X } from 'lucide-react';
 import { Modal } from '../../components/Overlays';
+import { FieldError } from '../../components/Field';
 import { confirmAction } from '../../store/ui';
 import { useSettings } from '../../store/settings';
 import { FOLDER_COLORS } from '../../store/drive';
@@ -204,10 +205,19 @@ function PeriodForm({ draft, around, onDone }: { draft: Draft; around: string; o
   const base = { title: d.title.trim(), color: d.color, ...(people.length && { people }) };
   const one = { ...base, start: span?.start ?? '', end: span?.end ?? '', ...(skip.length && { skip }) };
   const copies = !d.id && repeat && !error ? repeatPeriod(one, every, until) : [one];
+  // Said under their field: the name when left empty (or at the submit), the days at once or at the submit.
+  const [titleError, setTitleError] = useState('');
+  const [tried, setTried] = useState(false);
+  const nameRef = useRef<HTMLInputElement>(null);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (!base.title || error) return;
+    setTried(true);
+    if (!base.title) {
+      setTitleError(t('Donne un nom.'));
+      return nameRef.current?.focus();
+    }
+    if (error) return;
     source.savePeriods(copies.map((p, i) => ({ ...p, id: i === 0 && d.id ? d.id : uid() })));
     onDone();
   };
@@ -215,14 +225,27 @@ function PeriodForm({ draft, around, onDone }: { draft: Draft; around: string; o
   return (
     <form onSubmit={submit} className="mt-4 rounded-2xl bg-stone-50 p-4">
       <label className="eyebrow block" htmlFor="periode-nom">{t('Nom')}</label>
-      <input id="periode-nom" autoFocus value={d.title} maxLength={60} onChange={e => set({ title: e.target.value })} placeholder={t('Ex. En entreprise')} className="field mt-1.5 w-full" />
+      <input
+        ref={nameRef}
+        id="periode-nom"
+        autoFocus
+        value={d.title}
+        maxLength={60}
+        onChange={e => (set({ title: e.target.value }), e.target.value.trim() && setTitleError(''))}
+        onBlur={() => d.title && !d.title.trim() && setTitleError(t('Donne un nom.'))}
+        aria-invalid={titleError ? true : undefined}
+        aria-describedby={titleError ? 'periode-nom-err' : undefined}
+        placeholder={t('Ex. En entreprise')}
+        className="field mt-1.5 w-full"
+      />
+      <FieldError id="periode-nom-err">{titleError}</FieldError>
       <div className="mt-2 flex flex-wrap gap-1.5">
         {(PERIOD_IDEAS[usage] ?? PERIOD_IDEAS.etudes).map(idea => (
           <button
             key={idea.title}
             type="button"
-            onClick={() => set({ title: idea.title, color: idea.color })}
-            className={cx('h-7 rounded-full px-3 text-[12px] font-semibold transition-colors pointer-coarse:h-9', d.title === idea.title ? 'ring-2 ring-inset' : 'hover:brightness-95')}
+            onClick={() => (set({ title: idea.title, color: idea.color }), setTitleError(''))}
+            className={cx('hit h-7 rounded-full px-3 text-[12px] font-semibold transition-colors pointer-coarse:h-9', d.title === idea.title ? 'ring-2 ring-inset' : 'hover:brightness-95')}
             style={{ background: periodTint(idea, 18), color: `color-mix(in srgb, ${periodColor(idea)} 72%, var(--color-ink))`, ['--tw-ring-color' as string]: periodColor(idea) }}
           >
             {idea.title}
@@ -234,6 +257,7 @@ function PeriodForm({ draft, around, onDone }: { draft: Draft; around: string; o
 
       <p className="eyebrow mt-4">{t('Jours')}</p>
       <DaysPicker days={days} color={d.color} around={around} others={others} events={source.events} onChange={setDays} />
+      {(runs.length > 0 || tried) && <FieldError>{error}</FieldError>}
       {(clash.periods.length > 0 || clash.events.length > 0) && (
         <p className="mt-2 rounded-xl bg-surface px-3 py-2 text-[12.5px] leading-snug text-stone-600 ring-1 ring-inset ring-stone-200" aria-live="polite">
           <span className="font-semibold text-ink">{t('Déjà sur ces jours :')} </span>
@@ -254,7 +278,7 @@ function PeriodForm({ draft, around, onDone }: { draft: Draft; around: string; o
               {periodRange(r, fmtDay)}
               <button
                 type="button"
-                className="hit-sm flex h-5 w-5 items-center justify-center rounded-full hover:bg-black/10"
+                className="hit flex h-5 w-5 items-center justify-center rounded-full hover:bg-black/10"
                 aria-label={t('Retirer les jours {range}', { range: periodRange(r, fmtDay) })}
                 onClick={() => {
                   const next = new Set(days);
@@ -293,13 +317,14 @@ function PeriodForm({ draft, around, onDone }: { draft: Draft; around: string; o
           </button>
         </div>
       ) : (
-        <button type="button" className="mt-2 text-[12.5px] font-semibold text-brand-600 hover:text-brand-700" onClick={() => setLong(true)}>
+        <button type="button" className="hit mt-2 text-[12.5px] font-semibold text-brand-600 hover:text-brand-700" onClick={() => setLong(true)}>
           {t('Sur plusieurs mois ? Choisir les dates')}
         </button>
       )}
 
       <p className="eyebrow mt-4">{t('Couleur')}</p>
-      <div className="mt-2 flex flex-wrap gap-1.5" role="radiogroup" aria-label={t('Couleur')}>
+      {/* Touch: 36 px dots 8 px apart, each with a 44 px tap zone (.hit). */}
+      <div className="mt-2 flex flex-wrap gap-1.5 pointer-coarse:gap-2" role="radiogroup" aria-label={t('Couleur')}>
         {Object.entries(FOLDER_COLORS).map(([key, c]) => (
           <button
             key={key}
@@ -309,7 +334,7 @@ function PeriodForm({ draft, around, onDone }: { draft: Draft; around: string; o
             aria-label={c.label}
             title={c.label}
             onClick={() => set({ color: key })}
-            className={cx('hit-sm flex h-6 w-6 items-center justify-center rounded-full ring-offset-2 ring-offset-stone-50 transition', d.color === key && 'ring-2 ring-stone-400')}
+            className={cx('hit flex h-6 w-6 items-center justify-center rounded-full ring-offset-2 ring-offset-stone-50 transition pointer-coarse:h-9 pointer-coarse:w-9', d.color === key && 'ring-2 ring-stone-400')}
             style={{ background: c.color }}
           >
             {d.color === key && <Check size={12} strokeWidth={3} className="text-white" />}
@@ -320,7 +345,7 @@ function PeriodForm({ draft, around, onDone }: { draft: Draft; around: string; o
       {!d.id && (
         <div className="mt-4">
           {/* The whole line is the tap target (check-hit's negative margin put the box over the icon). */}
-          <label className="flex min-h-9 cursor-pointer items-center gap-2 text-[13px] font-medium">
+          <label className="flex min-h-9 cursor-pointer items-center gap-2 text-[13px] font-medium pointer-coarse:min-h-11">
             <input type="checkbox" checked={repeat} onChange={e => setRepeat(e.target.checked)} className="h-4 w-4 shrink-0 accent-[var(--color-ink)]" />
             <Repeat size={14} className="shrink-0 text-stone-500" aria-hidden /> {t('Se répète (alternance, garde…)')}
           </label>
@@ -338,10 +363,10 @@ function PeriodForm({ draft, around, onDone }: { draft: Draft; around: string; o
         </div>
       )}
 
-      {error && runs.length > 0 && <p className="mt-3 text-[12.5px] text-red-600">{error}</p>}
-      <div className="mt-5 flex flex-wrap justify-end gap-2">
+      <div className="mt-6 flex flex-wrap justify-end gap-2">
         <button type="button" className="btn-secondary" onClick={onDone}>{t('Annuler')}</button>
-        <button type="submit" className="btn-primary" disabled={!base.title || !!error}>
+        {/* Not disabled: the submit says what is missing, under the field. */}
+        <button type="submit" className="btn-primary">
           {d.id ? t('Enregistrer||sauver') : copies.length > 1 ? t('Ajouter {n} périodes', { n: copies.length }) : t('Ajouter')}
         </button>
       </div>
@@ -400,7 +425,7 @@ export default function PeriodsDialog({ day, onClose }: { day: string; onClose: 
       {list.length === 0 && !draft && <p className="mt-4 text-[13px] text-stone-500">{t('Aucune période pour l’instant.')}</p>}
 
       {draft && !draft.id && list.length === 0 && sources.length > 0 && (
-        <button type="button" className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-semibold text-brand-600 hover:underline" onClick={() => (setDraft(null), setImporting(true))}>
+        <button type="button" className="hit mt-3 inline-flex items-center gap-1.5 text-[13px] font-semibold text-brand-600 hover:underline" onClick={() => (setDraft(null), setImporting(true))}>
           <Import size={14} aria-hidden /> {t('Importer celles d’un autre agenda')}
         </button>
       )}
@@ -409,7 +434,7 @@ export default function PeriodsDialog({ day, onClose }: { day: string; onClose: 
       ) : importing ? (
         <ImportPeriods onDone={() => setImporting(false)} />
       ) : (
-        <div className="mt-5 flex flex-wrap justify-between gap-2">
+        <div className="mt-6 flex flex-wrap justify-between gap-2">
           {canEdit ? (
             <span className="flex flex-wrap gap-2">
               <button className="btn-secondary" onClick={() => setDraft(fresh())}>

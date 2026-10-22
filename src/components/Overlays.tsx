@@ -166,7 +166,7 @@ function DialogBody() {
           className="field mt-4 w-full"
         />
       )}
-      <div className="mt-5 flex justify-end gap-2">
+      <div className="mt-6 flex justify-end gap-2">
         <button type="button" className="btn-secondary" onClick={() => close(null)}>
           {t('Annuler')}
         </button>

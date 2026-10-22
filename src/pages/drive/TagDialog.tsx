@@ -24,6 +24,7 @@ export function TagPill({ tag, active, onClick, onRemove, size = 'sm' }: { tag: 
       className={cx(
         'inline-flex max-w-full shrink-0 items-center gap-1.5 rounded-full border font-medium transition-colors',
         size === 'md' ? 'h-7 px-2.5 text-[12px] pointer-coarse:h-9' : 'h-[18px] px-1.5 text-[10.5px]',
+        onClick && size === 'md' && 'hit',
         active ? 'border-ink bg-ink text-paper' : 'border-stone-200 bg-surface text-stone-600',
         onClick && !active && 'hover:border-stone-300 hover:text-ink',
       )}
@@ -39,7 +40,7 @@ export function TagPill({ tag, active, onClick, onRemove, size = 'sm' }: { tag: 
             e.stopPropagation();
             onRemove();
           }}
-          className="hit-sm -my-1 -mr-1.5 flex h-6 w-6 items-center justify-center rounded-full text-stone-500 hover:bg-stone-100 hover:text-ink pointer-coarse:h-9 pointer-coarse:w-9"
+          className="hit -my-1 -mr-1.5 flex h-6 w-6 items-center justify-center rounded-full text-stone-500 hover:bg-stone-100 hover:text-ink pointer-coarse:h-9 pointer-coarse:w-9"
         >
           <X size={11} />
         </button>
@@ -97,7 +98,7 @@ export default function TagDialog({ ids, onClose }: { ids: string[]; onClose: ()
       </div>
 
       <form
-        className="mt-3 flex gap-2"
+        className="mt-4 flex gap-2"
         onSubmit={e => {
           e.preventDefault();
           add(draft);
@@ -110,7 +111,7 @@ export default function TagDialog({ ids, onClose }: { ids: string[]; onClose: ()
       </form>
 
       {suggestions.length > 0 && (
-        <div className="mt-3">
+        <div className="mt-4">
           <p className="eyebrow">{t('Déjà utilisées')}</p>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {suggestions.map(tag => (
@@ -120,7 +121,7 @@ export default function TagDialog({ ids, onClose }: { ids: string[]; onClose: ()
         </div>
       )}
 
-      <div className="mt-5 flex justify-end">
+      <div className="mt-6 flex justify-end">
         <button className="btn-primary" onClick={onClose}>
           {t('Terminé')}
         </button>

@@ -5,6 +5,7 @@ import { AUTH_MSG, useAuth, type MfaEnrollment } from '../store/auth';
 import { loadUserData, useWelcome } from '../store/session';
 import { takeAfterLogin } from '../lib/afterLogin';
 import Logo from '../components/Logo';
+import { FieldError } from '../components/Field';
 import { toast } from '../store/ui';
 import { t } from '../i18n';
 
@@ -29,12 +30,16 @@ export default function MfaPage() {
   const [enrollment, setEnrollment] = useState<MfaEnrollment | null>(null);
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
+  // Errors about the code or the kept key go under them; the others (server) stay in `error`.
+  const [codeError, setCodeError] = useState('');
+  const [keyError, setKeyError] = useState('');
   const [busy, setBusy] = useState(false);
   const [showSecret, setShowSecret] = useState(false);
   const [keptKey, setKeptKey] = useState(false);
   const started = useRef(false);
   const submitting = useRef(false); // the submit itself navigates once the account's data is loaded
   const inputRef = useRef<HTMLInputElement>(null);
+  const keyRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (mfaStep !== 'setup' || started.current) return;
@@ -49,8 +54,11 @@ export default function MfaPage() {
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!/^\d{6}$/.test(code.replace(/\s/g, ''))) return setError(t('Le code contient 6 chiffres.'));
-    if (mfaStep === 'setup' && !keptKey) return setError(t('Garde d’abord ta clé de secours (étape 2).'));
+    const badCode = !/^\d{6}$/.test(code.replace(/\s/g, ''));
+    const noKey = mfaStep === 'setup' && !keptKey;
+    setCodeError(badCode ? t('Le code contient 6 chiffres.') : '');
+    setKeyError(noKey ? t('Garde d’abord ta clé de secours (étape 2).') : '');
+    if (badCode || noKey) return (noKey ? keyRef : inputRef).current?.focus();
     setBusy(true);
     setError('');
     submitting.current = true;
@@ -115,11 +123,11 @@ export default function MfaPage() {
                   </div>
                   {enrollment && (
                     <div className="mt-2 text-[12px] text-stone-500">
-                      <a href={enrollment.uri} className="underline decoration-stone-300 underline-offset-2 hover:text-ink">
+                      <a href={enrollment.uri} className="hit underline decoration-stone-300 underline-offset-2 hover:text-ink">
                         {t('Tu es déjà sur ton téléphone ? Touche ici')}
                       </a>
                       {' · '}
-                      <button type="button" onClick={() => setShowSecret(s => !s)} className="underline decoration-stone-300 underline-offset-2 hover:text-ink">
+                      <button type="button" onClick={() => setShowSecret(s => !s)} className="hit underline decoration-stone-300 underline-offset-2 hover:text-ink">
                         {t('Saisir la clé à la main')}
                       </button>
                       {showSecret && <p className="mt-1.5 break-all rounded-md bg-stone-100 px-2 py-1.5 font-mono text-[12px] text-ink">{enrollment.secret}</p>}
@@ -143,19 +151,29 @@ export default function MfaPage() {
                             if (!navigator.clipboard) return failed();
                             navigator.clipboard.writeText(enrollment.secret).then(() => {
                               setKeptKey(true);
+                              setKeyError('');
                               toast(t('Clé copiée : colle-la dans un endroit sûr.'), 'success');
                             }, failed);
                           }}>
                           {t('Copier')}
                         </button>
-                        <button type="button" className="btn-secondary h-8" onClick={() => (downloadKey(enrollment.secret, user?.email ?? ''), setKeptKey(true))}>
+                        <button type="button" className="btn-secondary h-8" onClick={() => (downloadKey(enrollment.secret, user?.email ?? ''), setKeptKey(true), setKeyError(''))}>
                           {t('Télécharger')}
                         </button>
                       </div>
-                      <label className="mt-2 flex cursor-pointer items-center gap-2 text-[12.5px] text-stone-600">
-                        <input type="checkbox" checked={keptKey} onChange={e => setKeptKey(e.target.checked)} className="h-4 w-4 shrink-0 accent-[var(--color-ink)]" />
+                      <label className="hit mt-4 flex cursor-pointer items-center gap-2 text-[12.5px] text-stone-600">
+                        <input
+                          ref={keyRef}
+                          type="checkbox"
+                          checked={keptKey}
+                          onChange={e => (setKeptKey(e.target.checked), e.target.checked && setKeyError(''))}
+                          aria-invalid={keyError ? true : undefined}
+                          aria-describedby={keyError ? 'mfa-key-err' : undefined}
+                          className="relative z-[1] h-4 w-4 shrink-0 accent-[var(--color-ink)]"
+                        />
                         {t('Je l’ai gardée en lieu sûr')}
                       </label>
+                      <FieldError id="mfa-key-err">{keyError}</FieldError>
                     </>
                   )}
                 </div>
@@ -170,7 +188,15 @@ export default function MfaPage() {
           <input
             ref={inputRef}
             value={code}
-            onChange={e => setCode(e.target.value.replace(/[^\d\s]/g, '').slice(0, 7))}
+            onChange={e => {
+              const v = e.target.value.replace(/[^\d\s]/g, '').slice(0, 7);
+              setCode(v);
+              if (/^\d{6}$/.test(v.replace(/\s/g, ''))) setCodeError('');
+            }}
+            // Leaving a started code: said at once if it is not 6 digits.
+            onBlur={() => code && !/^\d{6}$/.test(code.replace(/\s/g, '')) && setCodeError(t('Le code contient 6 chiffres.'))}
+            aria-invalid={codeError ? true : undefined}
+            aria-describedby={codeError ? 'mfa-code-err' : undefined}
             inputMode="numeric"
             autoComplete="one-time-code"
             autoFocus={!isSetup}
@@ -179,9 +205,14 @@ export default function MfaPage() {
             className="field mt-5 h-12 w-full text-center font-mono text-[22px] tracking-[0.3em]"
           />
 
-          {error && <p className="mt-3 text-[13px] text-red-600">{error}</p>}
+          <FieldError id="mfa-code-err">{codeError}</FieldError>
+          {error && (
+            <p role="alert" className="mt-3 text-[13px] text-red-600">
+              {error}
+            </p>
+          )}
 
-          <button type="submit" disabled={busy || (isSetup && !enrollment)} className="btn-primary mt-4 w-full">
+          <button type="submit" disabled={busy || (isSetup && !enrollment)} className="btn-primary mt-6 w-full">
             {busy && <Loader2 size={15} className="animate-spin" />}
             {isSetup ? t('Activer') : t('Valider')}
           </button>
@@ -194,7 +225,7 @@ export default function MfaPage() {
                 cancelMfaSetup();
                 navigate('/profil?onglet=compte', { replace: true });
               }}
-              className="btn-secondary mt-2 w-full"
+              className="btn-secondary mt-3 w-full"
             >
               {t('Annuler')}
             </button>
@@ -204,7 +235,7 @@ export default function MfaPage() {
             <button
               type="button"
               onClick={() => void logout().then(() => navigate('/connexion', { replace: true }))}
-              className="font-medium text-ink underline decoration-stone-300 underline-offset-4 hover:decoration-ink"
+              className="hit font-medium text-ink underline decoration-stone-300 underline-offset-4 hover:decoration-ink"
             >
               {t('Se déconnecter')}
             </button>

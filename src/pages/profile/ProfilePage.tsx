@@ -8,6 +8,7 @@ import {
 import { openFeedback } from '../../lib/feedback';
 import AccountList from '../../components/AccountList';
 import PasswordStrength from '../../components/PasswordStrength';
+import Field, { FieldError } from '../../components/Field';
 import { needsCredentials, savedAccounts, STALE_DAYS } from '../../lib/accounts';
 import { useAuth } from '../../store/auth';
 import { useFocusLog } from '../../store/focusLog';
@@ -145,6 +146,7 @@ function ProfileTab() {
     { value: stats.files, label: tn(stats.files, 'fichier', 'fichiers'), sub: stats.files ? formatBytes(stats.size) : undefined },
   ].filter(s => s.value > 0);
   const [name, setName] = useState(user.name);
+  const [nameError, setNameError] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
   const pickPhoto = async (f?: File) => {
@@ -175,20 +177,21 @@ function ProfileTab() {
               {user.email}<span className="max-sm:hidden">{'\u00a0'}· </span>
               <span className="max-sm:block max-sm:first-letter:uppercase">{t('inscription le {date}', { date: fmt(new Date(user.createdAt), 'd MMMM yyyy').replace(/ /g, '\u00a0') })}</span>
             </p>
-            <div className="mt-3 flex flex-wrap items-center gap-1.5">
+            {/* Touch: 36 px dots 8 px apart, each with a 44 px tap zone (.hit). */}
+            <div className="mt-3 flex flex-wrap items-center gap-1.5 pointer-coarse:gap-2">
               {AVATAR_COLORS.map((c, i) => (
                 <button
                   key={c}
                   aria-label={t('Couleur de l’avatar {n}', { n: i + 1 })}
                   aria-pressed={!settings.avatarImage && settings.avatarColor === c}
                   onClick={() => settings.set({ avatarColor: c, avatarImage: null })}
-                  className="flex h-6 w-6 items-center justify-center rounded-full ring-offset-2 transition-transform hover:scale-110 pointer-coarse:h-9 pointer-coarse:w-9"
+                  className="hit flex h-6 w-6 items-center justify-center rounded-full ring-offset-2 transition-transform hover:scale-110 pointer-coarse:h-9 pointer-coarse:w-9"
                   style={{ background: c, boxShadow: !settings.avatarImage && settings.avatarColor === c ? `0 0 0 2px var(--color-surface), 0 0 0 4px ${c}` : undefined }}
                   title={t('Couleur de l’avatar')}
                 />
               ))}
               {settings.avatarImage && (
-                <button className="ml-2 text-[12px] text-stone-500 underline underline-offset-2 hover:text-ink" onClick={async () => (await confirmAction(t('Retirer ta photo ?'), undefined, t('Retirer'))) && settings.set({ avatarImage: null })}>
+                <button className="hit ml-2 text-[12px] text-stone-500 underline underline-offset-2 hover:text-ink" onClick={async () => (await confirmAction(t('Retirer ta photo ?'), undefined, t('Retirer'))) && settings.set({ avatarImage: null })}>
                   {t('Retirer la photo')}
                 </button>
               )}
@@ -196,12 +199,18 @@ function ProfileTab() {
           </div>
         </div>
         <Row label={t('Prénom')}>
+          <div className="w-56">
           <input
-            className="field w-56"
+            className="field w-full"
             aria-label={t('Prénom')}
+            aria-invalid={nameError ? true : undefined}
+            aria-describedby={nameError ? 'profile-name-err' : undefined}
             maxLength={40}
             value={name}
-            onChange={e => setName(e.target.value)}
+            onChange={e => {
+              setName(e.target.value);
+              if (e.target.value.trim().length >= 2) setNameError('');
+            }}
             onBlur={() => {
               if (name.trim().length >= 2 && name.trim() !== user.name) {
                 setName(name.trim());
@@ -212,14 +221,18 @@ function ProfileTab() {
                     setName(user.name);
                   },
                 );
+              } else if (name.trim() !== user.name) {
+                // Too short: said under the field, which keeps what was typed (the saved name stays).
+                setNameError(t('Ton prénom doit contenir au moins 2 caractères.'));
               } else {
-                if (name.trim() !== user.name) toast(t('Ton prénom doit contenir au moins 2 caractères.'), 'error');
                 // Same name with spaces around it: shown as saved.
                 setName(user.name);
               }
             }}
             onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()}
           />
+          <FieldError id="profile-name-err">{nameError}</FieldError>
+          </div>
         </Row>
         <Row label={t('Kompaly sert pour')}>
           <SelectField<Usage> className="w-56" label={t('Kompaly sert pour')} value={settings.usage} options={USAGES.map(u => ({ value: u.key, label: u.label }))} onChange={usage => { if (usage === settings.usage) return; settings.set({ usage, year: '', school: '', program: '' }); applyUsage(usage); }} />
@@ -298,7 +311,7 @@ function AppearanceTab() {
         <LanguagePicker />
       </Row>
       <Row label={t('Couleur d’accent')}>
-        <div className="flex gap-1.5" role="group" aria-label={t('Couleur d’accent')}>
+        <div className="flex gap-1.5 pointer-coarse:gap-2" role="group" aria-label={t('Couleur d’accent')}>
           {(Object.keys(ACCENTS) as AccentKey[]).map(k => (
             <button
               key={k}
@@ -306,7 +319,7 @@ function AppearanceTab() {
               title={ACCENTS[k].label}
               aria-label={ACCENTS[k].label}
               aria-pressed={settings.accent === k}
-              className="flex h-7 w-7 items-center justify-center rounded-full transition-transform hover:scale-110 pointer-coarse:h-9 pointer-coarse:w-9"
+              className="hit flex h-7 w-7 items-center justify-center rounded-full transition-transform hover:scale-110 pointer-coarse:h-9 pointer-coarse:w-9"
               style={{ background: ACCENTS[k].shades[500], boxShadow: settings.accent === k ? `0 0 0 2px var(--color-surface), 0 0 0 4px ${ACCENTS[k].shades[500]}` : undefined }}
             >
               {settings.accent === k && <Check size={13} strokeWidth={3} className="text-white" />}
@@ -429,12 +442,12 @@ function CopilotTab() {
           ))}
         </div>
         <div className="px-5 py-4">
-          <label htmlFor="persona-notes" className="text-[13px] font-medium">
+          <label htmlFor="persona-notes" className="mb-1.5 block text-[13px] font-medium">
             {t('Tes instructions pour Kompaly')}
           </label>
           <textarea
             id="persona-notes"
-            className="field mt-2.5 h-auto! min-h-[84px] w-full resize-y py-2 leading-relaxed"
+            className="field h-auto! min-h-[84px] w-full resize-y py-2 leading-relaxed"
             maxLength={600}
             value={s.personaNotes}
             onChange={e => s.set({ personaNotes: e.target.value.slice(0, 600) })}
@@ -832,7 +845,13 @@ function AccountTab() {
   const [next, setNext] = useState('');
   const [confirmPw, setConfirmPw] = useState('');
   const [deletePw, setDeletePw] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+  const deleteRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  // Errors of the password form, each under its field.
+  type Pw = 'current' | 'next' | 'confirm';
+  const [pwErr, setPwErr] = useState<Partial<Record<Pw, string>>>({});
+  const pwRefs = useRef<Partial<Record<Pw, HTMLInputElement | null>>>({});
   const userId = useAuth(s => s.user?.id);
   // Two-factor is optional: on or off, read from Supabase (null while loading).
   const [mfaOn, setMfaOn] = useState<boolean | null>(null);
@@ -843,11 +862,34 @@ function AccountTab() {
   const noPassword = useAuth(s => !!s.user?.noPassword);
   const [switching, setSwitching] = useState<string | null>(null);
 
+  const values: Record<Pw, string> = { current, next, confirm: confirmPw };
+  // What is wrong with a field ('' when nothing), with its value or the one being typed.
+  const checkPw = (f: Pw, v = values[f]): string => {
+    if (f === 'current') return !noPassword && !v ? t('Entre ton mot de passe.') : '';
+    if (f === 'next') {
+      if (v.length < 8 || !/\p{L}/u.test(v) || !/\d/.test(v)) return t('Au moins 8 caractères, avec des lettres et des chiffres.');
+      return !noPassword && v === current ? t('Choisis un mot de passe différent de l’actuel.') : '';
+    }
+    return v !== next ? t('Les deux mots de passe ne correspondent pas.') : '';
+  };
+  // Leaving a filled-in field checks it; typing clears its error once it is right.
+  const pwProps = (f: Pw, set: (v: string) => void) => ({
+    ref: (el: HTMLInputElement | null) => {
+      pwRefs.current[f] = el;
+    },
+    value: values[f],
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+      set(e.target.value);
+      if (pwErr[f] && !checkPw(f, e.target.value)) setPwErr(x => ({ ...x, [f]: undefined }));
+    },
+    onBlur: () => values[f] && checkPw(f) && setPwErr(x => ({ ...x, [f]: checkPw(f) })),
+  });
+
   const onChange = async (e: FormEvent) => {
     e.preventDefault();
-    if (next.length < 8 || !/\p{L}/u.test(next) || !/\d/.test(next)) return toast(t('Au moins 8 caractères, avec des lettres et des chiffres.'), 'error');
-    if (next !== confirmPw) return toast(t('Les deux mots de passe ne correspondent pas.'), 'error');
-    if (!noPassword && next === current) return toast(t('Choisis un mot de passe différent de l’actuel.'), 'error');
+    const found = (['current', 'next', 'confirm'] as Pw[]).filter(f => (f !== 'current' || !noPassword) && checkPw(f));
+    setPwErr(Object.fromEntries(found.map(f => [f, checkPw(f)])));
+    if (found.length) return pwRefs.current[found[0]]?.focus();
     setBusy(true);
     try {
       await changePassword(current, next);
@@ -856,7 +898,12 @@ function AccountTab() {
       setConfirmPw('');
       toast(noPassword ? t('Mot de passe enregistré') : t('Mot de passe modifié'), 'success');
     } catch (err) {
-      toast((err as Error).message, 'error');
+      const msg = (err as Error).message;
+      // A wrong current password is said under it; the other errors (server) stay a toast.
+      if (msg === t('Mot de passe actuel incorrect.')) {
+        setPwErr({ current: msg });
+        pwRefs.current.current?.focus();
+      } else toast(msg, 'error');
     } finally {
       setBusy(false);
     }
@@ -932,17 +979,21 @@ function AccountTab() {
       {cloudEnabled && <PasskeySection />}
 
       <Section title={t('Mot de passe')}>
-        <form onSubmit={onChange} className="grid gap-3 px-5 py-4 sm:grid-cols-3">
-          {!noPassword && <input type="password" className="field" placeholder={t('Mot de passe actuel')} aria-label={t('Mot de passe actuel')} value={current} onChange={e => setCurrent(e.target.value)} autoComplete="current-password" />}
-          <input type="password" className="field" placeholder={t('Nouveau mot de passe')} aria-label={t('Nouveau mot de passe')} aria-describedby="profile-strength" value={next} onChange={e => setNext(e.target.value)} autoComplete="new-password" />
-          <input type="password" className="field" placeholder={t('Confirmer')} aria-label={t('Confirmer le nouveau mot de passe')} value={confirmPw} onChange={e => setConfirmPw(e.target.value)} autoComplete="new-password" />
-          {next && (
-            <div className="sm:col-span-3 sm:-mt-1">
-              <PasswordStrength id="profile-strength" password={next} />
-            </div>
+        <form onSubmit={onChange} noValidate className="grid items-start gap-4 px-5 py-4 sm:grid-cols-3 sm:gap-x-3">
+          {!noPassword && (
+            <Field label={t('Mot de passe actuel')} error={pwErr.current}>
+              <input type="password" className="field w-full" {...pwProps('current', setCurrent)} autoComplete="current-password" />
+            </Field>
           )}
-          <div className="sm:col-span-3">
-            <button className="btn-primary h-8" disabled={busy || (!noPassword && !current) || !next}>
+          <Field label={t('Nouveau mot de passe')} error={pwErr.next} hint={next && <PasswordStrength password={next} />}>
+            <input type="password" className="field w-full" {...pwProps('next', setNext)} autoComplete="new-password" />
+          </Field>
+          <Field label={t('Confirmer')} error={pwErr.confirm}>
+            <input type="password" className="field w-full" aria-label={t('Confirmer le nouveau mot de passe')} {...pwProps('confirm', setConfirmPw)} autoComplete="new-password" />
+          </Field>
+          {/* 16 px of the grid + 8: 24 px before the main button. */}
+          <div className="mt-2 sm:col-span-3">
+            <button className="btn-primary h-8" disabled={busy}>
               {noPassword ? t('Choisir un mot de passe') : t('Modifier le mot de passe')}
             </button>
           </div>
@@ -995,7 +1046,22 @@ function AccountTab() {
 
       <Section title={t('Supprimer le compte')} danger>
         <Row label={t('Supprimer définitivement mon compte')} hint={t('Tout sera effacé. Exporte une sauvegarde avant.')}>
-          {!noPassword && <input type="password" className="field w-44" placeholder={t('Mot de passe')} aria-label={t('Mot de passe, pour confirmer la suppression')} value={deletePw} onChange={e => setDeletePw(e.target.value)} />}
+          {!noPassword && (
+            <div className="w-44">
+              <input
+                ref={deleteRef}
+                type="password"
+                className="field w-full"
+                placeholder={t('Mot de passe')}
+                aria-label={t('Mot de passe, pour confirmer la suppression')}
+                aria-invalid={deleteError ? true : undefined}
+                aria-describedby={deleteError ? 'delete-pw-err' : undefined}
+                value={deletePw}
+                onChange={e => (setDeletePw(e.target.value), setDeleteError(''))}
+              />
+              <FieldError id="delete-pw-err">{deleteError}</FieldError>
+            </div>
+          )}
           <button
             className="btn-danger h-8"
             disabled={!noPassword && !deletePw}
@@ -1004,7 +1070,8 @@ function AccountTab() {
               try {
                 await useAuth.getState().verifyPassword(deletePw);
               } catch (err) {
-                return toast((err as Error).message, 'error');
+                setDeleteError((err as Error).message);
+                return deleteRef.current?.focus();
               }
               if (!(await confirmAction(t('Supprimer ton compte ?'), t('Cette action est irréversible.'), t('Supprimer')))) return;
               try {

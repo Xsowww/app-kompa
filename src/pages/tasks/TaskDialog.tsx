@@ -1,7 +1,8 @@
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { Trash2 } from 'lucide-react';
 import { DateField, TimeField } from '../../components/Pickers';
 import { Modal } from '../../components/Overlays';
+import Field from '../../components/Field';
 import ReminderPicker from '../../components/ReminderPicker';
 import { followMoments, reminderMoment } from '../../lib/reminders';
 import { useTodos, type Todo } from '../../store/todos';
@@ -27,9 +28,15 @@ export default function TaskDialog({ todo, onClose, remind, onDelete }: { todo: 
     return !todo.due || ahead(first) ? [first] : ahead(0) ? [0] : [];
   });
 
+  // The title is required: said when it is emptied and left, or at the submit (the focus goes back to it).
+  const [titleError, setTitleError] = useState('');
+  const titleRef = useRef<HTMLInputElement>(null);
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!title.trim()) {
+      setTitleError(t('Donne un titre.'));
+      return titleRef.current?.focus();
+    }
     useTodos.getState().update(todo.id, { title: title.trim(), due: due || undefined, time: due && time ? time : undefined, reminders: due ? reminders : todo.reminders });
     toast(remind && due && reminders.length ? t('Rappel enregistré') : t('Tâche enregistrée'), 'success');
     onClose();
@@ -39,12 +46,20 @@ export default function TaskDialog({ todo, onClose, remind, onDelete }: { todo: 
     <Modal open onClose={onClose} width={420}>
       <form onSubmit={submit}>
         <h3 className="text-[18px]">{t('Modifier la tâche')}</h3>
-        <label className="mt-4 block">
-          <span className="mb-1.5 block text-[12px] font-medium text-stone-600">{t('Tâche')}</span>
-          <input autoFocus={!remind} value={title} maxLength={160} onChange={e => setTitle(e.target.value)} aria-label={t('Titre de la tâche')} className="field w-full" />
-        </label>
+        <Field className="mt-4" label={t('Tâche')} error={titleError}>
+          <input
+            ref={titleRef}
+            autoFocus={!remind}
+            value={title}
+            maxLength={160}
+            onChange={e => (setTitle(e.target.value), e.target.value.trim() && setTitleError(''))}
+            onBlur={() => !title.trim() && setTitleError(t('Donne un titre.'))}
+            aria-label={t('Titre de la tâche')}
+            className="field w-full"
+          />
+        </Field>
         {/* One under the other at 320 px, where « Lun. 19 oct. » was cut. */}
-        <div className="mt-3 grid grid-cols-1 gap-2 min-[360px]:grid-cols-2">
+        <div className="mt-4 grid grid-cols-1 gap-x-2 gap-y-4 min-[360px]:grid-cols-2">
           <div>
             <span className="mb-1.5 block text-[12px] font-medium text-stone-600">{t('Échéance')}</span>
             <DateField
@@ -76,7 +91,7 @@ export default function TaskDialog({ todo, onClose, remind, onDelete }: { todo: 
           </div>
         </div>
         <ReminderPicker value={reminders} onChange={setReminders} timed={!!time} date={due || undefined} time={time || undefined} disabled={due ? undefined : t('Choisis d’abord une échéance.')} />
-        <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
+        <div className="mt-6 flex flex-wrap items-center justify-end gap-2">
           {onDelete && (
             <button type="button" className="btn-ghost mr-auto text-red-600 hover:text-red-700" onClick={() => (onClose(), onDelete())}>
               <Trash2 size={15} /> {t('Supprimer')}
@@ -85,7 +100,7 @@ export default function TaskDialog({ todo, onClose, remind, onDelete }: { todo: 
           <button type="button" className="btn-secondary" onClick={onClose}>
             {t('Annuler')}
           </button>
-          <button type="submit" className="btn-primary" disabled={!title.trim()}>
+          <button type="submit" className="btn-primary">
             {t('Enregistrer||sauver')}
           </button>
         </div>
