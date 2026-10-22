@@ -30,6 +30,7 @@ const extOf = (name: string) => name.split('.').pop()?.toLowerCase() ?? '';
 
 /**
  * `getUrl` : d'où vient le contenu (par défaut le Drive personnel ; les groupes donnent le leur).
+ * `when` : remplace « modifié … » sous le nom.
  * `actions` : boutons en plus dans l'en-tête (la corbeille y met Restaurer / Supprimer).
  */
 export default function PreviewModal({
@@ -37,11 +38,14 @@ export default function PreviewModal({
   onClose,
   getUrl = getFileUrl,
   actions,
+  when,
 }: {
   item: DriveItem;
   onClose: () => void;
   getUrl?: (id: string) => Promise<string | null>;
   actions?: React.ReactNode;
+  /** Replaces « modifié … » under the name (a group file says who shared it). */
+  when?: string;
 }) {
   const [url, setUrl] = useState<string | null>(null);
   const [text, setText] = useState<string | null>(null);
@@ -145,7 +149,7 @@ export default function PreviewModal({
         <div className="min-w-0 flex-1">
           <p className="truncate text-[13px] font-medium">{item.name}</p>
           <p className="truncate text-[12px] text-white/65">
-            {formatBytes(item.size)} · {item.deletedAt ? t('supprimé le {date}', { date: fmt(new Date(item.deletedAt), t("d MMM 'à' HH:mm")) }) : modified(item.updatedAt)}
+            {formatBytes(item.size)} · {item.deletedAt ? t('supprimé le {date}', { date: fmt(new Date(item.deletedAt), t("d MMM 'à' HH:mm")) }) : (when ?? modified(item.updatedAt))}
           </p>
         </div>
         {actions}

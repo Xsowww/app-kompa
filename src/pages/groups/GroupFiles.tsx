@@ -183,7 +183,7 @@ export default function GroupFiles({ group }: { group: Group }) {
       />
       <ReportDialog target={reporting && { kind: 'file', id: reporting.id, title: reporting.name }} onClose={() => setReporting(null)} />
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
-      {preview && <PreviewModal item={asItem(preview)} getUrl={getUrl} onClose={() => setPreview(null)} />}
+      {preview && <PreviewModal item={asItem(preview)} getUrl={getUrl} when={t('partagé par {name} {when}', { name: nameOf(preview.createdBy), when: relativeTime(preview.createdAt) })} onClose={() => setPreview(null)} />}
     </div>
   );
 }
