@@ -317,9 +317,17 @@ export default function Copilot() {
     };
     window.addEventListener('keydown', onKey);
     const character = charRef.current;
+    // A click anywhere else closes Kompaly (not in a dialog or menu opened over it, e.g. a confirmation).
+    const onDown = (e: PointerEvent) => {
+      const el = e.target as Element | null;
+      if (!el?.closest || panel?.contains(el) || character?.contains(el) || el.closest('[role="dialog"], [role="menu"], [role="alertdialog"]')) return;
+      setPose('hidden');
+    };
+    document.addEventListener('pointerdown', onDown, true);
     return () => {
       clearTimeout(timer);
       window.removeEventListener('keydown', onKey);
+      document.removeEventListener('pointerdown', onDown, true);
       // Closing: give the focus back to the character rather than losing it.
       const now = document.activeElement;
       if (!now || now === document.body || panel?.contains(now)) character?.focus();
