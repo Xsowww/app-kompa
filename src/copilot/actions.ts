@@ -27,6 +27,8 @@ export const registerNavigate = (fn: (to: string) => void) => {
 export const goTo = (to: string) => navigateFn?.(to);
 
 export const linkToDriveFolder = (id: string | null) => (id ? `/drive?dossier=${id}` : '/drive');
+/** A file in its folder, its preview open. */
+export const linkToDriveFile = (it: { id: string; parentId: string | null }) => `${linkToDriveFolder(it.parentId)}${it.parentId ? '&' : '?'}fichier=${it.id}`;
 export const linkToNote = (id: string) => `/notes?note=${id}`;
 /** A day of the calendar; with an event, that event glows once there (lib/flash). */
 export const linkToDay = (date: string, eventId?: string) => `/calendrier?jour=${date}${eventId ? `&evt=${eventId}` : ''}`;
@@ -93,7 +95,7 @@ export function search(query: string, limit = 8, shared?: SharedContent): Search
       id: it.id,
       title: it.name,
       where,
-      to: it.kind === 'folder' ? linkToDriveFolder(it.id) : `${linkToDriveFolder(it.parentId)}${it.parentId ? '&' : '?'}fichier=${it.id}`,
+      to: it.kind === 'folder' ? linkToDriveFolder(it.id) : linkToDriveFile(it),
     });
   }
   const { notes, folders } = useNotes.getState();

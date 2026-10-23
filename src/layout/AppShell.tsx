@@ -8,7 +8,9 @@ import { useAuth } from '../store/auth';
 import Copilot from '../copilot/Copilot';
 import Tour from '../components/Tour';
 import { startProactive } from '../copilot/proactive';
-import { HIT_LABEL, registerNavigate, search, type SearchHit } from '../copilot/actions';
+import { HIT_LABEL, linkToDriveFile, registerNavigate, search, type SearchHit } from '../copilot/actions';
+import { useDrive } from '../store/drive';
+import { fold as foldText } from '../lib/textFind';
 import Logo from '../components/Logo';
 import Avatar from '../components/Avatar';
 import FocusTimer from '../components/FocusTimer';
@@ -60,6 +62,34 @@ const HIT_ICON: Record<SearchHit['type'], typeof FileText> = {
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
 
+// The text inside the Drive's PDF, Word… files (lib/textIndex): read in the background from the first time the
+// search is used in this session (not at every start: it may download the files), then kept up to date.
+let readingStarted = false;
+const textIndex = () => import('../lib/textIndex');
+type FileHit = SearchHit & { snippet: string };
+/** A few words before the match, so that it shows on the one line of the result. */
+function shortSnippet(snippet: string, q: string, find: (folded: string, q: string) => { at: number }, fold: (s: string) => string) {
+  const at = find(fold(snippet), fold(q.trim())).at;
+  if (at <= 30) return snippet;
+  const cut = snippet.indexOf(' ', at - 28);
+  return `…${snippet.slice(cut >= 0 && cut < at ? cut + 1 : at - 24)}`;
+}
+
+/** The words searched for in bold, in an extract of a file (as typed, accents and case aside). */
+function highlight(text: string, q: string) {
+  const parts: React.ReactNode[] = [];
+  const folded = foldText(text);
+  const fq = foldText(q.trim());
+  let pos = 0;
+  for (let i = fq ? folded.indexOf(fq) : -1; i >= 0; i = folded.indexOf(fq, i + fq.length)) {
+    if (i > pos) parts.push(text.slice(pos, i));
+    parts.push(<mark key={i} className="bg-transparent font-semibold text-ink">{text.slice(i, i + fq.length)}</mark>);
+    pos = i + fq.length;
+  }
+  parts.push(text.slice(pos));
+  return parts;
+}
+
 /** `onDone(cancelled)`: closed with Échap (true) or a result chosen (false). */
 function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (cancelled: boolean) => void }) {
   const navigate = useNavigate();
@@ -68,7 +98,56 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   // The groups' and shared calendars' notes and events already read too (no request to the server).
-  const hits = q.trim() ? search(q, 8, useGroups.getState()) : [];
+  const named = q.trim() ? search(q, 8, useGroups.getState()) : [];
+  // Files whose content has the words (not already found by their name), after the rest.
+  const [inFiles, setInFiles] = useState<FileHit[]>([]);
+  const [reading, setReading] = useState(false);
+  const [indexed, setIndexed] = useState(0);
+  const hits: (SearchHit | FileHit)[] = [...named, ...inFiles.filter(f => !named.some(h => h.type === 'fichier' && h.id === f.id))];
+  const startReading = () => {
+    if (readingStarted) return;
+    readingStarted = true;
+    setReading(true); // until the first pass says what it did
+    void textIndex().then(m => m.startTextIndexing());
+  };
+  useEffect(() => {
+    let off = () => {};
+    let alive = true;
+    void textIndex().then(m => {
+      if (!alive) return;
+      off = m.onIndexChange(() => {
+        setReading(m.isIndexing());
+        setIndexed(n => n + 1);
+      });
+    });
+    return () => {
+      alive = false;
+      off();
+    };
+  }, []);
+  useEffect(() => {
+    const query = q.trim();
+    let cancelled = false;
+    const timer = setTimeout(
+      () =>
+        void textIndex().then(async m => {
+          const found = query.length < 2 ? [] : await m.searchFileContents(query, 4);
+          if (cancelled) return;
+          const items = useDrive.getState().items;
+          setInFiles(
+            found.flatMap(f => {
+              const it = items.find(i => i.id === f.id);
+              return it ? [{ type: 'fichier' as const, id: it.id, title: it.name, where: '', snippet: shortSnippet(f.snippet, query, m.findIn, m.fold), to: linkToDriveFile(it) }] : [];
+            }),
+          );
+        }),
+      query.length < 2 ? 0 : 200,
+    );
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [q, indexed]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -113,7 +192,7 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
           setActive(0);
           setOpen(true);
         }}
-        onFocus={() => setOpen(true)}
+        onFocus={() => (setOpen(true), startReading())}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
         onKeyDown={e => {
           // The arrows move in the results, not the caret.
@@ -146,7 +225,13 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
           {/* The field keeps the focus (and the list stays open) while « Effacer la recherche » is pressed. */}
           {hits.length === 0 && (
             <div onMouseDown={e => e.preventDefault()}>
-              <EmptyState size="sm" tone="search" title={t('Aucun résultat pour «\u00a0{q}\u00a0»', { q: q.trim() })} action={{ label: t('Effacer la recherche'), icon: X, onClick: () => (setQ(''), inputRef.current?.focus()) }} />
+              <EmptyState
+                size="sm"
+                tone="search"
+                title={t('Aucun résultat pour «\u00a0{q}\u00a0»', { q: q.trim() })}
+                text={reading ? t('Je lis encore le contenu de tes fichiers : réessaie dans un instant.') : undefined}
+                action={{ label: t('Effacer la recherche'), icon: X, onClick: () => (setQ(''), inputRef.current?.focus()) }}
+              />
             </div>
           )}
           {hits.map((h, i) => {
@@ -165,7 +250,13 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
                 <Icon size={15} className="shrink-0 text-stone-400" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[13px] font-medium">{h.title}</span>
-                  {h.where && <span className="block truncate text-[12px] text-stone-500">{h.where}</span>}
+                  {'snippet' in h ? (
+                    <span className="block truncate text-[12px] text-stone-500" title={h.snippet}>
+                      {highlight(h.snippet, q)}
+                    </span>
+                  ) : (
+                    h.where && <span className="block truncate text-[12px] text-stone-500">{h.where}</span>
+                  )}
                 </span>
                 <span className="inline-block shrink-0 text-[11px] text-stone-500 first-letter:uppercase">{HIT_LABEL[h.type]}</span>
               </button>

@@ -6,8 +6,15 @@ import { blobStore } from './blobStore';
 import { blobKey, getStorageUser } from './userStorage';
 import { useDrive, categoryOf, isPlainText, type DriveItem } from '../store/drive';
 import { docxText, pdfPages } from './docText';
+import { fold, findIn } from './textFind';
 
-const DB_NAME = 'cop-pilot-text';
+export { fold, findIn };
+
+// -2: texts read again with the spaces between words of PDFs put back (docText.pageText); the first one is deleted.
+const DB_NAME = 'cop-pilot-text-2';
+const OLD_DB = 'cop-pilot-text';
+/** Stored for a file read without any text in it (a scan…), so it isn't read again. */
+const NO_TEXT = '\u0000';
 const STORE = 'texts';
 /** Bigger files are not worth downloading and parsing just for the search. */
 const MAX_FILE_SIZE = 30 * 1024 * 1024;
@@ -19,6 +26,7 @@ let dbPromise: Promise<IDBDatabase> | null = null;
 function openDb(): Promise<IDBDatabase> {
   if (!dbPromise) {
     dbPromise = new Promise((resolve, reject) => {
+      indexedDB.deleteDatabase(OLD_DB);
       const req = indexedDB.open(DB_NAME, 1);
       req.onupgradeneeded = () => req.result.createObjectStore(STORE);
       req.onsuccess = () => resolve(req.result);
@@ -33,8 +41,23 @@ export async function forgetTextIndex() {
   const db = await dbPromise?.catch(() => null);
   db?.close();
   dbPromise = null;
+  failed.clear();
   indexedDB.deleteDatabase(DB_NAME);
+  indexedDB.deleteDatabase(OLD_DB);
 }
+
+// ── Who wants to know: the searches run again when files were read ─────────
+
+const listeners = new Set<() => void>();
+let busy = false;
+/** Called after each file read, and when the reading starts or stops (see `isIndexing`). */
+export function onIndexChange(fn: () => void) {
+  listeners.add(fn);
+  return () => void listeners.delete(fn);
+}
+const changed = () => listeners.forEach(fn => fn());
+/** Files are being read right now (a search may find more in a moment). */
+export const isIndexing = () => busy;
 
 function run<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<T>): Promise<T> {
   return openDb().then(
@@ -45,30 +68,6 @@ function run<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<
         req.onerror = () => reject(req.error);
       }),
   );
-}
-
-// ── Accent- and case-insensitive matching ──────────────────────────────────
-// Each character folds to exactly one character, so positions in the folded text
-// are positions in the original one (needed to cut snippets and highlight).
-
-const foldCache = new Map<string, string>();
-function foldChar(c: string) {
-  let f = foldCache.get(c);
-  if (f === undefined) {
-    // The typographic apostrophe of phone keyboards (’) matches a plain one.
-    f = c === '’' || c === '‘' ? "'" : ((c.normalize('NFD')[0] ?? c).toLowerCase()[0] ?? c);
-    foldCache.set(c, f);
-  }
-  return f;
-}
-
-export function fold(s: string) {
-  let out = '';
-  for (let i = 0; i < s.length; i++) {
-    const code = s.charCodeAt(i);
-    out += code < 128 ? (code >= 65 && code <= 90 ? String.fromCharCode(code + 32) : s[i]) : foldChar(s[i]);
-  }
-  return out;
 }
 
 /** Splits `text` around the matches of `query`, for highlighting. */
@@ -150,7 +149,8 @@ async function load(): Promise<Map<string, Indexed>> {
       const map = new Map<string, Indexed>();
       keys.forEach((k, i) => {
         const id = String(k).slice(user.length + 1);
-        map.set(id, { text: values[i], folded: fold(values[i].normalize('NFC')) });
+        const text = values[i] === NO_TEXT ? '' : values[i];
+        map.set(id, { text, folded: fold(text.normalize('NFC')) });
       });
       cache = { user, map };
       return map;
@@ -160,28 +160,33 @@ async function load(): Promise<Map<string, Indexed>> {
 }
 
 const inFlight = new Set<string>();
+/** Files whose reading failed in this session (download cut, damaged file…): tried again next time. */
+const failed = new Set<string>();
 
 /** Extracts and stores the text of one file. `blob` avoids downloading it again right after an upload. */
 export async function indexFile(item: DriveItem, blob?: Blob) {
   const kind = kindOf(item);
   const user = getStorageUser();
-  if (!kind || !user || inFlight.has(item.id)) return;
+  if (!kind || !user || inFlight.has(item.id) || failed.has(item.id)) return;
   inFlight.add(item.id);
   try {
     const map = await load();
     if (map.has(item.id)) return;
     const data = blob ?? (await blobStore.get(blobKey(item.id)));
-    if (!data) return;
-    let text = '';
+    if (!data) return void failed.add(item.id);
+    let text: string;
     try {
       text = await extract(kind, data);
     } catch {
-      // Damaged or protected file: remember it as empty so we don't retry forever.
+      // Damaged or protected file, or pdf.js not loaded (connection lost): not stored, read again next session.
+      return void failed.add(item.id);
     }
-    await run('readwrite', s => s.put(text, `${user}:${item.id}`));
+    await run('readwrite', s => s.put(text || NO_TEXT, `${user}:${item.id}`));
     if (cache?.user === user) cache.map.set(item.id, { text, folded: fold(text) });
+    changed();
   } catch {
     // IndexedDB unavailable (private browsing…): the search falls back to names only.
+    failed.add(item.id);
   } finally {
     inFlight.delete(item.id);
   }
@@ -219,7 +224,11 @@ export function startTextIndexing(): () => void {
         again = false;
         const map = await load();
         await prune(map);
-        const todo = useDrive.getState().items.filter(i => kindOf(i) && !map.has(i.id) && !inFlight.has(i.id));
+        const todo = useDrive.getState().items.filter(i => kindOf(i) && !map.has(i.id) && !inFlight.has(i.id) && !failed.has(i.id));
+        if (todo.length && !busy) {
+          busy = true;
+          changed();
+        }
         for (let i = 0; i < todo.length && !stopped; i += 3) {
           await Promise.all(todo.slice(i, i + 3).map(it => indexFile(it)));
           await new Promise(r => setTimeout(r, 150)); // let the page breathe
@@ -229,6 +238,8 @@ export function startTextIndexing(): () => void {
       // ignore: retried on the next change
     } finally {
       running = false;
+      busy = false;
+      changed(); // also when there was nothing to read: the search stops saying « je lis encore »
     }
   };
 
@@ -281,11 +292,12 @@ export async function searchFileContents(query: string, limit = 20): Promise<Con
   const hits: (ContentMatch & { count: number })[] = [];
   for (const item of useDrive.getState().items) {
     const entry = map.get(item.id);
-    const at = entry ? entry.folded.indexOf(q) : -1;
-    if (!entry || at < 0) continue;
+    if (!entry) continue;
+    const { at, len } = findIn(entry.folded, q);
+    if (at < 0) continue;
     let count = 0;
-    for (let i = at; i >= 0 && count < 50; i = entry.folded.indexOf(q, i + q.length)) count++;
-    hits.push({ id: item.id, snippet: snippetAround(entry.text, at, q.length), count });
+    for (let i = entry.folded.indexOf(q); i >= 0 && count < 50; i = entry.folded.indexOf(q, i + q.length)) count++;
+    hits.push({ id: item.id, snippet: snippetAround(entry.text, at, len), count: Math.max(count, 1) });
   }
   return hits
     .sort((a, b) => b.count - a.count)
