@@ -186,7 +186,7 @@ export default function Dashboard() {
                 <span className="block text-[13px] font-semibold text-white/90">
                   {nowEvent && minutesTo <= 0 ? t('En ce moment') : t('Aujourd’hui')}
                   {nowEvent && minutesTo > 0 && (
-                    <span className="whitespace-nowrap font-medium text-white/80">
+                    <span className="whitespace-nowrap font-medium text-white/90">
                       {' · '}
                       {minutesTo < 60
                         ? t('dans {n} min', { n: minutesTo })

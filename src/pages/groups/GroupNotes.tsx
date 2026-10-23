@@ -88,7 +88,7 @@ export default function GroupNotes({ group }: { group: Group }) {
           placeholder={t('Sans titre')}
           aria-label={t('Titre de la note')}
           maxLength={200}
-          className="ml-9 w-[calc(100%-36px)] bg-transparent text-[24px] font-semibold tracking-[-0.02em] outline-none placeholder:text-stone-400"
+          className="ml-9 w-[calc(100%-36px)] bg-transparent text-[24px] font-semibold tracking-[-0.02em] outline-none placeholder:text-stone-500"
         />
         <p className="ml-9 mt-0.5 text-[12px] text-stone-500">{t('Création de la note…')}</p>
       </div>

@@ -69,7 +69,11 @@ export default function DayLine({ events, now }: { events: CalendarEvent[]; now:
         <span
           key={m}
           // Close to the next hour (« 20 h 22 h »): left out on a phone, where they would touch.
-          className={cx('tabular absolute whitespace-nowrap text-[11.5px] font-medium leading-[14px] text-white/75', i + 1 < all.length && pct(all[i + 1]) - pct(m) < 16 && 'max-sm:hidden')}
+          className={cx('tabular absolute whitespace-nowrap text-[11.5px] font-medium leading-[14px] text-white/90',
+            i + 1 < all.length && pct(all[i + 1]) - pct(m) < 16 && 'max-sm:hidden',
+            // Under the knob of the time now: hidden behind it.
+            Math.abs(pct(m) - pct(nowMin)) < 6 && 'invisible',
+          )}
           style={{ ...y(34), left: `${pct(m)}%`, transform: anchor(pct(m)) }}
         >
           {t('{h} h', { h: m / 60 })}

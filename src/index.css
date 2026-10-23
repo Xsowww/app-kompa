@@ -245,8 +245,9 @@ body {
 /* A scroll area whose cards touch its edges: 20 px more box around it, given back as padding, so the cards'
    shadows (the Relief style's above all) are not cut by the edge of the scroll. Nothing moves. */
 @utility shadow-room {
-  margin-inline: -20px;
-  padding-inline: 20px;
+  /* 16 px on the sides: the page's own margin on a phone (20 made the page scroll sideways by 4 px). */
+  margin-inline: -16px;
+  padding-inline: 16px;
   margin-top: -20px;
   padding-top: 20px;
 }

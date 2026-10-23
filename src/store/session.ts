@@ -2,7 +2,7 @@ import { useDrive } from './drive';
 import { useCalendar } from './calendar';
 import { useNotes } from './notes';
 import { useCopilot } from './copilot';
-import { useSettings, applyAppearance, storedTheme, type Settings } from './settings';
+import { useSettings, applyAppearance, storedStyle, storedTheme, type Settings } from './settings';
 import { getStorageUser, setStorageUser } from '../lib/userStorage';
 import { cloudEnabled } from '../lib/supabase';
 import { pullAll, pushLeftovers, startSync, stopSync, updateCloudProfile } from '../lib/cloudSync';
@@ -119,7 +119,7 @@ async function load() {
   setStorageUser(userId);
   if (!userId) {
     // Logged out: last theme used on this device, otherwise the system's.
-    applyAppearance({ ...useSettings.getState(), theme: storedTheme() ?? 'auto' }, false);
+    applyAppearance({ ...useSettings.getState(), theme: storedTheme() ?? 'auto', style: storedStyle() ?? 'classique' }, false);
     return;
   }
   await Promise.all([

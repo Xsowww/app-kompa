@@ -577,7 +577,7 @@ export default function CalendarPage() {
               onChange={e => setQuick(e.target.value)}
               placeholder={wide ? t('Ajouter un événement, par exemple «\u00a0{example}\u00a0»', { example: words.quickExample }) : t('Ajouter un événement…')}
               aria-label={t('Ajouter un événement en une phrase')}
-              className="h-full min-w-0 flex-1 text-ellipsis bg-transparent text-[14px] outline-none placeholder:text-stone-400"
+              className="h-full min-w-0 flex-1 text-ellipsis bg-transparent text-[14px] outline-none placeholder:text-stone-500"
             />
             {/* Nothing typed (or no title, « demain 14h »): Entrée opens the full form, as the « + » button does. */}
             {parsed?.title && (

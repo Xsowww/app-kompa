@@ -18,6 +18,13 @@
       [data-theme='dark'] .boot { background: #0c0d12; color: #f1f2f6; }
       [data-theme='dark'] .boot-tile { fill: #f1f2f6; }
       [data-theme='dark'] .boot-me { fill: #0c0d12; }
+      /* The style's page colour (Profil › Apparence), so the app doesn't jump from one grey to another. */
+      html[data-style='verre'], [data-style='verre'] .boot, [data-style='verre'] .boot-me { background: #e7eaf6; fill: #e7eaf6; }
+      html[data-style='liquide'], [data-style='liquide'] .boot, [data-style='liquide'] .boot-me { background: #eceef2; fill: #eceef2; }
+      html[data-style='relief'], [data-style='relief'] .boot, [data-style='relief'] .boot-me { background: #e4e9f2; fill: #e4e9f2; }
+      html[data-style='verre'][data-theme='dark'], [data-style='verre'][data-theme='dark'] .boot, [data-style='verre'][data-theme='dark'] .boot-me { background: #0b0d18; fill: #0b0d18; }
+      html[data-style='liquide'][data-theme='dark'], [data-style='liquide'][data-theme='dark'] .boot, [data-style='liquide'][data-theme='dark'] .boot-me { background: #111215; fill: #111215; }
+      html[data-style='relief'][data-theme='dark'], [data-style='relief'][data-theme='dark'] .boot, [data-style='relief'][data-theme='dark'] .boot-me { background: #1e2126; fill: #1e2126; }
       /* The small dot (the friend) leans towards the big one (you), and back. */
       @keyframes boot-friend { 50% { transform: translate(-1.25px, 1.25px); } }
       @media (prefers-reduced-motion: reduce) { .boot-friend { animation: none; } }

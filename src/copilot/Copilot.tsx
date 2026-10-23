@@ -496,7 +496,7 @@ export default function Copilot() {
               placeholder={dictation.listening ? t('Je t’écoute…') : t('Écris à Kompaly…')}
               aria-label={t('Message pour Kompaly')}
               className={cx(
-                'h-9 min-w-0 flex-1 rounded-lg bg-stone-50 px-3 text-[13px] outline-none placeholder:text-stone-400 focus:bg-stone-100 focus-visible:ring-2 focus-visible:ring-focus',
+                'h-9 min-w-0 flex-1 rounded-lg bg-stone-50 px-3 text-[13px] outline-none placeholder:text-stone-500 focus:bg-stone-100 focus-visible:ring-2 focus-visible:ring-focus',
                 dictation.listening && 'bg-brand-50 placeholder:text-brand-600',
               )}
               tabIndex={isOpen ? 0 : -1}

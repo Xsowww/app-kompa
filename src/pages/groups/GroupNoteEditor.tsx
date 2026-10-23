@@ -340,7 +340,7 @@ function LoadedEditor({ initial, onClose, readOnly, startTitle }: { initial: Gro
               changed();
             }}
             onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), editor.commands.focus('start'))}
-            className="w-full bg-transparent text-[20px] font-semibold md:text-[24px] tracking-[-0.02em] outline-none placeholder:text-stone-400"
+            className="w-full bg-transparent text-[20px] font-semibold md:text-[24px] tracking-[-0.02em] outline-none placeholder:text-stone-500"
           />
           <p className={cx('mt-0.5 text-[12px]', conflict ? 'text-amber-700' : status === 'error' ? 'text-red-600' : 'text-stone-500')}>{statusText}</p>
         </div>

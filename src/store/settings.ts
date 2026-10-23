@@ -160,6 +160,24 @@ export function storedTheme(): ThemeMode | null {
   }
 }
 
+/** Style last used on this device (logged-out pages keep it, like the theme). */
+export function storedStyle(): UiStyle | null {
+  try {
+    const s = localStorage.getItem(STYLE_KEY) as UiStyle | null;
+    return s && UI_STYLES.includes(s) ? s : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The page colour of each style (light, dark): the phone's status bar takes it. Same values in public/theme.js. */
+const PAPER: Record<UiStyle, [string, string]> = {
+  classique: ['#eceef3', '#0c0d12'],
+  verre: ['#e7eaf6', '#0b0d18'],
+  liquide: ['#eceef2', '#111215'],
+  relief: ['#e4e9f2', '#1e2126'],
+};
+
 type Appearance = Pick<Settings, 'accent' | 'reduceMotion' | 'theme'> & { style?: UiStyle };
 const darkQuery = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 let lastAppearance: Appearance | null = null;
@@ -179,7 +197,7 @@ export function applyAppearance(s: Appearance, remember = true) {
   const style = s.style && UI_STYLES.includes(s.style) ? s.style : 'classique';
   if (style === 'classique') delete root.dataset.style;
   else root.dataset.style = style;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#0c0d12' : '#eceef3');
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', PAPER[style][dark ? 1 : 0]);
   if (remember) {
     try {
       localStorage.setItem(THEME_KEY, s.theme);

@@ -24,7 +24,8 @@
   --color-stone-50: rgb(20 22 31 / 0.035);
   --color-stone-100: rgb(20 22 31 / 0.06);
   --color-stone-200: rgb(255 255 255 / 0.8);
-  --color-tile-blue: rgb(61 99 221 / 0.86);
+  /* Secondary text on the coloured background and the pale grey of the segmented controls: above 4.5:1. */
+  --color-stone-500: #50566a;
   --color-tile-dark: rgb(20 22 31 / 0.8);
   --shadow-card: 0 12px 36px -16px rgb(40 52 110 / 0.3);
 }
@@ -42,19 +43,27 @@
   --color-stone-50: rgb(255 255 255 / 0.04);
   --color-stone-100: rgb(255 255 255 / 0.07);
   --color-stone-200: rgb(255 255 255 / 0.13);
+  --color-stone-500: #9ba1b5;
   --color-tile-dark: rgb(0 0 0 / 0.5);
   --shadow-card: 0 12px 36px -16px rgb(0 0 0 / 0.6);
 }
-:root[data-style='verre'] :is(.card, aside.bg-surface, .shadow-pop.bg-surface, #nav-more-panel, #copilot-panel, .bg-tile-blue, .bg-tile-dark) {
+:root[data-style='verre'] :is(.card, aside.bg-surface, .shadow-pop.bg-surface, .card.shadow-pop, #nav-more-panel, #copilot-panel, .bg-tile-blue, .bg-tile-dark) {
   -webkit-backdrop-filter: blur(24px) saturate(170%);
   backdrop-filter: blur(24px) saturate(170%);
 }
 :root[data-style='verre'] :is(.card, aside.bg-surface, .bg-tile-blue, .bg-tile-dark) {
   box-shadow: inset 0 0 0 1px var(--glass-edge), inset 0 1px 0 var(--glass-shine), var(--shadow-card);
 }
-:root[data-style='verre'] :is(.shadow-pop.bg-surface, #nav-more-panel, #copilot-panel) {
+:root[data-style='verre'] :is(.shadow-pop.bg-surface, .card.shadow-pop, #nav-more-panel, #copilot-panel) {
   background-color: var(--glass-strong);
   box-shadow: inset 0 0 0 1px var(--glass-edge), var(--shadow-pop);
+}
+/* The white fields and secondary buttons would vanish on the white glass: a faint dark edge. */
+:root[data-style='verre']:not([data-theme='dark']) :is(.field, input.bg-surface) {
+  border-color: rgb(20 22 31 / 0.14);
+}
+:root[data-style='verre']:not([data-theme='dark']) .btn-secondary {
+  --tw-ring-color: rgb(20 22 31 / 0.12);
 }
 
 /* ===== Liquid Glass, on a neutral background: clear glass, light edges, capsules ===== */
@@ -72,6 +81,7 @@
   --color-stone-50: rgb(20 22 31 / 0.03);
   --color-stone-100: rgb(20 22 31 / 0.055);
   --color-stone-200: rgb(20 22 31 / 0.09);
+  --color-stone-500: #50566a;
   --shadow-card: 0 14px 34px -16px rgb(20 22 31 / 0.24);
 }
 :root[data-style='liquide'][data-theme='dark'] {
@@ -88,9 +98,10 @@
   --color-stone-50: rgb(255 255 255 / 0.03);
   --color-stone-100: rgb(255 255 255 / 0.06);
   --color-stone-200: rgb(255 255 255 / 0.1);
+  --color-stone-500: #9ba1b5;
   --shadow-card: 0 14px 34px -16px rgb(0 0 0 / 0.7);
 }
-:root[data-style='liquide'] :is(.card, aside.bg-surface, .shadow-pop.bg-surface, #nav-more-panel, #copilot-panel, .bg-tile-blue, .bg-tile-dark) {
+:root[data-style='liquide'] :is(.card, aside.bg-surface, .shadow-pop.bg-surface, .card.shadow-pop, #nav-more-panel, #copilot-panel, .bg-tile-blue, .bg-tile-dark) {
   -webkit-backdrop-filter: blur(14px) saturate(180%);
   backdrop-filter: blur(14px) saturate(180%);
 }
@@ -102,7 +113,12 @@
     0 0 0 0.5px var(--glass-line),
     var(--shadow-card);
 }
-:root[data-style='liquide'] :is(.shadow-pop.bg-surface, #nav-more-panel, #copilot-panel) {
+:root[data-style='liquide'] :is(.bg-tile-blue, .bg-tile-dark) {
+  /* No sheen on the coloured tiles: it washed out their white text. */
+  background-image: none;
+}
+:root[data-style='liquide'] :is(.shadow-pop.bg-surface, .card.shadow-pop, #nav-more-panel, #copilot-panel) {
+  background-image: none;
   background-color: var(--glass-strong);
   box-shadow: inset 1px 1px 0 var(--glass-hi), 0 0 0 0.5px var(--glass-line), var(--shadow-pop);
 }
@@ -118,7 +134,7 @@
   border-radius: 999px;
   background-color: rgb(255 255 255 / 0.78);
   background-image: var(--glass-sheen);
-  color: var(--color-ink);
+  color: var(--color-brand-600);
   box-shadow: inset 1px 1px 0 var(--glass-hi), inset -1px -1px 0 var(--glass-lo), 0 0 0 0.5px var(--glass-line), 0 6px 16px -8px rgb(20 22 31 / 0.3);
 }
 :root[data-style='liquide'][data-theme='dark'] aside nav a.bg-ink {
@@ -138,7 +154,7 @@
 }
 :root[data-style='liquide'] nav.bg-tile-dark > :is(a, button).bg-white {
   background-color: rgb(255 255 255 / 0.85);
-  color: var(--color-ink);
+  color: var(--color-brand-600);
   box-shadow: inset 1px 1px 0 var(--glass-hi), 0 0 0 0.5px var(--glass-line), 0 4px 12px -6px rgb(20 22 31 / 0.3);
 }
 :root[data-style='liquide'][data-theme='dark'] nav.bg-tile-dark > :is(a, button).bg-white {
@@ -155,6 +171,7 @@
   --color-stone-100: #d9dfea;
   --color-stone-200: #d1d8e4;
   --color-stone-300: #b8c1d1;
+  --color-stone-500: #50566a;
   /* --nm-raised for the panels, within the 16 px a phone page has around them; --shadow-card (also on small
      things: chips, the chosen option) stays small. */
   --nm-raised: 7px 7px 15px var(--nm-dark), -7px -7px 15px var(--nm-light);
@@ -175,6 +192,7 @@
   --color-stone-100: #30353d;
   --color-stone-200: #3a3f49;
   --color-stone-300: #4a505c;
+  --color-stone-500: #9ba1b5;
   --color-tile-dark: #121418;
   --nm-raised: var(--nm-edge), 7px 7px 16px var(--nm-dark), -6px -6px 14px var(--nm-light);
   --shadow-pop: var(--nm-edge), 16px 16px 36px var(--nm-dark), -8px -8px 22px var(--nm-light);
@@ -185,9 +203,10 @@
 :root[data-style='relief'] :is(.card, aside.bg-surface, .bg-tile-blue, .bg-tile-dark) {
   box-shadow: var(--nm-raised);
 }
-:root[data-style='relief'] :is(.shadow-pop.bg-surface, #nav-more-panel, #copilot-panel) {
+:root[data-style='relief'] :is(.shadow-pop.bg-surface, .card.shadow-pop, #nav-more-panel, #copilot-panel) {
   border-color: transparent;
-  box-shadow: var(--shadow-pop);
+  /* A faint edge: a menu over a card of the same matter would melt into it. */
+  box-shadow: inset 0 0 0 1px rgb(20 22 31 / 0.06), var(--shadow-pop);
 }
 /* Fields are hollowed out; the keyboard focus ring stays. */
 :root[data-style='relief'] .field {
@@ -253,4 +272,16 @@
 :root[data-style] main#contenu {
   overflow: clip;
   overflow-clip-margin: 24px;
+}
+
+/* Month grid: the lines between the days are the grid's background seen through 1 px gaps; with translucent
+   days they vanished (white on white, or all grey). Opaque days on a darker grid. */
+:root[data-style] .grid.bg-stone-200:has(> [data-drop-day]) {
+  background-color: var(--color-stone-300);
+}
+:root[data-style] [data-drop-day].bg-surface {
+  background-color: var(--glass-strong, var(--color-surface));
+}
+:root[data-style] [data-drop-day].bg-stone-50 {
+  background-color: color-mix(in srgb, var(--color-stone-300) 40%, var(--glass-strong, var(--color-surface)));
 }
