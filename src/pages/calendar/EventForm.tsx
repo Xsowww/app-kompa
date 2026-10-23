@@ -14,6 +14,7 @@ import { NewCategory } from './CategoriesDialog';
 import ReminderPicker from '../../components/ReminderPicker';
 import { DateField, TimeField } from '../../components/Pickers';
 import { FieldError } from '../../components/Field';
+import { fmt, fromKey, parseQuickAdd } from '../../lib/dates';
 import { eventReminders, followMoments } from '../../lib/reminders';
 import { t } from '../../i18n';
 
@@ -50,7 +51,25 @@ export default function EventForm({ event, date, start: initialStart, end: initi
   const reminders = eventReminders({ reminders: chosen, start, externalId: event?.externalId }, defaults);
   const words = { ...(WORDS[useSettings(s => s.usage)] ?? WORDS.etudes), ...(shared && AGENDA_EXAMPLES) };
   const [creating, setCreating] = useState(false);
-  const effective = category ?? guessCategory(title, !!start, custom);
+  // A new event: « Dentiste demain 16h » fills the day and the times (as the calendar's bar), unless they were set by
+  // hand; saved as « Dentiste ». Editing one leaves its title as it is.
+  const parsed = !event && title.trim() ? parseQuickAdd(title) : null;
+  const understood = !!parsed && !parsed.impossible && !!(parsed.date || parsed.start || parsed.important);
+  const cleanTitle = understood ? parsed.title : title.trim();
+  const touched = useRef({ day: false, start: false, end: false, important: false });
+  const onTitle = (v: string) => {
+    setTitle(v);
+    if (v.trim()) setTitleError('');
+    if (event) return;
+    const p = v.trim() ? parseQuickAdd(v) : null;
+    const ok = p && !p.impossible ? p : null;
+    const was = touched.current;
+    if (!was.day) setDay(ok?.date ?? date);
+    if (!was.start) setStart(ok?.start ?? initialStart ?? '');
+    if (!was.end) setEnd(ok?.end ?? (ok?.start ? '' : (initialEnd ?? '')));
+    if (!was.important) setImportant(!!ok?.important);
+  };
+  const effective = category ?? guessCategory(cleanTitle || title, !!start, custom);
   const notes = useNotes(s => s.notes);
   const linked = event ? notes.filter(n => n.links?.some(l => l.kind === 'event' && l.id === event.id)) : [];
 
@@ -61,13 +80,13 @@ export default function EventForm({ event, date, start: initialStart, end: initi
   const timeMsg = end && !start ? t('Indique le début, ou efface la fin.') : timeError ? t('La fin est avant le début.') : '';
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) {
-      setTitleError(t('Donne un titre.'));
+    if (!cleanTitle) {
+      setTitleError(understood ? t('Ajoute un titre avant le jour et l’heure.') : t('Donne un titre.'));
       return titleRef.current?.focus();
     }
     if (!day || timeMsg) return;
     // An end without a start can't be sent: the start field is required then (see below).
-    const data = { title: title.trim(), date: day, start: start || undefined, end: start && end ? end : undefined, category: effective, details: details.trim() || undefined, important: important || undefined, reminders: chosen, ...(shared && { people }) };
+    const data = { title: cleanTitle, date: day, start: start || undefined, end: start && end ? end : undefined, category: effective, details: details.trim() || undefined, important: important || undefined, reminders: chosen, ...(shared && { people }) };
     if (event) update(event.id, data);
     else add(data);
     toast(event ? t('Enregistré : {title}', { title: data.title }) : t('Ajouté : {title}', { title: data.title }), 'success');
@@ -83,7 +102,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
           ref={titleRef}
           autoFocus
           value={title}
-          onChange={e => (setTitle(e.target.value), e.target.value.trim() && setTitleError(''))}
+          onChange={e => onTitle(e.target.value)}
           onBlur={() => title && !title.trim() && setTitleError(t('Donne un titre.'))}
           aria-label={t('Titre de l’événement')}
           aria-invalid={titleError ? true : undefined}
@@ -92,6 +111,11 @@ export default function EventForm({ event, date, start: initialStart, end: initi
           className="field mt-4 h-10 w-full text-[14px]"
         />
         <FieldError id="event-title-err">{titleError}</FieldError>
+        {understood && !titleError && (
+          <p className="mt-1.5 text-[12px] text-stone-500" aria-live="polite">
+            {t('Compris : {what}', { what: [parsed.title && `« ${parsed.title} »`, parsed.date && fmt(fromKey(parsed.date), 'EEEE d MMMM'), parsed.start && (parsed.end ? `${parsed.start} – ${parsed.end}` : parsed.start), parsed.important && t('important')].filter(Boolean).join(' · ') })}
+          </p>
+        )}
 
         <p className="mb-1.5 mt-4 text-[12px] font-medium text-stone-600">{t('Catégorie')}</p>
         <div className="flex flex-wrap gap-2">
@@ -144,6 +168,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
                 // « La veille à 9h » follows the event to its new day.
                 if (chosen && day && v) setChosen(followMoments(chosen, { date: day, time: start || undefined }, { date: v, time: start || undefined }, chosen));
                 setDay(v);
+                touched.current.day = true;
               }}
               label={t('Jour de l’événement')}
               className="w-full"
@@ -162,13 +187,14 @@ export default function EventForm({ event, date, start: initialStart, end: initi
                 // « 15 min avant » follows the new time, « La veille à 9h » stays at 9:00 (lib/reminders).
                 if (chosen && day && v !== start) setChosen(followMoments(chosen, { date: day, time: start || undefined }, { date: day, time: v || undefined }, v ? defaults : [0]));
                 setStart(v);
+                touched.current.start = true;
               }}
               className="w-full"
             />
           </div>
           <div>
             <span className="mb-1.5 block text-[12px] font-medium text-stone-600">{t('Fin')}</span>
-            <TimeField value={end} onChange={setEnd} label={t('Heure de fin')} placeholder={t('Facultatif')} clearable invalid={timeError} describedBy={timeError ? 'event-time-err' : undefined} className="w-full" />
+            <TimeField value={end} onChange={v => ((touched.current.end = true), setEnd(v))} label={t('Heure de fin')} placeholder={t('Facultatif')} clearable invalid={timeError} describedBy={timeError ? 'event-time-err' : undefined} className="w-full" />
           </div>
         </div>
         {/* Said as soon as the times are chosen, under them. */}
@@ -177,7 +203,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
         {/* What makes it a « big day » for the home page and Kompaly, whatever its category. */}
         {!shared && <button
           type="button"
-          onClick={() => setImportant(v => !v)}
+          onClick={() => ((touched.current.important = true), setImportant(v => !v))}
           aria-pressed={important}
           className={cx(
             'hit mt-4 flex h-9 items-center gap-2 rounded-lg border px-3 text-[13px] font-medium transition-colors',

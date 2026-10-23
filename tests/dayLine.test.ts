@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dayWindow, hourTicks, toMin } from '../src/pages/dayLine';
+import { dayWindow, hourTicks, labelSpots, toMin } from '../src/pages/dayLine';
 
 describe('day line', () => {
   it('spans 8 h to 22 h on an ordinary day', () => {
@@ -15,5 +15,32 @@ describe('day line', () => {
     expect(hourTicks(360, 1440).map(m => m / 60)).toEqual([6, 12, 18, 24]);
     expect(hourTicks(480, 1440).map(m => m / 60)).toEqual([8, 12, 16, 20, 24]);
     expect(hourTicks(480, 1380).map(m => m / 60)).toEqual([8, 12, 16, 20, 23]);
+  });
+});
+
+describe('names on the day line', () => {
+  it('far apart: one line, each up to the next', () => {
+    expect(labelSpots([20, 50])).toEqual([
+      { row: 0, align: 'start', max: 29 },
+      { row: 0, align: 'start', max: 48 },
+    ]);
+  });
+  it('close together: the second goes on the line above', () => {
+    const s = labelSpots([40, 50, 70]);
+    expect(s.map(x => x.row)).toEqual([0, 1, 0]);
+    expect(s[0].max).toBe(29);
+  });
+  it('the last one near the right edge ends at its dot and shares the room with the one before', () => {
+    expect(labelSpots([30, 92])).toEqual([
+      { row: 0, align: 'start', max: 30 },
+      { row: 0, align: 'end', max: 30 },
+    ]);
+    expect(labelSpots([92])).toEqual([{ row: 0, align: 'end', max: 48 }]);
+  });
+  it('four events within three hours: three lines, nothing overlaps', () => {
+    const s = labelSpots([57.9, 72.1, 75.7, 88.8]);
+    expect(s.map(x => x.row)).toEqual([0, 1, 2, 0]);
+    // dentiste (start, from 57.9) and Dîner (end, up to 88.8) share their line without overlapping.
+    expect(57.9 + s[0].max).toBeLessThanOrEqual(88.8 - s[3].max);
   });
 });

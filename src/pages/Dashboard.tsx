@@ -113,8 +113,8 @@ export default function Dashboard() {
 
   // « Maintenant » : what is on now, else the next thing today (the blue tile).
   const nowEvent = todayEvents.find(e => !e.done && e.start && (e.end ?? e.start) > nowTime);
-  // The « Aujourd’hui » widget lists the rest of the day: not again the event the blue tile shows.
-  const dayList = todayEvents.filter(e => e !== nowEvent);
+  // The « Aujourd’hui » widget lists the whole day, the event of the blue tile too (it is where it is ticked).
+  const dayList = todayEvents;
   const minutesTo = nowEvent?.start ? Number(nowEvent.start.slice(0, 2)) * 60 + Number(nowEvent.start.slice(3)) - (now.getHours() * 60 + now.getMinutes()) : 0;
 
   const nowPeriods = periodsOn(periods, today);
@@ -181,7 +181,7 @@ export default function Dashboard() {
             <span className="flex items-start justify-between gap-4">
               <span className="min-w-0">
                 <span className="block text-[13px] font-semibold text-white/90">
-                  {nowEvent && minutesTo <= 0 ? t('En ce moment') : t('Ensuite aujourd’hui')}
+                  {nowEvent && minutesTo <= 0 ? t('En ce moment') : t('Aujourd’hui')}
                   {nowEvent && minutesTo > 0 && (
                     <span className="font-medium text-white/80"> · {minutesTo < 60 ? t('dans {n} min', { n: minutesTo }) : t('dans {h} h {m}', { h: Math.floor(minutesTo / 60), m: String(minutesTo % 60).padStart(2, '0') })}</span>
                   )}

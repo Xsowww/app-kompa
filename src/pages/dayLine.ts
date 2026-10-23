@@ -17,3 +17,39 @@ export function hourTicks(from: number, to: number) {
   ticks.push(to);
   return ticks;
 }
+
+export interface LabelSpot {
+  /** 0: the line just above the bar, 1 and 2 above it. */
+  row: number;
+  /** Its widest, in % of the bar: up to the next name on the same line. */
+  max: number;
+  /** From its dot to the right, or ending at its dot (the last one, near the right edge). */
+  align: 'start' | 'end';
+}
+
+/**
+ * Where the names of the coming events go (their dots at `pcts`, from left to right): on the first line above the
+ * bar that has room (the previous name on it at least `gap` % before), up to 3 lines. Each name stops before the
+ * next one on its line; the last one near the right edge ends at its dot and shares the room with the one before.
+ */
+export function labelSpots(pcts: number[], gap = 18, lines = 3): LabelSpot[] {
+  const last: (number | null)[] = Array(lines).fill(null);
+  const rows = pcts.map(p => {
+    let row = last.findIndex(q => q === null || p - q >= gap);
+    if (row < 0) row = last.indexOf(Math.min(...(last as number[]))); // all busy: under the oldest one
+    last[row] = p;
+    return row;
+  });
+  const spots: LabelSpot[] = pcts.map((p, i) => {
+    const next = pcts.find((_, j) => j > i && rows[j] === rows[i]);
+    return { row: rows[i], align: next === undefined && 100 - p < gap ? 'end' : 'start', max: Math.min(48, (next ?? 100) - p - 1) };
+  });
+  spots.forEach((s, i) => {
+    if (s.align !== 'end') return;
+    const prev = [...pcts.keys()].reverse().find(j => j < i && rows[j] === s.row);
+    const room = pcts[i] - (prev === undefined ? 0 : pcts[prev]);
+    s.max = Math.min(48, prev === undefined ? room - 1 : room / 2 - 1);
+    if (prev !== undefined) spots[prev].max = Math.min(spots[prev].max, room / 2 - 1);
+  });
+  return spots.map(s => ({ ...s, max: Math.max(4, s.max) }));
+}
