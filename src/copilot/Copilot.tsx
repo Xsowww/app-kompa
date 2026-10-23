@@ -152,6 +152,9 @@ export default function Copilot() {
   const panelRef = useRef<HTMLDivElement>(null);
   const charRef = useRef<HTMLDivElement>(null);
   const [shift, setShift] = useState(0);
+  // Phones: his place over the top edge of the open panel (px from his usual place), so he stays in sight.
+  const [perch, setPerch] = useState(0);
+  const [cap, setCap] = useState<number>();
   // Phones and tablets: the open panel covers the page, so it is a modal dialog there (Tab stays inside).
   const [narrow, setNarrow] = useState(() => matchMedia(NARROW).matches);
   const { pathname } = useLocation();
@@ -265,20 +268,30 @@ export default function Copilot() {
   // The panel is centred on the character; slide it so that it always stays inside the window.
   useLayoutEffect(() => {
     const place = () => {
-      const h = panelRef.current?.offsetHeight ?? 0;
-      const centre = offsetY * window.innerHeight;
+      const H = window.innerHeight;
+      const phone = window.innerWidth < 640;
       const margin = 12;
-      const bottom = window.innerWidth < 1024 ? 68 : margin; // above the bottom navigation on phones and tablets
-      const wanted = Math.min(Math.max(centre, h / 2 + margin), window.innerHeight - h / 2 - bottom);
+      const top = phone ? 76 : margin; // room for his head above the panel
+      // Above the bottom navigation on phones and tablets, and above the imports card (components/UploadCard).
+      const room = parseFloat(document.documentElement.style.getPropertyValue('--uploads-room')) || 0;
+      const bottom = Math.max(window.innerWidth < 1024 ? 68 : margin, room);
+      const most = Math.max(160, H - top - bottom);
+      setCap(c => (c === most ? c : most));
+      const h = Math.min(panelRef.current?.offsetHeight ?? 0, most);
+      const centre = offsetY * H;
+      const wanted = Math.min(Math.max(centre, h / 2 + top), H - h / 2 - bottom);
       setShift(Math.round(wanted - centre));
+      setPerch(Math.round(wanted - h / 2 - centre - 22));
     };
     place();
     const ro = new ResizeObserver(place);
     if (panelRef.current) ro.observe(panelRef.current);
     window.addEventListener('resize', place);
+    window.addEventListener('uploads-room', place);
     return () => {
       ro.disconnect();
       window.removeEventListener('resize', place);
+      window.removeEventListener('uploads-room', place);
     };
   }, [offsetY, wide]);
 
@@ -411,7 +424,7 @@ export default function Copilot() {
           aria-modal={isOpen && narrow ? true : undefined}
           aria-hidden={!isOpen}
           inert={!isOpen}
-          style={{ marginTop: shift }}
+          style={{ marginTop: shift, maxHeight: cap }}
           className={cx(
             // Phone: the whole width, over the character; larger screens: beside it.
             'absolute right-3 top-1/2 z-10 flex -translate-y-1/2 origin-right flex-col overflow-hidden rounded-2xl border border-stone-200 bg-surface shadow-pop transition-all duration-200 sm:right-[104px]',
@@ -537,14 +550,16 @@ export default function Copilot() {
         {/* Only the drawn shapes take clicks (Character): the empty corners of its
             box sit over page buttons near the right edge. */}
         {/* Phones: a bit smaller and, hidden, a little further out (only in the page margin, not over the cards).
-            Open, he is hidden on every screen (the panel's ✕ closes it; the focus comes back to him then). */}
+            Open, he stays in sight but is only a picture (the panel's ✕ closes it; the focus comes back to him then):
+            beside the panel on large screens, over its top edge on phones (the panel takes the whole width). */}
         <div
           className={cx(
             'relative origin-right cursor-pointer touch-none transition-[translate] duration-300 max-sm:scale-[0.8]',
             pose === 'hidden' && 'max-sm:translate-x-1.5',
-            isOpen && 'invisible',
+            isOpen && 'pointer-events-none',
           )}
-          style={{ clipPath: 'inset(-80px 0 -80px -80px)' }}
+          style={{ clipPath: 'inset(-80px 0 -80px -80px)', translate: isOpen && screen.w < 640 ? `0 ${perch}px` : undefined }}
+          aria-hidden={isOpen || undefined}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
@@ -553,7 +568,7 @@ export default function Copilot() {
           title={t('Parler à Kompaly')}
           ref={charRef}
           role="button"
-          tabIndex={0}
+          tabIndex={isOpen ? -1 : 0}
           aria-label={t('Parler à Kompaly')}
           aria-expanded={isOpen}
           aria-controls="copilot-panel"

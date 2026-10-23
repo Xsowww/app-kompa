@@ -84,7 +84,12 @@ function Card({ items }: { items: Upload[] }) {
   useLayoutEffect(() => {
     const el = ref.current!;
     const root = document.documentElement.style;
-    const place = () => root.setProperty('--uploads-room', `${parseFloat(getComputedStyle(el).bottom) + el.offsetHeight + 8}px`);
+    // Kompaly's panel listens too (it stays above the card).
+    const tell = () => dispatchEvent(new Event('uploads-room'));
+    const place = () => {
+      root.setProperty('--uploads-room', `${parseFloat(getComputedStyle(el).bottom) + el.offsetHeight + 8}px`);
+      tell();
+    };
     const ro = new ResizeObserver(place);
     ro.observe(el);
     addEventListener('resize', place);
@@ -92,6 +97,7 @@ function Card({ items }: { items: Upload[] }) {
       ro.disconnect();
       removeEventListener('resize', place);
       root.removeProperty('--uploads-room');
+      tell();
     };
   }, []);
 

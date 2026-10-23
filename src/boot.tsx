@@ -14,10 +14,12 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { watchErrors } from './lib/reportError';
 import { watchInstall } from './lib/install';
 import { watchNewVersion } from './lib/freshness';
+import { watchKeyboard } from './lib/keyboard';
 
 watchErrors();
 watchInstall();
 watchNewVersion();
+watchKeyboard();
 
 // A new version was put online while this tab was open: the old code files it asks for are gone.
 // Reload once to get the new version (the error screen shows if that doesn't help).

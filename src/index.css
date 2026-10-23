@@ -324,6 +324,8 @@ body {
   .hit-sm::after { inset: -8px; }
   /* Text fields: 44 px high under a finger (on computers they keep their size). */
   input.field, select.field { min-height: 44px; }
+  /* iPhone zooms into a field written smaller than 16 px when it gets the focus (the page jumps). */
+  input:not([type=checkbox]):not([type=radio]):not([type=range]), textarea, select { font-size: max(16px, 1em); }
   /* A checkbox has no ::after: the label around it gets the margin instead, without moving anything. */
   .check-hit { margin: -11px; padding: 11px; }
 }
