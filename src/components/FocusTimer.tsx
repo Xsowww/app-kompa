@@ -23,8 +23,8 @@ function SubjectPicker({ onStart, onCancel }: { onStart: (subject: string) => vo
     const onDown = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) onCancel();
     };
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
+    document.addEventListener('pointerdown', onDown);
+    return () => document.removeEventListener('pointerdown', onDown);
   }, [onCancel]);
 
   return (

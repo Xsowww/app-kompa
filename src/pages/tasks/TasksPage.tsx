@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { addDays } from 'date-fns';
 import { ChevronRight, Table2, ChartNoAxesColumn, ListPlus } from 'lucide-react';
 import { useFocusLog } from '../../store/focusLog';
@@ -121,19 +121,20 @@ function WorkTime() {
 
 export default function TasksPage() {
   const location = useLocation();
+  const navigate = useNavigate();
   // The « + » button: the full window (title, due day, reminder); the field above the list stays for a quick one.
-  const [creating, setCreating] = useState(false);
+  // /taches?ajout=1 (« + » of the home page): the new task's window, open at once.
+  const [creating, setCreating] = useState(() => new URLSearchParams(location.search).has('ajout'));
   useCreateActions([{ label: t('Nouvelle tâche'), icon: <ListPlus />, onClick: () => setCreating(true) }]);
 
   useEffect(() => {
     if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView({ behavior: 'smooth' });
   }, [location.hash]);
 
-  // /taches?ajout=1 (« Ajouter une tâche » on the home page): the field to type it, ready.
   const adding = new URLSearchParams(location.search).has('ajout');
   useEffect(() => {
-    if (adding) setTimeout(() => document.querySelector<HTMLElement>('[data-quickadd]')?.focus(), 50);
-  }, [adding]);
+    if (adding) navigate({ search: '' }, { replace: true });
+  }, [adding, navigate]);
 
   // /taches?tache=… (from « Ma semaine »): that task lights up once on screen.
   const wanted = new URLSearchParams(location.search).get('tache');

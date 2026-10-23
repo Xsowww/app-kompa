@@ -49,8 +49,8 @@ export default function CreateButton() {
         title={single ? single.label : t('Créer')}
         aria-haspopup={single ? undefined : 'menu'}
         aria-expanded={single ? undefined : open}
-        // The menu closes on any press outside it: this one would reopen it at once.
-        onMouseDown={e => open && e.stopPropagation()}
+        // The menu closes on any press outside it: this one would reopen it at once (it closes it instead).
+        onPointerDown={e => open && e.stopPropagation()}
         onClick={() => {
           if (single) return single.onClick();
           if (open) return setMenu(null);
@@ -70,6 +70,7 @@ export default function CreateButton() {
           x={menu.x}
           y={menu.y}
           large
+          above
           label={t('Créer')}
           onClose={() => setMenu(null)}
           items={actions.map(a => ({ label: a.label, icon: a.icon, shortcut: coarse ? undefined : a.shortcut, onClick: a.onClick }))}

@@ -303,11 +303,12 @@ export default function CalendarPage() {
   }, [evt, setParams]);
 
   useEffect(() => {
+    // ?ajout=1 (« + » of the home page): the new event's window, open on the day shown.
     if (params.get('ajout')) {
-      quickRef.current?.focus();
+      if (!readOnly) setFormState({ date: selected });
       setParams(p => (p.delete('ajout'), p), { replace: true });
     }
-  }, [params, setParams]);
+  }, [params, setParams, readOnly, selected]);
 
   /** A row of « À venir »: its day, and the event glowing in it. */
   const showEvent = (e: Pick<CalendarEvent, 'id' | 'date'>) => {

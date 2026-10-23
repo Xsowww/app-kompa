@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Mic, House, FolderClosed, CalendarDays, CalendarRange, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn, ListChecks, Users, Trash2, ArrowLeftRight, UserRound, UserPlus, MessageSquareText, X } from 'lucide-react';
+import { LayoutGrid, Mic, House, FolderClosed, CalendarDays, CalendarRange, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn, ListChecks, Users, Trash2, ArrowLeftRight, UserRound, UserPlus, MessageSquareText, X } from 'lucide-react';
 import { EmptyState } from '../components/EmptyState';
 import { FeedbackDialog } from '../components/FeedbackDialogs';
 import { openFeedback } from '../lib/feedback';
@@ -40,11 +40,11 @@ const NAV = [
   { to: '/taches', label: t('Tâches'), icon: ListChecks, color: '#2f9e6b' },
   { to: '/notes', label: t('Notes'), icon: NotebookText, color: SPACE_COLORS.notes },
   { to: '/drive', label: t('Drive'), icon: FolderClosed, color: SPACE_COLORS.drive },
-  // Phones: the microphone in the header (the tab bar is full).
-  { to: '/enregistrer', label: t('Enregistrer'), icon: Mic, color: '#e5484d', phone: false },
+  // Phones: `more` = in the tab bar's « Plus » (5 spaces + Plus fit a narrow screen).
+  { to: '/enregistrer', label: t('Enregistrer'), icon: Mic, color: '#e5484d', more: true },
   // `section`: a small title above this entry in the sidebar (what is shared with others comes after).
-  { to: '/groupes', label: t('Groupes'), icon: Users, color: '#1f8a8a', section: t('Espaces partagés') },
-  { to: '/agendas', label: t('Agendas partagés'), short: t('Agendas||court'), icon: CalendarRange, color: '#7a5ad6' },
+  { to: '/groupes', label: t('Groupes'), icon: Users, color: '#1f8a8a', section: t('Espaces partagés'), more: true },
+  { to: '/agendas', label: t('Agendas partagés'), short: t('Agendas||court'), icon: CalendarRange, color: '#7a5ad6', more: true },
 ];
 
 const HIT_ICON: Record<SearchHit['type'], typeof FileText> = {
@@ -432,23 +432,6 @@ export default function AppShell() {
           >
             <Search size={18} strokeWidth={1.9} />
           </button>
-          {isAdmin && (
-            <NavLink to="/admin" className="icon-btn relative lg:hidden" title={t('Administration')} aria-label={adminLabel}>
-              <ChartNoAxesColumn size={18} strokeWidth={1.9} />
-              {adminPending > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 min-w-[16px] rounded-full bg-red-500 px-1 text-center text-[10px] font-semibold leading-[16px] text-white ring-2 ring-paper tabular" aria-hidden>
-                  {adminPending > 9 ? '9+' : adminPending}
-                </span>
-              )}
-            </NavLink>
-          )}
-          <NavLink to="/enregistrer" className="icon-btn lg:hidden" title={t('Enregistrer')} aria-label={t('Enregistrer un cours ou une réunion')}>
-            <Mic size={18} strokeWidth={1.9} />
-          </NavLink>
-          <NavLink to="/corbeille" className="icon-btn relative lg:hidden" title={t('Corbeille')} aria-label={trashLabel}>
-            <Trash2 size={18} strokeWidth={1.9} />
-            {trashCount > 0 && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-brand-500 ring-2 ring-paper" aria-hidden />}
-          </NavLink>
           <NavLink to="/profil" className="hit inline-flex h-9 w-9 items-center justify-center rounded-full lg:hidden" title={t('Profil et réglages')} aria-label={t('Profil et réglages')}>
             <Avatar size={30} />
           </NavLink>
@@ -480,31 +463,125 @@ export default function AppShell() {
         </main>
       </div>
 
-      {/* Bottom nav (mobile) */}
-      <nav aria-label={t('Navigation principale')} className="fixed bottom-[max(12px,env(safe-area-inset-bottom))] left-[max(12px,env(safe-area-inset-left))] right-[max(12px,env(safe-area-inset-right))] z-30 flex rounded-[22px] bg-tile-dark p-1 shadow-pop ring-1 ring-white/10 lg:hidden">
-        {NAV.filter(n => !('phone' in n)).map(n => (
-          <NavLink
-            key={n.to}
-            to={n.to}
-            end={n.end}
-            // 7 spaces: each takes its share, the label shortened rather than pushed off a narrow screen.
-            className={({ isActive }) => cx('flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-[17px] py-1.5 text-[10px] font-semibold tracking-[-0.01em] transition-colors max-[379px]:text-[9px] max-[379px]:tracking-[-0.03em] max-[339px]:text-[8.5px]', isActive ? 'bg-white text-[#14161f]' : 'text-white/60 hover:text-white')}
-          >
-            {({ isActive }) => (
-              <>
-                <span className="relative">
-                  <n.icon size={19} strokeWidth={isActive ? 2.2 : 1.9} style={{ color: isActive ? n.color : undefined }} />
-                  {news(n.to) > 0 && <span className={cx('absolute -right-1 -top-0.5 h-2 w-2 rounded-full ring-2', isActive ? 'ring-white' : 'ring-tile-dark', n.to === '/agendas' ? 'bg-red-500' : 'bg-urgent')} aria-label={t('nouveautés')} />}
-                </span>
-                <span className="max-w-full truncate">{'short' in n ? n.short : label(n)}</span>
-              </>
-            )}
-          </NavLink>
-        ))}
-      </nav>
+      {/* Bottom nav (mobile): every space, the last ones under « Plus ». */}
+      <PhoneTabBar
+        news={news}
+        label={label}
+        extra={[
+          ...(isAdmin ? [{ to: '/admin', label: t('Administration'), aria: adminLabel, icon: ChartNoAxesColumn, color: '#5e6470', count: adminPending, urgent: true }] : []),
+          { to: '/corbeille', label: t('Corbeille'), aria: trashLabel, icon: Trash2, color: '#78716c', count: trashCount },
+        ]}
+      />
 
       <Copilot />
       <Tour />
     </div>
+  );
+}
+
+type Extra = { to: string; label: string; aria: string; icon: typeof House; color: string; count: number; urgent?: boolean };
+
+/**
+ * Phones: Accueil, Calendrier, Tâches, Notes, Drive, and « Plus » for the others (Enregistrer, Groupes, Agendas partagés,
+ * Corbeille, Administration), shown in a panel just above the bar: every space is reached from the bar.
+ */
+function PhoneTabBar({ news, label, extra }: { news: (to: string) => number; label: (n: { to: string; label: string }) => string; extra: Extra[] }) {
+  const { pathname } = useLocation();
+  const [open, setOpen] = useState(false);
+  const panel = useRef<HTMLDivElement>(null);
+  const button = useRef<HTMLButtonElement>(null);
+  const main = NAV.filter(n => !('more' in n));
+  const more = [...NAV.filter(n => 'more' in n).map(n => ({ ...n, aria: label(n), count: news(n.to), urgent: n.to === '/agendas' })), ...extra];
+  const current = more.find(n => pathname === n.to || pathname.startsWith(`${n.to}/`));
+  const moreNews = more.some(n => n.to !== '/corbeille' && n.count > 0);
+
+  // Another page: the panel goes. A press anywhere else, or Échap, closes it.
+  const [lastPath, setLastPath] = useState(pathname);
+  if (lastPath !== pathname) {
+    setLastPath(pathname);
+    if (open) setOpen(false);
+  }
+  useEffect(() => {
+    if (!open) return;
+    panel.current?.querySelector<HTMLElement>('a')?.focus();
+    const onDown = (e: PointerEvent) => {
+      const t = e.target as Node;
+      if (!panel.current?.contains(t) && !button.current?.contains(t)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.stopPropagation();
+      setOpen(false);
+      button.current?.focus();
+    };
+    window.addEventListener('pointerdown', onDown, true);
+    window.addEventListener('keydown', onKey, true);
+    return () => {
+      window.removeEventListener('pointerdown', onDown, true);
+      window.removeEventListener('keydown', onKey, true);
+    };
+  }, [open]);
+
+  const tab = (active: boolean) =>
+    cx('flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-[17px] py-1.5 text-[10px] font-semibold tracking-[-0.01em] transition-colors max-[339px]:text-[9px]', active ? 'bg-white text-[#14161f]' : 'text-white/60 hover:text-white');
+  const Shown = current?.icon ?? LayoutGrid;
+
+  return (
+    <>
+      {open && (
+        <div
+          ref={panel}
+          id="nav-more-panel"
+          className="enter fixed bottom-[calc(max(12px,env(safe-area-inset-bottom))+4.5rem)] left-[max(12px,env(safe-area-inset-left))] right-[max(12px,env(safe-area-inset-right))] z-[45] grid grid-cols-3 gap-1.5 rounded-[22px] border border-stone-200 bg-surface p-2 shadow-pop lg:hidden"
+        >
+          {more.map(n => (
+            <NavLink
+              key={n.to}
+              to={n.to}
+              aria-label={n.aria}
+              onClick={() => setOpen(false)}
+              className={({ isActive }) => cx('relative flex min-h-[72px] flex-col items-center justify-center gap-1.5 rounded-[16px] px-1 text-center text-[12px] font-semibold leading-tight transition-colors', isActive ? 'bg-stone-100 text-ink' : 'text-stone-600 hover:bg-stone-50')}
+            >
+              <n.icon size={22} strokeWidth={1.9} style={{ color: n.color }} aria-hidden />
+              <span>{n.label}</span>
+              {n.count > 0 && (
+                <span className={cx('absolute right-2 top-2 min-w-[18px] rounded-full px-1 text-center text-[10.5px] font-semibold leading-[18px] tabular', n.to === '/corbeille' ? 'bg-stone-200 text-stone-600' : n.urgent ? 'bg-red-500 text-white' : 'bg-urgent text-white')} aria-hidden>
+                  {n.count > 9 ? '9+' : n.count}
+                </span>
+              )}
+            </NavLink>
+          ))}
+        </div>
+      )}
+      <nav aria-label={t('Navigation principale')} className="fixed bottom-[max(12px,env(safe-area-inset-bottom))] left-[max(12px,env(safe-area-inset-left))] right-[max(12px,env(safe-area-inset-right))] z-30 flex rounded-[22px] bg-tile-dark p-1 shadow-pop ring-1 ring-white/10 lg:hidden">
+        {main.map(n => (
+          <NavLink key={n.to} to={n.to} end={n.end} className={({ isActive }) => tab(isActive)}>
+            {({ isActive }) => (
+              <>
+                <n.icon size={19} strokeWidth={isActive ? 2.2 : 1.9} style={{ color: isActive ? n.color : undefined }} />
+                <span className="max-w-full truncate">{label(n)}</span>
+              </>
+            )}
+          </NavLink>
+        ))}
+        {/* In one of them: the tab shows which (its icon and name), else « Plus ». */}
+        <button
+          ref={button}
+          id="nav-more"
+          type="button"
+          aria-expanded={open}
+          aria-controls={open ? 'nav-more-panel' : undefined}
+          aria-label={current ? t('Plus d’espaces (ici : {space})', { space: current.label }) : t('Plus d’espaces')}
+          onClick={() => setOpen(o => !o)}
+          className={tab(!!current && !open)}
+        >
+          <span className="relative">
+            {open ? <X size={19} strokeWidth={2.2} /> : <Shown size={19} strokeWidth={current ? 2.2 : 1.9} style={{ color: current ? current.color : undefined }} />}
+            {!open && moreNews && <span className={cx('absolute -right-1 -top-0.5 h-2 w-2 rounded-full bg-red-500 ring-2', current ? 'ring-white' : 'ring-tile-dark')} aria-label={t('nouveautés')} />}
+          </span>
+          <span className="max-w-full truncate">{open ? t('Fermer') : current ? (('short' in current && typeof current.short === 'string' && current.short) || current.label) : t('Plus')}</span>
+        </button>
+      </nav>
+    </>
   );
 }

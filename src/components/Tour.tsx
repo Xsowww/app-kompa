@@ -63,18 +63,18 @@ const STEPS: Step[] = [
       touch ? t('Ajoute tes fichiers avec le bouton +. La recherche fouille même le texte de tes PDF.') : t('Glisse tes fichiers dans la page. La recherche fouille même le texte de tes PDF.'),
   },
   {
-    // Phones: not in the tab bar, the microphone of the header instead.
-    target: `${nav('/enregistrer')}, header a[href="/enregistrer"]`,
+    // Phones: under « Plus » in the tab bar.
+    target: `${nav('/enregistrer')}, #nav-more`,
     title: t('Enregistrer'),
     text: (u, touch) => {
       const w = usageWords(u).recording;
       return touch
-        ? t('Avec le micro en haut de l’écran, enregistre {a}\u00a0: Kompaly écrit tout, te prévient des mots-clés et range {doc} dans ton Drive.', { a: w.a, doc: w.doc })
+        ? t('Dans «\u00a0Plus\u00a0», enregistre {a}\u00a0: Kompaly écrit tout, te prévient des mots-clés et range {doc} dans ton Drive.', { a: w.a, doc: w.doc })
         : t('Enregistre {a} au micro ou avec le son de l’ordinateur\u00a0: Kompaly écrit tout, te prévient des mots-clés et range {doc} dans ton Drive.', { a: w.a, doc: w.doc });
     },
   },
   {
-    target: nav('/groupes'),
+    target: `${nav('/groupes')}, #nav-more`,
     title: u => (u === 'perso' ? t('À plusieurs') : t('Le travail à plusieurs')),
     text: u => (u === 'travail' ? t('Crée une équipe ou un agenda partagé, puis invite avec un code.') : t('Crée un groupe ou un agenda partagé, puis invite avec un code.')),
   },

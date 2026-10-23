@@ -210,7 +210,8 @@ function menuName(label?: string) {
 }
 
 /** `large`: rows of 44 px with bigger icons (the « + » button's menu, components/CreateButton). */
-export function ContextMenu({ x, y, items, onClose, label, large }: { x: number; y: number; items: MenuItem[]; onClose: () => void; label?: string; large?: boolean }) {
+/** `above`: the menu's bottom sits at `y` (opened from a button at the bottom of the screen, never over it). */
+export function ContextMenu({ x, y, items, onClose, label, large, above }: { x: number; y: number; items: MenuItem[]; onClose: () => void; label?: string; large?: boolean; above?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ x: Math.max(8, x), y: Math.max(8, y) });
   const [name] = useState(() => menuName(label));
@@ -234,7 +235,7 @@ export function ContextMenu({ x, y, items, onClose, label, large }: { x: number;
       // No room right of / below the point: the menu opens on the other side of it (its corner at the
       // point, like everywhere else), so the pointer is not left in the middle of the menu.
       const fx = x + r.width > window.innerWidth - 8 ? x - r.width : x;
-      const fy = y + r.height > window.innerHeight - 8 ? y - r.height : y;
+      const fy = above || y + r.height > window.innerHeight - 8 ? y - r.height : y;
       setPos({ x: Math.max(8, Math.min(fx, window.innerWidth - r.width - 8)), y: Math.max(8, Math.min(fy, window.innerHeight - r.height - 8)) });
     }
     const close = () => closeRef.current();
@@ -243,15 +244,16 @@ export function ContextMenu({ x, y, items, onClose, label, large }: { x: number;
       e.stopPropagation();
       closeRef.current();
     };
-    window.addEventListener('mousedown', close);
+    // pointerdown, not mousedown: on an iPhone, a tap on a blank part of the page sends no mouse event.
+    window.addEventListener('pointerdown', close);
     window.addEventListener('blur', close);
     window.addEventListener('keydown', onKey, true);
     return () => {
-      window.removeEventListener('mousedown', close);
+      window.removeEventListener('pointerdown', close);
       window.removeEventListener('blur', close);
       window.removeEventListener('keydown', onKey, true);
     };
-  }, [x, y]);
+  }, [x, y, above]);
 
   // Keyboard: focus the first entry, arrows to move, Tab closes, focus goes back to the trigger.
   useEffect(() => {
@@ -271,6 +273,7 @@ export function ContextMenu({ x, y, items, onClose, label, large }: { x: number;
       aria-label={name}
       className={cx('enter fixed z-[65] border border-stone-200 bg-surface shadow-pop', large ? 'min-w-60 rounded-[18px] p-1.5' : 'min-w-52 rounded-xl p-1')}
       style={{ left: pos.x, top: pos.y }}
+      onPointerDown={e => e.stopPropagation()}
       onMouseDown={e => e.stopPropagation()}
       onContextMenu={e => e.preventDefault()}
       onKeyDown={e => {

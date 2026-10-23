@@ -64,10 +64,10 @@ export function Popover({ anchor, onClose, label, children, className }: { ancho
         close(true);
       }
     };
-    addEventListener('mousedown', onDown, true);
+    addEventListener('pointerdown', onDown, true);
     addEventListener('keydown', onKey, true);
     return () => {
-      removeEventListener('mousedown', onDown, true);
+      removeEventListener('pointerdown', onDown, true);
       removeEventListener('keydown', onKey, true);
     };
   }, [anchor]);
