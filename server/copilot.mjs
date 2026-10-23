@@ -4,6 +4,7 @@
 // answer in the Anthropic shape. Tools are executed in the browser (that's where the
 // student's data lives), then sent back here.
 
+import { BlockList, isIPv6 } from 'node:net';
 import Anthropic from '@anthropic-ai/sdk';
 import { resolveProvider, openAiChat, ProviderError } from './aiProviders.mjs';
 import { chatSystem, nudgeSystem, TOOLS, NUDGE_MAX_CHARS } from './copilotPrompt.mjs';
@@ -88,16 +89,34 @@ export function rateLimited(key, max) {
   return list.length > max;
 }
 
+// Cloudflare's addresses (cloudflare.com/ips, October 2026).
+const CLOUDFLARE = new BlockList();
+for (const r of '173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 104.24.0.0/14 172.64.0.0/13 131.0.72.0/22'.split(' '))
+  CLOUDFLARE.addSubnet(r.split('/')[0], +r.split('/')[1], 'ipv4');
+for (const r of '2400:cb00::/32 2606:4700::/32 2803:f800::/32 2405:b500::/32 2405:8100::/32 2a06:98c0::/29 2c0f:f248::/32'.split(' '))
+  CLOUDFLARE.addSubnet(r.split('/')[0], +r.split('/')[1], 'ipv6');
+const fromCloudflare = ip => {
+  try {
+    return CLOUDFLARE.check(ip.replace(/^::ffff:/, ''), isIPv6(ip.replace(/^::ffff:/, '')) ? 'ipv6' : 'ipv4');
+  } catch {
+    return false;
+  }
+};
+
 /**
  * Behind a host's proxy every request comes from the proxy: TRUST_PROXY=1 reads the real address.
  * On by itself on Render (it sets RENDER=true), where forgetting it put every visitor under one limit.
  * The LAST address of X-Forwarded-For is the one the host's proxy saw; the ones before it are whatever the
  * visitor sent (a made-up address per request got round every limit).
+ * With kompaly.com proxied by Cloudflare, that address is a Cloudflare server, shared by many visitors:
+ * then CF-Connecting-IP holds the visitor's. Only then: from anywhere else, that header is made up.
  */
-export const ipOf = (req, env) =>
-  ((env.TRUST_PROXY === '1' || (env.RENDER === 'true' && env.TRUST_PROXY !== '0')) && String(req.headers['x-forwarded-for'] ?? '').split(',').pop().trim()) ||
-  req.socket?.remoteAddress ||
-  'unknown';
+export const ipOf = (req, env) => {
+  const peer = (env.TRUST_PROXY === '1' || (env.RENDER === 'true' && env.TRUST_PROXY !== '0')) && String(req.headers['x-forwarded-for'] ?? '').split(',').pop().trim();
+  const visitor = String(req.headers['cf-connecting-ip'] ?? '').trim();
+  if (peer && visitor && fromCloudflare(peer)) return visitor;
+  return peer || req.socket?.remoteAddress || 'unknown';
+};
 
 // ── Daily quota ─────────────────────────────────────────────────────────────
 // A free AI has a daily allowance for the whole site (Groq: 1 000 requests). Without a cap per
