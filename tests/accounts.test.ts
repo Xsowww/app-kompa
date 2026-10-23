@@ -5,7 +5,7 @@ Object.assign(globalThis, {
   location: new URL('http://localhost/'),
   localStorage: { getItem: (k: string) => memory.get(k) ?? null, setItem: (k: string, v: string) => memory.set(k, v), removeItem: (k: string) => memory.delete(k) },
 });
-const { savedAccounts, rememberAccount, lockAccount, forgetAccount, needsCredentials, STALE_DAYS } = await import('../src/lib/accounts');
+const { savedAccounts, rememberAccount, lockAccount, forgetAccount, needsCredentials, reloginHint, unkeptCopyKeys, STALE_DAYS } = await import('../src/lib/accounts');
 
 const DAY = 24 * 3600 * 1000;
 const session = { access_token: 'a', refresh_token: 'r' };
@@ -39,5 +39,25 @@ describe('comptes de l’appareil', () => {
   it('retiré de l’appareil : disparaît de la liste', () => {
     forgetAccount('perso');
     expect(savedAccounts().map(a => a.id)).toEqual(['travail']);
+  });
+
+  it('compte Google ou Apple : le fournisseur est gardé, et c’est lui qui est redemandé (plus de mot de passe)', () => {
+    rememberAccount({ id: 'g', email: 'lina@gmail.com', name: 'Lina', provider: 'google', session });
+    lockAccount('g');
+    rememberAccount({ id: 'g', email: 'lina@gmail.com', name: 'Lina', session: null }); // sans fournisseur donné : il reste
+    const g = savedAccounts().find(a => a.id === 'g')!;
+    expect(g.provider).toBe('google');
+    expect(reloginHint(g)).toContain('Google');
+    // Un mot de passe choisi depuis : la connexion suivante ne donne plus de fournisseur.
+    rememberAccount({ id: 'g', email: 'lina@gmail.com', name: 'Lina', provider: undefined, session });
+    expect(savedAccounts().find(a => a.id === 'g')!.provider).toBeUndefined();
+  });
+});
+
+describe('« Rester connecté » décoché, navigateur fermé', () => {
+  it('efface la copie des comptes qui ne sont plus ouverts, sauf les changements pas encore envoyés', () => {
+    const keys = ['cop:a:notes', 'cop:a:sync-queue:x1', 'cop:a:sync-cursor', 'cop:b:notes', 'cop:accounts', 'cop:drive-view', 'cop-remember'];
+    expect(unkeptCopyKeys(keys, new Set(['b']))).toEqual(['cop:a:notes', 'cop:a:sync-cursor']);
+    expect(unkeptCopyKeys(keys, new Set(['a', 'b']))).toEqual([]);
   });
 });

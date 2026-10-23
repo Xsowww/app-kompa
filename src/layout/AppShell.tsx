@@ -1,10 +1,11 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutGrid, Mic, House, FolderClosed, CalendarDays, CalendarRange, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn, ListChecks, Users, Trash2, ArrowLeftRight, UserRound, UserPlus, MessageSquareText, X } from 'lucide-react';
+import { LayoutGrid, Mic, House, FolderClosed, CalendarDays, CalendarRange, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn, ListChecks, Users, Trash2, ArrowLeftRight, UserRound, UserPlus, LogOut, MessageSquareText, X } from 'lucide-react';
 import { EmptyState } from '../components/EmptyState';
 import { FeedbackDialog } from '../components/FeedbackDialogs';
 import { openFeedback } from '../lib/feedback';
-import { useAuth } from '../store/auth';
+import { confirmLogout, useAuth } from '../store/auth';
+import { loadUserData } from '../store/session';
 import Copilot from '../copilot/Copilot';
 import Tour from '../components/Tour';
 import { startProactive } from '../copilot/proactive';
@@ -31,7 +32,7 @@ import RecPill, { RecBadge } from '../pages/record/RecPill';
 import UploadCard from '../components/UploadCard';
 import CreateButton from '../components/CreateButton';
 import { useInvitations } from '../pages/groups/join';
-import { needsCredentials, savedAccounts, type SavedAccount } from '../lib/accounts';
+import { needsCredentials, PROVIDER_NAMES, savedAccounts, type SavedAccount } from '../lib/accounts';
 import { t, tn } from '../i18n';
 
 const SPACE_COLORS = { home: 'var(--color-brand-500)', drive: '#3b6fd8', calendar: '#d9483b', notes: '#d48a17' };
@@ -270,6 +271,7 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
 
 /** Other accounts of this device in one click, or a new one (see lib/accounts). */
 function AccountSwitch({ currentId }: { currentId: string }) {
+  const navigate = useNavigate();
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const others = menu ? savedAccounts().filter(a => a.id !== currentId) : [];
   const open = (a: SavedAccount) => {
@@ -278,6 +280,16 @@ function AccountSwitch({ currentId }: { currentId: string }) {
       if (r === 'credentials') void useAuth.getState().addAccount(a.email);
     });
   };
+  // As in Profile › Account › Session.
+  const logout = async () => {
+    if (!(await confirmLogout())) return;
+    await useAuth.getState().logout();
+    sessionStorage.removeItem('cop:greeted');
+    await loadUserData();
+    navigate('/connexion');
+  };
+  // What opening it will ask for, when not a click.
+  const asks = (a: SavedAccount) => (!needsCredentials(a) ? '' : ` · ${a.provider ? PROVIDER_NAMES[a.provider] : t('mot de passe')}`);
   return (
     <>
       <button
@@ -288,7 +300,7 @@ function AccountSwitch({ currentId }: { currentId: string }) {
         aria-haspopup="menu"
         onClick={e => {
           const r = e.currentTarget.getBoundingClientRect();
-          setMenu({ x: r.left, y: r.top - 8 - 44 * (savedAccounts().filter(a => a.id !== currentId).length + 1) });
+          setMenu({ x: r.left, y: r.top - 8 - 44 * (savedAccounts().filter(a => a.id !== currentId).length + 2) });
         }}
       >
         <ArrowLeftRight size={15} />
@@ -300,9 +312,10 @@ function AccountSwitch({ currentId }: { currentId: string }) {
           label={t('Changer de compte')}
           onClose={() => setMenu(null)}
           items={[
-            ...others.map(a => ({ label: `${a.name || a.email} · ${a.email}`, icon: <UserRound size={15} />, onClick: () => open(a) })),
+            ...others.map(a => ({ label: `${a.name || a.email} · ${a.email}${asks(a)}`, icon: <UserRound size={15} />, onClick: () => open(a) })),
             ...(others.length ? [{ label: '', divider: true, onClick: () => {} }] : []),
             { label: t('Ajouter un compte'), icon: <UserPlus size={15} />, onClick: () => void useAuth.getState().addAccount() },
+            { label: t('Se déconnecter'), icon: <LogOut size={15} />, onClick: () => void logout() },
           ]}
         />
       )}

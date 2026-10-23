@@ -54,8 +54,11 @@ export default function WelcomePage() {
   const [step, setStep] = useState(draft?.step ?? 0);
   const [busy, setBusy] = useState(false);
   const [a, setA] = useState<WelcomeAnswers>(draft?.answers ?? DEFAULT_ANSWERS);
-  // Nothing looks chosen on the first question until it is answered (coming back to it shows the answer).
-  const [picked, setPicked] = useState(step > 0);
+  // Nothing looks chosen on a question with a default answer (1, 5 and 6) until it is answered (coming back to it shows the answer):
+  // the questions before `answered` were.
+  const [answered, setAnswered] = useState(step);
+  const picked = (q: number) => answered > q;
+  const answer = (q: number) => setAnswered(n => Math.max(n, q + 1));
   const words = WORDS[a.usage];
   useEffect(() => {
     if (userId && !busy) saveWelcomeDraft(userId, { step, answers: a });
@@ -119,10 +122,10 @@ export default function WelcomePage() {
                   <button
                     key={u.key}
                     type="button"
-                    className={choice(picked && a.usage === u.key)}
+                    className={choice(picked(0) && a.usage === u.key)}
                     onClick={() => {
                       if (moving.current) return;
-                      setPicked(true);
+                      answer(0);
                       // Another usage: the year, school and job given for the old one don't fit it.
                       set(u.key === a.usage ? {} : { usage: u.key, year: '', school: '', program: '' });
                     }}
@@ -189,7 +192,16 @@ export default function WelcomePage() {
           {step === 4 && (
             <Question title={t('Comment Kompaly doit-il te parler\u00a0?')} hint={t('Tu pourras changer ça dans ton profil.')}>
               {PERSONAS.map(p => (
-                <button key={p.key} type="button" className={choice(a.persona === p.key)} onClick={() => set({ persona: p.key })}>
+                <button
+                  key={p.key}
+                  type="button"
+                  className={choice(picked(4) && a.persona === p.key)}
+                  onClick={() => {
+                    if (moving.current) return;
+                    answer(4);
+                    set({ persona: p.key });
+                  }}
+                >
                   <span>
                     <span className="block text-[14px] font-medium">{personaLabel(p, a.usage)}</span>
                     <span className="block text-[12px] text-stone-500">{p.description}</span>
@@ -212,9 +224,10 @@ export default function WelcomePage() {
                   key={o.value}
                   type="button"
                   disabled={busy}
-                  className={choice(a.revisionTime === o.value)}
+                  className={choice(picked(5) && a.revisionTime === o.value)}
                   onClick={() => {
                     if (!settled()) return;
+                    answer(5);
                     setA(prev => ({ ...prev, revisionTime: o.value })); // the spinner shows on the chosen answer
                     void finish({ ...a, revisionTime: o.value });
                   }}

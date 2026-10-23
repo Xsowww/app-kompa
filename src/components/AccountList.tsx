@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { KeyRound, X } from 'lucide-react';
-import { needsCredentials, savedAccounts, type SavedAccount } from '../lib/accounts';
+import { needsCredentials, PROVIDER_NAMES, savedAccounts, type SavedAccount } from '../lib/accounts';
 import { useAuth } from '../store/auth';
 import { confirmAction } from '../store/ui';
 import { relativeTime } from '../lib/utils';
@@ -30,6 +30,8 @@ export default function AccountList({ currentId, onPick, busy, onEmpty }: { curr
               <span className="flex shrink-0 items-center gap-1 text-[11.5px] text-stone-500">
                 {busy === a.id ? (
                   t('Ouverture…')
+                ) : locked && a.provider ? (
+                  PROVIDER_NAMES[a.provider] // no password to type: opened again with its button
                 ) : locked ? (
                   <>
                     <KeyRound size={12} aria-hidden /> {t('Mot de passe')}

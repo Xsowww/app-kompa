@@ -10,7 +10,7 @@ import AccountList from '../../components/AccountList';
 import PasswordStrength from '../../components/PasswordStrength';
 import Field, { FieldError } from '../../components/Field';
 import { needsCredentials, savedAccounts, STALE_DAYS } from '../../lib/accounts';
-import { useAuth } from '../../store/auth';
+import { confirmLogout, sameEmail, useAuth } from '../../store/auth';
 import { useFocusLog } from '../../store/focusLog';
 import { useSettings, ACCENTS, AVATAR_COLORS, applyAppearance, UI_STYLES, type AccentKey, type ThemeMode, type Chattiness, type UiStyle } from '../../store/settings';
 import { useCopilot } from '../../store/copilot';
@@ -1086,40 +1086,43 @@ function AccountTab() {
                 ? t('Tes données restent sur cet appareil. Tes autres comptes restent ouverts.')
                 : t('Tes données restent sur cet appareil.')
               : remembered()
-                ? t('Ton compte reste proposé sur la page de connexion.')
+                ? t('Ton compte se rouvrira en un clic sur cet appareil, sans mot de passe. Pour le fermer vraiment : la croix à côté de lui, sur la page de connexion.')
                 : undefined
           }
         >
-          <button className="btn-secondary h-8" onClick={() => void logout().then(leave)}>
+          <button className="btn-secondary h-8" onClick={async () => (await confirmLogout()) && void logout().then(leave)}>
             <LogOut size={14} /> {t('Se déconnecter')}
           </button>
         </Row>
       </Section>
 
       <Section title={t('Supprimer le compte')} danger>
-        <Row label={t('Supprimer définitivement mon compte')} hint={t('Tout sera effacé. Exporte une sauvegarde avant.')}>
-          {!noPassword && (
-            <div className="w-44">
-              <input
-                ref={deleteRef}
-                type="password"
-                className="field w-full"
-                placeholder={t('Mot de passe')}
-                aria-label={t('Mot de passe, pour confirmer la suppression')}
-                aria-invalid={deleteError ? true : undefined}
-                aria-describedby={deleteError ? 'delete-pw-err' : undefined}
-                value={deletePw}
-                onChange={e => (setDeletePw(e.target.value), setDeleteError(''))}
-              />
-              <FieldError id="delete-pw-err">{deleteError}</FieldError>
-            </div>
-          )}
+        <Row
+          label={t('Supprimer définitivement mon compte')}
+          hint={noPassword ? `${t('Tout sera effacé. Exporte une sauvegarde avant.')} ${t('Tape ton adresse e-mail pour confirmer.')}` : t('Tout sera effacé. Exporte une sauvegarde avant.')}
+        >
+          {/* Google or Apple account: no password, its e-mail typed again instead. */}
+          <div className="w-44">
+            <input
+              ref={deleteRef}
+              type={noPassword ? 'email' : 'password'}
+              className="field w-full"
+              placeholder={noPassword ? t('Ton adresse e-mail') : t('Mot de passe')}
+              aria-label={noPassword ? t('Tape ton adresse e-mail pour confirmer.') : t('Mot de passe, pour confirmer la suppression')}
+              aria-invalid={deleteError ? true : undefined}
+              aria-describedby={deleteError ? 'delete-pw-err' : undefined}
+              value={deletePw}
+              onChange={e => (setDeletePw(e.target.value), setDeleteError(''))}
+            />
+            <FieldError id="delete-pw-err">{deleteError}</FieldError>
+          </div>
           <button
             className="btn-danger h-8"
-            disabled={!noPassword && !deletePw}
+            disabled={!deletePw.trim()}
             onClick={async () => {
-              // A wrong password is said at once, not after « Supprimer ton compte ? ».
+              // A wrong password (or e-mail) is said at once, not after « Supprimer ton compte ? ».
               try {
+                if (noPassword && !sameEmail(deletePw, useAuth.getState().user?.email ?? '')) throw new Error(t('Ce n’est pas l’adresse e-mail de ton compte.'));
                 await useAuth.getState().verifyPassword(deletePw);
               } catch (err) {
                 setDeleteError((err as Error).message);

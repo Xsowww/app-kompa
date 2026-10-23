@@ -4,6 +4,8 @@ import { Loader2, ShieldCheck, Smartphone } from 'lucide-react';
 import { AUTH_MSG, useAuth, type MfaEnrollment } from '../store/auth';
 import { loadUserData, useWelcome } from '../store/session';
 import { takeAfterLogin } from '../lib/afterLogin';
+import { offerPasskey } from '../lib/passkeyOffer';
+import { CONTACT } from '../lib/feedback';
 import Logo from '../components/Logo';
 import { FieldError } from '../components/Field';
 import { toast } from '../store/ui';
@@ -34,7 +36,6 @@ export default function MfaPage() {
   const [codeError, setCodeError] = useState('');
   const [keyError, setKeyError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [showSecret, setShowSecret] = useState(false);
   const [keptKey, setKeptKey] = useState(false);
   const started = useRef(false);
   const submitting = useRef(false); // the submit itself navigates once the account's data is loaded
@@ -70,6 +71,8 @@ export default function MfaPage() {
         toast(t('Double authentification activée'), 'success');
         return navigate('/profil?onglet=compte', { replace: true });
       }
+      // Signed in with the password and the code: Face ID offered here too (once, as after a sign-in without two-factor).
+      if (user) void offerPasskey(user.id);
       // Straight to the right page: going through « / » first left a blank screen when the questionnaire was due.
       navigate(useWelcome.getState().pending ? '/bienvenue' : takeAfterLogin(), { replace: true });
     } catch (err) {
@@ -126,11 +129,9 @@ export default function MfaPage() {
                       <a href={enrollment.uri} className="hit underline decoration-stone-300 underline-offset-2 hover:text-ink">
                         {t('Tu es déjà sur ton téléphone ? Touche ici')}
                       </a>
+                      {/* The key itself is shown once, in step 2. */}
                       {' · '}
-                      <button type="button" onClick={() => setShowSecret(s => !s)} className="hit underline decoration-stone-300 underline-offset-2 hover:text-ink">
-                        {t('Saisir la clé à la main')}
-                      </button>
-                      {showSecret && <p className="mt-1.5 break-all rounded-md bg-stone-100 px-2 py-1.5 font-mono text-[12px] text-ink">{enrollment.secret}</p>}
+                      {t('Ou tape la clé de l’étape 2 dans l’app.')}
                     </div>
                   )}
                 </div>
@@ -243,11 +244,11 @@ export default function MfaPage() {
           )}
           {!isSetup && (
             <p className="mt-2 text-center text-[12px] leading-relaxed text-stone-500">
-              {t('Avec ta clé de secours : « Saisir une clé » dans l’app de ton nouveau téléphone, puis tape le code. Sinon, écris au support (page')}{' '}
-              <a href="/mentions-legales" className="underline decoration-stone-300 underline-offset-2">
-                {t('Mentions légales')}
+              {t('Avec ta clé de secours : « Saisir une clé » dans l’app de ton nouveau téléphone, puis tape le code.')} {t('Sinon, écris à')}{' '}
+              <a href={`mailto:${CONTACT}`} className="underline decoration-stone-300 underline-offset-2">
+                {CONTACT}
               </a>
-              ).
+              .
             </p>
           )}
         </form>

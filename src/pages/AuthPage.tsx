@@ -7,7 +7,7 @@ import { needsCredentials, reloginHint, savedAccounts, type SavedAccount } from 
 import { takeAfterLogin } from '../lib/afterLogin';
 import { toast } from '../store/ui';
 import { loadUserData, markLocalWelcome } from '../store/session';
-import { cloudEnabled, linkError, passkeysAvailable, setRememberMe } from '../lib/supabase';
+import { cloudEnabled, linkError, oauthError, passkeysAvailable, setRememberMe } from '../lib/supabase';
 import { prefetchCaptcha } from '../lib/captcha';
 import { offerPasskey } from '../lib/passkeyOffer';
 import Character from '../copilot/Character';
@@ -111,6 +111,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
   const [name, setName] = useState('');
   // « Ajouter un compte » for a saved account whose session ended: its e-mail is already known.
   const [askedEmail] = useState(() => (mode === 'login' ? new URLSearchParams(location.search).get('email') ?? '' : ''));
+  const [asked] = useState(() => (askedEmail ? savedAccounts().find(a => a.email.toLowerCase() === askedEmail.toLowerCase()) : undefined));
   const [email, setEmail] = useState(askedEmail);
   const [password, setPassword] = useState('');
   const [show, setShow] = useState(false);
@@ -118,10 +119,13 @@ export default function AuthPage({ mode }: { mode: Mode }) {
   const [oldEnough, setOldEnough] = useState(false);
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState(mode === 'login' ? (linkError ?? '') : '');
-  const [info, setInfo] = useState(askedEmail ? reloginHint(savedAccounts().find(a => a.email.toLowerCase() === askedEmail.toLowerCase())) : '');
+  const [info, setInfo] = useState(askedEmail ? reloginHint(asked) : '');
   const [switching, setSwitching] = useState<string | null>(null);
   const [hasSaved, setHasSaved] = useState(() => savedAccounts().length > 0);
-  const [canResend, setCanResend] = useState(mode === 'login' && !!linkError);
+  // Not for an error back from Google or Apple: no e-mail was sent.
+  const [canResend, setCanResend] = useState(mode === 'login' && !!linkError && !oauthError);
+  // Face ID asked but nothing came (no key on this device, or the prompt closed).
+  const [passkeyHint, setPasskeyHint] = useState(false);
   const [busy, setBusy] = useState(false);
   const isRegister = mode === 'register';
   const needsEmail = mode !== 'reset';
@@ -155,7 +159,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
   const values = { name, email, password, code, agreed, age: oldEnough };
   const check = (field: Field, v: string | boolean = values[field]): string => {
     const s = typeof v === 'string' ? v : '';
-    if (field === 'name') return isRegister && s.trim().length < 2 ? t('Ton prénom doit contenir au moins 2 caractères.') : '';
+    if (field === 'name') return isRegister && s.trim().length < 2 ? (s.trim() ? t('Ton prénom doit contenir au moins 2 caractères.') : t('Entre ton prénom.')) : '';
     if (field === 'email') return needsEmail && !/^\S+@\S+\.\S+$/.test(s) ? (s.trim() ? t('Adresse e-mail invalide.') : t('Entre ton adresse e-mail.')) : '';
     if (field === 'password') {
       if ((isRegister || mode === 'reset') && (s.length < 8 || !/\p{L}/u.test(s) || !/\d/.test(s))) return t('Au moins 8 caractères, avec des lettres et des chiffres.');
@@ -178,10 +182,11 @@ export default function AuthPage({ mode }: { mode: Mode }) {
   async function passkeyLogin() {
     setError('');
     setErrs({});
+    setPasskeyHint(false);
     setBusy(true);
     try {
       setRememberMe(remember);
-      if (!(await useAuth.getState().loginWithPasskey())) return; // prompt closed
+      if (!(await useAuth.getState().loginWithPasskey())) return setPasskeyHint(true); // prompt closed, or no key here
       if (useAuth.getState().mfaStep) return navigate('/securite');
       await loadUserData();
       navigate(takeAfterLogin());
@@ -277,7 +282,9 @@ export default function AuthPage({ mode }: { mode: Mode }) {
   const errAt = (field: Field) => <FieldError id={`auth-err-${field}`}>{errs[field]}</FieldError>;
 
   const copy = COPY[mode];
-  const adding = mode === 'login' && new URLSearchParams(location.search).has('ajout');
+  const ajout = mode === 'login' && new URLSearchParams(location.search).has('ajout');
+  // An account of this device opened again (its e-mail given) is a sign-in, not a new account.
+  const adding = ajout && !askedEmail;
 
   // A saved account: opened with a click, or its e-mail filled in when the password is needed again.
   const pick = async (a: SavedAccount) => {
@@ -286,8 +293,9 @@ export default function AuthPage({ mode }: { mode: Mode }) {
       setPassword('');
       setError('');
       setErrs({});
-      setInfo(msg);
-      setTimeout(() => passwordRef.current?.focus(), 0);
+      // Google or Apple account: no password to type, its button above opens it again.
+      setInfo(a.provider ? reloginHint(a) : msg);
+      if (!a.provider) setTimeout(() => passwordRef.current?.focus(), 0);
     };
     if (needsCredentials(a)) return askPassword(reloginHint(a));
     setSwitching(a.id);
@@ -353,16 +361,20 @@ export default function AuthPage({ mode }: { mode: Mode }) {
               </section>
             )}
 
-            {cloudEnabled && !adding && (mode === 'login' || isRegister) && (
+            {/* From the account menu, Google and Apple only for an account opened with them (a new one: not tried yet). */}
+            {cloudEnabled && (!ajout || !!asked?.provider) && (mode === 'login' || isRegister) && (
               <OAuthButtons
                 remember={isRegister || remember}
                 onError={m => fail(null, m)}
                 first={
                   mode === 'login' && passkeys ? (
-                    <button type="button" className="btn-secondary h-10 w-full justify-center gap-2.5" disabled={busy} onClick={() => void passkeyLogin()}>
-                      {busy ? <Loader2 size={15} className="animate-spin" /> : <Fingerprint size={16} />}
-                      {t('Face ID ou empreinte')}
-                    </button>
+                    <>
+                      <button type="button" className="btn-secondary h-10 w-full justify-center gap-2.5" disabled={busy} onClick={() => void passkeyLogin()}>
+                        {busy ? <Loader2 size={15} className="animate-spin" /> : <Fingerprint size={16} />}
+                        {t('Face ID ou empreinte')}
+                      </button>
+                      {passkeyHint && <p className="text-[12px] text-stone-500">{t('Pas encore activé sur cet appareil ? Connecte-toi avec ton mot de passe.')}</p>}
+                    </>
                   ) : undefined
                 }
               >
@@ -421,7 +433,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
                       {show ? <EyeOff size={15} /> : <Eye size={15} />}
                     </button>
                   </span>
-                  {mode !== 'login' && <PasswordStrength id="password-strength" password={password} avoid={[name, email.split('@')[0]]} />}
+                  {mode !== 'login' && <PasswordStrength id="password-strength" password={password} avoid={[name, email.split('@')[0]]} ruleInError={!!errs.password} />}
                   {errAt('password')}
                 </div>
               )}
