@@ -181,8 +181,11 @@ export function parseQuickAddIn(lang: Exclude<Lang, 'fr'>, input: string, base =
   const T = `(\\d{1,2})(?:[:.h](\\d{2}))?\\s?(${SFX})?`;
   const suffix = (s?: string) => (s ? s.replace(/\./g, '') : undefined);
   const range = find(new RegExp(`\\s(?:(from|de|desde|von|dalle|da)\\s)?(?:${alt(w.at)}\\s)?${T}\\s?(?:-|–|—|${alt(w.to)})\\s?${T}(?=\\s)`));
-  // A bare « 14 a 16 » is a time range only after « de / von / dalle… ».
-  if (range && (range[1] || range[3] || range[4] || range[6] || range[7])) {
+  // A bare « 14 a 16 » is a time range only after « de / von / dalle… »; « 16-17 » with a dash is one when both are
+  // hours (not « 12-14 novembre », days).
+  const dashed = (r: RegExpMatchArray) =>
+    /\d\s?[-–—]\s?\d/.test(r[0]) && Number(r[2]) <= 23 && Number(r[5]) <= 23 && !new RegExp(`^\\s${MONTH}`).test(n().slice(r.index! + r[0].length));
+  if (range && (range[1] || range[3] || range[4] || range[6] || range[7] || dashed(range))) {
     const s2 = suffix(range[7]);
     let s1 = suffix(range[4]);
     // « 2-4pm »: the first one is in the afternoon too.

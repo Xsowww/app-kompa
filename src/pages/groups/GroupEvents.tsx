@@ -130,7 +130,7 @@ function EventCard({ group, ev }: { group: Group; ev: GroupEvent }) {
     }
   };
 
-  const names = coming.map(id => nameOf(id));
+  const names = coming.map(id => nameOf(id, t('toi')));
   const who =
     coming.length === 0
       ? t('Personne n’a encore répondu')

@@ -30,6 +30,14 @@ describe('saisie rapide dans les autres langues', () => {
     expect(p('it', 'Esame domani 9:30')).toMatchObject({ title: 'Esame', date: '2026-10-20', start: '09:30' });
     expect(p('it', 'Consegna il 5 novembre')).toMatchObject({ title: 'Consegna', date: '2026-11-05' });
   });
+  it('une plage avec un tiret, sans mot devant : des heures quand les deux le sont', () => {
+    expect(p('it', 'dentista domani 16-17')).toMatchObject({ title: 'Dentista', date: '2026-10-20', start: '16:00', end: '17:00' });
+    expect(p('es', 'Gimnasio mañana 18–19')).toMatchObject({ title: 'Gimnasio', start: '18:00', end: '19:00' });
+    expect(p('de', 'Training morgen 18-20')).toMatchObject({ title: 'Training', start: '18:00', end: '20:00' });
+    // Days, not hours.
+    expect(p('it', 'Fiera 12-14 novembre')).toMatchObject({ start: null });
+    expect(p('it', 'Squadra 25-30')).toMatchObject({ start: null });
+  });
   it('sans date ni heure reconnue : le français prend le relais, sinon le texte reste', () => {
     expect(p('en', 'Buy milk')).toMatchObject({ title: 'Buy milk', date: null, start: null });
     expect(p('en', 'Dentiste demain 9h')).toMatchObject({ title: 'Dentiste', date: '2026-10-20', start: '09:00' });

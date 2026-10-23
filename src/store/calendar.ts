@@ -128,19 +128,24 @@ export const isDeliverable = (e: Pick<CalendarEvent, 'category' | 'title'>) => e
 const wordRe = (list: string) => new RegExp(`(?<![\\p{L}\\p{N}])(?:${list.replace(/\$/g, '(?![\\p{L}\\p{N}])')})`, 'u');
 // « Déco du salon » is the living room, « Salon de l'agriculture » a trade show.
 const SALON = '(?<!(?:du|le|au|ce|mon|ton|son|notre|votre) )salons?$';
-const WORK_PERSO = wordRe('m[ée]decin|dentiste|kin[ée]|ost[ée]o|docteur|pharmacie|anniversaire|mariage|bapt[eê]me|vacances|cong[ée]s?$');
+// The other site languages (whole words; German compounds by their end: « Zahnarzt », « Teambesprechung », « Matheprüfung »).
+const OTHER_DOCTOR = 'dentist|doctors?$|\\p{L}*arzt|dentista|m[ée]dicos?$';
+const OTHER_BIRTHDAY = 'birthdays?$|\\p{L}*geburtstag|compleanno|cumplea[ñn]os';
+const OTHER_MEETING = "reuni[oó]n|riunione|\\p{L}*besprechung|cita$|appuntamento|appointment|\\p{L}*(?<!abgabe|liefer)termin$";
+const OTHER_HANDIN = '\\p{L}*abgabe|entregas?$|consegna';
+const WORK_PERSO = wordRe(`m[ée]decin|dentiste|kin[ée]|ost[ée]o|docteur|pharmacie|anniversaire|mariage|bapt[eê]me|vacances|cong[ée]s?$|${OTHER_DOCTOR}|${OTHER_BIRTHDAY}`);
 // « Point avec Marc », « Appel client », « Visio » (not « Point relais », « Appel d'offres »).
-const WORK_MEETING = wordRe("r[ée]union|meeting|call$|visio(?!n)|point$(?! relais)|appels?$(?! d['’]offres?)|entretien|rendez-vous|rdv$|revue$|s[ée]minaire|atelier|comit[ée]|formation|conf[ée]rence|webinaire");
+const WORK_MEETING = wordRe(`r[ée]union|meeting|call$|visio(?!n)|point$(?! relais)|appels?$(?! d['’]offres?)|entretien|rendez-vous|rdv$|revue$|s[ée]minaire|atelier|comit[ée]|formation|conf[ée]rence|webinaire|${OTHER_MEETING}`);
 const WORK_QUOTE = wordRe('devis|facture|relance|proposition|contrat|payer|paiement|imp[oô]ts?$|d[ée]claration|urssaf|tva$');
-const WORK_DEADLINE = wordRe(`deadline|[ée]ch[ée]ance|date limite|livraison|lancement|audits?$|${SALON}|d[ée]m[ée]nagement|rendre|rendu|remise|soutenance|pr[ée]sentation|d[ée]mo$|bouclage|cl[ôo]ture`);
-const HOME_MEETING = wordRe("r[ée]union|meeting|call$|visio(?!n)|point (?:d['’][ée]quipe|client|hebdo)|entretien|rendez-vous|rdv$|m[ée]decin|dentiste|kin[ée]");
+const WORK_DEADLINE = wordRe(`deadline|[ée]ch[ée]ance|date limite|livraison|lancement|audits?$|${SALON}|d[ée]m[ée]nagement|rendre|rendu|remise|soutenance|pr[ée]sentation|d[ée]mo$|bouclage|cl[ôo]ture|${OTHER_HANDIN}`);
+const HOME_MEETING = wordRe(`r[ée]union|meeting|call$|visio(?!n)|point (?:d['’][ée]quipe|client|hebdo)|entretien|rendez-vous|rdv$|m[ée]decin|dentiste|kin[ée]|${OTHER_MEETING}|${OTHER_DOCTOR}`);
 const HOME_TODO = wordRe('devis|facture|relance|proposition|contrat|payer|imp[oô]ts?$|d[ée]claration');
-const HOME_BIG = wordRe(`deadline|[ée]ch[ée]ance|livraison|lancement|audits?$|${SALON}|anniversaire|mariage|d[ée]m[ée]nagement`);
-const STUDY_EXAM = wordRe('exam|partiel|contr[oô]le|ds$|qcm$|interro|oral(?:e|es|s)?$|soutenance|concours');
-const STUDY_HOMEWORK = wordRe('devoir|tp$|td$|rendre|rendu|dm$|projet|dossier|exos?$|exercice|r[ée]vis');
-const SPORT = wordRe('sport|foot|basket|gym|muscu|course$|piscine|natation|yoga|tennis|danse');
+const HOME_BIG = wordRe(`deadline|[ée]ch[ée]ance|livraison|lancement|audits?$|${SALON}|anniversaire|mariage|d[ée]m[ée]nagement|${OTHER_BIRTHDAY}`);
+const STUDY_EXAM = wordRe('exam|partiel|contr[oô]le|ds$|qcm$|interro|oral(?:e|es|s)?$|soutenance|concours|\\p{L}*pr[üu]fung|\\p{L}*klausur|esam[ei]$|verifica|parcial(?:es)?$|tests?$|quiz|midterms?$|finals$');
+const STUDY_HOMEWORK = wordRe(`devoir|tp$|td$|rendre|rendu|dm$|projet|dossier|exos?$|exercice|r[ée]vis|homework|assignments?$|\\p{L}*hausaufgaben?$|deberes$|compiti$|${OTHER_HANDIN}`);
+const SPORT = wordRe('sport|foot|basket|gym|muscu|course$|piscine|natation|yoga|tennis|danse|gimnasio|palestra|fitness|training|entrenamiento|allenamento');
 // « Courses » (faire les courses) n'est ni du sport ni un cours.
-const STUDY_CLASS = wordRe('cours(?!es$)|amphi|cm$|lecture|classes?$|profs?$|professeur|maths?$|math[ée]matiques|physique|chimie|histoire|anglais|fran[cç]ais|info$|informatique|bio$|biologie|[ée]co$|[ée]conomie|philo$|philosophie');
+const STUDY_CLASS = wordRe('cours(?!es$)|amphi|cm$|lecture|classes?$|class$|lessons?$|\\p{L}*vorlesung|\\p{L}*kurs(?:e)?$|seminar$|lezion[ei]$|cors[oi]$|clases?$|profs?$|professeur|maths?$|math[ée]matiques|physique|chimie|histoire|anglais|fran[cç]ais|info$|informatique|bio$|biologie|[ée]co$|[ée]conomie|philo$|philosophie');
 
 /** A work title: Réunion (cours), Devis (devoir), Échéance (examen), or the private life (perso). */
 function workCategory(t: string, timed: boolean): EventCategory | undefined {

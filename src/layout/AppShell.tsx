@@ -508,7 +508,7 @@ export default function AppShell() {
           <Avatar size={28} />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[13px] font-medium">{user.name}</span>
-            <span className="block truncate text-[11px] text-stone-500">{t('Profil et réglages')}</span>
+            <span className="block truncate text-[11px] text-stone-500">{t('Profil et réglages||sous le nom, court')}</span>
           </span>
           <Settings2 size={15} className="text-stone-400 transition-colors group-hover:text-ink" />
         </NavLink>

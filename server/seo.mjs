@@ -41,6 +41,8 @@ export const langOf = search => {
 
 const url = (page, lang) => `${siteUrl()}${page}${lang ? `?lang=${lang}` : ''}`;
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+/** Inside a JSON string of a <script> (the JSON-LD). */
+const jsonEsc = s => JSON.stringify(String(s)).slice(1, -1).replace(/</g, '\\u003c');
 
 /** The address of each version: x-default (the visitor's language) and one per language. */
 const alternates = page => [['x-default', url(page, null)], ...LANGS.map(l => [l, url(page, l)])];
@@ -64,18 +66,23 @@ export function withHead(html, page, lang) {
     .replace(/(<meta property="og:title" content=")[^"]*/, `$1${esc(page === '/' ? 'Kompaly' : title)}`)
     .replace(/(<meta property="og:description" content=")[^"]*/, `$1${esc(description)}`)
     .replace(/(<meta property="og:locale" content=")[^"]*/, `$1${OG_LOCALE[l]}`)
+    // The app's description in the JSON-LD: the home page's, in this language.
+    .replace(/("@type": "WebApplication",[\s\S]*?"description": ")[^"]*/, (_, head) => `${head}${jsonEsc(HEADS[l]['/'].description)}`)
     .replace('</head>', `  ${links}\n  </head>`);
 }
 
 export const robotsTxt = () => `User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: ${siteUrl()}/sitemap.xml\n`;
 
-/** Every public page in every language, each listing its other languages (what Google asks for hreflang). */
+/**
+ * Every public page in every language (?lang=…: the address without it shows the same French page, under
+ * another canonical), each listing its other languages and x-default (what Google asks for hreflang).
+ */
 export function sitemapXml() {
   const entries = PUBLIC_PAGES.flatMap(page => {
     const links = alternates(page)
       .map(([hl, href]) => `    <xhtml:link rel="alternate" hreflang="${hl}" href="${esc(href)}"/>`)
       .join('\n');
-    return [null, ...LANGS].map(l => `  <url>\n    <loc>${esc(url(page, l))}</loc>\n${links}\n  </url>`);
+    return LANGS.map(l => `  <url>\n    <loc>${esc(url(page, l))}</loc>\n${links}\n  </url>`);
   });
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n${entries.join('\n')}\n</urlset>\n`;
 }

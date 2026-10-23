@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { fmt, parseQuickAdd, hasStarted } from '../src/lib/dates';
+import { format } from 'date-fns';
+import { de, enGB, es, it as itLocale } from 'date-fns/locale';
+import { datePattern, fmt, parseQuickAdd, hasStarted } from '../src/lib/dates';
 
 // Mardi 13 octobre 2026, 10 h.
 const base = new Date(2026, 9, 13, 10);
@@ -55,6 +57,22 @@ describe('fmt', () => {
     expect(fmt(new Date(2026, 8, 1), 'd MMM yyyy')).toBe('1er sept. 2026');
     expect(fmt(new Date(2026, 10, 2), 'EEEE d MMMM')).toBe('lundi 2 novembre');
     expect(fmt(new Date(2026, 10, 1), 'dd/MM')).toBe('01/11');
+  });
+
+  it('allemand et espagnol : « Freitag, 23. Oktober », « viernes, 23 de octubre de 2026 »', () => {
+    const fri = new Date(2026, 9, 23);
+    const f = (l: 'de' | 'es' | 'it' | 'en', p: string) => format(fri, datePattern(p, l), { locale: { de, es, it: itLocale, en: enGB }[l] });
+    expect(f('de', 'EEEE d MMMM')).toBe('Freitag, 23. Oktober');
+    expect(f('de', 'EEE d MMM')).toBe('Fr., 23. Okt.');
+    expect(f('de', 'd MMMM yyyy')).toBe('23. Oktober 2026');
+    expect(f('de', 'EEEE d MMMM yyyy')).toBe('Freitag, 23. Oktober 2026');
+    expect(f('de', 'dd/MM')).toBe('23/10');
+    expect(f('es', 'EEEE d MMMM')).toBe('viernes, 23 de octubre');
+    expect(f('es', 'd MMMM yyyy')).toBe('23 de octubre de 2026');
+    expect(f('es', 'EEEE d MMMM yyyy')).toBe('viernes, 23 de octubre de 2026');
+    expect(f('es', 'MMMM yyyy')).toBe('octubre de 2026');
+    expect(f('it', 'EEEE d MMMM')).toBe('venerdì 23 ottobre');
+    expect(f('en', 'EEEE d MMMM')).toBe('Friday 23 October');
   });
 });
 
