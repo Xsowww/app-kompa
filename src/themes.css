@@ -45,14 +45,14 @@
   --color-tile-dark: rgb(0 0 0 / 0.5);
   --shadow-card: 0 12px 36px -16px rgb(0 0 0 / 0.6);
 }
-:root[data-style='verre'] :is(.card, aside.bg-surface, .shadow-pop.bg-surface, .bg-tile-blue, .bg-tile-dark) {
+:root[data-style='verre'] :is(.card, aside.bg-surface, .shadow-pop.bg-surface, #nav-more-panel, #copilot-panel, .bg-tile-blue, .bg-tile-dark) {
   -webkit-backdrop-filter: blur(24px) saturate(170%);
   backdrop-filter: blur(24px) saturate(170%);
 }
 :root[data-style='verre'] :is(.card, aside.bg-surface, .bg-tile-blue, .bg-tile-dark) {
   box-shadow: inset 0 0 0 1px var(--glass-edge), inset 0 1px 0 var(--glass-shine), var(--shadow-card);
 }
-:root[data-style='verre'] .shadow-pop.bg-surface {
+:root[data-style='verre'] :is(.shadow-pop.bg-surface, #nav-more-panel, #copilot-panel) {
   background-color: var(--glass-strong);
   box-shadow: inset 0 0 0 1px var(--glass-edge), var(--shadow-pop);
 }
@@ -90,7 +90,7 @@
   --color-stone-200: rgb(255 255 255 / 0.1);
   --shadow-card: 0 14px 34px -16px rgb(0 0 0 / 0.7);
 }
-:root[data-style='liquide'] :is(.card, aside.bg-surface, .shadow-pop.bg-surface, .bg-tile-blue, .bg-tile-dark) {
+:root[data-style='liquide'] :is(.card, aside.bg-surface, .shadow-pop.bg-surface, #nav-more-panel, #copilot-panel, .bg-tile-blue, .bg-tile-dark) {
   -webkit-backdrop-filter: blur(14px) saturate(180%);
   backdrop-filter: blur(14px) saturate(180%);
 }
@@ -102,7 +102,7 @@
     0 0 0 0.5px var(--glass-line),
     var(--shadow-card);
 }
-:root[data-style='liquide'] .shadow-pop.bg-surface {
+:root[data-style='liquide'] :is(.shadow-pop.bg-surface, #nav-more-panel, #copilot-panel) {
   background-color: var(--glass-strong);
   box-shadow: inset 1px 1px 0 var(--glass-hi), 0 0 0 0.5px var(--glass-line), var(--shadow-pop);
 }
@@ -155,26 +155,37 @@
   --color-stone-100: #d9dfea;
   --color-stone-200: #d1d8e4;
   --color-stone-300: #b8c1d1;
-  --shadow-card: 9px 9px 20px var(--nm-dark), -9px -9px 20px var(--nm-light);
+  /* --nm-raised for the panels, within the 16 px a phone page has around them; --shadow-card (also on small
+     things: chips, the chosen option) stays small. */
+  --nm-raised: 7px 7px 15px var(--nm-dark), -7px -7px 15px var(--nm-light);
   --shadow-pop: 14px 14px 32px var(--nm-dark), -10px -10px 26px var(--nm-light);
   --nm-raised-sm: 4px 4px 9px var(--nm-dark), -4px -4px 9px var(--nm-light);
+  --shadow-card: var(--nm-raised-sm);
   --nm-pressed: inset 3px 3px 7px var(--nm-dark), inset -3px -3px 7px var(--nm-light);
 }
 :root[data-style='relief'][data-theme='dark'] {
-  --nm-light: #33373f;
-  --nm-dark: #1a1c21;
-  --color-paper: #272a31;
-  --color-surface: #272a31;
-  --color-stone-50: #2b2e36;
-  --color-stone-100: #2f333b;
-  --color-stone-200: #363a43;
-  --color-stone-300: #444955;
-  --color-tile-dark: #1f2127;
+  /* At night the same matter is hard to read: the panels are a touch lighter than the page, a strong dark
+     shadow under them, a soft light one above, and a thin light edge on their top-left side. */
+  --nm-light: #30353d;
+  --nm-dark: #0e1013;
+  --nm-edge: inset 1px 1px 0 rgb(255 255 255 / 0.06), inset -1px -1px 0 rgb(0 0 0 / 0.25);
+  --color-paper: #1e2126;
+  --color-surface: #252930;
+  --color-stone-50: #2b2f37;
+  --color-stone-100: #30353d;
+  --color-stone-200: #3a3f49;
+  --color-stone-300: #4a505c;
+  --color-tile-dark: #121418;
+  --nm-raised: var(--nm-edge), 7px 7px 16px var(--nm-dark), -6px -6px 14px var(--nm-light);
+  --shadow-pop: var(--nm-edge), 16px 16px 36px var(--nm-dark), -8px -8px 22px var(--nm-light);
+  --nm-raised-sm: var(--nm-edge), 4px 4px 10px var(--nm-dark), -3px -3px 8px var(--nm-light);
+  --shadow-card: var(--nm-raised-sm);
+  --nm-pressed: inset 3px 3px 7px var(--nm-dark), inset -2px -2px 6px var(--nm-light);
 }
 :root[data-style='relief'] :is(.card, aside.bg-surface, .bg-tile-blue, .bg-tile-dark) {
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--nm-raised);
 }
-:root[data-style='relief'] .shadow-pop.bg-surface {
+:root[data-style='relief'] :is(.shadow-pop.bg-surface, #nav-more-panel, #copilot-panel) {
   border-color: transparent;
   box-shadow: var(--shadow-pop);
 }
@@ -189,7 +200,7 @@
 }
 /* Buttons stand out of the page, and sink when pressed. */
 :root[data-style='relief'] :is(.btn-primary, .btn-secondary) {
-  background-color: var(--color-paper);
+  background-color: var(--color-surface);
   box-shadow: var(--nm-raised-sm);
 }
 :root[data-style='relief'] .btn-primary {
@@ -207,7 +218,7 @@
   box-shadow: var(--nm-pressed);
 }
 :root[data-style='relief'] nav.bg-tile-dark {
-  background-color: var(--color-paper);
+  background-color: var(--color-surface);
   box-shadow: var(--shadow-pop);
 }
 :root[data-style='relief'] nav.bg-tile-dark > :is(a, button) {
@@ -235,4 +246,11 @@
 }
 :root[data-style='relief'] input.bg-surface:focus {
   box-shadow: var(--nm-pressed), 0 0 0 2px var(--color-focus);
+}
+
+/* The page area clips what goes past it (overflow: hidden): with a style, the shadows of the cards set
+   against its edges may paint a little beyond it instead of being cut (no scroll here, `clip` is enough). */
+:root[data-style] main#contenu {
+  overflow: clip;
+  overflow-clip-margin: 24px;
 }

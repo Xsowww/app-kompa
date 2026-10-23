@@ -112,7 +112,7 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
   };
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto pb-room">
+    <div className="shadow-room min-h-0 flex-1 overflow-y-auto pb-room">
       {code && agenda ? (
         <div className="card flex flex-wrap items-center gap-3 p-4">
           <div className="min-w-[220px] flex-1">

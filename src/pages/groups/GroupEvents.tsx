@@ -220,7 +220,7 @@ export default function GroupEvents({ group }: { group: Group }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <p className="eyebrow pb-3">{t('{Tab} à venir', { Tab: w.meet.Tab })}</p>
-      <div className="min-h-0 flex-1 overflow-y-auto pb-room">
+      <div className="shadow-room min-h-0 flex-1 overflow-y-auto pb-room">
         {adding && canEdit && <EventForm group={group} onDone={() => setAdding(false)} />}
         {!events && (failed ? <LoadFailed groupId={group.id} part="events" className="card" /> : <Skeleton shape="slots" className="card p-4" />)}
         {events && events.length === 0 && !adding && (

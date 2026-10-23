@@ -242,6 +242,14 @@ body {
     padding-bottom: 6rem;
   }
 }
+/* A scroll area whose cards touch its edges: 20 px more box around it, given back as padding, so the cards'
+   shadows (the Relief style's above all) are not cut by the edge of the scroll. Nothing moves. */
+@utility shadow-room {
+  margin-inline: -20px;
+  padding-inline: 20px;
+  margin-top: -20px;
+  padding-top: 20px;
+}
 @utility card {
   @apply rounded-[24px] bg-surface;
 }

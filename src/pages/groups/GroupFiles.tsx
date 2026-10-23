@@ -102,7 +102,7 @@ export default function GroupFiles({ group }: { group: Group }) {
         // Adding: the « + » button, or a drop here.
         <p className="eyebrow pb-3">{tn(files.length, '{n} fichier partagé', '{n} fichiers partagés')}</p>
       )}
-      <div className={cx('min-h-0 flex-1 overflow-y-auto rounded-xl pb-room', over && 'outline-2 outline-dashed outline-stone-300')}>
+      <div className={cx('shadow-room min-h-0 flex-1 overflow-y-auto rounded-xl pb-room', over && 'outline-2 outline-dashed outline-stone-300')}>
         {!files && (failed ? <LoadFailed groupId={group.id} part="files" className="card" /> : <Skeleton className="card p-3" />)}
         {files && files.length === 0 && (
           <EmptyState

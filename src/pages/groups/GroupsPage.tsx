@@ -278,7 +278,7 @@ function Groups() {
         <div className="flex items-center gap-1.5 pb-4 pt-2">
           <h1 className="text-[24px] font-semibold tracking-[-0.02em]">{w.Groups}</h1>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto pb-room">
+        <div className="shadow-room min-h-0 flex-1 overflow-y-auto pb-room">
           {!loaded && <Skeleton shape="people" className="p-1" />}
           {loaded && failed && (
             <EmptyState size="sm" tone="error" title={t('Impossible de charger tes {groups}.', { groups: w.groups })} onRetry={() => void useGroups.getState().loadGroups()} />

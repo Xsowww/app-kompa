@@ -100,7 +100,7 @@ export default function GroupNotes({ group }: { group: Group }) {
       {/* Empty, loading or failed: the state below says it. Adding: the « + » button. */}
       {notes && notes.length > 0 && <p className="eyebrow pb-3">{tn(notes.length, '{n} note partagée', '{n} notes partagées')}</p>}
 
-      <div className="min-h-0 flex-1 overflow-y-auto pb-room">
+      <div className="shadow-room min-h-0 flex-1 overflow-y-auto pb-room">
         {!notes && (failed ? <LoadFailed groupId={group.id} part="notes" className="card" /> : <Skeleton className="card p-3" />)}
         {notes && notes.length === 0 && (
           <EmptyState
