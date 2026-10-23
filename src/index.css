@@ -348,10 +348,6 @@ body {
 .notif-in { animation: notif-down 0.32s cubic-bezier(.2,.9,.3,1) both; }
 
 /* Copilot */
-@keyframes cop-breathe {
-  0%, 100% { transform: translateY(0) scaleY(1); }
-  50% { transform: translateY(-1.5px) scaleY(1.012); }
-}
 @keyframes cop-bounce {
   0%, 100% { transform: translateY(0); }
   40% { transform: translateY(-5px); }
@@ -371,20 +367,27 @@ body {
   30% { opacity: 1; }
   100% { opacity: 0; transform: translate(-10px, -18px) scale(1); }
 }
-@keyframes cop-tap {
-  0%, 90%, 100% { transform: translateX(0); }
-  93% { transform: translateX(-2px); }
-  96% { transform: translateX(0); }
-}
-.cop-breathe { animation: cop-breathe 3.4s ease-in-out infinite; transform-box: fill-box; transform-origin: bottom center; }
 .cop-bounce { animation: cop-bounce 0.9s ease-in-out infinite; transform-box: fill-box; transform-origin: bottom center; }
 .cop-talk { animation: cop-talk 0.2s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
 .cop-wiggle { animation: cop-wiggle 0.5s ease-in-out 2; transform-box: fill-box; transform-origin: center; }
 .cop-z { animation: cop-z 2.2s ease-out infinite; }
-.cop-tap { animation: cop-tap 7s ease-in-out infinite; }
+/* The drone floats; the « … » of think come one by one. */
+@keyframes cop-hover {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+@keyframes cop-dot {
+  0%, 20% { opacity: 0; }
+  40%, 80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.cop-hover { animation: cop-hover 2.6s ease-in-out infinite; }
+.cop-slow { animation-duration: 4.5s; }
+.cop-dot { opacity: 0; animation: cop-dot 1.5s infinite; }
 
 @media (prefers-reduced-motion: reduce) {
-  .enter, .pop, .cop-breathe, .cop-bounce, .cop-talk, .cop-wiggle, .cop-z, .cop-tap { animation: none; }
+  .enter, .pop, .cop-bounce, .cop-talk, .cop-wiggle, .cop-z, .cop-hover { animation: none; }
+  .cop-dot { animation: none; opacity: 1; }
   *,
   *::before,
   *::after {

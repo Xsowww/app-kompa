@@ -1,4 +1,3 @@
-import { useId } from 'react';
 import type { CopilotPose } from '../store/copilot';
 
 export type CopilotMood = 'idle' | 'happy' | 'talk' | 'think' | 'alert' | 'sleep';
@@ -11,150 +10,84 @@ interface Props {
   size?: number;
 }
 
-const INK = '#16181d';
-const ORANGE = 'var(--color-brand-500)'; // follows the accent colour chosen in settings
-
-// Kompaly is a small round character wearing a pilot headset. He hides behind the
-// right edge of the screen: his hands hold the edge, his head slides out.
-const HEAD: Record<CopilotPose, string> = {
-  hidden: 'translate(74px, 4px) rotate(-18deg)',
-  peek: 'translate(30px, 0px) rotate(-11deg)',
-  open: 'translate(4px, 0px) rotate(-3deg)',
+// Kompaly is a little grey drone (one 3D picture, public/kompaly/drone.webp). His face is drawn on its screen
+// and animated here. He waits at the right edge of the screen and flies out of it.
+// (The former character, a round head with a pilot headset, is in git: commit 57d97ba, src/copilot/Character.tsx.)
+const POSE: Record<CopilotPose, string> = {
+  hidden: 'translateX(66%) rotate(-10deg)',
+  peek: 'translateX(30%) rotate(-7deg)',
+  open: 'translateX(2%) rotate(-2deg)',
 };
 
-function Eyes({ mood, x, y, blink }: { mood: CopilotMood; x: number; y: number; blink: boolean }) {
-  const L = { cx: 47 + x, cy: 66 + y };
-  const R = { cx: 67 + x, cy: 66 + y };
-  if (mood === 'happy') {
-    return (
-      <g stroke={INK} strokeWidth="2.6" strokeLinecap="round" fill="none">
-        <path d={`M${L.cx - 4.5} ${L.cy + 1.5} q4.5 -6 9 0`} />
-        <path d={`M${R.cx - 4.5} ${R.cy + 1.5} q4.5 -6 9 0`} />
-      </g>
-    );
+/** The glowing face, in a 100 × 80 box laid on the screen. */
+function Face({ mood, x, y, blink }: { mood: CopilotMood; x: number; y: number; blink: boolean }) {
+  const line = { fill: 'none', stroke: '#fff', strokeWidth: 4.5, strokeLinecap: 'round' as const };
+  let eyes;
+  if (mood === 'happy') eyes = [24, 58].map(cx => <path key={cx} d={`M${cx + x} ${39 + y} q9 -12 18 0`} {...line} strokeWidth={5.5} />);
+  else if (mood === 'sleep') eyes = [25, 59].map(cx => <path key={cx} d={`M${cx} 38 q8 6 16 0`} {...line} strokeWidth={5.5} />);
+  else {
+    const r = mood === 'alert' ? 10.5 : 8.5;
+    eyes = [33, 67].map(cx => <ellipse key={cx} cx={cx + x} cy={36 + y} rx={r} ry={blink ? 1.2 : r} fill="#fff" />);
   }
-  if (mood === 'sleep' || blink) {
-    return (
-      <g stroke={INK} strokeWidth="2.4" strokeLinecap="round" fill="none">
-        <path d={`M${L.cx - 4} ${L.cy} q4 3 8 0`} />
-        <path d={`M${R.cx - 4} ${R.cy} q4 3 8 0`} />
-      </g>
-    );
-  }
-  const ry = mood === 'alert' ? 7 : 6;
+  const mx = 50 + x * 0.6;
+  const mouth = {
+    talk: <ellipse cx={mx} cy="56" rx="7" ry="5" fill="#fff" className="cop-talk" />,
+    alert: <circle cx={mx} cy="57" r="4.5" {...line} />,
+    think: <path d={`M${mx - 7} 57 h14`} {...line} />,
+    sleep: <ellipse cx={mx} cy="56" rx="3" ry="2.2" fill="#fff" />,
+    happy: <path d={`M${mx - 12} 52 q12 13 24 0 z`} fill="#fff" />,
+    idle: <path d={`M${mx - 9} 55 q9 7 18 0`} {...line} />,
+  }[mood];
   return (
-    <g>
-      <ellipse cx={L.cx} cy={L.cy} rx="4.6" ry={ry} fill={INK} />
-      <ellipse cx={R.cx} cy={R.cy} rx="4.6" ry={ry} fill={INK} />
-      <circle cx={L.cx - 1.5} cy={L.cy - 2.4} r="1.6" fill="#fff" />
-      <circle cx={R.cx - 1.5} cy={R.cy - 2.4} r="1.6" fill="#fff" />
-    </g>
+    <>
+      {eyes}
+      {mouth}
+      {mood === 'think' && [78, 86, 94].map((cx, i) => <circle key={cx} cx={cx} cy="12" r="3" fill="#fff" className="cop-dot" style={{ animationDelay: `${i * 0.25}s` }} />)}
+    </>
   );
 }
 
-function Mouth({ mood, x }: { mood: CopilotMood; x: number }) {
-  const cx = 57 + x * 0.6;
-  switch (mood) {
-    case 'talk':
-      return <ellipse cx={cx} cy="80" rx="3.6" ry="3.2" fill={INK} className="cop-talk" />;
-    case 'alert':
-      return <circle cx={cx} cy="80.5" r="2.6" fill="none" stroke={INK} strokeWidth="2.2" />;
-    case 'think':
-      return <path d={`M${cx - 3} 80 h6`} stroke={INK} strokeWidth="2.2" strokeLinecap="round" />;
-    case 'sleep':
-      return <ellipse cx={cx} cy="80" rx="2" ry="1.6" fill={INK} />;
-    case 'happy':
-      return <path d={`M${cx - 5} 77.5 q5 6 10 0 z`} fill={INK} stroke={INK} strokeWidth="1.6" strokeLinejoin="round" />;
-    default:
-      return <path d={`M${cx - 4} 78 q4 3.6 8 0`} stroke={INK} strokeWidth="2.2" strokeLinecap="round" fill="none" />;
-  }
-}
-
-function Hand({ y }: { y: number }) {
-  // three little fingers curled over the edge
-  return (
-    <g>
-      {[0, 7.5, 15].map(dy => (
-        <rect key={dy} x="106" y={y + dy} width="20" height="8" rx="4" fill="#fff" stroke={INK} strokeWidth="2.2" />
-      ))}
-    </g>
-  );
-}
+const GLOW = 'drop-shadow(0 0 2px rgba(255,255,255,.9)) drop-shadow(0 0 6px rgba(255,255,255,.45))';
 
 export default function Character({ pose, look = { x: -1, y: 0 }, blink = false, mood = 'idle', size = 112 }: Props) {
-  const lx = mood === 'think' ? -1.6 : look.x * 2.4;
-  const ly = mood === 'think' ? -2.2 : look.y * 2;
-  const shadowId = `cop-shadow-${useId().replace(/[^\w-]/g, '')}`; // several Copilots can be on screen
+  const lx = mood === 'think' ? -5 : look.x * 6;
+  const ly = mood === 'think' ? -5 : look.y * 4;
+  const float = mood === 'alert' ? 'cop-bounce' : mood === 'sleep' ? 'cop-hover cop-slow' : 'cop-hover';
 
   return (
-    <svg viewBox="0 0 124 140" width={size} height={(size * 140) / 124} className="pointer-events-none overflow-visible select-none" aria-hidden>
-      <defs>
-        <filter id={shadowId} x="-30%" y="-30%" width="160%" height="160%">
-          <feDropShadow dx="-1.5" dy="3" stdDeviation="3" floodColor="#1c1b19" floodOpacity="0.16" />
-        </filter>
-      </defs>
-
-      <g style={{ pointerEvents: 'visiblePainted', transform: HEAD[pose], transformOrigin: '118px 72px', transition: 'transform 480ms cubic-bezier(.34,1.45,.64,1)' }}>
-        <g filter={`url(#${shadowId})`}className={mood === 'alert' ? 'cop-bounce' : 'cop-breathe'}>
-          <g className={mood === 'alert' ? 'cop-wiggle' : undefined}>
-            {/* headset band (behind the head) */}
-            <path d="M94 66 C 96 30, 52 18, 30 44" fill="none" stroke={INK} strokeWidth="9" strokeLinecap="round" />
-            <path d="M94 66 C 96 30, 52 18, 30 44" fill="none" stroke={ORANGE} strokeWidth="4.6" strokeLinecap="round" />
-
-            {/* head */}
-            <rect x="20" y="32" width="80" height="74" rx="36" fill="#fff" stroke={INK} strokeWidth="2.6" />
-            <path d="M30 56 q4 -16 20 -19" stroke="#ece9e3" strokeWidth="4" strokeLinecap="round" fill="none" />
-
-            {/* cheeks */}
-            <ellipse cx={39 + lx * 0.5} cy="77" rx="5.2" ry="3.2" fill="#f6a99a" opacity="0.75" />
-            <ellipse cx={76 + lx * 0.5} cy="77" rx="5.2" ry="3.2" fill="#f6a99a" opacity="0.6" />
-
-            <Eyes mood={mood} x={lx} y={ly} blink={blink} />
-            <Mouth mood={mood} x={lx} />
-
-            {/* ear cup + microphone */}
-            <path d="M95 76 C 94 90, 82 96, 70 94" fill="none" stroke={INK} strokeWidth="2.4" strokeLinecap="round" />
-            <circle cx="69" cy="94" r="3.6" fill={ORANGE} stroke={INK} strokeWidth="2" />
-            <rect x="88" y="58" width="17" height="24" rx="8.5" fill={ORANGE} stroke={INK} strokeWidth="2.6" />
-            <rect x="92.5" y="63" width="3" height="13" rx="1.5" fill="#fff" opacity="0.55" />
-
+    <div className="pointer-events-none relative select-none" style={{ width: size, height: (size * 140) / 124 }} aria-hidden>
+      <div
+        className="absolute inset-x-0 top-[22%]"
+        style={{ pointerEvents: 'visiblePainted', transform: POSE[pose], transformOrigin: '100% 50%', transition: 'transform 480ms cubic-bezier(.34,1.45,.64,1)' }}
+      >
+        <div className={float}>
+          <div className={mood === 'alert' ? 'cop-wiggle' : undefined} style={{ position: 'relative', width: '125%', marginLeft: '-12%' }}>
+            <img src="/kompaly/drone.webp" alt="" width={360} height={225} draggable={false} className="block h-auto w-full drop-shadow-[0_6px_10px_rgba(0,0,0,0.25)]" />
+            <svg viewBox="0 0 100 80" className="absolute overflow-visible" style={{ left: '28.9%', top: '10.9%', width: '36%', height: '45.9%', filter: GLOW }}>
+              <Face mood={mood} x={lx} y={ly} blink={blink} />
+            </svg>
             {mood === 'sleep' && (
-              <g fill={INK} fontFamily="Geist, sans-serif" fontWeight="700">
-                <text x="26" y="34" fontSize="11" className="cop-z">z</text>
-                <text x="18" y="26" fontSize="8" className="cop-z" style={{ animationDelay: '1.1s' }}>z</text>
-              </g>
+              <span className="absolute -top-[18%] right-[18%] font-black text-brand-400">
+                <span className="cop-z absolute text-[15px]">z</span>
+                <span className="cop-z absolute -top-3 left-2 text-[11px]" style={{ animationDelay: '1.1s' }}>z</span>
+              </span>
             )}
-            {mood === 'think' && (
-              <g fill={INK}>
-                <circle cx="18" cy="38" r="2.4" opacity="0.35" />
-                <circle cx="11" cy="29" r="3" opacity="0.55" />
-              </g>
-            )}
-          </g>
-        </g>
-      </g>
-
-      {/* hands holding the edge of the screen */}
-      <g className="cop-tap">
-        <Hand y={30} />
-      </g>
-      <Hand y={92} />
-    </svg>
+            {mood === 'alert' && <span className="absolute -top-[26%] right-[22%] text-[22px] font-black text-amber-400 [text-shadow:0_0_8px_rgb(255_190_60/0.7)]">!</span>}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
-/** Small face used as an avatar in the conversation panel. */
+/** Small head used as an avatar in the conversation panel. */
 export function CopilotAvatar({ size = 28 }: { size?: number }) {
   return (
-    <svg viewBox="16 26 96 86" width={size} height={size} aria-hidden>
-      <path d="M94 66 C 96 30, 52 18, 30 44" fill="none" stroke={INK} strokeWidth="9" strokeLinecap="round" />
-      <path d="M94 66 C 96 30, 52 18, 30 44" fill="none" stroke={ORANGE} strokeWidth="4.6" strokeLinecap="round" />
-      <rect x="20" y="32" width="80" height="74" rx="36" fill="#fff" stroke={INK} strokeWidth="3" />
-      <ellipse cx="45" cy="66" rx="4.8" ry="6.2" fill={INK} />
-      <ellipse cx="65" cy="66" rx="4.8" ry="6.2" fill={INK} />
-      <path d="M51 78 q4 3.6 8 0" stroke={INK} strokeWidth="2.6" strokeLinecap="round" fill="none" />
-      <ellipse cx="37" cy="77" rx="5" ry="3" fill="#f6a99a" opacity="0.75" />
-      <rect x="88" y="58" width="17" height="24" rx="8.5" fill={ORANGE} stroke={INK} strokeWidth="3" />
-    </svg>
+    <span className="relative inline-block shrink-0" style={{ width: size, height: (size * 77) / 96 }} aria-hidden>
+      <img src="/kompaly/drone-head.webp" alt="" width={96} height={77} className="block h-full w-full" />
+      <svg viewBox="0 0 100 80" className="absolute" style={{ left: '15%', top: '16.5%', width: '70%', height: '69%', filter: GLOW }}>
+        <Face mood="idle" x={0} y={0} blink={false} />
+      </svg>
+    </span>
   );
 }
