@@ -546,7 +546,9 @@ export function localReply(raw: string): BotReply {
 
   // ── Add an event ──────────────────────────────────────────────────────────
   m = input.match(/^(?:ajoute|ajouter|planifie|programme|rappelle[- ]moi|note dans (?:le|mon) calendrier|mets?)\s+(?:un\s+|une\s+)?(?:[ée]v[ée]nement\s+|rdv\s+|rendez-vous\s+)?(.*)$/i);
-  if (m && !/\bnote\b/i.test(m[1].split(' ')[0])) {
+  // « Planifie ma semaine », « mets de l'ordre dans mes fichiers »: a request, not an event to add.
+  const vague = !!m && /^(?:(?:ma|mon|mes|la|cette|ce)\s+(?:semaine|journ[ée]e|soir[ée]e|week-?end|mois|matin[ée]e|planning|agenda)|de\s+l['’]ordre)\b/i.test(m[1]);
+  if (m && !vague && !/\bnote\b/i.test(m[1].split(' ')[0])) {
     const parsed = parseQuickAdd(m[1]);
     if (parsed.title) {
       const date = parsed.date ?? todayKey();
@@ -559,7 +561,7 @@ export function localReply(raw: string): BotReply {
   }
 
   // ── Analyse calendar ──────────────────────────────────────────────────────
-  if (/(analys|resum|bilan|point sur|charge|organis).*(calendrier|semaine|planning|agenda|emploi du temps)|(calendrier|semaine|planning).*(analys|resum|bilan)/.test(q)) {
+  if (/(analys|resum|bilan|point sur|charge|organis|planifi).*(calendrier|semaine|planning|agenda|emploi du temps)|(calendrier|semaine|planning).*(analys|resum|bilan)/.test(q)) {
     return calendarReport();
   }
 

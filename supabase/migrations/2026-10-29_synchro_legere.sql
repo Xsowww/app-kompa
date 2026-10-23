@@ -56,3 +56,33 @@ begin
     execute format('create trigger %I after delete on public.%I for each row execute function public.note_deletion()', t || '_deleted', t);
   end loop;
 end $$;
+
+-- Une version plus ancienne refusée : la ligne garde celle du serveur, mais son heure de synchro avance,
+-- pour que l'appareil qui l'avait envoyée relise la bonne version (au lieu de garder la sienne jusqu'au lendemain).
+create or replace function public.keep_newest() returns trigger
+language plpgsql set search_path = '' as $$
+begin
+  if new.updated_at < old.updated_at then
+    return old;
+  end if;
+  return new;
+end;
+$$;
+create or replace function public.keep_newest_if_dated() returns trigger
+language plpgsql set search_path = '' as $$
+begin
+  if new.updated_at is not null and old.updated_at is not null and new.updated_at < old.updated_at then
+    return old;
+  end if;
+  return new;
+end;
+$$;
+
+-- Les traces d'un compte supprimé partent avec lui.
+delete from public.sync_deletions d where not exists (select 1 from auth.users u where u.id = d.user_id);
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'sync_deletions_user_fk') then
+    alter table public.sync_deletions add constraint sync_deletions_user_fk foreign key (user_id) references auth.users on delete cascade;
+  end if;
+end $$;

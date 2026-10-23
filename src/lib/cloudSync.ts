@@ -346,8 +346,9 @@ async function send() {
         }
         for (const r of rows) if (p.upserts.get(r.id as string) === r) p.upserts.delete(r.id as string);
       }
-      if (p.deletes.size) {
-        const ids = [...p.deletes];
+      // By 200: emptying a big trash in one request made an address too long for the server.
+      while (p.deletes.size) {
+        const ids = [...p.deletes].slice(0, 200);
         const { error } = await supabase.from(table).delete().in('id', ids);
         if (error && !permanent(error)) throw error;
         if (error) console.error('[sync] suppression refusée', table, error);
@@ -391,14 +392,18 @@ async function sendSettings(user: string) {
 /** Records the difference between two versions of a list (immutable updates → reference check). */
 function diff<T extends { id: string }>(table: Table, cur: T[], prev: T[], toRow: (x: T) => Row) {
   if (pulling || cur === prev) return;
-  changes++;
   const stamp = new Date().toISOString();
   const before = new Map(prev.map(x => [x.id, x]));
   const now = new Set<string>();
+  let found = false;
   for (const x of cur) {
     now.add(x.id);
-    if (before.get(x.id) !== x) {
+    const old = before.get(x.id);
+    if (old !== x) {
       const row = toRow(x);
+      // A new copy of the same thing (reloaded from storage…): nothing to send.
+      if (old && JSON.stringify(toRow(old)) === JSON.stringify(row)) continue;
+      found = true;
       if (STAMPED.has(table)) row.updated_at = stamp;
       pending[table].upserts.set(x.id, row);
       pending[table].deletes.delete(x.id);
@@ -406,12 +411,29 @@ function diff<T extends { id: string }>(table: Table, cur: T[], prev: T[], toRow
   }
   for (const id of before.keys()) {
     if (!now.has(id)) {
+      found = true;
       pending[table].upserts.delete(id);
       pending[table].deletes.add(id);
     }
   }
+  if (!found) return;
+  changes++;
   saveQueue();
   schedule();
+}
+
+/**
+ * Store updates that aren't changes made here (another tab of this account saved them, and sends them
+ * itself): nothing goes out. Sending them again would stamp an older copy as the newest one.
+ */
+export function quietly(fn: () => void) {
+  const was = pulling;
+  pulling = true;
+  try {
+    fn();
+  } finally {
+    pulling = was;
+  }
 }
 
 // ── Public API ──────────────────────────────────────────────────────────────
@@ -430,16 +452,24 @@ export async function pushLeftovers(userId: string) {
 
 const PAGE = 1000; // Supabase answers at most 1 000 rows per request by default
 
-/** Every row of a table (changed since `since`), page by page (a year of timetable easily passes 1 000 events). */
+/**
+ * Every row of a table (changed since `since`), page by page (a year of timetable easily passes 1 000 events).
+ * By key, not by position: a row deleted elsewhere during the download would shift the pages and skip one.
+ */
 async function selectAll(table: Table | 'sync_deletions', since?: string) {
+  const key = table === 'sync_deletions' ? 'row_id' : 'id';
   const rows: Row[] = [];
-  for (let from = 0; ; from += PAGE) {
+  for (let last: string | null = null; ; ) {
     let q = supabase!.from(table).select('*');
     if (since) q = q.gt(table === 'sync_deletions' ? 'deleted_at' : 'synced_at', since);
-    const { data, error } = await q.order(table === 'sync_deletions' ? 'deleted_at' : 'id').range(from, from + PAGE - 1);
+    if (last) q = q.gt(key, last);
+    const { data, error } = await q.order(key).limit(PAGE);
     if (error) return { data: null, error };
     rows.push(...data);
-    if (data.length < PAGE) return { data: rows, error: null };
+    const next = data[data.length - 1]?.[key] as string | undefined;
+    // A server that didn't apply the key filter would answer the same page forever.
+    if (data.length < PAGE || !next || next === last) return { data: rows, error: null };
+    last = next;
   }
 }
 
@@ -566,7 +596,8 @@ function applyChanges({ profile, gone, rows }: Changes) {
  */
 async function download(userId: string, onlyIf: () => boolean = () => true) {
   const c = readCursor();
-  if (c && !noDelta && Date.now() - c.full < FULL_EVERY) {
+  const age = c ? Date.now() - c.full : -1; // < 0: the device's clock went back, so a whole download
+  if (c && !noDelta && age >= 0 && age < FULL_EVERY) {
     try {
       const d = await fetchChanges(userId, new Date(Math.max(0, c.at - OVERLAP)).toISOString());
       if (!onlyIf()) return null;
@@ -585,8 +616,8 @@ async function download(userId: string, onlyIf: () => boolean = () => true) {
   if (!onlyIf()) return null;
   apply(d);
   const at = [d.events, d.folders, d.notes, d.items, d.todos, d.focus].reduce((m, r) => newest(r.data, 'synced_at', m), 0);
-  // No synced_at in the rows (server not migrated): no cursor, the next download is whole too.
-  if (at || !(d.events.data?.length || d.notes.data?.length || d.items.data?.length)) saveCursor({ at, full: started });
+  // No synced_at in the rows (server not migrated, or nothing in the account): no cursor, the next download is whole too.
+  if (at) saveCursor({ at, full: started });
   return { profile: d.profile, data: d, delta: false };
 }
 

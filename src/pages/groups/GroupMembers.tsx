@@ -136,7 +136,7 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
           <div className="card flex flex-wrap items-center gap-3 p-4">
             <div className="min-w-[220px] flex-1">
               <p className="text-[14px] font-medium">{t('Inviter quelqu’un')}</p>
-              <p className="mt-0.5 text-[13px] text-stone-500">{t('Envoie-lui ce code.')}</p>
+              <p className="mt-0.5 text-[13px] text-stone-500">{t('Envoie-lui le code affiché sous le nom du groupe.')}</p>
             </div>
             <button className="btn-secondary h-8 px-3" title={t('Nouveau code (l’ancien ne marchera plus)')} disabled={busy} onClick={() => void newCode()}>
               <RefreshCw size={14} /> {t('Nouveau code')}

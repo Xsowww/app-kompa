@@ -125,7 +125,8 @@ function JoinForm({ onDone }: { onDone: () => void }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   // The pasted invitation link (or « Code : ABC234 ») works too: its code is taken from it.
-  const clean = (code.match(/rejoindre=([A-Za-z0-9]{6})/i)?.[1] ?? code).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(-6);
+  // A message pasted whole (« … avec le code ZZ9Y8X sur Kompaly »): the word after « code ».
+  const clean = (code.match(/rejoindre=([A-Za-z0-9]{6})/i)?.[1] ?? code.match(/\bcode\s*[:：]?\s*([A-Za-z0-9]{6})\b/i)?.[1] ?? code).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(-6);
   const inputRef = useRef<HTMLInputElement>(null);
   const short = t('Le code contient 6 caractères.');
   const submit = async (e: FormEvent) => {

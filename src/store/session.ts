@@ -5,7 +5,7 @@ import { useCopilot } from './copilot';
 import { useSettings, applyAppearance, storedStyle, storedTheme, type Settings } from './settings';
 import { getStorageUser, setStorageUser } from '../lib/userStorage';
 import { cloudEnabled } from '../lib/supabase';
-import { pullAll, pushLeftovers, startSync, stopSync, updateCloudProfile } from '../lib/cloudSync';
+import { pullAll, pushLeftovers, quietly, startSync, stopSync, updateCloudProfile } from '../lib/cloudSync';
 import { useAuth } from './auth';
 import { toast } from './ui';
 import { useTodos } from './todos';
@@ -24,7 +24,9 @@ if (typeof window !== 'undefined')
   addEventListener('storage', e => {
     const prefix = `cop:${getStorageUser()}:`;
     if (!getStorageUser() || e.newValue === null || !e.key?.startsWith(prefix)) return;
-    void PERSISTED[e.key.slice(prefix.length) as keyof typeof PERSISTED]?.persist.rehydrate();
+    // What the other tab saved, it sends itself (synchronous storage: the whole reload is inside `quietly`).
+    const store = PERSISTED[e.key.slice(prefix.length) as keyof typeof PERSISTED];
+    quietly(() => void store?.persist.rehydrate());
   });
 
 /** True while a brand-new account still has to answer the welcome questionnaire. */

@@ -271,10 +271,13 @@ export default function Copilot() {
       const H = window.innerHeight;
       const phone = window.innerWidth < 640;
       const margin = 12;
-      const top = phone ? 76 : margin; // room for his head above the panel
+      // The phone's keyboard shrinks only the visual viewport (iOS, Chrome Android): the panel goes above it.
+      const vv = window.visualViewport;
+      const keyboard = vv ? Math.max(0, H - vv.height - vv.offsetTop) : 0;
+      const top = (phone ? 76 : margin) + (vv?.offsetTop ?? 0); // room for his head above the panel
       // Above the bottom navigation on phones and tablets, and above the imports card (components/UploadCard).
       const room = parseFloat(document.documentElement.style.getPropertyValue('--uploads-room')) || 0;
-      const bottom = Math.max(window.innerWidth < 1024 ? 68 : margin, room);
+      const bottom = keyboard > 80 ? keyboard + margin : Math.max(window.innerWidth < 1024 ? 68 : margin, room);
       const most = Math.max(160, H - top - bottom);
       setCap(c => (c === most ? c : most));
       const h = Math.min(panelRef.current?.offsetHeight ?? 0, most);
@@ -288,8 +291,12 @@ export default function Copilot() {
     if (panelRef.current) ro.observe(panelRef.current);
     window.addEventListener('resize', place);
     window.addEventListener('uploads-room', place);
+    window.visualViewport?.addEventListener('resize', place);
+    window.visualViewport?.addEventListener('scroll', place);
     return () => {
       ro.disconnect();
+      window.visualViewport?.removeEventListener('resize', place);
+      window.visualViewport?.removeEventListener('scroll', place);
       window.removeEventListener('resize', place);
       window.removeEventListener('uploads-room', place);
     };
