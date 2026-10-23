@@ -22,7 +22,11 @@ export interface UploadHandle {
   fail(): void;
 }
 
-export const useUploads = create<{ items: Upload[] }>(() => ({ items: [] }));
+/** `shownAt`: the place whose own list already shows its files coming in (the Drive folder open): the card leaves them out. */
+export const useUploads = create<{ items: Upload[]; shownAt: string | null }>(() => ({ items: [], shownAt: null }));
+
+/** What the card shows: everything, except what the open page already shows in place (its failures stay). */
+export const cardItems = (items: Upload[], shownAt: string | null) => (shownAt ? items.filter(u => u.where !== shownAt || u.status === 'error') : items);
 
 /** A card that went well disappears by itself after this long. */
 export const HIDE_AFTER = 4000;

@@ -81,3 +81,17 @@ describe('upload card store', () => {
     expect(listeners.size).toBe(0);
   });
 });
+
+describe('cardItems', () => {
+  it('leaves out the files the open folder already shows, but keeps its failures and the others', async () => {
+    const { cardItems } = await import('../src/store/uploads');
+    const items = [
+      { id: 'a', name: 'a.pdf', size: 10, loaded: 5, status: 'active' as const, where: 'drive:f1' },
+      { id: 'b', name: 'b.pdf', size: 10, loaded: 10, status: 'done' as const, where: 'drive:f1' },
+      { id: 'c', name: 'c.pdf', size: 10, loaded: 0, status: 'error' as const, where: 'drive:f1' },
+      { id: 'd', name: 'd.pdf', size: 10, loaded: 2, status: 'active' as const, where: 'drive:f2' },
+    ];
+    expect(cardItems(items, 'drive:f1').map(u => u.id)).toEqual(['c', 'd']);
+    expect(cardItems(items, null).map(u => u.id)).toEqual(['a', 'b', 'c', 'd']);
+  });
+});

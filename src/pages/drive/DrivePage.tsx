@@ -142,6 +142,12 @@ export default function DrivePage() {
   // Files on their way into this folder: greyed rows with their percentage, above the folder's content.
   const here = driveWhere(parentId);
   const showPending = useUploads(s => s.items.some(u => u.status === 'active' && u.where === here)) && tab === 'all' && !filtering;
+  // This folder's files coming in show in its list: the import card leaves them out while it is open.
+  const inPlace = tab === 'all' && !filtering ? here : null;
+  useEffect(() => {
+    useUploads.setState({ shownAt: inPlace });
+    return () => useUploads.setState({ shownAt: null });
+  }, [inPlace]);
   // null: search results in their own order (name matches, then content matches).
   const activeSort = useMemo<Sort | null>(() => (filtering ? listSort : tab === 'recent' ? (listSort ?? { key: 'date', asc: false }) : sort), [filtering, listSort, tab, sort]);
 

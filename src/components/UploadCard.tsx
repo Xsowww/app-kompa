@@ -1,12 +1,14 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { AlertCircle, Check, ChevronDown, ChevronUp, Loader2, X } from 'lucide-react';
-import { dismissUploads, uploadSummary, useUploads, type Upload } from '../store/uploads';
+import { useShallow } from 'zustand/react/shallow';
+import { cardItems, dismissUploads, uploadSummary, useUploads, type Upload } from '../store/uploads';
 import { cx } from '../lib/utils';
 import { t, tn } from '../i18n';
 
 /** Files being imported, on every page: bottom right on computers, above « Avis ou bug » on phones. */
 export default function UploadCard() {
-  const items = useUploads(s => s.items);
+  // The files of the Drive folder open show there, each with its percent: the card is for the others (and once you leave).
+  const items = useUploads(useShallow(s => cardItems(s.items, s.shownAt)));
   return (
     <>
       {/* Always there, so that it is read out when the import starts and when it ends (not at every percent). */}
