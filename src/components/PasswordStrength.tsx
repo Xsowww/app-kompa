@@ -9,12 +9,15 @@ const LEVELS = [
   { label: t('Fort'), bar: 'bg-emerald-600' },
 ];
 
-/** The bar under a new password: fills up as it gets stronger. `avoid`: the name or e-mail, weak inside a password. */
-export default function PasswordStrength({ password, avoid = [], id }: { password: string; avoid?: string[]; id?: string }) {
+/**
+ * The bar under a new password: fills up as it gets stronger. `avoid`: the name or e-mail, weak inside a password.
+ * `ruleInError`: the field's red error already says the rule, so it isn't said twice.
+ */
+export default function PasswordStrength({ password, avoid = [], id, ruleInError }: { password: string; avoid?: string[]; id?: string; ruleInError?: boolean }) {
   const level = passwordStrength(password, avoid);
   const now = LEVELS[level - 1];
   // The rule that blocks (AuthPage, Profile), not the strength.
-  const meetsRule = password.length >= 8 && /\p{L}/u.test(password) && /\d/.test(password);
+  const meetsRule = ruleInError || (password.length >= 8 && /\p{L}/u.test(password) && /\d/.test(password));
   return (
     <div className="mt-2">
       <div className="flex gap-1" aria-hidden>

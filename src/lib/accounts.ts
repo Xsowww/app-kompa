@@ -6,7 +6,7 @@
 // Supabase itself keeps in this browser for the current account). An account left unused for
 // STALE_DAYS asks for its credentials again: its session is dropped and only the e-mail is remembered.
 
-import { cloudEnabled } from './supabase';
+import { cloudEnabled, type OAuthProvider } from './supabase';
 import { t } from '../i18n';
 
 const KEY = 'cop:accounts';
@@ -23,6 +23,8 @@ export interface SavedAccount {
   session?: { access_token: string; refresh_token: string };
   /** Signed out on purpose: still listed, but opened with the password only. */
   signedOut?: boolean;
+  /** Google or Apple account without a password: opened again with that button, not a password. */
+  provider?: OAuthProvider;
 }
 
 function read(): SavedAccount[] {
@@ -63,7 +65,8 @@ export function rememberAccount(entry: Omit<SavedAccount, 'lastActive' | 'sessio
   const list = read().filter(a => a.id !== entry.id);
   const old = read().find(a => a.id === entry.id);
   const session = entry.session === null ? undefined : (entry.session ?? old?.session);
-  list.push({ id: entry.id, email: entry.email, name: entry.name, lastActive: now, ...(session && { session }) });
+  const provider = 'provider' in entry ? entry.provider : old?.provider; // given: up to date (a password chosen since drops it)
+  list.push({ id: entry.id, email: entry.email, name: entry.name, lastActive: now, ...(session && { session }), ...(provider && { provider }) });
   write(list);
 }
 
@@ -100,6 +103,19 @@ export const needsCredentials = (a: SavedAccount) => isStale(a) || !!a.signedOut
 
 export const STALE_HINT = t('Ce compte n’a pas servi depuis plus de {n}\u00a0jours : entre de nouveau ton mot de passe.', { n: STALE_DAYS });
 
+export const PROVIDER_NAMES: Record<OAuthProvider, string> = { google: 'Google', apple: 'Apple' };
+
 /** Why a saved account asks for its password again, in the words shown above the field. */
 export const reloginHint = (a: SavedAccount | undefined) =>
-  a?.signedOut ? t('Tu t’es déconnecté de ce compte : entre ton mot de passe pour le rouvrir.') : a && isStale(a) ? STALE_HINT : t('La session de ce compte a expiré : entre de nouveau ton mot de passe.');
+  a?.provider ? t('Reconnecte-toi avec {provider}.', { provider: PROVIDER_NAMES[a.provider] }) : a?.signedOut ? t('Tu t’es déconnecté de ce compte : entre ton mot de passe pour le rouvrir.') : a && isStale(a) ? STALE_HINT : t('La session de ce compte a expiré : entre de nouveau ton mot de passe.');
+
+/**
+ * Keys of the copies to drop when « Rester connecté » was unticked and the browser closed without signing out:
+ * every account's data except those still kept open on this device (`kept`), and except the changes not sent yet.
+ */
+export function unkeptCopyKeys(keys: string[], kept: Set<string>): string[] {
+  return keys.filter(k => {
+    const id = /^cop:([^:]+):/.exec(k)?.[1];
+    return !!id && !kept.has(id) && !k.startsWith(`cop:${id}:sync-queue`);
+  });
+}

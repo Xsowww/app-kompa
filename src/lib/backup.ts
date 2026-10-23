@@ -17,6 +17,7 @@ import { useTodos } from '../store/todos';
 import { isTourTodo } from '../store/tour';
 import { useFocusLog } from '../store/focusLog';
 import { useCopilot } from '../store/copilot';
+import { useRecorder } from '../store/recorder';
 import { t } from '../i18n';
 
 function download(name: string, content: string, type: string) {
@@ -30,19 +31,25 @@ function download(name: string, content: string, type: string) {
 
 const stamp = () => toKey(new Date()); // the local day (in UTC it was the day before until 1 or 2 am)
 
-/** Everything except file contents (those stay in the Drive). */
+/** Everything except file contents (those stay in the Drive) and the sound of the recordings. */
 export function exportBackup() {
   const { avatarImage: _img, ...settings } = useSettings.getState();
+  const { user } = useAuth.getState();
+  const { messages, memory } = useCopilot.getState();
   const data = {
     app: 'cop-pilot',
     version: 1,
     exportedAt: new Date().toISOString(),
-    user: { name: useAuth.getState().user?.name },
+    user: { name: user?.name, email: user?.email },
     settings: Object.fromEntries(Object.entries(settings).filter(([, v]) => typeof v !== 'function')),
     calendar: useCalendar.getState().events,
     todos: useTodos.getState().todos,
     notes: { folders: useNotes.getState().folders, notes: useNotes.getState().notes },
     driveFolders: useDrive.getState().items.filter(i => i.kind === 'folder'),
+    // Also what the privacy policy lists (Profil › Données › Exporter): not restored by importBackup.
+    focusSessions: useFocusLog.getState().sessions,
+    kompaly: { conversation: messages, memory },
+    recordings: useRecorder.getState().history, // titles, key points and parts; the documents made are in the Drive
   };
   download(t('kompaly-sauvegarde-{day}.json', { day: stamp() }), JSON.stringify(data, null, 2), 'application/json');
 }

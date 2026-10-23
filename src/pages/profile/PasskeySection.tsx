@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Fingerprint, Loader2, Trash2 } from 'lucide-react';
 import type { PasskeyListItem } from '@supabase/supabase-js';
-import { useAuth } from '../../store/auth';
+import { passkeyHereKey, useAuth } from '../../store/auth';
 import { confirmAction, toast } from '../../store/ui';
 import { passkeysAvailable } from '../../lib/supabase';
 import { fmt } from '../../lib/dates';
@@ -14,6 +14,16 @@ export default function PasskeySection() {
   const [on, setOn] = useState(false);
   const [list, setList] = useState<PasskeyListItem[] | null>(null);
   const [busy, setBusy] = useState(false);
+  // This device already has its key (added or used here): « Ajouter cet appareil » would only say so.
+  const userId = useAuth(s => s.user?.id ?? '');
+  const readHere = () => {
+    try {
+      return localStorage.getItem(passkeyHereKey(userId));
+    } catch {
+      return null;
+    }
+  };
+  const [here, setHere] = useState(readHere);
 
   const load = () =>
     useAuth
@@ -27,6 +37,7 @@ export default function PasskeySection() {
     });
   }, []);
   if (!on) return null;
+  const hasHere = !!here && !!list?.length && (here === '1' || list.some(p => p.id === here));
 
   const add = async () => {
     setBusy(true);
@@ -38,6 +49,7 @@ export default function PasskeySection() {
     } catch (e) {
       toast((e as Error).message, 'error');
     } finally {
+      setHere(readHere());
       setBusy(false);
     }
   };
@@ -47,6 +59,15 @@ export default function PasskeySection() {
     try {
       await useAuth.getState().removePasskey(p.id);
       setList(l => l?.filter(x => x.id !== p.id) ?? null);
+      // Maybe this device's key (unknown when only used here): the button comes back.
+      if (here === p.id || here === '1') {
+        try {
+          localStorage.removeItem(passkeyHereKey(userId));
+        } catch {
+          /* storage blocked */
+        }
+        setHere(null);
+      }
     } catch (e) {
       toast((e as Error).message, 'error');
     }
@@ -65,10 +86,12 @@ export default function PasskeySection() {
           </button>
         </Row>
       ))}
-      <Row label={list?.length ? t('Un autre appareil ?') : t('Pas encore activé')} hint={list?.length ? t('Ouvre Kompaly dessus et ajoute-le ici.') : undefined}>
-        <button className="btn-primary h-8" disabled={busy || !list} onClick={() => void add()}>
-          {busy ? <Loader2 size={14} className="animate-spin" /> : <Fingerprint size={14} />} {t('Ajouter cet appareil')}
-        </button>
+      <Row label={list?.length ? t('Un autre appareil ?') : t('Pas encore activé')} hint={hasHere ? t('Ouvre Kompaly dessus, puis Profil › Compte › Ajouter cet appareil.') : list?.length ? t('Ouvre Kompaly dessus et ajoute-le ici.') : undefined}>
+        {!hasHere && (
+          <button className="btn-primary h-8" disabled={busy || !list} onClick={() => void add()}>
+            {busy ? <Loader2 size={14} className="animate-spin" /> : <Fingerprint size={14} />} {t('Ajouter cet appareil')}
+          </button>
+        )}
       </Row>
     </Section>
   );

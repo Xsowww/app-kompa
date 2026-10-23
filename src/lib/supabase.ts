@@ -17,6 +17,7 @@ export const OAUTH_KEY = 'cop-oauth';
  * Error carried back by a Supabase e-mail link (expired or already used link…).
  * Read before the Supabase client initialises, because the client clears the URL.
  */
+let fromOAuth = false;
 export const linkError: string | null = (() => {
   const params = new URLSearchParams(location.hash.replace(/^#/, ''));
   const query = new URLSearchParams(location.search);
@@ -29,13 +30,23 @@ export const linkError: string | null = (() => {
   }
   const code = params.get('error_code') ?? params.get('error') ?? query.get('error');
   if (!code) return null;
+  const inQuery = query.has('error');
+  // Read once: a reload must not show it again (without the Google mark, it would read as a link error).
+  for (const k of ['error', 'error_code', 'error_description']) query.delete(k);
+  const rest = query.toString();
+  history.replaceState(null, '', location.pathname + (rest ? `?${rest}` : ''));
   // Back from Google or Apple without an account.
-  if (oauth || query.has('error')) return code === 'access_denied' ? t('Connexion annulée.') : t('La connexion n’a pas abouti. Réessaie.');
+  if (oauth || inQuery) {
+    fromOAuth = true;
+    return code === 'access_denied' ? t('Connexion annulée.') : t('La connexion n’a pas abouti. Réessaie.');
+  }
   if (code === 'otp_expired') {
     return t('Ce lien a expiré ou a déjà servi. Essaie de te connecter, ou renvoie l’e-mail de confirmation.');
   }
   return t('Ce lien n’est pas valide. Essaie de te connecter ou demande un nouvel e-mail.');
 })();
+/** `linkError` came back from Google or Apple (no confirmation e-mail to send again). */
+export const oauthError = fromOAuth;
 
 // « Rester connecté » : the session is kept in localStorage (still there when the browser reopens, on this
 // device only) unless the student unticked it, then in sessionStorage (gone when the tab closes).

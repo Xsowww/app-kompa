@@ -5,7 +5,8 @@ import { flushNow, stopSync, updateCloudProfile } from '../lib/cloudSync';
 import { supabase, checkPassword, remembered, authStorageKey, revokeSession, OAUTH_KEY, arrivedWithLink, type OAuthProvider } from '../lib/supabase';
 import { captchaToken } from '../lib/captcha';
 import { forgetAfterLogin } from '../lib/afterLogin';
-import { rememberAccount, updateSession, forgetAccount, lockAccount, savedAccount, needsCredentials } from '../lib/accounts';
+import { rememberAccount, updateSession, forgetAccount, lockAccount, savedAccount, savedAccounts, needsCredentials, unkeptCopyKeys } from '../lib/accounts';
+import { confirmAction } from './ui';
 import type { AuthError, PasskeyListItem, User as SupabaseUser } from '@supabase/supabase-js';
 import { t } from '../i18n';
 
@@ -22,6 +23,8 @@ export interface User {
   createdAt: string;
   /** Signed up with Google or Apple and never chose a password. */
   noPassword?: boolean;
+  /** Which of the two, for such an account (signed in again with it). */
+  provider?: OAuthProvider;
 }
 
 interface StoredUser extends User {
@@ -73,6 +76,9 @@ async function hashPassword(password: string, salt: string): Promise<string> {
   for (const c of salt + password) h = (Math.imul(31, h) + c.charCodeAt(0)) | 0;
   return `weak-${h}`;
 }
+
+/** The same address, whatever the case or the spaces around it. */
+export const sameEmail = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
 
 function publicUser({ salt: _s, hash: _h, ...u }: StoredUser): User {
   return u;
@@ -179,7 +185,7 @@ function fromSupabase(u: SupabaseUser): User {
     email: u.email ?? '',
     name: first || (u.email ?? '').split('@')[0],
     createdAt: u.created_at,
-    ...(!providers.includes('email') && !meta.has_password && { noPassword: true }),
+    ...(!providers.includes('email') && !meta.has_password && { noPassword: true, provider: (['google', 'apple'] as const).find(p => providers.includes(p)) }),
   };
 }
 
@@ -259,7 +265,7 @@ async function rememberCurrent(user: User | null) {
   if (!remembered()) return;
   const { data } = await supabase.auth.getSession();
   const s = data.session;
-  if (s && s.user.id === user.id) rememberAccount({ id: user.id, email: user.email, name: user.name, session: { access_token: s.access_token, refresh_token: s.refresh_token } });
+  if (s && s.user.id === user.id) rememberAccount({ id: user.id, email: user.email, name: user.name, provider: user.provider, session: { access_token: s.access_token, refresh_token: s.refresh_token } });
 }
 
 /**
@@ -277,6 +283,34 @@ async function leaveSession(user: User) {
 }
 
 const OWN_SWITCH = 'cop-own-switch';
+
+/** This device has a passkey of the account (its id when known, else '1'): Profile › Account then offers no second one. */
+export const passkeyHereKey = (userId: string) => `cop-passkey-here:${userId}`;
+function markPasskeyHere(userId: string | undefined, id = '1') {
+  try {
+    if (userId) localStorage.setItem(passkeyHereKey(userId), id);
+  } catch {
+    /* storage blocked: the button stays */
+  }
+}
+
+/** « Rester connecté » unticked and the browser closed without signing out: the copy left here goes (not the changes still to send). */
+function clearUnkeptCopies() {
+  const kept = new Set(savedAccounts().filter(a => !needsCredentials(a)).map(a => a.id));
+  const keys = unkeptCopyKeys(Object.keys(localStorage), kept);
+  for (const k of keys) localStorage.removeItem(k);
+  if (keys.length) void import('../lib/textIndex').then(m => m.forgetTextIndex());
+}
+
+/**
+ * Before « Se déconnecter »: sends what is waiting; when it can't, asks first (the changes stay on this
+ * device and leave at the next sign-in here). False: the person stays signed in.
+ */
+export async function confirmLogout(): Promise<boolean> {
+  if (!supabase || !useAuth.getState().user || useAuth.getState().mfaStep) return true;
+  if (await flushNow().catch(() => false)) return true;
+  return confirmAction(t('Des changements ne sont pas encore envoyés'), t('Ils partiront à ta prochaine connexion sur cet appareil. Te déconnecter quand même ?'), t('Se déconnecter'));
+}
 
 const AWAITING = 'cop-awaiting-confirm';
 /** The sign-up page waits for its confirmation e-mail (this tab only). */
@@ -307,6 +341,7 @@ export const useAuth = create<AuthState>((set, get) => ({
   async init() {
     if (!supabase) return;
     const { data } = await supabase.auth.getSession();
+    if (!data.session && !remembered()) clearUnkeptCopies();
     // The sign-up tab waiting for its e-mail, reloaded once the link opened the account in another tab:
     // it says so instead of opening the account a second time (the link's own tab goes on as usual).
     if (arrivedWithLink) awaitConfirmation(false);
@@ -418,10 +453,15 @@ export const useAuth = create<AuthState>((set, get) => ({
       const { data, error } = await supabase.auth.signInWithPasskey({ options: { captchaToken: await captchaToken() } });
       if (error) {
         if (closedPrompt(error)) return null;
-        throw new Error(passkeyMessage(error));
+        const msg = passkeyMessage(error);
+        const status = (error as AuthError).status ?? 0;
+        // Refused by the server without a known reason (not too many tries, not the anti-robot check): a key removed from the account.
+        if (status >= 400 && status < 500 && msg === t('Une erreur est survenue, réessaie dans un instant.')) throw new Error(t('Cette clé n’est plus liée à ton compte. Connecte-toi avec ton mot de passe, puis réactive Face ID dans Profil › Compte.'));
+        throw new Error(msg);
       }
       if (!data.user) throw new Error(passkeyMessage(new Error('no user')));
       const user = fromSupabase(data.user);
+      markPasskeyHere(user.id);
       const mfaStep = await nextMfaStep(); // a phone paired for two-factor still asks its code
       if (!mfaStep) setStorageUser(user.id);
       awaitConfirmation(false);
@@ -437,8 +477,10 @@ export const useAuth = create<AuthState>((set, get) => ({
     const { data, error } = await supabase.auth.registerPasskey();
     if (error) {
       if (closedPrompt(error)) return false;
+      if ((error as PasskeyError).code === 'ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED') markPasskeyHere(get().user?.id);
       throw new Error(passkeyMessage(error));
     }
+    markPasskeyHere(get().user?.id, data?.id);
     if (data?.id) await supabase.auth.passkey.update({ passkeyId: data.id, friendlyName: deviceName() }).catch(() => undefined);
     return true;
   },
@@ -557,6 +599,8 @@ export const useAuth = create<AuthState>((set, get) => ({
     const user = get().user;
     if (!user) return;
     await get().verifyPassword(password);
+    // No password to ask (Google or Apple): the account's e-mail typed again instead.
+    if (supabase && user.noPassword && !sameEmail(password, user.email)) throw new Error(t('Ce n’est pas l’adresse e-mail de ton compte.'));
     if (supabase) {
       // The same checks as delete_my_account, made before any file is removed: a refusal
       // afterwards would leave the account without its Drive.
@@ -571,7 +615,9 @@ export const useAuth = create<AuthState>((set, get) => ({
         throw new Error(
           error.code === 'PGRST202' || error.message.includes('delete_my_account')
             ? t('La suppression de compte n’est pas encore activée sur le serveur. Lance supabase/schema.sql dans Supabase.')
-            : t('La suppression a échoué, réessaie plus tard.'),
+            : beforeDelete
+              ? t('Tes fichiers du Drive sont déjà effacés, mais pas ton compte : réessaie dans un instant.')
+              : t('La suppression a échoué, réessaie plus tard.'),
         );
       }
       stopSync();
@@ -600,7 +646,7 @@ export const useAuth = create<AuthState>((set, get) => ({
       const { data, error } = await supabase.auth.setSession(target.session);
       if (error || !data.session) {
         sessionStorage.removeItem(OWN_SWITCH);
-        rememberAccount({ id: target.id, email: target.email, name: target.name, session: null });
+        rememberAccount({ id: target.id, email: target.email, name: target.name, provider: target.provider, session: null });
         return 'credentials';
       }
     } else {
@@ -771,7 +817,14 @@ export const useAuth = create<AuthState>((set, get) => ({
     const { data } = await supabase.auth.mfa.listFactors();
     for (const f of data?.all ?? []) {
       const { error } = await supabase.auth.mfa.unenroll({ factorId: f.id });
-      if (error) throw new Error(t('Désactivation impossible : reconnecte-toi avec le code de ton téléphone, puis réessaie.'));
+      if (error) {
+        // Face ID skips the phone's code, and Supabase wants it to turn two-factor off.
+        throw new Error(
+          (await signedInWithPasskey())
+            ? t('Pour désactiver, déconnecte-toi puis reconnecte-toi avec ton mot de passe et le code de ton téléphone.')
+            : t('Désactivation impossible : reconnecte-toi avec le code de ton téléphone, puis réessaie.'),
+        );
+      }
     }
     await supabase.auth.refreshSession();
   },
