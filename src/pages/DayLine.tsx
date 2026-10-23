@@ -28,15 +28,16 @@ export default function DayLine({ events, now }: { events: CalendarEvent[]; now:
   const pct = (m: number) => ((Math.min(Math.max(m, from), to) - from) / (to - from)) * 100;
   const coming = timed.filter(x => !x.e.done && x.start > nowMin);
   const spots = labelSpots(coming.map(x => pct(x.start)));
+  // Too little room for a name (« É… »): its dot alone, the « Aujourd’hui » list below gives it.
+  const named = coming.map((x, i) => ({ x, s: spots[i] })).filter(({ s }) => s.max >= 12);
   // More lines of names when they are close: the bar and the hours go down by as many lines.
-  const lines = spots.length ? Math.max(...spots.map(s => s.row)) : 0;
+  const lines = named.length ? Math.max(...named.map(({ s }) => s.row)) : 0;
   const down = lines * 16;
   const y = (px: number) => ({ top: px + down });
 
   return (
     <div aria-hidden className="relative mt-5 select-none" style={{ height: 48 + down }}>
-      {coming.map((x, i) => {
-        const s = spots[i];
+      {named.map(({ x, s }) => {
         return (
           <span
             key={x.e.id}
@@ -58,14 +59,19 @@ export default function DayLine({ events, now }: { events: CalendarEvent[]; now:
             {end && <span className={cx('absolute h-1.5 rounded-full', past ? 'bg-white/35' : 'bg-white/60')} style={{ ...y(22), left: `${pct(start)}%`, width: `${pct(end) - pct(start)}%` }} />}
             <span
               className={cx('absolute -ml-1.5 h-3 w-3 rounded-full ring-2', past ? 'opacity-55 ring-white/70' : 'ring-white')}
-              style={{ ...y(19), left: `${pct(start)}%`, background: catOf(e.category).color }}
+              style={{ ...y(19), left: `${pct(start)}%`, background: '#fff', boxShadow: `inset 0 0 0 3px ${catOf(e.category).color}` }}
             />
           </span>
         );
       })}
       <span className="absolute -ml-2.5 h-5 w-5 rounded-full bg-white shadow-[0_2px_8px_rgb(0_0_0/0.25)] ring-4 ring-white/25" style={{ ...y(15), left: `${pct(nowMin)}%` }} />
-      {hourTicks(from, to).map(m => (
-        <span key={m} className="tabular absolute whitespace-nowrap text-[11.5px] font-medium leading-[14px] text-white/75" style={{ ...y(34), left: `${pct(m)}%`, transform: anchor(pct(m)) }}>
+      {hourTicks(from, to).map((m, i, all) => (
+        <span
+          key={m}
+          // Close to the next hour (« 20 h 22 h »): left out on a phone, where they would touch.
+          className={cx('tabular absolute whitespace-nowrap text-[11.5px] font-medium leading-[14px] text-white/75', i + 1 < all.length && pct(all[i + 1]) - pct(m) < 16 && 'max-sm:hidden')}
+          style={{ ...y(34), left: `${pct(m)}%`, transform: anchor(pct(m)) }}
+        >
           {t('{h} h', { h: m / 60 })}
         </span>
       ))}

@@ -35,3 +35,13 @@ describe('saisie rapide dans les autres langues', () => {
     expect(p('en', 'Dentiste demain 9h')).toMatchObject({ title: 'Dentiste', date: '2026-10-20', start: '09:00' });
   });
 });
+
+describe('midi et minuit en toutes lettres', () => {
+  it('dans chaque langue', () => {
+    expect(p('en', 'Team lunch next Friday noon')).toMatchObject({ title: 'Team lunch', start: '12:00' });
+    expect(p('en', 'Party at midnight').start).toBe('00:00');
+    expect(p('es', 'Comida a mediodía').start).toBe('12:00');
+    expect(p('de', 'Essen um Mittag').start).toBe('12:00');
+    expect(p('it', 'Pranzo a mezzogiorno').start).toBe('12:00');
+  });
+});

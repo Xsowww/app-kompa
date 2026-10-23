@@ -2333,6 +2333,7 @@
  "c’est aujourd’hui": "es hoy",
  "c’est demain": "es mañana",
  "d MMM 'à' HH:mm": "d MMM 'a las' HH:mm",
+ "dans {h} h": "en {h} h",
  "dans {h} h {m}": "dentro de {h} h {m}",
  "dans {n} j": "en {n} d",
  "dans {n} min": "en {n} min",

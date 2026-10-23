@@ -14,7 +14,7 @@ import { NewCategory } from './CategoriesDialog';
 import ReminderPicker from '../../components/ReminderPicker';
 import { DateField, TimeField } from '../../components/Pickers';
 import { FieldError } from '../../components/Field';
-import { fmt, fromKey, parseQuickAdd } from '../../lib/dates';
+import { fmtDay, fromKey, parseQuickAdd } from '../../lib/dates';
 import { eventReminders, followMoments } from '../../lib/reminders';
 import { t } from '../../i18n';
 
@@ -53,10 +53,13 @@ export default function EventForm({ event, date, start: initialStart, end: initi
   const [creating, setCreating] = useState(false);
   // A new event: « Dentiste demain 16h » fills the day and the times (as the calendar's bar), unless they were set by
   // hand; saved as « Dentiste ». Editing one leaves its title as it is.
+  const touched = useRef({ day: false, start: false, end: false, important: false });
   const parsed = !event && title.trim() ? parseQuickAdd(title) : null;
   const understood = !!parsed && !parsed.impossible && !!(parsed.date || parsed.start || parsed.important);
+  // « 31/11 »: said and blocked, unless the day was chosen by hand.
+  const [dayByHand, setDayByHand] = useState(false);
+  const impossible = !!parsed?.impossible && !dayByHand;
   const cleanTitle = understood ? parsed.title : title.trim();
-  const touched = useRef({ day: false, start: false, end: false, important: false });
   const onTitle = (v: string) => {
     setTitle(v);
     if (v.trim()) setTitleError('');
@@ -84,12 +87,19 @@ export default function EventForm({ event, date, start: initialStart, end: initi
       setTitleError(understood ? t('Ajoute un titre avant le jour et l’heure.') : t('Donne un titre.'));
       return titleRef.current?.focus();
     }
-    if (!day || timeMsg) return;
+    if (!day || timeMsg || impossible) return;
     // An end without a start can't be sent: the start field is required then (see below).
     const data = { title: cleanTitle, date: day, start: start || undefined, end: start && end ? end : undefined, category: effective, details: details.trim() || undefined, important: important || undefined, reminders: chosen, ...(shared && { people }) };
     if (event) update(event.id, data);
     else add(data);
-    toast(event ? t('Enregistré : {title}', { title: data.title }) : t('Ajouté : {title}', { title: data.title }), 'success');
+    toast(
+      event
+        ? t('Enregistré : {title}', { title: data.title })
+        : understood && parsed.weekly
+          ? t('Ajouté pour {day}, une seule fois (pas encore de répétition)', { day: fmtDay(fromKey(day), 'EEEE d MMMM') })
+          : t('Ajouté : {title}', { title: data.title }),
+      'success',
+    );
     onSaved?.(data);
     onClose();
   };
@@ -113,9 +123,21 @@ export default function EventForm({ event, date, start: initialStart, end: initi
         <FieldError id="event-title-err">{titleError}</FieldError>
         {understood && !titleError && (
           <p className="mt-1.5 text-[12px] text-stone-500" aria-live="polite">
-            {t('Compris : {what}', { what: [parsed.title && `« ${parsed.title} »`, parsed.date && fmt(fromKey(parsed.date), 'EEEE d MMMM'), parsed.start && (parsed.end ? `${parsed.start} – ${parsed.end}` : parsed.start), parsed.important && t('important')].filter(Boolean).join(' · ') })}
+            {/* Only what will be saved: a day or a time changed by hand is no longer the one read in the title. */}
+            {t('Compris : {what}', {
+              what: [
+                parsed.title && t('« {title} »', { title: parsed.title }),
+                parsed.date && day === parsed.date && fmtDay(fromKey(parsed.date), 'EEEE d MMMM'),
+                parsed.start && start === parsed.start && (parsed.end && end === parsed.end ? `${parsed.start}\u00a0–\u00a0${parsed.end}` : parsed.start),
+                parsed.important && important && t('important'),
+              ]
+                .filter(Boolean)
+                .join(' · '),
+            })}
+            {parsed.weekly && <span className="block">{t('Une seule fois\u00a0: pas encore de répétition.')}</span>}
           </p>
         )}
+        {impossible && !titleError && <p className="mt-1.5 text-[12px] font-medium text-red-600 dark:text-red-400" role="alert">{t('Cette date n’existe pas : corrige-la pour ajouter.')}</p>}
 
         <p className="mb-1.5 mt-4 text-[12px] font-medium text-stone-600">{t('Catégorie')}</p>
         <div className="flex flex-wrap gap-2">
@@ -169,6 +191,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
                 if (chosen && day && v) setChosen(followMoments(chosen, { date: day, time: start || undefined }, { date: v, time: start || undefined }, chosen));
                 setDay(v);
                 touched.current.day = true;
+                setDayByHand(true);
               }}
               label={t('Jour de l’événement')}
               className="w-full"
@@ -256,7 +279,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
             {t('Annuler')}
           </button>
           {/* Not disabled for an empty title: the submit says what is missing, under the field. */}
-          <button type="submit" className="btn-primary" disabled={!!timeMsg}>
+          <button type="submit" className="btn-primary" disabled={!!timeMsg || impossible}>
             {event ? t('Enregistrer||sauver') : t('Ajouter')}
           </button>
         </div>

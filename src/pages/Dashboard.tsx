@@ -58,7 +58,8 @@ function EventRow({ e, showDay, muted }: { e: CalendarEvent; showDay?: boolean; 
         <span className={cx('block truncate text-[13px]', e.done ? 'text-stone-500 line-through' : muted ? 'text-stone-600' : 'font-medium')}>{e.title}</span>
       </Link>
       <span className="tabular shrink-0 text-[12px] text-stone-500">
-        {showDay && <span className="capitalize">{fmtDay(fromKey(e.date), daysUntil(e.date) < 7 ? 'EEE d' : 'EEE d MMM')} </span>}
+        {showDay && <span className="capitalize">{fmtDay(fromKey(e.date), daysUntil(e.date) < 7 ? 'EEE d' : 'EEE d MMM')}</span>}
+        {showDay && e.start && ' · '}
         {e.start ?? ''}
       </span>
     </li>
@@ -115,6 +116,8 @@ export default function Dashboard() {
   const nowEvent = todayEvents.find(e => !e.done && e.start && (e.end ?? e.start) > nowTime);
   // The « Aujourd’hui » widget lists the whole day, the event of the blue tile too (it is where it is ticked).
   const dayList = todayEvents;
+  // Nothing more with a time today: the day's events without one (a birthday, an open day) are what's left.
+  const allDay = todayEvents.filter(e => !e.start && !e.done);
   const minutesTo = nowEvent?.start ? Number(nowEvent.start.slice(0, 2)) * 60 + Number(nowEvent.start.slice(3)) - (now.getHours() * 60 + now.getMinutes()) : 0;
 
   const nowPeriods = periodsOn(periods, today);
@@ -183,7 +186,14 @@ export default function Dashboard() {
                 <span className="block text-[13px] font-semibold text-white/90">
                   {nowEvent && minutesTo <= 0 ? t('En ce moment') : t('Aujourd’hui')}
                   {nowEvent && minutesTo > 0 && (
-                    <span className="font-medium text-white/80"> · {minutesTo < 60 ? t('dans {n} min', { n: minutesTo }) : t('dans {h} h {m}', { h: Math.floor(minutesTo / 60), m: String(minutesTo % 60).padStart(2, '0') })}</span>
+                    <span className="whitespace-nowrap font-medium text-white/80">
+                      {' · '}
+                      {minutesTo < 60
+                        ? t('dans {n} min', { n: minutesTo })
+                        : minutesTo % 60
+                          ? t('dans {h} h {m}', { h: Math.floor(minutesTo / 60), m: String(minutesTo % 60).padStart(2, '0') })
+                          : t('dans {h} h', { h: minutesTo / 60 })}
+                    </span>
                   )}
                 </span>
                 {nowEvent ? (
@@ -194,6 +204,11 @@ export default function Dashboard() {
                       {nowEvent.details && ` · ${nowEvent.details.split('\n')[0]}`}
                     </span>
                   </>
+                ) : allDay.length ? (
+                  <span className="mt-1.5 line-clamp-2 text-[22px] font-extrabold leading-tight tracking-[-0.03em] [overflow-wrap:anywhere] sm:text-[26px]">
+                    {allDay[0].title}
+                    {allDay.length > 1 && <span className="font-semibold text-white/80"> +{allDay.length - 1}</span>}
+                  </span>
                 ) : (
                   <span className="mt-1.5 block text-[22px] font-extrabold tracking-[-0.02em]">{todayEvents.length ? t('Plus rien de prévu.') : t('Rien de prévu.')}</span>
                 )}
@@ -298,7 +313,7 @@ export default function Dashboard() {
 
           {/* Today: left out when there is nothing at all (the blue tile already says « Rien de prévu »). */}
           {(dayList.length > 0 || nextEvents.length > 0) && (
-          <Widget title={t('Aujourd’hui')} className="lg:col-start-1 lg:row-start-2">
+          <Widget title={dayList.length ? t('Aujourd’hui') : t('À venir')} className="lg:col-start-1 lg:row-start-2">
             {dayList.length > 0 && (
               <ul className="-mx-1.5">
                 {dayList.map(e => (

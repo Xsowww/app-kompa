@@ -322,7 +322,7 @@ export default function CalendarPage() {
     if (jour) setParams(p => (p.delete('jour'), p), { replace: true });
   };
 
-  const passes = useCallback((e: Pick<CalendarEvent, 'category' | 'important'>) => (shown.size === 0 || shown.has(e.category)) && (!importantOnly || !!e.important), [shown, importantOnly]);
+  const passes = useCallback((e: Pick<CalendarEvent, 'category' | 'important'>) => (shown.size === 0 || shown.has(e.category)) && (!importantOnly || isBigEvent(e)), [shown, importantOnly]);
   const visible = useMemo(() => events.filter(passes), [events, passes]);
   const byDay = useMemo(() => {
     const m = new Map<string, CalendarEvent[]>();
@@ -349,7 +349,7 @@ export default function CalendarPage() {
   const quickDate = parsed?.date ?? (selected < today ? today : selected);
 
   // The form, with what the sentence already gives (« demain 14h » has a day and an hour but no title).
-  const openForm = () => setForm({ date: parsed?.date ?? selected, start: parsed?.start ?? undefined, end: parsed?.end ?? undefined, fromQuick: !!quick.trim() });
+  const openForm = () => setForm({ date: quickDate, start: parsed?.start ?? undefined, end: parsed?.end ?? undefined, fromQuick: !!quick.trim() });
 
   /** After an event is saved: show its day, and clear the filter if it hid it (it would seem not to be there). */
   const showSaved = (ev: { date: string; category: EventCategory; important?: boolean }) => {
@@ -503,7 +503,17 @@ export default function CalendarPage() {
               <button className="icon-btn pointer-coarse:h-9 pointer-coarse:w-9" onClick={() => shift(-1)} title={mode === 'day' ? t('Jour précédent') : t('Précédent')} aria-label={mode === 'day' ? t('Jour précédent') : t('Précédent')}>
                 <ChevronLeft size={17} />
               </button>
-              <span className="min-w-28 text-center text-[14px] font-medium first-letter:uppercase">{fmt(selDate, mode === 'day' ? 'EEE d MMMM' : 'MMMM yyyy')}</span>
+              <span className="min-w-28 text-center text-[14px] font-medium first-letter:uppercase max-sm:min-w-24">
+                {mode === 'day' ? (
+                  <>
+                    {/* A phone: the short month, so « Aujourd’hui » stays on the screen. */}
+                    <span className="max-sm:hidden">{fmt(selDate, 'EEE d MMMM')}</span>
+                    <span className="sm:hidden">{fmt(selDate, 'EEE d MMM')}</span>
+                  </>
+                ) : (
+                  fmt(selDate, 'MMMM yyyy')
+                )}
+              </span>
               <button className="icon-btn pointer-coarse:h-9 pointer-coarse:w-9" onClick={() => shift(1)} title={mode === 'day' ? t('Jour suivant') : t('Suivant')} aria-label={mode === 'day' ? t('Jour suivant') : t('Suivant')}>
                 <ChevronRight size={17} />
               </button>

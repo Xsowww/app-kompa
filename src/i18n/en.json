@@ -2333,6 +2333,7 @@
  "c’est aujourd’hui": "is today",
  "c’est demain": "is tomorrow",
  "d MMM 'à' HH:mm": "d MMM 'at' HH:mm",
+ "dans {h} h": "in {h}h",
  "dans {h} h {m}": "in {h}h {m}",
  "dans {n} j": "in {n} d",
  "dans {n} min": "in {n} min",

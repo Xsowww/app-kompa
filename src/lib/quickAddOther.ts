@@ -25,6 +25,9 @@ interface Words {
   /** « in 3 days » → [word, days unit, weeks unit]. */
   inN: [string, string, string];
   pm: string[];
+  /** 12:00 and 00:00 said in words. */
+  noon: string[];
+  midnight: string[];
   flags: string[];
   /** Small words left at the end of the title once the date is cut out (« Meeting on »). */
   fillers: string[];
@@ -45,6 +48,8 @@ const WORDS: Record<Exclude<Lang, 'fr'>, Words> = {
     to: ['to', 'until', 'till'],
     inN: ['in', 'days?', 'weeks?'],
     pm: ['in the evening', 'in the afternoon', 'at night'],
+    noon: ['noon', 'midday'],
+    midnight: ['midnight'],
     flags: ['very important', 'important', 'urgent'],
     fillers: ['on', 'at', 'by', 'before', 'for', 'the', 'due'],
   },
@@ -62,6 +67,8 @@ const WORDS: Record<Exclude<Lang, 'fr'>, Words> = {
     to: ['a', 'hasta'],
     inN: ['en', 'dias?', 'semanas?'],
     pm: ['de la tarde', 'de la noche'],
+    noon: ['mediodia'],
+    midnight: ['medianoche'],
     flags: ['muy importante', 'importante', 'urgente'],
     fillers: ['el', 'la', 'a', 'de', 'del', 'para', 'antes', 'antes del', 'antes de'],
   },
@@ -79,6 +86,8 @@ const WORDS: Record<Exclude<Lang, 'fr'>, Words> = {
     to: ['bis'],
     inN: ['in', 'tagen?', 'wochen?'],
     pm: ['abends', 'nachmittags'],
+    noon: ['mittag'],
+    midnight: ['mitternacht'],
     flags: ['sehr wichtig', 'wichtig', 'dringend'],
     fillers: ['am', 'um', 'bis', 'vor', 'fur', 'an', 'den', 'der', 'die'],
   },
@@ -96,6 +105,8 @@ const WORDS: Record<Exclude<Lang, 'fr'>, Words> = {
     to: ['alle', 'a', 'fino alle'],
     inN: ['(?:tra|fra)', 'giorni|giorno', 'settimane|settimana'],
     pm: ['di sera', 'del pomeriggio', 'di pomeriggio'],
+    noon: ['mezzogiorno'],
+    midnight: ['mezzanotte'],
     flags: ['molto importante', 'importante', 'urgente'],
     fillers: ['il', 'lo', 'la', 'a', 'di', 'del', 'per', 'entro', 'prima', 'prima di'],
   },
@@ -189,6 +200,11 @@ export function parseQuickAddIn(lang: Exclude<Lang, 'fr'>, input: string, base =
       start = hm(Number(marked[1]), Number(marked[2] ?? 0), sfx);
       if (start) remove(marked);
     }
+  }
+  if (!start) {
+    const word = (list: string[]) => cut(new RegExp(`\\s(?:(?:${alt(w.at)})\\s)?(?:${alt(list)})(?=\\s)`));
+    if (word(w.noon)) start = '12:00';
+    else if (word(w.midnight)) start = '00:00';
   }
   const pm = w.pm.length ? cut(new RegExp(`\\s(?:${alt(w.pm)})(?=\\s)`)) : null;
   if (pm && start && Number(start.slice(0, 2)) >= 1 && Number(start.slice(0, 2)) < 12) {
