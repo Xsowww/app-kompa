@@ -90,7 +90,7 @@ export async function uploadPending(pending: PendingFile[], parentId: string | n
   tooBig.forEach(b => b.track.fail());
   try {
     for (const [target, { files, tracks }] of byFolder) {
-      // Paused files wait there (then go again from the start), cancelled ones come back as null.
+      // Paused files wait there (then go on from where they can), cancelled ones come back as null.
       const created = await drive.uploadFiles(files, target, tracks);
       // Index the text for the search right away, from the file we already have in hand.
       created.forEach((item, i) => {

@@ -5,7 +5,7 @@ import { AGENDA_WORDS, groupWords } from '../../lib/usage';
 import { useGroups } from '../../store/groups';
 import { toast } from '../../store/ui';
 import { sendUpload, trackUpload } from '../../store/uploads';
-import { GROUP_COLORS, MAX_GROUP_FILE, deleteFile, groupError, uploadFile, type Group, type GroupKind } from '../../lib/groups';
+import { GROUP_COLORS, MAX_GROUP_FILE, abandonFile, deleteFile, groupError, uploadFile, type Group, type GroupKind } from '../../lib/groups';
 import { t, tn } from '../../i18n';
 
 /** Which space the group screens are in: work groups (/groupes) or shared calendars (/agendas). */
@@ -57,8 +57,14 @@ export async function shareFiles(group: Group, files: { blob: Blob | (() => Prom
       if (tracks[i].cancelled) continue;
       if (!blob) throw new FileRefused(t('Le contenu de « {name} » est introuvable.', { name: f.name }));
       if (blob.size > MAX_GROUP_FILE) throw new FileRefused(t('« {name} » dépasse 50 Mo.', { name: f.name }));
-      // Paused: waits, then sent again from the start. Cancelled: nothing in the group (removed if it got there).
-      const sent = await sendUpload(tracks[i], signal => uploadFile(group.id, blob, f.name, loaded => tracks[i].progress(loaded, blob.size), signal), file => (file ? deleteFile(file) : Promise.resolve()));
+      // Paused: waits, then goes on (over 6 Mo, from where it was: same id each time). Cancelled: nothing in the
+      // group (removed if it got there, its unfinished upload dropped otherwise).
+      const id = crypto.randomUUID();
+      const sent = await sendUpload(
+        tracks[i],
+        signal => uploadFile(group.id, blob, f.name, loaded => tracks[i].progress(loaded, blob.size), signal, id),
+        file => (file ? deleteFile(file) : abandonFile(group.id, id)),
+      );
       if (!sent) continue;
       tracks[i].done();
       ok++;
