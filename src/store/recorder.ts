@@ -625,6 +625,8 @@ async function upload(name: string, md: string, title: string, folderId: string 
   const { markdownToDocx, DOCX_MIME } = await import('../lib/docx');
   const blob = await markdownToDocx(md, { title, author: 'Kompaly' });
   const [item] = await useDrive.getState().uploadFiles([new File([blob], `${name}.docx`, { type: DOCX_MIME })], folderId);
+  // Cancelled on the upload card: not saved (completeDocuments says so; finishing again tries again).
+  if (!item) throw new Error();
   return item;
 }
 

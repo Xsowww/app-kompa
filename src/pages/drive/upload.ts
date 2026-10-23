@@ -50,8 +50,9 @@ export function filesFromInput(list: FileList): PendingFile[] {
 /**
  * Recreate the folder structure under `parentId` and upload every file.
  * Files over the size limit are skipped (the rest still goes in) and returned by name.
+ * `count`: the files stored (not those cancelled on the way); `sent`: the files there were to send.
  */
-export async function uploadPending(pending: PendingFile[], parentId: string | null): Promise<{ count: number; tooBig: string[] }> {
+export async function uploadPending(pending: PendingFile[], parentId: string | null): Promise<{ count: number; sent: number; tooBig: string[] }> {
   const drive = useDrive.getState();
   const folderIds = new Map<string, string | null>([['', parentId]]);
 
@@ -89,15 +90,18 @@ export async function uploadPending(pending: PendingFile[], parentId: string | n
   tooBig.forEach(b => b.track.fail());
   try {
     for (const [target, { files, tracks }] of byFolder) {
+      // Paused files wait there (then go again from the start), cancelled ones come back as null.
       const created = await drive.uploadFiles(files, target, tracks);
       // Index the text for the search right away, from the file we already have in hand.
-      created.forEach((item, i) => void indexFile(item, files[i]));
-      count += files.length;
+      created.forEach((item, i) => {
+        if (item) void indexFile(item, files[i]);
+      });
+      count += created.filter(Boolean).length;
     }
   } catch (e) {
     // The next folders are not sent either.
     for (const { tracks } of byFolder.values()) tracks.forEach(h => h.fail());
     throw e;
   }
-  return { count, tooBig: tooBig.map(b => b.name) };
+  return { count, sent: [...byFolder.values()].reduce((n, b) => n + b.files.length, 0), tooBig: tooBig.map(b => b.name) };
 }

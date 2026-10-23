@@ -53,8 +53,9 @@ export default function GroupFiles({ group }: { group: Group }) {
   const toDrive = async (f: GroupFile) => {
     try {
       const blob = await downloadFile(f);
-      await useDrive.getState().uploadFiles([new File([blob], f.name, { type: f.mime ?? blob.type })], null);
-      toast(t('« {name} » copié dans ton Drive', { name: f.name }), 'success');
+      const [item] = await useDrive.getState().uploadFiles([new File([blob], f.name, { type: f.mime ?? blob.type })], null);
+      // Cancelled on the upload card: nothing to say.
+      if (item) toast(t('« {name} » copié dans ton Drive', { name: f.name }), 'success');
     } catch (e) {
       toast(groupError(e), 'error');
     }

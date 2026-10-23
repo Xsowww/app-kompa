@@ -16,6 +16,7 @@ import { useRecWords } from '../record/words';
 import { formatBytes, relativeTime, cx } from '../../lib/utils';
 import { fold, highlightParts, searchFileContents, startTextIndexing } from '../../lib/textIndex';
 import FileIcon from '../../components/FileIcon';
+import { FileButtons } from '../../components/UploadCard';
 import { FolderColorPicker } from '../../components/FolderColorPicker';
 import { ContextMenu, type MenuItem } from '../../components/Overlays';
 import PreviewModal from './PreviewModal';
@@ -25,13 +26,13 @@ import MoveDialog from './MoveDialog';
 import ShareDialog from './ShareDialog';
 import TagDialog, { TagPill } from './TagDialog';
 import { filesFromDrop, filesFromInput, uploadPending } from './upload';
-import { isMenuKey, menuPoint } from '../../lib/a11y';
+import { isMenuKey, keepFocus, menuPoint } from '../../lib/a11y';
 import { isTrashedDriveItem } from '../../lib/trash';
 import { StorageError } from '../../lib/blobStore';
 import { cloudEnabled } from '../../lib/supabase';
 import { useProgressive } from '../../lib/useProgressive';
 import { useShallow } from 'zustand/react/shallow';
-import { driveWhere, useUploads } from '../../store/uploads';
+import { driveWhere, isUploadAbort, notOver, useUploads } from '../../store/uploads';
 import { useCreateActions } from '../../store/create';
 import { t, tn, locale } from '../../i18n';
 
@@ -142,7 +143,7 @@ export default function DrivePage() {
   const filtering = !!q || !!activeTag;
   // Files on their way into this folder: greyed rows with their percentage, above the folder's content.
   const here = driveWhere(parentId);
-  const showPending = useUploads(s => s.items.some(u => u.status === 'active' && u.where === here)) && tab === 'all' && !filtering;
+  const showPending = useUploads(s => s.items.some(u => notOver(u) && u.where === here)) && tab === 'all' && !filtering;
   // This folder's files coming in show in its list: the import card leaves them out while it is open.
   const inPlace = tab === 'all' && !filtering ? here : null;
   useEffect(() => {
@@ -265,9 +266,9 @@ export default function DrivePage() {
       if (!pending.length) return;
       setBusy(true);
       try {
-        const { count: n, tooBig } = await uploadPending(pending, target);
+        const { sent, tooBig } = await uploadPending(pending, target);
         // The files' progress and end show in the import card (UploadCard); only folders alone need a word.
-        if (!n && tooBig.length < pending.length) toast(t('Dossier importé'), 'success');
+        if (!sent && tooBig.length < pending.length) toast(t('Dossier importé'), 'success');
         if (tooBig.length)
           toast(
             tooBig.length === 1
@@ -276,7 +277,8 @@ export default function DrivePage() {
             'error',
           );
       } catch (e) {
-        toast(e instanceof StorageError ? e.message : t('L’import a échoué. Réessaie.'), 'error');
+        // A pause or a cancellation is not a failure (the loop deals with them; this is in case one gets here).
+        if (!isUploadAbort(e)) toast(e instanceof StorageError ? e.message : t('L’import a échoué. Réessaie.'), 'error');
       } finally {
         setBusy(false);
       }
@@ -1078,16 +1080,22 @@ export default function DrivePage() {
   );
 }
 
-/** Its own component: the percentages change often, the rest of the page stays still. */
+/** Its own component: the percentages change often, the rest of the page stays still. Each file can be paused or cancelled. */
 function PendingUploads({ where }: { where: string }) {
-  const pending = useUploads(useShallow(s => s.items.filter(u => u.status === 'active' && u.where === where)));
+  const pending = useUploads(useShallow(s => s.items.filter(u => notOver(u) && u.where === where)));
   return (
-    <ul aria-label={t('Import…')} className="card mb-2 overflow-hidden opacity-60">
+    <ul aria-label={t('Import…')} className="card mb-2 overflow-hidden">
       {pending.map(u => (
-        <li key={u.id} className="flex min-h-11 items-center gap-2.5 border-b border-stone-100 px-4 text-[13px] last:border-0">
-          <FileIcon category={categoryOf({ kind: 'file', name: u.name })} size={26} ext={u.name.split('.').pop()} />
-          <span className="min-w-0 flex-1 truncate font-medium">{u.name}</span>
-          <span className="tabular text-[12px] text-stone-500">{u.size ? Math.floor((u.loaded / u.size) * 100) : 0}&nbsp;%</span>
+        <li key={u.id} className="flex min-h-11 items-center gap-2.5 border-b border-stone-100 pl-4 pr-2 text-[13px] last:border-0">
+          {/* Greyed: not in the folder yet. The buttons stay clear. */}
+          <span className="flex min-w-0 flex-1 items-center gap-2.5 opacity-60">
+            <FileIcon category={categoryOf({ kind: 'file', name: u.name })} size={26} ext={u.name.split('.').pop()} />
+            <span className="min-w-0 flex-1 truncate font-medium">{u.name}</span>
+            <span className="tabular shrink-0 text-[12px] text-stone-500">{u.status === 'paused' ? t('En pause') : `${u.size ? Math.floor((u.loaded / u.size) * 100) : 0}\u00a0%`}</span>
+          </span>
+          <span className="flex shrink-0 items-center">
+            <FileButtons u={u} onCancel={b => keepFocus(b.closest('li'), document.getElementById('contenu'))} />
+          </span>
         </li>
       ))}
     </ul>

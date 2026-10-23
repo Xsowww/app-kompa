@@ -56,11 +56,17 @@ export function storageError(e: { message?: string; statusCode?: string | number
   return new StorageError(t('L’envoi a échoué. Vérifie ta connexion et réessaie.'));
 }
 
+/** Same error as an aborted upload (storageUpload): read by isUploadAbort() (store/uploads). */
+const abortError = () => Object.assign(new Error('Upload aborted'), { name: 'AbortError' });
+
 const local = {
-  put: (key: string, blob: Blob) =>
-    run('readwrite', s => s.put(blob, key)).catch(() => {
-      throw new StorageError(t('Le stockage du navigateur est plein : supprime des fichiers ou vide la corbeille.'));
-    }),
+  // Stored at once: a pause or a cancellation only stops the files not written yet.
+  put: (key: string, blob: Blob, _onProgress?: (loaded: number) => void, signal?: AbortSignal) =>
+    signal?.aborted
+      ? Promise.reject(abortError())
+      : run('readwrite', s => s.put(blob, key)).catch(() => {
+          throw new StorageError(t('Le stockage du navigateur est plein : supprime des fichiers ou vide la corbeille.'));
+        }),
   get: (key: string) => run<Blob | undefined>('readonly', s => s.get(key)),
   delete: (key: string) => run('readwrite', s => s.delete(key)),
 };
@@ -70,14 +76,14 @@ const BUCKET = 'drive';
 const path = (key: string) => key.replace(':', '/');
 
 const cloud = {
-  async put(key: string, blob: Blob, onProgress?: (loaded: number) => void) {
+  async put(key: string, blob: Blob, onProgress?: (loaded: number) => void, signal?: AbortSignal) {
     const { error } = await storageUpload(BUCKET, path(key), blob, {
       upsert: true,
       // Share links are served through a cache: one minute instead of one hour, so a file put in
       // the trash stops being reachable through its links within a minute.
       cacheControl: '60',
-    }, onProgress);
-    if (error) throw storageError(error);
+    }, onProgress, signal);
+    if (error) throw error.name === 'AbortError' ? error : storageError(error);
   },
   async get(key: string) {
     const { data, error } = await supabase!.storage.from(BUCKET).download(path(key));
@@ -91,8 +97,11 @@ const cloud = {
 const backend = supabase ? cloud : local;
 
 export const blobStore = {
-  /** `onProgress`: bytes sent so far (online only; in this browser it is stored at once). */
-  put: (key: string, blob: Blob, onProgress?: (loaded: number) => void) => backend.put(key, blob, onProgress),
+  /**
+   * `onProgress`: bytes sent so far (online only; in this browser it is stored at once). `signal`: stops it, with an
+   * AbortError (nothing is left stored).
+   */
+  put: (key: string, blob: Blob, onProgress?: (loaded: number) => void, signal?: AbortSignal) => backend.put(key, blob, onProgress, signal),
   get: (key: string): Promise<Blob | undefined> => backend.get(key),
   delete: (key: string) => backend.delete(key),
   async copy(from: string, to: string) {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Loader2, Star } from 'lucide-react';
 import { elapsed, star, useRecLive, useRecorder } from '../../store/recorder';
@@ -21,6 +21,13 @@ export default function RecPill() {
     return () => {
       clearInterval(t);
     };
+  }, [on]);
+  // The upload card (components/UploadCard) goes one line up instead of sitting on it.
+  useLayoutEffect(() => {
+    if (!on) return;
+    const root = document.documentElement.style;
+    root.setProperty('--rec-room', '4rem');
+    return () => void root.removeProperty('--rec-room');
   }, [on]);
   if (!on || !session) return null;
   const finishing = session.phase === 'finishing';

@@ -88,3 +88,13 @@ export function arrowNav(e: React.KeyboardEvent | KeyboardEvent, root: HTMLEleme
   items[to].focus();
   return true;
 }
+
+/** Before a row with buttons goes (cancelled): the focus moves to the next row's, else the previous one's, else `fallback`. */
+export function keepFocus(row: HTMLElement | null, fallback?: HTMLElement | null) {
+  if (!row?.contains(document.activeElement)) return;
+  const next = (row.nextElementSibling ?? row.previousElementSibling) as HTMLElement | null;
+  const index = [...row.querySelectorAll('button')].indexOf(document.activeElement as HTMLButtonElement);
+  const target = next?.querySelectorAll<HTMLElement>('button')[Math.max(0, index)] ?? fallback;
+  // After React removed the row.
+  requestAnimationFrame(() => target?.focus());
+}

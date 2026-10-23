@@ -471,8 +471,11 @@ export async function fetchFiles(groupId: string): Promise<GroupFile[]> {
   return (rows as Row[]).map(toFile);
 }
 
-/** Envoie le contenu puis enregistre le fichier ; rien ne reste à moitié si l'une des deux étapes est refusée. */
-export async function uploadFile(groupId: string, blob: Blob, name: string, onProgress?: (loaded: number) => void): Promise<GroupFile> {
+/**
+ * Envoie le contenu puis enregistre le fichier ; rien ne reste à moitié si l'une des deux étapes est refusée.
+ * `signal` (pause ou annulation, store/uploads) : arrête l'envoi avec une AbortError, sans rien enregistrer.
+ */
+export async function uploadFile(groupId: string, blob: Blob, name: string, onProgress?: (loaded: number) => void, signal?: AbortSignal): Promise<GroupFile> {
   if (blob.size > MAX_GROUP_FILE) throw new Error('file too large');
   // Group files count in the uploader's quota, like their Drive (the storage policy checks it too:
   // asking first gives a clear message instead of a « not allowed »).
@@ -484,8 +487,13 @@ export async function uploadFile(groupId: string, blob: Blob, name: string, onPr
   const path = filePath({ groupId, id });
   const mime = blob.type || 'application/octet-stream';
   // As supabase-js's upload, with progress (the multipart part carries the file's own type).
-  const up = await storageUpload(FILES, path, blob, { upsert: false }, onProgress);
+  const up = await storageUpload(FILES, path, blob, { upsert: false }, onProgress, signal);
   if (up.error) throw up.error;
+  // Stopped just as the content arrived: no file in the group.
+  if (signal?.aborted) {
+    await db().storage.from(FILES).remove([path]);
+    throw Object.assign(new Error('Upload aborted'), { name: 'AbortError' });
+  }
   try {
     const row = check(
       await db().from('group_files').insert({ id, group_id: groupId, name: name.trim().slice(0, 255) || t('Fichier'), mime: mime.slice(0, 200), size: blob.size }).select('*').single(),

@@ -4,8 +4,8 @@ import { createContext, useContext } from 'react';
 import { AGENDA_WORDS, groupWords } from '../../lib/usage';
 import { useGroups } from '../../store/groups';
 import { toast } from '../../store/ui';
-import { trackUpload } from '../../store/uploads';
-import { GROUP_COLORS, MAX_GROUP_FILE, groupError, uploadFile, type Group, type GroupKind } from '../../lib/groups';
+import { sendUpload, trackUpload } from '../../store/uploads';
+import { GROUP_COLORS, MAX_GROUP_FILE, deleteFile, groupError, uploadFile, type Group, type GroupKind } from '../../lib/groups';
 import { t, tn } from '../../i18n';
 
 /** Which space the group screens are in: work groups (/groupes) or shared calendars (/agendas). */
@@ -45,7 +45,7 @@ export function useRights(group: Pick<Group, 'id' | 'ownerId'>) {
 /** A refusal worded here (file missing, too big): shown as it is. */
 class FileRefused extends Error {}
 
-/** Ajoute des fichiers au groupe, un par un ; dit ce qui est passé et ce qui a été refusé. */
+/** Ajoute des fichiers au groupe, un par un (chacun peut être mis en pause ou annulé) ; dit ce qui est passé et ce qui a été refusé. */
 export async function shareFiles(group: Group, files: { blob: Blob | (() => Promise<Blob | undefined>); name: string }[]): Promise<number> {
   let ok = 0;
   let error = '';
@@ -54,9 +54,12 @@ export async function shareFiles(group: Group, files: { blob: Blob | (() => Prom
   for (const [i, f] of files.entries()) {
     try {
       const blob = typeof f.blob === 'function' ? await f.blob() : f.blob;
+      if (tracks[i].cancelled) continue;
       if (!blob) throw new FileRefused(t('Le contenu de « {name} » est introuvable.', { name: f.name }));
       if (blob.size > MAX_GROUP_FILE) throw new FileRefused(t('« {name} » dépasse 50 Mo.', { name: f.name }));
-      await uploadFile(group.id, blob, f.name, loaded => tracks[i].progress(loaded, blob.size));
+      // Paused: waits, then sent again from the start. Cancelled: nothing in the group (removed if it got there).
+      const sent = await sendUpload(tracks[i], signal => uploadFile(group.id, blob, f.name, loaded => tracks[i].progress(loaded, blob.size), signal), file => (file ? deleteFile(file) : Promise.resolve()));
+      if (!sent) continue;
       tracks[i].done();
       ok++;
     } catch (e) {

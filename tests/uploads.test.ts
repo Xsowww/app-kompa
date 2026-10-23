@@ -5,7 +5,7 @@ Object.assign(globalThis, {
   addEventListener: vi.fn((type: string, fn: unknown) => type === 'beforeunload' && listeners.add(fn)),
   removeEventListener: vi.fn((type: string, fn: unknown) => type === 'beforeunload' && listeners.delete(fn)),
 });
-const { useUploads, trackUpload, uploadSummary, dismissUploads, HIDE_AFTER } = await import('../src/store/uploads');
+const { useUploads, trackUpload, uploadSummary, dismissUploads, HIDE_AFTER, pauseUpload, resumeUpload, cancelUpload, pauseAll, resumeAll, cancelAll, sendUpload, isUploadAbort } = await import('../src/store/uploads');
 
 const summary = () => uploadSummary(useUploads.getState().items);
 
@@ -79,6 +79,146 @@ describe('upload card store', () => {
     expect(listeners.size).toBe(1);
     b.fail();
     expect(listeners.size).toBe(0);
+  });
+});
+
+const status = () => useUploads.getState().items.map(u => `${u.name}:${u.status}`);
+const abortable = (signal: AbortSignal) =>
+  new Promise<string>((ok, ko) => {
+    const end = setTimeout(() => ok('stored'), 1000);
+    signal.addEventListener('abort', () => {
+      clearTimeout(end);
+      ko(Object.assign(new Error('Upload aborted'), { name: 'AbortError' }));
+    });
+  });
+
+describe('pause, resume, cancel', () => {
+  it('pauses a file: « en pause » in the summary, starts over when resumed', () => {
+    const a = trackUpload('a', 100);
+    a.progress(60);
+    const first = a.signal;
+    pauseUpload(a.id);
+    expect(first.aborted).toBe(true);
+    expect(a.signal.aborted).toBe(false); // a fresh one for the next attempt
+    expect(useUploads.getState().items[0]).toMatchObject({ status: 'paused', loaded: 0 });
+    expect(summary()).toMatchObject({ active: 0, paused: 1, percent: 0 });
+    // The aborted request's late progress does not count.
+    a.progress(80);
+    expect(useUploads.getState().items[0].loaded).toBe(0);
+    resumeUpload(a.id);
+    expect(status()).toEqual(['a:active']);
+  });
+
+  it('waits while paused, then goes again (once)', async () => {
+    const a = trackUpload('a', 10);
+    const send = vi.fn(abortable);
+    const run = sendUpload(a, send);
+    await vi.advanceTimersByTimeAsync(300);
+    pauseUpload(a.id);
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(send).toHaveBeenCalledTimes(1);
+    resumeUpload(a.id);
+    await vi.advanceTimersByTimeAsync(1000);
+    await expect(run).resolves.toBe('stored');
+    expect(send).toHaveBeenCalledTimes(2);
+  });
+
+  it('cancels a file: it leaves the card, nothing is kept, the others go on', async () => {
+    const a = trackUpload('a', 10);
+    const b = trackUpload('b', 10);
+    const undo = vi.fn(async () => undefined);
+    const run = sendUpload(a, abortable, undo);
+    await vi.advanceTimersByTimeAsync(100);
+    expect(cancelUpload(a.id)).toBe(true);
+    await expect(run).resolves.toBeNull();
+    expect(undo).toHaveBeenCalledWith(null);
+    expect(a.cancelled).toBe(true);
+    expect(status()).toEqual(['b:active']);
+    // Its done() / fail() come too late: ignored.
+    a.fail();
+    expect(status()).toEqual(['b:active']);
+    expect(cancelUpload(a.id)).toBe(false);
+    const next = sendUpload(b, abortable);
+    await vi.advanceTimersByTimeAsync(1000);
+    await expect(next).resolves.toBe('stored');
+  });
+
+  it('takes back what was stored when the cancel comes just as it ended', async () => {
+    const a = trackUpload('a', 10);
+    const undo = vi.fn(async () => undefined);
+    const run = sendUpload(a, async () => {
+      cancelUpload(a.id); // during the last step, too late to abort
+      return 'stored';
+    }, undo);
+    await expect(run).resolves.toBeNull();
+    expect(undo).toHaveBeenCalledWith('stored');
+  });
+
+  it('a paused file waiting its turn is cancelled without being sent', async () => {
+    const a = trackUpload('a', 10);
+    pauseUpload(a.id);
+    const send = vi.fn(abortable);
+    const run = sendUpload(a, send);
+    cancelUpload(a.id);
+    await expect(run).resolves.toBeNull();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('does not take an abort for a failure, and lets real errors through', async () => {
+    expect(isUploadAbort(Object.assign(new Error('x'), { name: 'AbortError' }))).toBe(true);
+    expect(isUploadAbort(new Error('Failed to fetch'))).toBe(false);
+    const a = trackUpload('a', 10);
+    await expect(sendUpload(a, () => Promise.reject(new Error('Failed to fetch')))).rejects.toThrow('Failed to fetch');
+  });
+
+  it('pauses, resumes and cancels the whole batch', () => {
+    const a = trackUpload('a', 10);
+    trackUpload('b', 10);
+    trackUpload('c', 10).done();
+    pauseAll();
+    expect(status()).toEqual(['a:paused', 'b:paused', 'c:done']);
+    expect(summary()).toMatchObject({ active: 0, paused: 2, done: 1 });
+    resumeAll([a.id]);
+    expect(status()).toEqual(['a:active', 'b:paused', 'c:done']);
+    expect(cancelAll()).toBe(2);
+    expect(status()).toEqual(['c:done']);
+  });
+
+  it('a paused file may still end well (its last step was already done)', () => {
+    const a = trackUpload('a', 10);
+    pauseUpload(a.id);
+    a.done();
+    expect(status()).toEqual(['a:done']);
+  });
+
+  it('keeps asking before leaving while a file is paused, and the card stays', () => {
+    const a = trackUpload('a', 10);
+    const b = trackUpload('b', 10);
+    a.done();
+    pauseUpload(b.id);
+    expect(listeners.size).toBe(1);
+    vi.advanceTimersByTime(HIDE_AFTER * 2);
+    dismissUploads();
+    expect(status()).toEqual(['b:paused']);
+    cancelUpload(b.id);
+    expect(listeners.size).toBe(0);
+  });
+
+  it('hides by itself once the files left all went in (one cancelled)', () => {
+    const a = trackUpload('a', 10);
+    const b = trackUpload('b', 10);
+    a.done();
+    cancelUpload(b.id);
+    expect(status()).toEqual(['a:done']);
+    vi.advanceTimersByTime(HIDE_AFTER);
+    expect(status()).toEqual([]);
+  });
+
+  it('a new import joins a paused one on the same card', () => {
+    const a = trackUpload('a', 10);
+    pauseUpload(a.id);
+    trackUpload('b', 10);
+    expect(status()).toEqual(['a:paused', 'b:active']);
   });
 });
 
