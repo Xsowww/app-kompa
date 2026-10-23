@@ -2,7 +2,7 @@
 // Supabase Storage in cloud mode.
 
 import { supabase } from './supabase';
-import { storageUpload } from './storageUpload';
+import { abandonUpload, storageUpload } from './storageUpload';
 import { t } from '../i18n';
 
 const DB_NAME = 'cop-pilot';
@@ -69,6 +69,7 @@ const local = {
         }),
   get: (key: string) => run<Blob | undefined>('readonly', s => s.get(key)),
   delete: (key: string) => run('readwrite', s => s.delete(key)),
+  abandon: async (_key: string) => undefined,
 };
 
 // Cloud mode: files go to the private Supabase Storage bucket "drive", under "<userId>/<itemId>".
@@ -92,6 +93,7 @@ const cloud = {
   async delete(key: string) {
     await supabase!.storage.from(BUCKET).remove([path(key)]);
   },
+  abandon: (key: string) => abandonUpload(BUCKET, path(key)),
 };
 
 const backend = supabase ? cloud : local;
@@ -99,9 +101,12 @@ const backend = supabase ? cloud : local;
 export const blobStore = {
   /**
    * `onProgress`: bytes sent so far (online only; in this browser it is stored at once). `signal`: stops it, with an
-   * AbortError (nothing is left stored).
+   * AbortError (nothing is left stored). Online, a file over 6 Mo stopped this way goes on from where it was at the
+   * next put() of the same key and file (storageUpload).
    */
   put: (key: string, blob: Blob, onProgress?: (loaded: number) => void, signal?: AbortSignal) => backend.put(key, blob, onProgress, signal),
+  /** A put() stopped for good (import cancelled): what the server kept of it is dropped. */
+  abandon: (key: string) => backend.abandon(key),
   get: (key: string): Promise<Blob | undefined> => backend.get(key),
   delete: (key: string) => backend.delete(key),
   async copy(from: string, to: string) {

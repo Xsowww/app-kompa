@@ -4,7 +4,10 @@ import { tn } from '../i18n';
 
 // Files being sent (Drive, groups…): one card shows them wherever the student is. Not persisted.
 
-/** `paused`: stopped by the student, goes again from its first byte once resumed. A cancelled file leaves the list. */
+/**
+ * `paused`: stopped by the student; once resumed, goes on from what the server kept (online, over 6 Mo: see
+ * lib/storageUpload) or from its first byte. A cancelled file leaves the list.
+ */
 export type UploadStatus = 'active' | 'paused' | 'done' | 'error';
 
 export interface Upload {
@@ -110,13 +113,13 @@ export function trackUpload(name: string, size: number, where?: string): UploadH
 }
 
 /**
- * Stops the file where it is; it goes again from the start when resumed (Supabase's « standard » upload cannot
- * carry on from the middle of a file, and starting over is always safe). The files after it in its batch wait.
+ * Stops the file where it is. Its share stays as it was until it goes again: the sender then says where it starts
+ * from (what the server kept, over 6 Mo; 0 for a smaller file, sent again whole). The files after it in its batch wait.
  */
 export function pauseUpload(id: string) {
   const c = controls.get(id);
   if (!c || useUploads.getState().items.find(u => u.id === id)?.status !== 'active') return;
-  patch(id, u => u.status === 'active', () => ({ status: 'paused', loaded: 0 }));
+  patch(id, u => u.status === 'active', () => ({ status: 'paused' }));
   c.ctrl.abort();
   c.ctrl = new AbortController();
 }
@@ -156,14 +159,19 @@ export function cancelImports(only: string[]) {
 export const isUploadAbort = (e: unknown) => e instanceof Error && e.name === 'AbortError';
 
 /**
- * One file of a sending loop: waits while it is paused, sends it with `send` (given the attempt's signal), starts
- * over after a pause. Cancelled (before, during, or just as it ended): `undo` takes back what `send` stored, and
- * the result is null. Other errors are thrown; the caller calls done() / fail().
+ * One file of a sending loop: waits while it is paused, sends it with `send` (given the attempt's signal), calls it
+ * again after a pause (it goes on from where it can). Cancelled (before, during, or just as it ended): `undo` takes
+ * back what `send` stored (null: nothing complete, but an unfinished upload may be left to drop), and the result
+ * is null. Other errors are thrown; the caller calls done() / fail().
  */
 export async function sendUpload<T>(h: UploadHandle, send: (signal: AbortSignal) => Promise<T>, undo?: (result: T | null) => Promise<unknown>): Promise<T | null> {
   for (;;) {
     await h.whenResumed();
-    if (h.cancelled) return null;
+    if (h.cancelled) {
+      // Cancelled while paused: a resumable upload stopped earlier may be waiting on the server.
+      await undo?.(null)?.catch(() => undefined);
+      return null;
+    }
     let result: T;
     try {
       result = await send(h.signal);
@@ -173,7 +181,7 @@ export async function sendUpload<T>(h: UploadHandle, send: (signal: AbortSignal)
         await undo?.(null)?.catch(() => undefined);
         return null;
       }
-      continue; // paused: again once resumed
+      continue; // paused: on again once resumed
     }
     if (h.cancelled) {
       await undo?.(result)?.catch(() => undefined);

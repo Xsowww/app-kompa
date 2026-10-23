@@ -189,8 +189,9 @@ export const useDrive = create<DriveState>()(
             const h = handles[n];
             const id = uid();
             const key = blobKey(id);
-            // Paused: waits, then sent again from the start. Cancelled: nothing created, the stored part removed.
-            const stored = await sendUpload(h, signal => blobStore.put(key, file, loaded => h.progress(loaded), signal).then(() => true), ok => (ok ? blobStore.delete(key) : Promise.resolve()));
+            // Paused: waits, then goes on (online, over 6 Mo, from where it was; otherwise from the start).
+            // Cancelled: nothing created, the stored part removed (or the unfinished upload dropped).
+            const stored = await sendUpload(h, signal => blobStore.put(key, file, loaded => h.progress(loaded), signal).then(() => true), ok => (ok ? blobStore.delete(key) : blobStore.abandon(key)));
             if (!stored) {
               created.push(null);
               continue;

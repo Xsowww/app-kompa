@@ -93,20 +93,23 @@ const abortable = (signal: AbortSignal) =>
   });
 
 describe('pause, resume, cancel', () => {
-  it('pauses a file: « en pause » in the summary, starts over when resumed', () => {
+  it('pauses a file: « en pause » in the summary, its share kept until the next attempt says where it starts', () => {
     const a = trackUpload('a', 100);
     a.progress(60);
     const first = a.signal;
     pauseUpload(a.id);
     expect(first.aborted).toBe(true);
     expect(a.signal.aborted).toBe(false); // a fresh one for the next attempt
-    expect(useUploads.getState().items[0]).toMatchObject({ status: 'paused', loaded: 0 });
-    expect(summary()).toMatchObject({ active: 0, paused: 1, percent: 0 });
+    // Never back to 0 % on its own: what the server kept is said by the next attempt.
+    expect(useUploads.getState().items[0]).toMatchObject({ status: 'paused', loaded: 60 });
+    expect(summary()).toMatchObject({ active: 0, paused: 1, percent: 60 });
     // The aborted request's late progress does not count.
     a.progress(80);
-    expect(useUploads.getState().items[0].loaded).toBe(0);
+    expect(useUploads.getState().items[0].loaded).toBe(60);
     resumeUpload(a.id);
     expect(status()).toEqual(['a:active']);
+    a.progress(54); // resumed from the last piece the server took
+    expect(useUploads.getState().items[0].loaded).toBe(54);
   });
 
   it('waits while paused, then goes again (once)', async () => {
@@ -158,10 +161,13 @@ describe('pause, resume, cancel', () => {
     const a = trackUpload('a', 10);
     pauseUpload(a.id);
     const send = vi.fn(abortable);
-    const run = sendUpload(a, send);
+    const undo = vi.fn(async () => undefined);
+    const run = sendUpload(a, send, undo);
     cancelUpload(a.id);
     await expect(run).resolves.toBeNull();
     expect(send).not.toHaveBeenCalled();
+    // What an earlier attempt left on the server (a resumable upload) is dropped.
+    expect(undo).toHaveBeenCalledWith(null);
   });
 
   it('does not take an abort for a failure, and lets real errors through', async () => {

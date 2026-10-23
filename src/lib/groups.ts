@@ -11,7 +11,7 @@ let space: GroupKind = 'groupe';
 export const setGroupSpace = (kind: GroupKind) => void (space = kind);
 const words = () => (space === 'agenda' ? AGENDA_WORDS : groupWords(getSettings().usage));
 import { QUOTA, StorageError, quotaLabel } from './blobStore';
-import { storageUpload } from './storageUpload';
+import { abandonUpload, storageUpload } from './storageUpload';
 import { t } from '../i18n';
 
 // Groupes de travail : uniquement en ligne. Appels directs à Supabase (tables group_* et
@@ -475,7 +475,11 @@ export async function fetchFiles(groupId: string): Promise<GroupFile[]> {
  * Envoie le contenu puis enregistre le fichier ; rien ne reste à moitié si l'une des deux étapes est refusée.
  * `signal` (pause ou annulation, store/uploads) : arrête l'envoi avec une AbortError, sans rien enregistrer.
  */
-export async function uploadFile(groupId: string, blob: Blob, name: string, onProgress?: (loaded: number) => void, signal?: AbortSignal): Promise<GroupFile> {
+/**
+ * `id`: the file's, given by the caller so that each attempt of one file (after a pause) has the same path: over
+ * 6 Mo, the sending goes on from where it was (storageUpload). abandonFile() once it is cancelled.
+ */
+export async function uploadFile(groupId: string, blob: Blob, name: string, onProgress?: (loaded: number) => void, signal?: AbortSignal, id: string = crypto.randomUUID()): Promise<GroupFile> {
   if (blob.size > MAX_GROUP_FILE) throw new Error('file too large');
   // Group files count in the uploader's quota, like their Drive (the storage policy checks it too:
   // asking first gives a clear message instead of a « not allowed »).
@@ -483,7 +487,6 @@ export async function uploadFile(groupId: string, blob: Blob, name: string, onPr
     const used = await db().rpc('storage_used');
     if (!used.error && Number(used.data) + blob.size > QUOTA) throw new StorageError(t('Plus de place : ton espace en ligne ({quota}) est plein. Vide la corbeille de ton Drive ou supprime des fichiers.', { quota: quotaLabel() }));
   }
-  const id = crypto.randomUUID();
   const path = filePath({ groupId, id });
   const mime = blob.type || 'application/octet-stream';
   // As supabase-js's upload, with progress (the multipart part carries the file's own type).
@@ -504,6 +507,9 @@ export async function uploadFile(groupId: string, blob: Blob, name: string, onPr
     throw e;
   }
 }
+
+/** An upload cancelled before its file was in the group: what the server kept of it is dropped. */
+export const abandonFile = (groupId: string, id: string) => abandonUpload(FILES, filePath({ groupId, id }));
 
 export async function downloadFile(f: GroupFile): Promise<Blob> {
   const { data, error } = await db().storage.from(FILES).download(filePath(f));
