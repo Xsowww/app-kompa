@@ -120,7 +120,7 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
             <p className="mt-0.5 text-[13px] text-stone-500">{t('Envoie-lui le lien.')}</p>
           </div>
           <div className="flex gap-1.5">
-            <button className="btn-primary h-8 px-3" onClick={() => void copyInviteLink(code, 'agenda')}>
+            <button className="btn-primary h-8 px-3" onClick={() => void copyInviteLink(code)}>
               <Copy size={14} /> {t('Copier le lien')}
             </button>
             {isOwner && (
@@ -131,12 +131,12 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
           </div>
         </div>
       ) : code ? (
-        // The code and « Inviter » sit in the group's header (every tab): here only what the owner alone can do.
+        // The code sits in the group's header (every tab), with its copy button: here only what the owner alone can do.
         isOwner && (
           <div className="card flex flex-wrap items-center gap-3 p-4">
             <div className="min-w-[220px] flex-1">
               <p className="text-[14px] font-medium">{t('Inviter quelqu’un')}</p>
-              <p className="mt-0.5 text-[13px] text-stone-500">{t('Envoie-lui ce code ou le lien « Inviter ».')}</p>
+              <p className="mt-0.5 text-[13px] text-stone-500">{t('Envoie-lui ce code.')}</p>
             </div>
             <button className="btn-secondary h-8 px-3" title={t('Nouveau code (l’ancien ne marchera plus)')} disabled={busy} onClick={() => void newCode()}>
               <RefreshCw size={14} /> {t('Nouveau code')}
@@ -144,7 +144,7 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
           </div>
         )
       ) : (
-        code === null && <p className="card px-4 py-3 text-[13px] text-stone-500">{t('Pour inviter quelqu’un, demande au propriétaire.')}</p>
+        code === null && <p className="card px-4 py-3 text-[13px] text-stone-500">{agenda ? t('Pour inviter quelqu’un, demande au propriétaire.') : t('Pour inviter quelqu’un, demande le code au propriétaire.')}</p>
       )}
       {!isOwner && mine && (
         <p className="mt-3 text-[13px] text-stone-500">

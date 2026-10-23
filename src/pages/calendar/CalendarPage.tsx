@@ -183,7 +183,7 @@ function CalendarFilter({ categories, shown, importantOnly, onToggle, onImportan
         onClick={() => setOpen(v => !v)}
         aria-expanded={open}
         aria-controls="filtre-calendrier"
-        className={cx('btn-secondary hit-sm h-8 px-2.5', count > 0 && 'border-ink/40 text-ink')}
+        className={cx('btn-secondary hit-sm h-8 px-2.5 pointer-coarse:h-9 pointer-coarse:min-w-9', count > 0 && 'border-ink/40 text-ink')}
         title={t('Filtrer les événements affichés')}
       >
         <ListFilter size={15} />
@@ -191,7 +191,7 @@ function CalendarFilter({ categories, shown, importantOnly, onToggle, onImportan
         {count > 0 && <span className="tabular rounded-full bg-ink px-1.5 text-[11px] leading-[18px] text-paper">{count}</span>}
       </button>
       {open && (
-        <div id="filtre-calendrier" role="group" aria-label={t('Filtrer les événements')} className="pop absolute right-0 top-10 z-[60] w-64 rounded-xl border border-stone-200 bg-surface p-2 shadow-pop max-sm:left-0 max-sm:right-auto">
+        <div id="filtre-calendrier" role="group" aria-label={t('Filtrer les événements')} className="pop absolute right-0 top-full z-[60] mt-2 w-64 rounded-xl border border-stone-200 bg-surface p-2 shadow-pop">
           <p className="px-2 pb-1 pt-0.5 text-[12px] text-stone-500">{t('Afficher seulement :')}</p>
           {onImportant && (
             <>
@@ -493,57 +493,63 @@ export default function CalendarPage() {
       onDrop={e => void onFileDrop(e)}
     >
       <div className="mx-auto max-w-[1180px]">
-        {/* Header */}
-        <div className="flex flex-wrap items-center gap-2 pb-4 pt-2">
-          {!shared && <h1 className="mr-3 text-[24px] font-semibold tracking-[-0.02em]">{t('Calendrier')}</h1>}
-          <div className="ml-auto flex items-center gap-1">
-            <button className="icon-btn" onClick={() => shift(-1)} title={mode === 'day' ? t('Jour précédent') : t('Précédent')} aria-label={mode === 'day' ? t('Jour précédent') : t('Précédent')}>
-              <ChevronLeft size={17} />
-            </button>
-            <span className="min-w-28 text-center text-[14px] font-medium first-letter:uppercase">{fmt(selDate, mode === 'day' ? 'EEE d MMMM' : 'MMMM yyyy')}</span>
-            <button className="icon-btn" onClick={() => shift(1)} title={mode === 'day' ? t('Jour suivant') : t('Suivant')} aria-label={mode === 'day' ? t('Jour suivant') : t('Suivant')}>
-              <ChevronRight size={17} />
-            </button>
-          </div>
-          <button className="btn-secondary h-8" onClick={() => selectDay(today)}>
-            {t('Aujourd’hui')}
-          </button>
-          <div className="flex h-8 items-center rounded-lg bg-stone-100 p-0.5 text-[13px] pointer-coarse:h-12" role="group" aria-label={t('Affichage')}>
-            {MODES.map(m => (
-              <button key={m.id} onClick={() => setMode(m.id)} aria-pressed={mode === m.id} className={cx('h-7 rounded-md px-2 font-medium transition-colors pointer-coarse:h-11 pointer-coarse:min-w-11 sm:px-3', mode === m.id ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}>
-                {m.label}
+        {/* Header: the date (‹ month ›, Aujourd’hui), then the views and the tools at the right. A shared calendar
+            has no title here (its page has one): the date starts the row. Phones: two rows, the views and tools
+            under the date, the tools at the right edge. One height for all (36 px under a finger). */}
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-3 pb-4 pt-2">
+          {!shared && <h1 className="mr-3 text-[24px] font-semibold tracking-[-0.02em] max-sm:w-full">{t('Calendrier')}</h1>}
+          <div className={cx('flex items-center gap-2', !shared && 'sm:ml-auto')}>
+            <div className="flex items-center gap-1">
+              <button className="icon-btn pointer-coarse:h-9 pointer-coarse:w-9" onClick={() => shift(-1)} title={mode === 'day' ? t('Jour précédent') : t('Précédent')} aria-label={mode === 'day' ? t('Jour précédent') : t('Précédent')}>
+                <ChevronLeft size={17} />
               </button>
-            ))}
+              <span className="min-w-28 text-center text-[14px] font-medium first-letter:uppercase">{fmt(selDate, mode === 'day' ? 'EEE d MMMM' : 'MMMM yyyy')}</span>
+              <button className="icon-btn pointer-coarse:h-9 pointer-coarse:w-9" onClick={() => shift(1)} title={mode === 'day' ? t('Jour suivant') : t('Suivant')} aria-label={mode === 'day' ? t('Jour suivant') : t('Suivant')}>
+                <ChevronRight size={17} />
+              </button>
+            </div>
+            <button className="btn-secondary h-8 pointer-coarse:h-9" onClick={() => selectDay(today)}>
+              {t('Aujourd’hui')}
+            </button>
           </div>
-          {/* Periods, filter and export wrap together. */}
-          <div className="flex items-center gap-2">
-          {(!readOnly || periods.length > 0) && (
-            <button className="btn-secondary hit-sm h-8 px-2.5 pointer-coarse:min-w-11" onClick={() => setPeriodsOpen(true)} title={t('Périodes : {ideas}…', { ideas: periodIdeas(usage) })} aria-label={t('Périodes')}>
-              <CalendarRange size={15} /> <span className="max-sm:sr-only">{t('Périodes')}</span>
-            </button>
-          )}
-          <CalendarFilter
-            categories={allCategories(custom)}
-            shown={shown}
-            importantOnly={importantOnly}
-            onToggle={k =>
-              setShown(prev => {
-                const n = new Set(prev);
-                if (n.has(k)) n.delete(k);
-                else n.add(k);
-                return n;
-              })
-            }
-            onImportant={shared ? undefined : () => setImportantOnly(v => !v)}
-            onReset={clearFilter}
-            onManage={readOnly ? undefined : () => setManaging(true)}
-          />
-          {/* Not on phones, where the header would wrap for it: Profil › Données exports too. Importing: the « + » button. */}
-          {!shared && (
-            <button className="icon-btn hidden h-8 w-8 disabled:opacity-40 sm:inline-flex" disabled={!events.length} onClick={() => (exportIcs(), toast(t('Calendrier exporté'), 'success'))} title={t('Exporter le calendrier (.ics)')} aria-label={t('Exporter le calendrier (.ics)')}>
-              <CalendarArrowUp size={16} />
-            </button>
-          )}
+          <div className={cx('flex items-center gap-2 max-sm:w-full', shared && 'ml-auto')}>
+            <div className="flex h-8 items-center rounded-lg bg-stone-100 p-0.5 text-[13px] pointer-coarse:h-9" role="group" aria-label={t('Affichage')}>
+              {MODES.map(m => (
+                <button key={m.id} onClick={() => setMode(m.id)} aria-pressed={mode === m.id} className={cx('hit h-7 rounded-md px-2 font-medium transition-colors pointer-coarse:h-8 pointer-coarse:min-w-11 sm:px-3', mode === m.id ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}>
+                  {m.label}
+                </button>
+              ))}
+            </div>
+            {/* Periods, filter and export: together, at the right edge of their row. */}
+            <div className="ml-auto flex items-center gap-2 sm:ml-0">
+              {(!readOnly || periods.length > 0) && (
+                <button className="btn-secondary hit-sm h-8 px-2.5 pointer-coarse:h-9 pointer-coarse:min-w-9" onClick={() => setPeriodsOpen(true)} title={t('Périodes : {ideas}…', { ideas: periodIdeas(usage) })} aria-label={t('Périodes')}>
+                  <CalendarRange size={15} /> <span className="max-sm:sr-only">{t('Périodes')}</span>
+                </button>
+              )}
+              <CalendarFilter
+                categories={allCategories(custom)}
+                shown={shown}
+                importantOnly={importantOnly}
+                onToggle={k =>
+                  setShown(prev => {
+                    const n = new Set(prev);
+                    if (n.has(k)) n.delete(k);
+                    else n.add(k);
+                    return n;
+                  })
+                }
+                onImportant={shared ? undefined : () => setImportantOnly(v => !v)}
+                onReset={clearFilter}
+                onManage={readOnly ? undefined : () => setManaging(true)}
+              />
+              {/* Not on phones, where the row has no room for it: Profil › Données exports too. Importing: the « + » button. */}
+              {!shared && (
+                <button className="icon-btn hidden h-8 w-8 disabled:opacity-40 sm:inline-flex" disabled={!events.length} onClick={() => (exportIcs(), toast(t('Calendrier exporté'), 'success'))} title={t('Exporter le calendrier (.ics)')} aria-label={t('Exporter le calendrier (.ics)')}>
+                  <CalendarArrowUp size={16} />
+                </button>
+              )}
+            </div>
           </div>
         </div>
 

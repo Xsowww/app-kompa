@@ -1,6 +1,6 @@
 import { useContext, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, CalendarClock, CloudOff, Copy, ImagePlus, Link2, LogIn, NotebookText, Paperclip, Plus, Settings2, Users } from 'lucide-react';
+import { ArrowLeft, CalendarClock, CloudOff, Copy, ImagePlus, LogIn, NotebookText, Paperclip, Plus, Settings2, Users } from 'lucide-react';
 import { imageToAvatar } from '../../lib/backup';
 import { useAuth } from '../../store/auth';
 import { prefetchGroup, useGroups, watchFocus } from '../../store/groups';
@@ -9,7 +9,7 @@ import { toast } from '../../store/ui';
 import { Modal } from '../../components/Overlays';
 import { FieldError } from '../../components/Field';
 import { cloudEnabled } from '../../lib/supabase';
-import { GROUP_COLORS, copyCode, copyInviteLink, createGroup, groupError, joinGroup, updateGroup, type Group } from '../../lib/groups';
+import { GROUP_COLORS, copyCode, createGroup, groupError, joinGroup, updateGroup, type Group } from '../../lib/groups';
 import { cx } from '../../lib/utils';
 import { ColorPicker, GroupBadge } from './shared';
 import { KindContext, groupColor, useGroupWords, useRights } from './util';
@@ -328,20 +328,15 @@ function Groups() {
                 <h2 className="truncate text-[18px] font-semibold tracking-[-0.01em]">{active.name}</h2>
                 {code && (
                   <button
-                    className="group/code hit-sm flex max-w-full items-center gap-1.5 text-[12px] text-stone-500 hover:text-ink"
+                    className="group/code hit-sm flex max-w-full items-center gap-1.5 text-[12.5px] text-stone-500 hover:text-ink"
                     title={t('Copier le code d’invitation')}
                     onClick={() => void copyCode(code)}
                   >
                     {t('Code')} <span className="font-mono font-medium tracking-wider text-stone-700">{code}</span>
-                    <Copy size={12} className="text-stone-400 group-hover/code:text-ink" />
+                    <Copy size={13} className="text-stone-500 group-hover/code:text-ink" />
                   </button>
                 )}
               </div>
-              {code && (
-                <button className="btn-secondary h-8 px-2.5 sm:px-3" onClick={() => void copyInviteLink(code, 'groupe')} title={t('Copier le lien d’invitation')}>
-                  <Link2 size={14} /> <span className="max-sm:sr-only">{t('Inviter')}</span>
-                </button>
-              )}
               {/* Not over a shared note open on a phone (it fills the screen). */}
               {rights.canEdit && !(narrow && tab === 'notes' && params.get('note')) && (
                 <ShareActions

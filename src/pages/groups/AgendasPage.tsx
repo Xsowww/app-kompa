@@ -162,16 +162,16 @@ function Agendas() {
               {active.ownerId === userId ? ` · ${t('tu l’as créé')}` : ''}
             </p>
             {/* Phones: icons only, the row stays on one line */}
-            <button className="btn-secondary h-8 px-2.5 sm:px-3" onClick={() => setDialog('members')} title={t('Membres')}>
+            <button className="btn-secondary h-8 px-2.5 pointer-coarse:h-9 sm:px-3" onClick={() => setDialog('members')} title={t('Membres')}>
               <Users size={14} /> <span className="max-sm:sr-only">{t('Membres')}</span>
             </button>
             {token && (
-              <button className="btn-secondary h-8 px-2.5 sm:px-3" onClick={() => void copyInviteLink(token, 'agenda')} title={t('Copier le lien d’invitation')}>
+              <button className="btn-secondary h-8 px-2.5 pointer-coarse:h-9 sm:px-3" onClick={() => void copyInviteLink(token)} title={t('Copier le lien d’invitation')}>
                 <Link2 size={14} /> <span className="max-sm:sr-only">{t('Inviter')}</span>
               </button>
             )}
             {active.ownerId === userId && (
-              <button className="icon-btn" title={t('Paramètres de l’agenda')} aria-label={t('Paramètres de l’agenda')} onClick={() => setDialog('settings')}>
+              <button className="icon-btn pointer-coarse:h-9 pointer-coarse:w-9" title={t('Paramètres de l’agenda')} aria-label={t('Paramètres de l’agenda')} onClick={() => setDialog('settings')}>
                 <Settings2 size={16} />
               </button>
             )}

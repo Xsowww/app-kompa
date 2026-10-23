@@ -23,7 +23,7 @@ import {
   type Past,
   type Session,
 } from '../../store/recorder';
-import { canShareComputer, canUseMic, onPhone, type SourceKind } from '../../lib/recorder/capture';
+import { canShareComputer, canUseMic, type SourceKind } from '../../lib/recorder/capture';
 import { serverState } from '../../lib/recorder/api';
 import { clock, courseMarkdown, duration } from '../../lib/recorder/course';
 import { keywordsFor, normalize } from '../../lib/keywords';
@@ -101,9 +101,12 @@ function Setup() {
     }
   };
 
+  // Two buttons alike: an icon and one short name. Why one can't be chosen goes in its tooltip and, for fingers
+  // (no tooltip), in the line under them.
+  const computerOff = t('Le son de l’ordinateur s’enregistre avec Chrome ou Edge, sur ordinateur.');
   const sources = [
     { key: 'micro', icon: Mic, label: t('Micro'), ok: canUseMic(), off: '' },
-    { key: 'onglet', icon: MonitorSpeaker, label: t('Son de l’ordinateur'), ok: canShareComputer(), off: onPhone() ? t('Sur ordinateur') : t('Avec Chrome') },
+    { key: 'onglet', icon: MonitorSpeaker, label: t('Son de l’ordinateur'), ok: canShareComputer(), off: computerOff },
   ] as const;
 
   return (
@@ -130,14 +133,17 @@ function Setup() {
               aria-checked={source === o.key}
               disabled={!o.ok}
               onClick={() => setSource(o.key)}
-              className={cx('flex h-14 items-center justify-center gap-2 rounded-2xl text-[14px] font-semibold ring-1 ring-inset transition-colors disabled:cursor-not-allowed disabled:opacity-50', source === o.key ? 'bg-ink text-paper ring-ink' : 'bg-surface ring-stone-200 hover:ring-stone-300')}
+              title={!o.ok && o.off ? o.off : undefined}
+              className={cx('flex h-14 min-w-0 items-center justify-center gap-2 rounded-2xl px-3 text-[14px] font-semibold leading-tight ring-1 ring-inset transition-colors disabled:cursor-not-allowed disabled:opacity-50', source === o.key ? 'bg-ink text-paper ring-ink' : 'bg-surface ring-stone-200 hover:ring-stone-300')}
             >
-              <o.icon size={18} aria-hidden /> {o.label}
-              {!o.ok && o.off && <span className="text-[11.5px] font-medium text-stone-500">· {o.off}</span>}
+              <o.icon size={18} className="shrink-0" aria-hidden />
+              {/* Narrow phones: the name goes on two lines inside the button, never out of it. */}
+              <span className="min-w-0 text-balance text-left">{o.label}</span>
             </button>
           ))}
         </div>
         {source === 'onglet' && <p className="mt-2 text-[12.5px] text-stone-500">{t('Dans la fenêtre qui s’ouvre : « Écran entier », active le son, puis « Partager ».')}</p>}
+        {!canShareComputer() && <p className="mt-2 text-[12.5px] text-stone-500">{computerOff}</p>}
       </div>
 
       <div className="flex flex-wrap items-center gap-2 text-[13.5px]">

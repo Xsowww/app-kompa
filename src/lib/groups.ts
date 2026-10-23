@@ -212,12 +212,10 @@ export async function createGroup(name: string, color: string | null, kind: Grou
   return toGroup(row as Row);
 }
 
-/** The link that makes someone join (after signing in): a group by its code, a shared calendar by its secret token. */
-export const inviteLink = (secret: string, kind: GroupKind) =>
-  kind === 'agenda' ? `${location.origin}/agendas?invitation=${secret}` : `${location.origin}/groupes?rejoindre=${secret}`;
-
-export async function copyInviteLink(secret: string, kind: GroupKind) {
-  const link = inviteLink(secret, kind);
+/** A shared calendar's invitation link (its secret token; joined after signing in). A group is joined by its code
+ *  only: no link is offered for it (an old /groupes?rejoindre=CODE still works, pages/groups/join). */
+export async function copyInviteLink(token: string) {
+  const link = `${location.origin}/agendas?invitation=${token}`;
   try {
     await navigator.clipboard.writeText(link);
     toast(t('Lien d’invitation copié'), 'success');
