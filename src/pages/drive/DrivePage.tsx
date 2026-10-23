@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ChevronRight, ClipboardPaste, Copy, CopyPlus, Download, Eye, FolderInput, FolderPlus, FolderUp, HardDrive, LayoutGrid,
   List, Pencil, Scissors, Star, Trash2, Upload, Clock, ArrowUpDown, ArrowUp, ArrowDown, X, MousePointer2, Search, Tag, Link2, Check, Palette,
-  MoreHorizontal, ClipboardList, BookOpenCheck, FolderOpen,
+  MoreHorizontal, ClipboardList, BookOpenCheck, FolderOpen, WifiOff,
 } from 'lucide-react';
 import { EmptyState, Skeleton } from '../../components/EmptyState';
 import {
@@ -14,7 +14,7 @@ import { askText, confirmAction, toast, useUi } from '../../store/ui';
 import { canMakeFrom, makeFromFile, useRecLive } from '../../store/recorder';
 import { useRecWords } from '../record/words';
 import { formatBytes, relativeTime, cx } from '../../lib/utils';
-import { fold, highlightParts, searchFileContents, startTextIndexing } from '../../lib/textIndex';
+import { fold, highlightParts, searchFileContents, startTextIndexing, type ContentMatch } from '../../lib/textIndex';
 import FileIcon from '../../components/FileIcon';
 import { FileButtons } from '../../components/UploadCard';
 import { FolderColorPicker } from '../../components/FolderColorPicker';
@@ -118,7 +118,7 @@ export default function DrivePage() {
   const [moveIds, setMoveIds] = useState<string[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState('');
-  const [contentHits, setContentHits] = useState<Map<string, string>>(new Map());
+  const [contentHits, setContentHits] = useState<Map<string, ContentMatch>>(new Map());
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [tagIds, setTagIds] = useState<string[] | null>(null);
   const [shareItem, setShareItem] = useState<DriveItem | null>(null);
@@ -160,7 +160,7 @@ export default function DrivePage() {
     if (q.length < 2) return setContentHits(new Map());
     let cancelled = false;
     const timer = setTimeout(() => {
-      void searchFileContents(q, 50).then(hits => !cancelled && setContentHits(new Map(hits.map(h => [h.id, h.snippet]))));
+      void searchFileContents(q, 50).then(hits => !cancelled && setContentHits(new Map(hits.map(h => [h.id, h]))));
     }, 180);
     return () => {
       cancelled = true;
@@ -217,16 +217,34 @@ export default function DrivePage() {
     [setParams],
   );
 
+  // Keyboard: once a folder is opened with Entrée (or left with Retour arrière), the focus goes to its first item
+  // (or to the folder left) instead of being lost on the page. '' = the first one.
+  const focusAfter = useRef<string | null>(null);
+  useEffect(() => {
+    const id = focusAfter.current;
+    if (id === null) return;
+    focusAfter.current = null;
+    const list = document.querySelector('main [role="listbox"]');
+    // An empty folder: the page's content (its « + » and empty state are read from there).
+    (list?.querySelector<HTMLElement>(`[role="option"][data-id="${id}"]`) ?? list?.querySelector<HTMLElement>('[role="option"]') ?? document.getElementById('contenu'))?.focus();
+  }, [parentId]);
+
   const openItem = useCallback(
-    (item: DriveItem) => {
-      if (item.kind === 'folder') openFolder(item.id);
-      else setParams(p => {
-        const n = new URLSearchParams(p);
-        n.set('fichier', item.id);
-        return n;
-      });
+    (item: DriveItem, byKey?: boolean) => {
+      if (item.kind === 'folder') {
+        if (byKey) focusAfter.current = '';
+        openFolder(item.id);
+      } else
+        setParams(p => {
+          const n = new URLSearchParams(p);
+          n.set('fichier', item.id);
+          // Found inside a PDF: opened on the page of the match.
+          const page = q ? contentHits.get(item.id)?.page : undefined;
+          if (page && page > 1) n.set('page', String(page));
+          return n;
+        });
     },
-    [openFolder, setParams],
+    [openFolder, setParams, q, contentHits],
   );
 
   const closePreview = useCallback(
@@ -234,6 +252,7 @@ export default function DrivePage() {
       setParams(p => {
         const n = new URLSearchParams(p);
         n.delete('fichier');
+        n.delete('page');
         return n;
       }),
     [setParams],
@@ -245,6 +264,24 @@ export default function DrivePage() {
     if (previewId && isTrashedDriveItem(previewId)) navigate(`/corbeille?type=drive&apercu=${previewId}`, { replace: true });
     else if (previewId) setSelected(new Set([previewId]));
   }, [previewId, navigate]);
+
+  // « Voir tout dans le Drive » of the search at the top: the same search here (names and content).
+  useEffect(() => {
+    const asked = params.get('q');
+    if (asked === null) return;
+    setTab('all');
+    setListSort(null);
+    setSelected(new Set());
+    setQuery(asked);
+    setParams(
+      p => {
+        const n = new URLSearchParams(p);
+        n.delete('q');
+        return n;
+      },
+      { replace: true },
+    );
+  }, [params, setParams]);
 
   // "Importer" shortcut from the dashboard.
   const handledImport = useRef(false);
@@ -307,6 +344,8 @@ export default function DrivePage() {
     if (typed === null || !typed.trim()) return;
     const name = item.kind === 'file' ? keepExtension(item.name, typed) : typed;
     if (name !== item.name) useDrive.getState().rename(item.id, name);
+    // The extension typed was replaced by the old one (not just added): said, or the name would seem ignored.
+    if (!name.startsWith(typed.trim())) toast(t('L’extension {ext} est gardée.', { ext: item.name.slice(item.name.lastIndexOf('.')) }), 'info');
   }, []);
 
   // Asked first, then the toast still offers to undo (and the trash keeps them 30 days).
@@ -430,7 +469,7 @@ export default function DrivePage() {
     else if (e.key === 'Enter') {
       e.preventDefault();
       e.stopPropagation();
-      openItem(item);
+      openItem(item, true);
     } else if (e.key === ' ') {
       e.preventDefault();
       e.stopPropagation();
@@ -470,10 +509,13 @@ export default function DrivePage() {
         void rename(single);
       } else if (e.key === 'Enter' && single && !el.closest('button, a[href], select')) {
         // (Enter on a button runs that button only, e.g. « Déplacer » in the selection bar.)
-        openItem(single);
+        openItem(single, true);
       }
       else if (e.key === 'Escape') setSelected(new Set());
-      else if (e.key === 'Backspace' && !mod && current) openFolder(current.parentId);
+      else if (e.key === 'Backspace' && !mod && current) {
+        focusAfter.current = current.id;
+        openFolder(current.parentId);
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -636,6 +678,7 @@ export default function DrivePage() {
     onFocus: () => setFocusId(item.id),
     tabIndex: item.id === activeId ? 0 : -1,
     'aria-selected': selected.has(item.id),
+    'data-id': item.id,
     role: 'option',
     ...(item.kind === 'folder' ? folderDropProps(item.id, item.id) : {}),
   });
@@ -663,7 +706,7 @@ export default function DrivePage() {
     ) : null;
 
   // Content matches only (a name match speaks for itself).
-  const snippetOf = (item: DriveItem) => (q && !fold(item.name).includes(fold(q)) ? contentHits.get(item.id) : undefined);
+  const snippetOf = (item: DriveItem) => (q && !fold(item.name).includes(fold(q)) ? contentHits.get(item.id)?.snippet : undefined);
 
   const extOf = (item: DriveItem) => (item.kind === 'file' ? item.name.split('.').pop() : undefined);
   const bar = !dragging && (selectedIds.length > 1 || (selectedIds.length === 1 && !previewItem));
@@ -742,7 +785,7 @@ export default function DrivePage() {
               setSelected(new Set());
             }}
             onKeyDown={e => e.key === 'Escape' && setQuery('')}
-            placeholder={t('Rechercher, y compris dans les PDF')}
+            placeholder={t('Rechercher (noms et contenu)')}
             aria-label={t('Rechercher dans le Drive')}
             className="field h-8 w-full text-ellipsis pl-8 pr-7 sm:w-52 xl:w-72"
           />
@@ -833,10 +876,8 @@ export default function DrivePage() {
         ) : filtering ? (
           // No result: the empty state below says it (once).
           visible.length > 0 && <p className="truncate px-1.5 font-medium text-stone-500">
-            {tn(visible.length, '{n} résultat', '{n} résultats')}
-            {q && <> {t('pour')} « <span className="text-ink">{q}</span> »</>}
-            {activeTag && <> {t('avec l’étiquette')} « <span className="text-ink">{activeTag}</span> »</>}
-            {q && contentHits.size > 0 && <span className="font-normal text-stone-500"> · {t('noms et contenu des documents')}</span>}
+            {q ? tn(visible.length, '{n} résultat pour « {q} »', '{n} résultats pour « {q} »', { q }) : tn(visible.length, '{n} résultat', '{n} résultats')}
+            {activeTag && ` ${t('avec l’étiquette « {tag} »', { tag: activeTag })}`}
           </p>
         ) : tabAll ? (
           <>
@@ -1064,7 +1105,7 @@ export default function DrivePage() {
           })}
         />
       )}
-      {previewItem && <PreviewModal item={previewItem} onClose={closePreview} />}
+      {previewItem && <PreviewModal item={previewItem} onClose={closePreview} page={Number(params.get('page')) || undefined} />}
       {tagIds && <TagDialog ids={tagIds} onClose={() => setTagIds(null)} />}
       {shareItem && <ShareDialog item={shareItem} onClose={() => setShareItem(null)} />}
       {moveIds && (
@@ -1085,8 +1126,16 @@ export default function DrivePage() {
 /** Its own component: the percentages change often, the rest of the page stays still. Each file can be paused or cancelled. */
 function PendingUploads({ where }: { where: string }) {
   const pending = useUploads(useShallow(s => s.items.filter(u => notOver(u) && u.where === where)));
+  const offline = useUploads(s => s.offline);
   return (
     <ul aria-label={t('Import…')} className="card mb-2 overflow-hidden">
+      {/* Once for the list (each line keeps its percent): it goes on by itself once the network is back. */}
+      {offline && pending.some(u => u.status === 'active') && (
+        <li className="flex min-h-9 items-center gap-2 border-b border-stone-100 px-4 text-[12.5px] font-medium text-stone-500">
+          <WifiOff size={14} aria-hidden />
+          {t('En attente du réseau')}
+        </li>
+      )}
       {pending.map(u => (
         <li key={u.id} className="flex min-h-11 items-center gap-2.5 border-b border-stone-100 pl-4 pr-2 text-[13px] last:border-0">
           {/* Greyed: not in the folder yet. The buttons stay clear. */}

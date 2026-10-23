@@ -14,19 +14,22 @@ import { t, tn } from '../i18n';
 export default function UploadCard() {
   // The files of the Drive folder open show there, each with its percent: the card is for the others (and once you leave).
   const items = useUploads(useShallow(s => cardItems(s.items, s.shownAt)));
+  const offline = useUploads(s => s.offline);
   return (
     <>
       {/* Always there, so that it is read out when the import starts and when it ends (not at every percent). */}
       <span role="status" aria-live="polite" className="sr-only">
-        {items.length ? headline(uploadSummary(items)) : ''}
+        {items.length ? headline(uploadSummary(items), offline) : ''}
       </span>
       {/* A new import starts with a fresh card (list folded again). */}
-      {items.length > 0 && <Card key={items[0].id} items={items} />}
+      {items.length > 0 && <Card key={items[0].id} items={items} offline={offline} />}
     </>
   );
 }
 
-function headline({ total, failed, active, paused }: ReturnType<typeof uploadSummary>) {
+function headline({ total, failed, active, paused }: ReturnType<typeof uploadSummary>, offline: boolean) {
+  // No network: the files wait for it, and go on by themselves once it is back (lib/storageUpload).
+  if (active && offline) return t('En attente du réseau');
   if (active) return tn(total, 'Import de {n} fichier…', 'Import de {n} fichiers…');
   if (paused) return tn(paused, '{n} fichier en pause', '{n} fichiers en pause');
   return failed ? tn(failed, '{n} fichier non importé', '{n} fichiers non importés') : tn(total, '{n} fichier importé', '{n} fichiers importés');
@@ -67,7 +70,7 @@ export function FileButtons({ u, onCancel }: { u: Upload; onCancel?: (button: HT
   );
 }
 
-function Card({ items }: { items: Upload[] }) {
+function Card({ items, offline }: { items: Upload[]; offline: boolean }) {
   const summary = uploadSummary(items);
   const { failed, active, paused, percent } = summary;
   const going = items.filter(notOver);
@@ -130,9 +133,12 @@ function Card({ items }: { items: Upload[] }) {
       <div className="flex h-10 items-center gap-1">
         {!going.length && status}
         <div className="mr-1 min-w-0 flex-1">
-          <p className="truncate text-[13.5px] font-semibold leading-tight" title={headline(summary)}>
-            <span className="lg:hidden">{active ? t('Import…') : allPaused ? t('En pause') : headline(summary)}</span>
-            <span className="hidden lg:inline">{headline(summary)}</span>
+          <p className="truncate text-[13.5px] font-semibold leading-tight" title={headline(summary, offline)}>
+            {/* Phones: a short title (the card has no room for « 2 fichiers non importés »). */}
+            <span className="lg:hidden">
+              {active ? (offline ? t('Hors ligne') : t('Import…')) : allPaused ? t('En pause') : failed ? tn(failed, '{n} non importé', '{n} non importés') : headline(summary, offline)}
+            </span>
+            <span className="hidden lg:inline">{headline(summary, offline)}</span>
           </p>
           {going.length > 0 && (
             <div className="mt-1 flex items-center gap-2">
@@ -175,7 +181,7 @@ function Card({ items }: { items: Upload[] }) {
               ) : u.status === 'done' ? (
                 <Check size={15} className="shrink-0 text-emerald-600" aria-label={t('Terminé')} />
               ) : (
-                <span className="shrink-0 font-medium text-red-600">{t('Échec')}</span>
+                <span className="shrink-0 font-medium text-red-600">{u.reason ?? t('Échec')}</span>
               )}
               {notOver(u) && (
                 <button

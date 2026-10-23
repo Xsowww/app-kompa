@@ -2,6 +2,7 @@ import { useDrive } from '../../store/drive';
 import { indexFile } from '../../lib/textIndex';
 import { MAX_FILE } from '../../lib/blobStore';
 import { driveWhere, trackUpload, type UploadHandle } from '../../store/uploads';
+import { t } from '../../i18n';
 
 export interface PendingFile {
   file: File | null; // null = empty folder
@@ -87,7 +88,7 @@ export async function uploadPending(pending: PendingFile[], parentId: string | n
     batch.tracks.push(trackUpload(p.file.name, p.file.size, driveWhere(target)));
     byFolder.set(target, batch);
   }
-  tooBig.forEach(b => b.track.fail());
+  tooBig.forEach(b => b.track.fail(t('Plus de 50 Mo')));
   try {
     for (const [target, { files, tracks }] of byFolder) {
       // Paused files wait there (then go on from where they can), cancelled ones come back as null.

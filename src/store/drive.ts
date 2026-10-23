@@ -140,11 +140,30 @@ function cloneTree(items: DriveItem[], ids: string[], targetId: string | null, k
   return { created, blobCopies };
 }
 
-/** A file renamed without any extension keeps its old one (« Notes » → « Notes.txt »), so it still opens. */
+/**
+ * A file renamed without any extension keeps its old one (« Notes » → « Notes.txt »), so it still opens; so does one
+ * given the extension of another kind of file (« Cours.pdf » → « Cours.docx » stays « Cours.pdf »: Word could not
+ * open it). Within a kind (« .txt » → « .md »), or after a dot that is no extension (« v1.2 »), the name is taken.
+ */
 export function keepExtension(oldName: string, newName: string) {
   const clean = newName.trim();
   const dot = oldName.lastIndexOf('.');
-  return dot > 0 && clean.lastIndexOf('.') <= 0 ? `${clean}${oldName.slice(dot)}` : clean;
+  if (dot <= 0) return clean;
+  const at = clean.lastIndexOf('.');
+  if (at <= 0) return `${clean}${oldName.slice(dot)}`;
+  const kind = (name: string) => categoryOf({ kind: 'file', name });
+  if (kind(clean) === kind(oldName)) return clean;
+  return kind(clean) === 'other' ? `${clean}${oldName.slice(dot)}` : `${clean.slice(0, at)}${oldName.slice(dot)}`;
+}
+
+/** Why an import failed, short enough for its line on the upload card; undefined: « Échec ». */
+function failReason(e: unknown): string | undefined {
+  if (e instanceof StorageError && 'reason' in e) return String(e.reason);
+  // Refused by the storage (lib/blobStore's words).
+  const m = e instanceof Error ? e.message : '';
+  if (m === t('Fichier trop lourd : 50 Mo maximum.')) return t('Plus de 50 Mo');
+  if (m === t('Le stockage du navigateur est plein : supprime des fichiers ou vide la corbeille.')) return t('Plus de place');
+  return undefined;
 }
 
 function copyName(name: string) {
@@ -177,12 +196,12 @@ export const useDrive = create<DriveState>()(
         const handles = tracks ?? files.map(f => trackUpload(f.name, f.size, driveWhere(parentId)));
         try {
           const big = files.find(f => f.size > MAX_FILE);
-          if (big) throw new StorageError(t('« {name} » est trop lourd : 50 Mo maximum par fichier.', { name: big.name }));
+          if (big) throw Object.assign(new StorageError(t('« {name} » est trop lourd : 50 Mo maximum par fichier.', { name: big.name })), { reason: t('Plus de 50 Mo') });
           if (cloudEnabled && QUOTA) {
             const used = [...get().items, ...get().trash].reduce((s, i) => s + (i.kind === 'file' ? (i.size ?? 0) : 0), 0);
             const adding = files.reduce((s, f) => s + f.size, 0);
             if (used + adding > QUOTA)
-              throw new StorageError(t('Plus assez de place : {free} Mo libres sur {total} Mo. Vide la corbeille ou supprime des fichiers.', { free: Math.max(0, Math.floor((QUOTA - used) / 1048576)), total: Math.round(QUOTA / 1048576) }));
+              throw Object.assign(new StorageError(t('Plus assez de place : {free} Mo libres sur {total} Mo. Vide la corbeille ou supprime des fichiers.', { free: Math.max(0, Math.floor((QUOTA - used) / 1048576)), total: Math.round(QUOTA / 1048576) })), { reason: t('Plus de place') });
           }
           const created: (DriveItem | null)[] = [];
           for (const [n, file] of files.entries()) {
@@ -214,8 +233,10 @@ export const useDrive = create<DriveState>()(
           }
           return created;
         } catch (e) {
-          // The file that failed and those not sent yet (the ones already done keep their tick).
-          handles.forEach(h => h.fail());
+          // The file that failed and those not sent yet (the ones already done keep their tick), with why in a few
+          // words when it is known (the whole message is in the toast). A lost network does not get here: the upload
+          // waits for it (lib/storageUpload).
+          handles.forEach(h => h.fail(failReason(e)));
           throw e;
         }
       },
