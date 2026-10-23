@@ -7,7 +7,7 @@ import { lang, locale, t } from '../../i18n';
 
 export type LegalDoc = 'mentions' | 'confidentialite' | 'conditions';
 
-const UPDATED = new Date(2026, 9, 19).toLocaleDateString(locale(), { day: 'numeric', month: 'long', year: 'numeric' });
+const UPDATED = new Date(2026, 9, 23).toLocaleDateString(locale(), { day: 'numeric', month: 'long', year: 'numeric' });
 const CONTACT = 'contact@kompaly.com';
 
 type Section = { title: string; body: string[] };
@@ -53,6 +53,8 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
         title: t('Données collectées'),
         body: [
           t('Compte : prénom, adresse e-mail, mot de passe (enregistré sous forme chiffrée, jamais lisible), double authentification.'),
+          t('Connexion avec Google ou Apple, si tu l’utilises : ce service nous transmet ton nom, ton adresse e-mail (Apple peut te proposer une adresse masquée), un identifiant propre à ton compte chez lui et, pour Google, l’adresse de ta photo de profil. Kompaly n’utilise que ton prénom et ton e-mail ; il n’a accès à rien d’autre de ce compte (ni e-mails, ni fichiers, ni agenda).'),
+          t('L’utilisation par Kompaly des informations reçues des API de Google respecte la Google API Services User Data Policy, y compris ses exigences d’utilisation limitée (Limited Use).'),
           t('Face ID ou empreinte, si tu l’actives : la vérification se fait sur ton appareil. Kompaly ne reçoit ni ton visage ni ton empreinte, seulement une clé publique (qui prouve que c’est bien ton appareil), son nom (« iPhone », « Mac »…) et ses dates d’ajout et de dernière utilisation.'),
           t('Contenus : fichiers du Drive, notes, événements, tâches, sessions de concentration, groupes et agendas partagés et ce que tu y partages, enregistrements (le texte écrit à partir du son, tes mots-clés et les documents créés), réglages (thème, profil d’études ou de travail facultatif).'),
           t('Technique : journaux d’erreurs du serveur (page concernée et message d’erreur, sans le contenu de tes documents) pour corriger les bugs.'),
@@ -93,6 +95,8 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
           t('Personne d’autre que toi pour ton espace personnel. Les membres d’un groupe voient ce qui est partagé dans ce groupe.'),
           t('L’administrateur du site (l’éditeur) voit la liste des comptes pour faire fonctionner le service : prénom, e-mail, dates d’inscription et de dernière connexion, double authentification activée ou non, nombre de notes, d’événements et de fichiers, espace utilisé, noms des catégories que tu crées (sans tes événements). Il lit aussi les messages « Avis ou bug » et les signalements, avec la copie du contenu signalé. Jamais le reste du contenu de tes notes, fichiers ou événements.'),
           t('Nos sous-traitants techniques les traitent uniquement pour faire fonctionner le service : Render (hébergement du site, serveurs à Francfort, Allemagne), Supabase (comptes, données et fichiers, serveurs en Irlande), Resend (envoi des e-mails du compte : confirmation, mot de passe oublié ; reçoit ton adresse e-mail, serveurs en Irlande), Cloudflare (vérification anti-robot Turnstile à l’inscription et à la connexion : reçoit ton adresse IP et des informations sur ton navigateur le temps de la vérification, sans pistage publicitaire ; et mesure d’audience anonyme ; contrat de traitement et clauses contractuelles types) et Groq (fournisseur d’IA indiqué plus haut, et transcription du son des enregistrements, sans conservation).'),
+          t('Plusieurs de ces prestataires sont des sociétés établies hors de l’Union européenne (États-Unis, Singapour). Même quand leurs serveurs sont en Europe, leurs contrats de traitement des données prévoient les clauses contractuelles types de la Commission européenne ou le cadre de protection des données UE–États-Unis (Data Privacy Framework).'),
+          t('Si tu te connectes avec Google ou Apple, ce service sait que tu utilises Kompaly, selon sa propre politique de confidentialité.'),
           t('Les notifications passent par le service de notifications de ton navigateur ou de ton téléphone (Google pour Chrome et Android, Apple pour Safari et iPhone, Mozilla pour Firefox, Microsoft pour Edge) : le message est chiffré de bout en bout, ce service ne peut pas le lire, il le transmet seulement à ton appareil.'),
         ],
       },
@@ -100,7 +104,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
         title: t('Durée de conservation'),
         body: [
           t('Tant que ton compte existe. Ce que tu mets à la corbeille est supprimé définitivement au bout de 30 jours.'),
-          t('« Supprimer définitivement mon compte » (Profil › Compte) efface immédiatement ton compte, tes contenus et tes fichiers en ligne. Un rappel est effacé de nos serveurs une semaine après son envoi ; un appareil cesse d’en recevoir dès que tu désactives les notifications, que tu te déconnectes sans « Garder la session ouverte sur cet appareil » ou que tu le retires. Les journaux d’erreurs sont gardés au plus 12 mois, les messages « Avis ou bug » et les signalements au plus 2 ans (sans ton nom ni ton e-mail une fois ton compte supprimé).'),
+          t('« Supprimer définitivement mon compte » (Profil › Compte) efface immédiatement ton compte, tes contenus et tes fichiers en ligne. Un rappel est effacé de nos serveurs une semaine après son envoi ; un appareil cesse d’en recevoir dès que tu désactives les notifications, que tu te déconnectes sans « Rester connecté » ou que tu le retires. Les journaux d’erreurs sont gardés au plus 12 mois, les messages « Avis ou bug » et les signalements au plus 2 ans (sans ton nom ni ton e-mail une fois ton compte supprimé).'),
         ],
       },
       {
@@ -108,7 +112,8 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
         body: [
           t('Kompaly garde une copie de tes données dans ton navigateur pour fonctionner vite et hors ligne, et pour rester connecté. Il s’agit uniquement de stockage nécessaire au service : aucun cookie publicitaire ni de mesure d’audience, donc pas de bandeau de consentement.'),
           t('Pour savoir combien de personnes utilisent Kompaly et si les pages s’affichent vite, nous comptons les visites avec Cloudflare Web Analytics : la page vue, le site d’où tu viens, ton pays, le type d’appareil et de navigateur, le temps d’affichage. Sans cookie, sans rien enregistrer sur ton appareil et sans identifiant : une visite ne peut pas être reliée à toi ni à tes visites suivantes, et rien n’est utilisé pour de la publicité.'),
-          t('Avec « Garder la session ouverte sur cet appareil » (case de la page de connexion), ton compte reste proposé sur la page de connexion de cet appareil (prénom, e-mail et session) pour l’ouvrir en un clic, même après une déconnexion ; au bout de 14 jours sans l’ouvrir, le mot de passe est redemandé. « Retirer de cet appareil » (la croix à côté du compte) l’efface et ferme sa session. Sans cette case, la déconnexion efface la copie et la session.'),
+          t('Pour que la recherche trouve les mots à l’intérieur de tes PDF, Word et PowerPoint, Kompaly lit leur texte dans ton navigateur et le garde sur ton appareil. Ce texte n’est envoyé à personne ; il est effacé à la déconnexion, avec la copie de tes données, quand « Rester connecté » n’est pas cochée.'),
+          t('Avec « Rester connecté » (case de la page de connexion), ton compte reste proposé sur la page de connexion de cet appareil (prénom, e-mail et session) pour l’ouvrir en un clic, même après une déconnexion ; au bout de 14 jours sans l’ouvrir, le mot de passe est redemandé. « Retirer de cet appareil » (la croix à côté du compte) l’efface et ferme sa session. Sans cette case, la déconnexion efface la copie et la session.'),
         ],
       },
       {
@@ -137,6 +142,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
           t('Kompaly est ouvert dès 15 ans. Avant 15 ans, il faut l’accord d’un parent ou d’un responsable légal pour créer un compte.'),
           t('Une vérification anti-robot peut être demandée à l’inscription et à la connexion.'),
           t('Tu es responsable de ton mot de passe et, si tu l’actives, de ton téléphone de double authentification. Garde ta clé de secours en lieu sûr : sans elle, un téléphone perdu peut bloquer l’accès au compte.'),
+          t('Si tu te connectes avec Google, Apple, Face ID ou ton empreinte, la sécurité de ton compte Kompaly dépend aussi de ce compte ou de cet appareil : protège-les comme ton mot de passe.'),
           t('Limites actuelles : 50 Mo par fichier, 1 Go d’espace par compte, un nombre limité de questions par jour à Kompaly en mode intelligent et de minutes d’enregistrement écrites par jour.'),
         ],
       },
