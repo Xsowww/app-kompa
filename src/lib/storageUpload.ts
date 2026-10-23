@@ -28,10 +28,13 @@ type Options = { upsert?: boolean; cacheControl?: string };
  * progress does not go back below the level reached (it stays there while the lost part is sent again).
  * A cancelled file's session is closed with abandonUpload().
  */
+// The server refused the resumable upload (no such route, its answer unreadable from the page): the standard one, as before.
+let tusOff = false;
+
 export async function storageUpload(bucket: string, path: string, blob: Blob, options: Options, onProgress?: (loaded: number) => void, signal?: AbortSignal): Promise<{ error: UploadError | null }> {
   if (!supabase || !url || !key) return { error: fail('Storage is not configured', '500', 500) };
   if (signal?.aborted) return { error: aborted() };
-  return blob.size > TUS_CHUNK ? resumable(bucket, cleanPath(path), blob, options, onProgress, signal) : standard(bucket, cleanPath(path), blob, options, onProgress, signal);
+  return blob.size > TUS_CHUNK && !tusOff ? resumable(bucket, cleanPath(path), blob, options, onProgress, signal) : standard(bucket, cleanPath(path), blob, options, onProgress, signal);
 }
 
 const token = async () => (await supabase!.auth.getSession()).data.session?.access_token ?? key!;
@@ -162,8 +165,20 @@ async function resumable(bucket: string, clean: string, blob: Blob, options: Opt
       let offset = 0;
       if (!s.location) {
         // A new session (the first time, or the previous one expired).
-        const a = await request('POST', endpoint, creationHeaders(await headers(), blob.size, { bucketName: bucket, objectName: clean, contentType: blob.type || 'application/octet-stream', cacheControl: options.cacheControl ?? '3600' }), null, signal);
+        const fallBack = () => {
+          tusOff = true;
+          sessions.delete(id);
+          return standard(bucket, clean, blob, options, onProgress, signal);
+        };
+        let a: Answer;
+        try {
+          a = await request('POST', endpoint, creationHeaders(await headers(), blob.size, { bucketName: bucket, objectName: clean, contentType: blob.type || 'application/octet-stream', cacheControl: options.cacheControl ?? '3600' }), null, signal);
+        } catch (e) {
+          if ((e as Error).name !== 'AbortError' && navigator.onLine) return await fallBack();
+          throw e;
+        }
         const at = a.header('Location');
+        if ((a.status === 201 && !at) || [404, 405, 501].includes(a.status)) return await fallBack();
         if (a.status !== 201 || !at) throw refused(a);
         s.location = new URL(at, endpoint).href;
       } else {

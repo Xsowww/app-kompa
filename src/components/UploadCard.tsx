@@ -32,11 +32,11 @@ function headline({ total, failed, active, paused }: ReturnType<typeof uploadSum
   return failed ? tn(failed, '{n} fichier non importé', '{n} fichiers non importés') : tn(total, '{n} fichier importé', '{n} fichiers importés');
 }
 
-/** Grey while paused (the file starts over when resumed). */
+/** Grey while paused, at the level reached (files over 6 Mo go on from there; smaller ones, a few seconds' work, start over). */
 function Bar({ value, label, paused, className }: { value: number; label: string; paused?: boolean; className?: string }) {
   return (
     <div role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={value} aria-valuetext={paused ? t('En pause') : undefined} aria-label={label} className={cx('overflow-hidden rounded-full bg-stone-100', className)}>
-      <div className={cx('h-full rounded-full transition-[width] duration-300 motion-reduce:transition-none', paused ? 'bg-stone-400' : 'bg-brand-500')} style={{ width: `${paused ? 100 : value}%` }} />
+      <div className={cx('h-full rounded-full transition-[width] duration-300 motion-reduce:transition-none', paused ? 'bg-stone-400' : 'bg-brand-500')} style={{ width: `${value}%` }} />
     </div>
   );
 }
