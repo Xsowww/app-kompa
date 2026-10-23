@@ -5,28 +5,32 @@
 import { blobStore } from './blobStore';
 import { blobKey, getStorageUser } from './userStorage';
 import { useDrive, categoryOf, isPlainText, type DriveItem } from '../store/drive';
+import { cloudEnabled } from './supabase';
 import { docxText, pdfPages } from './docText';
-import { fold, findIn } from './textFind';
+import { fold, findIn, folding, glue, highlightParts, original, pageAt, unhyphen, type Glued } from './textFind';
 
-export { fold, findIn };
+export { fold, findIn, highlightParts };
 
-// -2: texts read again with the spaces between words of PDFs put back (docText.pageText); the first one is deleted.
-const DB_NAME = 'cop-pilot-text-2';
-const OLD_DB = 'cop-pilot-text';
+// -2: texts read again with the spaces between words of PDFs put back (docText.pageText).
+// -3: a PDF's entry also says where each of its pages starts (a result opens on its page). The older ones are deleted.
+const DB_NAME = 'cop-pilot-text-3';
+const OLD_DBS = ['cop-pilot-text', 'cop-pilot-text-2'];
 /** Stored for a file read without any text in it (a scan…), so it isn't read again. */
 const NO_TEXT = '\u0000';
 const STORE = 'texts';
 /** Bigger files are not worth downloading and parsing just for the search. */
 const MAX_FILE_SIZE = 30 * 1024 * 1024;
-const MAX_TEXT = 400_000;
+const MAX_TEXT = 2_000_000;
 const MAX_PDF_PAGES = 400;
+/** Online on a phone's data (or with « save data » on): only the files up to this size are read, the others on wifi. */
+const SAVE_DATA_SIZE = 5 * 1024 * 1024;
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
 function openDb(): Promise<IDBDatabase> {
   if (!dbPromise) {
     dbPromise = new Promise((resolve, reject) => {
-      indexedDB.deleteDatabase(OLD_DB);
+      OLD_DBS.forEach(n => indexedDB.deleteDatabase(n));
       const req = indexedDB.open(DB_NAME, 1);
       req.onupgradeneeded = () => req.result.createObjectStore(STORE);
       req.onsuccess = () => resolve(req.result);
@@ -42,8 +46,7 @@ export async function forgetTextIndex() {
   db?.close();
   dbPromise = null;
   failed.clear();
-  indexedDB.deleteDatabase(DB_NAME);
-  indexedDB.deleteDatabase(OLD_DB);
+  [DB_NAME, ...OLD_DBS].forEach(n => indexedDB.deleteDatabase(n));
 }
 
 // ── Who wants to know: the searches run again when files were read ─────────
@@ -56,8 +59,8 @@ export function onIndexChange(fn: () => void) {
   return () => void listeners.delete(fn);
 }
 const changed = () => listeners.forEach(fn => fn());
-/** Files are being read right now (a search may find more in a moment). */
-export const isIndexing = () => busy;
+/** Files are being read right now (a search may find more in a moment): the background pass, or a file just imported. */
+export const isIndexing = () => busy || inFlight.size > 0;
 
 function run<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<T>): Promise<T> {
   return openDb().then(
@@ -68,23 +71,6 @@ function run<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<
         req.onerror = () => reject(req.error);
       }),
   );
-}
-
-/** Splits `text` around the matches of `query`, for highlighting. */
-export function highlightParts(text: string, query: string): { text: string; hit: boolean }[] {
-  text = text.normalize('NFC'); // « É » written as « E » + accent (files from a Mac) is found as « e »
-  const q = fold(query.trim());
-  if (!q) return [{ text, hit: false }];
-  const f = fold(text);
-  const parts: { text: string; hit: boolean }[] = [];
-  let pos = 0;
-  for (let i = f.indexOf(q); i >= 0; i = f.indexOf(q, i + q.length)) {
-    if (i > pos) parts.push({ text: text.slice(pos, i), hit: false });
-    parts.push({ text: text.slice(i, i + q.length), hit: true });
-    pos = i + q.length;
-  }
-  if (pos < text.length) parts.push({ text: text.slice(pos), hit: false });
-  return parts;
 }
 
 // ── Extraction ─────────────────────────────────────────────────────────────
@@ -101,6 +87,12 @@ function kindOf(item: Pick<DriveItem, 'kind' | 'mime' | 'name' | 'size'>): Kind 
   return null;
 }
 
+/** Online on a phone's data, or « save data » on: the big files wait for wifi (the first search downloaded them all). */
+function savingData() {
+  const c = (navigator as Navigator & { connection?: { saveData?: boolean; type?: string } }).connection;
+  return cloudEnabled && !!(c?.saveData || c?.type === 'cellular');
+}
+
 /** Text of every slide of a PowerPoint file (jszip is loaded on demand). */
 async function pptxText(blob: Blob) {
   const { default: JSZip } = await import('jszip');
@@ -115,25 +107,43 @@ async function pptxText(blob: Blob) {
   return parts.join('\n');
 }
 
+const collapse = (s: string) => s.normalize('NFC').replace(/\s+/g, ' ').trim();
+
+/** What is stored: the text, and for a PDF where each page starts in it. */
+interface Stored {
+  text: string;
+  pages?: number[];
+}
+
 /** Plain text of a file, whitespace collapsed (snippets read better on one line). */
-async function extract(kind: Kind, blob: Blob) {
-  const raw =
-    kind === 'pdf'
-      ? (await pdfPages(blob, MAX_TEXT, MAX_PDF_PAGES)).pages.join('\n')
-      : kind === 'docx'
-        ? await docxText(blob)
-        : kind === 'pptx'
-          ? await pptxText(blob)
-          : await blob.slice(0, MAX_TEXT * 2).text();
-  return raw.normalize('NFC').replace(/\s+/g, ' ').trim().slice(0, MAX_TEXT);
+async function extract(kind: Kind, blob: Blob): Promise<Stored> {
+  if (kind === 'pdf') {
+    const pages: number[] = [];
+    let text = '';
+    for (const p of (await pdfPages(blob, MAX_TEXT, MAX_PDF_PAGES)).pages) {
+      if (text.length >= MAX_TEXT) break;
+      const c = collapse(p);
+      if (text && c) text += ' ';
+      pages.push(text.length);
+      text += c;
+    }
+    return { text: text.slice(0, MAX_TEXT), pages };
+  }
+  const raw = kind === 'docx' ? await docxText(blob) : kind === 'pptx' ? await pptxText(blob) : await blob.slice(0, MAX_TEXT * 2).text();
+  return { text: collapse(raw).slice(0, MAX_TEXT) };
 }
 
 // ── In-memory copy of the current user's index ─────────────────────────────
 
-interface Indexed {
-  text: string;
+interface Indexed extends Stored {
   folded: string;
+  /** folding()'s: null when the folded text is at the same places as the text. */
+  map: Int32Array | null;
+  /** glue(folded), made the first time a search is not found as typed, then kept (not made again at every key). */
+  glued?: Glued;
 }
+
+const indexed = ({ text, pages }: Stored): Indexed => ({ text, pages, ...folding(text) });
 
 let cache: { user: string; map: Map<string, Indexed> } | null = null;
 let loading: Promise<Map<string, Indexed>> | null = null;
@@ -145,12 +155,12 @@ async function load(): Promise<Map<string, Indexed>> {
   if (!loading) {
     loading = (async () => {
       const range = IDBKeyRange.bound(`${user}:`, `${user}:￿`);
-      const [keys, values] = await Promise.all([run('readonly', s => s.getAllKeys(range)), run<string[]>('readonly', s => s.getAll(range))]);
+      const [keys, values] = await Promise.all([run('readonly', s => s.getAllKeys(range)), run<(Stored | string)[]>('readonly', s => s.getAll(range))]);
       const map = new Map<string, Indexed>();
       keys.forEach((k, i) => {
         const id = String(k).slice(user.length + 1);
-        const text = values[i] === NO_TEXT ? '' : values[i];
-        map.set(id, { text, folded: fold(text.normalize('NFC')) });
+        const v = values[i];
+        map.set(id, indexed(typeof v === 'string' ? { text: v === NO_TEXT ? '' : v } : v));
       });
       cache = { user, map };
       return map;
@@ -169,26 +179,28 @@ export async function indexFile(item: DriveItem, blob?: Blob) {
   const user = getStorageUser();
   if (!kind || !user || inFlight.has(item.id) || failed.has(item.id)) return;
   inFlight.add(item.id);
+  // From now on the search says « je lis encore » (a file just imported is read outside the background pass).
+  if (inFlight.size === 1 && !busy) changed();
   try {
     const map = await load();
     if (map.has(item.id)) return;
     const data = blob ?? (await blobStore.get(blobKey(item.id)));
     if (!data) return void failed.add(item.id);
-    let text: string;
+    let got: Stored;
     try {
-      text = await extract(kind, data);
+      got = await extract(kind, data);
     } catch {
       // Damaged or protected file, or pdf.js not loaded (connection lost): not stored, read again next session.
       return void failed.add(item.id);
     }
-    await run('readwrite', s => s.put(text || NO_TEXT, `${user}:${item.id}`));
-    if (cache?.user === user) cache.map.set(item.id, { text, folded: fold(text) });
-    changed();
+    await run('readwrite', s => s.put(got.text ? got : NO_TEXT, `${user}:${item.id}`));
+    if (cache?.user === user) cache.map.set(item.id, indexed(got));
   } catch {
     // IndexedDB unavailable (private browsing…): the search falls back to names only.
     failed.add(item.id);
   } finally {
     inFlight.delete(item.id);
+    changed();
   }
 }
 
@@ -224,7 +236,8 @@ export function startTextIndexing(): () => void {
         again = false;
         const map = await load();
         await prune(map);
-        const todo = useDrive.getState().items.filter(i => kindOf(i) && !map.has(i.id) && !inFlight.has(i.id) && !failed.has(i.id));
+        const small = savingData();
+        const todo = useDrive.getState().items.filter(i => kindOf(i) && !map.has(i.id) && !inFlight.has(i.id) && !failed.has(i.id) && (!small || (i.size ?? 0) <= SAVE_DATA_SIZE));
         if (todo.length && !busy) {
           busy = true;
           changed();
@@ -252,10 +265,14 @@ export function startTextIndexing(): () => void {
   const unsub = useDrive.subscribe((s, p) => {
     if (s.items !== p.items || s.trash !== p.trash) schedule();
   });
+  // On wifi again: the big files left aside are read.
+  const connection = (navigator as Navigator & { connection?: EventTarget }).connection;
+  connection?.addEventListener?.('change', schedule);
   return () => {
     stopped = true;
     clearTimeout(timer);
     unsub();
+    connection?.removeEventListener?.('change', schedule);
   };
 }
 
@@ -263,6 +280,8 @@ export interface ContentMatch {
   id: string;
   /** About 160 characters around the first match. */
   snippet: string;
+  /** A PDF: the page of the first match (from 1). */
+  page?: number;
 }
 
 function snippetAround(text: string, at: number, len: number) {
@@ -273,7 +292,7 @@ function snippetAround(text: string, at: number, len: number) {
   if (start > 0 && sp >= 0 && sp < at) start = sp + 1;
   const ep = text.lastIndexOf(' ', end);
   if (end < text.length && ep > at + len) end = ep;
-  return `${start > 0 ? '…' : ''}${text.slice(start, end)}${end < text.length ? '…' : ''}`;
+  return `${start > 0 ? '…' : ''}${unhyphen(text.slice(start, end))}${end < text.length ? '…' : ''}`;
 }
 
 /**
@@ -293,14 +312,16 @@ export async function searchFileContents(query: string, limit = 20): Promise<Con
   for (const item of useDrive.getState().items) {
     const entry = map.get(item.id);
     if (!entry) continue;
-    const { at, len } = findIn(entry.folded, q);
-    if (at < 0) continue;
+    let found = { at: entry.folded.indexOf(q), len: q.length };
+    if (found.at < 0) found = findIn(entry.folded, q, (entry.glued ??= glue(entry.folded)));
+    if (found.at < 0) continue;
     let count = 0;
     for (let i = entry.folded.indexOf(q); i >= 0 && count < 50; i = entry.folded.indexOf(q, i + q.length)) count++;
-    hits.push({ id: item.id, snippet: snippetAround(entry.text, at, len), count: Math.max(count, 1) });
+    const { at, len } = original(entry.map, found.at, found.len);
+    hits.push({ id: item.id, snippet: snippetAround(entry.text, at, len), page: entry.pages && pageAt(entry.pages, at), count: Math.max(count, 1) });
   }
   return hits
     .sort((a, b) => b.count - a.count)
     .slice(0, limit)
-    .map(({ id, snippet }) => ({ id, snippet }));
+    .map(({ id, snippet, page }) => ({ id, snippet, page }));
 }

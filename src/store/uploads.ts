@@ -19,6 +19,8 @@ export interface Upload {
   status: UploadStatus;
   /** Where it goes: `drive:<folderId|root>` or `group:<groupId>`. */
   where?: string;
+  /** Why it failed, in a few words (« Plus de 50 Mo »): shown on its line instead of « Échec ». */
+  reason?: string;
 }
 
 export interface UploadHandle {
@@ -26,7 +28,8 @@ export interface UploadHandle {
   /** Bytes sent so far; `total` when the size was not known at the start. */
   progress(loaded: number, total?: number): void;
   done(): void;
-  fail(): void;
+  /** `reason`: a few words, see Upload. */
+  fail(reason?: string): void;
   /** Aborted when this file is paused or cancelled: give it to the request. A fresh one for each attempt. */
   readonly signal: AbortSignal;
   /** Resolves at once, or when the file is resumed (or cancelled) if it is paused. */
@@ -38,8 +41,13 @@ export interface UploadHandle {
 /** Not over yet: on its way, waiting its turn, or paused. */
 export const notOver = (u: Upload) => u.status === 'active' || u.status === 'paused';
 
-/** `shownAt`: the place whose own list already shows its files coming in (the Drive folder open): the card leaves them out. */
-export const useUploads = create<{ items: Upload[]; shownAt: string | null }>(() => ({ items: [], shownAt: null }));
+/**
+ * `shownAt`: the place whose own list already shows its files coming in (the Drive folder open): the card leaves them out.
+ * `offline`: no network; the files on their way wait for it (lib/storageUpload goes on by itself once it is back).
+ */
+export const useUploads = create<{ items: Upload[]; shownAt: string | null; offline: boolean }>(() => ({ items: [], shownAt: null, offline: globalThis.navigator?.onLine === false }));
+globalThis.addEventListener?.('online', () => useUploads.setState({ offline: false }));
+globalThis.addEventListener?.('offline', () => useUploads.setState({ offline: true }));
 
 /** What the card shows: everything, except what the open page already shows in place (its failures stay). */
 export const cardItems = (items: Upload[], shownAt: string | null) => (shownAt ? items.filter(u => u.where !== shownAt || u.status === 'error') : items);
@@ -93,15 +101,15 @@ export function trackUpload(name: string, size: number, where?: string): UploadH
   controls.set(id, c);
   useUploads.setState({ items: [...keep, { id, name, size, loaded: 0, status: 'active', where }] });
   settle();
-  const end = (status: 'done' | 'error') => {
+  const end = (status: 'done' | 'error', reason?: string) => {
     controls.delete(id);
-    patch(id, notOver, u => ({ status, loaded: status === 'done' ? u.size : u.loaded }));
+    patch(id, notOver, u => ({ status, reason, loaded: status === 'done' ? u.size : u.loaded }));
   };
   return {
     id,
     progress: (loaded, total) => patch(id, u => u.status === 'active', u => ({ size: total ?? u.size, loaded: Math.min(loaded, total ?? u.size) })),
     done: () => end('done'),
-    fail: () => end('error'),
+    fail: reason => end('error', reason),
     get signal() {
       return c.ctrl.signal;
     },

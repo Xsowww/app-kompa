@@ -10,7 +10,7 @@ import Tour from '../components/Tour';
 import { startProactive } from '../copilot/proactive';
 import { HIT_LABEL, linkToDriveFile, registerNavigate, search, type SearchHit } from '../copilot/actions';
 import { useDrive } from '../store/drive';
-import { fold as foldText } from '../lib/textFind';
+import { findIn, fold, folding, highlightParts } from '../lib/textFind';
 import Logo from '../components/Logo';
 import Avatar from '../components/Avatar';
 import FocusTimer from '../components/FocusTimer';
@@ -67,28 +67,29 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigat
 let readingStarted = false;
 const textIndex = () => import('../lib/textIndex');
 type FileHit = SearchHit & { snippet: string };
+/** Content results shown in the list; more than that: a last line « Voir tout dans le Drive ». */
+const IN_FILES = 4;
 /** A few words before the match, so that it shows on the one line of the result. */
-function shortSnippet(snippet: string, q: string, find: (folded: string, q: string) => { at: number }, fold: (s: string) => string) {
-  const at = find(fold(snippet), fold(q.trim())).at;
+function shortSnippet(snippet: string, q: string) {
+  const { folded, map } = folding(snippet);
+  const i = Math.max(0, findIn(folded, fold(q.trim())).at);
+  const at = map ? map[i] : i;
   if (at <= 30) return snippet;
   const cut = snippet.indexOf(' ', at - 28);
   return `…${snippet.slice(cut >= 0 && cut < at ? cut + 1 : at - 24)}`;
 }
 
-/** The words searched for in bold, in an extract of a file (as typed, accents and case aside). */
-function highlight(text: string, q: string) {
-  const parts: React.ReactNode[] = [];
-  const folded = foldText(text);
-  const fq = foldText(q.trim());
-  let pos = 0;
-  for (let i = fq ? folded.indexOf(fq) : -1; i >= 0; i = folded.indexOf(fq, i + fq.length)) {
-    if (i > pos) parts.push(text.slice(pos, i));
-    parts.push(<mark key={i} className="bg-transparent font-semibold text-ink">{text.slice(i, i + fq.length)}</mark>);
-    pos = i + fq.length;
-  }
-  parts.push(text.slice(pos));
-  return parts;
-}
+/** The words searched for in bold, in an extract of a file (as typed, accents and case aside; also a word glued back). */
+const highlight = (text: string, q: string) =>
+  highlightParts(text, q).map((p, i) =>
+    p.hit ? (
+      <mark key={i} className="bg-transparent font-semibold text-ink">
+        {p.text}
+      </mark>
+    ) : (
+      p.text
+    ),
+  );
 
 /** `onDone(cancelled)`: closed with Échap (true) or a result chosen (false). */
 function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (cancelled: boolean) => void }) {
@@ -97,13 +98,19 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const closing = useRef<ReturnType<typeof setTimeout>>(undefined);
   // The groups' and shared calendars' notes and events already read too (no request to the server).
   const named = q.trim() ? search(q, 8, useGroups.getState()) : [];
   // Files whose content has the words (not already found by their name), after the rest.
-  const [inFiles, setInFiles] = useState<FileHit[]>([]);
+  // With the query they answer: those of a previous one (typed fast, then Entrée) are not shown nor opened.
+  const [content, setContent] = useState<{ q: string; hits: FileHit[]; more: boolean }>({ q: '', hits: [], more: false });
+  const fresh = content.q === q.trim();
+  const inFiles = fresh ? content.hits : [];
   const [reading, setReading] = useState(false);
   const [indexed, setIndexed] = useState(0);
-  const hits: (SearchHit | FileHit)[] = [...named, ...inFiles.filter(f => !named.some(h => h.type === 'fichier' && h.id === f.id))];
+  // Last line when there are more files than shown: the Drive's own search (names and content, everything).
+  const seeAll: SearchHit | null = fresh && content.more ? { type: 'dossier', id: 'drive-search', title: t('Voir tout dans le Drive'), where: '', to: `/drive?q=${encodeURIComponent(q.trim())}` } : null;
+  const hits: (SearchHit | FileHit)[] = [...named, ...inFiles.filter(f => !named.some(h => h.type === 'fichier' && h.id === f.id)), ...(seeAll ? [seeAll] : [])];
   const startReading = () => {
     if (readingStarted) return;
     readingStarted = true;
@@ -131,15 +138,17 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
     const timer = setTimeout(
       () =>
         void textIndex().then(async m => {
-          const found = query.length < 2 ? [] : await m.searchFileContents(query, 4);
+          const found = query.length < 2 ? [] : await m.searchFileContents(query, IN_FILES + 1);
           if (cancelled) return;
           const items = useDrive.getState().items;
-          setInFiles(
-            found.flatMap(f => {
+          setContent({
+            q: query,
+            more: found.length > IN_FILES,
+            hits: found.slice(0, IN_FILES).flatMap(f => {
               const it = items.find(i => i.id === f.id);
-              return it ? [{ type: 'fichier' as const, id: it.id, title: it.name, where: '', snippet: shortSnippet(f.snippet, query, m.findIn, m.fold), to: linkToDriveFile(it) }] : [];
+              return it ? [{ type: 'fichier' as const, id: it.id, title: it.name, where: '', snippet: shortSnippet(f.snippet, query), to: linkToDriveFile(it, f.page) }] : [];
             }),
-          );
+          });
         }),
       query.length < 2 ? 0 : 200,
     );
@@ -192,8 +201,9 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
           setActive(0);
           setOpen(true);
         }}
-        onFocus={() => (setOpen(true), startReading())}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onFocus={() => (clearTimeout(closing.current), setOpen(true), startReading())}
+        // Closed a moment later (a click on a result lands first); not if the field got the focus back meanwhile.
+        onBlur={() => (closing.current = setTimeout(() => setOpen(false), 150))}
         onKeyDown={e => {
           // The arrows move in the results, not the caret.
           if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
@@ -220,7 +230,8 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
         className="h-10 w-full rounded-[14px] border border-transparent bg-surface pl-9 pr-14 text-[13.5px] text-ink outline-none transition placeholder:text-stone-500 hover:border-stone-200 focus:border-focus focus:ring-1 focus:ring-focus"
       />
       <span aria-hidden className="kbd pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 sm:inline-flex">{isMac ? '⌘' : t('Ctrl')} K</span>
-      {open && q.trim() && (
+      {/* Not before the files' content answered this query (no « Aucun résultat » flashing while it is looked for). */}
+      {open && q.trim() && (hits.length > 0 || fresh) && (
         <div id="recherche-resultats" role="listbox" aria-label={t('Résultats de recherche')} className="enter absolute left-0 right-0 top-12 z-40 overflow-hidden rounded-[18px] border border-stone-200 bg-surface p-1 shadow-pop">
           {/* The field keeps the focus (and the list stays open) while « Effacer la recherche » is pressed. */}
           {hits.length === 0 && (
@@ -235,7 +246,7 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
             </div>
           )}
           {hits.map((h, i) => {
-            const Icon = HIT_ICON[h.type];
+            const Icon = h === seeAll ? Search : HIT_ICON[h.type];
             return (
               <button
                 key={h.type + h.id}
@@ -258,7 +269,7 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
                     h.where && <span className="block truncate text-[12px] text-stone-500">{h.where}</span>
                   )}
                 </span>
-                <span className="inline-block shrink-0 text-[11px] text-stone-500 first-letter:uppercase">{HIT_LABEL[h.type]}</span>
+                {h !== seeAll && <span className="inline-block shrink-0 text-[11px] text-stone-500 first-letter:uppercase">{HIT_LABEL[h.type]}</span>}
               </button>
             );
           })}

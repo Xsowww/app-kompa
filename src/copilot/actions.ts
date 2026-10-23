@@ -27,8 +27,9 @@ export const registerNavigate = (fn: (to: string) => void) => {
 export const goTo = (to: string) => navigateFn?.(to);
 
 export const linkToDriveFolder = (id: string | null) => (id ? `/drive?dossier=${id}` : '/drive');
-/** A file in its folder, its preview open. */
-export const linkToDriveFile = (it: { id: string; parentId: string | null }) => `${linkToDriveFolder(it.parentId)}${it.parentId ? '&' : '?'}fichier=${it.id}`;
+/** A file in its folder, its preview open (a PDF on `page`, when given). */
+export const linkToDriveFile = (it: { id: string; parentId: string | null }, page?: number) =>
+  `${linkToDriveFolder(it.parentId)}${it.parentId ? '&' : '?'}fichier=${it.id}${page && page > 1 ? `&page=${page}` : ''}`;
 export const linkToNote = (id: string) => `/notes?note=${id}`;
 /** A day of the calendar; with an event, that event glows once there (lib/flash). */
 export const linkToDay = (date: string, eventId?: string) => `/calendrier?jour=${date}${eventId ? `&evt=${eventId}` : ''}`;

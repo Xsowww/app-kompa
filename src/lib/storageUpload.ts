@@ -12,6 +12,31 @@ const fail = (message: string, statusCode: string, status?: number): UploadError
 const aborted = (): UploadError => Object.assign(new Error('Upload aborted'), { name: 'AbortError', statusCode: 'aborted' });
 /** Same message as a failed fetch, which the error helpers read as « no connection ». */
 const offline = () => fail('Failed to fetch', '');
+const isOffline = (e: UploadError | null) => e?.message === 'Failed to fetch' && e.statusCode === '';
+
+/** Asked again this many times when the network says it is there but no answer comes (a server out of reach…). */
+const RETRIES = 5;
+
+/**
+ * Waits for the network: until it is back (`online`), or a few seconds while the browser thinks it is there (a
+ * flaky wifi, a server out of reach). Rejects with an AbortError when the signal stops it (a pause, a cancellation).
+ */
+const backOnline = (tries: number, signal?: AbortSignal) =>
+  new Promise<void>((resolve, reject) => {
+    const done = (ok: boolean) => {
+      clearTimeout(timer);
+      removeEventListener('online', back);
+      signal?.removeEventListener('abort', stop);
+      if (ok) resolve();
+      else reject(aborted());
+    };
+    const back = () => done(true);
+    const stop = () => done(false);
+    const timer = navigator.onLine ? setTimeout(back, 2000 * 2 ** tries) : undefined;
+    addEventListener('online', back);
+    signal?.addEventListener('abort', stop, { once: true });
+    if (signal?.aborted) stop();
+  });
 
 const cleanPath = (path: string) => path.replace(/^\/|\/$/g, '').replace(/\/+/g, '/');
 type Options = { upsert?: boolean; cacheControl?: string };
@@ -34,7 +59,21 @@ let tusOff = false;
 export async function storageUpload(bucket: string, path: string, blob: Blob, options: Options, onProgress?: (loaded: number) => void, signal?: AbortSignal): Promise<{ error: UploadError | null }> {
   if (!supabase || !url || !key) return { error: fail('Storage is not configured', '500', 500) };
   if (signal?.aborted) return { error: aborted() };
-  return blob.size > TUS_CHUNK && !tusOff ? resumable(bucket, cleanPath(path), blob, options, onProgress, signal) : standard(bucket, cleanPath(path), blob, options, onProgress, signal);
+  // Network lost on the way: the file waits for it, then goes on (over 6 Mo, from what the server kept; a smaller
+  // one from its start). The files after it wait their turn. A failure only if no answer ever comes while online.
+  for (let tries = 0; ; ) {
+    const r = blob.size > TUS_CHUNK && !tusOff ? await resumable(bucket, cleanPath(path), blob, options, onProgress, signal) : await standard(bucket, cleanPath(path), blob, options, onProgress, signal);
+    if (!isOffline(r.error)) return r;
+    if (navigator.onLine && ++tries > RETRIES) {
+      await abandonUpload(bucket, path);
+      return r;
+    }
+    try {
+      await backOnline(tries, signal);
+    } catch (e) {
+      return { error: e as UploadError };
+    }
+  }
 }
 
 const token = async () => (await supabase!.auth.getSession()).data.session?.access_token ?? key!;
@@ -228,6 +267,8 @@ async function resumable(bucket: string, clean: string, blob: Blob, options: Opt
     return { error: null };
   } catch (e) {
     const err = (e as UploadError).statusCode !== undefined ? (e as UploadError) : offline();
+    // Network lost: the session stays, the next call (once it is back) asks the server where it is and goes on.
+    if (isOffline(err)) return { error: err };
     if (err.name === 'AbortError') {
       // Paused (or cancelled, see abandonUpload): the pieces taken stay for the next call. Stopped as the last one
       // had left: the object may be complete; removed, and the next call starts afresh (as the standard upload).

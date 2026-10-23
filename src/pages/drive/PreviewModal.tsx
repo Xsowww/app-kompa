@@ -39,6 +39,7 @@ export default function PreviewModal({
   getUrl = getFileUrl,
   actions,
   when,
+  page,
 }: {
   item: DriveItem;
   onClose: () => void;
@@ -46,6 +47,8 @@ export default function PreviewModal({
   actions?: React.ReactNode;
   /** Replaces « modifié … » under the name (a group file says who shared it). */
   when?: string;
+  /** A PDF opens on this page (a search result found there). */
+  page?: number;
 }) {
   const [url, setUrl] = useState<string | null>(null);
   const [text, setText] = useState<string | null>(null);
@@ -170,7 +173,7 @@ export default function PreviewModal({
             // A damaged or mislabelled picture: say so instead of a broken image.
             <img src={url} alt={item.name} onError={() => setFailed(true)} className="max-h-[80vh] max-w-full rounded-md object-contain shadow-2xl" />
           ) : cat === 'pdf' ? (
-            <PdfView url={url} title={item.name} />
+            <PdfView url={url} title={item.name} page={page} />
           ) : cat === 'video' ? (
             <video src={url} controls autoPlay className="max-h-[80vh] max-w-full rounded-md" />
           ) : cat === 'audio' ? (

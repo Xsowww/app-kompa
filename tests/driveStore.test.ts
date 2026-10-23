@@ -108,4 +108,13 @@ describe('keepExtension', () => {
     expect(keepExtension('README', 'Lisez-moi')).toBe('Lisez-moi');
     expect(keepExtension('.env', 'config')).toBe('config');
   });
+  it('keeps the old extension when the new one is of another kind of file', () => {
+    expect(keepExtension('Cours-reseaux.pdf', 'Cours-reseaux.docx')).toBe('Cours-reseaux.pdf');
+    expect(keepExtension('photo.jpg', 'photo.pdf')).toBe('photo.jpg');
+    expect(keepExtension('rapport.docx', 'Rapport final.DOC')).toBe('Rapport final.DOC');
+  });
+  it('a dot that is no extension keeps the old one after it', () => {
+    expect(keepExtension('Cours.pdf', 'Cours v1.2')).toBe('Cours v1.2.pdf');
+    expect(keepExtension('notes.txt', 'notes.v2')).toBe('notes.v2.txt');
+  });
 });
