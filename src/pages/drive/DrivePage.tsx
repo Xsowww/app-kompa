@@ -703,7 +703,7 @@ export default function DrivePage() {
       />
 
       {/* Header */}
-      <div className="flex flex-wrap items-center gap-2 pb-4 pt-2">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-3 pb-4 pt-2">
         <h1 className="mr-3 text-[24px] font-semibold tracking-[-0.02em]">{t('Drive')}</h1>
         <div className="flex h-10 items-center rounded-lg bg-stone-100 p-0.5 text-[13px] sm:h-8 pointer-coarse:h-10">
           {([
@@ -722,35 +722,37 @@ export default function DrivePage() {
                 setListSort(null);
                 setSelected(new Set());
               }}
-              className={cx('flex h-9 min-w-10 items-center justify-center gap-1.5 rounded-md px-2.5 font-medium transition-colors sm:h-7 sm:min-w-0 pointer-coarse:h-11 pointer-coarse:min-w-11', tab === k ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
+              className={cx('hit flex h-9 min-w-10 items-center justify-center gap-1.5 rounded-md px-2.5 font-medium transition-colors sm:h-7 sm:min-w-0 pointer-coarse:h-9 pointer-coarse:min-w-11', tab === k ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
             >
               <Icon size={13} />
               <span className="hidden sm:inline">{label}</span>
             </button>
           ))}
         </div>
-        <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5 pointer-coarse:gap-3">
-          <label className="relative order-last w-full sm:order-none sm:w-auto">
-            <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400" />
-            <input
-              value={query}
-              onChange={e => {
-                // A new search starts in its own order.
-                if (!query) setListSort(null);
-                setQuery(e.target.value);
-                setSelected(new Set());
-              }}
-              onKeyDown={e => e.key === 'Escape' && setQuery('')}
-              placeholder={t('Rechercher, y compris dans les PDF')}
-              aria-label={t('Rechercher dans le Drive')}
-              className="field h-8 w-full text-ellipsis pl-8 pr-7 sm:w-52 xl:w-72"
-            />
-            {query && (
-              <button className="hit absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-stone-500 hover:text-ink" onClick={() => setQuery('')} title={t('Effacer')} aria-label={t('Effacer')}>
-                <X size={13} />
-              </button>
-            )}
-          </label>
+        {/* Phones: the search fills its own row under the title, the views and the tools, from margin to margin.
+            Computers: at the right of the row, before sort and view, as high as them. */}
+        <label className="relative order-last w-full sm:order-none sm:ml-auto sm:w-auto">
+          <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400" />
+          <input
+            value={query}
+            onChange={e => {
+              // A new search starts in its own order.
+              if (!query) setListSort(null);
+              setQuery(e.target.value);
+              setSelected(new Set());
+            }}
+            onKeyDown={e => e.key === 'Escape' && setQuery('')}
+            placeholder={t('Rechercher, y compris dans les PDF')}
+            aria-label={t('Rechercher dans le Drive')}
+            className="field h-8 w-full text-ellipsis pl-8 pr-7 sm:w-52 xl:w-72"
+          />
+          {query && (
+            <button className="hit absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-stone-500 hover:text-ink" onClick={() => setQuery('')} title={t('Effacer')} aria-label={t('Effacer')}>
+              <X size={13} />
+            </button>
+          )}
+        </label>
+        <div className="ml-auto flex items-center gap-1.5 pointer-coarse:gap-3 sm:ml-0">
           {view === 'grid' && !q && (
             <button
               className="icon-btn"
