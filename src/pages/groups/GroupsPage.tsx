@@ -237,13 +237,12 @@ function Groups() {
   const narrow = useNarrow();
   // The « + » button, no group open: create one, or join one with its code. A group open: its tab's line and
   // the sharing ones (ShareActions), for whoever may write in it.
+  // Always offered (after what goes in the group open), so another group is one tap away from anywhere here.
   useCreateActions(
-    active
-      ? []
-      : [
-          { label: t('Créer {a}', { a: w.a }), icon: <Plus />, onClick: () => setDialog('create') },
-          { label: t('Rejoindre avec un code'), icon: <LogIn />, onClick: () => setDialog('join') },
-        ],
+    [
+      { label: t('Créer {a}', { a: w.a }), icon: <Plus />, onClick: () => setDialog('create') },
+      { label: t('Rejoindre avec un code'), icon: <LogIn />, onClick: () => setDialog('join') },
+    ],
     1,
   );
 
