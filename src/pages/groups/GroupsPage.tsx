@@ -17,7 +17,9 @@ import GroupNotes from './GroupNotes';
 import GroupEvents from './GroupEvents';
 import GroupMembers from './GroupMembers';
 import GroupFiles from './GroupFiles';
-import ShareButton from './GroupShare';
+import ShareActions from './GroupShare';
+import { useCreateActions, useNarrow } from '../../store/create';
+import { PlusHint } from '../../components/CreateButton';
 import { showJoined } from './join';
 import { EmptyState, Skeleton } from '../../components/EmptyState';
 import { t, tn, locale } from '../../i18n';
@@ -178,17 +180,19 @@ function JoinForm({ onDone }: { onDone: () => void }) {
   );
 }
 
-/** No group yet: what one holds, « Créer » first (joining with a code stays beside it, quieter). */
-function Intro({ onCreate, onJoin }: { onCreate: () => void; onJoin: () => void }) {
+/** No group yet: what one holds; creating one or joining with a code is the « + » button's. */
+function Intro() {
   const w = useGroupWords();
   return (
     <EmptyState
       className="mx-auto max-w-[480px] md:py-16"
       icon={Users}
       title={t('{none} pour l’instant.', { none: w.none })}
-      text={w.introText}
-      action={{ label: t('Créer {a}', { a: w.a }), icon: Plus, onClick: onCreate }}
-      secondary={{ label: t('J’ai un code'), icon: LogIn, onClick: onJoin }}
+      text={
+        <>
+          {w.introText} <PlusHint />
+        </>
+      }
       preview="people"
     />
   );
@@ -230,6 +234,18 @@ function Groups() {
   const active = groups.find(g => g.id === gid) ?? null;
   const code = useGroups(s => (active ? s.codes[active.id] : null));
   const rights = useRights(active ?? { id: '', ownerId: null });
+  const narrow = useNarrow();
+  // The « + » button, no group open: create one, or join one with its code. A group open: its tab's line and
+  // the sharing ones (ShareActions), for whoever may write in it.
+  useCreateActions(
+    active
+      ? []
+      : [
+          { label: t('Créer {a}', { a: w.a }), icon: <Plus />, onClick: () => setDialog('create') },
+          { label: t('Rejoindre avec un code'), icon: <LogIn />, onClick: () => setDialog('join') },
+        ],
+    1,
+  );
 
   useEffect(() => {
     useGroups.getState().reset();
@@ -262,17 +278,6 @@ function Groups() {
       <aside className={cx('w-full shrink-0 flex-col md:flex md:w-[248px]', active ? 'hidden' : 'flex')}>
         <div className="flex items-center gap-1.5 pb-4 pt-2">
           <h1 className="text-[24px] font-semibold tracking-[-0.02em]">{w.Groups}</h1>
-          {/* None yet: « Créer » and « J'ai un code » are in the card below, once. */}
-          {!(loaded && !failed && groups.length === 0) && (
-          <>
-          <button className="icon-btn ml-auto" title={t('Rejoindre avec un code')} aria-label={t('Rejoindre avec un code')} onClick={() => setDialog('join')}>
-            <LogIn size={16} />
-          </button>
-          <button className="btn-primary h-8 px-3" onClick={() => setDialog('create')}>
-            <Plus size={14} /> {t('Créer')}
-          </button>
-          </>
-          )}
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto pb-room">
           {!loaded && <Skeleton shape="people" className="p-1" />}
@@ -304,7 +309,7 @@ function Groups() {
           {loaded && !failed && groups.length === 0 && (
             // Computers: said once, in the panel beside the list.
             <div className="card md:hidden">
-              <Intro onCreate={() => setDialog('create')} onJoin={() => setDialog('join')} />
+              <Intro />
             </div>
           )}
         </div>
@@ -338,9 +343,11 @@ function Groups() {
                   <Link2 size={14} /> <span className="max-sm:sr-only">{t('Inviter')}</span>
                 </button>
               )}
-              {rights.canEdit && (
-                <ShareButton
+              {/* Not over a shared note open on a phone (it fills the screen). */}
+              {rights.canEdit && !(narrow && tab === 'notes' && params.get('note')) && (
+                <ShareActions
                   group={active}
+                  device={tab !== 'fichiers'}
                   onNote={id => setParams({ g: active.id, note: id })}
                   onFiles={() => go(active.id, 'fichiers')}
                 />
@@ -381,7 +388,7 @@ function Groups() {
           </>
         ) : loaded && groups.length === 0 && !failed ? (
           <div className="card flex-1 overflow-y-auto pb-room">
-            <Intro onCreate={() => setDialog('create')} onJoin={() => setDialog('join')} />
+            <Intro />
           </div>
         ) : (
           // Still loading, or not read (said in the list): no « Choisis… » yet.

@@ -2,7 +2,7 @@ import { lazy, memo, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useS
 import { flashWhenReady } from '../../lib/flash';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  ChevronRight, ChevronDown, FilePlus2, FolderPlus, Folder, FolderOpen, FolderInput, FileText, Pencil, Trash2, CopyPlus, Pin, PinOff, Search, ArrowLeft, MoreHorizontal, NotebookPen,
+  ChevronRight, FilePlus2, FolderPlus, Folder, FolderOpen, FolderInput, FileText, Pencil, Trash2, CopyPlus, Pin, PinOff, Search, ArrowLeft, MoreHorizontal, NotebookPen,
   Paperclip, Printer, FileDown, BookOpenCheck, FlaskConical, ScrollText, GraduationCap, Presentation, Users, X,
 } from 'lucide-react';
 import { EmptyState } from '../../components/EmptyState';
@@ -25,6 +25,7 @@ import { flushNoteEditor, isBlankNote } from './noteUtils';
 import { isTrashedNote } from '../../lib/trash';
 import NoteMoveDialog, { type NoteMoveTarget } from './NoteMoveDialog';
 import { takeContentBuffer, takeTitleBuffer } from './titleBuffer';
+import { useCreateActions, useNarrow } from '../../store/create';
 import type { Editor } from '@tiptap/react';
 import { t, locale } from '../../i18n';
 
@@ -208,6 +209,22 @@ export default function NotesPage() {
       return { label: tpl.label, icon: <Icon size={15} />, onClick: () => newNote(folderId, i === 0 ? undefined : tpl) };
     });
 
+  // The « + » button: a note (in the folder chosen, like before), one from a template (its menu over the button), a folder.
+  // Not over a note open on a phone (it fills the screen): back to the list for it.
+  const narrow = useNarrow();
+  useCreateActions(active && narrow ? [] : [
+    { label: t('Nouvelle note'), icon: <FilePlus2 />, onClick: () => newNote() },
+    {
+      label: t('Note depuis un modèle…'),
+      icon: <CopyPlus />,
+      onClick: () => {
+        const r = document.getElementById('create-button')?.getBoundingClientRect();
+        if (r) setMenu({ x: r.right, y: r.top - 8, items: templateMenu() });
+      },
+    },
+    { label: t('Nouveau dossier'), icon: <FolderPlus />, onClick: () => void newFolder(null) },
+  ]);
+
   const newFolder = async (parentId: string | null = targetFolder) => {
     const name = await askText(parentId ? t('Nouveau sous-dossier') : t('Nouveau dossier'), t('Nouveau dossier'), t('Créer'));
     if (name === null) return;
@@ -251,7 +268,7 @@ export default function NotesPage() {
     const rows = [...document.querySelectorAll<HTMLElement>('[data-folder-open], [data-note-open]')];
     const i = rows.findIndex(r => r.dataset.folderOpen === f.id);
     const next = rows.slice(i + 1).find(r => !gone(r)) ?? rows.slice(0, Math.max(i, 0)).reverse().find(r => !gone(r));
-    const nextSel = next ? (next.dataset.folderOpen ? `[data-folder-open="${next.dataset.folderOpen}"]` : `[data-note-open="${next.dataset.noteOpen}"]`) : '#new-note';
+    const nextSel = next ? (next.dataset.folderOpen ? `[data-folder-open="${next.dataset.folderOpen}"]` : `[data-note-open="${next.dataset.noteOpen}"]`) : '#create-button';
     setTimeout(() => document.querySelector<HTMLElement>(nextSel)?.focus({ preventScroll: true }), 0);
     store.removeFolder(f.id);
     toast(t('Mis à la corbeille'), 'info', { label: t('Annuler||l’action'), run: () => restoreAndFocus(f.id, 'folder') });
@@ -265,7 +282,7 @@ export default function NotesPage() {
     const nextId = (rows[i + 1] ?? rows[i - 1])?.dataset.noteOpen;
     // After the next render: the list may only come back on screen then (phones).
     setTimeout(() => {
-      const el = nextId ? document.querySelector<HTMLElement>(`[data-note-open="${nextId}"]`) : document.getElementById('new-note');
+      const el = nextId ? document.querySelector<HTMLElement>(`[data-note-open="${nextId}"]`) : document.getElementById('create-button');
       el?.focus({ preventScroll: true });
     }, 0);
   };
@@ -522,25 +539,6 @@ export default function NotesPage() {
       <aside className={cx('w-full shrink-0 flex-col md:flex md:w-[268px]', mainOpen ? 'hidden' : 'flex')}>
         <div className="flex items-center gap-1.5 pb-4 pt-2">
           <h1 className="text-[24px] font-semibold tracking-[-0.02em]">{t('Notes')}</h1>
-          <button className="icon-btn ml-auto" title={t('Nouveau dossier')} aria-label={t('Nouveau dossier')} onClick={() => void newFolder(null)}>
-            <FolderPlus size={16} />
-          </button>
-          <div className="flex">
-            <button id="new-note" className="btn-primary h-8 rounded-r-none px-3 pointer-coarse:h-9" onClick={e => e.detail < 2 && newNote()} /* the 2nd click of a double-click makes no 2nd note */ title={t('Nouvelle note vide')}>
-              <FilePlus2 size={14} /> {t('Nouvelle note')}
-            </button>
-            <button
-              className="btn-primary h-8 rounded-l-none border-l border-on-brand/20 px-1.5 pointer-coarse:h-9 pointer-coarse:px-3"
-              title={t('Partir d’un modèle')}
-              aria-label={t('Partir d’un modèle')}
-              onClick={e => {
-                const r = e.currentTarget.getBoundingClientRect();
-                setMenu({ x: r.right - 208, y: r.bottom + 6, items: templateMenu() });
-              }}
-            >
-              <ChevronDown size={14} />
-            </button>
-          </div>
         </div>
         <div className="relative mb-2">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
@@ -610,7 +608,7 @@ export default function NotesPage() {
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
             <NotebookPen size={28} strokeWidth={1.5} className="text-stone-300" />
-            {/* No note at all: the list already says so (and « Nouvelle note ▾ » offers the templates). */}
+            {/* No note at all: the list already says so (and the « + » button offers the templates). */}
             {notes.length > 0 && <p className="mt-3 text-[13px] text-stone-500">{t('Choisis une note.')}</p>}
           </div>
         )}

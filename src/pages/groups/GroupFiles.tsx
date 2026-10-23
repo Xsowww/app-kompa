@@ -1,7 +1,7 @@
 import { LoadFailed } from './shared';
 import { EmptyState, Skeleton } from '../../components/EmptyState';
 import { useCallback, useRef, useState } from 'react';
-import { Download, Flag, FolderDown, MoreHorizontal, Paperclip, Trash2 } from 'lucide-react';
+import { Download, Flag, FolderDown, Monitor, MoreHorizontal, Paperclip, Trash2 } from 'lucide-react';
 import { useAuth } from '../../store/auth';
 import { ReportDialog } from '../../components/FeedbackDialogs';
 import { useGroups } from '../../store/groups';
@@ -14,6 +14,8 @@ import { downloadItem } from '../drive/download';
 import { deleteFile, downloadFile, groupError, type Group, type GroupFile } from '../../lib/groups';
 import { cx, formatBytes, relativeTime } from '../../lib/utils';
 import { shareFiles, useGroupWords, useMemberName, useRights } from './util';
+import { useCreateActions } from '../../store/create';
+import { PlusHint } from '../../components/CreateButton';
 import { t, tn } from '../../i18n';
 
 /** Un fichier du groupe vu comme un élément du Drive (pour l'aperçu et le téléchargement). */
@@ -31,6 +33,8 @@ export default function GroupFiles({ group }: { group: Group }) {
   const me = useAuth(s => s.user?.id);
   const [over, setOver] = useState(false);
   const input = useRef<HTMLInputElement>(null);
+  // The « + » button (the sharing lines follow it, GroupShare); a drop on the list works too.
+  useCreateActions(canEdit ? [{ label: t('Ajouter un fichier'), icon: <Monitor />, onClick: () => input.current?.click() }] : []);
 
   // Contenu d'un fichier du groupe, en URL locale (aperçu, téléchargement).
   const getUrl = useCallback(
@@ -94,7 +98,7 @@ export default function GroupFiles({ group }: { group: Group }) {
       onDrop={drop}
     >
       {files && files.length > 0 && (
-        // Adding: « Partager › Un fichier de l’appareil » in the header, or a drop here.
+        // Adding: the « + » button, or a drop here.
         <p className="eyebrow pb-3">{tn(files.length, '{n} fichier partagé', '{n} fichiers partagés')}</p>
       )}
       <div className={cx('min-h-0 flex-1 overflow-y-auto rounded-xl pb-room', over && 'outline-2 outline-dashed outline-stone-300')}>
@@ -104,7 +108,7 @@ export default function GroupFiles({ group }: { group: Group }) {
             className="card"
             icon={Paperclip}
             title={t('Aucun fichier pour l’instant.')}
-            action={canEdit ? { label: t('Ajouter un fichier'), icon: Paperclip, onClick: () => input.current?.click() } : undefined}
+            text={canEdit ? <PlusHint /> : undefined}
             preview="list"
           />
         )}

@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { addDays } from 'date-fns';
-import { ChevronRight, Table2, ChartNoAxesColumn } from 'lucide-react';
+import { ChevronRight, Table2, ChartNoAxesColumn, ListPlus } from 'lucide-react';
 import { useFocusLog } from '../../store/focusLog';
 import { toKey, fmt, fromKey } from '../../lib/dates';
 import { cx } from '../../lib/utils';
 import FocusTimer from '../../components/FocusTimer';
 import TodoList from './TodoList';
+import TaskDialog from './TaskDialog';
+import { useCreateActions } from '../../store/create';
 import { flashWhenReady } from '../../lib/flash';
 import { SubjectBars, DailyFocus, DataTable } from './FocusCharts';
 import { dailyMinutes, formatMinutes, minutesBySubject, noSubjectLabel, weekMinutes } from './focusStats';
@@ -119,6 +121,9 @@ function WorkTime() {
 
 export default function TasksPage() {
   const location = useLocation();
+  // The « + » button: the full window (title, due day, reminder); the field above the list stays for a quick one.
+  const [creating, setCreating] = useState(false);
+  useCreateActions([{ label: t('Nouvelle tâche'), icon: <ListPlus />, onClick: () => setCreating(true) }]);
 
   useEffect(() => {
     if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView({ behavior: 'smooth' });
@@ -149,6 +154,7 @@ export default function TasksPage() {
           <WorkTime />
         </div>
       </div>
+      {creating && <TaskDialog onClose={() => setCreating(false)} />}
     </div>
   );
 }

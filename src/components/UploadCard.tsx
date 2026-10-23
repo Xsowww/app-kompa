@@ -5,7 +5,7 @@ import { cardItems, dismissUploads, uploadSummary, useUploads, type Upload } fro
 import { cx } from '../lib/utils';
 import { t, tn } from '../i18n';
 
-/** Files being imported, on every page: bottom right on computers, above « Avis ou bug » on phones. */
+/** Files being imported, on every page: above the « + » button (bottom right on computers, full width on phones). */
 export default function UploadCard() {
   // The files of the Drive folder open show there, each with its percent: the card is for the others (and once you leave).
   const items = useUploads(useShallow(s => cardItems(s.items, s.shownAt)));
@@ -42,23 +42,27 @@ function Card({ items }: { items: Upload[] }) {
   const open = shut === null ? failed > 0 : !shut;
   const ref = useRef<HTMLDivElement>(null);
 
-  // Toasts go up above the card instead of covering it.
+  // Toasts go up above the card instead of covering it: --uploads-room is from the bottom of the screen to 8 px above it.
   useLayoutEffect(() => {
     const el = ref.current!;
     const root = document.documentElement.style;
-    const ro = new ResizeObserver(() => root.setProperty('--uploads-room', `${el.offsetHeight + 44}px`));
+    const place = () => root.setProperty('--uploads-room', `${parseFloat(getComputedStyle(el).bottom) + el.offsetHeight + 8}px`);
+    const ro = new ResizeObserver(place);
     ro.observe(el);
+    addEventListener('resize', place);
     return () => {
       ro.disconnect();
+      removeEventListener('resize', place);
       root.removeProperty('--uploads-room');
     };
   }, []);
 
   // z-[55]: above Kompaly's handle (z-50), whose touch strip on the right edge took the taps on « Fermer »; under dialogs.
+  // Above the « + » button (components/CreateButton), bottom right, and above the tab bar on phones.
   return (
     <div
       ref={ref}
-      className="enter card fixed inset-x-3 bottom-[calc(8.75rem+env(safe-area-inset-bottom))] z-[55] border border-stone-200 p-3 shadow-pop lg:inset-x-auto lg:bottom-14 lg:right-5 lg:w-80"
+      className="enter card fixed inset-x-3 bottom-[calc(9.25rem+env(safe-area-inset-bottom))] z-[55] border border-stone-200 p-3 shadow-pop lg:inset-x-auto lg:bottom-[5.75rem] lg:right-5 lg:w-80"
     >
       <div className="flex items-center gap-2.5">
         {active ? (

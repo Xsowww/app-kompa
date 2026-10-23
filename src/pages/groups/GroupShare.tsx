@@ -1,10 +1,11 @@
 import { useMemo, useRef, useState } from 'react';
-import { ChevronDown, FileText, HardDrive, Monitor, Search, Share2 } from 'lucide-react';
+import { FileText, HardDrive, Monitor, Search } from 'lucide-react';
 import { useGroups } from '../../store/groups';
 import { useNotes } from '../../store/notes';
 import { categoryOf, pathOf, useDrive } from '../../store/drive';
 import { toast } from '../../store/ui';
-import { ContextMenu, Modal } from '../../components/Overlays';
+import { Modal } from '../../components/Overlays';
+import { useCreateActions } from '../../store/create';
 import FileIcon from '../../components/FileIcon';
 import { blobStore } from '../../lib/blobStore';
 import { blobKey } from '../../lib/userStorage';
@@ -141,32 +142,23 @@ function DrivePicker({ group, onDone, onClose }: { group: Group; onDone: () => v
   );
 }
 
-/** Le bouton « Partager » du groupe : note, fichier du Drive, fichier de l'ordinateur. */
-export default function ShareButton({ group, onNote, onFiles }: { group: Group; onNote: (id: string) => void; onFiles: () => void }) {
-  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+/**
+ * Sharing into the group, in the « + » button (after the open tab's own line): one of my notes, files of my Drive,
+ * files of the device. `device` false: the « Fichiers » tab already has that line.
+ */
+export default function ShareActions({ group, onNote, onFiles, device }: { group: Group; onNote: (id: string) => void; onFiles: () => void; device: boolean }) {
   const [dialog, setDialog] = useState<'note' | 'drive' | null>(null);
   const input = useRef<HTMLInputElement>(null);
-  const open = (e: React.MouseEvent<HTMLButtonElement>) => {
-    const r = e.currentTarget.getBoundingClientRect();
-    setMenu(menu ? null : { x: r.left, y: r.bottom + 4 });
-  };
+  useCreateActions(
+    [
+      { label: t('Partager une de mes notes'), icon: <FileText />, onClick: () => setDialog('note') },
+      { label: t('Partager depuis mon Drive'), icon: <HardDrive />, onClick: () => setDialog('drive') },
+      ...(device ? [{ label: t('Ajouter un fichier'), icon: <Monitor />, onClick: () => input.current?.click() }] : []),
+    ],
+    1,
+  );
   return (
     <>
-      <button className="btn-secondary h-8 px-2.5 sm:px-3" aria-label={t('Partager')} aria-haspopup="menu" aria-expanded={!!menu} onMouseDown={e => menu && e.stopPropagation()} onClick={open}>
-        <Share2 size={14} /> <span className="hidden sm:inline">{t('Partager')}</span> <ChevronDown size={13} className="-mr-0.5 text-stone-400" />
-      </button>
-      {menu && (
-        <ContextMenu
-          x={menu.x}
-          y={menu.y}
-          onClose={() => setMenu(null)}
-          items={[
-            { label: t('Une de mes notes'), icon: <FileText />, onClick: () => setDialog('note') },
-            { label: t('Un fichier de mon Drive'), icon: <HardDrive />, onClick: () => setDialog('drive') },
-            { label: t('Un fichier de l’appareil'), icon: <Monitor />, onClick: () => input.current?.click() },
-          ]}
-        />
-      )}
       <input
         ref={input}
         type="file"

@@ -3,8 +3,9 @@ import { SelectField, TimeField } from '../../components/Pickers';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   User, Palette, Sparkles, GraduationCap, Bell, Database, ShieldCheck, Camera, Check, Download, Upload, CalendarArrowUp, LogOut, Trash2, ChevronRight,
-  HardDrive, Smartphone, Keyboard, Briefcase, House, UserPlus,
+  HardDrive, Smartphone, Keyboard, Briefcase, House, UserPlus, MessageSquareText,
 } from 'lucide-react';
+import { openFeedback } from '../../lib/feedback';
 import AccountList from '../../components/AccountList';
 import PasswordStrength from '../../components/PasswordStrength';
 import Field, { FieldError } from '../../components/Field';
@@ -159,6 +160,16 @@ function ProfileTab() {
 
   return (
     <div className="space-y-5">
+      {/* Phones and tablets: here rather than in a corner of every page (the « + » button's); computers: the sidebar. */}
+      <button
+        type="button"
+        onClick={() => openFeedback()}
+        className="card flex h-12 w-full items-center gap-3 px-4 text-left text-[14px] font-medium text-stone-700 transition-colors hover:bg-stone-50 lg:hidden"
+      >
+        <MessageSquareText size={18} strokeWidth={1.9} className="text-stone-500" aria-hidden />
+        <span className="flex-1">{t('Donner mon avis ou signaler un bug')}</span>
+        <ChevronRight size={16} className="text-stone-400" aria-hidden />
+      </button>
       <Section label={t('Profil')}>
         <div className="flex flex-wrap items-center gap-5 px-5 py-5">
           <div className="relative">

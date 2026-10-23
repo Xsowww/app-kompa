@@ -17,6 +17,7 @@ import EventForm from './EventForm';
 import { confirmRemoveEvent, eventTitle, periodIdeas, useCalendarSource } from './source';
 import DayView from './DayView';
 import ImportIcsDialog, { type IcsSource } from './ImportIcsDialog';
+import { useCreateActions } from '../../store/create';
 import { isIcsFile } from '../../lib/ics';
 import { useEventDrag, type DropTarget } from './useEventDrag';
 import { exportIcs } from '../../lib/backup';
@@ -263,6 +264,16 @@ export default function CalendarPage() {
   const readOnly = !!shared && !shared.canEdit;
   const setForm = (f: typeof form) => setFormState(readOnly ? null : f);
   const [importing, setImporting] = useState<{ initial?: IcsSource } | null>(null);
+  // The « + » button: the full form for the day shown, and (my own calendar) the import of a .ics.
+  // A reader of a shared calendar: nothing to create, no button.
+  useCreateActions(
+    readOnly
+      ? []
+      : [
+          { label: t('Nouvel événement'), icon: <CalendarPlus />, onClick: () => setForm({ date: selected }) },
+          ...(shared ? [] : [{ label: t('Importer un {timetable} (.ics)', { timetable: words.timetable }), icon: <CalendarArrowDown />, onClick: () => setImporting({}) }]),
+        ],
+  );
   const [fileOver, setFileOver] = useState(false);
   const quickRef = useRef<HTMLInputElement>(null);
 
@@ -503,7 +514,7 @@ export default function CalendarPage() {
               </button>
             ))}
           </div>
-          {/* Filter and import wrap together: on a phone the import icon was left alone on its own line. */}
+          {/* Periods, filter and export wrap together. */}
           <div className="flex items-center gap-2">
           {(!readOnly || periods.length > 0) && (
             <button className="btn-secondary hit-sm h-8 px-2.5 pointer-coarse:min-w-11" onClick={() => setPeriodsOpen(true)} title={t('Périodes : {ideas}…', { ideas: periodIdeas(usage) })} aria-label={t('Périodes')}>
@@ -526,16 +537,12 @@ export default function CalendarPage() {
             onReset={clearFilter}
             onManage={readOnly ? undefined : () => setManaging(true)}
           />
-          {/* Together: on a tablet the header wraps, and the export icon was left alone on a second line. */}
-          {!shared && <div className="flex items-center gap-1">
-          <button className="icon-btn h-8 w-8" onClick={() => setImporting({})} title={t('Importer un {timetable} (.ics)', { timetable: words.timetable })} aria-label={t('Importer un {timetable} (.ics)', { timetable: words.timetable })}>
-            <CalendarArrowDown size={16} />
-          </button>
-          {/* Not on phones, where the header would wrap for it: Profil › Données exports too. */}
-          <button className="icon-btn hidden h-8 w-8 disabled:opacity-40 sm:inline-flex" disabled={!events.length} onClick={() => (exportIcs(), toast(t('Calendrier exporté'), 'success'))} title={t('Exporter le calendrier (.ics)')} aria-label={t('Exporter le calendrier (.ics)')}>
-            <CalendarArrowUp size={16} />
-          </button>
-          </div>}
+          {/* Not on phones, where the header would wrap for it: Profil › Données exports too. Importing: the « + » button. */}
+          {!shared && (
+            <button className="icon-btn hidden h-8 w-8 disabled:opacity-40 sm:inline-flex" disabled={!events.length} onClick={() => (exportIcs(), toast(t('Calendrier exporté'), 'success'))} title={t('Exporter le calendrier (.ics)')} aria-label={t('Exporter le calendrier (.ics)')}>
+              <CalendarArrowUp size={16} />
+            </button>
+          )}
           </div>
         </div>
 
@@ -555,7 +562,7 @@ export default function CalendarPage() {
               aria-label={t('Ajouter un événement en une phrase')}
               className="h-full min-w-0 flex-1 text-ellipsis bg-transparent text-[14px] outline-none placeholder:text-stone-400"
             />
-            {/* Nothing typed (or no title, « demain 14h »): Entrée opens the full form, as « + Ajouter » of the day does. */}
+            {/* Nothing typed (or no title, « demain 14h »): Entrée opens the full form, as the « + » button does. */}
             {parsed?.title && (
               <button type="submit" disabled={parsed.impossible} className="btn-primary h-8 px-3 disabled:opacity-50">
                 {t('Ajouter')} <CornerDownLeft size={13} />
@@ -764,9 +771,6 @@ export default function CalendarPage() {
                     {periodUntil(p, selected) && <span className="shrink-0 font-medium max-sm:hidden">· {periodUntil(p, selected)}</span>}
                   </span>
                 ))}
-                {!readOnly && <button className="btn-ghost ml-auto h-8 text-[12px]" onClick={() => setForm({ date: selected })}>
-                  <Plus size={14} /> {t('Ajouter')}
-                </button>}
               </div>
               {mode === 'day' ? (
                 <DayView

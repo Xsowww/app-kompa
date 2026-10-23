@@ -12,12 +12,13 @@ import { t } from '../../i18n';
 /**
  * « Modifier la tâche » : its title, due day, optional time and reminders. Opened from the pencil, or from
  * the bell of a task that has reminders (`remind`: about them, the title not focused).
+ * No `todo`: « Nouvelle tâche », from the « + » button (pages/tasks/TasksPage).
  */
-export default function TaskDialog({ todo, onClose, remind, onDelete }: { todo: Todo; onClose: () => void; remind?: boolean; onDelete?: () => void }) {
-  const [title, setTitle] = useState(todo.title);
-  const [due, setDue] = useState(todo.due ?? '');
-  const [time, setTime] = useState(todo.time ?? '');
-  const [reminders, setReminders] = useState<number[]>(todo.reminders ?? []);
+export default function TaskDialog({ todo, onClose, remind, onDelete }: { todo?: Todo; onClose: () => void; remind?: boolean; onDelete?: () => void }) {
+  const [title, setTitle] = useState(todo?.title ?? '');
+  const [due, setDue] = useState(todo?.due ?? '');
+  const [time, setTime] = useState(todo?.time ?? '');
+  const [reminders, setReminders] = useState<number[]>(todo?.reminders ?? []);
 
   // The title is required: said when it is emptied and left, or at the submit (the focus goes back to it).
   const [titleError, setTitleError] = useState('');
@@ -28,7 +29,9 @@ export default function TaskDialog({ todo, onClose, remind, onDelete }: { todo: 
       setTitleError(t('Donne un titre.'));
       return titleRef.current?.focus();
     }
-    useTodos.getState().update(todo.id, { title: title.trim(), due: due || undefined, time: due && time ? time : undefined, reminders: due ? reminders : todo.reminders });
+    const { add, update } = useTodos.getState();
+    const id = todo?.id ?? add(title, due || undefined, time || undefined).id;
+    update(id, { title: title.trim(), due: due || undefined, time: due && time ? time : undefined, reminders: due ? reminders : todo?.reminders });
     toast(remind && due && reminders.length ? t('Rappel enregistré') : t('Tâche enregistrée'), 'success');
     onClose();
   };
@@ -36,7 +39,7 @@ export default function TaskDialog({ todo, onClose, remind, onDelete }: { todo: 
   return (
     <Modal open onClose={onClose} width={420}>
       <form onSubmit={submit}>
-        <h3 className="text-[18px]">{t('Modifier la tâche')}</h3>
+        <h3 className="text-[18px]">{todo ? t('Modifier la tâche') : t('Nouvelle tâche')}</h3>
         <Field className="mt-4" label={t('Tâche')} error={titleError}>
           <input
             ref={titleRef}
@@ -44,7 +47,7 @@ export default function TaskDialog({ todo, onClose, remind, onDelete }: { todo: 
             value={title}
             maxLength={160}
             onChange={e => (setTitle(e.target.value), e.target.value.trim() && setTitleError(''))}
-            onBlur={() => !title.trim() && setTitleError(t('Donne un titre.'))}
+            onBlur={() => (todo || title) && !title.trim() && setTitleError(t('Donne un titre.'))}
             aria-label={t('Titre de la tâche')}
             className="field w-full"
           />

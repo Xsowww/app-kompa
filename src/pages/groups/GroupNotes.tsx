@@ -8,6 +8,8 @@ import { toast } from '../../store/ui';
 import { createNote, groupError, summary, type Group, type GroupNote } from '../../lib/groups';
 import { cx, relativeTime } from '../../lib/utils';
 import { useMemberName, useRights } from './util';
+import { useCreateActions, useNarrow } from '../../store/create';
+import { PlusHint } from '../../components/CreateButton';
 import { t, tn } from '../../i18n';
 
 // Heavy (Tiptap): only loaded when a shared note is opened.
@@ -42,6 +44,10 @@ export default function GroupNotes({ group }: { group: Group }) {
   }
 
   const open = (id: string | null) => setParams(id ? { g: group.id, note: id } : { g: group.id });
+  // The « + » button (the sharing lines follow it, GroupShare).
+  // Not over a note open on a phone (it fills the screen).
+  const narrow = useNarrow();
+  useCreateActions(canEdit && !(openId && narrow) ? [{ label: t('Nouvelle note'), icon: <FilePlus2 />, onClick: () => void newNote() }] : []);
 
   const newNote = async () => {
     setCreating(true);
@@ -91,17 +97,8 @@ export default function GroupNotes({ group }: { group: Group }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* Empty, loading or failed: the state below says it (and holds the one button). */}
-      {notes && notes.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 pb-3">
-          <p className="eyebrow mr-auto">{tn(notes.length, '{n} note partagée', '{n} notes partagées')}</p>
-          {canEdit && (
-            <button className="btn-primary h-8 px-3" disabled={creating} onClick={() => void newNote()}>
-              <FilePlus2 size={14} /> {t('Nouvelle note')}
-            </button>
-          )}
-        </div>
-      )}
+      {/* Empty, loading or failed: the state below says it. Adding: the « + » button. */}
+      {notes && notes.length > 0 && <p className="eyebrow pb-3">{tn(notes.length, '{n} note partagée', '{n} notes partagées')}</p>}
 
       <div className="min-h-0 flex-1 overflow-y-auto pb-room">
         {!notes && (failed ? <LoadFailed groupId={group.id} part="notes" className="card" /> : <Skeleton className="card p-3" />)}
@@ -110,7 +107,7 @@ export default function GroupNotes({ group }: { group: Group }) {
             className="card"
             icon={FileText}
             title={t('Aucune note pour l’instant.')}
-            action={canEdit ? { label: t('Nouvelle note'), icon: FilePlus2, onClick: () => void newNote() } : undefined}
+            text={canEdit ? <PlusHint /> : undefined}
             preview="list"
           />
         )}

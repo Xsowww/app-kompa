@@ -25,15 +25,16 @@ export default function RecPill() {
   if (!on || !session) return null;
   const finishing = session.phase === 'finishing';
   return (
-    <div className="fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] left-1/2 z-20 flex -translate-x-1/2 items-center gap-1 rounded-full bg-tile-dark p-1 text-white shadow-pop ring-1 ring-white/10 lg:bottom-5 lg:left-[calc(50%+128px)]">
-      <button type="button" onClick={() => navigate('/enregistrer')} className="flex h-9 items-center gap-2 rounded-full pl-3 pr-3 text-[13px] font-semibold hover:bg-white/10" title={problem ?? t('Revenir à l’enregistrement')}>
-        {finishing ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <span className={cx('h-2.5 w-2.5 rounded-full', hearing ? 'animate-pulse bg-red-500' : 'bg-amber-400')} aria-hidden />}
+    // Level with the « + » button (components/CreateButton), and never as wide as to reach it: the title gives way.
+    <div className="fixed bottom-[calc(5.375rem+env(safe-area-inset-bottom))] left-1/2 z-20 flex max-w-[calc(100vw-10rem)] -translate-x-1/2 items-center gap-1 rounded-full bg-tile-dark p-1 text-white shadow-pop ring-1 ring-white/10 lg:bottom-[30px] lg:left-[calc(50%+128px)] lg:max-w-[calc(100vw-27rem)]">
+      <button type="button" onClick={() => navigate('/enregistrer')} className="flex h-9 min-w-0 items-center gap-2 rounded-full pl-3 pr-3 text-[13px] font-semibold hover:bg-white/10" title={problem ?? t('Revenir à l’enregistrement')}>
+        {finishing ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <span className={cx('h-2.5 w-2.5 shrink-0 rounded-full', hearing ? 'animate-pulse bg-red-500' : 'bg-amber-400')} aria-hidden />}
         {!finishing && <span className="text-[11px] font-bold tracking-wide text-red-400">REC</span>}
         <span className="tabular">{finishing ? t('Rédaction…') : clock(elapsed(session))}</span>
-        <span className="max-w-[140px] truncate font-medium text-white/70 max-[400px]:hidden">{session.title}</span>
+        <span className="min-w-0 max-w-[140px] truncate font-medium text-white/70 max-[400px]:hidden">{session.title}</span>
       </button>
       {hearing && (
-        <button type="button" onClick={star} className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-white/10" title={t('Moment important')} aria-label={t('Marquer un moment important')}>
+        <button type="button" onClick={star} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-white/10" title={t('Moment important')} aria-label={t('Marquer un moment important')}>
           <Star size={15} className="fill-amber-400 text-amber-400" />
         </button>
       )}

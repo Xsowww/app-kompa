@@ -27,6 +27,7 @@ import { PENDING_INVITE } from '../App';
 import { JoinedDialog } from '../pages/groups/Joined';
 import RecPill, { RecBadge } from '../pages/record/RecPill';
 import UploadCard from '../components/UploadCard';
+import CreateButton from '../components/CreateButton';
 import { useInvitations } from '../pages/groups/join';
 import { needsCredentials, savedAccounts, type SavedAccount } from '../lib/accounts';
 import { t, tn } from '../i18n';
@@ -374,7 +375,7 @@ export default function AppShell() {
           aria-label={trashLabel}
           className={({ isActive }) =>
             cx(
-              'mb-2 mt-2 flex h-10 items-center gap-3 rounded-lg border px-2.5 text-[14px] transition-colors',
+              'mt-2 flex h-10 items-center gap-3 rounded-lg border px-2.5 text-[14px] transition-colors',
               isActive ? 'border-stone-200 bg-surface font-medium text-ink shadow-card' : 'border-transparent text-stone-500 hover:bg-stone-100 hover:text-ink',
             )
           }
@@ -383,6 +384,16 @@ export default function AppShell() {
           <span className="flex-1">{t('Corbeille')}</span>
           {trashCount > 0 && <span className="tabular text-[11px] text-stone-500">{trashCount}</span>}
         </NavLink>
+        {/* Computers; phones and tablets have it at the top of Profil (pages/profile), the corner is the « + » button's. */}
+        <button
+          type="button"
+          onClick={() => openFeedback()}
+          title={t('Donner mon avis ou signaler un bug')}
+          className="mb-2 flex h-10 items-center gap-3 rounded-lg px-2.5 text-left text-[14px] text-stone-500 transition-colors hover:bg-stone-100 hover:text-ink"
+        >
+          <MessageSquareText size={18} strokeWidth={1.9} aria-hidden />
+          {t('Avis ou bug')}
+        </button>
         <FocusTimer />
         <div className="flex items-center gap-1">
         <NavLink
@@ -456,7 +467,7 @@ export default function AppShell() {
             />
           </div>
         )}
-        {/* Pages scroll to the bottom edge (under the tab bar on phones); their scroll area ends with `pb-room`, so « Avis ou bug » and the tab bar never cover the last buttons. */}
+        {/* Pages scroll to the bottom edge (under the tab bar on phones); their scroll area ends with `pb-room`, so the « + » button and the tab bar never cover the last buttons. */}
         <main id="contenu" tabIndex={-1} className="min-h-0 flex-1 overflow-hidden outline-none">
           <Outlet />
           <FeedbackDialog />
@@ -464,17 +475,8 @@ export default function AppShell() {
           <JoinedDialog />
           <RecPill />
           <UploadCard />
-          {/* « Avis ou bug » : always at hand, bottom right (above the tab bar on phones). */}
-          <button
-            type="button"
-            onClick={() => openFeedback()}
-            title={t('Donner mon avis ou signaler un bug')}
-            aria-label={t('Donner mon avis ou signaler un bug')}
-            className="hit fixed bottom-[calc(5.75rem+env(safe-area-inset-bottom))] right-3 z-20 flex h-10 items-center gap-2 rounded-full border border-stone-200 bg-surface px-3 text-[12.5px] font-medium text-stone-600 shadow-pop transition-colors hover:border-stone-300 hover:text-ink lg:bottom-2.5 lg:right-5 lg:h-9"
-          >
-            <MessageSquareText size={16} strokeWidth={1.9} aria-hidden />
-            <span className="hidden lg:inline">{t('Avis ou bug')}</span>
-          </button>
+          {/* Bottom right, after the page in the Tab order: what this space creates (store/create). */}
+          <CreateButton />
         </main>
       </div>
 

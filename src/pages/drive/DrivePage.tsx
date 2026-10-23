@@ -32,6 +32,7 @@ import { cloudEnabled } from '../../lib/supabase';
 import { useProgressive } from '../../lib/useProgressive';
 import { useShallow } from 'zustand/react/shallow';
 import { driveWhere, useUploads } from '../../store/uploads';
+import { useCreateActions } from '../../store/create';
 import { t, tn, locale } from '../../i18n';
 
 type Tab = 'all' | 'starred' | 'recent';
@@ -290,6 +291,14 @@ export default function DrivePage() {
     setTab('all');
     setSelected(new Set([f.id]));
   }, [parentId]);
+
+  // The « + » button: in the folder open (Favoris and Récents: the one in the address, the root from « Mon Drive »).
+  // The right-click menu of the page offers the same, where the pointer is; a drop works too.
+  useCreateActions([
+    { label: t('Importer des fichiers'), icon: <Upload />, onClick: () => fileInput.current?.click() },
+    { label: t('Importer un dossier'), icon: <FolderUp />, onClick: () => folderInput.current?.click() },
+    { label: t('Nouveau dossier'), icon: <FolderPlus />, onClick: () => void newFolder() },
+  ]);
 
   const rename = useCallback(async (item: DriveItem) => {
     const typed = await askText(item.kind === 'folder' ? t('Renommer le dossier') : t('Renommer le fichier'), item.name, t('Renommer'), { fileName: item.kind !== 'folder' });
@@ -765,24 +774,6 @@ export default function DrivePage() {
           >
             {view === 'grid' ? <List size={16} /> : <LayoutGrid size={16} />}
           </button>
-            <button className="btn-secondary" onClick={() => void newFolder()} title={t('Nouveau dossier')}>
-              <FolderPlus size={15} /> <span className="hidden sm:inline">{t('Nouveau dossier')}</span>
-            </button>
-            <div className="flex">
-              <button className="btn-primary rounded-r-none" onClick={() => fileInput.current?.click()} disabled={busy} title={t('Importer des fichiers')}>
-                <Upload size={15} /> <span className="hidden sm:inline">{busy ? t('Import…') : t('Importer')}</span>
-              </button>
-              {/* « Importer » takes files; this one is the only way to bring a whole folder. */}
-              <button
-                className="btn-primary w-9 justify-center rounded-l-none border-l border-on-brand/20 px-0"
-                disabled={busy}
-                title={t('Importer un dossier')}
-                aria-label={t('Importer un dossier')}
-                onClick={() => folderInput.current?.click()}
-              >
-                <FolderUp size={15} />
-              </button>
-            </div>
         </div>
       </div>
 
@@ -937,8 +928,8 @@ export default function DrivePage() {
               className="py-16"
               icon={FolderOpen}
               title={parentId ? t('Ce dossier est vide') : t('Aucun fichier pour l’instant.')}
-              // Fingers can't drop files on the page.
-              text={<span className="pointer-coarse:hidden">{t('Dépose des fichiers ici.')}</span>}
+              // Fingers can't drop files on the page: the « + » button for them.
+              text={<><span className="pointer-coarse:hidden">{t('Dépose des fichiers ici.')}</span><span className="hidden pointer-coarse:inline">{t('Touche + pour commencer.')}</span></>}
               preview={view === 'grid' ? 'tiles' : 'list'}
             />
           )

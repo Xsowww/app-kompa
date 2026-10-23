@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { DateField, TimeField } from '../../components/Pickers';
-import { CalendarPlus, Check, Clock, Flag, MapPin, Plus, Trash2, Link2 } from 'lucide-react';
+import { CalendarPlus, Check, Clock, Flag, MapPin, Trash2, Link2 } from 'lucide-react';
+import { useCreateActions } from '../../store/create';
+import { PlusHint } from '../../components/CreateButton';
 import { ReportDialog } from '../../components/FeedbackDialogs';
 import { useAuth } from '../../store/auth';
 import { useGroups } from '../../store/groups';
@@ -212,18 +214,12 @@ export default function GroupEvents({ group }: { group: Group }) {
   const failed = useGroups(s => s.loadFailed[`${group.id}:events`]);
   const [adding, setAdding] = useState(false);
   const { canEdit } = useRights(group);
+  // The « + » button (the sharing lines follow it, GroupShare).
+  useCreateActions(canEdit ? [{ label: t('Proposer {a}', { a: w.meet.a }), icon: <CalendarPlus />, onClick: () => setAdding(true) }] : []);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-center gap-2 pb-3">
-        <p className="eyebrow mr-auto">{t('{Tab} à venir', { Tab: w.meet.Tab })}</p>
-        {/* Nothing planned: the empty state below holds the button. */}
-        {!adding && canEdit && events?.length !== 0 && (
-          <button className="btn-primary h-8 px-3" onClick={() => setAdding(true)}>
-            <Plus size={14} /> {t('Proposer {a}', { a: w.meet.a })}
-          </button>
-        )}
-      </div>
+      <p className="eyebrow pb-3">{t('{Tab} à venir', { Tab: w.meet.Tab })}</p>
       <div className="min-h-0 flex-1 overflow-y-auto pb-room">
         {adding && canEdit && <EventForm group={group} onDone={() => setAdding(false)} />}
         {!events && (failed ? <LoadFailed groupId={group.id} part="events" className="card" /> : <Skeleton shape="slots" className="card p-4" />)}
@@ -232,7 +228,7 @@ export default function GroupEvents({ group }: { group: Group }) {
             className="card"
             icon={CalendarPlus}
             title={w.meet.none}
-            action={canEdit ? { label: t('Proposer {a}', { a: w.meet.a }), icon: Plus, onClick: () => setAdding(true) } : undefined}
+            text={canEdit ? <PlusHint /> : undefined}
             preview="slots"
           />
         )}

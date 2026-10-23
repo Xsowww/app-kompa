@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { useToday } from '../lib/useToday';
 import { Link, useNavigate } from 'react-router-dom';
 import { addDays } from 'date-fns';
-import { ArrowUpRight, Check, Flag, NotebookPen } from 'lucide-react';
+import { ArrowUpRight, CalendarPlus, Check, FilePlus2, Flag, ListPlus, NotebookPen } from 'lucide-react';
+import { useCreateActions } from '../store/create';
+import { startTitleBuffer } from './notes/titleBuffer';
 import { EmptyState } from '../components/EmptyState';
 import { useAuth } from '../store/auth';
 import { useNotes } from '../store/notes';
@@ -67,6 +69,17 @@ export default function Dashboard() {
   const revisionTime = useSettings(st => st.revisionTime) || '18:00';
   const periods = useSettings(st => st.periods);
   const navigate = useNavigate();
+  // The « + » button: each one where it is made (the calendar's field, the tasks' field, a new note).
+  useCreateActions([
+    { label: t('Nouvel événement'), icon: <CalendarPlus />, onClick: () => navigate('/calendrier?ajout=1') },
+    { label: t('Nouvelle tâche'), icon: <ListPlus />, onClick: () => navigate('/taches?ajout=1') },
+    {
+      label: t('Nouvelle note'),
+      icon: <FilePlus2 />,
+      // The keys typed while Notes comes up go to the new note's title (notes/titleBuffer).
+      onClick: () => (startTitleBuffer(), navigate('/notes?nouvelle=1')),
+    },
+  ]);
   const user = useAuth(s => s.user)!;
   const { notes, folders } = useNotes();
   const events = useCalendar(s => s.events);
@@ -162,7 +175,7 @@ export default function Dashboard() {
         {/* Bento: tiles of different sizes; on a phone the DOM order is the priority order. */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
           {/* Now (blue tile) */}
-          <Link to={nowEvent ? linkToDay(today, nowEvent.id) : '/calendrier?ajout=1'} className="enter flex min-h-[150px] flex-col justify-between rounded-[24px] bg-tile-blue p-6 text-white transition-[filter] hover:brightness-110 lg:col-start-1 lg:row-start-1">
+          <Link to={linkToDay(today, nowEvent?.id)} className="enter flex min-h-[150px] flex-col justify-between rounded-[24px] bg-tile-blue p-6 text-white transition-[filter] hover:brightness-110 lg:col-start-1 lg:row-start-1">
             <span className="flex justify-between text-[13px] font-semibold text-white/90">
               <span>{nowEvent && minutesTo <= 0 ? t('En ce moment') : t('Ensuite aujourd’hui')}</span>
               {nowEvent && minutesTo > 0 && <span>{minutesTo < 60 ? t('dans {n} min', { n: minutesTo }) : t('dans {h} h {m}', { h: Math.floor(minutesTo / 60), m: String(minutesTo % 60).padStart(2, '0') })}</span>}

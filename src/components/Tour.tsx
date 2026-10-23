@@ -34,6 +34,12 @@ const STEPS: Step[] = [
     text: u => t('Ta journée, {next} et tes tâches, réunis sur une seule page.', { next: NEXT[u] }),
   },
   {
+    // components/CreateButton: the same button on every page, it creates what that page holds.
+    target: '#create-button',
+    title: t('Le bouton +'),
+    text: () => t('Il crée ce qui va dans la page ouverte : un événement, une tâche, une note, un dossier…'),
+  },
+  {
     target: nav('/calendrier'),
     title: t('Le calendrier'),
     text: u =>
@@ -54,7 +60,7 @@ const STEPS: Step[] = [
     target: nav('/drive'),
     title: t('Le Drive'),
     text: (_, touch) =>
-      touch ? t('Ajoute tes fichiers avec le bouton d’import. La recherche fouille même le texte de tes PDF.') : t('Glisse tes fichiers dans la page. La recherche fouille même le texte de tes PDF.'),
+      touch ? t('Ajoute tes fichiers avec le bouton +. La recherche fouille même le texte de tes PDF.') : t('Glisse tes fichiers dans la page. La recherche fouille même le texte de tes PDF.'),
   },
   {
     // Phones: not in the tab bar, the microphone of the header instead.

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { CalendarRange, CloudOff, Link2, Plus, Settings2, Users } from 'lucide-react';
+import { CalendarRange, CloudOff, Link2, Settings2, Users } from 'lucide-react';
 import { useAuth } from '../../store/auth';
 import { prefetchGroup, useGroups, watchFocus } from '../../store/groups';
 import { Modal } from '../../components/Overlays';
@@ -14,6 +14,8 @@ import { GroupForm } from './GroupsPage';
 import GroupMembers from './GroupMembers';
 import SharedCalendar from './SharedCalendar';
 import { setViewingAgenda, useAgendaNews } from '../../store/agendaNews';
+import { useCreateActions } from '../../store/create';
+import { PlusHint } from '../../components/CreateButton';
 import { t, tn, locale } from '../../i18n';
 
 // « Agendas partagés » : calendars shared with others (groups of the 'agenda' kind, lib/groups). Joined only by
@@ -94,18 +96,14 @@ function Agendas() {
   }, [group, navigate]);
 
   const open = (id: string) => setParams({ g: id });
+  // The « + » button: a new shared calendar, after « Nouvel événement » of the one open (when I may write in it).
+  useCreateActions([{ label: t('Nouvel agenda partagé'), icon: <CalendarRange />, onClick: () => setDialog('create') }], 1);
 
   return (
     <div className="flex h-full flex-col">
-      {/* Title, the shared calendars (scroll sideways on a phone), « Nouveau » */}
+      {/* Title, the shared calendars (scroll sideways on a phone); creating one: the « + » button */}
       <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 px-4 pb-3 pt-2 md:px-8">
         <h1 className="text-[24px] font-semibold tracking-[-0.02em]">{t('Agendas partagés')}</h1>
-        {/* None yet: the empty card's « Créer » is the only one. */}
-        {(agendas.length > 0 || !loaded || failed) && (
-          <button className="btn-primary ml-auto h-8 px-3" onClick={() => setDialog('create')}>
-            <Plus size={14} /> {t('Nouveau')}
-          </button>
-        )}
         {agendas.length > 0 && (
           <div className="-mx-4 flex w-[calc(100%+2rem)] gap-1.5 overflow-x-auto px-4 pb-1 md:-mx-8 md:w-[calc(100%+4rem)] md:px-8" role="tablist" aria-label={t('Agendas partagés')}>
             {agendas.map(g => (
@@ -147,8 +145,11 @@ function Agendas() {
             className="card mx-auto mt-4 max-w-[520px]"
             icon={CalendarRange}
             title={t('{none} pour l’instant.', { none: t('Aucun agenda partagé') })}
-            text={t('Un calendrier commun, séparé du tien. On le rejoint avec son lien d’invitation.')}
-            action={{ label: t('Créer un agenda partagé'), icon: Plus, onClick: () => setDialog('create') }}
+            text={
+              <>
+                {t('Un calendrier commun, séparé du tien. On le rejoint avec son lien d’invitation.')} <PlusHint />
+              </>
+            }
             preview="slots"
           />
         </div>

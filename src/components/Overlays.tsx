@@ -56,8 +56,9 @@ export function Toasts() {
   }, []);
   return (
     // Full width minus 16 px each side: centred with left-1/2 alone, the toast shrank to half the screen on phones.
-    // --uploads-room: set by the upload card while it shows, so that toasts stack above it.
-    <div className="pointer-events-none fixed inset-x-4 bottom-[calc(6.5rem+var(--uploads-room,0px)+env(safe-area-inset-bottom))] z-[70] flex flex-col items-center gap-2 lg:bottom-[calc(1.5rem+var(--uploads-room,0px))]">
+    // --uploads-room: set by the upload card while it shows (from the bottom of the screen to above it), so that toasts
+    // stack above it. --create-room: set on phones while the « + » button shows (components/CreateButton), toasts go above it.
+    <div className="pointer-events-none fixed inset-x-4 bottom-[max(calc(6.5rem+var(--create-room,0px)+env(safe-area-inset-bottom)),var(--uploads-room,0px))] z-[70] flex flex-col items-center gap-2 lg:bottom-[max(1.5rem,var(--uploads-room,0px))]">
       <div role="status" aria-live="polite" className="flex flex-col items-center gap-2">
         {toasts.filter(t => t.tone !== 'error').map(t => <ToastRow key={t.id} t={t} />)}
       </div>
@@ -208,7 +209,8 @@ function menuName(label?: string) {
   return opener.getAttribute('aria-label') || opener.title || t('Actions');
 }
 
-export function ContextMenu({ x, y, items, onClose, label }: { x: number; y: number; items: MenuItem[]; onClose: () => void; label?: string }) {
+/** `large`: rows of 44 px with bigger icons (the « + » button's menu, components/CreateButton). */
+export function ContextMenu({ x, y, items, onClose, label, large }: { x: number; y: number; items: MenuItem[]; onClose: () => void; label?: string; large?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ x: Math.max(8, x), y: Math.max(8, y) });
   const [name] = useState(() => menuName(label));
@@ -267,7 +269,7 @@ export function ContextMenu({ x, y, items, onClose, label }: { x: number; y: num
       ref={ref}
       role="menu"
       aria-label={name}
-      className="enter fixed z-[65] min-w-52 rounded-xl border border-stone-200 bg-surface p-1 shadow-pop"
+      className={cx('enter fixed z-[65] border border-stone-200 bg-surface shadow-pop', large ? 'min-w-60 rounded-[18px] p-1.5' : 'min-w-52 rounded-xl p-1')}
       style={{ left: pos.x, top: pos.y }}
       onMouseDown={e => e.stopPropagation()}
       onContextMenu={e => e.preventDefault()}
@@ -294,13 +296,14 @@ export function ContextMenu({ x, y, items, onClose, label }: { x: number; y: num
               it.onClick();
             }}
             className={cx(
-              'flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-left text-[13px] transition-colors outline-none disabled:opacity-40 pointer-coarse:h-10',
+              'flex w-full items-center text-left transition-colors outline-none disabled:opacity-40',
+              large ? 'h-11 gap-3 rounded-[12px] px-3 text-[14px] font-medium' : 'h-8 gap-2.5 rounded-md px-2 text-[13px] pointer-coarse:h-10',
               it.danger ? 'text-red-600 hover:bg-red-50 focus-visible:bg-red-50' : 'text-stone-700 hover:bg-stone-100 focus-visible:bg-stone-100',
               // The background alone is too faint to show the keyboard position.
               'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus',
             )}
           >
-            <span className="flex w-4 justify-center text-stone-400 [&>svg]:h-[15px] [&>svg]:w-[15px]" aria-hidden>{it.icon}</span>
+            <span className={cx('flex justify-center', large ? 'w-5 text-stone-500 [&>svg]:h-[18px] [&>svg]:w-[18px]' : 'w-4 text-stone-400 [&>svg]:h-[15px] [&>svg]:w-[15px]')} aria-hidden>{it.icon}</span>
             <span className="flex-1">{it.label}</span>
             {it.shortcut && <span className="font-mono text-[10px] text-stone-500" aria-hidden>{it.shortcut}</span>}
           </button>

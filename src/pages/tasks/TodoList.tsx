@@ -402,7 +402,7 @@ export default function TodoList({ limit, grouped }: { limit?: number; grouped?:
         (ticked.length || todos.some(x => x.done) ? (
           <p className={cx('text-[13px] text-stone-500', ticked.length ? 'pt-3' : 'py-5')}>{t('Tout est coché. Profites-en.')}</p>
         ) : (
-          // No button here: the add field (Tâches) or the « Ajouter une tâche » link (home) is right there.
+          // No button here: the add field (Tâches) and the « + » button (Tâches, home) are right there.
           <EmptyState
             size="sm"
             icon={ListTodo}
@@ -427,11 +427,6 @@ export default function TodoList({ limit, grouped }: { limit?: number; grouped?:
             </div>
           ))}
         </div>
-      )}
-      {preview && (
-        <Link to="/taches?ajout=1" className="mt-auto inline-flex h-9 items-center gap-1.5 self-start rounded-full px-1.5 pt-2 text-[12.5px] font-semibold text-brand-600 hover:text-brand-700 pointer-coarse:h-12">
-          <Plus size={14} aria-hidden /> {t('Ajouter une tâche')}
-        </Link>
       )}
     </div>
   );

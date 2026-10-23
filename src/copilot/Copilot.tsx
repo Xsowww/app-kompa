@@ -116,7 +116,15 @@ function CopyButton({ text }: { text: string }) {
 export default function Copilot() {
   const navigate = useNavigate();
   const user = useAuth(s => s.user);
-  const { messages, pose, bubble, thinking, aiEnabled, offsetY } = useCopilot();
+  const { messages, pose, bubble, thinking, aiEnabled, offsetY: savedY } = useCopilot();
+  // Never down over the « + » button, bottom right (components/CreateButton): his lowest place stays above it.
+  const [screen, setScreen] = useState(() => ({ w: window.innerWidth, h: window.innerHeight }));
+  useEffect(() => {
+    const onResize = () => setScreen({ w: window.innerWidth, h: window.innerHeight });
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  const offsetY = Math.min(savedY, 1 - (screen.w >= 1024 ? 150 : 200) / screen.h);
   const visible = useSettings(s => s.copilotVisible);
   const [wide, setWide] = useState(false);
   const [providerInfo, setProviderInfo] = useState('');
