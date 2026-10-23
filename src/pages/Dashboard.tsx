@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useToday } from '../lib/useToday';
+import { useMinute, useToday } from '../lib/useToday';
 import { Link, useNavigate } from 'react-router-dom';
 import { addDays } from 'date-fns';
 import { ArrowUpRight, CalendarPlus, Check, FilePlus2, Flag, ListPlus, NotebookPen } from 'lucide-react';
@@ -19,6 +19,7 @@ import { useSettings } from '../store/settings';
 import { WORDS } from '../lib/usage';
 import { periodColor, periodText, periodTint, periodUntil, periodsOn } from '../lib/periods';
 import WeekProgress from './WeekProgress';
+import DayLine from './DayLine';
 import { t, tn } from '../i18n';
 
 /** A bento tile: white by default, `dark` for the big day (the strongest tile of the page). */
@@ -85,7 +86,8 @@ export default function Dashboard() {
   const events = useCalendar(s => s.events);
 
   const today = useToday();
-  const now = new Date();
+  // To the minute: the clock, the day line and « dans 20 min » move on their own.
+  const now = useMinute();
   const hour = now.getHours();
   // « Bonne nuit » is said when leaving, not to greet: late at night it is still « Bonsoir ».
   const hello = hour >= 5 && hour < 18 ? t('Bonjour') : t('Bonsoir');
@@ -174,23 +176,32 @@ export default function Dashboard() {
 
         {/* Bento: tiles of different sizes; on a phone the DOM order is the priority order. */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
-          {/* Now (blue tile) */}
+          {/* Now (blue tile): what is on or comes next, the time now, the day as a slider. */}
           <Link to={linkToDay(today, nowEvent?.id)} className="enter flex min-h-[150px] flex-col justify-between rounded-[24px] bg-tile-blue p-6 text-white transition-[filter] hover:brightness-110 lg:col-start-1 lg:row-start-1">
-            <span className="flex justify-between text-[13px] font-semibold text-white/90">
-              <span>{nowEvent && minutesTo <= 0 ? t('En ce moment') : t('Ensuite aujourd’hui')}</span>
-              {nowEvent && minutesTo > 0 && <span>{minutesTo < 60 ? t('dans {n} min', { n: minutesTo }) : t('dans {h} h {m}', { h: Math.floor(minutesTo / 60), m: String(minutesTo % 60).padStart(2, '0') })}</span>}
-            </span>
-            {nowEvent ? (
-              <span className="flex items-end justify-between gap-4">
-                <span className="min-w-0">
-                  <span className="line-clamp-2 text-[22px] font-extrabold leading-tight tracking-[-0.03em] [overflow-wrap:anywhere] sm:text-[26px]">{nowEvent.title}</span>
-                  {nowEvent.details && <span className="block truncate text-[14px] text-white/90">{nowEvent.details.split('\n')[0]}</span>}
+            <span className="flex items-start justify-between gap-4">
+              <span className="min-w-0">
+                <span className="block text-[13px] font-semibold text-white/90">
+                  {nowEvent && minutesTo <= 0 ? t('En ce moment') : t('Ensuite aujourd’hui')}
+                  {nowEvent && minutesTo > 0 && (
+                    <span className="font-medium text-white/80"> · {minutesTo < 60 ? t('dans {n} min', { n: minutesTo }) : t('dans {h} h {m}', { h: Math.floor(minutesTo / 60), m: String(minutesTo % 60).padStart(2, '0') })}</span>
+                  )}
                 </span>
-                <span className="tabular shrink-0 text-[34px] font-extrabold leading-none tracking-[-0.04em] sm:text-[40px]">{nowEvent.start}</span>
+                {nowEvent ? (
+                  <>
+                    <span className="mt-1.5 line-clamp-2 text-[22px] font-extrabold leading-tight tracking-[-0.03em] [overflow-wrap:anywhere] sm:text-[26px]">{nowEvent.title}</span>
+                    <span className="mt-0.5 block truncate text-[14px] text-white/85">
+                      <span className="tabular">{nowEvent.end ? `${nowEvent.start} – ${nowEvent.end}` : nowEvent.start}</span>
+                      {nowEvent.details && ` · ${nowEvent.details.split('\n')[0]}`}
+                    </span>
+                  </>
+                ) : (
+                  <span className="mt-1.5 block text-[22px] font-extrabold tracking-[-0.02em]">{todayEvents.length ? t('Plus rien de prévu.') : t('Rien de prévu.')}</span>
+                )}
               </span>
-            ) : (
-              <span className="text-[22px] font-extrabold tracking-[-0.02em]">{todayEvents.length ? t('Plus rien de prévu.') : t('Rien de prévu.')}</span>
-            )}
+              <span className="sr-only">{t('Il est {time}', { time: nowTime })}</span>
+              <span aria-hidden className="tabular shrink-0 text-[40px] font-extrabold leading-[0.9] tracking-[-0.045em] sm:text-[56px]">{nowTime}</span>
+            </span>
+            <DayLine events={todayEvents} now={now} />
           </Link>
 
           {/* Next exam */}
