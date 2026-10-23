@@ -8,6 +8,9 @@ import { t } from '../i18n';
 
 let currentUserId: string | null = null;
 
+/** Where cloudSync keeps the newest server time it has read (saved with the stores, see flushStorage). */
+export const SYNC_CURSOR = 'sync-cursor';
+
 export function setStorageUser(id: string | null) {
   if (id !== currentUserId) flushStorage(); // what the previous account changed goes under its own keys
   currentUserId = id;
@@ -28,8 +31,15 @@ const keyOf = (name: string) => `cop:${currentUserId}:${name}`;
 export function flushStorage() {
   clearTimeout(timer);
   timer = undefined;
-  for (const [key, value] of pending) {
+  // The sync cursor goes last, and only when every copy before it was saved: a cursor ahead of the copy
+  // would make the next visit skip the changes it misses.
+  const entries = [...pending].sort(([a], [b]) => Number(a.endsWith(`:${SYNC_CURSOR}`)) - Number(b.endsWith(`:${SYNC_CURSOR}`)));
+  for (const [key, value] of entries) {
     const name = key.slice(key.indexOf(':', 4) + 1);
+    if (name === SYNC_CURSOR && failing.size) {
+      localStorage.removeItem(key);
+      continue;
+    }
     try {
       localStorage.setItem(key, JSON.stringify(value));
       failing.delete(name);

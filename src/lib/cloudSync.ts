@@ -14,6 +14,8 @@ import { useUi } from '../store/ui';
 import { useTodos, type Todo } from '../store/todos';
 import { useFocusLog, type FocusSession } from '../store/focusLog';
 import { t } from '../i18n';
+import { userStorage, SYNC_CURSOR } from './userStorage';
+import { mergeRows } from './syncMerge';
 
 type Row = Record<string, unknown>;
 type Table = 'events' | 'note_folders' | 'notes' | 'drive_items' | 'todos' | 'focus_sessions';
@@ -428,16 +430,20 @@ export async function pushLeftovers(userId: string) {
 
 const PAGE = 1000; // Supabase answers at most 1 000 rows per request by default
 
-/** Every row of a table, page by page (a year of timetable easily passes 1 000 events). */
-async function selectAll(table: Table) {
+/** Every row of a table (changed since `since`), page by page (a year of timetable easily passes 1 000 events). */
+async function selectAll(table: Table | 'sync_deletions', since?: string) {
   const rows: Row[] = [];
   for (let from = 0; ; from += PAGE) {
-    const { data, error } = await supabase!.from(table).select('*').order('id').range(from, from + PAGE - 1);
+    let q = supabase!.from(table).select('*');
+    if (since) q = q.gt(table === 'sync_deletions' ? 'deleted_at' : 'synced_at', since);
+    const { data, error } = await q.order(table === 'sync_deletions' ? 'deleted_at' : 'id').range(from, from + PAGE - 1);
     if (error) return { data: null, error };
     rows.push(...data);
     if (data.length < PAGE) return { data: rows, error: null };
   }
 }
+
+const loadProfile = (userId: string) => supabase!.from('profiles').select('*').eq('id', userId).maybeSingle(); // '*': tolerate older schemas
 
 async function fetchAll(userId: string) {
   if (!supabase) throw new Error('cloud disabled');
@@ -446,13 +452,21 @@ async function fetchAll(userId: string) {
     selectAll('note_folders'),
     selectAll('notes'),
     selectAll('drive_items'),
-    supabase.from('profiles').select('*').eq('id', userId).maybeSingle(), // '*': tolerate older schemas
+    loadProfile(userId),
     selectAll('todos'),
     selectAll('focus_sessions'),
   ]);
   const err = events.error ?? folders.error ?? notes.error ?? items.error ?? profile.error;
   if (err) throw err;
   return { events, folders, notes, items, profile, todos, focus };
+}
+
+type Profile = Awaited<ReturnType<typeof loadProfile>>;
+
+function applySettings(profile: Profile) {
+  const saved = (profile.data?.settings ?? {}) as Partial<Settings>;
+  const known = Object.keys(DEFAULT_SETTINGS) as (keyof Settings)[];
+  useSettings.setState(Object.fromEntries(known.filter(k => k in saved).map(k => [k, k === 'periods' ? cleanPeriods(saved[k]) : k === 'courseKeywords' ? cleanKeywords(saved[k]) : saved[k]])) as Partial<Settings>);
 }
 
 function apply({ events, folders, notes, items, profile, todos, focus }: Awaited<ReturnType<typeof fetchAll>>) {
@@ -473,23 +487,122 @@ function apply({ events, folders, notes, items, profile, todos, focus }: Awaited
     // Tables added later: an older database without them keeps the local copy.
     if (!todos.error) useTodos.setState({ todos: (todos.data ?? []).map(rowToTodo) });
     if (!focus.error) useFocusLog.setState({ sessions: (focus.data ?? []).map(rowToFocus) });
-    const saved = (profile.data?.settings ?? {}) as Partial<Settings>;
-    const known = Object.keys(DEFAULT_SETTINGS) as (keyof Settings)[];
-    useSettings.setState(Object.fromEntries(known.filter(k => k in saved).map(k => [k, k === 'periods' ? cleanPeriods(saved[k]) : k === 'courseKeywords' ? cleanKeywords(saved[k]) : saved[k]])) as Partial<Settings>);
+    applySettings(profile);
   } finally {
     pulling = false;
   }
 }
 
-/** Downloads everything for the signed-in user and replaces the stores' content. */
+// ── Light refresh: only what changed since the last download ─────────────────
+// Every row carries the server's time of its last change (synced_at) and a deleted row leaves its id
+// for 30 days (sync_deletions, migration 2026-10-29). The copy on this device plus what changed since
+// is the account: no need to download it all again at each visit and every 2 minutes.
+
+/** A row written just before the newest one seen may be saved just after: the last 2 minutes are read again. */
+const OVERLAP = 2 * 60_000;
+/** The whole account again once a day, in case the copy on this device went wrong. */
+const FULL_EVERY = 24 * 3600_000;
+/** `at`: newest server time seen (ms). `full`: last whole download (this device's clock). */
+type Cursor = { at: number; full: number };
+let noDelta = false; // server without the migration: whole downloads, as before
+
+const readCursor = (): Cursor | null => {
+  const c = (userStorage.getItem(SYNC_CURSOR) as { state?: Cursor } | null)?.state;
+  return c && Number.isFinite(c.at) && Number.isFinite(c.full) ? c : null;
+};
+const saveCursor = (c: Cursor) => userStorage.setItem(SYNC_CURSOR, { state: c });
+
+const newest = (rows: Row[] | null | undefined, col: string, at = 0) =>
+  (rows ?? []).reduce((m, r) => Math.max(m, Date.parse(String(r[col] ?? '')) || 0), at);
+
+const DELTA_TABLES = ['events', 'note_folders', 'notes', 'drive_items', 'todos', 'focus_sessions'] as const;
+
+async function fetchChanges(userId: string, since: string) {
+  const [profile, gone, ...tables] = await Promise.all([loadProfile(userId), selectAll('sync_deletions', since), ...DELTA_TABLES.map(t => selectAll(t, since))]);
+  const err = profile.error ?? gone.error ?? tables.find(r => r.error)?.error;
+  if (err) throw err;
+  return { profile, gone: gone.data!, rows: Object.fromEntries(DELTA_TABLES.map((t, i) => [t, tables[i].data!])) as Record<Table, Row[]> };
+}
+type Changes = Awaited<ReturnType<typeof fetchChanges>>;
+
+function applyChanges({ profile, gone, rows }: Changes) {
+  const deleted = Object.fromEntries(DELTA_TABLES.map(t => [t, new Map<string, number>()])) as Record<Table, Map<string, number>>;
+  for (const g of gone) deleted[g.tbl as Table]?.set(g.row_id as string, Date.parse(String(g.deleted_at)) || 0);
+  const touched = (t: Table) => rows[t].length > 0 || deleted[t].size > 0;
+  pulling = true;
+  try {
+    if (touched('events')) {
+      const s = useCalendar.getState();
+      const [events, trash] = mergeRows([s.events, s.trash], rows.events, deleted.events, rowToEvent, isTrashed);
+      useCalendar.setState({ events, trash });
+    }
+    if (touched('note_folders')) {
+      const s = useNotes.getState();
+      const [folders, trashFolders] = mergeRows([s.folders, s.trashFolders], rows.note_folders, deleted.note_folders, rowToFolder, isTrashed);
+      useNotes.setState({ folders, trashFolders });
+    }
+    if (touched('notes')) {
+      const s = useNotes.getState();
+      const [notes, trashNotes] = mergeRows([s.notes, s.trashNotes], rows.notes, deleted.notes, rowToNote, isTrashed);
+      useNotes.setState({ notes, trashNotes });
+    }
+    if (touched('drive_items')) {
+      const s = useDrive.getState();
+      const [items, trash] = mergeRows([s.items, s.trash], rows.drive_items, deleted.drive_items, rowToItem, isTrashed);
+      useDrive.setState({ items, trash });
+    }
+    if (touched('todos')) useTodos.setState({ todos: mergeRows([useTodos.getState().todos], rows.todos, deleted.todos, rowToTodo, () => false)[0] });
+    if (touched('focus_sessions'))
+      useFocusLog.setState({ sessions: mergeRows([useFocusLog.getState().sessions], rows.focus_sessions, deleted.focus_sessions, rowToFocus, () => false)[0] });
+    applySettings(profile);
+  } finally {
+    pulling = false;
+  }
+}
+
+/**
+ * Brings this device up to date: only the changes when its copy is recent, the whole account otherwise.
+ * `onlyIf` is checked just before the result is applied (a refresh that raced with a local change is thrown away).
+ */
+async function download(userId: string, onlyIf: () => boolean = () => true) {
+  const c = readCursor();
+  if (c && !noDelta && Date.now() - c.full < FULL_EVERY) {
+    try {
+      const d = await fetchChanges(userId, new Date(Math.max(0, c.at - OVERLAP)).toISOString());
+      if (!onlyIf()) return null;
+      applyChanges(d);
+      const at = DELTA_TABLES.reduce((m, t) => newest(d.rows[t], 'synced_at', m), newest(d.gone, 'deleted_at', c.at));
+      saveCursor({ at, full: c.full });
+      return { profile: d.profile, delta: true };
+    } catch (e) {
+      // Server not migrated yet (unknown column or table): whole downloads from now on. Network: tried again later.
+      if (!permanent(e as { code?: string })) throw e;
+      noDelta = true;
+    }
+  }
+  const started = Date.now();
+  const d = await fetchAll(userId);
+  if (!onlyIf()) return null;
+  apply(d);
+  const at = [d.events, d.folders, d.notes, d.items, d.todos, d.focus].reduce((m, r) => newest(r.data, 'synced_at', m), 0);
+  // No synced_at in the rows (server not migrated): no cursor, the next download is whole too.
+  if (at || !(d.events.data?.length || d.notes.data?.length || d.items.data?.length)) saveCursor({ at, full: started });
+  return { profile: d.profile, data: d, delta: false };
+}
+
+/** Downloads the signed-in user's account (only what changed when this device has a recent copy). */
 export async function pullAll(userId: string): Promise<CloudProfile> {
-  const data = await fetchAll(userId);
-  apply(data);
+  const { profile } = (await download(userId))!;
   useDrive.setState({ clipboard: null });
   lastPull = Date.now();
-  const { events, folders, notes, items, profile, todos } = data;
   // Databases created before the "onboarded" column existed: onboarded as soon as there is any data.
-  const hasData = !!(events.data?.length || notes.data?.length || items.data?.length || folders.data?.length || todos.data?.length);
+  const hasData = !!(
+    useCalendar.getState().events.length ||
+    useNotes.getState().notes.length ||
+    useDrive.getState().items.length ||
+    useNotes.getState().folders.length ||
+    useTodos.getState().todos.length
+  );
   const onboarded = typeof profile.data?.onboarded === 'boolean' ? profile.data.onboarded || hasData : hasData;
   return { name: profile.data?.name ?? '', onboarded };
 }
@@ -503,8 +616,7 @@ async function refresh() {
   if (!user || hasPending() || document.hidden || Date.now() - lastPull < 30_000) return;
   lastPull = Date.now();
   const mark = changes;
-  const data = await fetchAll(user).catch(() => null);
-  if (data && currentUser === user && changes === mark && !hasPending()) apply(data);
+  await download(user, () => currentUser === user && changes === mark && !hasPending()).catch(() => null);
 }
 
 /** Starts pushing every change of the stores to Supabase. */

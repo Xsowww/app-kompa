@@ -9,7 +9,7 @@ import { fromKey, fromMinutes, toKey, toMinutes, validKey } from './dates';
 import { foldLine, utcStamp } from './ics';
 import { useAuth } from '../store/auth';
 import { blobStore } from './blobStore';
-import { blobKey, getStorageUser } from './userStorage';
+import { blobKey, getStorageUser, userStorage, SYNC_CURSOR } from './userStorage';
 import { cloudEnabled, supabase } from './supabase';
 import { flushNow } from './cloudSync';
 import { purgeSoleGroups } from './groups';
@@ -163,6 +163,7 @@ async function deleteLocalFiles() {
 
 /** Empties this device's copy: lists, conversation with Kompaly, search index of the PDFs. */
 export function resetLocalData() {
+  userStorage.removeItem(SYNC_CURSOR); // an empty copy: the next download is the whole account
   useDrive.setState({ items: [], trash: [], clipboard: null });
   useNotes.setState({ notes: [], folders: [], trashNotes: [], trashFolders: [] });
   useCalendar.setState({ events: [], trash: [] });
