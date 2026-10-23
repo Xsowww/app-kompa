@@ -105,7 +105,7 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
           </p>
           <p className="mt-0.5 text-[12px] text-stone-500">
             <span style={{ color: c.text }}>{c.label}</span>
-            {shared && ev.people?.length ? ` · ${t('pour {names}', { names: ev.people.map(shared.nameOf).join(', ') })}` : ''}
+            {shared && ev.people?.length ? ` · ${t('pour {names}', { names: ev.people.map(shared.nameFor).join(', ') })}` : ''}
             {shared && ` · ${t('par {name}', { name: shared.author(ev.id) })}`}
             {isBigEvent(ev) && !ev.done && ` · ${countdownLabel(ev.date)}`}
             {!ev.done && reminders.length > 0 && (

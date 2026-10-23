@@ -1,4 +1,4 @@
-// Built-in French command engine: works offline, no API key needed.
+// Built-in French command engine: works offline, no API key needed (the simple requests of the other site languages are rewritten in French first).
 
 import { recWords } from '../pages/record/words';
 import { normalize } from '../lib/utils';
@@ -32,7 +32,7 @@ import { subjectStart } from './revisionPlan';
 import { askedDay, askedPeriod } from './dayQuestion';
 import { getSettings } from '../store/settings';
 import { WORDS, groupWords, type Usage } from '../lib/usage';
-import { t, tn } from '../i18n';
+import { lang, t, tn } from '../i18n';
 
 export interface BotReply {
   text: string;
@@ -379,11 +379,83 @@ const SUGGESTED: [string, string][] = [
   ['Comment enregistrer une conférence ?', t('Comment enregistrer une conférence ?')],
 ];
 
+// ── The other site languages: the simple requests (the examples shown) rewritten in the French read below ──
+// Leading articles of a name or a subject (« the report », « den Bericht », « il report »).
+const ARTICLE = /^(?:the|my|el|la|los|las|mi|mis|der|die|das|den|dem|meinen?|meine|il|lo|i|gli|le|l['’]|il mio|la mia)\s+|^l['’]/i;
+const bare = (s: string) => s.trim().replace(ARTICLE, '').trim();
+// « this week », « nächstes Wochenende »… in the French askedPeriod reads.
+const PERIODS: [RegExp, string][] = [
+  [/\b(?:next weekend|el pr[oó]ximo fin de semana|n[äa]chstes wochenende|il prossimo (?:fine settimana|weekend)|il (?:fine settimana|weekend) prossimo)\b/i, 'le week-end prochain'],
+  [/\b(?:this weekend|the weekend|este fin de semana|el fin de semana|dieses wochenende|am wochenende|questo (?:fine settimana|weekend)|nel (?:fine settimana|weekend))\b/i, 'ce week-end'],
+  [/\b(?:next week|la (?:semana que viene|pr[oó]xima semana)|n[äa]chste woche|la (?:settimana prossima|prossima settimana))\b/i, 'la semaine prochaine'],
+  [/\b(?:this week|esta semana|diese woche|questa settimana)\b/i, 'cette semaine'],
+];
+const OTHER: [RegExp, (m: RegExpMatchArray) => string][] = [
+  // Help
+  [/^(?:help|hilfe|hilf mir|ayuda|ay[uú]dame|aiuto|aiutami)\b|what can you do|was kannst du|qu[eé] (?:sabes|puedes) hacer|(?:che )?cosa (?:sai|puoi) fare/i, () => 'aide'],
+  // Tasks (before the events: « Füge die Aufgabe … hinzu »)
+  [/^(?:add|create|new)\s+(?:a\s+|the\s+)?(?:new\s+)?(?:task|to-?do)(?=[\s:]|$)\s*:?\s*(.*)$/i, m => `ajoute la tâche ${m[1]}`],
+  [/^(?:añade|agrega|crea|nueva)\s+(?:una\s+|la\s+)?(?:nueva\s+)?tarea(?=[\s:]|$)\s*:?\s*(.*)$/i, m => `ajoute la tâche ${m[1]}`],
+  [/^(?:füg(?:e)?|trag(?:e)?)\s+(?:eine\s+|die\s+)?(?:neue\s+)?aufgabe(?=[\s:]|$)\s*:?\s*(.*?)\s*(?:hinzu|ein)?$/i, m => `ajoute la tâche ${m[1]}`],
+  [/^(?:neue|erstell(?:e)?\s+(?:eine\s+)?(?:neue\s+)?)aufgabe(?=[\s:]|$)\s*:?\s*(.*)$/i, m => `ajoute la tâche ${m[1]}`],
+  [/^(?:aggiungi|crea|nuova)\s+(?:l['’]\s*|un['’]\s*|una\s+|la\s+|il\s+|un\s+)?(?:nuova\s+)?(?:attivit[aà]|compito|cosa da fare)(?=[\s:]|$)\s*:?\s*(.*)$/i, m => `ajoute la tâche ${m[1]}`],
+  // Notes
+  [/^(?:create|make|write|add|new)\s+(?:me\s+)?(?:a\s+)?(?:new\s+)?note(?=[\s:]|$)\s*(?:called|named|titled|about|on)?\s*(.*)$/i, m => `crée une note ${m[1]}`],
+  [/^(?:crea|haz|escribe|añade|agrega|nueva|fai|scrivi|aggiungi|nuova)\s+(?:me\s+|mi\s+)?(?:una\s+)?(?:nueva\s+|nuova\s+)?nota(?=[\s:]|$)\s*(?:llamada|titulada|sobre|chiamata|intitolata|su)?\s*(.*)$/i, m => `crée une note ${m[1]}`],
+  [/^(?:erstell(?:e)?|schreib(?:e)?|mach(?:e)?|neue)\s+(?:mir\s+)?(?:eine\s+)?(?:neue\s+)?notiz(?=[\s:]|$)\s*(?:namens|über|zu)?\s*(.*)$/i, m => `crée une note ${m[1]}`],
+  // Quiz, focus
+  [/^(?:quiz|test)\s+me\s+(?:on|about)\s+(.+)$|^preg[uú]ntame\s+(?:sobre|de)\s+(.+)$|^frag(?:e)?\s+mich\s+(?:zu|über|in|nach)\s+(.+?)(?:\s+ab)?$|^interrogami\s+(?:su|sul|sulla|sullo|di)\s+(.+)$/i, m => `interroge-moi sur ${m[1] ?? m[2] ?? m[3] ?? m[4]}`],
+  [/^(?:start|begin|launch)\s+(?:a\s+)?(?:focus(?:\s+session)?|pomodoro|study\s+session|work\s+session)(?:\s+(?:on|for)\s+(.+))?$|^(?:inicia|empieza|comienza|lanza|arranca)\s+(?:una\s+)?(?:sesi[oó]n(?:\s+de\s+(?:concentraci[oó]n|focus|estudio|trabajo))?|pomodoro)(?:\s+(?:de|sobre|en|para)\s+(.+))?$|^(?:starte|start|beginne)\s+(?:eine\s+|einen\s+)?(?:fokus-?session|fokus|pomodoro|lernsession)(?:\s+(?:für|fürs|zum|zur|zu|über|in)\s+(.+))?$|^(?:avvia|inizia|comincia|lancia)\s+(?:una\s+)?(?:sessione(?:\s+(?:di\s+)?(?:focus|studio|lavoro|concentrazione))?|pomodoro|focus)(?:\s+(?:su|sul|sulla|sullo|sui|di|per)\s+(.+))?$/i, m => {
+    const subject = m[1] ?? m[2] ?? m[3] ?? m[4];
+    return subject ? `lance une session focus sur ${bare(subject)}` : 'lance une session focus';
+  }],
+  [/^(?:stop|end)\s+(?:the\s+|my\s+)?(?:session|focus|pomodoro|timer)|^(?:para|det[eé]n|termina)\s+(?:la\s+)?(?:sesi[oó]n|pomodoro)|^(?:stopp(?:e)?|beende)\s+(?:die\s+)?(?:session|fokus|pomodoro)|^(?:ferma|termina)\s+(?:la\s+)?(?:sessione|pomodoro)|^(?:stopp|para|basta|ferma)\s*!?$/i, () => 'arrête la session'],
+  // Rename, trash
+  [/^rename\s+(?:the\s+(?:file|folder|note)\s+)?(.+?)\s+(?:to|as)\s+(.+)$|^renombra\s+(?:el\s+archivo\s+|la\s+carpeta\s+|la\s+nota\s+)?(.+?)\s+(?:a|como)\s+(.+)$|^benenne\s+(?:die\s+datei\s+|den\s+ordner\s+|die\s+notiz\s+)?(.+?)\s+(?:in|zu)\s+(.+?)\s+um$|^rinomina\s+(?:il\s+file\s+|la\s+cartella\s+|la\s+nota\s+)?(.+?)\s+(?:in|come)\s+(.+)$/i, m => `renomme ${m[1] ?? m[3] ?? m[5] ?? m[7]} en ${m[2] ?? m[4] ?? m[6] ?? m[8]}`],
+  [/^(?:move|put|send|throw)\s+(.+?)\s+(?:to|in|into)\s+(?:the\s+)?(?:trash|bin)$|^(?:mueve|manda|env[ií]a|pon|tira|echa)\s+(.+?)\s+(?:a|en)\s+la\s+papelera$|^(?:leg(?:e)?|verschieb(?:e)?|schieb(?:e)?|wirf)\s+(.+?)\s+in\s+den\s+papierkorb$|^(?:sposta|metti|butta|manda)\s+(.+?)\s+nel\s+cestino$/i, m => `mets ${bare(m[1] ?? m[2] ?? m[3] ?? m[4])} à la corbeille`],
+  [/^(?:delete|trash|borra|elimina|l[öo]sch(?:e)?|cancella)\s+(.+)$/i, m => `supprime ${bare(m[1])}`],
+  // Theme
+  [/\b(?:dark|night)\s+(?:mode|theme)\b|\b(?:modo|tema)\s+oscuro\b|\bdunkel(?:modus|er\s+modus)\b|\bdunkles\s+design\b|\bmodalit[aà]\s+scura\b|\btema\s+scuro\b/i, () => 'mode sombre'],
+  [/\blight\s+(?:mode|theme)\b|\b(?:modo|tema)\s+claro\b|\bhell(?:modus|er\s+modus)\b|\bhelles\s+design\b|\bmodalit[aà]\s+chiara\b|\btema\s+chiaro\b/i, () => 'mode clair'],
+  // Calendar: analysis, what is planned
+  [/^(?:analy[sz]e|review|check)\s+(?:my\s+|the\s+)?(?:calendar|week|schedule|agenda)|^analiza\s+(?:mi\s+|el\s+|la\s+)?(?:calendario|semana|agenda)|^analysiere\s+(?:meinen\s+|den\s+|meine\s+|die\s+)?(?:kalender|woche|terminplan)|^analizza\s+(?:il\s+mio\s+|la\s+mia\s+|il\s+|la\s+)?(?:calendario|settimana|agenda)/i, () => 'analyse mon calendrier'],
+  [/^(?:what(?:['’]s|\s+is)\s+(?:on|planned|happening)|what\s+(?:have\s+i\s+got|do\s+i\s+have)(?:\s+on|\s+planned)?)\s+(.+)$|^qu[eé]\s+(?:tengo|hay)\s+(?:para\s+)?(.+)$|^was\s+(?:habe|hab|steht)\s+(?:ich\s+)?(.+?)(?:\s+an)?$|^(?:che\s+)?cosa\s+(?:ho|c['’]\s*[eè])\s+(.+)$|^che\s+ho\s+(.+)$/i, m => {
+    const when = m[1] ?? m[2] ?? m[3] ?? m[4] ?? m[5];
+    return `qu'est-ce que j'ai ${PERIODS.find(([re]) => re.test(when))?.[1] ?? when}`;
+  }],
+  // Find (« … in my notes »: inside the notes)
+  [/^(?:find|search(?:\s+for)?|look\s+for|where(?:['’]s|\s+is|\s+are))\s+(?:me\s+)?(.+?)(?:\s+(?:folder|file|document))?$|^(?:b[uú]sca(?:me)?|encuentra(?:me)?|d[oó]nde\s+est[aá]n?)\s+(?:la\s+carpeta\s+|el\s+archivo\s+|el\s+documento\s+)?(.+)$|^(?:finde|such(?:e)?(?:\s+nach)?|wo\s+(?:ist|sind))\s+(?:den\s+ordner\s+|die\s+datei\s+|das\s+dokument\s+)?(.+)$|^(?:trova(?:mi)?|cerca(?:mi)?|dov['’]\s*[eè]|dove\s+sono)\s+(?:la\s+cartella\s+|il\s+file\s+|il\s+documento\s+)?(.+)$/i, m => {
+    const term = bare(m[1] ?? m[2] ?? m[3] ?? m[4]);
+    const notes = /\s+(?:in\s+(?:my|the)\s+notes|en\s+(?:mis|las)\s+notas|in\s+(?:meinen|den)\s+notizen|nelle\s+(?:mie\s+)?note)$/i;
+    return notes.test(term) ? `trouve ${term.replace(notes, '')} dans mes notes` : `trouve ${term}`;
+  }],
+  // Events: « Add Dentist Friday 10am », « Füge Zahnarzt Freitag 10 Uhr hinzu », « Trag Zahnarzt Freitag ein »
+  [/^(?:add|schedule)\s+(?:an?\s+)?(?:event\s+|appointment\s+)?(.+?)(?:\s+(?:to|in)\s+(?:my|the)\s+calendar)?$/i, m => `ajoute ${m[1]}`],
+  [/^(?:añade|agrega|programa|apunta)\s+(?:un\s+|una\s+)?(?:evento\s+|cita\s+)?(.+?)(?:\s+(?:a|en)\s+(?:mi|el)\s+calendario)?$/i, m => `ajoute ${m[1]}`],
+  [/^(?:füg(?:e)?\s+(?:einen\s+)?(?:termin\s+)?(.+?)(?:\s+(?:zu|in)\s+(?:meinem|meinen|dem|den)\s+kalender)?\s+hinzu|trag(?:e)?\s+(?:einen\s+)?(?:termin\s+)?(.+?)(?:\s+in\s+(?:meinen|den)\s+kalender)?\s+ein)$/i, m => `ajoute ${m[1] ?? m[2]}`],
+  [/^(?:aggiungi|programma|segna)\s+(?:un\s+|una\s+)?(?:evento\s+|appuntamento\s+)?(.+?)(?:\s+(?:al|nel)\s+(?:mio\s+)?calendario)?$/i, m => `ajoute ${m[1]}`],
+  // Recording, greetings, thanks
+  [/^(?:how\s+(?:do|can)\s+i|c[oó]mo|wie|come)\b.*(?:\brecord|\bgrab(?:o|ar|a)\b|aufnehm|\bnehme\b.*\bauf\b|aufzeichn|\bregistr(?:o|are|a)\b)/i, () => 'comment enregistrer ?'],
+  [/^(?:hi|hello|hey|hola|buenas|hallo|servus|moin|ciao|buongiorno|buonasera|salve|guten\s+(?:morgen|tag|abend))\b/i, () => 'salut'],
+  [/^(?:thanks|thank you|thx|cheers|gracias|muchas gracias|danke(?: sch[öo]n| sehr)?|vielen dank|grazie(?: mille)?)\s*[!.]*$/i, () => 'merci'],
+];
+
+/** A simple request in English, Spanish, German or Italian, said the French way (null: not one of them). */
+export function fromOtherLanguage(typed: string): string | null {
+  const s = typed.trim().replace(/^[¿¡«“„"‚‹']\s*/, '').replace(/\s*[»”“"‘’›']?\s*[?!.]*\s*[»”“"‘’›']?$/, '');
+  for (const [re, fr] of OTHER) {
+    const m = s.match(re);
+    if (m) return fr(m).trim();
+  }
+  return null;
+}
+
 export function localReply(raw: string): BotReply {
   const typed = raw.trim();
-  const input = SUGGESTED.find(([, shown]) => shown.toLowerCase() === typed.toLowerCase())?.[0] ?? typed;
+  let input = SUGGESTED.find(([, shown]) => shown.toLowerCase() === typed.toLowerCase())?.[0] ?? typed;
   // Only read by patterns (the words searched are cut from `input`): « œ », « æ » stay one letter, as normalize would spell them out.
-  const q = normalize(input.replace(/[œŒ]/g, 'o').replace(/[æÆ]/g, 'a'));
+  const fold = (s: string) => normalize(s.replace(/[œŒ]/g, 'o').replace(/[æÆ]/g, 'a'));
+  let q = fold(input);
 
   // ── Waiting for a confirmation ────────────────────────────────────────────
   if (pendingConfirm) {
@@ -396,15 +468,22 @@ export function localReply(raw: string): BotReply {
   // ── Quiz in progress: every message is an answer ─────────────────────────
   if (quiz) return quizStep(input, q);
 
+  // Typed in another site language: read as the same request in French.
+  const french = lang === 'fr' ? null : fromOtherLanguage(input);
+  if (french) {
+    input = french;
+    q = fold(input);
+  }
+
   const more = moreCommands(input, q);
   if (more) return more;
 
   // ── Answer to Kompaly's last proposal ─────────────────────────────────────
   const offer = useCopilot.getState().pendingOffer;
-  if (offer && /^(oui|ouais|ouep|ok|okay|vas[- ]y|go|carrement|d'accord|dac|yes|let'?s go|avec plaisir|je veux bien|volontiers|bonne idee)\b/.test(q)) {
+  if (offer && (YES.test(q) || /^(let'?s go|avec plaisir|je veux bien|volontiers|bonne idee|va bene|perfetto|vamos|gerne)\b/.test(q))) {
     return runOffer(offer);
   }
-  if (offer && /^(non|nan|pas maintenant|plus tard|laisse|nope|non merci)\b/.test(q)) {
+  if (offer && (NO.test(q) || /^(plus tard|not now|later|luego|m[aá]s tarde|sp[aä]ter|pi[uù] tardi|dopo)\b/.test(q))) {
     return { text: pick([t('Ok, je n’insiste pas. Je reste dans le coin.'), t('Pas de souci, on verra plus tard.')]) };
   }
 
@@ -601,14 +680,14 @@ export function localReply(raw: string): BotReply {
           ? named ? t('Rien de prévu {near}, {date}, pour le moment.', { near, date }) : t('Rien de prévu {near} pour le moment.', { near })
           : t('Rien de prévu le {date} pour le moment.', { date });
     return {
-      text: list.length ? `${name.charAt(0).toUpperCase()}${name.slice(1)} :\n${list.join('\n')}` : empty,
+      text: list.length ? `${t('{title} :', { title: name.charAt(0).toUpperCase() + name.slice(1) })}\n${list.join('\n')}` : empty,
       links: [{ label: d === 0 ? t('Voir aujourd’hui') : d === 1 ? t('Voir demain') : t('Voir le jour'), to: linkToDay(day) }, ...(todos.length ? [{ label: t('Tâches'), to: '/taches' }] : [])],
     };
   }
   if (/(examen|exam|partiel|controle|echeance|deadline|grand jour)s?/.test(q) && /(quand|prochain|liste|quels|quelles|mes|a venir)/.test(q)) {
     const exams = eventsBetween(todayKey(), '9999-12-31').filter(e => (getSettings().usage === 'etudes' ? e.category === 'examen' : isBigEvent(e)));
     return {
-      text: exams.length ? `${words().upcoming} :\n${exams.slice(0, 6).map(describeEvent).join('\n')}` : words().noBig,
+      text: exams.length ? `${t('{title} :', { title: words().upcoming })}\n${exams.slice(0, 6).map(describeEvent).join('\n')}` : words().noBig,
       links: [{ label: t('Calendrier'), to: '/calendrier' }],
     };
   }

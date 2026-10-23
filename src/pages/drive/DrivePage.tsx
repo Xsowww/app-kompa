@@ -848,7 +848,7 @@ export default function DrivePage() {
               ...(single?.kind === 'file' ? [{ icon: Download, label: t('Télécharger'), fn: () => downloadItem(single), more: true }] : []),
               { icon: Tag, label: t('Étiquettes'), fn: () => setTagIds(selectedIds) },
               ...(selectedFolders.length === selectedIds.length ? [{ icon: Palette, label: t('Couleur'), fn: (e: React.MouseEvent) => setColorMenu(under(e)) }] : []),
-              { icon: Trash2, label: t('Corbeille'), fn: () => void remove(selectedIds) },
+              { icon: Trash2, label: t('Corbeille||barre de sélection'), fn: () => void remove(selectedIds) },
             ].map(a => (
               <button
                 key={a.label}
@@ -860,7 +860,8 @@ export default function DrivePage() {
                 title={a.label}
                 aria-label={a.label}
               >
-                <a.icon size={14} /> <span className="hidden lg:inline">{a.label}</span>
+                {/* The less frequent ones: their icon alone below 1536 px (German labels overflowed the bar at 1280). */}
+                <a.icon size={14} /> <span className={'more' in a ? 'hidden 2xl:inline' : 'hidden lg:inline'}>{a.label}</span>
               </button>
             ))}
             <button

@@ -20,10 +20,21 @@ describe('what search engines read', () => {
     expect(fr.match(/<title>/g)).toHaveLength(1);
   });
 
+  it('translates the description of the JSON-LD', () => {
+    const ld = (h: string) => JSON.parse(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(h)![1])['@graph'].find((x: { '@type': string }) => x['@type'] === 'WebApplication').description;
+    expect(ld(withHead(html, '/', 'en'))).toMatch(/^Kompaly brings your calendar/);
+    expect(ld(withHead(html, '/connexion', 'de'))).toMatch(/^Kompaly /);
+    expect(ld(withHead(html, '/connexion', 'de'))).not.toMatch(/réunit/);
+    expect(ld(withHead(html, '/', null))).toMatch(/^Kompaly réunit ton agenda/);
+  });
+
   it('lists every page in every language in the sitemap', () => {
     const xml = sitemapXml();
-    expect(xml.match(/<url>/g)).toHaveLength(36); // 6 pages × (visitor's language + 5)
+    expect(xml.match(/<url>/g)).toHaveLength(30); // 6 pages × 5 languages
     expect(xml).toContain('<loc>https://kompaly.com/inscription?lang=de</loc>');
+    // The address without ?lang is the same French page: only in the hreflang (x-default), not listed twice.
+    expect(xml).not.toContain('<loc>https://kompaly.com/</loc>');
+    expect(xml).toContain('hreflang="x-default" href="https://kompaly.com/"');
   });
 
   it('knows the public pages and languages only', () => {

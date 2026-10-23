@@ -15,7 +15,7 @@ import type { Group, GroupEvent, GroupNoteSummary } from '../lib/groups';
 import { getSettings, useSettings, applyAppearance, ACCENTS, type Settings, type AccentKey, type ThemeMode, type Chattiness } from '../store/settings';
 import { usageWords } from '../lib/usage';
 import { hasTwin, noteFor, noteTitle, notePrefix, pickExam, planTag, sessionPrefix, sessionsFor } from './revisionPlan';
-import { t, tn } from '../i18n';
+import { lang, t, tn } from '../i18n';
 
 // Studies: revision sessions and a revision sheet; work and personal life: time to prepare and a checklist.
 const studying = () => (getSettings().usage ?? 'etudes') === 'etudes';
@@ -144,9 +144,11 @@ export function eventsBetween(from: string, to: string) {
 
 export function describeEvent(e: { title: string; date: string; start?: string; end?: string; category: EventCategory; done?: boolean; important?: boolean }) {
   const c = catOf(e.category);
-  const h = (hm: string) => hm.replace(':', 'h').replace(/h00$/, 'h').replace(/^0(?=\d)/, ''); // « 9h », « 14h30 »
+  // « 9h », « 14h30 » in French; the other languages keep « 09:00 » (« um 9h » read wrong), and their capitals (German nouns).
+  const fr = lang === 'fr';
+  const h = (hm: string) => (fr ? hm.replace(':', 'h').replace(/h00$/, 'h').replace(/^0(?=\d)/, '') : hm);
   const time = e.start ? ` ${t('à {time}', { time: `${h(e.start)}${e.end ? `–${h(e.end)}` : ''}` })}` : '';
-  return `${e.title} (${c.label.toLowerCase()}) — ${fmtDay(fromKey(e.date), 'EEEE d MMM')}${time}${e.important ? ` · ${t('important')}` : ''}${e.done ? ` · ${t('fait')}` : ''}`;
+  return `${e.title} (${fr ? c.label.toLowerCase() : c.label}) — ${fmtDay(fromKey(e.date), 'EEEE d MMM')}${time}${e.important ? ` · ${t('important')}` : ''}${e.done ? ` · ${t('fait')}` : ''}`;
 }
 
 export function analyzeCalendar() {

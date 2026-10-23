@@ -1,6 +1,6 @@
 import { addDays, format, isValid, parseISO, startOfWeek, differenceInCalendarDays } from 'date-fns';
 import { fr } from 'date-fns/locale/fr';
-import { dateLocale, lang, t } from '../i18n';
+import { dateLocale, lang, t, type Lang } from '../i18n';
 import { parseQuickAddIn } from './quickAddOther';
 
 // Read once: the app (and this file) loads after loadLang().
@@ -22,8 +22,16 @@ export const validKey = (k: string | null | undefined): string | null => {
   return isValid(d) && toKey(d) === k ? k : null;
 };
 export const weekStart = (d: Date) => startOfWeek(d, { weekStartsOn: 1 });
+/** German and Spanish write a date their own way: « Freitag, 23. Oktober », « viernes, 23 de octubre de 2026 ». */
+const PATTERNS: Partial<Record<Lang, (p: string) => string>> = {
+  de: p => p.replace(/(E+)\s+(?=d)/, '$1, ').replace(/(^|[^d'])d(?=\s+M)/, '$1d.'),
+  es: p => p.replace(/(E+)\s+(?=d\s+M)/, '$1, ').replace(/(^|[^d'])d\s+(?=MMMM)/, "$1d 'de' ").replace(/MMMM\s+(?=y)/, "MMMM 'de' "),
+};
+/** The date-fns pattern written the way of a language (French: as it is). */
+export const datePattern = (pattern: string, language: Lang = lang) => PATTERNS[language]?.(pattern) ?? pattern;
 /** date-fns in the site's language; in French « 1er novembre », not « 1 novembre » (the day token right before a month name). */
-export const fmt = (d: Date, pattern: string) => format(d, lang === 'fr' && d.getDate() === 1 ? pattern.replace(/(^|[^d'])d(?=\s+M)/, "$1d'er'") : pattern, { locale: DATE_LOCALE });
+export const fmt = (d: Date, pattern: string) =>
+  format(d, lang === 'fr' ? (d.getDate() === 1 ? pattern.replace(/(^|[^d'])d(?=\s+M)/, "$1d'er'") : pattern) : datePattern(pattern), { locale: DATE_LOCALE });
 /** Like fmt, with the year when it isn't this one (a deadline next year doesn't look close). */
 export const fmtDay = (d: Date, pattern: string) => fmt(d, d.getFullYear() === new Date().getFullYear() ? pattern : `${pattern} yyyy`);
 export const daysUntil = (key: string) => differenceInCalendarDays(fromKey(key), new Date());

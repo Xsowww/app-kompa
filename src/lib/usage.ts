@@ -64,7 +64,7 @@ export const WORDS: Record<Usage, {
     nextBig: t('Prochain grand jour'), noBig: t('Rien d’important à venir.'), plan: t('Bloquer du temps pour préparer'), planned: t('Préparation planifiée'),
     school: t('Ville'), schoolHint: t('Lyon, Lille…'), program: t('Centres d’intérêt'), programHint: t('Cuisine, sport, voyages…'),
     level: t('Situation'), levels: ['', t('Étudiant·e'), t('En activité'), t('En recherche'), t('Parent'), t('Retraité·e'), t('Autre')],
-    groups: t('Groupes'), profileTab: t('Organisation'),
+    groups: t('Groupes'), profileTab: t('Organisation||onglet du profil, court'),
     quickExample: t('Dentiste mardi 17h30'), markDone: t('fait'), slot: t('rendez-vous'), slots: t('rendez-vous||pluriel'),
     timetable: t('agenda'), titleExample: t('Dentiste'), notesExample: t('adresse, choses à apporter…'),
     categoryExample: t('Famille, Vacances, Asso…'), categoryHint: t('Vacances à Biarritz'),

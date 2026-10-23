@@ -118,6 +118,7 @@ export default function SharedCalendar({ group }: { group: Group }) {
         author: id => nameOf(list.find(e => e.id === id)?.createdBy ?? null),
         people: [...(members ?? [])].sort((a, b) => Number(b.userId === me) - Number(a.userId === me) || a.name.localeCompare(b.name)).map(m => ({ id: m.userId, name: m.userId === me ? t('Moi') : m.name })),
         nameOf: id => nameOf(id, t('toi')),
+        nameFor: id => nameOf(id, t('toi||après pour')),
         unread: raw ? undefined : failed ? 'failed' : 'loading',
       },
       events: list.map(e => toCalendar(e, category)),

@@ -96,4 +96,37 @@ describe('guessed category: whole words', () => {
     expect(guessCategory('Visio avec Sophie')).toBe('cours');
     expect(guessCategory('Point relais colis')).toBe('perso');
   });
+
+  it('the other site languages: their words too, whole words only', () => {
+    useSettings.setState({ usage: 'etudes' });
+    for (const x of ['Physics exam', 'Midterm', 'Maths test', 'Mathe-Klausur', 'Physikprüfung', 'Prüfung Chemie', 'Esame di fisica', 'Verifica di storia', 'Parcial de química', 'Quiz'])
+      expect(guessCategory(x), x).toBe('examen');
+    for (const x of ['History lesson', 'Lecture', 'Vorlesung Analysis', 'Deutschkurs', 'Seminar', 'Lezione di storia', 'Corso di inglese', 'Clase de historia'])
+      expect(guessCategory(x, true), x).toBe('cours');
+    for (const x of ['Homework', 'Essay assignment', 'Mathehausaufgaben', 'Abgabe Referat', 'Deberes de mates', 'Entrega del trabajo', 'Compiti di latino', 'Consegna relazione'])
+      expect(guessCategory(x), x).toBe('devoir');
+    for (const x of ['Gym', 'Gimnasio', 'Palestra', 'Fitness', 'Training', 'Entrenamiento', 'Allenamento'])
+      expect(guessCategory(x, true), x).toBe('sport');
+    // Not inside another word, and French stays French.
+    for (const x of ['Testament', 'Contest', 'Classeur à acheter', 'Rendu final', 'Projet final'])
+      expect(guessCategory(x), x).not.toBe('examen');
+    expect(guessCategory('Rendu final')).toBe('devoir');
+
+    useSettings.setState({ usage: 'perso' });
+    for (const x of ['Dentist', 'Doctor', 'Zahnarzt', 'Hausarzt', 'Zahnarzttermin', 'Dentista', 'Médico', 'Cita con el banco', 'Appuntamento dal medico', 'Meeting', 'Reunión de vecinos', 'Riunione condominio', 'Elternbesprechung'])
+      expect(guessCategory(x, true), x).toBe('cours');
+    for (const x of ['Birthday party', 'Geburtstag von Lea', 'Kindergeburtstag', 'Compleanno di Marco', 'Cumpleaños de Ana'])
+      expect(guessCategory(x), x).toBe('examen');
+    expect(guessCategory('Doctorat : dossier')).not.toBe('cours');
+
+    useSettings.setState({ usage: 'travail' });
+    for (const x of ['Dentist', 'Zahnarzt', 'Dentista', 'Birthday drinks', 'Geburtstag von Lea'])
+      expect(guessCategory(x, true), x).toBe('perso');
+    for (const x of ['Client meeting', 'Kundentermin', 'Teambesprechung', 'Reunión con cliente', 'Riunione cliente', 'Appuntamento con il fornitore', 'Appointment with Sam'])
+      expect(guessCategory(x, true), x).toBe('cours');
+    for (const x of ['Abgabe Bericht', 'Entrega del informe', 'Consegna progetto'])
+      expect(guessCategory(x), x).toBe('examen');
+    expect(guessCategory('Abgabetermin Bericht')).toBe('examen');
+    expect(guessCategory('Soutenance de doctorat')).toBe('examen');
+  });
 });
