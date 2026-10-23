@@ -1,0 +1,238 @@
+/* ── Styles: Profil › Apparence › Style ─────────────────────────────
+   data-style on <html> (store/settings applyAppearance; public/theme.js before the first paint).
+   « Classique » has none. A style only changes how the bento parts look (page, cards, side bar, tab bar,
+   menus, dialogs, buttons, fields), never where they are; light and dark each have their own values.
+   Outside any layer, so these rules win over the utility classes; tokens first, then the parts. */
+
+:root[data-style] body {
+  background: var(--wallpaper, var(--color-paper));
+  background-attachment: fixed;
+}
+
+/* ===== Verre (glassmorphism): frosted cards on a soft coloured background ===== */
+:root[data-style='verre'] {
+  --wallpaper:
+    radial-gradient(45% 55% at 6% 8%, #b7c4ff 0%, transparent 70%),
+    radial-gradient(40% 50% at 96% 4%, #ffc6dc 0%, transparent 70%),
+    radial-gradient(50% 55% at 88% 96%, #ffd6b0 0%, transparent 70%),
+    radial-gradient(45% 50% at 10% 98%, #b4ecdc 0%, transparent 70%),
+    #e7eaf6;
+  --color-surface: rgb(255 255 255 / 0.56);
+  --glass-strong: rgb(255 255 255 / 0.86);
+  --glass-edge: rgb(255 255 255 / 0.75);
+  --glass-shine: rgb(255 255 255 / 0.6);
+  --color-stone-50: rgb(20 22 31 / 0.035);
+  --color-stone-100: rgb(20 22 31 / 0.06);
+  --color-stone-200: rgb(255 255 255 / 0.8);
+  --color-tile-blue: rgb(61 99 221 / 0.86);
+  --color-tile-dark: rgb(20 22 31 / 0.8);
+  --shadow-card: 0 12px 36px -16px rgb(40 52 110 / 0.3);
+}
+:root[data-style='verre'][data-theme='dark'] {
+  --wallpaper:
+    radial-gradient(45% 55% at 6% 8%, #283a96 0%, transparent 70%),
+    radial-gradient(40% 50% at 96% 4%, #5b2775 0%, transparent 70%),
+    radial-gradient(50% 55% at 88% 96%, #174f5c 0%, transparent 70%),
+    radial-gradient(45% 50% at 10% 98%, #3a2468 0%, transparent 70%),
+    #0b0d18;
+  --color-surface: rgb(26 30 50 / 0.55);
+  --glass-strong: rgb(22 25 42 / 0.9);
+  --glass-edge: rgb(255 255 255 / 0.12);
+  --glass-shine: rgb(255 255 255 / 0.1);
+  --color-stone-50: rgb(255 255 255 / 0.04);
+  --color-stone-100: rgb(255 255 255 / 0.07);
+  --color-stone-200: rgb(255 255 255 / 0.13);
+  --color-tile-dark: rgb(0 0 0 / 0.5);
+  --shadow-card: 0 12px 36px -16px rgb(0 0 0 / 0.6);
+}
+:root[data-style='verre'] :is(.card, aside.bg-surface, .shadow-pop.bg-surface, .bg-tile-blue, .bg-tile-dark) {
+  -webkit-backdrop-filter: blur(24px) saturate(170%);
+  backdrop-filter: blur(24px) saturate(170%);
+}
+:root[data-style='verre'] :is(.card, aside.bg-surface, .bg-tile-blue, .bg-tile-dark) {
+  box-shadow: inset 0 0 0 1px var(--glass-edge), inset 0 1px 0 var(--glass-shine), var(--shadow-card);
+}
+:root[data-style='verre'] .shadow-pop.bg-surface {
+  background-color: var(--glass-strong);
+  box-shadow: inset 0 0 0 1px var(--glass-edge), var(--shadow-pop);
+}
+
+/* ===== Liquid Glass, on a neutral background: clear glass, light edges, capsules ===== */
+:root[data-style='liquide'] {
+  --wallpaper:
+    radial-gradient(60% 50% at 12% 0%, #ffffff 0%, transparent 70%),
+    radial-gradient(55% 45% at 100% 100%, #dfe2e8 0%, transparent 70%),
+    #eceef2;
+  --color-surface: rgb(255 255 255 / 0.5);
+  --glass-strong: rgb(250 251 253 / 0.86);
+  --glass-hi: rgb(255 255 255 / 0.95);
+  --glass-lo: rgb(255 255 255 / 0.45);
+  --glass-line: rgb(20 22 31 / 0.07);
+  --glass-sheen: linear-gradient(140deg, rgb(255 255 255 / 0.6), rgb(255 255 255 / 0) 36%, rgb(255 255 255 / 0) 70%, rgb(255 255 255 / 0.22));
+  --color-stone-50: rgb(20 22 31 / 0.03);
+  --color-stone-100: rgb(20 22 31 / 0.055);
+  --color-stone-200: rgb(20 22 31 / 0.09);
+  --shadow-card: 0 14px 34px -16px rgb(20 22 31 / 0.24);
+}
+:root[data-style='liquide'][data-theme='dark'] {
+  --wallpaper:
+    radial-gradient(60% 50% at 12% 0%, #24262d 0%, transparent 70%),
+    radial-gradient(55% 45% at 100% 100%, #17181c 0%, transparent 70%),
+    #111215;
+  --color-surface: rgb(255 255 255 / 0.06);
+  --glass-strong: rgb(32 34 40 / 0.9);
+  --glass-hi: rgb(255 255 255 / 0.22);
+  --glass-lo: rgb(255 255 255 / 0.07);
+  --glass-line: rgb(0 0 0 / 0.4);
+  --glass-sheen: linear-gradient(140deg, rgb(255 255 255 / 0.1), rgb(255 255 255 / 0) 36%, rgb(255 255 255 / 0) 70%, rgb(255 255 255 / 0.04));
+  --color-stone-50: rgb(255 255 255 / 0.03);
+  --color-stone-100: rgb(255 255 255 / 0.06);
+  --color-stone-200: rgb(255 255 255 / 0.1);
+  --shadow-card: 0 14px 34px -16px rgb(0 0 0 / 0.7);
+}
+:root[data-style='liquide'] :is(.card, aside.bg-surface, .shadow-pop.bg-surface, .bg-tile-blue, .bg-tile-dark) {
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  backdrop-filter: blur(14px) saturate(180%);
+}
+:root[data-style='liquide'] :is(.card, aside.bg-surface, .bg-tile-blue, .bg-tile-dark) {
+  background-image: var(--glass-sheen);
+  box-shadow:
+    inset 1px 1px 0 var(--glass-hi),
+    inset -1px -1px 0 var(--glass-lo),
+    0 0 0 0.5px var(--glass-line),
+    var(--shadow-card);
+}
+:root[data-style='liquide'] .shadow-pop.bg-surface {
+  background-color: var(--glass-strong);
+  box-shadow: inset 1px 1px 0 var(--glass-hi), 0 0 0 0.5px var(--glass-line), var(--shadow-pop);
+}
+/* Capsules: buttons and one-line fields are fully round. */
+:root[data-style='liquide'] :is(.btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-danger, .icon-btn, input.field, select.field, button.field) {
+  border-radius: 999px;
+}
+:root[data-style='liquide'] :is(.btn-primary, .btn-secondary) {
+  box-shadow: inset 1px 1px 0 var(--glass-lo), 0 0 0 0.5px var(--glass-line);
+}
+/* The page you are on, in the side bar: a drop of glass instead of the black pill. */
+:root[data-style='liquide'] aside nav a.bg-ink {
+  border-radius: 999px;
+  background-color: rgb(255 255 255 / 0.78);
+  background-image: var(--glass-sheen);
+  color: var(--color-ink);
+  box-shadow: inset 1px 1px 0 var(--glass-hi), inset -1px -1px 0 var(--glass-lo), 0 0 0 0.5px var(--glass-line), 0 6px 16px -8px rgb(20 22 31 / 0.3);
+}
+:root[data-style='liquide'][data-theme='dark'] aside nav a.bg-ink {
+  background-color: rgb(255 255 255 / 0.12);
+}
+/* Phones: the tab bar is a floating capsule of glass. */
+:root[data-style='liquide'] nav.bg-tile-dark {
+  border-radius: 999px;
+  background-color: rgb(255 255 255 / 0.55);
+}
+:root[data-style='liquide'][data-theme='dark'] nav.bg-tile-dark {
+  background-color: rgb(40 42 48 / 0.55);
+}
+:root[data-style='liquide'] nav.bg-tile-dark > :is(a, button) {
+  border-radius: 999px;
+  color: var(--color-stone-600);
+}
+:root[data-style='liquide'] nav.bg-tile-dark > :is(a, button).bg-white {
+  background-color: rgb(255 255 255 / 0.85);
+  color: var(--color-ink);
+  box-shadow: inset 1px 1px 0 var(--glass-hi), 0 0 0 0.5px var(--glass-line), 0 4px 12px -6px rgb(20 22 31 / 0.3);
+}
+:root[data-style='liquide'][data-theme='dark'] nav.bg-tile-dark > :is(a, button).bg-white {
+  background-color: rgb(255 255 255 / 0.16);
+}
+
+/* ===== Relief (neumorphism): everything cut from the same matter, raised or pressed ===== */
+:root[data-style='relief'] {
+  --nm-light: #ffffff;
+  --nm-dark: #bdc6d6;
+  --color-paper: #e4e9f2;
+  --color-surface: #e4e9f2;
+  --color-stone-50: #dfe4ee;
+  --color-stone-100: #d9dfea;
+  --color-stone-200: #d1d8e4;
+  --color-stone-300: #b8c1d1;
+  --shadow-card: 9px 9px 20px var(--nm-dark), -9px -9px 20px var(--nm-light);
+  --shadow-pop: 14px 14px 32px var(--nm-dark), -10px -10px 26px var(--nm-light);
+  --nm-raised-sm: 4px 4px 9px var(--nm-dark), -4px -4px 9px var(--nm-light);
+  --nm-pressed: inset 3px 3px 7px var(--nm-dark), inset -3px -3px 7px var(--nm-light);
+}
+:root[data-style='relief'][data-theme='dark'] {
+  --nm-light: #33373f;
+  --nm-dark: #1a1c21;
+  --color-paper: #272a31;
+  --color-surface: #272a31;
+  --color-stone-50: #2b2e36;
+  --color-stone-100: #2f333b;
+  --color-stone-200: #363a43;
+  --color-stone-300: #444955;
+  --color-tile-dark: #1f2127;
+}
+:root[data-style='relief'] :is(.card, aside.bg-surface, .bg-tile-blue, .bg-tile-dark) {
+  box-shadow: var(--shadow-card);
+}
+:root[data-style='relief'] .shadow-pop.bg-surface {
+  border-color: transparent;
+  box-shadow: var(--shadow-pop);
+}
+/* Fields are hollowed out; the keyboard focus ring stays. */
+:root[data-style='relief'] .field {
+  border-color: transparent;
+  background-color: var(--color-paper);
+  box-shadow: var(--nm-pressed);
+}
+:root[data-style='relief'] .field:focus {
+  box-shadow: var(--nm-pressed), 0 0 0 2px var(--color-focus);
+}
+/* Buttons stand out of the page, and sink when pressed. */
+:root[data-style='relief'] :is(.btn-primary, .btn-secondary) {
+  background-color: var(--color-paper);
+  box-shadow: var(--nm-raised-sm);
+}
+:root[data-style='relief'] .btn-primary {
+  color: var(--color-brand-600);
+}
+:root[data-style='relief'] :is(.btn-primary, .btn-secondary):active,
+:root[data-style='relief'] :is(.btn-ghost, .icon-btn):hover {
+  background-color: transparent;
+  box-shadow: var(--nm-pressed);
+}
+/* The page you are on is pressed in, in the accent colour (side bar and phone tab bar). */
+:root[data-style='relief'] aside nav a.bg-ink {
+  background-color: transparent;
+  color: var(--color-brand-600);
+  box-shadow: var(--nm-pressed);
+}
+:root[data-style='relief'] nav.bg-tile-dark {
+  background-color: var(--color-paper);
+  box-shadow: var(--shadow-pop);
+}
+:root[data-style='relief'] nav.bg-tile-dark > :is(a, button) {
+  color: var(--color-stone-500);
+}
+:root[data-style='relief'] nav.bg-tile-dark > :is(a, button).bg-white {
+  background-color: transparent;
+  color: var(--color-brand-600);
+  box-shadow: var(--nm-pressed);
+}
+
+/* Keyboard focus on buttons whose ring the styles above replaced: an outline instead. */
+:root[data-style] :is(.btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-danger, .icon-btn):focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* Dark text on the white buttons of the dark tiles: the translucent tile colour would show through it. */
+:root[data-style] .text-tile-dark {
+  color: #14161f;
+}
+/* Relief: the search bar at the top is hollowed out like the fields (it is the colour of the page). */
+:root[data-style='relief'] input.bg-surface {
+  box-shadow: var(--nm-pressed);
+}
+:root[data-style='relief'] input.bg-surface:focus {
+  box-shadow: var(--nm-pressed), 0 0 0 2px var(--color-focus);
+}

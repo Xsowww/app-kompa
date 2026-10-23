@@ -266,7 +266,8 @@ export function ContextMenu({ x, y, items, onClose, label, large, above }: { x: 
     };
   }, []);
 
-  return (
+  // On <body>: a card with a glass style (backdrop-filter, index.css) would otherwise be what « fixed » is measured from.
+  return createPortal(
     <div
       ref={ref}
       role="menu"
@@ -312,7 +313,8 @@ export function ContextMenu({ x, y, items, onClose, label, large, above }: { x: 
           </button>
         ),
       )}
-    </div>
+    </div>,
+    document.body,
   );
 }
 

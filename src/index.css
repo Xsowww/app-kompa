@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./themes.css";
 
 /* `dark:` targets the dark theme set by applyAppearance() (data-theme on <html>). */
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));

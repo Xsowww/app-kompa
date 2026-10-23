@@ -10,6 +10,9 @@ import { t } from '../i18n';
 export type AccentKey = 'orange' | 'bleu' | 'vert' | 'violet' | 'rose' | 'encre';
 export type Chattiness = 'calme' | 'normal' | 'bavard';
 export type ThemeMode = 'clair' | 'sombre' | 'auto';
+/** The look of the cards and buttons (index.css, data-style on <html>): bento, frosted glass, Liquid Glass, soft relief. */
+export type UiStyle = 'classique' | 'verre' | 'liquide' | 'relief';
+export const UI_STYLES: UiStyle[] = ['classique', 'verre', 'liquide', 'relief'];
 export type Language = 'fr' | 'en';
 /** Kompaly's personality presets (the server turns them into instructions). */
 export type PersonaKey = 'pote' | 'coach' | 'prof' | 'zen' | 'taquin';
@@ -38,6 +41,7 @@ export interface Settings {
   accent: AccentKey;
   reduceMotion: boolean;
   theme: ThemeMode;
+  style: UiStyle;
   language: Language;
   // Kompaly
   copilotVisible: boolean;
@@ -87,6 +91,7 @@ export const DEFAULT_SETTINGS: Settings = {
   accent: 'bleu',
   reduceMotion: false,
   theme: 'auto', // follows the device until the student picks one
+  style: 'classique',
   language: 'fr',
   copilotVisible: true,
   proactive: true,
@@ -143,6 +148,7 @@ const DARK_ACCENT_OVERRIDES: Partial<Record<AccentKey, Record<'50' | '100' | '20
 
 /** Plain localStorage key read by the inline script in index.html (avoids a white flash). */
 export const THEME_KEY = 'cop-theme';
+export const STYLE_KEY = 'cop-style';
 
 /** Theme last used on this device, or null (logged-out pages then follow the system). */
 export function storedTheme(): ThemeMode | null {
@@ -154,7 +160,7 @@ export function storedTheme(): ThemeMode | null {
   }
 }
 
-type Appearance = Pick<Settings, 'accent' | 'reduceMotion' | 'theme'>;
+type Appearance = Pick<Settings, 'accent' | 'reduceMotion' | 'theme'> & { style?: UiStyle };
 const darkQuery = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 let lastAppearance: Appearance | null = null;
 darkQuery?.addEventListener('change', () => {
@@ -165,15 +171,19 @@ export const resolveDark = (theme: ThemeMode) => theme === 'sombre' || (theme ==
 
 /** Push the theme, accent colour and motion preference into CSS. */
 export function applyAppearance(s: Appearance, remember = true) {
-  lastAppearance = { accent: s.accent, reduceMotion: s.reduceMotion, theme: s.theme };
+  lastAppearance = { accent: s.accent, reduceMotion: s.reduceMotion, theme: s.theme, style: s.style };
   const root = document.documentElement;
   const dark = resolveDark(s.theme);
   if (dark) root.dataset.theme = 'dark';
   else delete root.dataset.theme;
+  const style = s.style && UI_STYLES.includes(s.style) ? s.style : 'classique';
+  if (style === 'classique') delete root.dataset.style;
+  else root.dataset.style = style;
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#0c0d12' : '#eceef3');
   if (remember) {
     try {
       localStorage.setItem(THEME_KEY, s.theme);
+      localStorage.setItem(STYLE_KEY, style);
     } catch {
       /* private browsing: the theme just won't be applied before the app starts */
     }

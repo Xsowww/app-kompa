@@ -12,7 +12,7 @@ import Field, { FieldError } from '../../components/Field';
 import { needsCredentials, savedAccounts, STALE_DAYS } from '../../lib/accounts';
 import { useAuth } from '../../store/auth';
 import { useFocusLog } from '../../store/focusLog';
-import { useSettings, ACCENTS, AVATAR_COLORS, applyAppearance, type AccentKey, type ThemeMode, type Chattiness } from '../../store/settings';
+import { useSettings, ACCENTS, AVATAR_COLORS, applyAppearance, UI_STYLES, type AccentKey, type ThemeMode, type Chattiness, type UiStyle } from '../../store/settings';
 import { useCopilot } from '../../store/copilot';
 import { useDrive } from '../../store/drive';
 import { useNotes } from '../../store/notes';
@@ -281,6 +281,38 @@ function ProfileTab() {
 
 // ── Appearance ──────────────────────────────────────────────────────────────
 
+const STYLE_LABELS: Record<UiStyle, string> = { classique: t('Classique'), verre: t('Verre'), liquide: t('Liquid Glass'), relief: t('Relief') };
+
+/** A small picture of each style: its page, a card and a button (drawn, not the real thing). */
+function StylePreview({ look }: { look: UiStyle }) {
+  const page: Record<UiStyle, string> = {
+    classique: '#eceef3',
+    verre: 'radial-gradient(60% 70% at 10% 10%, #b7c4ff, transparent 70%), radial-gradient(60% 70% at 95% 90%, #ffd6b0, transparent 70%), radial-gradient(50% 60% at 90% 5%, #ffc6dc, transparent 70%), #e7eaf6',
+    liquide: 'radial-gradient(70% 60% at 10% 0%, #ffffff, transparent 70%), #e6e8ec',
+    relief: '#e4e9f2',
+  };
+  const card: Record<UiStyle, React.CSSProperties> = {
+    classique: { background: '#ffffff', borderRadius: 10 },
+    verre: { background: 'rgb(255 255 255 / 0.55)', borderRadius: 10, boxShadow: 'inset 0 0 0 1px rgb(255 255 255 / 0.8), 0 6px 14px -8px rgb(40 52 110 / 0.4)', backdropFilter: 'blur(6px)' },
+    liquide: { background: 'linear-gradient(140deg, rgb(255 255 255 / 0.85), rgb(255 255 255 / 0.35) 45%, rgb(255 255 255 / 0.55))', borderRadius: 12, boxShadow: 'inset 1px 1px 0 #fff, 0 0 0 0.5px rgb(20 22 31 / 0.08), 0 6px 14px -8px rgb(20 22 31 / 0.35)' },
+    relief: { background: '#e4e9f2', borderRadius: 10, boxShadow: '4px 4px 9px #bdc6d6, -4px -4px 9px #ffffff' },
+  };
+  const button: Record<UiStyle, React.CSSProperties> = {
+    classique: { background: '#14161f', borderRadius: 5 },
+    verre: { background: '#14161f', borderRadius: 5 },
+    liquide: { background: '#14161f', borderRadius: 999 },
+    relief: { background: '#e4e9f2', borderRadius: 5, boxShadow: '2px 2px 4px #bdc6d6, -2px -2px 4px #ffffff' },
+  };
+  return (
+    <span aria-hidden className="relative block h-16 overflow-hidden rounded-[11px]" style={{ background: page[look] }}>
+      <span className="absolute inset-x-2.5 top-2.5 bottom-2.5 flex flex-col justify-between p-2" style={card[look]}>
+        <span className="block h-1.5 w-2/3 rounded-full" style={{ background: look === 'relief' ? '#9aa3b8' : 'rgb(20 22 31 / 0.55)' }} />
+        <span className="block h-3 w-8" style={button[look]} />
+      </span>
+    </span>
+  );
+}
+
 function AppearanceTab() {
   const settings = useSettings();
   const setAccent = (accent: AccentKey) => {
@@ -290,6 +322,10 @@ function AppearanceTab() {
   const setTheme = (theme: ThemeMode) => {
     settings.set({ theme });
     applyAppearance({ ...settings, theme });
+  };
+  const setStyle = (style: UiStyle) => {
+    settings.set({ style });
+    applyAppearance({ ...settings, style });
   };
   return (
     <Section label={t('Apparence')}>
@@ -305,6 +341,26 @@ function AppearanceTab() {
           ]}
         />
       </Row>
+      <div className="px-5 py-4">
+        <p className="text-[13.5px] font-medium" id="style-label">{t('Style')}</p>
+        <div role="group" aria-labelledby="style-label" className="mt-2.5 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+          {UI_STYLES.map(k => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => setStyle(k)}
+              aria-pressed={(settings.style ?? 'classique') === k}
+              className={cx('rounded-[16px] p-1.5 text-left ring-1 transition-colors', (settings.style ?? 'classique') === k ? 'ring-2 ring-brand-500' : 'ring-stone-200 hover:ring-stone-300')}
+            >
+              <StylePreview look={k} />
+              <span className="mt-1.5 flex items-center gap-1.5 px-1 text-[13px] font-semibold">
+                {(settings.style ?? 'classique') === k && <Check size={13} strokeWidth={3} className="text-brand-600" aria-hidden />}
+                {STYLE_LABELS[k]}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
       <Row label={t('Langue')}>
         <LanguagePicker />
       </Row>
