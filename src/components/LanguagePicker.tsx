@@ -1,6 +1,6 @@
 import { Globe } from 'lucide-react';
 import { LANGS, lang, setLang, t, type Lang } from '../i18n';
-import { SelectField } from './Pickers';
+import { SelectField } from './SelectField';
 
 /** The site's language (saved on this device, the page reloads in it). */
 export default function LanguagePicker({ className }: { className?: string }) {

@@ -36,12 +36,20 @@ export const CATEGORIES: Record<BuiltinCategory, CategoryInfo> = {
   sport: { label: t('Sport'), color: '#7a5ad6', soft: 'var(--cat-sport-soft)', text: 'var(--cat-sport-text)' },
 };
 
-/** Names of the five built-in categories for each usage of the account (applied by lib/usage). */
+/** Names of the five built-in categories for each usage of the account (applied by applyUsage below). */
 export const CATEGORY_LABELS: Record<Usage, Record<BuiltinCategory, string>> = {
   etudes: { cours: t('Cours'), examen: t('Examen'), devoir: t('Devoir'), perso: t('Perso'), sport: t('Sport') },
   travail: { cours: t('Réunion'), examen: t('Échéance'), devoir: t('Devis'), perso: t('Perso'), sport: t('Sport') },
   perso: { cours: t('Rendez-vous'), examen: t('Grand jour'), devoir: t('À faire'), perso: t('Perso'), sport: t('Sport') },
 };
+
+/**
+ * shortcut: the category labels are swapped in place on the shared CATEGORIES object instead of a hook in every
+ * component. Fine because the usage is set before the app shows any page (load / welcome) and rarely changes after.
+ */
+export function applyUsage(usage: Usage) {
+  for (const [key, label] of Object.entries(CATEGORY_LABELS[usage] ?? CATEGORY_LABELS.etudes)) CATEGORIES[key as BuiltinCategory].label = label;
+}
 
 export interface CalendarEvent {
   id: string;

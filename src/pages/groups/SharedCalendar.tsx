@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import CalendarPage from '../calendar/CalendarPage';
 import { CalendarSourceContext, type CalendarSource } from '../calendar/source';
-import { CATEGORIES, type CalendarEvent, type CategoryScope, type CustomCategory, type EventCategory } from '../../store/calendar';
+import { CATEGORIES, applyUsage, type CalendarEvent, type CategoryScope, type CustomCategory, type EventCategory } from '../../store/calendar';
 import { useGroups } from '../../store/groups';
 import { toast } from '../../store/ui';
 import { createEvent, deleteEvent, deletePeriod, groupError, savePeriods, setAgendaCategories, updateEvent, type Group, type GroupEvent, type NewGroupEvent } from '../../lib/groups';
@@ -10,7 +10,6 @@ import { LoadFailed } from './shared';
 import { useAuth } from '../../store/auth';
 import { sortPeriods } from '../../lib/periods';
 import { t } from '../../i18n';
-import { applyUsage } from '../../lib/usage';
 import { useSettings } from '../../store/settings';
 
 /** A built-in category or one of the calendar's own; anything else (deleted since, mine) shows as Perso. */

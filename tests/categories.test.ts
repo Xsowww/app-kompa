@@ -6,9 +6,8 @@ Object.assign(globalThis, {
   location: new URL('http://localhost/'),
   localStorage: { getItem: (k: string) => memory.get(k) ?? null, setItem: (k: string, v: string) => memory.set(k, v), removeItem: (k: string) => memory.delete(k) },
 });
-const { useCalendar, catOf, allCategories, guessCategory, createCategory, updateCategory, deleteCategory, labelTaken, builtinLabel, knowSharedCategories } = await import('../src/store/calendar');
+const { applyUsage, useCalendar, catOf, allCategories, guessCategory, createCategory, updateCategory, deleteCategory, labelTaken, builtinLabel, knowSharedCategories } = await import('../src/store/calendar');
 type CustomCategory = import('../src/store/calendar').CustomCategory;
-const { applyUsage } = await import('../src/lib/usage');
 const { useSettings } = await import('../src/store/settings');
 
 beforeEach(() => {

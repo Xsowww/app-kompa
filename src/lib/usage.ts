@@ -1,4 +1,3 @@
-import { CATEGORIES, CATEGORY_LABELS, type BuiltinCategory } from '../store/calendar';
 import { t } from '../i18n';
 
 /** What the account is for, chosen in the welcome questionnaire. It only changes words and starter content. */
@@ -78,14 +77,6 @@ export const WORDS: Record<Usage, {
 
 /** The words of an account's usage (studies when unknown). */
 export const usageWords = (usage: Usage | undefined) => WORDS[usage ?? 'etudes'] ?? WORDS.etudes;
-
-/**
- * shortcut: the category labels are swapped in place on the shared CATEGORIES object instead of a hook in every
- * component. Fine because the usage is set before the app shows any page (load / welcome) and rarely changes after.
- */
-export function applyUsage(usage: Usage) {
-  for (const [key, label] of Object.entries(CATEGORY_LABELS[usage] ?? CATEGORY_LABELS.etudes)) CATEGORIES[key as BuiltinCategory].label = label;
-}
 
 /** Shared spaces (« Groupes »): what the space and its meetings are called, with French agreement baked in. */
 export interface GroupWords {
