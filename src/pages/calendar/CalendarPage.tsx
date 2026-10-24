@@ -748,6 +748,7 @@ export default function CalendarPage() {
                           >
                             <Dot color={catOf(e.category).color} size={6} />
                             <span className="truncate">{eventTitle(e, shared)}</span>
+                            {e.series && <Repeat size={10} className="shrink-0 text-stone-500" aria-label={t('Se répète')} />}
                           </span>
                         ))}
                         {evs.length > 0 && (
@@ -876,6 +877,7 @@ export default function CalendarPage() {
                           <span className="flex min-w-0 items-center gap-1.5 text-[13px] font-medium">
                             <Dot color={catOf(e.category).color} size={6} />
                             <span className="truncate">{eventTitle(e, shared)}</span>
+                            {e.series && <Repeat size={10} className="shrink-0 text-stone-500" aria-label={t('Se répète')} />}
                           </span>
                           <span className="block text-[12px] first-letter:uppercase text-stone-500">
                             {toHandIn ? `${(WORDS[usage] ?? WORDS.etudes) === WORDS.etudes ? t('À rendre') : t('À faire')} · ` : ''}

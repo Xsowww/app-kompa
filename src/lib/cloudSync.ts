@@ -55,6 +55,18 @@ const rowToEvent = (r: Row): CalendarEvent => ({
   deletedAt: (r.deleted_at as string) ?? undefined,
 });
 
+/**
+ * A server without the « series » column yet (migration 2026-10-30 not applied) sends rows without it:
+ * each event keeps the series known on this device, else its repeats would come back unlinked.
+ */
+const eventsKeepingSeries = (local: CalendarEvent[]) => {
+  const known = new Map(local.filter(e => e.series).map(e => [e.id, e.series]));
+  return (r: Row): CalendarEvent => {
+    const e = rowToEvent(r);
+    return 'series' in r || !known.has(e.id) ? e : { ...e, series: known.get(e.id) };
+  };
+};
+
 const folderToRow = (f: NoteFolder): Row => ({ id: f.id, name: f.name, parent_id: f.parentId, created_at: f.createdAt, deleted_at: f.deletedAt ?? null, color: f.color ?? null });
 const rowToFolder = (r: Row): NoteFolder => ({
   id: r.id as string,
@@ -508,7 +520,9 @@ function apply({ events, folders, notes, items, profile, todos, focus }: Awaited
     const n = notes.data ?? [];
     const i = items.data ?? [];
     const ev = events.data ?? [];
-    useCalendar.setState({ events: ev.filter(r => !isTrashed(r)).map(rowToEvent), trash: ev.filter(isTrashed).map(rowToEvent) });
+    const cal = useCalendar.getState();
+    const toEvent = eventsKeepingSeries([...cal.events, ...cal.trash]);
+    useCalendar.setState({ events: ev.filter(r => !isTrashed(r)).map(toEvent), trash: ev.filter(isTrashed).map(toEvent) });
     useNotes.setState({
       folders: f.filter(r => !isTrashed(r)).map(rowToFolder),
       notes: n.filter(r => !isTrashed(r)).map(rowToNote),
@@ -565,7 +579,7 @@ function applyChanges({ profile, gone, rows }: Changes) {
   try {
     if (touched('events')) {
       const s = useCalendar.getState();
-      const [events, trash] = mergeRows([s.events, s.trash], rows.events, deleted.events, rowToEvent, isTrashed);
+      const [events, trash] = mergeRows([s.events, s.trash], rows.events, deleted.events, eventsKeepingSeries([...s.events, ...s.trash]), isTrashed);
       useCalendar.setState({ events, trash });
     }
     if (touched('note_folders')) {

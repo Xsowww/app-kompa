@@ -1,9 +1,9 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Check, FileText, Flag, Plus, Trash2 } from 'lucide-react';
+import { Check, FileText, Flag, Plus, Repeat as RepeatIcon, Trash2 } from 'lucide-react';
 import { Modal } from '../../components/Overlays';
 import { useNotes } from '../../store/notes';
-import { catOf, allCategories, guessCategory, isBigEvent, useCalendar, type CalendarEvent, type EventCategory } from '../../store/calendar';
+import { catOf, allCategories, guessCategory, isBigEvent, nextInSeries, useCalendar, type CalendarEvent, type EventCategory } from '../../store/calendar';
 import { askSeriesScope, confirmRemoveEvent, removeMine, useCalendarSource } from './source';
 import PeoplePicker from './PeoplePicker';
 import { useSettings } from '../../store/settings';
@@ -141,6 +141,12 @@ export default function EventForm({ event, date, start: initialStart, end: initi
     <Modal open onClose={onClose} width={460}>
       <form onSubmit={submit}>
         <h3 className="text-[15px] font-semibold">{event ? t('Modifier l’événement') : t('Nouvel événement')}</h3>
+        {event?.series && !shared && (
+          <p className="mt-1 flex items-center gap-1.5 text-[12px] text-stone-500">
+            <RepeatIcon size={12} aria-hidden />
+            {(n => (n ? t('Se répète : encore {n} fois après celui-ci', { n }) : t('Dernier d’une répétition')))(nextInSeries(event, useCalendar.getState().events).length)}
+          </p>
+        )}
         <input
           ref={titleRef}
           autoFocus
