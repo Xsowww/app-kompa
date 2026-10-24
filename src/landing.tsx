@@ -25,6 +25,14 @@ for (const type of ['pointerover', 'focusin'])
     if (e.target instanceof Element && e.target.closest('a[href^="/"]:not([href="/"])')) void loadApp();
   });
 
+// Once the page is shown and the phone idle, the app's code comes too: « Se connecter » then opens at once.
+// Not when the visitor saves data.
+if (!(navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData) {
+  const later = () => setTimeout(() => (window.requestIdleCallback ?? setTimeout)(() => void loadApp()), 3000);
+  if (document.readyState === 'complete') later();
+  else addEventListener('load', later, { once: true });
+}
+
 // index.html's startup screen: put back while the app arrives (after a short moment), the app removes it (App.tsx › BootHold).
 const splash = document.getElementById('boot');
 
