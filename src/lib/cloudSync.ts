@@ -622,8 +622,18 @@ async function download(userId: string, onlyIf: () => boolean = () => true) {
 }
 
 /** Downloads the signed-in user's account (only what changed when this device has a recent copy). */
-export async function pullAll(userId: string): Promise<CloudProfile> {
-  const { profile } = (await download(userId))!;
+/** This device already holds a synced copy of the account (a regular): it can show before the download. */
+export const hasLocalCopy = () => !!readCursor();
+
+/**
+ * Downloads the account. `behind`: the app already shows this device's copy and the student may be using it:
+ * the result is thrown away if they changed something meanwhile (null; the next refresh brings it).
+ */
+export async function pullAll(userId: string, behind = false): Promise<CloudProfile | null> {
+  const mark = changes;
+  const got = await download(userId, () => !behind || (currentUser === userId && changes === mark && !hasPending()));
+  if (!got) return null;
+  const { profile } = got;
   useDrive.setState({ clipboard: null });
   lastPull = Date.now();
   // Databases created before the "onboarded" column existed: onboarded as soon as there is any data.

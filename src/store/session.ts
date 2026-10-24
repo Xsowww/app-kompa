@@ -5,7 +5,7 @@ import { useCopilot } from './copilot';
 import { useSettings, applyAppearance, storedStyle, storedTheme, type Settings } from './settings';
 import { getStorageUser, setStorageUser } from '../lib/userStorage';
 import { cloudEnabled } from '../lib/supabase';
-import { pullAll, pushLeftovers, quietly, startSync, stopSync, updateCloudProfile } from '../lib/cloudSync';
+import { hasLocalCopy, pullAll, pushLeftovers, quietly, startSync, stopSync, updateCloudProfile } from '../lib/cloudSync';
 import { useAuth } from './auth';
 import { toast } from './ui';
 import { useTodos } from './todos';
@@ -137,10 +137,15 @@ async function load() {
   ]);
 
   // Cloud mode: the local copy above is only a cache, the truth is in Supabase.
-  if (cloudEnabled) {
+  // A regular on this device: their copy shows at once, the account is brought up to date behind it.
+  if (cloudEnabled && hasLocalCopy()) {
+    const left = pushLeftovers(userId); // first: its queue is loaded before the sync starts
+    startSync(userId);
+    void catchUp(userId, left);
+  } else if (cloudEnabled) {
     try {
       await pushLeftovers(userId); // never let the cloud copy overwrite unsent local changes
-      const profile = await pullAll(userId);
+      const profile = (await pullAll(userId))!;
       startSync(userId);
       // New account: the welcome questionnaire comes first, it seeds the account when done.
       useWelcome.setState({ pending: !profile.onboarded });
@@ -160,6 +165,21 @@ async function load() {
   renameToKompa();
   applyUsage(useSettings.getState().usage);
   applyAppearance(useSettings.getState());
+}
+
+/** The download behind a copy already shown (load): what it changes (theme, usage…) applies when it lands. */
+async function catchUp(userId: string, left: Promise<void>) {
+  try {
+    await left; // never let the cloud copy overwrite unsent local changes
+    const profile = await pullAll(userId, true);
+    if (!profile || getStorageUser() !== userId) return;
+    useWelcome.setState({ pending: !profile.onboarded });
+    applyUsage(useSettings.getState().usage);
+    applyAppearance(useSettings.getState());
+  } catch (e) {
+    console.error('[sync] chargement', e);
+    if (getStorageUser() === userId) toast(t('Impossible de charger tes données en ligne. Tu vois la dernière version enregistrée sur cet appareil.'), 'error');
+  }
 }
 
 export type WelcomeAnswers = Pick<Settings, 'usage' | 'year' | 'school' | 'program' | 'needs' | 'persona' | 'revisionTime'>;
