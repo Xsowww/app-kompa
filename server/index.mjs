@@ -102,7 +102,7 @@ async function serveStatic(req, res) {
   let page = null;
   if (!(await stat(file).then(s => s.isFile(), () => false))) {
     // A missing code file must get a 404, not the page: a tab opened before an update asks for
-    // old files, and only a real error lets it reload itself (see main.tsx).
+    // old files, and only a real error lets it reload itself (see src/page.ts).
     if (path.startsWith('/assets/') || extname(path)) {
       res.statusCode = 404;
       return res.end('Introuvable');

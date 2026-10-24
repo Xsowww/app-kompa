@@ -16,7 +16,7 @@ import { useSettings, ACCENTS, AVATAR_COLORS, applyAppearance, UI_STYLES, type A
 import { useCopilot } from '../../store/copilot';
 import { useDrive } from '../../store/drive';
 import { useNotes } from '../../store/notes';
-import { useCalendar } from '../../store/calendar';
+import { applyUsage, useCalendar } from '../../store/calendar';
 import { loadUserData } from '../../store/session';
 import { confirmAction, toast } from '../../store/ui';
 import { exportBackup, importBackup, exportIcs, wipeUserData, clearBeforeAccountDeletion, resetLocalData, imageToAvatar } from '../../lib/backup';
@@ -37,7 +37,7 @@ import { currentStreak, useBadges } from '../../lib/badges';
 import { checkAiStatus, resetClaudeHistory } from '../../copilot/claudeBrain';
 import { aiPausedUntil, aiPauseReason } from '../../copilot/aiPause';
 import BadgeGrid from './BadgeGrid';
-import { USAGES, WORDS, applyUsage, groupWords, type Usage } from '../../lib/usage';
+import { USAGES, WORDS, groupWords, type Usage } from '../../lib/usage';
 import { PERSONAS, personaLabel } from '../../lib/personas';
 import LanguagePicker from '../../components/LanguagePicker';
 import { t, tn, lang, locale } from '../../i18n';

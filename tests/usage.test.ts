@@ -6,9 +6,8 @@ Object.assign(globalThis, {
   location: new URL('http://localhost/'),
   localStorage: { getItem: (k: string) => memory.get(k) ?? null, setItem: (k: string, v: string) => memory.set(k, v), removeItem: (k: string) => memory.delete(k) },
 });
-const { CATEGORIES, guessCategory } = await import('../src/store/calendar');
+const { CATEGORIES, applyUsage, guessCategory } = await import('../src/store/calendar');
 const { useSettings } = await import('../src/store/settings');
-const { applyUsage } = await import('../src/lib/usage');
 
 afterEach(() => {
   useSettings.setState({ usage: 'etudes' });

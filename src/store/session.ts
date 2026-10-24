@@ -1,5 +1,5 @@
 import { useDrive } from './drive';
-import { useCalendar } from './calendar';
+import { applyUsage, useCalendar } from './calendar';
 import { useNotes } from './notes';
 import { useCopilot } from './copilot';
 import { useSettings, applyAppearance, storedStyle, storedTheme, type Settings } from './settings';
@@ -13,7 +13,7 @@ import { TOUR_TODO, isTourTodo } from './tour';
 import { useFocusLog } from './focusLog';
 import { useFocus, settleFocus } from './focus';
 import { renameToKompa } from '../lib/renameToKompa';
-import { applyUsage, USAGES } from '../lib/usage';
+import { USAGES } from '../lib/usage';
 import { create } from 'zustand';
 import { useRecorder, stopHearing } from './recorder';
 import { t } from '../i18n';

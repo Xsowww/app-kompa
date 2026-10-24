@@ -1,9 +1,8 @@
 import { cleanPeriods, type Period } from './periods';
 import { folderColorKey, useDrive, type DriveItem } from '../store/drive';
 import { useNotes, type Note, type NoteFolder } from '../store/notes';
-import { useCalendar, catOf, type CalendarEvent, type CustomCategory } from '../store/calendar';
+import { applyUsage, useCalendar, catOf, type CalendarEvent, type CustomCategory } from '../store/calendar';
 import { useSettings, DEFAULT_SETTINGS, applyAppearance, type Settings } from '../store/settings';
-import { applyUsage } from './usage';
 import { addDays } from 'date-fns';
 import { fromKey, fromMinutes, toKey, toMinutes, validKey } from './dates';
 import { foldLine, utcStamp } from './ics';

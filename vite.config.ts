@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { handleCopilot } from './server/copilot.mjs';
 import { loadPublicEnv } from './server/publicEnv.mjs';
+import { guestHome, hasSession } from './src/lib/guestHome.mjs';
 
 // Public Supabase settings committed in .env.supabase.public (values in .env win).
 loadPublicEnv();
@@ -24,9 +25,10 @@ function copilotApi(env: Record<string, string>): Plugin {
 
 /**
  * Faster start: the page asks for its files in parallel instead of one after the other. index.html gets
- * the app (boot) and its styles at once, and a small preload.js (no inline script: the CSP forbids them)
- * that adds, before anything runs, the dictionary of the visitor's language and the first page they
- * will see (the app when a session is kept on this device, else the home page).
+ * the styles at once, and a small preload.js (no inline script: the CSP forbids them) that adds, before
+ * anything runs, the dictionary of the visitor's language and the code of the first page they will see:
+ * the home page alone for a visitor on « / » (lib/guestHome), else the app (boot), with its shell when a
+ * session is kept on this device.
  */
 function preloadPlugin(): Plugin {
   return {
@@ -52,20 +54,26 @@ function preloadPlugin(): Plugin {
       const boot = byModule('/src/boot.tsx');
       const html = bundle['index.html'];
       if (!boot || html?.type !== 'asset') return;
-      const css = [...(boot.viteMetadata?.importedCss ?? [])].map(f => `/${f}`);
+      // The styles of the app and of the home page alone (src/page.ts), held by the chunks they share.
+      const cssOf = (u: string) => {
+        const c = bundle[u.slice(1)];
+        return c?.type === 'chunk' ? [...(c.viteMetadata?.importedCss ?? [])] : [];
+      };
+      const css = [...new Set([...withDeps('/src/boot.tsx'), ...withDeps('/src/landing.tsx')].flatMap(cssOf))].map(f => `/${f}`);
       const map = {
         dict: Object.fromEntries((['en', 'es', 'de', 'it'] as const).map(l => [l, [...withDeps(`/src/i18n/${l}.json`), ...withDeps(`/date-fns/locale/${l === 'en' ? 'en-GB' : l}.js`)]])),
         app: [...withDeps('/src/layout/AppShell.tsx'), ...withDeps('/src/pages/Dashboard.tsx')],
+        boot: withDeps('/src/boot.tsx'),
         home: withDeps('/src/pages/LandingPage.tsx'),
+        landing: withDeps('/src/landing.tsx'),
       };
       const code = `(function(){var m=${JSON.stringify(map)},d=document;function p(a){for(var i=0;i<a.length;i++){var l=d.createElement('link');l.rel='modulepreload';l.href=a[i];d.head.appendChild(l)}}
 var g=(/[?&]lang=([a-z]{2})/.exec(location.search)||[])[1];if(!g||!m.dict[g]&&g!=='fr'){g=void 0;try{g=localStorage.getItem('cop-lang')}catch(e){}}if(!g){var n=navigator.languages||[navigator.language];for(var i=0;i<n.length;i++){var c=String(n[i]||'').slice(0,2).toLowerCase();if(c==='fr'||m.dict[c]){g=c;break}}}if(g&&m.dict[g])p(m.dict[g]);
-var s=false;try{for(var k=0;k<localStorage.length;k++)if(/^sb-.+-auth-token$/.test(localStorage.key(k)||'')){s=true;break}if(!s)for(k=0;k<sessionStorage.length;k++)if(/^sb-.+-auth-token$/.test(sessionStorage.key(k)||'')){s=true;break}}catch(e){}
-p(s?m.app:location.pathname==='/'?m.home:[])})();`;
+${hasSession}${guestHome}var s=hasSession();
+p(guestHome()?m.landing:m.boot.concat(s?m.app:location.pathname==='/'?m.home:[]))})();`;
       const file = this.getFileName(this.emitFile({ type: 'asset', name: 'preload.js', source: code }));
       const tags = [
         `<script src="/${file}"></script>`,
-        ...withDeps('/src/boot.tsx').map(u => `<link rel="modulepreload" crossorigin href="${u}">`),
         ...css.map(u => `<link rel="stylesheet" crossorigin href="${u}">`),
       ].join('\n    ');
       html.source = String(html.source).replace('</head>', `    ${tags}\n  </head>`);
