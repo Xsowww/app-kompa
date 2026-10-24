@@ -125,7 +125,11 @@ export const isDeliverable = (e: Pick<CalendarEvent, 'category' | 'title'>) => e
  * Words at the start of a word only (« secours » is not « cours », « prendre » not « rendre »); `$` marks the end
  * of a word too, for short ones that start longer words (« math » in « Mathilde », « bio » in « Biocoop »).
  */
-const wordRe = (list: string) => new RegExp(`(?<![\\p{L}\\p{N}])(?:${list.replace(/\$/g, '(?![\\p{L}\\p{N}])')})`, 'u');
+// Compiled at the first guess, not when the site opens (~40 ms of a slow phone's start-up for these lists).
+const wordRe = (list: string) => {
+  let re: RegExp | undefined;
+  return { test: (s: string) => (re ??= new RegExp(`(?<![\\p{L}\\p{N}])(?:${list.replace(/\$/g, '(?![\\p{L}\\p{N}])')})`, 'u')).test(s) };
+};
 // « Déco du salon » is the living room, « Salon de l'agriculture » a trade show.
 const SALON = '(?<!(?:du|le|au|ce|mon|ton|son|notre|votre) )salons?$';
 // The other site languages (whole words; German compounds by their end: « Zahnarzt », « Teambesprechung », « Matheprüfung »).

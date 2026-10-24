@@ -123,7 +123,12 @@ function FieldButton({ open, onOpen, icon, children, placeholder, className, lab
 
 // ── Date ────────────────────────────────────────────────────────────────────
 /** « L M M J V S D » in the site's language (1 January 2024 was a Monday). */
-const WEEKDAYS = Array.from({ length: 7 }, (_, i) => new Intl.DateTimeFormat(locale(), { weekday: 'narrow' }).format(new Date(2024, 0, 1 + i)));
+// Made when a date picker first opens (7 formatters at start-up cost a slow phone ~45 ms).
+let weekdays: string[] | undefined;
+const WEEKDAYS = () => {
+  const f = new Intl.DateTimeFormat(locale(), { weekday: 'narrow' });
+  return (weekdays ??= Array.from({ length: 7 }, (_, i) => f.format(new Date(2024, 0, 1 + i))));
+};
 
 function MonthGrid({ value, min, max, onPick }: { value: string; min?: string; max?: string; onPick: (key: string) => void }) {
   const today = todayKey();
@@ -156,7 +161,7 @@ function MonthGrid({ value, min, max, onPick }: { value: string; min?: string; m
         </button>
       </div>
       <div className="grid grid-cols-7 text-center text-[11px] font-semibold text-stone-400" aria-hidden>
-        {WEEKDAYS.map((d, i) => <span key={i} className="pb-1">{d}</span>)}
+        {WEEKDAYS().map((d, i) => <span key={i} className="pb-1">{d}</span>)}
       </div>
       <div
         ref={grid}
