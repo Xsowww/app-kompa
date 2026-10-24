@@ -410,9 +410,11 @@ export const folderIconStyle = (key?: string) => {
 /** A known colour key, else undefined (imported files, rows from the server). */
 export const folderColorKey = (c: unknown) => (typeof c === 'string' && Object.hasOwn(FOLDER_COLORS, c) ? c : undefined);
 
+/** A file's content. A trashed file's content waits in the trash folder (cloud mode). */
+export const getFileBlob = async (id: string): Promise<Blob | null> => (await blobStore.get(blobKey(id))) ?? (await blobStore.get(trashBlobKey(id))) ?? null;
+
 export async function getFileUrl(id: string): Promise<string | null> {
-  // A trashed file's content waits in the trash folder (cloud mode).
-  const blob = (await blobStore.get(blobKey(id))) ?? (await blobStore.get(trashBlobKey(id)));
+  const blob = await getFileBlob(id);
   return blob ? URL.createObjectURL(blob) : null;
 }
 

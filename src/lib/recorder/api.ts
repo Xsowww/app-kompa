@@ -56,7 +56,9 @@ export const listPoints = (body: { title: string; text: string }) => call<{ poin
 export const writeDoc = (task: 'fiche' | 'examen', body: { title: string; points: string[]; parts?: string[]; moments?: string[] }) =>
   call<{ text: string }>('rediger', json({ task, usage: getSettings().usage, ...body }), 120_000).then(r => r.text);
 export const alertOtherDevices = (body: { title: string; body: string; except?: string }) => call<{ ok: boolean }>('alerte', json(body), 15_000).catch(() => null);
-export const serverState = () => call<{ transcription: boolean; redaction: boolean }>('etat', { method: 'GET' }, 10_000);
+export const serverState = () => call<{ transcription: boolean; redaction: boolean; photo?: boolean }>('etat', { method: 'GET' }, 10_000);
+/** Photos (JPEG data URLs) → the sheet they hold, in Markdown (server/photo.mjs). */
+export const readPhotoSheet = (photos: string[]) => call<{ text: string }>('photo', json({ photos }), 150_000).then(r => r.text);
 
 function json(body: unknown): RequestInit {
   return { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...(body as object), lang }) };

@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { captchaToken } from './captcha';
+import { serviceFetch, setHealthCheck } from './serviceStatus';
 import { t } from '../i18n';
 
 // When VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set (see .env.example), accounts and
@@ -84,7 +85,9 @@ const authStorage = {
   },
 };
 
-export const supabase = url && key ? createClient(url, key, { auth: { storage: authStorage, persistSession: true, autoRefreshToken: true } }) : null;
+// serviceFetch: the « service perturbé » banner (lib/serviceStatus) learns from every request.
+export const supabase = url && key ? createClient(url, key, { auth: { storage: authStorage, persistSession: true, autoRefreshToken: true }, global: { fetch: serviceFetch } }) : null;
+if (url && key) setHealthCheck(() => serviceFetch(`${url}/auth/v1/health`, { headers: { apikey: key }, cache: 'no-store' }));
 
 /**
  * Checks a password without touching the current session (which may already be

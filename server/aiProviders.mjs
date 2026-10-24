@@ -167,7 +167,7 @@ function endpoint(baseUrl) {
   return `${baseUrl.replace(/\/+$/, '')}/chat/completions`;
 }
 
-async function callOnce(p, body, timeoutMs) {
+export async function callOnce(p, body, timeoutMs) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   let res;

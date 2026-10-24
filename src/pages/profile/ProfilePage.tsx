@@ -3,7 +3,7 @@ import { SelectField, TimeField } from '../../components/Pickers';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   User, Palette, Sparkles, GraduationCap, Bell, Database, ShieldCheck, Camera, Check, Download, Upload, CalendarArrowUp, LogOut, Trash2, ChevronRight,
-  HardDrive, Smartphone, Keyboard, Briefcase, House, UserPlus, MessageSquareText,
+  HardDrive, Smartphone, Keyboard, Briefcase, House, UserPlus, MessageSquareText, FolderDown,
 } from 'lucide-react';
 import { openFeedback } from '../../lib/feedback';
 import AccountList from '../../components/AccountList';
@@ -15,6 +15,7 @@ import { useFocusLog } from '../../store/focusLog';
 import { useSettings, ACCENTS, AVATAR_COLORS, applyAppearance, UI_STYLES, type AccentKey, type ThemeMode, type Chattiness, type UiStyle } from '../../store/settings';
 import { useCopilot } from '../../store/copilot';
 import { useDrive } from '../../store/drive';
+import { downloadZip } from '../drive/download';
 import { useNotes } from '../../store/notes';
 import { applyUsage, useCalendar } from '../../store/calendar';
 import { loadUserData } from '../../store/session';
@@ -789,6 +790,7 @@ function DataTab() {
   const importRef = useRef<HTMLInputElement>(null);
   const [usage, setUsage] = useState<{ used: number; quota: number } | null>(null);
   const events = useCalendar(s => s.events.length);
+  const driveCount = useDrive(s => s.items.length);
 
   useEffect(() => {
     // estimate() counts the files (IndexedDB) but not localStorage, where notes, events and tasks live.
@@ -829,6 +831,18 @@ function DataTab() {
             }}
           >
             <Download size={14} /> {t('Exporter')}
+          </button>
+        </Row>
+        <Row label={t('Fichiers du Drive')} hint={t('Tous tes fichiers et dossiers dans un .zip.')}>
+          <button
+            className="btn-secondary h-8"
+            disabled={!driveCount}
+            onClick={() => {
+              const items = useDrive.getState().items;
+              void downloadZip(items, items.filter(i => !i.parentId).map(i => i.id), 'Kompaly Drive');
+            }}
+          >
+            <FolderDown size={14} /> {t('Télécharger')}
           </button>
         </Row>
         <Row label={t('Restaurer une sauvegarde')}>

@@ -5,7 +5,7 @@ import { peekAfterLogin, rememberAfterLogin } from './lib/afterLogin';
 import { loadUserData, useWelcome } from './store/session';
 import { toast } from './store/ui';
 import AuthPage from './pages/AuthPage';
-import { DialogHost, Toasts } from './components/Overlays';
+import { DialogHost, ServiceBanner, Toasts } from './components/Overlays';
 import { t } from './i18n';
 import { PUBLIC_PAGES, pageHeads } from './lib/seoPages.mjs';
 
@@ -188,7 +188,12 @@ export default function App() {
       });
   }, []);
 
-  if (!ready) return <Loading full />;
+  if (!ready) return (
+    <>
+      <Loading full />
+      <ServiceBanner />
+    </>
+  );
 
   return (
     <BrowserRouter>
@@ -219,6 +224,7 @@ export default function App() {
         </Route>
         <Route path="*" element={<Suspense fallback={<Loading full />}><NotFoundPage /></Suspense>} />
       </Routes>
+      <ServiceBanner />
       <Toasts />
       <DialogHost />
     </BrowserRouter>

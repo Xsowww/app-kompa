@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ChevronRight, ClipboardPaste, Copy, CopyPlus, Download, Eye, FolderInput, FolderPlus, FolderUp, HardDrive, LayoutGrid,
   List, Pencil, Scissors, Star, Trash2, Upload, Clock, ArrowUpDown, ArrowUp, ArrowDown, X, MousePointer2, Search, Tag, Link2, Check, Palette,
-  MoreHorizontal, ClipboardList, BookOpenCheck, FolderOpen, WifiOff,
+  MoreHorizontal, ClipboardList, BookOpenCheck, FolderOpen, WifiOff, FolderDown, ScanText,
 } from 'lucide-react';
 import { EmptyState, Skeleton } from '../../components/EmptyState';
 import {
@@ -21,7 +21,9 @@ import { FolderColorPicker } from '../../components/FolderColorPicker';
 import { ContextMenu, type MenuItem } from '../../components/Overlays';
 import PreviewModal from './PreviewModal';
 import StorageGauge from './StorageGauge';
-import { downloadItem } from './download';
+import { downloadItem, downloadZip } from './download';
+import PhotoSheetDialog from './PhotoSheetDialog';
+import { usePhotoReady } from './photoReady';
 import MoveDialog from './MoveDialog';
 import ShareDialog from './ShareDialog';
 import TagDialog, { TagPill } from './TagDialog';
@@ -333,7 +335,11 @@ export default function DrivePage() {
 
   // The « + » button: in the folder open (Favoris and Récents: the one in the address, the root from « Mon Drive »).
   // The right-click menu of the page offers the same, where the pointer is; a drop works too.
+  // « Fiche depuis une photo » : only when the server can read photos (server/photo.mjs).
+  const photoReady = usePhotoReady();
+  const [photoSheet, setPhotoSheet] = useState(false);
   useCreateActions([
+    ...(photoReady ? [{ label: t('Fiche depuis une photo'), icon: <ScanText />, onClick: () => setPhotoSheet(true) }] : []),
     { label: t('Importer des fichiers'), icon: <Upload />, onClick: () => fileInput.current?.click() },
     { label: t('Importer un dossier'), icon: <FolderUp />, onClick: () => folderInput.current?.click() },
     { label: t('Nouveau dossier'), icon: <FolderPlus />, onClick: () => void newFolder() },
@@ -595,9 +601,11 @@ export default function DrivePage() {
         { label: t('Nouveau dossier'), icon: <FolderPlus size={15} />, onClick: () => void newFolder() },
         { label: t('Importer des fichiers'), icon: <Upload size={15} />, onClick: () => fileInput.current?.click() },
         { label: t('Importer un dossier'), icon: <FolderUp size={15} />, onClick: () => folderInput.current?.click() },
+        ...(photoReady ? [{ label: t('Fiche depuis une photo'), icon: <ScanText size={15} />, onClick: () => setPhotoSheet(true) }] : []),
         { label: '', divider: true, onClick: () => {} },
         { label: t('Coller'), icon: <ClipboardPaste size={15} />, shortcut: `${MOD}V`, disabled: !clipboard?.ids.length || !tabAll, onClick: () => void paste(parentId) },
         { label: t('Tout sélectionner'), icon: <MousePointer2 size={15} />, shortcut: `${MOD}A`, onClick: () => setSelected(new Set(visible.map(i => i.id))) },
+        ...(items.length ? [{ label: t('Tout télécharger (.zip)'), icon: <FolderDown size={15} />, onClick: () => void downloadZip(items, items.filter(i => !i.parentId).map(i => i.id), 'Kompaly Drive') }] : []),
       ];
     }
     const ids = selectedIds.length ? selectedIds : [menu.target];
@@ -627,7 +635,9 @@ export default function DrivePage() {
       : [];
     const list: MenuItem[] = [
       ...(one ? [{ label: item.kind === 'folder' ? t('Ouvrir') : t('Aperçu||d’un fichier'), icon: <Eye size={15} />, shortcut: t('Entrée'), onClick: () => openItem(item) }] : []),
-      ...(one && item.kind === 'file' ? [{ label: t('Télécharger'), icon: <Download size={15} />, onClick: () => downloadItem(item) }] : []),
+      ...(one && item.kind === 'file'
+        ? [{ label: t('Télécharger'), icon: <Download size={15} />, onClick: () => downloadItem(item) }]
+        : [{ label: t('Télécharger (.zip)'), icon: <FolderDown size={15} />, onClick: () => void downloadZip(items, ids, one ? item.name : 'Kompaly Drive') }]),
       ...(one ? [{ label: '', divider: true, onClick: () => {} }] : []),
       { label: t('Copier'), icon: <Copy size={15} />, shortcut: `${MOD}C`, onClick: () => copy(ids) },
       { label: t('Couper'), icon: <Scissors size={15} />, shortcut: `${MOD}X`, onClick: () => cut(ids) },
@@ -656,7 +666,7 @@ export default function DrivePage() {
         : []),
     ];
     return list;
-  }, [menu, selectedIds, items, clipboard, tabAll, parentId, visible, newFolder, paste, openItem, copy, cut, duplicate, rename, remove, making, rec]);
+  }, [menu, selectedIds, items, clipboard, tabAll, parentId, visible, newFolder, paste, openItem, copy, cut, duplicate, rename, remove, making, rec, photoReady]);
   // No keyboard shortcuts on a phone.
   const shownMenu = touchMode ? menuItems.map(i => ({ ...i, shortcut: undefined })) : menuItems;
 
@@ -845,7 +855,9 @@ export default function DrivePage() {
               { icon: CopyPlus, label: t('Dupliquer'), fn: () => void duplicate(selectedIds), more: true },
               { icon: FolderInput, label: t('Déplacer'), fn: () => setMoveIds(selectedIds) },
               ...(single ? [{ icon: Pencil, label: t('Renommer'), fn: () => void rename(single) }] : []),
-              ...(single?.kind === 'file' ? [{ icon: Download, label: t('Télécharger'), fn: () => downloadItem(single), more: true }] : []),
+              single?.kind === 'file'
+                ? { icon: Download, label: t('Télécharger'), fn: () => downloadItem(single), more: true }
+                : { icon: FolderDown, label: t('Télécharger (.zip)'), fn: () => void downloadZip(items, selectedIds, single?.name ?? 'Kompaly Drive'), more: true },
               { icon: Tag, label: t('Étiquettes'), fn: () => setTagIds(selectedIds) },
               ...(selectedFolders.length === selectedIds.length ? [{ icon: Palette, label: t('Couleur'), fn: (e: React.MouseEvent) => setColorMenu(under(e)) }] : []),
               { icon: Trash2, label: t('Corbeille||barre de sélection'), fn: () => void remove(selectedIds) },
@@ -1109,6 +1121,7 @@ export default function DrivePage() {
       {previewItem && <PreviewModal item={previewItem} onClose={closePreview} page={Number(params.get('page')) || undefined} />}
       {tagIds && <TagDialog ids={tagIds} onClose={() => setTagIds(null)} />}
       {shareItem && <ShareDialog item={shareItem} onClose={() => setShareItem(null)} />}
+      {photoSheet && <PhotoSheetDialog folderId={tabAll ? parentId : null} onClose={() => setPhotoSheet(false)} />}
       {moveIds && (
         <MoveDialog
           ids={moveIds}

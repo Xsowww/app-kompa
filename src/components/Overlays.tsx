@@ -1,9 +1,10 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { BellRing, CheckCircle2, Info, XCircle } from 'lucide-react';
+import { BellRing, CheckCircle2, CloudAlert, Info, WifiOff, XCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useUi, type Toast } from '../store/ui';
 import { cx } from '../lib/utils';
+import { retryNow, useService } from '../lib/serviceStatus';
 import { arrowNav, focusBeforeOverlay, focusables, trapTab } from '../lib/a11y';
 import { locale, t } from '../i18n';
 
@@ -36,6 +37,29 @@ function ToastRow({ t: item }: { t: Toast }) {
 }
 
 /** Toasts are read out by screen readers: errors right away, everything else politely. */
+/** « Service perturbé » or « Hors ligne », at the top while it lasts (lib/serviceStatus). */
+export function ServiceBanner() {
+  const state = useService(s => s.state);
+  if (state === 'ok') return null;
+  const down = state === 'down';
+  return (
+    <div className="pointer-events-none fixed inset-x-4 top-[max(0.5rem,env(safe-area-inset-top))] z-[70] flex justify-center">
+      <div role="status" aria-live="polite" className="enter pointer-events-auto flex max-w-[560px] items-center gap-2.5 rounded-2xl border-2 border-amber-400 bg-surface py-2 pl-3 pr-2 text-[13px] text-ink shadow-pop">
+        {down ? <CloudAlert size={16} className="shrink-0 text-amber-500" aria-hidden /> : <WifiOff size={16} className="shrink-0 text-amber-500" aria-hidden />}
+        <span className="min-w-0">
+          <b className="font-semibold">{down ? t('Service perturbé.') : t('Hors ligne.')}</b>{' '}
+          {down ? t('Tes changements restent sur cet appareil et partiront dès que ça revient.') : t('Tes changements restent sur cet appareil et partiront au retour de la connexion.')}
+        </span>
+        {down && (
+          <button type="button" className="shrink-0 rounded-lg px-2.5 py-1 font-semibold hover:bg-stone-100" onClick={() => void retryNow()}>
+            {t('Réessayer')}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function Toasts() {
   const toasts = useUi(s => s.toasts).slice(-3);
   // Ctrl+Z (⌘Z) undoes what the last toast offers to undo: from the keyboard, its button is far down the Tab order.

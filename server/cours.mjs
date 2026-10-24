@@ -6,6 +6,7 @@
 import { resolveProvider, parseWait, mapStatus, ProviderError } from './aiProviders.mjs';
 import { authenticate, chat, ipOf, overQuota, rateLimited, readJson, secondsToParisMidnight, send } from './copilot.mjs';
 import { LANG_CODES, languageLine } from './copilotPrompt.mjs';
+import { MAX_PHOTO_BODY, cleanPhotos, readPhotos, resolveVision } from './photo.mjs';
 
 const MAX_AUDIO = 3_000_000; // bytes: 90 s of 16 kHz 16-bit mono, a piece is 15-35 s
 const BYTES_PER_SECOND = 32_000;
@@ -254,10 +255,10 @@ export async function handleCours(req, res, env = process.env) {
   if (!url.startsWith('/api/cours/')) return false;
 
   if (url === '/api/cours/etat' && req.method === 'GET') {
-    send(res, 200, { transcription: !!resolveTranscriber(env), redaction: !!resolveProvider(env) });
+    send(res, 200, { transcription: !!resolveTranscriber(env), redaction: !!resolveProvider(env), photo: !!resolveVision(env) });
     return true;
   }
-  if (req.method !== 'POST' || !['/api/cours/transcrire', '/api/cours/rediger', '/api/cours/alerte'].includes(url)) {
+  if (req.method !== 'POST' || !['/api/cours/transcrire', '/api/cours/rediger', '/api/cours/alerte', '/api/cours/photo'].includes(url)) {
     send(res, 404, { error: 'not_found' });
     return true;
   }
@@ -282,6 +283,25 @@ export async function handleCours(req, res, env = process.env) {
       const { pushToUser } = await import('./push.mjs');
       const ok = await pushToUser(caller.id, { title: clip(body.title, 120), body: clip(body.body, 300), url: '/enregistrer', tag: 'cours' }, clip(body.except, 600));
       send(res, ok ? 200 : 503, { ok });
+      return true;
+    }
+    // Photo → fiche (server/photo.mjs).
+    if (url === '/api/cours/photo') {
+      const vision = resolveVision(env);
+      if (!vision) return (send(res, 503, { error: 'disabled' }), true);
+      if (rateLimited(`photo:${who}`, 6)) return (send(res, 429, { error: 'rate_limited', retryAfter: 30 }), true);
+      let body;
+      try {
+        body = JSON.parse((await readBody(req, MAX_PHOTO_BODY)).toString('utf8'));
+      } catch (e) {
+        if (e?.status) throw e;
+        return (send(res, 400, { error: 'bad_photo' }), true);
+      }
+      const photos = cleanPhotos(body?.photos);
+      if (!photos) return (send(res, 400, { error: 'bad_photo' }), true);
+      const limit = overQuota(who, false, { id: 'vision' }, env);
+      if (limit) return (send(res, 429, { error: limit, retryAfter: secondsToParisMidnight() }), true);
+      send(res, 200, { text: await readPhotos(vision, photos, body.lang) });
       return true;
     }
     if (url === '/api/cours/transcrire') {
