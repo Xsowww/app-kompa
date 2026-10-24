@@ -248,8 +248,7 @@ body {
   /* 16 px on the sides: the page's own margin on a phone (20 made the page scroll sideways by 4 px). */
   margin-inline: -16px;
   padding-inline: 16px;
-  margin-top: -20px;
-  padding-top: 20px;
+  /* Not upwards: a scrolling list would pass over the line above it (agenda's members, a group's tabs). */
 }
 @utility card {
   @apply rounded-[24px] bg-surface;
