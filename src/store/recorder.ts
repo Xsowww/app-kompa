@@ -20,7 +20,7 @@ import { encodeWav, isSilent } from '../lib/recorder/audio';
 import { startCapture, CaptureError, type Capture, type Piece, type SourceKind } from '../lib/recorder/capture';
 import { startLive, type LiveLane } from '../lib/recorder/live';
 import { CoursError, alertOtherDevices, isFinal, listPoints, transcribe, withRetry, writeDoc, writePart } from '../lib/recorder/api';
-import { baseName, chunkText, clock, courseMarkdown, essentialsOf, excerpt, makeSegment, momentLines, nextPart, rawPart, type Alert, type Part, type Segment } from '../lib/recorder/course';
+import { baseName, chunkText, clock, courseMarkdown, essentialsOf, excerpt, makeSegment, momentLines, nextPart, rawPart, recordedSeconds, type Alert, type Part, type Segment } from '../lib/recorder/course';
 import { t, lang, locale } from '../i18n';
 
 export type Make = 'fiche' | 'examen';
@@ -36,6 +36,9 @@ export interface Session {
   make: Record<Make, boolean>;
   startedAt: number;
   endedAt?: number;
+  /** Paused since then (« Pause »); `paused`: ms of the pauses before. Both left out of the time recorded. */
+  pausedAt?: number;
+  paused?: number;
   phase: 'running' | 'finishing' | 'done';
   segments: Segment[];
   /** What the browser heard (quick lane), kept to fill a passage the server couldn't write. */
@@ -88,7 +91,7 @@ export const useRecorder = create<RecorderState>()(
 
 /** What changes many times a second, or only means something while this page is open: not saved. */
 interface LiveState {
-  /** True when this tab is the one recording (false: a session saved but its sound stopped, e.g. after a reload). */
+  /** True when this tab is the one recording, paused or not (false: a session saved but its sound stopped, e.g. after a reload). */
   hearing: boolean;
   interim: string;
   level: number;
@@ -151,8 +154,8 @@ let warned = { sound: false, silence: false };
 let silenceProblem = '';
 const lastAlert = new Map<string, number>();
 
-/** Seconds since the start of the class. */
-export const elapsed = (s: Session | null = session()) => (s ? ((s.endedAt ?? Date.now()) - s.startedAt) / 1000 : 0);
+/** Seconds recorded since the start of the class (pauses left out). */
+export const elapsed = (s: Session | null = session()) => (s ? recordedSeconds(s) : 0);
 
 // Length of a piece of sound sent to be written: short, so the text follows closely (~10 s); longer when the
 // browser already shows the words as they're said (the micro in Chrome, Edge, Safari), to spare the day's allowance.
@@ -355,6 +358,7 @@ function check() {
   const s = session();
   if (!s || !capture) return;
   beat();
+  if (s.pausedAt) return; // paused: no sound expected
   const now = Date.now();
   if (s.source === 'onglet' && now - lastAudible > 60_000) {
     if (!warned.sound) {
@@ -408,30 +412,7 @@ async function listen(kind: SourceKind, offset: number) {
   warned = { sound: false, silence: false };
   live({ hearing: true, problem: null, label: capture.label });
   markTitle(true);
-  if (kind === 'micro') {
-    quick = startLive(
-      (text, final) => {
-        if (!text) return live({ interim: '' });
-        quickHeardAt = Date.now();
-        heardSomething();
-        const at = elapsed();
-        spot(text, at);
-        if (final) {
-          // An alert raised on the start of this sentence gets the whole sentence.
-          patch(x => ({
-            live: [...x.live, { time: at, text }].slice(-3000),
-            alerts: x.alerts.map(a => (a.keyword && at - a.time < 20 && text.startsWith(a.excerpt) && text.length > a.excerpt.length ? { ...a, excerpt: excerpt(text) } : a)),
-          }));
-          live({ interim: '' });
-        } else live({ interim: text });
-      },
-      () => {
-        quick = null;
-        live({ quickLane: false, interim: '' });
-      },
-    );
-    live({ quickLane: !!quick });
-  }
+  if (kind === 'micro') hearLive();
   beat();
   if (!watchdog) watchdog = setInterval(check, 5000);
   addEventListener('beforeunload', onBeforeUnload);
@@ -439,15 +420,41 @@ async function listen(kind: SourceKind, offset: number) {
   void keepAwake();
 }
 
+/** The quick lane (micro only): the words shown as they're said. */
+function hearLive() {
+  quick = startLive(
+    (text, final) => {
+      if (!text) return live({ interim: '' });
+      quickHeardAt = Date.now();
+      heardSomething();
+      const at = elapsed();
+      spot(text, at);
+      if (final) {
+        // An alert raised on the start of this sentence gets the whole sentence.
+        patch(x => ({
+          live: [...x.live, { time: at, text }].slice(-3000),
+          alerts: x.alerts.map(a => (a.keyword && at - a.time < 20 && text.startsWith(a.excerpt) && text.length > a.excerpt.length ? { ...a, excerpt: excerpt(text) } : a)),
+        }));
+        live({ interim: '' });
+      } else live({ interim: text });
+    },
+    () => {
+      quick = null;
+      live({ quickLane: false, interim: '' });
+    },
+  );
+  live({ quickLane: !!quick });
+}
+
 // The window's title says it too (« ● 12:34 · Notes – Kompaly »): seen from any page, and in the Dock / tab bar.
-const TITLE_MARK = /^● [\d:]+ · /;
+const TITLE_MARK = /^[●⏸] [\d:]+ · /;
 let titleTimer: ReturnType<typeof setInterval> | null = null;
 function markTitle(on: boolean) {
   if (titleTimer) clearInterval(titleTimer);
   titleTimer = null;
   const set = () => {
     const base = document.title.replace(TITLE_MARK, '');
-    document.title = on ? `● ${clock(elapsed())} · ${base}` : base;
+    document.title = on ? `${session()?.pausedAt ? '⏸' : '●'} ${clock(elapsed())} · ${base}` : base;
   };
   set();
   if (on) titleTimer = setInterval(set, 1000);
@@ -560,17 +567,36 @@ export async function startRecording(o: StartOptions) {
   useRecorder.setState({ session: { ...s, startedAt: Date.now() } });
 }
 
-/** After the share stopped or a reload: listens again, the class goes on where it was. */
+/** « Pause » : the piece being heard is sent, then nothing is heard nor counted until « Reprendre ». */
+export function pauseRecording() {
+  const s = session();
+  if (!s || s.phase !== 'running' || s.pausedAt || !capture) return;
+  capture.pause();
+  stopQuick();
+  patch(() => ({ pausedAt: Date.now() }));
+  live({ interim: '', level: 0, speaking: false, problem: null });
+  toast(t('En pause'), 'info');
+}
+
+/** After « Pause » (same sound, no new permission), the share stopped or a reload: the class goes on where it was. */
 export async function resumeListening() {
   const s = session();
-  if (!s || s.phase !== 'running' || capture) return;
-  await listen(s.source, elapsed(s));
+  if (!s || s.phase !== 'running' || (capture && !s.pausedAt)) return;
+  if (capture) {
+    await capture.resume();
+    lastAudible = lastText = Date.now();
+    warned = { sound: false, silence: false };
+    if (s.source === 'micro') hearLive();
+  } else await listen(s.source, elapsed(s)); // the offset is taken while still paused: the time doesn't move
+  if (!session()?.pausedAt) return;
+  patch(x => ({ paused: (x.paused ?? 0) + Date.now() - x.pausedAt!, pausedAt: undefined }));
+  toast(t('Enregistrement repris'), 'info');
 }
 
 /** « Moment important » : what was just said (3 s ago: the click comes after the sentence). */
 export function star() {
   const s = session();
-  if (!s || s.phase !== 'running') return;
+  if (!s || s.phase !== 'running' || s.pausedAt) return;
   const time = Math.max(0, elapsed(s) - 3);
   const last = s.segments.at(-1)?.text ?? '';
   const said = `${last} ${useRecLive.getState().interim}`.trim();
@@ -587,7 +613,9 @@ export function star() {
 export async function finishRecording() {
   const s = session();
   if (!s || s.phase !== 'running') return;
-  patch(() => ({ phase: 'finishing', endedAt: Date.now() }));
+  const now = Date.now();
+  // Finished while paused: that pause is left out too.
+  patch(x => ({ phase: 'finishing', endedAt: now, ...(x.pausedAt && { pausedAt: undefined, paused: (x.paused ?? 0) + now - x.pausedAt }) }));
   capture?.stop(true);
   capture = null;
   release();

@@ -15,6 +15,9 @@ export interface Piece {
 
 export interface Capture {
   stop: (flush?: boolean) => void;
+  /** Hands out the piece being heard, then hears nothing until `resume()` (same stream: no new permission asked). */
+  pause: () => void;
+  resume: () => Promise<void>;
   /** The tab shared, when the browser says (« Teams – Cours de droit »). */
   label: string;
 }
@@ -110,11 +113,12 @@ export async function startCapture(
   source.connect(tap).connect(mute).connect(ctx.destination);
   if (ctx.state === 'suspended') await ctx.resume().catch(() => undefined);
 
-  const resampler = new Resampler(ctx.sampleRate);
+  let resampler = new Resampler(ctx.sampleRate);
   const buf = new Float32Array(RATE * 60);
   let n = 0;
   let emitted = 0; // samples already handed out, since this capture started
   let stopped = false;
+  let paused = false;
 
   const emit = (upTo: number) => {
     if (upTo <= 0) return;
@@ -127,7 +131,7 @@ export async function startCapture(
   };
 
   tap.port.onmessage = (e: MessageEvent<Float32Array>) => {
-    if (stopped) return;
+    if (stopped || paused) return;
     const block = resampler.push(e.data);
     opts.onLevel?.(peak(e.data));
     if (n + block.length > buf.length) emit(n); // never happens with findCut's force, kept as a guard
@@ -159,5 +163,21 @@ export async function startCapture(
     void ctx.close().catch(() => undefined);
   }
 
-  return { stop, label: kind === 'onglet' ? audio.label || stream.getVideoTracks()[0]?.label || '' : audio.label };
+  function pause() {
+    if (stopped || paused) return;
+    emit(n);
+    paused = true;
+    audio.enabled = false; // silence from the source itself while paused
+    void ctx.suspend().catch(() => undefined);
+  }
+
+  async function resume() {
+    if (stopped || !paused) return;
+    resampler = new Resampler(ctx.sampleRate);
+    audio.enabled = true;
+    await ctx.resume().catch(() => undefined);
+    paused = false;
+  }
+
+  return { stop, pause, resume, label: kind === 'onglet' ? audio.label || stream.getVideoTracks()[0]?.label || '' : audio.label };
 }

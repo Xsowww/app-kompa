@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Bell, BookOpenCheck, Check, ClipboardList, FileText, FolderOpen, Loader2, Mic, MonitorSpeaker, RotateCcw, Square, Star, Trash2 } from 'lucide-react';
+import { AlertTriangle, Bell, BookOpenCheck, Check, ClipboardList, FileText, FolderOpen, Loader2, Mic, MonitorSpeaker, Pause, Play, RotateCcw, Square, Star, Trash2 } from 'lucide-react';
 import { Modal } from '../../components/Overlays';
 import { EmptyState } from '../../components/EmptyState';
 import { useSettings } from '../../store/settings';
@@ -13,6 +13,7 @@ import {
   finishRecording,
   makeLater,
   openInDrive,
+  pauseRecording,
   recordingElsewhere,
   resumeListening,
   star,
@@ -238,6 +239,8 @@ function AlertSettings({ onClose }: { onClose: () => void }) {
 function Running({ s }: { s: Session }) {
   const live = useRecLive();
   const finishing = s.phase === 'finishing';
+  const paused = !!s.pausedAt;
+  const recording = live.hearing && !paused;
   useTick(!finishing);
   const elsewhere = !live.hearing && recordingElsewhere();
   const [busy, setBusy] = useState(false);
@@ -279,19 +282,24 @@ function Running({ s }: { s: Session }) {
       <section className="card p-5 sm:p-6" aria-label={t('Transcription')}>
         <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-stone-100 pb-4">
           <span className="flex items-center gap-2 text-[13px] font-semibold">
-            <span className={cx('h-2.5 w-2.5 rounded-full', live.hearing ? 'animate-pulse bg-red-500' : 'bg-stone-400')} aria-hidden />
-            {finishing ? t('Terminé') : live.hearing ? t('Enregistrement') : t('En pause')}
+            <span className={cx('h-2.5 w-2.5 rounded-full', recording ? 'animate-pulse bg-red-500' : paused ? 'bg-amber-400' : 'bg-stone-400')} aria-hidden />
+            {finishing ? t('Terminé') : paused ? t('En pause') : live.hearing ? t('Enregistrement') : t('Écoute arrêtée')}
             <span className="tabular text-[15px] font-semibold">{clock(elapsed(s))}</span>
           </span>
           {/* On a phone the title often goes to the next line: no « · » left alone in front of it. */}
           <span className="min-w-0 truncate text-[14px] font-semibold text-stone-700" title={s.title}><span className="max-sm:hidden">· </span>{s.title}</span>
-          {live.hearing && <Level value={live.level} />}
+          {recording && <Level value={live.level} />}
           {!finishing && (
             <span className="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto">
               <button type="button" className="btn-secondary h-9 px-2.5" onClick={() => setSettings(true)} title={t('Mots-clés')} aria-label={t('Mots-clés')}>
                 <Bell size={15} /> <span className="tabular text-[12.5px]">{s.keywords.length}</span>
               </button>
-              <button type="button" className="btn-secondary h-9 flex-1 sm:flex-none" onClick={star} disabled={!live.hearing} title={t('Marque ce qui vient d’être dit (touche M)')}>
+              {live.hearing && (
+                <button type="button" className="btn-secondary h-9 px-3" disabled={busy} onClick={paused ? () => void resume() : pauseRecording}>
+                  {paused ? <Play size={14} className="fill-current" /> : <Pause size={14} className="fill-current" />} {paused ? t('Reprendre') : t('Pause||l’enregistrement')}
+                </button>
+              )}
+              <button type="button" className="btn-secondary h-9 flex-1 sm:flex-none" onClick={star} disabled={!recording} title={t('Marque ce qui vient d’être dit (touche M)')}>
                 <Star size={15} className="fill-amber-400 text-amber-500" /> {t('Moment important')}
               </button>
               <button type="button" className="btn-primary h-9 flex-1 sm:flex-none" onClick={() => void finish()}>
@@ -320,6 +328,8 @@ function Running({ s }: { s: Session }) {
               <RotateCcw size={13} /> {t('Reprendre l’écoute')}
             </button>
           </Banner>
+        ) : paused ? (
+          <Banner tone="info">{t('En pause : rien n’est enregistré tant que tu ne reprends pas.')}</Banner>
         ) : live.problem ? (
           <Banner tone="warn">{live.problem}</Banner>
         ) : null}
@@ -331,7 +341,7 @@ function Running({ s }: { s: Session }) {
           liveText={liveText}
           writing={live.hearing && (live.speaking || live.queue > 0)}
           follow
-          empty={live.hearing ? t('J’écoute…') : t('Rien d’écrit pour l’instant.')}
+          empty={recording ? t('J’écoute…') : t('Rien d’écrit pour l’instant.')}
         />
       </section>
       <aside className="card p-5 sm:p-6 lg:sticky lg:top-2" aria-label={t('Moments signalés')}>

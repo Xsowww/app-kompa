@@ -45,6 +45,12 @@ export function clock(seconds: number): string {
   return [Math.floor(t / 3600), Math.floor(t / 60) % 60, t % 60].map(n => String(n).padStart(2, '0')).join(':');
 }
 
+/** Seconds recorded from the start to the end (or `now`), pauses left out: the one going on and those before (`paused`, ms). */
+export function recordedSeconds(s: { startedAt: number; endedAt?: number; pausedAt?: number; paused?: number }, now = Date.now()): number {
+  const end = Math.min(s.endedAt ?? now, s.pausedAt ?? Infinity);
+  return Math.max(0, (end - s.startedAt - (s.paused ?? 0)) / 1000);
+}
+
 /** 5520 → « 1 h 32 », 300 → « 5 min », 26 → « 26 s ». */
 export function duration(seconds: number): string {
   if (seconds < 59.5) return t('{s} s', { s: Math.max(0, Math.round(seconds)) });
