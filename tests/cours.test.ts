@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { cleanSegments, overAudioQuota, parseSection, wavSeconds } from '../server/cours.mjs';
 import { RATE, Resampler, encodeWav, findCut, isSilent } from '../src/lib/recorder/audio';
 import { cleanKeywords, keywordRanges, matchKeywords, normalize, parseKeywords } from '../src/lib/keywords';
-import { PART_CHARS, baseName, chunkText, clock, courseMarkdown, duration, essentialsOf, makeSegment, momentLines, nextPart, rawPart, type Segment } from '../src/lib/recorder/course';
+import { PART_CHARS, baseName, chunkText, clock, courseMarkdown, duration, essentialsOf, makeSegment, momentLines, nextPart, rawPart, recordedSeconds, type Segment } from '../src/lib/recorder/course';
 import { docxToText, markdownToDocx } from '../src/lib/docx';
 
 const kw = (...words: string[]) => words.map(word => ({ word, notify: true }));
@@ -144,6 +144,18 @@ describe('le cours', () => {
     expect(baseName('Droit / civil', new Date(2026, 9, 9))).toBe('2026-10-09 – Droit - civil');
     const chunks = chunkText(`${'a'.repeat(6000)}\n${'b'.repeat(6000)}\n${'c'.repeat(100)}`, 10_000);
     expect(chunks.map(c => c.length)).toEqual([6000, 6101]);
+  });
+  it('le temps enregistré laisse les pauses de côté', () => {
+    const startedAt = 1_000_000;
+    expect(recordedSeconds({ startedAt }, startedAt + 90_000)).toBe(90);
+    // In a pause: the time stands still, however long it lasts.
+    expect(recordedSeconds({ startedAt, pausedAt: startedAt + 60_000 }, startedAt + 60_000)).toBe(60);
+    expect(recordedSeconds({ startedAt, pausedAt: startedAt + 60_000 }, startedAt + 3_600_000)).toBe(60);
+    // Resumed after 5 min, then 30 s more.
+    expect(recordedSeconds({ startedAt, paused: 300_000 }, startedAt + 390_000)).toBe(90);
+    // Finished during a second pause.
+    expect(recordedSeconds({ startedAt, paused: 300_000, pausedAt: startedAt + 390_000, endedAt: startedAt + 500_000 })).toBe(90);
+    expect(recordedSeconds({ startedAt, paused: 300_000, endedAt: startedAt + 400_000 })).toBe(100);
   });
 });
 
