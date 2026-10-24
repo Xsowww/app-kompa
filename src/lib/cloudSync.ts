@@ -34,6 +34,7 @@ const eventToRow = (e: CalendarEvent): Row => ({
   important: !!e.important,
   reminders: e.reminders ?? null,
   external_id: e.externalId ?? null,
+  series: e.series ?? null,
   created_at: e.createdAt,
   deleted_at: e.deletedAt ?? null,
 });
@@ -49,6 +50,7 @@ const rowToEvent = (r: Row): CalendarEvent => ({
   important: r.important === true || undefined,
   reminders: cleanReminders(r.reminders),
   externalId: (r.external_id as string) ?? undefined,
+  series: (r.series as string) ?? undefined,
   createdAt: r.created_at as string,
   deletedAt: (r.deleted_at as string) ?? undefined,
 });
@@ -150,7 +152,7 @@ const unstamped = (rows: Row[]) => rows.map(({ updated_at: _u, ...r }) => r);
 const missingStamp = (e: { code?: string; message?: string } | null) => e?.code === 'PGRST204' && !!e.message?.includes('updated_at');
 const missingColumn = (e: { code?: string; message?: string } | null, col: string) => e?.code === 'PGRST204' && !!e.message?.includes(col);
 // Columns added by later migrations: a server without them yet gets the rows without them (kept on this device).
-const OPTIONAL: Partial<Record<Table, string[]>> = { events: ['important', 'reminders'], todos: ['due_time', 'reminders'], note_folders: ['color'] };
+const OPTIONAL: Partial<Record<Table, string[]>> = { events: ['important', 'reminders', 'series'], todos: ['due_time', 'reminders'], note_folders: ['color'] };
 const absent = new Map<Table, Set<string>>();
 const withoutAbsent = (table: Table, rows: Row[]) => {
   const cols = absent.get(table);

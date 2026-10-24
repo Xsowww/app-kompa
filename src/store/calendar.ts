@@ -5,6 +5,8 @@ import { userStorage } from '../lib/userStorage';
 import { TRASH_DAYS } from './drive';
 import { getSettings, useSettings } from './settings';
 import type { Usage } from '../lib/usage';
+import { eventReminders } from '../lib/reminders';
+import { dayShift, shiftKey } from '../lib/repeat';
 import { t } from '../i18n';
 
 export type BuiltinCategory = 'cours' | 'examen' | 'devoir' | 'perso' | 'sport';
@@ -71,6 +73,8 @@ export interface CalendarEvent {
   deletedAt?: string;
   /** Shared calendar: the members it is about (user ids); none: everyone. */
   people?: string[];
+  /** Same id on every occurrence of an event that repeats (lib/repeat). */
+  series?: string;
 }
 
 export type NewEvent = Omit<CalendarEvent, 'id' | 'done' | 'createdAt'>;
@@ -84,8 +88,11 @@ interface CalendarState {
   /** Adds many events in one update (.ics import). */
   addMany: (list: NewEvent[]) => void;
   update: (id: string, patch: Partial<CalendarEvent>) => void;
+  /** Changes this occurrence and the next ones of its series (a new day moves them by as many days). */
+  updateSeries: (id: string, patch: Partial<CalendarEvent>) => void;
   /** Moves the event to the trash. */
   remove: (id: string) => void;
+  removeMany: (ids: string[]) => void;
   /** Deleted events, kept TRASH_DAYS days (separate list: nothing else has to filter them). */
   trash: CalendarEvent[];
   restore: (ids: string[]) => void;
@@ -201,6 +208,20 @@ export function guessCategory(title: string, timed = false, custom?: CustomCateg
   return 'perso';
 }
 
+/**
+ * A new event. Made here (not imported): the usual reminder (Profil › Notifications) if it has a time, and the early
+ * ones of a big day, unless it says otherwise. (« Aucun » as the usual one: [] kept, so changing the usual reminder
+ * later doesn't add one to it.)
+ */
+function fresh(e: NewEvent): CalendarEvent {
+  const reminders = e.reminders ?? (!e.externalId && (e.start || isBigEvent(e)) ? [...eventReminders(e, getSettings().defaultReminders ?? [])] : undefined);
+  return { ...e, ...(reminders && { reminders }), id: uid(), done: false, createdAt: nowIso() };
+}
+
+/** The occurrences of an event's series after it (none for an event that doesn't repeat). */
+export const nextInSeries = (ev: Pick<CalendarEvent, 'series' | 'date' | 'id'>, events: CalendarEvent[]) =>
+  ev.series ? events.filter(e => e.series === ev.series && e.date > ev.date && e.id !== ev.id) : [];
+
 export const sortEvents = (a: CalendarEvent, b: CalendarEvent) =>
   a.date.localeCompare(b.date) || (a.start ?? '99').localeCompare(b.start ?? '99');
 
@@ -210,22 +231,27 @@ export const useCalendar = create<CalendarState>()(
       events: [],
       trash: [],
       add(e) {
-        // A new event with a time gets the usual reminder (Profil › Notifications), unless it says otherwise
-        // or comes from elsewhere (imported agenda, a group).
-        // (« Aucun » as the usual one: [] kept, so changing the usual reminder later doesn't add one to it.)
-        const reminders = e.reminders ?? (e.start && !e.externalId ? [...(getSettings().defaultReminders ?? [])] : undefined);
-        const ev: CalendarEvent = { ...e, ...(reminders && { reminders }), id: uid(), done: false, createdAt: nowIso() };
+        const ev = fresh(e);
         set(s => ({ events: [...s.events, ev] }));
         return ev;
       },
-      addMany: list => set(s => ({ events: [...s.events, ...list.map(e => ({ ...e, id: uid(), done: false, createdAt: nowIso() }))] })),
+      addMany: list => set(s => ({ events: [...s.events, ...list.map(fresh)] })),
+      updateSeries(id, patch) {
+        const ev = get().events.find(e => e.id === id);
+        if (!ev?.series) return get().update(id, patch);
+        const shift = patch.date ? dayShift(ev.date, patch.date) : 0;
+        const { date: _d, ...rest } = patch;
+        set(s => ({
+          events: s.events.map(e => (e.id === id ? { ...e, ...patch } : e.series === ev.series && e.date > ev.date ? { ...e, ...rest, ...(shift && { date: shiftKey(e.date, shift) }) } : e)),
+        }));
+      },
       update: (id, patch) => set(s => ({ events: s.events.map(e => (e.id === id ? { ...e, ...patch } : e)) })),
-      remove: id =>
-        set(s => {
-          const ev = s.events.find(e => e.id === id);
-          if (!ev) return s;
-          return { events: s.events.filter(e => e.id !== id), trash: [...s.trash, { ...ev, deletedAt: nowIso() }] };
-        }),
+      remove: id => get().removeMany([id]),
+      removeMany(ids) {
+        const gone = new Set(ids);
+        const at = nowIso();
+        set(s => ({ events: s.events.filter(e => !gone.has(e.id)), trash: [...s.trash, ...s.events.filter(e => gone.has(e.id)).map(e => ({ ...e, deletedAt: at }))] }));
+      },
       restore(ids) {
         const back = new Set(ids);
         set(s => ({

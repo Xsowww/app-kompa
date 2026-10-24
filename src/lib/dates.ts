@@ -61,7 +61,7 @@ export interface ParsedQuickAdd {
   date: string | null;
   start: string | null;
   end: string | null;
-  /** « tous les mardis », « chaque lundi »: only the next one is created (no repeating events yet). */
+  /** « tous les mardis », « chaque lundi »: the event form offers « Chaque semaine » (lib/repeat). */
   weekly?: boolean;
   /** « important », « urgent » or « ! » in the sentence: the event is flagged important. */
   important?: boolean;

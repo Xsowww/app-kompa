@@ -2,13 +2,13 @@
 // (pages/groups/SharedCalendar), with the same screens — day, week, month, quick add, drag.
 
 import { createContext, useContext, useMemo } from 'react';
-import { useCalendar, MY_CATEGORIES, type CalendarEvent, type CategoryScope, type CustomCategory, type NewEvent } from '../../store/calendar';
-import { trashEvent } from '../../lib/trash';
+import { useCalendar, nextInSeries, MY_CATEGORIES, type CalendarEvent, type CategoryScope, type CustomCategory, type NewEvent } from '../../store/calendar';
+import { trashEvent, trashEvents } from '../../lib/trash';
 import type { Group } from '../../lib/groups';
 import { useSettings } from '../../store/settings';
 import { PERIOD_IDEAS, sortPeriods, type Period } from '../../lib/periods';
 import type { Usage } from '../../lib/usage';
-import { confirmAction } from '../../store/ui';
+import { askChoice, confirmAction } from '../../store/ui';
 import { useGroups } from '../../store/groups';
 import { t } from '../../i18n';
 
@@ -101,4 +101,30 @@ export function useImportSources(): { id: string; name: string }[] {
     () => [...(here === PERSO ? [] : [{ id: PERSO, name: t('Mon agenda perso') }]), ...groups.filter(g => g.kind === 'agenda' && g.id !== here).map(g => ({ id: g.id, name: g.name }))],
     [here, groups],
   );
+}
+
+/**
+ * Deleting or changing an event that repeats: only this one, or this one and the next ones ('next').
+ * One that doesn't repeat (or the last of its series): 'one' without asking.
+ */
+export async function askSeriesScope(ev: Pick<CalendarEvent, 'id' | 'series' | 'date' | 'title'>, action: 'delete' | 'edit'): Promise<'one' | 'next' | null> {
+  const next = nextInSeries(ev, useCalendar.getState().events).length;
+  if (!next) return 'one';
+  const answer = await askChoice(
+    action === 'delete' ? t('Supprimer « {title} » ?', { title: ev.title }) : t('Modifier « {title} »', { title: ev.title }),
+    t('Cet événement se répète ({n} fois après celui-ci).', { n: next }),
+    t('Seulement celui-ci'),
+    t('Celui-ci et les suivants'),
+    action === 'delete',
+  );
+  return answer === 'confirm' ? 'one' : answer === 'other' ? 'next' : null;
+}
+
+/** My calendar: deletes the event, or with its next ones (« Annuler » in the toast brings them all back). */
+export async function removeMine(ev: CalendarEvent): Promise<boolean> {
+  const scope = await askSeriesScope(ev, 'delete');
+  if (!scope) return false;
+  if (scope === 'one') trashEvent(ev.id);
+  else trashEvents([ev.id, ...nextInSeries(ev, useCalendar.getState().events).map(e => e.id)]);
+  return true;
 }

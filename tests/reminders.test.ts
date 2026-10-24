@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { anchorOf, followMoments, minutesBefore, cleanReminders, offsetLabel, reminderBody, reminderLabel, upcomingReminders } from '../src/lib/reminders';
+import { anchorOf, followMoments, minutesBefore, cleanReminders, eventReminders, offsetLabel, reminderBody, reminderLabel, upcomingReminders } from '../src/lib/reminders';
 
 const now = new Date(2026, 9, 16, 10, 0); // jeudi 16 octobre 2026, 10:00
 
@@ -88,5 +88,20 @@ describe('rappels', () => {
     expect(followMoments([15], { date: '2026-10-21', time: '14:30' }, { date: '2026-10-21' }, [0])).toEqual([0]);
     // une heure ajoutée : « La veille à 18h » reste à 18h
     expect(at(followMoments([900], { date: '2026-10-21' }, { date: '2026-10-21', time: '14:00' }, [15]), '2026-10-21', '14:00')).toEqual(['La veille à 18:00']);
+  });
+});
+
+describe('rappels des grands jours', () => {
+  it('a week before and the day before at 18:00, plus the usual one', () => {
+    // Exam at 08:00: the day before at 18:00 is 14 h before.
+    expect(eventReminders({ date: '2026-11-20', start: '08:00', category: 'examen' }, [15])).toEqual([10080, 840, 15]);
+  });
+  it('all day: a week before, the day before at 18:00, that day at 9:00', () => {
+    expect(eventReminders({ date: '2026-11-20', important: true, category: 'cours' }, [15])).toEqual([10080, 900, 0]);
+  });
+  it('its own reminders, an imported one or an ordinary one: unchanged', () => {
+    expect(eventReminders({ date: '2026-11-20', start: '08:00', category: 'examen', reminders: [30] }, [15])).toEqual([30]);
+    expect(eventReminders({ date: '2026-11-20', category: 'examen', externalId: 'x' }, [15])).toEqual([]);
+    expect(eventReminders({ date: '2026-11-20', start: '08:00', category: 'cours' }, [15])).toEqual([15]);
   });
 });

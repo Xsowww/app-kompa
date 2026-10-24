@@ -2,7 +2,7 @@ import { useToday } from '../../lib/useToday';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { addDays, addMonths, endOfMonth, startOfMonth, isSameMonth } from 'date-fns';
-import { Bell, Check, Flag, ListFilter, ChevronLeft, ChevronRight, Plus, Trash2, CornerDownLeft, CalendarArrowDown, CalendarArrowUp, CalendarRange, CalendarPlus, CalendarClock } from 'lucide-react';
+import { Bell, Check, Flag, Repeat, ListFilter, ChevronLeft, ChevronRight, Plus, Trash2, CornerDownLeft, CalendarArrowDown, CalendarArrowUp, CalendarRange, CalendarPlus, CalendarClock } from 'lucide-react';
 import { EmptyState, Skeleton } from '../../components/EmptyState';
 import { catOf, allCategories, guessCategory, isDeliverable, isBigEvent, sortEvents, type CalendarEvent, type EventCategory } from '../../store/calendar';
 import { parseQuickAdd, toKey, fromKey, todayKey, validKey, fmt, fmtDay, weekStart, countdownLabel, daysUntil, toMinutes, fromMinutes, isOver } from '../../lib/dates';
@@ -14,7 +14,7 @@ import PeriodsDialog from './PeriodsDialog';
 import { covers, periodColor, periodUntil, periodLabel, periodsFill, weekLanes, periodRange, periodText, periodTint, periodsBetween, periodsOn, type Period } from '../../lib/periods';
 import { cx } from '../../lib/utils';
 import EventForm from './EventForm';
-import { confirmRemoveEvent, eventTitle, periodIdeas, useCalendarSource } from './source';
+import { confirmRemoveEvent, eventTitle, periodIdeas, removeMine, useCalendarSource } from './source';
 import DayView from './DayView';
 import ImportIcsDialog, { type IcsSource } from './ImportIcsDialog';
 import { useCreateActions } from '../../store/create';
@@ -105,6 +105,7 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
           </p>
           <p className="mt-0.5 text-[12px] text-stone-500">
             <span style={{ color: c.text }}>{c.label}</span>
+            {ev.series && <Repeat size={11} className="ml-1.5 inline-block -translate-y-px" aria-label={t('Se répète')} />}
             {shared && ev.people?.length ? ` · ${t('pour {names}', { names: ev.people.map(shared.nameFor).join(', ') })}` : ''}
             {shared && ` · ${t('par {name}', { name: shared.author(ev.id) })}`}
             {isBigEvent(ev) && !ev.done && ` · ${countdownLabel(ev.date)}`}
@@ -123,7 +124,7 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
           <button
             className="icon-btn hover:text-red-600"
             title={t('Supprimer')} aria-label={t('Supprimer « {title} »', { title: ev.title })}
-            onClick={async () => (await confirmRemoveEvent(ev, shared)) && remove(ev.id)}
+            onClick={async () => void (shared ? (await confirmRemoveEvent(ev, shared)) && remove(ev.id) : await removeMine(ev))}
           >
             <Trash2 size={14} />
           </button>
@@ -259,7 +260,7 @@ export default function CalendarPage() {
   const [managing, setManaging] = useState(false);
   const [periodsOpen, setPeriodsOpen] = useState(false);
   // fromQuick: opened from the quick add (« demain 14h » without a title), whose text is cleared once saved.
-  const [form, setFormState] = useState<{ event?: CalendarEvent; date: string; start?: string; end?: string; fromQuick?: boolean } | null>(null);
+  const [form, setFormState] = useState<{ event?: CalendarEvent; date: string; start?: string; end?: string; title?: string; fromQuick?: boolean } | null>(null);
   // A reader of a shared calendar sees it, without the ways to change it (the server refuses them anyway).
   const readOnly = !!shared && !shared.canEdit;
   const setForm = (f: typeof form) => setFormState(readOnly ? null : f);
@@ -364,6 +365,8 @@ export default function CalendarPage() {
     e.preventDefault();
     if (parsed?.impossible) return;
     if (!parsed?.title) return openForm();
+    // « Sport tous les mardis 18h » on my calendar: the form, to choose until when it repeats.
+    if (parsed.weekly && !shared) return setForm({ date: quickDate, start: parsed.start ?? undefined, end: parsed.end ?? undefined, title: quick, fromQuick: true });
     const date = quickDate;
     source.add({ title: parsed.title, date, start: parsed.start ?? undefined, end: parsed.end ?? undefined, category: parsedCat!, important: parsed.important });
     setQuick('');
@@ -611,7 +614,7 @@ export default function CalendarPage() {
                   </span>
                 </>
               )}
-              {parsed.weekly && <span className="w-full text-stone-500">{t('Une seule fois\u00a0: pas encore de répétition.')}</span>}
+              {parsed.weekly && <span className="w-full text-stone-500">{shared ? t('Une seule fois\u00a0: pas encore de répétition.') : t('Entrée\u00a0: choisir jusqu’à quand.')}</span>}
               {parsed.impossible && <span className="w-full font-medium text-red-600 dark:text-red-400">{t('Cette date n’existe pas : corrige-la pour ajouter.')}</span>}
             </div>
           )}
@@ -908,6 +911,7 @@ export default function CalendarPage() {
           date={form.date}
           start={form.start}
           end={form.end}
+          title={form.title}
           onClose={() => setForm(null)}
           onSaved={ev => {
             if (form.fromQuick) setQuick('');

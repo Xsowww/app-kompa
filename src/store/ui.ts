@@ -32,6 +32,8 @@ interface DialogRequest {
   defaultValue?: string;
   confirmLabel?: string;
   danger?: boolean;
+  /** A second answer beside the main one (« Celui-ci et les suivants »): resolves 'other'. */
+  otherLabel?: string;
   /** Text dialog: a file name (only the part before the extension is selected, like in a file manager). */
   fileName?: boolean;
   /** Text dialog: a web address (keyboard with « / » and « .com » on phones). */
@@ -77,6 +79,13 @@ export const toast = (text: string, tone?: Toast['tone'], action?: ToastAction) 
 export function askText(title: string, defaultValue = '', confirmLabel = t('Valider'), options: { fileName?: boolean; url?: boolean } = {}): Promise<string | null> {
   return new Promise(resolve =>
     useUi.setState({ dialog: { kind: 'prompt', title, defaultValue, confirmLabel, ...options, resolve: v => resolve(typeof v === 'string' ? v : null) } }),
+  );
+}
+
+/** Two answers and « Annuler »: 'confirm' (the main button), 'other', or null. */
+export function askChoice(title: string, message: string, confirmLabel: string, otherLabel: string, danger = false): Promise<'confirm' | 'other' | null> {
+  return new Promise(resolve =>
+    useUi.setState({ dialog: { kind: 'confirm', title, message, confirmLabel, otherLabel, danger, resolve: v => resolve(v === true ? 'confirm' : v === 'other' ? 'other' : null) } }),
   );
 }
 

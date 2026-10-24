@@ -42,9 +42,23 @@ export const MAX_MINUTES = 10080 * 4;
 
 export const reminderOptions = (timed: boolean) => (timed ? TIMED_OPTIONS : DAY_OPTIONS);
 
-/** An event's reminders: its own, else the usual ones (Profil › Notifications) when it has a time and was made here. */
-export const eventReminders = (e: { reminders?: number[]; start?: string; externalId?: string }, defaults: number[]) =>
-  e.reminders ?? (e.start && !e.externalId ? defaults : []);
+/** A big day (exam, important) is also reminded a week before and the day before at 18:00 (and that day at 9:00 without a time). */
+export function earlyReminders(date: string, time?: string): number[] {
+  const [y, m, d] = date.split('-').map(Number);
+  const eve = new Date(y, m - 1, d - 1);
+  return time ? [10080, minutesBefore(date, time, `${eve.getFullYear()}-${pad(eve.getMonth() + 1)}-${pad(eve.getDate())}`, '18:00')] : [10080, 900, 0];
+}
+
+/**
+ * An event's reminders: its own, else, when it was made here, the usual ones (Profil › Notifications) if it has a time,
+ * plus the early ones of a big day (category « examen » or marked important: isBigEvent in store/calendar).
+ */
+export function eventReminders(e: { reminders?: number[]; date?: string; start?: string; externalId?: string; category?: string; important?: boolean }, defaults: number[]): number[] {
+  if (e.reminders) return e.reminders;
+  if (e.externalId) return [];
+  const base = e.start ? defaults : [];
+  return e.date && (e.category === 'examen' || e.important) ? (cleanReminders([...base, ...earlyReminders(e.date, e.start)]) ?? base) : base;
+}
 
 /** « 45 min avant », « 3 h 30 avant », « 2 j 4 h avant ». */
 export function offsetLabel(minutes: number): string {

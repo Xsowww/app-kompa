@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom';
 import { Check, FileText, Flag, Plus, Trash2 } from 'lucide-react';
 import { Modal } from '../../components/Overlays';
 import { useNotes } from '../../store/notes';
-import { catOf, allCategories, guessCategory, type CalendarEvent, type EventCategory } from '../../store/calendar';
-import { confirmRemoveEvent, useCalendarSource } from './source';
+import { catOf, allCategories, guessCategory, isBigEvent, useCalendar, type CalendarEvent, type EventCategory } from '../../store/calendar';
+import { askSeriesScope, confirmRemoveEvent, removeMine, useCalendarSource } from './source';
 import PeoplePicker from './PeoplePicker';
 import { useSettings } from '../../store/settings';
 import { toast } from '../../store/ui';
@@ -12,13 +12,18 @@ import { AGENDA_EXAMPLES, WORDS } from '../../lib/usage';
 import { cx } from '../../lib/utils';
 import { NewCategory } from './CategoriesDialog';
 import ReminderPicker from '../../components/ReminderPicker';
-import { DateField, TimeField } from '../../components/Pickers';
+import { DateField, SelectField, TimeField } from '../../components/Pickers';
 import { FieldError } from '../../components/Field';
 import { fmtDay, fromKey, parseQuickAdd } from '../../lib/dates';
-import { eventReminders, followMoments } from '../../lib/reminders';
+import { cleanReminders, earlyReminders, eventReminders, followMoments } from '../../lib/reminders';
+import { covers } from '../../lib/periods';
+import { REPEATS, defaultUntil, repeatDays, type Repeat } from '../../lib/repeat';
+import { uid } from '../../lib/utils';
 import { t } from '../../i18n';
 
 const NONE: number[] = [];
+/** Periods a repeat skips at first (they can be ticked off): the holidays. */
+const HOLIDAYS = /vacance|cong[ée]|holiday|vacation|ferien|urlaub|vacacion|vacanz|feri[ea]/i;
 
 interface Props {
   event?: CalendarEvent;
@@ -26,15 +31,17 @@ interface Props {
   /** Prefilled times for a new event (click on the day view). */
   start?: string;
   end?: string;
+  /** A new event from the calendar's bar: what was typed (« Sport tous les mardis 18h »). */
+  title?: string;
   onClose: () => void;
   /** After « Ajouter » / « Enregistrer », with the saved event (the calendar goes to its day). */
   onSaved?: (ev: Pick<CalendarEvent, 'date' | 'category' | 'important'>) => void;
 }
 
-export default function EventForm({ event, date, start: initialStart, end: initialEnd, onClose, onSaved }: Props) {
+export default function EventForm({ event, date, start: initialStart, end: initialEnd, title: initialTitle, onClose, onSaved }: Props) {
   // My calendar or a shared one (no « important » there; its own categories, and reminders for each member it is for).
-  const { add, update, remove, shared, categories: custom } = useCalendarSource();
-  const [title, setTitle] = useState(event?.title ?? '');
+  const { add, update, remove, shared, categories: custom, periods } = useCalendarSource();
+  const [title, setTitle] = useState(event?.title ?? initialTitle ?? '');
   const [day, setDay] = useState(event?.date ?? date);
   const [start, setStart] = useState(event?.start ?? initialStart ?? '');
   const [end, setEnd] = useState(event?.end ?? initialEnd ?? '');
@@ -48,18 +55,27 @@ export default function EventForm({ event, date, start: initialStart, end: initi
   const mine = useSettings(s => s.defaultReminders);
   // My usual reminder isn't imposed on the members of a shared calendar: none until one is chosen.
   const defaults = shared ? NONE : mine;
-  const reminders = eventReminders({ reminders: chosen, start, externalId: event?.externalId }, defaults);
   const words = { ...(WORDS[useSettings(s => s.usage)] ?? WORDS.etudes), ...(shared && AGENDA_EXAMPLES) };
   const [creating, setCreating] = useState(false);
   // A new event: « Dentiste demain 16h » fills the day and the times (as the calendar's bar), unless they were set by
   // hand; saved as « Dentiste ». Editing one leaves its title as it is.
-  const touched = useRef({ day: false, start: false, end: false, important: false });
+  const touched = useRef({ day: false, start: false, end: false, important: false, repeat: false });
   const parsed = !event && title.trim() ? parseQuickAdd(title) : null;
   const understood = !!parsed && !parsed.impossible && !!(parsed.date || parsed.start || parsed.important);
   // « 31/11 »: said and blocked, unless the day was chosen by hand.
   const [dayByHand, setDayByHand] = useState(false);
   const impossible = !!parsed?.impossible && !dayByHand;
   const cleanTitle = understood ? parsed.title : title.trim();
+  // Repeating: my own calendar, a new event (« tous les mardis » in the title chooses « Chaque semaine »).
+  const canRepeat = !event && !shared;
+  const [repeat, setRepeat] = useState<Repeat | ''>(() => (canRepeat && initialTitle && parseQuickAdd(initialTitle).weekly ? 'week' : ''));
+  const [until, setUntil] = useState('');
+  const lastDay = until || (day ? defaultUntil(day) : '');
+  const around = repeat && day ? periods.filter(p => p.start <= lastDay && p.end >= day) : [];
+  // Ticked: not on those days (the holidays at first).
+  const [skipped, setSkipped] = useState<string[] | null>(null);
+  const skipIds = skipped ?? around.filter(p => HOLIDAYS.test(p.title)).map(p => p.id);
+  const series = repeat && day ? repeatDays(day, repeat, lastDay, k => periods.some(p => skipIds.includes(p.id) && covers(p, k))) : null;
   const onTitle = (v: string) => {
     setTitle(v);
     if (v.trim()) setTitleError('');
@@ -71,8 +87,15 @@ export default function EventForm({ event, date, start: initialStart, end: initi
     if (!was.start) setStart(ok?.start ?? initialStart ?? '');
     if (!was.end) setEnd(ok?.end ?? (ok?.start ? '' : (initialEnd ?? '')));
     if (!was.important) setImportant(!!ok?.important);
+    if (canRepeat && !was.repeat) setRepeat(ok?.weekly ? 'week' : '');
   };
   const effective = category ?? guessCategory(cleanTitle || title, !!start, custom);
+  // My usual reminder and, for a big day, a week before and the day before (lib/reminders); a shared calendar: the chosen ones.
+  const reminders = shared ? (chosen ?? NONE) : eventReminders({ reminders: chosen, date: day, start, externalId: event?.externalId, category: effective, important }, defaults);
+  // Becoming a big day with reminders already chosen: the early ones are added (removable).
+  const becomeBig = (big: boolean) => {
+    if (!shared && big && chosen && day && !isBigEvent({ category: effective, important })) setChosen(cleanReminders([...chosen, ...earlyReminders(day, start || undefined)]));
+  };
   const notes = useNotes(s => s.notes);
   const linked = event ? notes.filter(n => n.links?.some(l => l.kind === 'event' && l.id === event.id)) : [];
 
@@ -81,26 +104,36 @@ export default function EventForm({ event, date, start: initialStart, end: initi
   const [titleError, setTitleError] = useState('');
   const titleRef = useRef<HTMLInputElement>(null);
   const timeMsg = end && !start ? t('Indique le début, ou efface la fin.') : timeError ? t('La fin est avant le début.') : '';
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!cleanTitle) {
       setTitleError(understood ? t('Ajoute un titre avant le jour et l’heure.') : t('Donne un titre.'));
       return titleRef.current?.focus();
     }
-    if (!day || timeMsg || impossible) return;
+    if (!day || timeMsg || impossible || (series && !series.days.length)) return;
     // An end without a start can't be sent: the start field is required then (see below).
     const data = { title: cleanTitle, date: day, start: start || undefined, end: start && end ? end : undefined, category: effective, details: details.trim() || undefined, important: important || undefined, reminders: chosen, ...(shared && { people }) };
-    if (event) update(event.id, data);
-    else add(data);
+    if (event && !shared && event.series) {
+      const scope = await askSeriesScope(event, 'edit');
+      if (!scope) return;
+      if (scope === 'next') useCalendar.getState().updateSeries(event.id, data);
+      else update(event.id, data);
+    } else if (event) update(event.id, data);
+    else if (series) {
+      const id = uid();
+      useCalendar.getState().addMany(series.days.map(d => ({ ...data, date: d, series: id })));
+    } else add(data);
     toast(
       event
         ? t('Enregistré : {title}', { title: data.title })
-        : understood && parsed.weekly
-          ? t('Ajouté pour {day}, une seule fois (pas encore de répétition)', { day: fmtDay(fromKey(day), 'EEEE d MMMM') })
-          : t('Ajouté : {title}', { title: data.title }),
+        : series
+          ? t('Ajouté {n} fois, jusqu’au {day}', { n: series.days.length, day: fmtDay(fromKey(series.days.at(-1)!), 'EEEE d MMMM') })
+          : understood && parsed.weekly
+            ? t('Ajouté pour {day}, une seule fois (pas encore de répétition)', { day: fmtDay(fromKey(day), 'EEEE d MMMM') })
+            : t('Ajouté : {title}', { title: data.title }),
       'success',
     );
-    onSaved?.(data);
+    onSaved?.({ ...data, date: series?.days[0] ?? data.date });
     onClose();
   };
 
@@ -134,7 +167,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
                 .filter(Boolean)
                 .join(' · '),
             })}
-            {parsed.weekly && <span className="block">{t('Une seule fois\u00a0: pas encore de répétition.')}</span>}
+            {parsed.weekly && !canRepeat && <span className="block">{t('Une seule fois\u00a0: pas encore de répétition.')}</span>}
           </p>
         )}
         {impossible && !titleError && <p className="mt-1.5 text-[12px] font-medium text-red-600 dark:text-red-400" role="alert">{t('Cette date n’existe pas : corrige-la pour ajouter.')}</p>}
@@ -148,7 +181,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
               <button
                 key={k}
                 type="button"
-                onClick={() => setCategory(k)}
+                onClick={() => (becomeBig(k === 'examen'), setCategory(k))}
                 aria-pressed={active}
                 // The chosen one in its own colours, with a tick: seen at a glance (and not by colour alone).
                 className={cx('hit flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[13px] font-medium transition-colors pointer-coarse:h-9', active ? 'font-semibold' : 'border-stone-200 text-stone-500 hover:bg-stone-50')}
@@ -226,7 +259,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
         {/* What makes it a « big day » for the home page and Kompaly, whatever its category. */}
         {!shared && <button
           type="button"
-          onClick={() => ((touched.current.important = true), setImportant(v => !v))}
+          onClick={() => ((touched.current.important = true), becomeBig(!important), setImportant(v => !v))}
           aria-pressed={important}
           className={cx(
             'hit mt-4 flex h-9 items-center gap-2 rounded-lg border px-3 text-[13px] font-medium transition-colors',
@@ -236,6 +269,58 @@ export default function EventForm({ event, date, start: initialStart, end: initi
           <Flag size={14} className={important ? 'fill-current' : ''} />
           {important ? t('Important') : t('Marquer comme important')}
         </button>}
+
+        {canRepeat && (
+          <div className="mt-4">
+            <div className="grid grid-cols-1 gap-x-2 gap-y-4 sm:grid-cols-2">
+              <div>
+                <span className="mb-1.5 block text-[12px] font-medium text-stone-600">{t('Répéter')}</span>
+                <SelectField<Repeat | ''>
+                  className="w-full"
+                  label={t('Répéter')}
+                  value={repeat}
+                  options={[{ value: '', label: t('Ne se répète pas') }, ...REPEATS.map(r => ({ value: r.key, label: r.label }))]}
+                  onChange={v => ((touched.current.repeat = true), setRepeat(v))}
+                />
+              </div>
+              {repeat && (
+                <div>
+                  <span className="mb-1.5 block text-[12px] font-medium text-stone-600">{t('Jusqu’au')}</span>
+                  <DateField value={lastDay} onChange={v => v && setUntil(v)} min={day || undefined} label={t('Dernier jour de la répétition')} className="w-full" />
+                </div>
+              )}
+            </div>
+            {around.length > 0 && (
+              <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[12px] text-stone-600">
+                <span>{t('Pas pendant :')}</span>
+                {around.map(p => {
+                  const on = skipIds.includes(p.id);
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => setSkipped(on ? skipIds.filter(x => x !== p.id) : [...skipIds, p.id])}
+                      className={cx('hit flex h-7 items-center gap-1 rounded-md border px-2 font-medium transition-colors', on ? 'border-ink/30 bg-stone-100 text-ink' : 'border-stone-200 text-stone-500 hover:bg-stone-50')}
+                    >
+                      {on && <Check size={12} strokeWidth={3} aria-hidden />}
+                      {p.title}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {series && (
+              <p className={cx('mt-1.5 text-[12px]', series.days.length ? 'text-stone-500' : 'font-medium text-red-600 dark:text-red-400')} aria-live="polite">
+                {!series.days.length
+                  ? t('Aucun jour entre ces dates.')
+                  : series.capped
+                    ? t('{n} fois au plus : jusqu’au {day}.', { n: series.days.length, day: fmtDay(fromKey(series.days.at(-1)!), 'd MMMM') })
+                    : t('{n} fois, jusqu’au {day}.', { n: series.days.length, day: fmtDay(fromKey(series.days.at(-1)!), 'd MMMM') })}
+              </p>
+            )}
+          </div>
+        )}
 
         <ReminderPicker value={reminders} onChange={setChosen} timed={!!start} date={day || undefined} time={start || undefined} />
         {shared && reminders.length > 0 && (
@@ -267,8 +352,8 @@ export default function EventForm({ event, date, start: initialStart, end: initi
               type="button"
               className="btn-ghost text-red-600 hover:bg-red-50 hover:text-red-700"
               onClick={async () => {
-                if (!(await confirmRemoveEvent(event, shared))) return;
-                remove(event.id);
+                if (shared ? !(await confirmRemoveEvent(event, shared)) : !(await removeMine(event))) return;
+                if (shared) remove(event.id);
                 onClose();
               }}
             >

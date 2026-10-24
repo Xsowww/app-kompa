@@ -167,10 +167,16 @@ function DialogBody() {
           className="field mt-4 w-full"
         />
       )}
-      <div className="mt-6 flex justify-end gap-2">
+      {/* Two answers: one under the other, the main one on top. */}
+      <div className={cx('mt-6 flex gap-2', dialog.otherLabel ? 'flex-col-reverse' : 'justify-end')}>
         <button type="button" className="btn-secondary" onClick={() => close(null)}>
           {t('Annuler')}
         </button>
+        {dialog.otherLabel && (
+          <button type="button" className="btn-secondary" onClick={() => close('other')}>
+            {dialog.otherLabel}
+          </button>
+        )}
         <button type="submit" className={dialog.danger ? 'btn-danger' : 'btn-primary'} disabled={dialog.kind === 'prompt' && !value.trim()} autoFocus={dialog.kind === 'confirm'}>
           {dialog.confirmLabel}
         </button>

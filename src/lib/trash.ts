@@ -206,8 +206,9 @@ export const isTrashedNote = (id: string) => useNotes.getState().trashNotes.some
 /** Same for a Drive file or folder. */
 export const isTrashedDriveItem = (id: string) => useDrive.getState().trash.some(i => i.id === id);
 
-/** Deletes a calendar event (to the trash), with « Annuler » in the toast. */
-export function trashEvent(id: string) {
-  useCalendar.getState().remove(id);
-  toast(t('Mis à la corbeille'), 'info', { label: t('Annuler||l’action'), run: () => useCalendar.getState().restore([id]) });
+/** Deletes calendar events (to the trash), with « Annuler » in the toast. */
+export function trashEvents(ids: string[]) {
+  useCalendar.getState().removeMany(ids);
+  toast(ids.length > 1 ? t('{n} événements mis à la corbeille', { n: ids.length }) : t('Mis à la corbeille'), 'info', { label: t('Annuler||l’action'), run: () => useCalendar.getState().restore(ids) });
 }
+export const trashEvent = (id: string) => trashEvents([id]);
