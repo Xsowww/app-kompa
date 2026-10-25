@@ -3,7 +3,7 @@ import { markdownToPdf, pdfSafe } from '../src/lib/fichePdf';
 
 describe('fiche PDF', () => {
   it('keeps French, writes the other signs in words', () => {
-    expect(pdfSafe('Été « œuvre » — 3 €')).toBe('Été « œuvre » — 3 €');
+    expect(pdfSafe('Été « œuvre » — 3 €')).toBe('Été « oeuvre » — 3 €');
     expect(pdfSafe('x → y ≤ π 🙂')).toBe('x -> y <= pi ');
   });
   it('makes a real PDF, several pages when long', async () => {

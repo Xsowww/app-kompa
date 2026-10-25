@@ -5,12 +5,12 @@ import { parseMarkdown, inlineRuns, type Block, type Run } from './docx';
 import { t } from '../i18n';
 
 // The PDF's built-in fonts only know the Western European letters (WinAnsi): the other signs a sheet often has are
-// written in words or plain signs. shortcut: no Greek or Asian script; embed a Unicode font if users need them.
+// written in words or plain signs (« œ » too: jsPDF measures it too narrow, the next word would overlap it). shortcut: no Greek or Asian script; embed a Unicode font if users need them.
 const WRITE_AS: Record<string, string> = {
   '→': '->', '⇒': '=>', '←': '<-', '⇐': '<=', '↔': '<->', '⇔': '<=>', '↑': '^', '↓': 'v', '≤': '<=', '≥': '>=', '≠': '!=', '≈': '~', '−': '-',
   '√': 'racine de ', '∞': 'infini', '∑': 'somme', '∫': 'intégrale', '∈': ' appartient à ', '∉': " n'appartient pas à ", '∀': 'pour tout ', '∃': 'il existe ',
   'α': 'alpha', 'β': 'bêta', 'γ': 'gamma', 'δ': 'delta', 'Δ': 'Delta', 'ε': 'epsilon', 'θ': 'thêta', 'λ': 'lambda', 'μ': 'µ', 'π': 'pi', 'ρ': 'rhô',
-  'σ': 'sigma', 'Σ': 'Sigma', 'τ': 'tau', 'φ': 'phi', 'ω': 'oméga', 'Ω': 'Oméga', '✓': 'v', '✔': 'v', '✗': 'x', '✘': 'x', '★': '*', '☆': '*',
+  'σ': 'sigma', 'Σ': 'Sigma', 'τ': 'tau', 'φ': 'phi', 'ω': 'oméga', 'Ω': 'Oméga', 'œ': 'oe', 'Œ': 'OE', '✓': 'v', '✔': 'v', '✗': 'x', '✘': 'x', '★': '*', '☆': '*',
   ' ': ' ', ' ': ' ', ' ': ' ', ' ': ' ', '⁰': '0', '⁴': '4', '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9', 'ⁿ': 'n',
   '₀': '0', '₁': '1', '₂': '2', '₃': '3', '₄': '4', '₅': '5', '₆': '6', '₇': '7', '₈': '8', '₉': '9',
 };

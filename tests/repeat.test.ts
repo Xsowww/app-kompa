@@ -41,3 +41,11 @@ describe('événement sur plusieurs jours', () => {
     expect(isSpan('span-x') && !isSpan('abc')).toBe(true);
   });
 });
+
+describe('À venir : un événement sur plusieurs jours une seule fois', () => {
+  it('keeps the first day listed', async () => {
+    const { firstOfSpans } = await import('../src/lib/repeat');
+    const list = [{ id: 'a', series: 'span-1' }, { id: 'b' }, { id: 'c', series: 'span-1' }, { id: 'd', series: 'rep' }, { id: 'e', series: 'rep' }];
+    expect(firstOfSpans(list).map(e => e.id)).toEqual(['a', 'b', 'd', 'e']);
+  });
+});

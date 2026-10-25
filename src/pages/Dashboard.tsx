@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { firstOfSpans } from '../lib/repeat';
 import { useMinute, useToday } from '../lib/useToday';
 import { Link, useNavigate } from 'react-router-dom';
 import { addDays } from 'date-fns';
@@ -96,13 +97,11 @@ export default function Dashboard() {
   const todayEvents = events.filter(e => e.date === today).sort(sortEvents);
   // When the day is light, show what comes next so that the card is never a dead end.
   const nextCount = todayEvents.length === 0 ? 2 : todayEvents.length < 3 ? 1 : 0;
-  const nextEvents = events.filter(e => e.date > today && !e.done).sort(sortEvents).slice(0, nextCount);
+  const nextEvents = firstOfSpans(events.filter(e => e.date > today && !e.done).sort(sortEvents)).slice(0, nextCount);
   // An exam already over today (end, else start, passed) is no longer the next one.
   const nowTime = fmt(now, 'HH:mm');
   // The nearest big day: an exam (deadline, « grand jour ») or any event marked important.
-  const bigDays = events
-    .filter(e => isBigEvent(e) && !e.done && (e.date > today || (e.date === today && (e.end ?? e.start ?? '24:00') > nowTime)))
-    .sort(sortEvents);
+  const bigDays = firstOfSpans(events.filter(e => isBigEvent(e) && !e.done && (e.date > today || (e.date === today && (e.end ?? e.start ?? '24:00') > nowTime))).sort(sortEvents));
   const nextExam = bigDays[0];
   // The ones after it, smaller: a big day two days later must not stay hidden behind the first.
   const laterBig = bigDays.slice(1, 3);

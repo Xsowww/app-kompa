@@ -60,3 +60,9 @@ export function spanDays(from: string, to: string, start?: string, end?: string)
     return { date };
   });
 }
+
+/** Lists of what is coming: an event over several days once, at its first day still listed (`list` sorted by date). */
+export function firstOfSpans<T extends { series?: string }>(list: T[]): T[] {
+  const seen = new Set<string>();
+  return list.filter(e => !isSpan(e.series) || (!seen.has(e.series!) && !!seen.add(e.series!)));
+}

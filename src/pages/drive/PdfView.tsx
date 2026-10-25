@@ -49,7 +49,8 @@ export default function PdfView({ url, title, page: target }: { url: string; tit
     if (!d || !el || !total) return;
     let cancelled = false;
     let io: IntersectionObserver | undefined;
-    const width = el.clientWidth - 32;
+    const pad = parseFloat(getComputedStyle(el).paddingLeft) || 16;
+    const width = el.clientWidth - 2 * pad;
     const ratio = Math.min(window.devicePixelRatio || 1, 2);
     const goTo = target && target > 1 && target <= Math.min(total, shown) && !scrolled.current ? target : 0;
     const viewportOf = async (n: number) => {
@@ -99,7 +100,7 @@ export default function PdfView({ url, title, page: target }: { url: string; tit
     return <p className="rounded-md bg-surface px-6 py-10 text-center text-[13px] text-stone-600 shadow-2xl">{t('Impossible d’afficher ce PDF. Télécharge-le pour l’ouvrir.')}</p>;
 
   return (
-    <div ref={box} role="document" aria-label={title} className="h-[82vh] w-[min(1000px,92vw)] overflow-y-auto rounded-md bg-stone-200 p-4 shadow-2xl">
+    <div ref={box} role="document" aria-label={title} className="h-[min(82vh,calc(100dvh-8rem))] w-[min(1000px,calc(100vw-2rem))] overflow-y-auto rounded-md bg-stone-200 p-4 shadow-2xl max-sm:p-2">
       {!total && (
         <div className="flex h-full items-center justify-center text-stone-500">
           <Loader2 size={22} className="animate-spin" />

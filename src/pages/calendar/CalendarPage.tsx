@@ -17,6 +17,7 @@ import EventForm from './EventForm';
 import { eventTitle, periodIdeas, removeEvent, useCalendarSource } from './source';
 import DayView from './DayView';
 import SeriesIcon from './SeriesIcon';
+import { firstOfSpans } from '../../lib/repeat';
 import ImportIcsDialog, { type IcsSource } from './ImportIcsDialog';
 import { useCreateActions } from '../../store/create';
 import { isIcsFile } from '../../lib/ics';
@@ -469,14 +470,16 @@ export default function CalendarPage() {
   const minute = Math.floor(Date.now() / 60_000);
   const { upcomingHidden, upcomingExams, moreExams, nextUp } = useMemo(() => {
     const upcomingHidden = filtering && events.some(e => !passes(e) && (isComing(e) || isHomeworkSoon(e)));
-    const allUpcomingExams = visible.filter(isUpcomingExam).sort(sortEvents);
+    // An event over several days once, at its first day (not « J-3, J-4, J-5 »).
+    const pool = firstOfSpans([...visible].sort(sortEvents).filter(e => isUpcomingExam(e) || isHomeworkSoon(e) || isComing(e)));
+    const allUpcomingExams = pool.filter(isUpcomingExam);
     const upcomingExams = allExams ? allUpcomingExams : allUpcomingExams.slice(0, EXAMS_SHOWN);
     const moreExams = allUpcomingExams.length - EXAMS_SHOWN;
     // An important homework to come is already in the list above: not twice.
-    const homework = visible.filter(e => isHomeworkSoon(e) && !isUpcomingExam(e)).sort(sortEvents).slice(0, 6);
+    const homework = pool.filter(e => isHomeworkSoon(e) && !isUpcomingExam(e)).slice(0, 6);
     // After the important ones, one list in time order: homework to hand in (late first) and the next events.
     const listed = new Set([...allUpcomingExams, ...homework].map(e => e.id));
-    const others = visible.filter(e => isComing(e) && !listed.has(e.id)).sort(sortEvents).slice(0, Math.max(1, EXAMS_SHOWN - upcomingExams.length));
+    const others = pool.filter(e => isComing(e) && !listed.has(e.id)).slice(0, Math.max(1, EXAMS_SHOWN - upcomingExams.length));
     const nextUp = [...homework, ...others].sort(sortEvents);
     return { upcomingHidden, allUpcomingExams, upcomingExams, moreExams, nextUp };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the helpers above only read these values
