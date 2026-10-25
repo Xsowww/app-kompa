@@ -10,7 +10,6 @@ import { handleCopilot, copilotProvider, ipOf } from './copilot.mjs';
 import { handleCours } from './cours.mjs';
 import { handleIcs } from './icsFeed.mjs';
 import { photoStatus, resolveVision } from './photo.mjs';
-import { mailStatus, startMailLoop } from './emails.mjs';
 import { loadPublicEnv } from './publicEnv.mjs';
 import { langOf, publicPage, robotsTxt, sitemapXml, withHead } from './seo.mjs';
 
@@ -20,8 +19,9 @@ try {
   /* no .env file: rely on the real environment */
 }
 loadPublicEnv();
-// After the environment is read: push.mjs takes its settings when loaded.
+// After the environment is read: push.mjs and emails.mjs take their settings when loaded.
 const { handlePush, startPushLoop, pushStatus, keyKind } = await import('./push.mjs');
+const { mailStatus, startMailLoop } = await import('./emails.mjs');
 
 const DIST = fileURLToPath(new URL('../dist/', import.meta.url));
 const PORT = Number(process.env.PORT) || 3000;
