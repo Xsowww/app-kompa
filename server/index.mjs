@@ -10,6 +10,7 @@ import { handleCopilot, copilotProvider, ipOf } from './copilot.mjs';
 import { handleCours } from './cours.mjs';
 import { handleIcs } from './icsFeed.mjs';
 import { photoStatus, resolveVision } from './photo.mjs';
+import { mailStatus, startMailLoop } from './emails.mjs';
 import { loadPublicEnv } from './publicEnv.mjs';
 import { langOf, publicPage, robotsTxt, sitemapXml, withHead } from './seo.mjs';
 
@@ -227,7 +228,7 @@ async function serveHealth(req, res) {
   res.end(
     req.method === 'HEAD'
       ? undefined
-      : JSON.stringify({ ok, serveur: 'ok', base, ia: copilotProvider() ? 'configurée' : 'absente', rappels: pushStatus.active ? (pushStatus.lastError ? `erreur ${pushStatus.lastCode}` : 'actifs') : 'désactivés', ...(pushStatus.lastError && { rappelsDetail: [pushStatus.lastHint, `clé ${keyKind}`].filter(Boolean).join(' · ') }), photo: resolveVision() ? (photoStatus.lastError ? `erreur ${photoStatus.lastError}` : 'prête') : 'désactivée', ...(photoStatus.lastError && { photoDetail: photoStatus.detail, photoSecondes: photoStatus.seconds }), ...(photoStatus.lastOk && !photoStatus.lastError && { photoSecondes: photoStatus.seconds, photoModele: photoStatus.model }), version: (process.env.RENDER_GIT_COMMIT ?? '').slice(0, 7) || undefined, heure: new Date().toISOString() }),
+      : JSON.stringify({ ok, serveur: 'ok', base, ia: copilotProvider() ? 'configurée' : 'absente', rappels: pushStatus.active ? (pushStatus.lastError ? `erreur ${pushStatus.lastCode}` : 'actifs') : 'désactivés', ...(pushStatus.lastError && { rappelsDetail: [pushStatus.lastHint, `clé ${keyKind}`].filter(Boolean).join(' · ') }), emails: mailStatus.active ? (mailStatus.lastError ? `erreur ${mailStatus.lastError.slice(0, 120)}` : `actifs (${mailStatus.sent} envoyés)`) : 'désactivés', photo: resolveVision() ? (photoStatus.lastError ? `erreur ${photoStatus.lastError}` : 'prête') : 'désactivée', ...(photoStatus.lastError && { photoDetail: photoStatus.detail, photoSecondes: photoStatus.seconds }), ...(photoStatus.lastOk && !photoStatus.lastError && { photoSecondes: photoStatus.seconds, photoModele: photoStatus.model }), version: (process.env.RENDER_GIT_COMMIT ?? '').slice(0, 7) || undefined, heure: new Date().toISOString() }),
   );
   return true;
 }
@@ -259,6 +260,7 @@ const server = createServer(async (req, res) => {
   }
 }).listen(PORT, () => {
   startPushLoop();
+  startMailLoop();
   const ai = copilotProvider();
   console.log(`Kompaly sur http://localhost:${PORT} — Kompaly IA ${ai ? `activé (${ai.label}, ${ai.model})` : 'désactivé (voir AI_PROVIDER / AI_API_KEY dans .env.example)'}`);
 });

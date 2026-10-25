@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutGrid, Mic, House, FolderClosed, CalendarDays, CalendarRange, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn, ListChecks, Users, Trash2, ArrowLeftRight, UserRound, UserPlus, LogOut, MessageSquareText, X } from 'lucide-react';
+import { LayoutGrid, Mic, House, FolderClosed, CalendarDays, CalendarRange, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn, ListChecks, Users, Trash2, ArrowLeftRight, UserRound, UserPlus, LogOut, MessageSquareText, Sparkles, X } from 'lucide-react';
 import { EmptyState } from '../components/EmptyState';
 import { FeedbackDialog } from '../components/FeedbackDialogs';
 import { openFeedback } from '../lib/feedback';
@@ -20,6 +20,8 @@ import { adminPendingCount, checkIsAdmin, cloudEnabled } from '../lib/supabase';
 import { prefetchGroups, useGroups } from '../store/groups';
 import { startReminders } from '../lib/reminderScheduler';
 import { startFeedRefresh } from '../lib/icsFeeds';
+import NewsDialog from '../components/NewsDialog';
+import { newsToShow, openNews } from '../lib/news';
 import { useAgendaNews, totalAgendaNews, watchAgendaNews } from '../store/agendaNews';
 import { useUi } from '../store/ui';
 import { useGroupActivity, totalUnread } from '../store/groupActivity';
@@ -382,6 +384,12 @@ export default function AppShell() {
   useEffect(() => startReminders(user.id), [user.id]);
   // Timetables followed by link: read again when due (lib/icsFeeds).
   useEffect(() => startFeedRefresh(), [user.id]);
+  // « Nouveautés » once per account after a release (not to an account newer than it), a moment after the page is up.
+  useEffect(() => {
+    if (!newsToShow(useSettings.getState().newsSeen, user.createdAt)) return;
+    const id = setTimeout(openNews, 1500);
+    return () => clearTimeout(id);
+  }, [user.id, user.createdAt]);
 
   // Nouveautés dans les groupes : pastilles + notifications (version en ligne).
   useEffect(() => {
@@ -505,6 +513,14 @@ export default function AppShell() {
         {/* Computers; phones and tablets have it at the top of Profil (pages/profile), the corner is the « + » button's. */}
         <button
           type="button"
+          onClick={() => openNews()}
+          className="flex h-10 items-center gap-3 rounded-lg px-2.5 text-left text-[14px] text-stone-500 transition-colors hover:bg-stone-100 hover:text-ink"
+        >
+          <Sparkles size={18} strokeWidth={1.9} aria-hidden />
+          {t('Nouveautés')}
+        </button>
+        <button
+          type="button"
           onClick={() => openFeedback()}
           title={t('Donner mon avis ou signaler un bug')}
           className="mb-2 flex h-10 items-center gap-3 rounded-lg px-2.5 text-left text-[14px] text-stone-500 transition-colors hover:bg-stone-100 hover:text-ink"
@@ -572,6 +588,7 @@ export default function AppShell() {
         <main id="contenu" tabIndex={-1} className="min-h-0 flex-1 overflow-hidden outline-none">
           <Outlet />
           <FeedbackDialog />
+          <NewsDialog />
           <ReminderAlerts />
           <JoinedDialog />
           <RecPill />

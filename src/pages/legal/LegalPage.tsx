@@ -62,6 +62,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
           t('Messages « Avis ou bug » : ton message, la page ouverte et le type d’appareil (navigateur, système, taille d’écran).'),
           t('Signalements dans un groupe : la raison choisie, ta précision éventuelle et une copie du contenu signalé (titre et début du texte, ou nom du fichier).'),
           t('Rappels : l’heure et le texte de tes prochains rappels (titre de l’événement ou de la tâche). Si tu actives les notifications, pour chaque appareil : l’adresse d’envoi fournie par ton navigateur avec ses clés de chiffrement et le type d’appareil (par exemple « iPhone · Safari »).'),
+          t('E-mails : un e-mail de bienvenue après l’inscription, puis un seul e-mail de conseils quelques jours plus tard (désactivable dans Profil › Notifications), envoyés par Resend.'),
         ],
       },
       {

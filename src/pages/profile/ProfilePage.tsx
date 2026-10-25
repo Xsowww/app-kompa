@@ -6,6 +6,7 @@ import {
   HardDrive, Smartphone, Keyboard, Briefcase, House, UserPlus, MessageSquareText, FolderDown,
 } from 'lucide-react';
 import { openFeedback } from '../../lib/feedback';
+import { openNews } from '../../lib/news';
 import AccountList from '../../components/AccountList';
 import PasswordStrength from '../../components/PasswordStrength';
 import Field, { FieldError } from '../../components/Field';
@@ -169,6 +170,15 @@ function ProfileTab() {
       >
         <MessageSquareText size={18} strokeWidth={1.9} className="text-stone-500" aria-hidden />
         <span className="flex-1">{t('Donner mon avis ou signaler un bug')}</span>
+        <ChevronRight size={16} className="text-stone-400" aria-hidden />
+      </button>
+      <button
+        type="button"
+        onClick={() => openNews()}
+        className="card flex h-12 w-full items-center gap-3 px-4 text-left text-[14px] font-medium text-stone-700 transition-colors hover:bg-stone-50 lg:hidden"
+      >
+        <Sparkles size={18} strokeWidth={1.9} className="text-stone-500" aria-hidden />
+        <span className="flex-1">{t('Nouveautés')}</span>
         <ChevronRight size={16} className="text-stone-400" aria-hidden />
       </button>
       <Section label={t('Profil')}>
@@ -778,6 +788,9 @@ function NotificationsTab() {
         </Row>
         <Row label={t('Kompaly')} hint={t('Ses suggestions, quand tu es ailleurs.')}>
           <Toggle label={t('Kompaly')} checked={s.copilotNotify} onChange={v => s.set({ copilotNotify: v })} />
+        </Row>
+        <Row label={t('E-mail de conseils')} hint={t('Un seul, quelques jours après l’inscription.')}>
+          <Toggle label={t('E-mail de conseils')} checked={s.emailTips} onChange={x => s.set({ emailTips: x })} />
         </Row>
       </Section>
     </div>

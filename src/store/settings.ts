@@ -74,6 +74,8 @@ export interface Settings {
   customCategories: CustomCategory[]; // calendar categories created by the student
   periods: Period[]; // « En entreprise », « Vacances »… shown as a tint over the calendar days
   icsFeeds: IcsFeed[]; // timetables followed by link (lib/icsFeeds), read again every few hours
+  newsSeen: string; // last « Nouveautés » release read (lib/news), so it is shown once per account
+  emailTips: boolean; // the tips e-mail a few days after signing up (server/emails.mjs)
   renamedToKompa: boolean; // old « COP-PILOT » texts in this account already renamed (see lib/renameToKompa)
   // « Enregistrer un cours »
   courseKeywords: Keyword[]; // words watched during a recording (marked, and a notification if wanted)
@@ -119,6 +121,8 @@ export const DEFAULT_SETTINGS: Settings = {
   customCategories: [],
   periods: [],
   icsFeeds: [],
+  newsSeen: '',
+  emailTips: true,
   renamedToKompa: false,
   courseKeywords: DEFAULT_KEYWORDS,
   courseMake: { fiche: true, examen: false },
