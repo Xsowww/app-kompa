@@ -5,7 +5,7 @@ import { catOf, guessCategory, useCalendar, type EventCategory, type NewEvent } 
 import { cancelledBy, isIcsFile, parseIcs, type IcsEvent } from '../../lib/ics';
 import { fmt, fromKey, todayKey } from '../../lib/dates';
 import { confirmAction, toast } from '../../store/ui';
-import { FeedError, MAX_FEEDS, feedErrorText, refreshFeeds, subscribe, unsubscribe } from '../../lib/icsFeeds';
+import { FeedError, MAX_FEEDS, feedErrorText, feedMark, refreshFeeds, subscribe, unsubscribe } from '../../lib/icsFeeds';
 import { useSettings } from '../../store/settings';
 import { WORDS } from '../../lib/usage';
 import { cx } from '../../lib/utils';
@@ -48,7 +48,9 @@ function Feeds({ onAdded }: { onAdded: (firstDate: string) => void }) {
   };
 
   const stop = async (id: string, name: string) => {
-    if (await confirmAction(t('Ne plus suivre « {name} » ?', { name }), t('Ses événements à venir sont retirés du calendrier ; les passés restent.'), t('Se désabonner'))) unsubscribe(id);
+    const n = useCalendar.getState().events.filter(e => e.externalId?.startsWith(feedMark(id))).length;
+    if (!(await confirmAction(t('Retirer « {name} » ?', { name }), tn(n, 'Son {n} événement est retiré du calendrier. Le reste de ton calendrier ne change pas.', 'Ses {n} événements sont retirés du calendrier. Le reste de ton calendrier ne change pas.'), t('Tout retirer')))) return;
+    toast(tn(unsubscribe(id), '« {name} » retiré : {n} événement enlevé.', '« {name} » retiré : {n} événements enlevés.', { name }), 'success');
   };
 
   return (
@@ -91,7 +93,7 @@ function Feeds({ onAdded }: { onAdded: (firstDate: string) => void }) {
                     f.lastSync && <p className="text-[12px] text-stone-500">{t('Mis à jour le {when}', { when: fmt(new Date(f.lastSync), 'd MMM, HH:mm') })}</p>
                   )}
                 </div>
-                <button type="button" className="icon-btn shrink-0 hover:text-red-600" title={t('Se désabonner')} aria-label={t('Se désabonner de « {name} »', { name: f.name })} onClick={() => void stop(f.id, f.name)}>
+                <button type="button" className="icon-btn shrink-0 hover:text-red-600" title={t('Retirer ce calendrier et ses événements')} aria-label={t('Retirer « {name} » et ses événements', { name: f.name })} onClick={() => void stop(f.id, f.name)}>
                   <X size={15} />
                 </button>
               </li>

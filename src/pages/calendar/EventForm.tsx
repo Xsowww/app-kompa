@@ -1,6 +1,6 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Check, FileText, Flag, Plus, Repeat as RepeatIcon, Trash2 } from 'lucide-react';
+import { Check, FileText, Flag, Link2, Plus, Repeat as RepeatIcon, Trash2 } from 'lucide-react';
 import { Modal } from '../../components/Overlays';
 import { useNotes } from '../../store/notes';
 import { catOf, allCategories, guessCategory, isBigEvent, nextInSeries, useCalendar, type CalendarEvent, type EventCategory } from '../../store/calendar';
@@ -18,6 +18,7 @@ import { fmtDay, fromKey, parseQuickAdd } from '../../lib/dates';
 import { cleanReminders, earlyReminders, eventReminders, followMoments } from '../../lib/reminders';
 import { covers } from '../../lib/periods';
 import { REPEATS, defaultUntil, repeatDays, type Repeat } from '../../lib/repeat';
+import { feedOf } from '../../lib/icsFeeds';
 import { uid } from '../../lib/utils';
 import { t } from '../../i18n';
 
@@ -53,6 +54,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
   // undefined = not chosen: the usual reminder (Profil › Notifications) for an event with a time.
   const [chosen, setChosen] = useState<number[] | undefined>(event?.reminders);
   const mine = useSettings(s => s.defaultReminders);
+  const feeds = useSettings(s => s.icsFeeds);
   // My usual reminder isn't imposed on the members of a shared calendar: none until one is chosen.
   const defaults = shared ? NONE : mine;
   const words = { ...(WORDS[useSettings(s => s.usage)] ?? WORDS.etudes), ...(shared && AGENDA_EXAMPLES) };
@@ -141,6 +143,12 @@ export default function EventForm({ event, date, start: initialStart, end: initi
     <Modal open onClose={onClose} width={460}>
       <form onSubmit={submit}>
         <h3 className="text-[15px] font-semibold">{event ? t('Modifier l’événement') : t('Nouvel événement')}</h3>
+        {event && !shared && (f => f && (
+          <p className="mt-1 flex items-center gap-1.5 text-[12px] text-stone-500">
+            <Link2 size={12} aria-hidden />
+            {t('Vient de l’emploi du temps « {name} » : mis à jour par le lien.', { name: f.name })}
+          </p>
+        ))(feedOf(event, feeds))}
         {event?.series && !shared && (
           <p className="mt-1 flex items-center gap-1.5 text-[12px] text-stone-500">
             <RepeatIcon size={12} aria-hidden />

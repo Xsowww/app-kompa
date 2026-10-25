@@ -2,7 +2,7 @@ import { useToday } from '../../lib/useToday';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { addDays, addMonths, endOfMonth, startOfMonth, isSameMonth } from 'date-fns';
-import { Bell, Check, Flag, Repeat, ListFilter, ChevronLeft, ChevronRight, Plus, Trash2, CornerDownLeft, CalendarArrowDown, CalendarArrowUp, CalendarRange, CalendarPlus, CalendarClock } from 'lucide-react';
+import { Bell, Check, Flag, Link2, Repeat, ListFilter, ChevronLeft, ChevronRight, Plus, Trash2, CornerDownLeft, CalendarArrowDown, CalendarArrowUp, CalendarRange, CalendarPlus, CalendarClock } from 'lucide-react';
 import { EmptyState, Skeleton } from '../../components/EmptyState';
 import { catOf, allCategories, guessCategory, isDeliverable, isBigEvent, sortEvents, type CalendarEvent, type EventCategory } from '../../store/calendar';
 import { parseQuickAdd, toKey, fromKey, todayKey, validKey, fmt, fmtDay, weekStart, countdownLabel, daysUntil, toMinutes, fromMinutes, isOver } from '../../lib/dates';
@@ -23,6 +23,7 @@ import { useEventDrag, type DropTarget } from './useEventDrag';
 import { exportIcs } from '../../lib/backup';
 import { flashWhenReady } from '../../lib/flash';
 import { eventReminders, followMoments, reminderLabel } from '../../lib/reminders';
+import { feedOf } from '../../lib/icsFeeds';
 import { t, tn } from '../../i18n';
 
 type Mode = 'week' | 'month' | 'day';
@@ -71,6 +72,8 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
   const defaults = useSettings(s => s.defaultReminders);
   // A shared calendar's reminders are the ones chosen on it (no usual reminder of mine there).
   const reminders = shared ? (ev.reminders ?? []) : eventReminders(ev, defaults);
+  // From a timetable followed by link: its name, so it is never mixed up with what was added by hand.
+  const feed = feedOf(ev, useSettings(s => s.icsFeeds));
   return (
     <div className="group enter flex items-stretch gap-2 sm:gap-4">
       <div className="tabular w-10 shrink-0 pt-3 text-right text-[12px] sm:w-12">
@@ -106,6 +109,11 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
           <p className="mt-0.5 text-[12px] text-stone-500">
             <span style={{ color: c.text }}>{c.label}</span>
             {ev.series && <Repeat size={11} className="ml-1.5 inline-block -translate-y-px" aria-label={t('Se répète')} />}
+            {feed && (
+              <span className="ml-1.5 inline-flex items-center gap-1 whitespace-nowrap" title={t('Vient de l’emploi du temps « {name} »', { name: feed.name })}>
+                <Link2 size={11} aria-hidden /> {feed.name}
+              </span>
+            )}
             {shared && ev.people?.length ? ` · ${t('pour {names}', { names: ev.people.map(shared.nameFor).join(', ') })}` : ''}
             {shared && ` · ${t('par {name}', { name: shared.author(ev.id) })}`}
             {isBigEvent(ev) && !ev.done && ` · ${countdownLabel(ev.date)}`}

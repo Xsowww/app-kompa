@@ -145,13 +145,18 @@ export async function subscribe(url: string): Promise<{ feed: IcsFeed; plan: Fee
   return { feed, plan: await syncFeed(feed, text) };
 }
 
-/** Unsubscribes; its events from today on go too (the past ones stay, as written in the calendar). */
-export function unsubscribe(id: string) {
+/** Unsubscribes: everything that came from this link goes (past, to come, in the trash); nothing else is touched. */
+export function unsubscribe(id: string): number {
   const mark = feedMark(id);
-  const today = todayKey();
-  useCalendar.setState(s => ({ events: s.events.filter(e => !(e.externalId?.startsWith(mark) && e.date >= today)) }));
+  const ours = (e: CalendarEvent) => !!e.externalId?.startsWith(mark);
+  const n = useCalendar.getState().events.filter(ours).length;
+  useCalendar.setState(s => ({ events: s.events.filter(e => !ours(e)), trash: s.trash.filter(e => !ours(e)) }));
   useSettings.getState().set({ icsFeeds: (getSettings().icsFeeds ?? []).filter(f => f.id !== id) });
+  return n;
 }
+
+/** The link an event came from, if any (its name is shown on the event). */
+export const feedOf = (e: Pick<CalendarEvent, 'externalId'>, feeds: IcsFeed[]) => (e.externalId?.startsWith('feed:') ? feeds.find(f => e.externalId!.startsWith(feedMark(f.id))) : undefined);
 
 let running: Promise<void> | null = null;
 /** Reads again the links not read for a while (`force`: all of them now). */
