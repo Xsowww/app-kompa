@@ -10,7 +10,8 @@ import { PERIOD_IDEAS, sortPeriods, type Period } from '../../lib/periods';
 import type { Usage } from '../../lib/usage';
 import { askChoice, confirmAction } from '../../store/ui';
 import { useGroups } from '../../store/groups';
-import { t } from '../../i18n';
+import { t, tn } from '../../i18n';
+import { isSpan } from '../../lib/repeat';
 
 /** Examples of periods that fit the account (« en cours, en entreprise » is for students): « congés, télétravail, déplacement ». */
 export const periodIdeas = (usage?: Usage) => (PERIOD_IDEAS[usage ?? 'etudes'] ?? PERIOD_IDEAS.etudes).slice(0, 3).map(i => i.title.toLowerCase()).join(', ');
@@ -110,11 +111,12 @@ export function useImportSources(): { id: string; name: string }[] {
 export async function askSeriesScope(ev: Pick<CalendarEvent, 'id' | 'series' | 'date' | 'title'>, action: 'delete' | 'edit'): Promise<'one' | 'next' | null> {
   const next = nextInSeries(ev, useCalendar.getState().events).length;
   if (!next) return 'one';
+  const span = isSpan(ev.series);
   const answer = await askChoice(
     action === 'delete' ? t('Supprimer « {title} » ?', { title: ev.title }) : t('Modifier « {title} »', { title: ev.title }),
-    t('Cet événement se répète ({n} fois après celui-ci).', { n: next }),
-    t('Seulement celui-ci'),
-    t('Celui-ci et les suivants'),
+    span ? tn(next, 'Cet événement dure plusieurs jours ({n} jour après celui-ci).', 'Cet événement dure plusieurs jours ({n} jours après celui-ci).') : t('Cet événement se répète ({n} fois après celui-ci).', { n: next }),
+    span ? t('Seulement ce jour') : t('Seulement celui-ci'),
+    span ? t('Ce jour et les suivants') : t('Celui-ci et les suivants'),
     action === 'delete',
   );
   return answer === 'confirm' ? 'one' : answer === 'other' ? 'next' : null;

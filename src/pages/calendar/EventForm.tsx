@@ -1,6 +1,7 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Check, FileText, Flag, Link2, Plus, Repeat as RepeatIcon, Trash2 } from 'lucide-react';
+import { Check, FileText, Flag, Link2, Plus, Trash2 } from 'lucide-react';
+import SeriesIcon from './SeriesIcon';
 import { Modal } from '../../components/Overlays';
 import { useNotes } from '../../store/notes';
 import { catOf, allCategories, guessCategory, isBigEvent, nextInSeries, useCalendar, type CalendarEvent, type EventCategory } from '../../store/calendar';
@@ -17,10 +18,10 @@ import { FieldError } from '../../components/Field';
 import { fmtDay, fromKey, parseQuickAdd } from '../../lib/dates';
 import { cleanReminders, earlyReminders, eventReminders, followMoments } from '../../lib/reminders';
 import { covers } from '../../lib/periods';
-import { REPEATS, defaultUntil, repeatDays, type Repeat } from '../../lib/repeat';
+import { MAX_SPAN_DAYS, REPEATS, dayShift, defaultUntil, isSpan, repeatDays, shiftKey, spanDays, type Repeat } from '../../lib/repeat';
 import { feedOf } from '../../lib/icsFeeds';
 import { uid } from '../../lib/utils';
-import { t } from '../../i18n';
+import { t, tn } from '../../i18n';
 
 const NONE: number[] = [];
 /** Periods a repeat skips at first (they can be ticked off): the holidays. */
@@ -78,6 +79,11 @@ export default function EventForm({ event, date, start: initialStart, end: initi
   const [skipped, setSkipped] = useState<string[] | null>(null);
   const skipIds = skipped ?? around.filter(p => HOLIDAYS.test(p.title)).map(p => p.id);
   const series = repeat && day ? repeatDays(day, repeat, lastDay, k => periods.some(p => skipIds.includes(p.id) && covers(p, k))) : null;
+  // Over several days (a seminar, a trip): one event a day, linked (lib/repeat spanDays). Not with a repeat.
+  const canSpan = !event && !shared && !repeat;
+  const [endDay, setEndDay] = useState<string | null>(null); // null: ends the same day
+  const spanning = canSpan && !!endDay && !!day && endDay > day;
+  const endDayMsg = canSpan && endDay && day && endDay <= day ? t('Le jour de fin doit être après le jour de début.') : '';
   const onTitle = (v: string) => {
     setTitle(v);
     if (v.trim()) setTitleError('');
@@ -101,35 +107,46 @@ export default function EventForm({ event, date, start: initialStart, end: initi
   const notes = useNotes(s => s.notes);
   const linked = event ? notes.filter(n => n.links?.some(l => l.kind === 'event' && l.id === event.id)) : [];
 
-  const timeError = !!start && !!end && end <= start;
+  const timeError = !spanning && !!start && !!end && end <= start;
   // The title is required: said when leaving it empty after typing, or at the submit (the focus goes back to it).
   const [titleError, setTitleError] = useState('');
   const titleRef = useRef<HTMLInputElement>(null);
-  const timeMsg = end && !start ? t('Indique le début, ou efface la fin.') : timeError ? t('La fin est avant le début.') : '';
+  const timeMsg = end && !start && !spanning ? t('Indique le début, ou efface la fin.') : timeError ? t('La fin est avant le début.') : '';
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!cleanTitle) {
       setTitleError(understood ? t('Ajoute un titre avant le jour et l’heure.') : t('Donne un titre.'));
       return titleRef.current?.focus();
     }
-    if (!day || timeMsg || impossible || (series && !series.days.length)) return;
+    if (!day || timeMsg || endDayMsg || impossible || (series && !series.days.length)) return;
     // An end without a start can't be sent: the start field is required then (see below).
     const data = { title: cleanTitle, date: day, start: start || undefined, end: start && end ? end : undefined, category: effective, details: details.trim() || undefined, important: important || undefined, reminders: chosen, ...(shared && { people }) };
     if (event && !shared && event.series) {
       const scope = await askSeriesScope(event, 'edit');
       if (!scope) return;
-      if (scope === 'next') useCalendar.getState().updateSeries(event.id, data);
+      if (scope === 'next' && isSpan(event.series)) {
+        // The next days of an event over several days keep their own times and days: only the rest follows.
+        const { start: _s, end: _e, date: _d, reminders: _r, ...rest } = data;
+        useCalendar.getState().updateSeries(event.id, rest);
+        update(event.id, data);
+      } else if (scope === 'next') useCalendar.getState().updateSeries(event.id, data);
       else update(event.id, data);
     } else if (event) update(event.id, data);
     else if (series) {
       const id = uid();
       useCalendar.getState().addMany(series.days.map(d => ({ ...data, date: d, series: id })));
+    } else if (spanning) {
+      const id = `span-${uid()}`;
+      // The first day keeps the reminders; the others none (« 15 min avant » 0:00 would ring at midnight).
+      useCalendar.getState().addMany(spanDays(day, endDay!, start || undefined, end || undefined).map((p, i) => ({ ...data, ...p, start: p.start, end: p.end, series: id, reminders: i ? [] : data.reminders })));
     } else add(data);
     toast(
       event
         ? t('Enregistré : {title}', { title: data.title })
         : series
           ? t('Ajouté {n} fois, jusqu’au {day}', { n: series.days.length, day: fmtDay(fromKey(series.days.at(-1)!), 'EEEE d MMMM') })
+          : spanning
+            ? t('Ajouté du {from} au {to}', { from: fmtDay(fromKey(day), 'EEEE d MMMM'), to: fmtDay(fromKey(endDay!), 'EEEE d MMMM') })
           : understood && parsed.weekly
             ? t('Ajouté pour {day}, une seule fois (pas encore de répétition)', { day: fmtDay(fromKey(day), 'EEEE d MMMM') })
             : t('Ajouté : {title}', { title: data.title }),
@@ -151,8 +168,15 @@ export default function EventForm({ event, date, start: initialStart, end: initi
         ))(feedOf(event, feeds))}
         {event?.series && !shared && (
           <p className="mt-1 flex items-center gap-1.5 text-[12px] text-stone-500">
-            <RepeatIcon size={12} aria-hidden />
-            {(n => (n ? t('Se répète : encore {n} fois après celui-ci', { n }) : t('Dernier d’une répétition')))(nextInSeries(event, useCalendar.getState().events).length)}
+            <SeriesIcon series={event.series} size={12} />
+            {(n =>
+              isSpan(event.series)
+                ? n
+                  ? tn(n, 'Sur plusieurs jours : encore {n} jour après celui-ci', 'Sur plusieurs jours : encore {n} jours après celui-ci')
+                  : t('Dernier jour de l’événement')
+                : n
+                  ? t('Se répète : encore {n} fois après celui-ci', { n })
+                  : t('Dernier d’une répétition'))(nextInSeries(event, useCalendar.getState().events).length)}
           </p>
         )}
         <input
@@ -270,6 +294,28 @@ export default function EventForm({ event, date, start: initialStart, end: initi
         {/* Said as soon as the times are chosen, under them. */}
         <FieldError id="event-time-err">{timeMsg}</FieldError>
 
+        {canSpan &&
+          (endDay === null ? (
+            <button type="button" className="btn-ghost mt-2 h-8 px-2 text-[12.5px]" onClick={() => setEndDay(day ? shiftKey(day, 1) : '')}>
+              <Plus size={13} /> {t('Finit un autre jour')}
+            </button>
+          ) : (
+            <div className="mt-3 grid grid-cols-1 items-end gap-2 min-[360px]:grid-cols-[minmax(0,1fr)_auto]">
+              <div>
+                <span className="mb-1.5 block text-[12px] font-medium text-stone-600">{t('Jour de fin')}</span>
+                <DateField value={endDay} onChange={v => setEndDay(v)} min={day || undefined} max={day ? shiftKey(day, MAX_SPAN_DAYS - 1) : undefined} label={t('Jour de fin de l’événement')} invalid={!!endDayMsg} className="w-full" />
+              </div>
+              <button type="button" className="btn-ghost h-10 px-2.5 text-[12.5px]" onClick={() => setEndDay(null)}>
+                {t('Finit le même jour')}
+              </button>
+              {endDayMsg ? (
+                <FieldError id="event-endday-err">{endDayMsg}</FieldError>
+              ) : (
+                spanning && <p className="text-[12px] text-stone-500 min-[360px]:col-span-2">{t('{n} jours, du début à la fin.', { n: dayShift(day, endDay!) + 1 })}</p>
+              )}
+            </div>
+          ))}
+
         {/* What makes it a « big day » for the home page and Kompaly, whatever its category. */}
         {!shared && <button
           type="button"
@@ -284,7 +330,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
           {important ? t('Important') : t('Marquer comme important')}
         </button>}
 
-        {canRepeat && (
+        {canRepeat && !spanning && (
           <div className="mt-4">
             <div className="grid grid-cols-1 gap-x-2 gap-y-4 sm:grid-cols-2">
               <div>

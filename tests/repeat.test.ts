@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { repeatDays, MAX_OCCURRENCES, shiftKey, dayShift } from '../src/lib/repeat';
+import { repeatDays, MAX_OCCURRENCES, shiftKey, dayShift, spanDays, isSpan } from '../src/lib/repeat';
 
 describe('repeatDays', () => {
   it('weekly, until included', () => {
@@ -26,5 +26,18 @@ describe('repeatDays', () => {
   it('shifts', () => {
     expect(dayShift('2026-11-02', '2026-11-03')).toBe(1);
     expect(shiftKey('2026-10-31', 1)).toBe('2026-11-01');
+  });
+});
+
+describe('événement sur plusieurs jours', () => {
+  it('first from its start, last until its end, the days between all day', () => {
+    expect(spanDays('2026-11-02', '2026-11-04', '09:00', '17:00')).toEqual([
+      { date: '2026-11-02', start: '09:00', end: '23:59' },
+      { date: '2026-11-03' },
+      { date: '2026-11-04', start: '00:00', end: '17:00' },
+    ]);
+    expect(spanDays('2026-11-02', '2026-11-03')).toEqual([{ date: '2026-11-02' }, { date: '2026-11-03' }]);
+    expect(spanDays('2026-01-01', '2026-12-31')).toHaveLength(31);
+    expect(isSpan('span-x') && !isSpan('abc')).toBe(true);
   });
 });

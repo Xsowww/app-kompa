@@ -5,12 +5,13 @@
 // else GEMINI_API_KEY (free key from Google AI Studio), else the site's AI when it is Claude or Gemini.
 
 import Anthropic from '@anthropic-ai/sdk';
-import { callOnce, resolveProvider, ProviderError } from './aiProviders.mjs';
+import { callOnce, mapStatus, resolveProvider, ProviderError } from './aiProviders.mjs';
 import { languageLine } from './copilotPrompt.mjs';
 
-const GEMINI = 'https://generativelanguage.googleapis.com/v1beta/openai/';
-// The latest Flash, whatever its number: no change needed when Google retires a version.
-const GEMINI_MODEL = 'gemini-flash-latest';
+const GEMINI_NATIVE = 'https://generativelanguage.googleapis.com/v1beta/models/';
+// Tried in order (a model Google has retired answers 404: the next one is used). 2.5 Flash first, without its
+// « thinking » (seconds, where gemini-flash-latest thought for more than 85 s on one page of a notebook).
+const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-flash-latest'];
 
 export const MAX_PHOTOS = 4;
 const MAX_PHOTO = 2_800_000; // characters of one data URL (the page sends ~0.5 Mo JPEGs)
@@ -18,11 +19,12 @@ export const MAX_PHOTO_BODY = MAX_PHOTOS * MAX_PHOTO + 10_000;
 
 export function resolveVision(env = process.env) {
   const v = name => String(env[name] ?? '').trim();
-  if (v('VISION_API_KEY')) return { kind: 'openai', apiKey: v('VISION_API_KEY'), baseUrl: v('VISION_BASE_URL') || GEMINI, model: v('VISION_MODEL') || GEMINI_MODEL };
-  if (v('GEMINI_API_KEY')) return { kind: 'openai', apiKey: v('GEMINI_API_KEY'), baseUrl: GEMINI, model: v('VISION_MODEL') || GEMINI_MODEL };
+  const models = v('VISION_MODEL') ? [v('VISION_MODEL')] : GEMINI_MODELS;
+  if (v('VISION_API_KEY') && v('VISION_BASE_URL')) return { kind: 'openai', apiKey: v('VISION_API_KEY'), baseUrl: v('VISION_BASE_URL'), model: v('VISION_MODEL') || GEMINI_MODELS[0] };
+  if (v('VISION_API_KEY') || v('GEMINI_API_KEY')) return { kind: 'gemini', apiKey: v('VISION_API_KEY') || v('GEMINI_API_KEY'), models };
   const ai = resolveProvider(env);
   if (ai?.id === 'anthropic') return { kind: 'anthropic', apiKey: ai.apiKey, model: v('VISION_MODEL') || ai.model };
-  if (ai?.id === 'gemini') return { kind: 'openai', apiKey: ai.apiKey, baseUrl: ai.baseUrl, model: v('VISION_MODEL') || ai.model };
+  if (ai?.id === 'gemini') return { kind: 'gemini', apiKey: ai.apiKey, models };
   return null;
 }
 
@@ -50,7 +52,7 @@ Ton travail : en faire une fiche claire et fidèle, en Markdown.
 Réponds uniquement avec la fiche, sans phrase avant ni après.`;
 
 /** The last reading, shown by /api/sante to find what goes wrong (never the photo nor the key). */
-export const photoStatus = { lastOk: null, lastError: null, detail: null, seconds: null };
+export const photoStatus = { lastOk: null, lastError: null, detail: null, seconds: null, model: null };
 
 // Under Cloudflare's 100 s: past it the page gets Cloudflare's own error instead of ours.
 const TIMEOUT_MS = 85_000;
@@ -71,6 +73,7 @@ export async function readPhotos(vision, photos, lang) {
 async function readOnce(vision, photos, lang) {
   const system = PHOTO_SYSTEM + languageLine(lang);
   const ask = photos.length > 1 ? `Voici ${photos.length} photos, dans l'ordre.` : 'Voici la photo.';
+  if (vision.kind === 'gemini') return geminiRead(vision, photos, system, ask);
   if (vision.kind === 'anthropic') {
     const client = new Anthropic({ apiKey: vision.apiKey });
     const r = await client.messages.create(
@@ -89,8 +92,6 @@ async function readOnce(vision, photos, lang) {
     {
       model: vision.model,
       max_tokens: 6000,
-      // Gemini thinks before answering by default: a short think is enough to read a page, and much faster.
-      ...(/googleapis\.com/.test(vision.baseUrl) && { reasoning_effort: 'low' }),
       messages: [
         { role: 'system', content: system },
         { role: 'user', content: [{ type: 'text', text: ask }, ...photos.map(p => ({ type: 'image_url', image_url: { url: p.url } }))] },
@@ -102,4 +103,45 @@ async function readOnce(vision, photos, lang) {
   if (!text) throw new ProviderError('upstream', 502, 'réponse vide');
   // A model that wraps its answer in a code block.
   return text.replace(/^```(?:markdown|md)?\s*\n([\s\S]*?)\n```$/i, '$1').trim();
+}
+
+/** A model Google no longer serves, or one that refuses the settings: try the next one. */
+const tryNext = (status, detail) => status === 404 || (status === 400 && /not found|not supported|unsupported|thinking/i.test(detail));
+
+/** Gemini's own API (not the OpenAI-compatible one): it lets the « thinking » of 2.5 models be turned off. */
+async function geminiRead(vision, photos, system, ask) {
+  const deadline = Date.now() + TIMEOUT_MS;
+  let last = null;
+  for (const model of vision.models) {
+    const left = deadline - Date.now();
+    if (left < 5000) break;
+    const body = {
+      systemInstruction: { parts: [{ text: system }] },
+      contents: [{ role: 'user', parts: [{ text: ask }, ...photos.map(p => ({ inline_data: { mime_type: p.mime, data: p.data } }))] }],
+      generationConfig: { maxOutputTokens: 6000, temperature: 0.2, ...(/2\.5-flash/.test(model) && { thinkingConfig: { thinkingBudget: 0 } }) },
+    };
+    let res;
+    try {
+      res = await fetch(`${GEMINI_NATIVE}${encodeURIComponent(model)}:generateContent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': vision.apiKey },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(left),
+      });
+    } catch (e) {
+      throw new ProviderError(e?.name === 'TimeoutError' || e?.name === 'AbortError' ? 'timeout' : 'upstream', 504, `${model}: ${e?.message ?? ''}`);
+    }
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      const detail = `${model}: ${String(data?.error?.message ?? res.statusText).slice(0, 160)}`;
+      last = new ProviderError(res.status === 400 && /api[ _]?key/i.test(detail) ? 'bad_key' : mapStatus(res.status), res.status, detail);
+      if (tryNext(res.status, detail)) continue;
+      throw last;
+    }
+    const text = (data?.candidates?.[0]?.content?.parts ?? []).filter(p => !p.thought).map(p => p.text ?? '').join('').trim();
+    if (!text) throw new ProviderError('upstream', 502, `${model}: réponse vide (${data?.candidates?.[0]?.finishReason ?? data?.promptFeedback?.blockReason ?? '?'})`);
+    photoStatus.model = model;
+    return text.replace(/^```(?:markdown|md)?\s*\n([\s\S]*?)\n```$/i, '$1').trim();
+  }
+  throw last ?? new ProviderError('timeout', 504, 'plus de temps');
 }

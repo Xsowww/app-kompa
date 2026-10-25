@@ -26,6 +26,10 @@ describe('abonnement à un emploi du temps', () => {
     expect(plan.add).toEqual([]);
     expect(plan.remove).toEqual([]);
   });
+  it('a link with only the past, when asked: its past is added', () => {
+    expect(planFeed('f1', [it_('p', '2026-07-03')], [], [], '2026-10-25').add).toEqual([]);
+    expect(planFeed('f1', [it_('p', '2026-07-03')], [], [], '2026-10-25', 'x', true).add.map(e => e.date)).toEqual(['2026-07-03']);
+  });
   it('same text, same id (two devices make the same event)', async () => {
     const a = await stableId('feed:f1:UID-1');
     expect(a).toBe(await stableId('feed:f1:UID-1'));

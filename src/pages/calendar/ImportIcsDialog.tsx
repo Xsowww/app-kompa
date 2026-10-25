@@ -26,18 +26,22 @@ function Feeds({ onAdded }: { onAdded: (firstDate: string) => void }) {
   const [busy, setBusy] = useState<'new' | 'all' | null>(null);
   const [error, setError] = useState('');
 
-  const add = async (e: FormEvent) => {
-    e.preventDefault();
+  // A link with only past events: offered anyway (to try a link, or keep last year's timetable).
+  const [pastOnly, setPastOnly] = useState(false);
+  const add = async (e?: FormEvent, pastToo = false) => {
+    e?.preventDefault();
     if (!url.trim() || busy) return;
     setBusy('new');
     setError('');
+    setPastOnly(false);
     try {
-      const { feed, plan } = await subscribe(url);
+      const { feed, plan } = await subscribe(url, pastToo);
       setUrl('');
       toast(tn(plan.add.length, 'Abonné à « {name} » : {n} événement ajouté, mis à jour tout seul.', 'Abonné à « {name} » : {n} événements ajoutés, mis à jour tout seul.', { name: feed.name }), 'success');
       if (plan.add[0]) onAdded(plan.add.reduce((a, b) => (b.date < a.date ? b : a)).date);
     } catch (err) {
       setError(err instanceof FeedError ? feedErrorText(err.code, err.last) : feedErrorText('unreachable'));
+      setPastOnly(err instanceof FeedError && err.code === 'no_upcoming');
     } finally {
       setBusy(null);
     }
@@ -64,7 +68,7 @@ function Feeds({ onAdded }: { onAdded: (firstDate: string) => void }) {
       <form onSubmit={add} className="flex gap-2">
         <input
           value={url}
-          onChange={e => (setUrl(e.target.value), setError(''))}
+          onChange={e => (setUrl(e.target.value), setError(''), setPastOnly(false))}
           inputMode="url"
           autoCapitalize="off"
           autoCorrect="off"
@@ -81,6 +85,11 @@ function Feeds({ onAdded }: { onAdded: (firstDate: string) => void }) {
         </button>
       </form>
       {error && <p id="feed-error" role="alert" className="mt-1.5 text-[12.5px] font-medium text-red-600 dark:text-red-400">{error}</p>}
+      {pastOnly && (
+        <button type="button" className="btn-secondary mt-2 h-9" disabled={!!busy} onClick={() => void add(undefined, true)}>
+          {t('Ajouter quand même ses cours passés')}
+        </button>
+      )}
       <p className="mt-1.5 text-[12px] text-stone-500">{t('Le lien « iCal » de ton ENT ou de Google Agenda. Mis à jour toutes les 3 h.')}</p>
 
       {feeds.length > 0 && (

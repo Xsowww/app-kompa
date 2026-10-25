@@ -17,6 +17,8 @@ export interface IcsFeed {
   name: string;
   /** Last time it was read (ISO). */
   lastSync?: string;
+  /** Asked for a link with only past events (last year's timetable): its past is added too. */
+  pastToo?: boolean;
   /** Last failure, said in the list (the code from the server). */
   error?: string;
 }
@@ -103,7 +105,7 @@ export interface FeedPlan {
  * them); the ones the link no longer has go, from today on. One deleted by the student (in the trash) stays deleted.
  * Pure: tested in tests/icsFeeds.test.ts.
  */
-export function planFeed(feedId: string, items: (IcsEvent & { id: string })[], events: CalendarEvent[], trash: CalendarEvent[], today: string, now = nowIso()): FeedPlan {
+export function planFeed(feedId: string, items: (IcsEvent & { id: string })[], events: CalendarEvent[], trash: CalendarEvent[], today: string, now = nowIso(), pastToo = false): FeedPlan {
   const mark = feedMark(feedId);
   const mine = new Map(events.filter(e => e.externalId?.startsWith(mark)).map(e => [e.id, e]));
   const taken = new Set([...events, ...trash].map(e => e.id));
@@ -116,7 +118,7 @@ export function planFeed(feedId: string, items: (IcsEvent & { id: string })[], e
     if (old) {
       const patch = { title: it.title, date: it.date, start: it.start, end: it.end, details: it.details };
       if ((Object.keys(patch) as (keyof typeof patch)[]).some(k => (old[k] ?? undefined) !== (patch[k] ?? undefined))) plan.updates.push({ id: it.id, patch });
-    } else if (!taken.has(it.id) && it.date >= today) {
+    } else if (!taken.has(it.id) && (pastToo || it.date >= today)) {
       plan.add.push({ id: it.id, title: it.title, date: it.date, start: it.start, end: it.end, details: it.details, externalId: mark + it.externalId, category: guessCategory(it.title, !!it.start), done: false, createdAt: now });
     }
   }
@@ -139,7 +141,7 @@ export async function syncFeed(feed: IcsFeed, text?: string): Promise<FeedPlan> 
   const parsed = parseIcs(body);
   const items = await Promise.all(parsed.map(async e => ({ ...e, id: await stableId(feedMark(feed.id) + e.externalId) })));
   const { events, trash } = useCalendar.getState();
-  const plan = planFeed(feed.id, items, events, trash, todayKey());
+  const plan = planFeed(feed.id, items, events, trash, todayKey(), nowIso(), feed.pastToo);
   apply(plan);
   return plan;
 }
@@ -148,14 +150,15 @@ const saveFeed = (id: string, patch: Partial<IcsFeed>) =>
   useSettings.getState().set({ icsFeeds: (getSettings().icsFeeds ?? []).map(f => (f.id === id ? { ...f, ...patch } : f)) });
 
 /** Subscribes: reads the link once (refused if it isn't a calendar), then keeps it. */
-export async function subscribe(url: string): Promise<{ feed: IcsFeed; plan: FeedPlan }> {
+/** `pastToo`: also the past events (asked after « no_upcoming »). */
+export async function subscribe(url: string, pastToo = false): Promise<{ feed: IcsFeed; plan: FeedPlan }> {
   const clean = url.trim().replace(/^webcals?:\/\//i, 'https://');
   const text = await downloadFeed(clean);
   const all = parseIcs(text);
   if (!all.length) throw new FeedError('empty');
   // Only the past (last year's timetable): said, instead of following a link that adds nothing.
-  if (!all.some(e => e.date >= todayKey())) throw new FeedError('no_upcoming', all[all.length - 1].date);
-  const feed: IcsFeed = { id: uid().slice(0, 12).replace(/[^a-z0-9]/gi, '0'), url: clean, name: feedName(text, clean), lastSync: nowIso() };
+  if (!pastToo && !all.some(e => e.date >= todayKey())) throw new FeedError('no_upcoming', all[all.length - 1].date);
+  const feed: IcsFeed = { id: uid().slice(0, 12).replace(/[^a-z0-9]/gi, '0'), url: clean, name: feedName(text, clean), lastSync: nowIso(), ...(pastToo && { pastToo }) };
   useSettings.getState().set({ icsFeeds: [...(getSettings().icsFeeds ?? []), feed] });
   return { feed, plan: await syncFeed(feed, text) };
 }

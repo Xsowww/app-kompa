@@ -41,3 +41,22 @@ export const defaultUntil = (from: string) => toKey(addMonths(fromKey(from), 3))
 /** Days between two dates (a moved occurrence moves the next ones by as much). */
 export const dayShift = (from: string, to: string) => differenceInCalendarDays(fromKey(to), fromKey(from));
 export const shiftKey = (key: string, days: number) => toKey(addDays(fromKey(key), days));
+
+/** Longest event over several days. */
+export const MAX_SPAN_DAYS = 31;
+/** An event over several days is one event a day, linked by a series id starting with « span- » (not a repeat). */
+export const isSpan = (series?: string) => !!series?.startsWith('span-');
+
+/**
+ * The days of an event from `from` to `to` (included), as the .ics reader does it: the first from its start
+ * until 23:59, the days between all day, the last from 0:00 until its end. No time: every day all day.
+ */
+export function spanDays(from: string, to: string, start?: string, end?: string): { date: string; start?: string; end?: string }[] {
+  const n = Math.min(MAX_SPAN_DAYS, dayShift(from, to) + 1);
+  return Array.from({ length: Math.max(1, n) }, (_, i) => {
+    const date = shiftKey(from, i);
+    if (i === 0) return start ? { date, start, end: '23:59' } : { date };
+    if (i === n - 1 && end) return { date, start: '00:00', end };
+    return { date };
+  });
+}

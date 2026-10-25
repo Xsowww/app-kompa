@@ -2,7 +2,7 @@ import { useToday } from '../../lib/useToday';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { addDays, addMonths, endOfMonth, startOfMonth, isSameMonth } from 'date-fns';
-import { Bell, Check, Flag, Link2, Repeat, ListFilter, ChevronLeft, ChevronRight, Plus, Trash2, CornerDownLeft, CalendarArrowDown, CalendarArrowUp, CalendarRange, CalendarPlus, CalendarClock } from 'lucide-react';
+import { Bell, Check, Flag, Link2, ListFilter, ChevronLeft, ChevronRight, Plus, Trash2, CornerDownLeft, CalendarArrowDown, CalendarArrowUp, CalendarRange, CalendarPlus, CalendarClock } from 'lucide-react';
 import { EmptyState, Skeleton } from '../../components/EmptyState';
 import { catOf, allCategories, guessCategory, isDeliverable, isBigEvent, sortEvents, type CalendarEvent, type EventCategory } from '../../store/calendar';
 import { parseQuickAdd, toKey, fromKey, todayKey, validKey, fmt, fmtDay, weekStart, countdownLabel, daysUntil, toMinutes, fromMinutes, isOver } from '../../lib/dates';
@@ -16,6 +16,7 @@ import { cx } from '../../lib/utils';
 import EventForm from './EventForm';
 import { confirmRemoveEvent, eventTitle, periodIdeas, removeMine, useCalendarSource } from './source';
 import DayView from './DayView';
+import SeriesIcon from './SeriesIcon';
 import ImportIcsDialog, { type IcsSource } from './ImportIcsDialog';
 import { useCreateActions } from '../../store/create';
 import { isIcsFile } from '../../lib/ics';
@@ -108,7 +109,7 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
           </p>
           <p className="mt-0.5 text-[12px] text-stone-500">
             <span style={{ color: c.text }}>{c.label}</span>
-            {ev.series && <Repeat size={11} className="ml-1.5 inline-block -translate-y-px" aria-label={t('Se répète')} />}
+            <SeriesIcon series={ev.series} size={11} className="ml-1.5 inline-block -translate-y-px" />
             {feed && (
               <span className="ml-1.5 inline-flex items-center gap-1 whitespace-nowrap" title={t('Vient de l’emploi du temps « {name} »', { name: feed.name })}>
                 <Link2 size={11} aria-hidden /> {feed.name}
@@ -756,7 +757,7 @@ export default function CalendarPage() {
                           >
                             <Dot color={catOf(e.category).color} size={6} />
                             <span className="truncate">{eventTitle(e, shared)}</span>
-                            {e.series && <Repeat size={10} className="shrink-0 text-stone-500" aria-label={t('Se répète')} />}
+                            <SeriesIcon series={e.series} size={10} className="shrink-0 text-stone-500" />
                           </span>
                         ))}
                         {evs.length > 0 && (
@@ -885,7 +886,7 @@ export default function CalendarPage() {
                           <span className="flex min-w-0 items-center gap-1.5 text-[13px] font-medium">
                             <Dot color={catOf(e.category).color} size={6} />
                             <span className="truncate">{eventTitle(e, shared)}</span>
-                            {e.series && <Repeat size={10} className="shrink-0 text-stone-500" aria-label={t('Se répète')} />}
+                            <SeriesIcon series={e.series} size={10} className="shrink-0 text-stone-500" />
                           </span>
                           <span className="block text-[12px] first-letter:uppercase text-stone-500">
                             {toHandIn ? `${(WORDS[usage] ?? WORDS.etudes) === WORDS.etudes ? t('À rendre') : t('À faire')} · ` : ''}
