@@ -4,6 +4,7 @@ import { userStorage } from '../lib/userStorage';
 import type { Usage } from '../lib/usage';
 import type { CustomCategory } from './calendar';
 import type { Period } from '../lib/periods';
+import type { IcsFeed } from '../lib/icsFeeds';
 import { DEFAULT_KEYWORDS, type Keyword } from '../lib/keywords';
 import { t } from '../i18n';
 
@@ -72,6 +73,7 @@ export interface Settings {
   groupsSeen: Record<string, string>; // « groupId:tab » → last time the student looked (synced across devices)
   customCategories: CustomCategory[]; // calendar categories created by the student
   periods: Period[]; // « En entreprise », « Vacances »… shown as a tint over the calendar days
+  icsFeeds: IcsFeed[]; // timetables followed by link (lib/icsFeeds), read again every few hours
   renamedToKompa: boolean; // old « COP-PILOT » texts in this account already renamed (see lib/renameToKompa)
   // « Enregistrer un cours »
   courseKeywords: Keyword[]; // words watched during a recording (marked, and a notification if wanted)
@@ -116,6 +118,7 @@ export const DEFAULT_SETTINGS: Settings = {
   groupsSeen: {},
   customCategories: [],
   periods: [],
+  icsFeeds: [],
   renamedToKompa: false,
   courseKeywords: DEFAULT_KEYWORDS,
   courseMake: { fiche: true, examen: false },

@@ -8,6 +8,7 @@ import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { handleCopilot, copilotProvider, ipOf } from './copilot.mjs';
 import { handleCours } from './cours.mjs';
+import { handleIcs } from './icsFeed.mjs';
 import { loadPublicEnv } from './publicEnv.mjs';
 import { langOf, publicPage, robotsTxt, sitemapXml, withHead } from './seo.mjs';
 
@@ -248,6 +249,7 @@ const server = createServer(async (req, res) => {
     if (await handlePush(req, res)) return;
     if (await handleCopilot(req, res)) return;
     if (await handleCours(req, res)) return;
+    if (await handleIcs(req, res)) return;
     await serveStatic(req, res);
   } catch (e) {
     console.error('[serveur]', req.method, req.url, e);

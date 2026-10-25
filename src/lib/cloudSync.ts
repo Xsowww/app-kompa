@@ -510,8 +510,14 @@ type Profile = Awaited<ReturnType<typeof loadProfile>>;
 function applySettings(profile: Profile) {
   const saved = (profile.data?.settings ?? {}) as Partial<Settings>;
   const known = Object.keys(DEFAULT_SETTINGS) as (keyof Settings)[];
-  useSettings.setState(Object.fromEntries(known.filter(k => k in saved).map(k => [k, k === 'periods' ? cleanPeriods(saved[k]) : k === 'courseKeywords' ? cleanKeywords(saved[k]) : saved[k]])) as Partial<Settings>);
+  useSettings.setState(Object.fromEntries(known.filter(k => k in saved).map(k => [k, k === 'periods' ? cleanPeriods(saved[k]) : k === 'courseKeywords' ? cleanKeywords(saved[k]) : k === 'icsFeeds' ? cleanFeeds(saved[k]) : saved[k]])) as Partial<Settings>);
 }
+
+/** Timetable links (lib/icsFeeds) as saved with the profile: only well-formed ones, at most 10. */
+const cleanFeeds = (list: unknown): Settings['icsFeeds'] =>
+  (Array.isArray(list) ? list : [])
+    .filter((f): f is Settings['icsFeeds'][number] => !!f && typeof f.id === 'string' && typeof f.url === 'string' && /^https?:\/\//.test(f.url) && typeof f.name === 'string')
+    .slice(0, 10);
 
 function apply({ events, folders, notes, items, profile, todos, focus }: Awaited<ReturnType<typeof fetchAll>>) {
   pulling = true;

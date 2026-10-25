@@ -272,7 +272,7 @@ export default function CalendarPage() {
       ? []
       : [
           { label: t('Nouvel événement'), icon: <CalendarPlus />, onClick: () => setForm({ date: selected }) },
-          ...(shared ? [] : [{ label: t('Importer un {timetable} (.ics)', { timetable: words.timetable }), icon: <CalendarArrowDown />, onClick: () => setImporting({}) }]),
+          ...(shared ? [] : [{ label: t('Ajouter un {timetable} (lien ou fichier .ics)', { timetable: words.timetable }), icon: <CalendarArrowDown />, onClick: () => setImporting({}) }]),
         ],
   );
   const [fileOver, setFileOver] = useState(false);

@@ -19,6 +19,7 @@ import { cx } from '../lib/utils';
 import { adminPendingCount, checkIsAdmin, cloudEnabled } from '../lib/supabase';
 import { prefetchGroups, useGroups } from '../store/groups';
 import { startReminders } from '../lib/reminderScheduler';
+import { startFeedRefresh } from '../lib/icsFeeds';
 import { useAgendaNews, totalAgendaNews, watchAgendaNews } from '../store/agendaNews';
 import { useUi } from '../store/ui';
 import { useGroupActivity, totalUnread } from '../store/groupActivity';
@@ -379,6 +380,8 @@ export default function AppShell() {
   }, [user.id]);
   // Rappels des événements et des tâches (dans l'appli, et par notifications push en ligne).
   useEffect(() => startReminders(user.id), [user.id]);
+  // Timetables followed by link: read again when due (lib/icsFeeds).
+  useEffect(() => startFeedRefresh(), [user.id]);
 
   // Nouveautés dans les groupes : pastilles + notifications (version en ligne).
   useEffect(() => {

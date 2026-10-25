@@ -1,10 +1,11 @@
-import { useMemo, useRef, useState } from 'react';
-import { CalendarArrowDown, FileUp } from 'lucide-react';
+import { useMemo, useRef, useState, type FormEvent } from 'react';
+import { CalendarArrowDown, FileUp, Link2, Loader2, RefreshCw, X } from 'lucide-react';
 import { Modal } from '../../components/Overlays';
 import { catOf, guessCategory, useCalendar, type EventCategory, type NewEvent } from '../../store/calendar';
 import { cancelledBy, isIcsFile, parseIcs, type IcsEvent } from '../../lib/ics';
 import { fmt, fromKey, todayKey } from '../../lib/dates';
-import { toast } from '../../store/ui';
+import { confirmAction, toast } from '../../store/ui';
+import { FeedError, MAX_FEEDS, feedErrorText, refreshFeeds, subscribe, unsubscribe } from '../../lib/icsFeeds';
 import { useSettings } from '../../store/settings';
 import { WORDS } from '../../lib/usage';
 import { cx } from '../../lib/utils';
@@ -13,6 +14,101 @@ import { t, tn } from '../../i18n';
 export interface IcsSource {
   name: string;
   text: string;
+}
+
+/** Timetables followed by link: paste one, see them, read them again, stop following one (lib/icsFeeds). */
+function Feeds({ onAdded }: { onAdded: (firstDate: string) => void }) {
+  const feeds = useSettings(s => s.icsFeeds);
+  const [url, setUrl] = useState('');
+  const [busy, setBusy] = useState<'new' | 'all' | null>(null);
+  const [error, setError] = useState('');
+
+  const add = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!url.trim() || busy) return;
+    setBusy('new');
+    setError('');
+    try {
+      const { feed, plan } = await subscribe(url);
+      setUrl('');
+      toast(tn(plan.add.length, 'Abonné à « {name} » : {n} événement ajouté, mis à jour tout seul.', 'Abonné à « {name} » : {n} événements ajoutés, mis à jour tout seul.', { name: feed.name }), 'success');
+      if (plan.add[0]) onAdded(plan.add.reduce((a, b) => (b.date < a.date ? b : a)).date);
+    } catch (err) {
+      setError(feedErrorText(err instanceof FeedError ? err.code : 'unreachable'));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const refresh = async () => {
+    setBusy('all');
+    await refreshFeeds(true);
+    setBusy(null);
+    toast(t('Emplois du temps à jour'), 'success');
+  };
+
+  const stop = async (id: string, name: string) => {
+    if (await confirmAction(t('Ne plus suivre « {name} » ?', { name }), t('Ses événements à venir sont retirés du calendrier ; les passés restent.'), t('Se désabonner'))) unsubscribe(id);
+  };
+
+  return (
+    <div className="mt-4">
+      <p className="mb-1.5 flex items-center gap-1.5 text-[13px] font-medium">
+        <Link2 size={14} /> {t('S’abonner avec un lien')}
+      </p>
+      <form onSubmit={add} className="flex gap-2">
+        <input
+          value={url}
+          onChange={e => (setUrl(e.target.value), setError(''))}
+          inputMode="url"
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
+          placeholder="https://… .ics"
+          aria-label={t('Lien du calendrier (.ics)')}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? 'feed-error' : undefined}
+          disabled={feeds.length >= MAX_FEEDS}
+          className="field h-10 min-w-0 flex-1"
+        />
+        <button type="submit" className="btn-primary h-10 shrink-0" disabled={!url.trim() || !!busy || feeds.length >= MAX_FEEDS}>
+          {busy === 'new' ? <Loader2 size={15} className="animate-spin" /> : null} {t('S’abonner')}
+        </button>
+      </form>
+      {error && <p id="feed-error" role="alert" className="mt-1.5 text-[12.5px] font-medium text-red-600 dark:text-red-400">{error}</p>}
+      <p className="mt-1.5 text-[12px] text-stone-500">{t('Mis à jour tout seul toutes les 3 heures. Le lien se trouve dans « Exporter » ou « Lien iCal » de ton ENT (Hyperplanning, ADE, Moodle) ; Google Agenda : paramètres de l’agenda › « Adresse secrète au format iCal ».')}</p>
+
+      {feeds.length > 0 && (
+        <div className="mt-3 rounded-xl border border-stone-200">
+          <ul className="divide-y divide-stone-100">
+            {feeds.map(f => (
+              <li key={f.id} className="flex items-center gap-2 py-2 pl-3 pr-1.5">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[13px] font-medium">{f.name}</p>
+                  {f.error ? (
+                    <p className="text-[12px] text-red-600 dark:text-red-400">{feedErrorText(f.error)}</p>
+                  ) : (
+                    f.lastSync && <p className="text-[12px] text-stone-500">{t('Mis à jour le {when}', { when: fmt(new Date(f.lastSync), 'd MMM, HH:mm') })}</p>
+                  )}
+                </div>
+                <button type="button" className="icon-btn shrink-0 hover:text-red-600" title={t('Se désabonner')} aria-label={t('Se désabonner de « {name} »', { name: f.name })} onClick={() => void stop(f.id, f.name)}>
+                  <X size={15} />
+                </button>
+              </li>
+            ))}
+          </ul>
+          <div className="flex items-center justify-between gap-2 border-t border-stone-100 px-3 py-1.5">
+            <p className="text-[11.5px] text-stone-500">{t('Les cours suivent le lien : un changement fait ici peut être remplacé à la mise à jour.')}</p>
+            <button type="button" className="btn-ghost h-8 shrink-0 px-2 text-[12.5px]" disabled={!!busy} onClick={() => void refresh()}>
+              <RefreshCw size={13} className={cx(busy === 'all' && 'animate-spin')} /> {t('Actualiser')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <p className="eyebrow mt-5">{t('Ou importer un fichier, une fois')}</p>
+    </div>
+  );
 }
 
 /** In a timetable, a TD or TP slot is a class, not homework. */
@@ -110,6 +206,12 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
 
       {!source ? (
         <>
+          <Feeds
+            onAdded={d => {
+              onImported(d);
+              onClose();
+            }}
+          />
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
@@ -124,7 +226,7 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
               setOver(false);
               void read(e.dataTransfer.files[0]);
             }}
-            className={cx('mt-4 flex w-full flex-col items-center rounded-xl border-[1.5px] border-dashed px-4 py-8 text-center transition-colors', over ? 'border-brand-500 bg-brand-50' : 'border-stone-200 hover:border-stone-300 hover:bg-stone-50')}
+            className={cx('mt-2 flex w-full flex-col items-center rounded-xl border-[1.5px] border-dashed px-4 py-6 text-center transition-colors', over ? 'border-brand-500 bg-brand-50' : 'border-stone-200 hover:border-stone-300 hover:bg-stone-50')}
           >
             <FileUp size={22} className="text-stone-400" />
             <span className="mt-2 text-[14px] font-medium">{t('Choisir un fichier .ics')}</span>
@@ -150,7 +252,6 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
               <span className="font-medium text-ink">{t('Google Agenda')}</span>
               {t('\u00a0: Paramètres › Importer et exporter › Exporter (puis décompresse le .zip).')}
             </p>
-            <p className="text-[12px] text-stone-500">{t('Un lien d’abonnement (URL) ne marche pas\u00a0: télécharge le fichier.')}</p>
           </div>
 
           <div className="mt-5 flex justify-end">
