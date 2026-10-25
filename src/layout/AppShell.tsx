@@ -1,9 +1,8 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutGrid, Mic, House, FolderClosed, CalendarDays, CalendarRange, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn, ListChecks, Users, Trash2, ArrowLeftRight, UserRound, UserPlus, LogOut, MessageSquareText, Sparkles, X } from 'lucide-react';
+import { LayoutGrid, Mic, House, FolderClosed, CalendarDays, CalendarRange, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn, ListChecks, Users, Trash2, ArrowLeftRight, UserRound, UserPlus, LogOut, Sparkles, X } from 'lucide-react';
 import { EmptyState } from '../components/EmptyState';
 import { FeedbackDialog } from '../components/FeedbackDialogs';
-import { openFeedback } from '../lib/feedback';
 import { confirmLogout, useAuth } from '../store/auth';
 import { loadUserData } from '../store/session';
 import Copilot from '../copilot/Copilot';
@@ -496,37 +495,14 @@ export default function AppShell() {
             </NavLink>
           )}
         </nav>
-        <NavLink
-          to="/corbeille"
-          aria-label={trashLabel}
-          className={({ isActive }) =>
-            cx(
-              'mt-2 flex h-10 items-center gap-3 rounded-lg border px-2.5 text-[14px] transition-colors',
-              isActive ? 'border-stone-200 bg-surface font-medium text-ink shadow-card' : 'border-transparent text-stone-500 hover:bg-stone-100 hover:text-ink',
-            )
-          }
-        >
-          <Trash2 size={18} strokeWidth={1.9} />
-          <span className="flex-1">{t('Corbeille')}</span>
-          {trashCount > 0 && <span className="tabular text-[11px] text-stone-500">{trashCount}</span>}
-        </NavLink>
         {/* Computers; phones and tablets have it at the top of Profil (pages/profile), the corner is the « + » button's. */}
         <button
           type="button"
           onClick={() => openNews()}
-          className="flex h-10 items-center gap-3 rounded-lg px-2.5 text-left text-[14px] text-stone-500 transition-colors hover:bg-stone-100 hover:text-ink"
+          className="my-2 flex h-10 items-center gap-3 rounded-lg px-2.5 text-left text-[14px] text-stone-500 transition-colors hover:bg-stone-100 hover:text-ink"
         >
           <Sparkles size={18} strokeWidth={1.9} aria-hidden />
           {t('Nouveautés')}
-        </button>
-        <button
-          type="button"
-          onClick={() => openFeedback()}
-          title={t('Donner mon avis ou signaler un bug')}
-          className="mb-2 flex h-10 items-center gap-3 rounded-lg px-2.5 text-left text-[14px] text-stone-500 transition-colors hover:bg-stone-100 hover:text-ink"
-        >
-          <MessageSquareText size={18} strokeWidth={1.9} aria-hidden />
-          {t('Avis ou bug')}
         </button>
         <FocusTimer />
         <div className="flex items-center gap-1">
@@ -566,6 +542,11 @@ export default function AppShell() {
           >
             <Search size={18} strokeWidth={1.9} />
           </button>
+          {/* Computers: a small bin at the top right (phones: in « Plus »). */}
+          <NavLink to="/corbeille" className={({ isActive }) => cx('icon-btn relative ml-auto hidden lg:inline-flex', isActive && 'bg-stone-100 text-ink')} title={t('Corbeille')} aria-label={trashLabel}>
+            <Trash2 size={18} strokeWidth={1.9} />
+            {trashCount > 0 && <span className="tabular absolute -right-0.5 -top-0.5 min-w-[16px] rounded-full bg-stone-500 px-1 text-center text-[10px] font-semibold leading-4 text-white" aria-hidden>{trashCount > 99 ? '99+' : trashCount}</span>}
+          </NavLink>
           <NavLink to="/profil" className="hit inline-flex h-9 w-9 items-center justify-center rounded-full lg:hidden" title={t('Profil et réglages')} aria-label={t('Profil et réglages')}>
             <Avatar size={30} />
           </NavLink>

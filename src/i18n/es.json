@@ -244,7 +244,6 @@
  "Avec « Rester connecté » (case de la page de connexion), ton compte reste proposé sur la page de connexion de cet appareil (prénom, e-mail et session) pour l’ouvrir en un clic, même après une déconnexion ; au bout de 14 jours sans l’ouvrir, le mot de passe est redemandé. « Retirer de cet appareil » (la croix à côté du compte) l’efface et ferme sa session. Sans cette case, la déconnexion efface la copie et la session.": "Con «Mantener la sesión iniciada» (casilla de la página de inicio de sesión), tu cuenta sigue apareciendo en la página de inicio de sesión de este dispositivo (nombre, correo y sesión) para abrirla en un clic, incluso después de cerrar sesión; tras 14 días sin abrirla, se vuelve a pedir la contraseña. «Quitar de este dispositivo» (la cruz junto a la cuenta) la borra y cierra su sesión. Sin esa casilla, al cerrar sesión se borran la copia y la sesión.",
  "Avis": "Opinión",
  "Avis et bugs": "Opiniones y errores",
- "Avis ou bug": "Opinión o error",
  "BTS / BUT": "FP",
  "BU, salle B204… ou https://…": "Biblioteca, aula B204… o https://…",
  "Badges": "Insignias",

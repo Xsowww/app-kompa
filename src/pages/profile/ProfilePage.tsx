@@ -162,11 +162,11 @@ function ProfileTab() {
 
   return (
     <div className="space-y-5">
-      {/* Phones and tablets: here rather than in a corner of every page (the « + » button's); computers: the sidebar. */}
+      {/* Here rather than in a corner of every page (the « + » button's). « Nouveautés »: in the sidebar on computers. */}
       <button
         type="button"
         onClick={() => openFeedback()}
-        className="card flex h-12 w-full items-center gap-3 px-4 text-left text-[14px] font-medium text-stone-700 transition-colors hover:bg-stone-50 lg:hidden"
+        className="card flex h-12 w-full items-center gap-3 px-4 text-left text-[14px] font-medium text-stone-700 transition-colors hover:bg-stone-50"
       >
         <MessageSquareText size={18} strokeWidth={1.9} className="text-stone-500" aria-hidden />
         <span className="flex-1">{t('Donner mon avis ou signaler un bug')}</span>

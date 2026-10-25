@@ -91,3 +91,15 @@ export function CopilotAvatar({ size = 28 }: { size?: number }) {
     </span>
   );
 }
+
+/** The drone standing still with its face on, for a picture (« Nouveautés »). */
+export function DroneStill({ mood = 'happy', className }: { mood?: CopilotMood; className?: string }) {
+  return (
+    <span className={`relative inline-block ${className ?? ''}`} aria-hidden>
+      <img src="/kompaly/drone.webp" alt="" width={360} height={225} draggable={false} className="block h-full w-auto" />
+      <svg viewBox="0 0 100 80" className="absolute overflow-visible" style={{ left: '28.9%', top: '10.9%', width: '36%', height: '45.9%', filter: GLOW }}>
+        <Face mood={mood} x={0} y={0} blink={false} />
+      </svg>
+    </span>
+  );
+}

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BellRing, CalendarRange, ChevronLeft, ChevronRight, FolderDown, Link2, Repeat, ScanText, Sparkles } from 'lucide-react';
 import { Modal } from './Overlays';
+import { DroneStill } from '../copilot/Character';
 import { RELEASES, useNews, type NewsIcon } from '../lib/news';
 import { useSettings } from '../store/settings';
 import { fmtDay, fromKey } from '../lib/dates';
@@ -45,7 +46,7 @@ export default function NewsDialog() {
         </span>
       </p>
       <div key={page} className={cx('enter mt-3 flex h-40 items-center justify-center rounded-2xl bg-gradient-to-br', TINTS[item.icon])}>
-        {Icon ? <Icon size={56} strokeWidth={1.6} aria-hidden /> : <img src="/kompaly/drone.webp" alt="" width={180} height={112} className="h-28 w-auto drop-shadow-[0_6px_10px_rgba(0,0,0,0.25)]" />}
+        {Icon ? <Icon size={56} strokeWidth={1.6} aria-hidden /> : <DroneStill className="h-28 drop-shadow-[0_6px_10px_rgba(0,0,0,0.25)]" />}
       </div>
       <h3 className="mt-4 text-[18px] font-semibold tracking-[-0.01em]">{item.title}</h3>
       <p className="mt-1.5 min-h-[3.75rem] text-[14px] leading-relaxed text-stone-600">{item.text}</p>

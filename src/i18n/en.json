@@ -244,7 +244,6 @@
  "Avec « Rester connecté » (case de la page de connexion), ton compte reste proposé sur la page de connexion de cet appareil (prénom, e-mail et session) pour l’ouvrir en un clic, même après une déconnexion ; au bout de 14 jours sans l’ouvrir, le mot de passe est redemandé. « Retirer de cet appareil » (la croix à côté du compte) l’efface et ferme sa session. Sans cette case, la déconnexion efface la copie et la session.": "With “Stay logged in” (a box on the login page), your account stays listed on this device’s login page (first name, email and session) so you can open it in one click, even after logging out; after 14 days without opening it, your password is asked for again. “Remove from this device” (the cross next to the account) erases it and ends its session. Without this box, logging out erases the copy and the session.",
  "Avis": "Feedback",
  "Avis et bugs": "Feedback and bugs",
- "Avis ou bug": "Feedback or bug",
  "BTS / BUT": "HNC / HND",
  "BU, salle B204… ou https://…": "Library, room B204… or https://…",
  "Badges": "Badges",
