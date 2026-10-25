@@ -3,7 +3,7 @@
 // id is made from that mark, so two devices refreshing the same link make the same event, never a twin.
 // The server downloads the link (server/icsFeed.mjs): other sites don't let a page read them.
 
-import { guessCategory, useCalendar, type CalendarEvent } from '../store/calendar';
+import { timetableCategory, useCalendar, type CalendarEvent } from '../store/calendar';
 import { getSettings, useSettings } from '../store/settings';
 import { parseIcs, type IcsEvent } from './ics';
 import { accessToken } from './supabase';
@@ -66,6 +66,17 @@ export async function downloadFeed(url: string): Promise<string> {
   return res.text();
 }
 
+/**
+ * A short name to show: Hyperplanning's « HYP - NOM Prénom 01/01/2000 (12345 - Ville | DCGA MAST1) » becomes
+ * « Hyperplanning · DCGA MAST1 » (no birth date on every class).
+ */
+export function feedLabel(name: string): string {
+  const hp = /^HYP\s*-.*\(([^()]*)\)\s*$/i.exec(name);
+  if (!hp) return name;
+  const group = hp[1].replace(/^\s*\d+\s*-\s*/, '').split('|').pop()!.trim();
+  return group ? `Hyperplanning · ${group}` : 'Hyperplanning';
+}
+
 /** The calendar's own name (X-WR-CALNAME), else the site's. */
 export function feedName(text: string, url: string): string {
   // Folded lines joined first; « … - du 01 septembre 2025 au 11 octobre 2026 » (Hyperplanning) left out.
@@ -74,7 +85,7 @@ export function feedName(text: string, url: string): string {
     ?.replace(/\\([,;])/g, '$1')
     .replace(/\s+-\s+du\s+\d.*$/i, '')
     .trim();
-  if (own) return own.slice(0, 60);
+  if (own) return feedLabel(own).slice(0, 60);
   try {
     return new URL(url.replace(/^webcals?:/i, 'https:')).hostname.replace(/^www\./, '');
   } catch {
@@ -95,7 +106,7 @@ export const feedMark = (feedId: string) => `feed:${feedId}:`;
 
 export interface FeedPlan {
   add: CalendarEvent[];
-  updates: { id: string; patch: Pick<CalendarEvent, 'title' | 'date' | 'start' | 'end' | 'details'> }[];
+  updates: { id: string; patch: Pick<CalendarEvent, 'title' | 'date' | 'start' | 'end' | 'details'> & Partial<Pick<CalendarEvent, 'category'>> }[];
   remove: string[];
 }
 
@@ -116,10 +127,13 @@ export function planFeed(feedId: string, items: (IcsEvent & { id: string })[], e
     seen.add(it.id);
     const old = mine.get(it.id);
     if (old) {
-      const patch = { title: it.title, date: it.date, start: it.start, end: it.end, details: it.details };
+      const patch: FeedPlan['updates'][number]['patch'] = { title: it.title, date: it.date, start: it.start, end: it.end, details: it.details };
+      // Left « Perso » by an older guess: a class now (a category chosen by the student is kept).
+      const category = timetableCategory(it.title, !!it.start);
+      if (old.category === 'perso' && category !== 'perso') patch.category = category;
       if ((Object.keys(patch) as (keyof typeof patch)[]).some(k => (old[k] ?? undefined) !== (patch[k] ?? undefined))) plan.updates.push({ id: it.id, patch });
     } else if (!taken.has(it.id) && (pastToo || it.date >= today)) {
-      plan.add.push({ id: it.id, title: it.title, date: it.date, start: it.start, end: it.end, details: it.details, externalId: mark + it.externalId, category: guessCategory(it.title, !!it.start), done: false, createdAt: now });
+      plan.add.push({ id: it.id, title: it.title, date: it.date, start: it.start, end: it.end, details: it.details, externalId: mark + it.externalId, category: timetableCategory(it.title, !!it.start), done: false, createdAt: now });
     }
   }
   for (const e of mine.values()) if (!seen.has(e.id) && e.date >= today) plan.remove.push(e.id);

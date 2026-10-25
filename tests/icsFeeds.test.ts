@@ -6,7 +6,7 @@ Object.assign(globalThis, {
   location: new URL('http://localhost/'),
   localStorage: { getItem: (k: string) => memory.get(k) ?? null, setItem: (k: string, v: string) => memory.set(k, v), removeItem: (k: string) => memory.delete(k) },
 });
-const { planFeed, stableId, feedName, feedMark } = await import('../src/lib/icsFeeds');
+const { planFeed, stableId, feedName, feedMark, feedLabel } = await import('../src/lib/icsFeeds');
 
 const ev = (id: string, date: string, extra: Partial<CalendarEvent> = {}): CalendarEvent => ({ id, title: 'Maths', date, start: '08:00', category: 'cours', done: false, createdAt: 'x', externalId: feedMark('f1') + id, ...extra });
 const it_ = (id: string, date: string, title = 'Maths', start = '08:00') => ({ id, externalId: id, title, date, start });
@@ -26,6 +26,10 @@ describe('abonnement à un emploi du temps', () => {
     expect(plan.add).toEqual([]);
     expect(plan.remove).toEqual([]);
   });
+  it('a class left « Perso » by an older guess becomes a class; one chosen by hand stays', () => {
+    const plan = planFeed('f1', [it_('a', '2026-11-02', 'Welcome Day 7'), it_('b', '2026-11-03', 'Welcome Day 7')], [ev('a', '2026-11-02', { category: 'perso', title: 'Welcome Day 7' }), ev('b', '2026-11-03', { category: 'sport', title: 'Welcome Day 7' })], [], '2026-10-25');
+    expect(plan.updates).toEqual([{ id: 'a', patch: expect.objectContaining({ category: 'cours' }) }]);
+  });
   it('a link with only the past, when asked: its past is added', () => {
     expect(planFeed('f1', [it_('p', '2026-07-03')], [], [], '2026-10-25').add).toEqual([]);
     expect(planFeed('f1', [it_('p', '2026-07-03')], [], [], '2026-10-25', 'x', true).add.map(e => e.date)).toEqual(['2026-07-03']);
@@ -39,6 +43,7 @@ describe('abonnement à un emploi du temps', () => {
   it('its name', () => {
     expect(feedName('BEGIN:VCALENDAR\nX-WR-CALNAME:L2 Droit\\, groupe 3\n', 'https://x.fr')).toBe('L2 Droit, groupe 3');
     expect(feedName('BEGIN:VCALENDAR\n', 'webcal://www.hyperplanning.fr/x')).toBe('hyperplanning.fr');
-    expect(feedName('BEGIN:VCALENDAR\r\nX-WR-CALNAME;LANGUAGE=fr:HYP - DUPONT Lina (Aix-en-Prove\r\n nce | M1) - du 01 septembre 2025 au 11 octobre 2026\r\n', 'https://x.fr')).toBe('HYP - DUPONT Lina (Aix-en-Provence | M1)');
+    expect(feedName('BEGIN:VCALENDAR\r\nX-WR-CALNAME;LANGUAGE=fr:HYP - DUPONT Lina 01/02/2003 (11192 - Aix-en-Prove\r\n nce | DCGA MAST1) - du 01 septembre 2025 au 11 octobre 2026\r\n', 'https://x.fr')).toBe('Hyperplanning · DCGA MAST1');
+    expect(feedLabel('L2 Droit')).toBe('L2 Droit');
   });
 });

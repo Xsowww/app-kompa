@@ -108,3 +108,15 @@ describe('export', () => {
     expect(foldLine('SUMMARY:TD')).toBe('SUMMARY:TD');
   });
 });
+
+describe('emploi du temps Hyperplanning : titre et notes courts', () => {
+  it('the subject as title, the room once, no class list nor memo', () => {
+    const text = ['BEGIN:VCALENDAR', 'BEGIN:VEVENT', 'UID:hp1', 'DTSTART:20261102T073000Z', 'DTEND:20261102T110000Z',
+      'SUMMARY:Welcome Day 7 - Aix-en-Provence | DCGA MAST1\\, Aix-en-Provence | EANI3D MAST1 - CAMPUS - FFP', 'LOCATION:Salle 307',
+      'DESCRIPTION:Matière : Welcome Day 7\\nEnseignant : M. Martin\\nClasses : Aix-en-Provence | DCGA MAST1\\nSalle : Salle 307\\nMémo : CAMPUS\\nType : FFP',
+      'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
+    const [e] = parseIcs(text, { now: new Date(2026, 9, 1) });
+    expect(e.title).toBe('Welcome Day 7');
+    expect(e.details).toBe('Salle 307\nEnseignant : M. Martin');
+  });
+});

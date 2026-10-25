@@ -90,6 +90,8 @@ export interface GroupEvent {
   people: string[];
   /** Shared calendars: reminders in minutes before the start, sent to each member it is for (migration 2026-10-27). */
   reminders: number[];
+  /** Shared calendars: same id on every occurrence of an event that repeats or lasts several days (migration 2026-10-31). */
+  series: string | null;
 }
 
 export interface Attendance {
@@ -97,7 +99,7 @@ export interface Attendance {
   userId: string;
 }
 
-export type NewGroupEvent = Pick<GroupEvent, 'title' | 'date' | 'start' | 'end' | 'place'> & Partial<Pick<GroupEvent, 'category' | 'details' | 'people' | 'reminders'>>;
+export type NewGroupEvent = Pick<GroupEvent, 'title' | 'date' | 'start' | 'end' | 'place'> & Partial<Pick<GroupEvent, 'category' | 'details' | 'people' | 'reminders' | 'series'>>;
 
 type Row = Record<string, unknown>;
 const s = (v: unknown) => (v == null ? null : String(v));
@@ -146,6 +148,7 @@ export const toEvent = (r: Row): GroupEvent => ({
   createdAt: String(r.created_at),
   people: Array.isArray(r.people) ? r.people.map(String) : [],
   reminders: Array.isArray(r.reminders) ? r.reminders.map(Number).filter(n => Number.isInteger(n) && n >= 0) : [],
+  series: s(r.series),
 });
 
 function db(): SupabaseClient {
@@ -374,6 +377,25 @@ export async function createEvent(groupId: string, e: NewGroupEvent): Promise<Gr
   if (noPeopleColumn(res.error)) throw new Refused(PEOPLE_MISSING);
   if (noRemindersColumn(res.error)) throw new Refused(AGENDA_MISSING);
   return toEvent(check(res) as Row);
+}
+
+/** Repeats and events over several days need migration 2026-10-31. */
+const SERIES_MISSING = t('Répéter ou faire durer un événement sur plusieurs jours dans un agenda partagé demande une mise à jour du serveur (migration 2026-10-31).');
+const noSeriesColumn = (e: { code?: string; message?: string } | null) => e?.code === 'PGRST204' && /series/.test(e.message ?? '');
+
+/** Several events at once (a repeat, the days of an event): one request, one « Ajouté » for the others. */
+export async function createEvents(groupId: string, list: NewGroupEvent[]): Promise<void> {
+  const rows = list.map(e => ({ group_id: groupId, title: e.title, date: e.date, start_time: e.start, end_time: e.end, place: e.place, category: e.category ?? null, details: e.details ?? null, ...(e.people?.length && { people: e.people }), ...(e.reminders?.length && { reminders: e.reminders }), series: e.series ?? null }));
+  const res = await db().from('group_events').insert(rows);
+  if (noSeriesColumn(res.error)) throw new Refused(SERIES_MISSING);
+  if (noPeopleColumn(res.error)) throw new Refused(PEOPLE_MISSING);
+  if (noRemindersColumn(res.error)) throw new Refused(AGENDA_MISSING);
+  check(res);
+}
+
+/** Deletes several events (« this one and the next ones »). */
+export async function deleteEvents(ids: string[]) {
+  changed(await db().from('group_events').delete().in('id', ids).select('id'), t('Seul l’auteur ou le propriétaire peut le faire.'));
 }
 
 /** Shared calendars: any editor changes any event (the database checks it). */

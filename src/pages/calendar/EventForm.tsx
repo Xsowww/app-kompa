@@ -4,8 +4,8 @@ import { Check, FileText, Flag, Link2, Plus, Trash2 } from 'lucide-react';
 import SeriesIcon from './SeriesIcon';
 import { Modal } from '../../components/Overlays';
 import { useNotes } from '../../store/notes';
-import { catOf, allCategories, guessCategory, isBigEvent, nextInSeries, useCalendar, type CalendarEvent, type EventCategory } from '../../store/calendar';
-import { askSeriesScope, confirmRemoveEvent, removeMine, useCalendarSource } from './source';
+import { catOf, allCategories, guessCategory, isBigEvent, nextInSeries, type CalendarEvent, type EventCategory } from '../../store/calendar';
+import { askSeriesScope, removeEvent, useCalendarSource } from './source';
 import PeoplePicker from './PeoplePicker';
 import { useSettings } from '../../store/settings';
 import { toast } from '../../store/ui';
@@ -19,7 +19,7 @@ import { fmtDay, fromKey, parseQuickAdd } from '../../lib/dates';
 import { cleanReminders, earlyReminders, eventReminders, followMoments } from '../../lib/reminders';
 import { covers } from '../../lib/periods';
 import { MAX_SPAN_DAYS, REPEATS, dayShift, defaultUntil, isSpan, repeatDays, shiftKey, spanDays, type Repeat } from '../../lib/repeat';
-import { feedOf } from '../../lib/icsFeeds';
+import { feedLabel, feedOf } from '../../lib/icsFeeds';
 import { uid } from '../../lib/utils';
 import { t, tn } from '../../i18n';
 
@@ -42,7 +42,8 @@ interface Props {
 
 export default function EventForm({ event, date, start: initialStart, end: initialEnd, title: initialTitle, onClose, onSaved }: Props) {
   // My calendar or a shared one (no « important » there; its own categories, and reminders for each member it is for).
-  const { add, update, remove, shared, categories: custom, periods } = useCalendarSource();
+  const source = useCalendarSource();
+  const { add, addMany, update, updateSeries, shared, categories: custom, periods, events: allEvents } = source;
   const [title, setTitle] = useState(event?.title ?? initialTitle ?? '');
   const [day, setDay] = useState(event?.date ?? date);
   const [start, setStart] = useState(event?.start ?? initialStart ?? '');
@@ -70,7 +71,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
   const impossible = !!parsed?.impossible && !dayByHand;
   const cleanTitle = understood ? parsed.title : title.trim();
   // Repeating: my own calendar, a new event (« tous les mardis » in the title chooses « Chaque semaine »).
-  const canRepeat = !event && !shared;
+  const canRepeat = !event;
   const [repeat, setRepeat] = useState<Repeat | ''>(() => (canRepeat && initialTitle && parseQuickAdd(initialTitle).weekly ? 'week' : ''));
   const [until, setUntil] = useState('');
   const lastDay = until || (day ? defaultUntil(day) : '');
@@ -80,7 +81,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
   const skipIds = skipped ?? around.filter(p => HOLIDAYS.test(p.title)).map(p => p.id);
   const series = repeat && day ? repeatDays(day, repeat, lastDay, k => periods.some(p => skipIds.includes(p.id) && covers(p, k))) : null;
   // Over several days (a seminar, a trip): one event a day, linked (lib/repeat spanDays). Not with a repeat.
-  const canSpan = !event && !shared && !repeat;
+  const canSpan = !event && !repeat;
   const [endDay, setEndDay] = useState<string | null>(null); // null: ends the same day
   const spanning = canSpan && !!endDay && !!day && endDay > day;
   const endDayMsg = canSpan && endDay && day && endDay <= day ? t('Le jour de fin doit être après le jour de début.') : '';
@@ -121,24 +122,24 @@ export default function EventForm({ event, date, start: initialStart, end: initi
     if (!day || timeMsg || endDayMsg || impossible || (series && !series.days.length)) return;
     // An end without a start can't be sent: the start field is required then (see below).
     const data = { title: cleanTitle, date: day, start: start || undefined, end: start && end ? end : undefined, category: effective, details: details.trim() || undefined, important: important || undefined, reminders: chosen, ...(shared && { people }) };
-    if (event && !shared && event.series) {
-      const scope = await askSeriesScope(event, 'edit');
+    if (event?.series) {
+      const scope = await askSeriesScope(event, 'edit', allEvents);
       if (!scope) return;
       if (scope === 'next' && isSpan(event.series)) {
         // The next days of an event over several days keep their own times and days: only the rest follows.
         const { start: _s, end: _e, date: _d, reminders: _r, ...rest } = data;
-        useCalendar.getState().updateSeries(event.id, rest);
+        updateSeries(event.id, rest);
         update(event.id, data);
-      } else if (scope === 'next') useCalendar.getState().updateSeries(event.id, data);
+      } else if (scope === 'next') updateSeries(event.id, data);
       else update(event.id, data);
     } else if (event) update(event.id, data);
     else if (series) {
       const id = uid();
-      useCalendar.getState().addMany(series.days.map(d => ({ ...data, date: d, series: id })));
+      addMany(series.days.map(d => ({ ...data, date: d, series: id })));
     } else if (spanning) {
       const id = `span-${uid()}`;
       // The first day keeps the reminders; the others none (« 15 min avant » 0:00 would ring at midnight).
-      useCalendar.getState().addMany(spanDays(day, endDay!, start || undefined, end || undefined).map((p, i) => ({ ...data, ...p, start: p.start, end: p.end, series: id, reminders: i ? [] : data.reminders })));
+      addMany(spanDays(day, endDay!, start || undefined, end || undefined).map((p, i) => ({ ...data, ...p, start: p.start, end: p.end, series: id, reminders: i ? [] : data.reminders })));
     } else add(data);
     toast(
       event
@@ -163,10 +164,10 @@ export default function EventForm({ event, date, start: initialStart, end: initi
         {event && !shared && (f => f && (
           <p className="mt-1 flex items-center gap-1.5 text-[12px] text-stone-500">
             <Link2 size={12} aria-hidden />
-            {t('Vient de l’emploi du temps « {name} » : mis à jour par le lien.', { name: f.name })}
+            <span className="min-w-0 truncate">{t('Vient de l’emploi du temps « {name} » : mis à jour par le lien.', { name: feedLabel(f.name) })}</span>
           </p>
         ))(feedOf(event, feeds))}
-        {event?.series && !shared && (
+        {event?.series && (
           <p className="mt-1 flex items-center gap-1.5 text-[12px] text-stone-500">
             <SeriesIcon series={event.series} size={12} />
             {(n =>
@@ -176,7 +177,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
                   : t('Dernier jour de l’événement')
                 : n
                   ? t('Se répète : encore {n} fois après celui-ci', { n })
-                  : t('Dernier d’une répétition'))(nextInSeries(event, useCalendar.getState().events).length)}
+                  : t('Dernier d’une répétition'))(nextInSeries(event, allEvents).length)}
           </p>
         )}
         <input
@@ -205,7 +206,6 @@ export default function EventForm({ event, date, start: initialStart, end: initi
                 .filter(Boolean)
                 .join(' · '),
             })}
-            {parsed.weekly && !canRepeat && <span className="block">{t('Une seule fois\u00a0: pas encore de répétition.')}</span>}
           </p>
         )}
         {impossible && !titleError && <p className="mt-1.5 text-[12px] font-medium text-red-600 dark:text-red-400" role="alert">{t('Cette date n’existe pas : corrige-la pour ajouter.')}</p>}
@@ -412,8 +412,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
               type="button"
               className="btn-ghost text-red-600 hover:bg-red-50 hover:text-red-700"
               onClick={async () => {
-                if (shared ? !(await confirmRemoveEvent(event, shared)) : !(await removeMine(event))) return;
-                if (shared) remove(event.id);
+                if (!(await removeEvent(event, source))) return;
                 onClose();
               }}
             >

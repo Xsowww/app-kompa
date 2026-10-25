@@ -222,6 +222,12 @@ function fresh(e: NewEvent): CalendarEvent {
 export const nextInSeries = (ev: Pick<CalendarEvent, 'series' | 'date' | 'id'>, events: CalendarEvent[]) =>
   ev.series ? events.filter(e => e.series === ev.series && e.date > ev.date && e.id !== ev.id) : [];
 
+/** An event from a timetable (.ics): a class unless its title says otherwise (exam, homework, sport…). */
+export function timetableCategory(title: string, timed: boolean): EventCategory {
+  const c = guessCategory(title, timed);
+  return c === 'perso' && timed ? 'cours' : c;
+}
+
 export const sortEvents = (a: CalendarEvent, b: CalendarEvent) =>
   a.date.localeCompare(b.date) || (a.start ?? '99').localeCompare(b.start ?? '99');
 

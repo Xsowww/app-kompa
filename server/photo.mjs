@@ -112,13 +112,19 @@ const tryNext = (status, detail) => status === 404 || (status === 400 && /not fo
 async function geminiRead(vision, photos, system, ask) {
   const deadline = Date.now() + TIMEOUT_MS;
   let last = null;
-  for (const model of vision.models) {
+  const tried = [];
+  // How little the model may think: 2.5 models take a budget (0 = none); later ones a level (« minimal », else « low »);
+  // a model that refuses the setting is asked again without it.
+  const thinking = model => (/2\.5/.test(model) ? [{ thinkingBudget: 0 }, null] : [{ thinkingLevel: 'minimal' }, { thinkingLevel: 'low' }, null]);
+  const attempts = vision.models.flatMap(model => thinking(model).map(config => ({ model, config })));
+  for (const { model, config } of attempts) {
+    if (tried.some(x => x.model === model && x.gone)) continue;
     const left = deadline - Date.now();
     if (left < 5000) break;
     const body = {
       systemInstruction: { parts: [{ text: system }] },
       contents: [{ role: 'user', parts: [{ text: ask }, ...photos.map(p => ({ inline_data: { mime_type: p.mime, data: p.data } }))] }],
-      generationConfig: { maxOutputTokens: 6000, temperature: 0.2, ...(/2\.5-flash/.test(model) && { thinkingConfig: { thinkingBudget: 0 } }) },
+      generationConfig: { maxOutputTokens: 6000, temperature: 0.2, ...(config && { thinkingConfig: config }) },
     };
     let res;
     try {
@@ -129,18 +135,20 @@ async function geminiRead(vision, photos, system, ask) {
         signal: AbortSignal.timeout(left),
       });
     } catch (e) {
-      throw new ProviderError(e?.name === 'TimeoutError' || e?.name === 'AbortError' ? 'timeout' : 'upstream', 504, `${model}: ${e?.message ?? ''}`);
+      throw new ProviderError(e?.name === 'TimeoutError' || e?.name === 'AbortError' ? 'timeout' : 'upstream', 504, [...tried.map(x => x.note), `${model}: trop long`].join(' · '));
     }
     const data = await res.json().catch(() => null);
     if (!res.ok) {
-      const detail = `${model}: ${String(data?.error?.message ?? res.statusText).slice(0, 160)}`;
-      last = new ProviderError(res.status === 400 && /api[ _]?key/i.test(detail) ? 'bad_key' : mapStatus(res.status), res.status, detail);
-      if (tryNext(res.status, detail)) continue;
+      const message = String(data?.error?.message ?? res.statusText).slice(0, 120);
+      // 404: Google no longer has this model (the next one is tried); 400 on the thinking setting: tried without it.
+      tried.push({ model, gone: res.status === 404, note: `${model} ${res.status}${config ? ` (${Object.values(config)[0]})` : ''}` });
+      last = new ProviderError(res.status === 400 && /api[ _]?key/i.test(message) ? 'bad_key' : mapStatus(res.status), res.status, [...tried.map(x => x.note), message].join(' · '));
+      if (tryNext(res.status, message)) continue;
       throw last;
     }
     const text = (data?.candidates?.[0]?.content?.parts ?? []).filter(p => !p.thought).map(p => p.text ?? '').join('').trim();
     if (!text) throw new ProviderError('upstream', 502, `${model}: réponse vide (${data?.candidates?.[0]?.finishReason ?? data?.promptFeedback?.blockReason ?? '?'})`);
-    photoStatus.model = model;
+    photoStatus.model = `${model}${config ? ` (${Object.values(config)[0]})` : ''}`;
     return text.replace(/^```(?:markdown|md)?\s*\n([\s\S]*?)\n```$/i, '$1').trim();
   }
   throw last ?? new ProviderError('timeout', 504, 'plus de temps');

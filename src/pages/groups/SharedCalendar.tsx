@@ -4,12 +4,13 @@ import { CalendarSourceContext, type CalendarSource } from '../calendar/source';
 import { CATEGORIES, applyUsage, type CalendarEvent, type CategoryScope, type CustomCategory, type EventCategory } from '../../store/calendar';
 import { useGroups } from '../../store/groups';
 import { toast } from '../../store/ui';
-import { createEvent, deleteEvent, deletePeriod, groupError, savePeriods, setAgendaCategories, updateEvent, type Group, type GroupEvent, type NewGroupEvent } from '../../lib/groups';
+import { createEvent, createEvents, deleteEvent, deleteEvents, deletePeriod, groupError, savePeriods, setAgendaCategories, updateEvent, type Group, type GroupEvent, type NewGroupEvent } from '../../lib/groups';
 import { useMemberName, useRights } from './util';
 import { LoadFailed } from './shared';
 import { useAuth } from '../../store/auth';
 import { sortPeriods } from '../../lib/periods';
-import { t } from '../../i18n';
+import { t, tn } from '../../i18n';
+import { dayShift, shiftKey } from '../../lib/repeat';
 import { useSettings } from '../../store/settings';
 
 /** A built-in category or one of the calendar's own; anything else (deleted since, mine) shows as Perso. */
@@ -29,6 +30,7 @@ const toCalendar = (e: GroupEvent, category: ReturnType<typeof categoryIn>): Cal
   createdAt: e.createdAt,
   ...(e.people.length && { people: e.people }),
   ...(e.reminders.length && { reminders: e.reminders }),
+  ...(e.series && { series: e.series }),
 });
 
 const toRow = (p: Partial<CalendarEvent>, category: ReturnType<typeof categoryIn>): Partial<NewGroupEvent> => ({
@@ -110,7 +112,7 @@ export default function SharedCalendar({ group }: { group: Group }) {
           });
       },
     };
-    return {
+    const self: CalendarSource = {
       shared: {
         group,
         canEdit,
@@ -135,6 +137,25 @@ export default function SharedCalendar({ group }: { group: Group }) {
             });
         send();
       },
+      addMany: list => {
+        const rows = list.map(e => ({ title: e.title, date: e.date, start: e.start ?? null, end: e.end ?? null, place: null, category: category(e.category), details: e.details ?? null, people: e.people ?? [], reminders: e.reminders ?? [], series: e.series ?? null }));
+        const send = () =>
+          void createEvents(group.id, rows)
+            .then(reload)
+            .catch(err => {
+              toast(t('« {title} » n’a pas été ajouté : {why}', { title: rows[0]?.title ?? '', why: groupError(err) }), 'error', { label: t('Réessayer'), run: send });
+              void reload();
+            });
+        send();
+      },
+      updateSeries: (id, patch) => {
+        const ev = list.find(e => e.id === id);
+        if (!ev?.series) return self.update(id, patch);
+        const shift = patch.date ? dayShift(ev.date, patch.date) : 0;
+        const { date: _d, ...rest } = patch;
+        self.update(id, patch);
+        for (const x of list.filter(e => e.series === ev.series && e.date > ev.date)) self.update(x.id, { ...rest, ...(shift && { date: shiftKey(x.date, shift) }) });
+      },
       update: (id, patch) => {
         const row = toRow(patch, category);
         const title = list.find(e => e.id === id)?.title ?? '';
@@ -147,6 +168,27 @@ export default function SharedCalendar({ group }: { group: Group }) {
         send();
       },
       toggleDone: () => undefined, // no « fait » in a shared calendar
+      removeMany: ids => {
+        let sent = false;
+        const send = () => {
+          if (sent) return;
+          sent = true;
+          clearTimeout(timer);
+          ids.forEach(id => pending.delete(id));
+          void deleteEvents(ids).catch(fail);
+        };
+        const timer = setTimeout(send, UNDO_MS);
+        ids.forEach(id => pending.set(id, send));
+        redraw(n => n + 1);
+        toast(tn(ids.length, '{n} événement supprimé de l’agenda', '{n} événements supprimés de l’agenda'), 'info', {
+          label: t('Annuler||l’action'),
+          run: () => {
+            clearTimeout(timer);
+            ids.forEach(id => pending.delete(id));
+            redraw(n => n + 1);
+          },
+        });
+      },
       remove: id => {
         const send = () => {
           clearTimeout(timer);
@@ -176,6 +218,7 @@ export default function SharedCalendar({ group }: { group: Group }) {
         void deletePeriod(id).then(reload).catch(fail);
       },
     };
+    return self;
   }, [raw, failed, periods, members, me, group, nameOf, canEdit]);
 
   return (

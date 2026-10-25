@@ -1,11 +1,11 @@
 import { useMemo, useRef, useState, type FormEvent } from 'react';
 import { CalendarArrowDown, FileUp, Link2, Loader2, RefreshCw, X } from 'lucide-react';
 import { Modal } from '../../components/Overlays';
-import { catOf, guessCategory, useCalendar, type EventCategory, type NewEvent } from '../../store/calendar';
+import { catOf, timetableCategory, useCalendar, type EventCategory, type NewEvent } from '../../store/calendar';
 import { cancelledBy, isIcsFile, parseIcs, type IcsEvent } from '../../lib/ics';
 import { fmt, fromKey, todayKey } from '../../lib/dates';
 import { confirmAction, toast } from '../../store/ui';
-import { FeedError, MAX_FEEDS, feedErrorText, feedMark, refreshFeeds, subscribe, unsubscribe } from '../../lib/icsFeeds';
+import { FeedError, MAX_FEEDS, feedLabel, feedErrorText, feedMark, refreshFeeds, subscribe, unsubscribe } from '../../lib/icsFeeds';
 import { useSettings } from '../../store/settings';
 import { WORDS } from '../../lib/usage';
 import { cx } from '../../lib/utils';
@@ -37,7 +37,7 @@ function Feeds({ onAdded }: { onAdded: (firstDate: string) => void }) {
     try {
       const { feed, plan } = await subscribe(url, pastToo);
       setUrl('');
-      toast(tn(plan.add.length, 'Abonné à « {name} » : {n} événement ajouté, mis à jour tout seul.', 'Abonné à « {name} » : {n} événements ajoutés, mis à jour tout seul.', { name: feed.name }), 'success');
+      toast(tn(plan.add.length, 'Abonné à « {name} » : {n} événement ajouté, mis à jour tout seul.', 'Abonné à « {name} » : {n} événements ajoutés, mis à jour tout seul.', { name: feedLabel(feed.name) }), 'success');
       if (plan.add[0]) onAdded(plan.add.reduce((a, b) => (b.date < a.date ? b : a)).date);
     } catch (err) {
       setError(err instanceof FeedError ? feedErrorText(err.code, err.last) : feedErrorText('unreachable'));
@@ -98,7 +98,7 @@ function Feeds({ onAdded }: { onAdded: (firstDate: string) => void }) {
             {feeds.map(f => (
               <li key={f.id} className="flex items-center gap-2 py-2 pl-3 pr-1.5">
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[13px] font-medium">{f.name}</p>
+                  <p className="truncate text-[13px] font-medium">{feedLabel(f.name)}</p>
                   {f.error ? (
                     <p className="text-[12px] text-red-600 dark:text-red-400">{feedErrorText(f.error)}</p>
                   ) : !upcoming(f.id) ? (
@@ -107,7 +107,7 @@ function Feeds({ onAdded }: { onAdded: (firstDate: string) => void }) {
                     f.lastSync && <p className="text-[12px] text-stone-500">{t('Mis à jour le {when}', { when: fmt(new Date(f.lastSync), 'd MMM, HH:mm') })}</p>
                   )}
                 </div>
-                <button type="button" className="icon-btn shrink-0 hover:text-red-600" title={t('Retirer ce calendrier et ses événements')} aria-label={t('Retirer « {name} » et ses événements', { name: f.name })} onClick={() => void stop(f.id, f.name)}>
+                <button type="button" className="icon-btn shrink-0 hover:text-red-600" title={t('Retirer ce calendrier et ses événements')} aria-label={t('Retirer « {name} » et ses événements', { name: feedLabel(f.name) })} onClick={() => void stop(f.id, feedLabel(f.name))}>
                   <X size={15} />
                 </button>
               </li>
@@ -127,7 +127,7 @@ function Feeds({ onAdded }: { onAdded: (firstDate: string) => void }) {
 }
 
 /** In a timetable, a TD or TP slot is a class, not homework. */
-const categoryOf = (e: IcsEvent): EventCategory => guessCategory(e.title, !!e.start);
+const categoryOf = (e: IcsEvent): EventCategory => timetableCategory(e.title, !!e.start);
 
 interface Props {
   initial?: IcsSource;

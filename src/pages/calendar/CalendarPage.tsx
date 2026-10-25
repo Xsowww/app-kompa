@@ -14,7 +14,7 @@ import PeriodsDialog from './PeriodsDialog';
 import { covers, periodColor, periodUntil, periodLabel, periodsFill, weekLanes, periodRange, periodText, periodTint, periodsBetween, periodsOn, type Period } from '../../lib/periods';
 import { cx } from '../../lib/utils';
 import EventForm from './EventForm';
-import { confirmRemoveEvent, eventTitle, periodIdeas, removeMine, useCalendarSource } from './source';
+import { eventTitle, periodIdeas, removeEvent, useCalendarSource } from './source';
 import DayView from './DayView';
 import SeriesIcon from './SeriesIcon';
 import ImportIcsDialog, { type IcsSource } from './ImportIcsDialog';
@@ -24,7 +24,7 @@ import { useEventDrag, type DropTarget } from './useEventDrag';
 import { exportIcs } from '../../lib/backup';
 import { flashWhenReady } from '../../lib/flash';
 import { eventReminders, followMoments, reminderLabel } from '../../lib/reminders';
-import { feedOf } from '../../lib/icsFeeds';
+import { feedLabel, feedOf } from '../../lib/icsFeeds';
 import { t, tn } from '../../i18n';
 
 type Mode = 'week' | 'month' | 'day';
@@ -67,7 +67,8 @@ interface EventItemProps {
 }
 
 function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
-  const { toggleDone, remove, shared } = useCalendarSource();
+  const source = useCalendarSource();
+  const { toggleDone, shared } = source;
   const readOnly = !!shared && !shared.canEdit; // a reader of a shared calendar: nothing to change
   const c = catOf(ev.category);
   const defaults = useSettings(s => s.defaultReminders);
@@ -111,8 +112,8 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
             <span style={{ color: c.text }}>{c.label}</span>
             <SeriesIcon series={ev.series} size={11} className="ml-1.5 inline-block -translate-y-px" />
             {feed && (
-              <span className="ml-1.5 inline-flex items-center gap-1 whitespace-nowrap" title={t('Vient de l’emploi du temps « {name} »', { name: feed.name })}>
-                <Link2 size={11} aria-hidden /> {feed.name}
+              <span className="ml-1.5 inline-flex max-w-full items-center gap-1 align-bottom" title={t('Vient de l’emploi du temps « {name} »', { name: feedLabel(feed.name) })}>
+                <Link2 size={11} className="shrink-0" aria-hidden /> <span className="truncate">{feedLabel(feed.name)}</span>
               </span>
             )}
             {shared && ev.people?.length ? ` · ${t('pour {names}', { names: ev.people.map(shared.nameFor).join(', ') })}` : ''}
@@ -126,14 +127,15 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
               </span>
             )}
           </p>
-          {ev.details && <p className="mt-1.5 whitespace-pre-line text-[13px] text-stone-600 [overflow-wrap:anywhere]">{ev.details}</p>}
+          {/* Two lines at most here; the whole notes in the event's window. */}
+          {ev.details && <p className="mt-1.5 line-clamp-2 whitespace-pre-line text-[13px] text-stone-600 [overflow-wrap:anywhere]">{ev.details}</p>}
         </button>
         {/* The card itself opens the form (with « Supprimer »); on a phone the bin goes too: the title keeps the width. */}
         {!readOnly && <div className="touch-show flex shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:max-sm:hidden">
           <button
             className="icon-btn hover:text-red-600"
             title={t('Supprimer')} aria-label={t('Supprimer « {title} »', { title: ev.title })}
-            onClick={async () => void (shared ? (await confirmRemoveEvent(ev, shared)) && remove(ev.id) : await removeMine(ev))}
+            onClick={() => void removeEvent(ev, source)}
           >
             <Trash2 size={14} />
           </button>
@@ -375,7 +377,7 @@ export default function CalendarPage() {
     if (parsed?.impossible) return;
     if (!parsed?.title) return openForm();
     // « Sport tous les mardis 18h » on my calendar: the form, to choose until when it repeats.
-    if (parsed.weekly && !shared) return setForm({ date: quickDate, start: parsed.start ?? undefined, end: parsed.end ?? undefined, title: quick, fromQuick: true });
+    if (parsed.weekly) return setForm({ date: quickDate, start: parsed.start ?? undefined, end: parsed.end ?? undefined, title: quick, fromQuick: true });
     const date = quickDate;
     source.add({ title: parsed.title, date, start: parsed.start ?? undefined, end: parsed.end ?? undefined, category: parsedCat!, important: parsed.important });
     setQuick('');
@@ -623,7 +625,7 @@ export default function CalendarPage() {
                   </span>
                 </>
               )}
-              {parsed.weekly && <span className="w-full text-stone-500">{shared ? t('Une seule fois\u00a0: pas encore de répétition.') : t('Entrée\u00a0: choisir jusqu’à quand.')}</span>}
+              {parsed.weekly && <span className="w-full text-stone-500">{t('Entrée\u00a0: choisir jusqu’à quand.')}</span>}
               {parsed.impossible && <span className="w-full font-medium text-red-600 dark:text-red-400">{t('Cette date n’existe pas : corrige-la pour ajouter.')}</span>}
             </div>
           )}

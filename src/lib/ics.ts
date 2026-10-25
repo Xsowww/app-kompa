@@ -298,15 +298,37 @@ function expand(start: Date, rule: Record<string, string>, horizon: Date, utc = 
 }
 
 /** Location on the first line, then the description without ENT export noise. */
+// Timetables (Hyperplanning, ADE) write « Matière : Droit civil », « Salle : 307 »… in the description.
+const field = (line: string) => /^\s*([\p{L} ()'’]{2,30}?)\s*:\s*(.+)$/u.exec(line);
+const SUBJECT = /^(mati[eè]re|cours|subject|module|ue|enseignement)$/i;
+const ROOM = /^(salles?|lieu|room|location)$/i;
+/** Lines that only repeat the title, the room or say who the class is for: left out of the notes. */
+const NOISE = /^(classes?|groupes?|promotions?|m[ée]mo|type|cat[ée]gorie|parcours|formation|public)$/i;
+
+/** The event's name: a timetable's subject when it gives one (« Matière : Droit civil »), else its summary. */
+export function titleOf(summary: string, description: string): string {
+  const subject = description.split('\n').map(field).find(m => m && SUBJECT.test(m[1].trim()))?.[2].trim();
+  return (subject || summary).trim();
+}
+
 function detailsOf(ev: RawEvent): string | undefined {
-  const desc = ev.description
+  const lines = ev.description
     .split('\n')
     // « (Exporté le:16/10/2026 08:12) », « Mis à jour le 12/10 » — not « Exporter le rapport en PDF ».
-    .filter(l => !/^\s*\(?\s*(export[ée]?|exported|mis à jour|updated)\s*(le|on|at)?\s*:?\s*\d/i.test(l))
-    .join('\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-  const parts = [ev.location, desc].filter(Boolean);
+    .filter(l => !/^\s*\(?\s*(export[ée]?|exported|mis à jour|updated)\s*(le|on|at)?\s*:?\s*\d/i.test(l));
+  let place = ev.location.trim();
+  const kept = lines.filter(l => {
+    const m = field(l);
+    if (!m) return true;
+    const key = m[1].trim();
+    if (ROOM.test(key)) {
+      place ||= m[2].trim();
+      return false;
+    }
+    return !SUBJECT.test(key) && !NOISE.test(key);
+  });
+  const desc = kept.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  const parts = [place, desc].filter(Boolean);
   return parts.length ? parts.join('\n') : undefined;
 }
 
@@ -373,7 +395,7 @@ export function parseIcs(text: string, opts: ParseOptions = {}): IcsEvent[] {
     const start = e.start!;
     const allDay = start.allDay;
     const durationMs = e.end ? e.end.date.getTime() - start.date.getTime() : (e.durationMs ?? (allDay ? DAY_MS : 0));
-    const base = { title: e.summary || t('Sans titre'), details: detailsOf(e) };
+    const base = { title: titleOf(e.summary, e.description) || t('Sans titre'), details: detailsOf(e) };
 
     if (e.recurrenceId) {
       out.push(...toEvents(e, start.date, durationMs, allDay, () => `${e.uid}_${e.recurrenceId}`, base));

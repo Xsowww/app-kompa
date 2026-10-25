@@ -35,6 +35,24 @@ describe('photo → fiche : Gemini', () => {
     expect(calls[0].url).toContain('gemini-2.5-flash:generateContent');
     expect(calls[0].body.generationConfig.thinkingConfig).toEqual({ thinkingBudget: 0 });
     expect(calls[1].url).toContain('gemini-2.5-flash-lite:generateContent');
-    expect(photoStatus.model).toBe('gemini-2.5-flash-lite');
+    expect(photoStatus.model).toBe('gemini-2.5-flash-lite (0)');
+  });
+});
+
+describe('photo → fiche : Gemini plus récent', () => {
+  it('asks for minimal thinking, then low, then none when the setting is refused', async () => {
+    const { readPhotos, photoStatus } = await import('../server/photo.mjs');
+    const { vi } = await import('vitest');
+    const configs: unknown[] = [];
+    const f = vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) => {
+      const cfg = JSON.parse(String(init?.body)).generationConfig.thinkingConfig;
+      configs.push(cfg ?? null);
+      if (cfg) return new Response(JSON.stringify({ error: { message: 'Thinking level is not supported for this model.' } }), { status: 400 });
+      return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: 'ok' }] } }] }), { status: 200 });
+    });
+    await readPhotos({ kind: 'gemini', apiKey: 'k', models: ['gemini-flash-latest'] }, [{ url: '', mime: 'image/jpeg', data: 'AAAA' }], 'fr');
+    f.mockRestore();
+    expect(configs).toEqual([{ thinkingLevel: 'minimal' }, { thinkingLevel: 'low' }, null]);
+    expect(photoStatus.model).toBe('gemini-flash-latest');
   });
 });

@@ -36,9 +36,14 @@ export interface CalendarSource {
   categories: CustomCategory[];
   categoryScope: CategoryScope;
   add: (e: NewEvent) => void;
+  /** Several at once: the occurrences of a repeat, the days of an event over several days (linked by `series`). */
+  addMany: (list: NewEvent[]) => void;
   update: (id: string, patch: Partial<CalendarEvent>) => void;
+  /** This occurrence and the next ones of its series (a new day moves them by as many days). */
+  updateSeries: (id: string, patch: Partial<CalendarEvent>) => void;
   toggleDone: (id: string) => void;
   remove: (id: string) => void;
+  removeMany: (ids: string[]) => void;
   /** « En entreprise », « Vacances »… (my settings, or the shared calendar's own). */
   periods: Period[];
   /** Adds or changes periods (several: a repeated one). */
@@ -54,7 +59,7 @@ export function useCalendarSource(): CalendarSource {
   const periods = useSettings(s => s.periods);
   const categories = useSettings(s => s.customCategories);
   const mine = useMemo<CalendarSource>(() => {
-    const { add, update, toggleDone } = useCalendar.getState();
+    const { add, addMany, update, updateSeries, toggleDone } = useCalendar.getState();
     const settings = useSettings.getState();
     return {
       shared: null,
@@ -62,9 +67,12 @@ export function useCalendarSource(): CalendarSource {
       categories,
       categoryScope: MY_CATEGORIES,
       add: e => void add(e),
+      addMany,
       update,
+      updateSeries,
       toggleDone,
       remove: trashEvent,
+      removeMany: trashEvents,
       periods,
       savePeriods: list => {
         const ids = new Set(list.map(p => p.id));
@@ -108,8 +116,8 @@ export function useImportSources(): { id: string; name: string }[] {
  * Deleting or changing an event that repeats: only this one, or this one and the next ones ('next').
  * One that doesn't repeat (or the last of its series): 'one' without asking.
  */
-export async function askSeriesScope(ev: Pick<CalendarEvent, 'id' | 'series' | 'date' | 'title'>, action: 'delete' | 'edit'): Promise<'one' | 'next' | null> {
-  const next = nextInSeries(ev, useCalendar.getState().events).length;
+export async function askSeriesScope(ev: Pick<CalendarEvent, 'id' | 'series' | 'date' | 'title'>, action: 'delete' | 'edit', events: CalendarEvent[]): Promise<'one' | 'next' | null> {
+  const next = nextInSeries(ev, events).length;
   if (!next) return 'one';
   const span = isSpan(ev.series);
   const answer = await askChoice(
@@ -122,11 +130,15 @@ export async function askSeriesScope(ev: Pick<CalendarEvent, 'id' | 'series' | '
   return answer === 'confirm' ? 'one' : answer === 'other' ? 'next' : null;
 }
 
-/** My calendar: deletes the event, or with its next ones (« Annuler » in the toast brings them all back). */
-export async function removeMine(ev: CalendarEvent): Promise<boolean> {
-  const scope = await askSeriesScope(ev, 'delete');
+/**
+ * Deletes an event, or with its next ones when it is part of a series (« Annuler » in the toast brings them back).
+ * A shared calendar's single event is asked first (it goes for every member).
+ */
+export async function removeEvent(ev: CalendarEvent, source: CalendarSource): Promise<boolean> {
+  const scope = await askSeriesScope(ev, 'delete', source.events);
   if (!scope) return false;
-  if (scope === 'one') trashEvent(ev.id);
-  else trashEvents([ev.id, ...nextInSeries(ev, useCalendar.getState().events).map(e => e.id)]);
+  if (scope === 'next') source.removeMany([ev.id, ...nextInSeries(ev, source.events).map(e => e.id)]);
+  else if (!source.shared || nextInSeries(ev, source.events).length || (await confirmRemoveEvent(ev, source.shared))) source.remove(ev.id);
+  else return false;
   return true;
 }
