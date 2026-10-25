@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { CheckCircle2, Eye, EyeOff, Fingerprint, Loader2 } from 'lucide-react';
 import { AUTH_MSG, awaitConfirmation, useAuth } from '../store/auth';
 import AccountList from '../components/AccountList';
@@ -112,7 +112,9 @@ export default function AuthPage({ mode }: { mode: Mode }) {
   // « Ajouter un compte » for a saved account whose session ended: its e-mail is already known.
   const [askedEmail] = useState(() => (mode === 'login' ? new URLSearchParams(location.search).get('email') ?? '' : ''));
   const [asked] = useState(() => (askedEmail ? savedAccounts().find(a => a.email.toLowerCase() === askedEmail.toLowerCase()) : undefined));
-  const [email, setEmail] = useState(askedEmail);
+  // « Mot de passe oublié ? » clicked after typing the e-mail: it is already there, one click sends the link.
+  const typed = (useLocation().state as { email?: string } | null)?.email;
+  const [email, setEmail] = useState(askedEmail || (mode === 'forgot' ? (typed ?? '') : ''));
   const [password, setPassword] = useState('');
   const [show, setShow] = useState(false);
   const [agreed, setAgreed] = useState(false);
@@ -409,7 +411,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
                   <span className="mb-1.5 flex items-center text-[12px] font-medium text-stone-600">
                     <label htmlFor="auth-password">{t('Mot de passe')}</label>
                     {mode === 'login' && cloudEnabled && (
-                      <Link to="/mot-de-passe-oublie" className="ml-auto font-normal text-stone-500 hover:text-ink">
+                      <Link to="/mot-de-passe-oublie" state={{ email: email.trim() }} className="ml-auto font-normal text-stone-500 hover:text-ink">
                         {t('Oublié ?')}
                       </Link>
                     )}
