@@ -49,8 +49,26 @@ Ton travail : en faire une fiche claire et fidèle, en Markdown.
 5. Un mot illisible : écris [illisible]. Une photo sans texte ni schéma : dis-le en une phrase.
 Réponds uniquement avec la fiche, sans phrase avant ni après.`;
 
+/** The last reading, shown by /api/sante to find what goes wrong (never the photo nor the key). */
+export const photoStatus = { lastOk: null, lastError: null, detail: null, seconds: null };
+
+// Under Cloudflare's 100 s: past it the page gets Cloudflare's own error instead of ours.
+const TIMEOUT_MS = 85_000;
+
 /** Reads the photos. Returns the Markdown sheet. */
 export async function readPhotos(vision, photos, lang) {
+  const t0 = Date.now();
+  try {
+    const text = await readOnce(vision, photos, lang);
+    Object.assign(photoStatus, { lastOk: new Date().toISOString(), lastError: null, detail: null, seconds: Math.round((Date.now() - t0) / 1000) });
+    return text;
+  } catch (e) {
+    Object.assign(photoStatus, { lastError: `${e?.code ?? e?.status ?? 'erreur'} ${e?.status ?? ''}`.trim(), detail: String(e?.detail ?? e?.message ?? '').slice(0, 200), seconds: Math.round((Date.now() - t0) / 1000) });
+    throw e;
+  }
+}
+
+async function readOnce(vision, photos, lang) {
   const system = PHOTO_SYSTEM + languageLine(lang);
   const ask = photos.length > 1 ? `Voici ${photos.length} photos, dans l'ordre.` : 'Voici la photo.';
   if (vision.kind === 'anthropic') {
@@ -62,7 +80,7 @@ export async function readPhotos(vision, photos, lang) {
         system,
         messages: [{ role: 'user', content: [...photos.map(p => ({ type: 'image', source: { type: 'base64', media_type: p.mime, data: p.data } })), { type: 'text', text: ask }] }],
       },
-      { timeout: 120_000 },
+      { timeout: TIMEOUT_MS },
     );
     return r.content.filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
   }
@@ -71,12 +89,14 @@ export async function readPhotos(vision, photos, lang) {
     {
       model: vision.model,
       max_tokens: 6000,
+      // Gemini thinks before answering by default: a short think is enough to read a page, and much faster.
+      ...(/googleapis\.com/.test(vision.baseUrl) && { reasoning_effort: 'low' }),
       messages: [
         { role: 'system', content: system },
         { role: 'user', content: [{ type: 'text', text: ask }, ...photos.map(p => ({ type: 'image_url', image_url: { url: p.url } }))] },
       ],
     },
-    120_000,
+    TIMEOUT_MS,
   );
   const text = String(data.choices[0]?.message?.content ?? '').trim();
   if (!text) throw new ProviderError('upstream', 502, 'réponse vide');

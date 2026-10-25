@@ -7,7 +7,7 @@ import { guessCategory, useCalendar, type CalendarEvent } from '../store/calenda
 import { getSettings, useSettings } from '../store/settings';
 import { parseIcs, type IcsEvent } from './ics';
 import { accessToken } from './supabase';
-import { todayKey } from './dates';
+import { fmtDay, fromKey, todayKey } from './dates';
 import { nowIso, uid } from './utils';
 import { t } from '../i18n';
 
@@ -27,14 +27,21 @@ export const MAX_FEEDS = 10;
 
 export class FeedError extends Error {
   code: string;
-  constructor(code: string) {
+  /** « no_upcoming »: the day of the link's last event. */
+  last?: string;
+  constructor(code: string, last?: string) {
     super(code);
     this.code = code;
+    this.last = last;
   }
 }
 
 /** What to say about a failure. */
-export function feedErrorText(code: string): string {
+export function feedErrorText(code: string, last?: string): string {
+  if (code === 'no_upcoming')
+    return last
+      ? t('Aucun cours à venir dans ce lien : le dernier date du {day}. C’est sans doute le lien de l’an dernier : prends celui de cette année.', { day: fmtDay(fromKey(last), 'd MMMM') })
+      : t('Aucun cours à venir dans ce lien.');
   if (code === 'bad_url') return t('Ce lien n’est pas valide : copie le lien d’abonnement complet (il commence par https:// ou webcal://).');
   if (code === 'not_ics') return t('Ce lien ne mène pas à un calendrier (.ics).');
   if (code === 'empty') return t('Aucun événement dans ce calendrier.');
@@ -59,7 +66,12 @@ export async function downloadFeed(url: string): Promise<string> {
 
 /** The calendar's own name (X-WR-CALNAME), else the site's. */
 export function feedName(text: string, url: string): string {
-  const own = /^X-WR-CALNAME[^:]*:(.+)$/im.exec(text)?.[1]?.replace(/\\,/g, ',').trim();
+  // Folded lines joined first; « … - du 01 septembre 2025 au 11 octobre 2026 » (Hyperplanning) left out.
+  const own = /^X-WR-CALNAME[^:]*:(.+)$/im
+    .exec(text.replace(/\r?\n[ \t]/g, ''))?.[1]
+    ?.replace(/\\([,;])/g, '$1')
+    .replace(/\s+-\s+du\s+\d.*$/i, '')
+    .trim();
   if (own) return own.slice(0, 60);
   try {
     return new URL(url.replace(/^webcals?:/i, 'https:')).hostname.replace(/^www\./, '');
@@ -139,7 +151,10 @@ const saveFeed = (id: string, patch: Partial<IcsFeed>) =>
 export async function subscribe(url: string): Promise<{ feed: IcsFeed; plan: FeedPlan }> {
   const clean = url.trim().replace(/^webcals?:\/\//i, 'https://');
   const text = await downloadFeed(clean);
-  if (!parseIcs(text).length) throw new FeedError('empty');
+  const all = parseIcs(text);
+  if (!all.length) throw new FeedError('empty');
+  // Only the past (last year's timetable): said, instead of following a link that adds nothing.
+  if (!all.some(e => e.date >= todayKey())) throw new FeedError('no_upcoming', all[all.length - 1].date);
   const feed: IcsFeed = { id: uid().slice(0, 12).replace(/[^a-z0-9]/gi, '0'), url: clean, name: feedName(text, clean), lastSync: nowIso() };
   useSettings.getState().set({ icsFeeds: [...(getSettings().icsFeeds ?? []), feed] });
   return { feed, plan: await syncFeed(feed, text) };

@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { handleCopilot, copilotProvider, ipOf } from './copilot.mjs';
 import { handleCours } from './cours.mjs';
 import { handleIcs } from './icsFeed.mjs';
+import { photoStatus, resolveVision } from './photo.mjs';
 import { loadPublicEnv } from './publicEnv.mjs';
 import { langOf, publicPage, robotsTxt, sitemapXml, withHead } from './seo.mjs';
 
@@ -226,7 +227,7 @@ async function serveHealth(req, res) {
   res.end(
     req.method === 'HEAD'
       ? undefined
-      : JSON.stringify({ ok, serveur: 'ok', base, ia: copilotProvider() ? 'configurée' : 'absente', rappels: pushStatus.active ? (pushStatus.lastError ? `erreur ${pushStatus.lastCode}` : 'actifs') : 'désactivés', ...(pushStatus.lastError && { rappelsDetail: [pushStatus.lastHint, `clé ${keyKind}`].filter(Boolean).join(' · ') }), version: (process.env.RENDER_GIT_COMMIT ?? '').slice(0, 7) || undefined, heure: new Date().toISOString() }),
+      : JSON.stringify({ ok, serveur: 'ok', base, ia: copilotProvider() ? 'configurée' : 'absente', rappels: pushStatus.active ? (pushStatus.lastError ? `erreur ${pushStatus.lastCode}` : 'actifs') : 'désactivés', ...(pushStatus.lastError && { rappelsDetail: [pushStatus.lastHint, `clé ${keyKind}`].filter(Boolean).join(' · ') }), photo: resolveVision() ? (photoStatus.lastError ? `erreur ${photoStatus.lastError}` : 'prête') : 'désactivée', ...(photoStatus.lastError && { photoDetail: photoStatus.detail, photoSecondes: photoStatus.seconds }), ...(photoStatus.lastOk && !photoStatus.lastError && { photoSecondes: photoStatus.seconds }), version: (process.env.RENDER_GIT_COMMIT ?? '').slice(0, 7) || undefined, heure: new Date().toISOString() }),
   );
   return true;
 }

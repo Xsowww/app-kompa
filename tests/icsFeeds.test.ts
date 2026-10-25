@@ -35,5 +35,6 @@ describe('abonnement à un emploi du temps', () => {
   it('its name', () => {
     expect(feedName('BEGIN:VCALENDAR\nX-WR-CALNAME:L2 Droit\\, groupe 3\n', 'https://x.fr')).toBe('L2 Droit, groupe 3');
     expect(feedName('BEGIN:VCALENDAR\n', 'webcal://www.hyperplanning.fr/x')).toBe('hyperplanning.fr');
+    expect(feedName('BEGIN:VCALENDAR\r\nX-WR-CALNAME;LANGUAGE=fr:HYP - DUPONT Lina (Aix-en-Prove\r\n nce | M1) - du 01 septembre 2025 au 11 octobre 2026\r\n', 'https://x.fr')).toBe('HYP - DUPONT Lina (Aix-en-Provence | M1)');
   });
 });

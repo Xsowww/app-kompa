@@ -19,6 +19,9 @@ export interface IcsSource {
 /** Timetables followed by link: paste one, see them, read them again, stop following one (lib/icsFeeds). */
 function Feeds({ onAdded }: { onAdded: (firstDate: string) => void }) {
   const feeds = useSettings(s => s.icsFeeds);
+  const events = useCalendar(s => s.events);
+  const today = todayKey();
+  const upcoming = (id: string) => events.some(e => e.date >= today && e.externalId?.startsWith(feedMark(id)));
   const [url, setUrl] = useState('');
   const [busy, setBusy] = useState<'new' | 'all' | null>(null);
   const [error, setError] = useState('');
@@ -34,7 +37,7 @@ function Feeds({ onAdded }: { onAdded: (firstDate: string) => void }) {
       toast(tn(plan.add.length, 'Abonné à « {name} » : {n} événement ajouté, mis à jour tout seul.', 'Abonné à « {name} » : {n} événements ajoutés, mis à jour tout seul.', { name: feed.name }), 'success');
       if (plan.add[0]) onAdded(plan.add.reduce((a, b) => (b.date < a.date ? b : a)).date);
     } catch (err) {
-      setError(feedErrorText(err instanceof FeedError ? err.code : 'unreachable'));
+      setError(err instanceof FeedError ? feedErrorText(err.code, err.last) : feedErrorText('unreachable'));
     } finally {
       setBusy(null);
     }
@@ -78,7 +81,7 @@ function Feeds({ onAdded }: { onAdded: (firstDate: string) => void }) {
         </button>
       </form>
       {error && <p id="feed-error" role="alert" className="mt-1.5 text-[12.5px] font-medium text-red-600 dark:text-red-400">{error}</p>}
-      <p className="mt-1.5 text-[12px] text-stone-500">{t('Mis à jour tout seul toutes les 3 heures. Le lien se trouve dans « Exporter » ou « Lien iCal » de ton ENT (Hyperplanning, ADE, Moodle) ; Google Agenda : paramètres de l’agenda › « Adresse secrète au format iCal ».')}</p>
+      <p className="mt-1.5 text-[12px] text-stone-500">{t('Le lien « iCal » de ton ENT ou de Google Agenda. Mis à jour toutes les 3 h.')}</p>
 
       {feeds.length > 0 && (
         <div className="mt-3 rounded-xl border border-stone-200">
@@ -89,6 +92,8 @@ function Feeds({ onAdded }: { onAdded: (firstDate: string) => void }) {
                   <p className="truncate text-[13px] font-medium">{f.name}</p>
                   {f.error ? (
                     <p className="text-[12px] text-red-600 dark:text-red-400">{feedErrorText(f.error)}</p>
+                  ) : !upcoming(f.id) ? (
+                    <p className="text-[12px] text-amber-700 dark:text-amber-400">{t('Aucun cours à venir dans ce lien.')}</p>
                   ) : (
                     f.lastSync && <p className="text-[12px] text-stone-500">{t('Mis à jour le {when}', { when: fmt(new Date(f.lastSync), 'd MMM, HH:mm') })}</p>
                   )}
@@ -99,8 +104,7 @@ function Feeds({ onAdded }: { onAdded: (firstDate: string) => void }) {
               </li>
             ))}
           </ul>
-          <div className="flex items-center justify-between gap-2 border-t border-stone-100 px-3 py-1.5">
-            <p className="text-[11.5px] text-stone-500">{t('Les cours suivent le lien : un changement fait ici peut être remplacé à la mise à jour.')}</p>
+          <div className="flex justify-end border-t border-stone-100 px-1.5 py-1">
             <button type="button" className="btn-ghost h-8 shrink-0 px-2 text-[12.5px]" disabled={!!busy} onClick={() => void refresh()}>
               <RefreshCw size={13} className={cx(busy === 'all' && 'animate-spin')} /> {t('Actualiser')}
             </button>
@@ -235,26 +239,6 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
             <span className="mt-0.5 text-[12px] text-stone-500">{t('ou glisse-le ici')}</span>
           </button>
           <input ref={inputRef} type="file" accept=".ics,text/calendar" className="hidden" onChange={e => void read(e.target.files?.[0])} />
-
-          <div className="mt-4 space-y-2.5 text-[13px] text-stone-600">
-            <p className="eyebrow">{t('Où trouver ce fichier\u00a0?')}</p>
-            {usage === 'etudes' || !usage ? (
-              <p>
-                <span className="font-medium text-ink">{t('ENT')}</span> {t('(ADE, Hyperplanning…)\u00a0: cherche «\u00a0Exporter\u00a0» ou «\u00a0Export iCal\u00a0».')}
-              </p>
-            ) : (
-              <p>
-                <span className="font-medium text-ink">Outlook</span>
-                {t('\u00a0: Fichier › Enregistrer le calendrier.')}{' '}
-                <span className="font-medium text-ink">{t('Apple Calendrier')}</span>
-                {t('\u00a0: Fichier › Exporter › Exporter.')}
-              </p>
-            )}
-            <p>
-              <span className="font-medium text-ink">{t('Google Agenda')}</span>
-              {t('\u00a0: Paramètres › Importer et exporter › Exporter (puis décompresse le .zip).')}
-            </p>
-          </div>
 
           <div className="mt-5 flex justify-end">
             <button type="button" className="btn-secondary" onClick={onClose}>

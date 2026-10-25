@@ -13,16 +13,16 @@ import { t } from '../../i18n';
 
 const MAX_PHOTOS = 4;
 
-/** A photo made lighter (2000 px at most, JPEG): enough to read small handwriting, quick to send. */
+/** A photo made lighter (1600 px at most, JPEG): enough to read handwriting on a full page, quick to send from a phone. */
 async function shrink(file: File): Promise<string> {
   const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
-  const k = Math.min(1, 2000 / Math.max(bmp.width, bmp.height));
+  const k = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
   const c = document.createElement('canvas');
   c.width = Math.round(bmp.width * k);
   c.height = Math.round(bmp.height * k);
   c.getContext('2d')!.drawImage(bmp, 0, 0, c.width, c.height);
   bmp.close();
-  return c.toDataURL('image/jpeg', 0.85);
+  return c.toDataURL('image/jpeg', 0.8);
 }
 
 const sheetTitle = (md: string) => /^#\s+(.+)$/m.exec(md)?.[1].replace(/[*_`#]/g, '').trim().slice(0, 80) || t('Fiche');
@@ -33,7 +33,9 @@ function failure(e: unknown): string {
   if (code === 'daily_limit' || code === 'site_limit') return t('Limite du jour atteinte : réessaie demain.');
   if (code === 'rate_limited') return t('Beaucoup de demandes en ce moment : réessaie dans une minute.');
   if (code === 'too_large') return t('Photos trop lourdes : enlève-en une et réessaie.');
-  if (code === 'network' || code === 'timeout') return t('Pas de réponse. Vérifie ta connexion et réessaie.');
+  // 524: Cloudflare gave up waiting for the server.
+  if (code === 'timeout' || code === 'http_504' || code === 'http_524') return t('La lecture a pris trop de temps. Réessaie, une photo à la fois.');
+  if (code === 'network') return t('Pas de réponse. Vérifie ta connexion et réessaie.');
   return t('La lecture n’a pas marché. Réessaie avec une photo plus nette.');
 }
 
