@@ -159,6 +159,7 @@ export async function startCapture(
     if (flush) emit(n);
     stopped = true;
     tap.port.onmessage = null;
+    source.disconnect();
     stream.getTracks().forEach(t => t.stop());
     void ctx.close().catch(() => undefined);
   }
@@ -168,14 +169,14 @@ export async function startCapture(
     emit(n);
     paused = true;
     audio.enabled = false; // silence from the source itself while paused
-    void ctx.suspend().catch(() => undefined);
+    // No ctx.suspend(): Chrome then drops the sound source and nothing is heard after « Reprendre ».
   }
 
   async function resume() {
     if (stopped || !paused) return;
     resampler = new Resampler(ctx.sampleRate);
     audio.enabled = true;
-    await ctx.resume().catch(() => undefined);
+    if (ctx.state === 'suspended') await ctx.resume().catch(() => undefined);
     paused = false;
   }
 

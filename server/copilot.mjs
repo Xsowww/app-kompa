@@ -84,8 +84,17 @@ export function rateLimited(key, max) {
   const now = Date.now();
   const list = (hits.get(key) ?? []).filter(t => now - t < RATE_WINDOW_MS);
   list.push(now);
-  if (hits.size > 10_000) hits.clear();
+  hits.delete(key); // re-added last: the map stays ordered from the oldest to the latest hit
   hits.set(key, list);
+  if (hits.size > 10_000) {
+    // Forget what is past the window, then the oldest addresses. Never clear all: a flood of
+    // addresses would lift every account's limit too.
+    for (const [k, l] of hits) if (now - l[l.length - 1] >= RATE_WINDOW_MS) hits.delete(k);
+    for (const k of hits.keys()) {
+      if (hits.size <= 10_000) break;
+      if (k.includes('ip:') && k !== key) hits.delete(k);
+    }
+  }
   return list.length > max;
 }
 
@@ -114,9 +123,15 @@ const fromCloudflare = ip => {
 export const ipOf = (req, env) => {
   const peer = (env.TRUST_PROXY === '1' || (env.RENDER === 'true' && env.TRUST_PROXY !== '0')) && String(req.headers['x-forwarded-for'] ?? '').split(',').pop().trim();
   const visitor = String(req.headers['cf-connecting-ip'] ?? '').trim();
-  if (peer && visitor && fromCloudflare(peer)) return visitor;
-  return peer || req.socket?.remoteAddress || 'unknown';
+  return v6Block((peer && visitor && fromCloudflare(peer) ? visitor : peer) || req.socket?.remoteAddress || 'unknown');
 };
+/** An IPv6 address counts by its /64 block: one connection gets billions of addresses from it. */
+export function v6Block(ip) {
+  if (!isIPv6(ip) || ip.startsWith('::ffff:')) return ip;
+  const [a, b = ''] = ip.split('::');
+  const head = a ? a.split(':') : [], tail = b ? b.split(':') : [];
+  return [...head, ...Array(8 - head.length - tail.length).fill('0'), ...tail].slice(0, 4).join(':') + '::/64';
+}
 
 // ── Daily quota ─────────────────────────────────────────────────────────────
 // A free AI has a daily allowance for the whole site (Groq: 1 000 requests). Without a cap per
