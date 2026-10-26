@@ -61,6 +61,17 @@ export function wavSeconds(buf) {
   return (buf.length - 44) / BYTES_PER_SECOND;
 }
 
+/** The same sound as a FLAC file (src/lib/recorder/flac.ts, half the size): its length from STREAMINFO, or null. */
+export function flacSeconds(buf) {
+  if (buf.length < 42 || buf.toString('ascii', 0, 4) !== 'fLaC' || (buf[4] & 0x7f) !== 0) return null;
+  const rate = buf.readUInt32BE(18) >>> 12;
+  const channels = ((buf[20] >> 1) & 7) + 1;
+  const bits = (((buf[20] & 1) << 4) | (buf[21] >> 4)) + 1;
+  const samples = (buf[21] & 0xf) * 2 ** 32 + buf.readUInt32BE(22);
+  if (channels !== 1 || rate !== 16_000 || bits !== 16 || !samples) return null;
+  return samples / 16_000;
+}
+
 // What Whisper writes on silence or noise (it learnt them from subtitles): never part of a class.
 const HALLUCINATIONS = [
   /sous-titr(es|age)( réalisés?)?( par| par la communauté d'amara\.org)?/i,
@@ -108,7 +119,8 @@ function readBody(req, max) {
 
 async function transcribe(t, wav, hint, language = 'fr') {
   const form = new FormData();
-  form.append('file', new Blob([wav], { type: 'audio/wav' }), 'morceau.wav');
+  const flac = wav.toString('ascii', 0, 4) === 'fLaC';
+  form.append('file', new Blob([wav], { type: flac ? 'audio/flac' : 'audio/wav' }), flac ? 'morceau.flac' : 'morceau.wav');
   form.append('model', t.model);
   form.append('language', language);
   form.append('response_format', 'verbose_json');
@@ -132,6 +144,8 @@ async function transcribe(t, wav, hint, language = 'fr') {
     /* not JSON */
   }
   if (!res.ok || data?.error) {
+    // A FLAC the service won't read: the page sends the same piece again as WAV.
+    if (flac && res.status === 400) throw Object.assign(new Error('bad_audio'), { status: 400 });
     const error = new ProviderError(mapStatus(res.status), res.status, String(data?.error?.message ?? raw).slice(0, 300));
     if (error.code === 'rate_limited') error.retryAfter = parseWait(res.headers.get('retry-after')) ?? 20;
     throw error;
@@ -309,7 +323,7 @@ export async function handleCours(req, res, env = process.env) {
       if (!t) return (send(res, 503, { error: 'disabled' }), true);
       if (rateLimited(`cours-user:${who}`, PER_USER_PER_MIN)) return (send(res, 429, { error: 'rate_limited', retryAfter: 20 }), true);
       const wav = await readBody(req, MAX_AUDIO);
-      const seconds = wavSeconds(wav);
+      const seconds = wavSeconds(wav) ?? flacSeconds(wav);
       if (seconds === null || seconds < 0.5) return (send(res, 400, { error: 'bad_audio' }), true);
       const limit = overAudioQuota(who, seconds, t, env);
       if (limit) return (send(res, 429, { error: limit, retryAfter: secondsToParisMidnight() }), true);

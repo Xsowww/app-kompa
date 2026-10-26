@@ -41,9 +41,9 @@ export interface Heard {
   text: string;
 }
 
-/** One piece of sound (WAV) → what was said, times from the start of the piece. `hint`: words to expect, the end of what came before. */
-export const transcribe = (wav: Blob, hint: string) =>
-  call<{ segments: Heard[] }>('transcrire', { method: 'POST', headers: { 'Content-Type': 'audio/wav', 'X-Indice': encodeURIComponent(hint.slice(0, 600)), 'X-Langue': lang }, body: wav }, 60_000).then(r => r.segments ?? []);
+/** One piece of sound (FLAC or WAV) → what was said, times from the start of the piece. `hint`: words to expect, the end of what came before. */
+export const transcribe = (audio: Blob, hint: string) =>
+  call<{ segments: Heard[] }>('transcrire', { method: 'POST', headers: { 'Content-Type': audio.type || 'audio/wav', 'X-Indice': encodeURIComponent(hint.slice(0, 600)), 'X-Langue': lang }, body: audio }, 60_000).then(r => r.segments ?? []);
 
 export interface WrittenPart {
   title: string;
