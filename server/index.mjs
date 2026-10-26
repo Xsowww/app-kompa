@@ -228,7 +228,8 @@ async function serveHealth(req, res) {
   res.end(
     req.method === 'HEAD'
       ? undefined
-      : JSON.stringify({ ok, serveur: 'ok', base, ia: copilotProvider() ? 'configurée' : 'absente', rappels: pushStatus.active ? (pushStatus.lastError ? `erreur ${pushStatus.lastCode}` : 'actifs') : 'désactivés', ...(pushStatus.lastError && { rappelsDetail: [pushStatus.lastHint, `clé ${keyKind}`].filter(Boolean).join(' · ') }), emails: mailStatus.active ? (mailStatus.lastError ? `erreur ${mailStatus.lastError.slice(0, 120)}` : `actifs (${mailStatus.sent} envoyés)`) : 'désactivés', photo: resolveVision() ? (photoStatus.lastError ? `erreur ${photoStatus.lastError}` : 'prête') : 'désactivée', ...(photoStatus.lastError && { photoDetail: photoStatus.detail, photoSecondes: photoStatus.seconds }), ...(photoStatus.lastOk && !photoStatus.lastError && { photoSecondes: photoStatus.seconds, photoModele: photoStatus.model }), version: (process.env.RENDER_GIT_COMMIT ?? '').slice(0, 7) || undefined, heure: new Date().toISOString() }),
+      : // Public: a word per service, never an error's text nor the kind of key (in Render's logs instead).
+        JSON.stringify({ ok, serveur: 'ok', base: ok ? base : 'erreur', ia: copilotProvider() ? 'configurée' : 'absente', rappels: pushStatus.active ? (pushStatus.lastError ? 'erreur' : 'actifs') : 'désactivés', emails: mailStatus.active ? (mailStatus.lastError ? 'erreur' : 'actifs') : 'désactivés', photo: resolveVision() ? (photoStatus.lastError ? 'erreur' : 'prête') : 'désactivée', version: (process.env.RENDER_GIT_COMMIT ?? '').slice(0, 7) || undefined, heure: new Date().toISOString() }),
   );
   return true;
 }

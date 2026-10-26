@@ -66,6 +66,7 @@ export async function readPhotos(vision, photos, lang) {
     return text;
   } catch (e) {
     Object.assign(photoStatus, { lastError: `${e?.code ?? e?.status ?? 'erreur'} ${e?.status ?? ''}`.trim(), detail: String(e?.detail ?? e?.message ?? '').slice(0, 200), seconds: Math.round((Date.now() - t0) / 1000) });
+    console.error('[photo]', photoStatus.lastError, photoStatus.detail);
     throw e;
   }
 }

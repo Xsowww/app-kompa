@@ -2,10 +2,10 @@
 // session kept on this device, and nothing in the address for the app (sign-in link, invitation, error…).
 // Also copied as they are into preload.js by vite.config.ts (String(fn)): no imports, nothing but these two.
 
-/** A Supabase session is kept on this device (localStorage, or sessionStorage without « Rester connecté »). */
+/** A session is kept (Supabase, or cop:session in local mode) on this device (localStorage, or sessionStorage without « Rester connecté »). */
 export function hasSession() {
   try {
-    for (const s of [localStorage, sessionStorage]) for (let i = 0; i < s.length; i++) if (/^sb-.+-auth-token$/.test(s.key(i) || '')) return true;
+    for (const s of [localStorage, sessionStorage]) for (let i = 0; i < s.length; i++) if (/^(sb-.+-auth-token|cop:session)$/.test(s.key(i) || '')) return true;
   } catch {
     /* storage blocked: as without a session */
   }

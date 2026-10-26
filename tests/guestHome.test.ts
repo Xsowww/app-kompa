@@ -17,6 +17,7 @@ describe('guestHome', () => {
   it('gives the app to a kept session, another page or an address meant for the app', () => {
     expect(at('https://kompaly.com/', store('sb-abc-auth-token'))).toBe(false);
     expect(at('https://kompaly.com/', store(), store('sb-abc-auth-token'))).toBe(false);
+    expect(at('https://kompaly.com/', store('cop:session'))).toBe(false);
     expect(at('https://kompaly.com/connexion')).toBe(false);
     expect(at('https://kompaly.com/?rejoindre=K7P2')).toBe(false);
     expect(at('https://kompaly.com/?error=access_denied')).toBe(false);
