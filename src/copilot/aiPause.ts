@@ -3,8 +3,8 @@
 const PAUSE_KEY = 'cop-ai-paused-until';
 const REASON_KEY = 'cop-ai-paused-why';
 
-/** Why the AI is paused: its quota (« limite ») or a problem (no network, server error, bad key). */
-export type PauseReason = 'limit' | 'error';
+/** Why the AI is paused: the site's quota (« limite »), the student's own questions of the day, or a problem. */
+export type PauseReason = 'limit' | 'mine' | 'error';
 
 export function pauseAi(seconds: number, reason: PauseReason = 'limit') {
   try {
@@ -27,7 +27,8 @@ export function aiPausedUntil(): number {
 
 export function aiPauseReason(): PauseReason {
   try {
-    return sessionStorage.getItem(REASON_KEY) === 'error' ? 'error' : 'limit';
+    const r = sessionStorage.getItem(REASON_KEY);
+    return r === 'error' || r === 'mine' ? r : 'limit';
   } catch {
     return 'limit';
   }

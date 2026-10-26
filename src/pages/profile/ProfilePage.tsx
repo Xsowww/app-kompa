@@ -449,7 +449,7 @@ function CopilotTab() {
               <>
                 <span className="font-medium">{t('Mode simple pour l’instant.')}</span>{' '}
                 <span className="text-stone-500">
-                  {aiPauseReason() === 'error' ? t('L’IA ne répond pas, retour dans') : t('L’IA gratuite a atteint sa limite, retour dans')} <span className="tabular">{clock}</span>.
+                  {aiPauseReason() === 'error' ? t('L’IA ne répond pas, retour dans') : aiPauseReason() === 'mine' ? t('Tes questions du jour sont utilisées, retour dans') : t('L’IA gratuite a atteint sa limite, retour dans')} <span className="tabular">{clock}</span>.
                 </span>
               </>
             ) : aiEnabled ? (

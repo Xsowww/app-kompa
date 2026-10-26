@@ -38,6 +38,8 @@ export interface BotReply {
   text: string;
   links?: CopilotLink[];
   offers?: CopilotOffer[];
+  /** Not understood: the simple mode only knows a few requests. */
+  unknown?: boolean;
 }
 
 const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
@@ -773,5 +775,5 @@ export function localReply(raw: string): BotReply {
     return { text: `${t('Voilà ce que je sais faire sans IA :')}\n${ex.map(e => `- ${e}`).join('\n')}` };
   }
   // Said plainly: without the AI (none set up, paused or failing), only simple requests are understood.
-  return { text: `${t('Je n’ai pas tout compris : l’IA n’est pas disponible, je comprends seulement des demandes simples. Essaie par exemple :')}\n${ex.slice(0, 4).map(e => `- ${e}`).join('\n')}\n${t('(« aide » pour tout voir)')}` };
+  return { text: `${t('Je n’ai pas tout compris : l’IA n’est pas disponible, je comprends seulement des demandes simples. Essaie par exemple :')}\n${ex.slice(0, 4).map(e => `- ${e}`).join('\n')}\n${t('(« aide » pour tout voir)')}`, unknown: true };
 }

@@ -384,7 +384,8 @@ export default function Copilot() {
           reply = { text: `${b.describeApiError(e.reason)} ${t('Ce que j’avais déjà fait est enregistré.')}`, links: e.links };
         } else {
           const local = localReply(clean);
-          reply = { text: `${b.describeApiError(e)} ${local.text}`, links: local.links };
+          // Not understood without the AI: the error alone, not the whole list of simple requests after it.
+          reply = local.unknown ? { text: `${b.describeApiError(e)} ${t('Repose ta question un peu plus tard (« aide » pour ce que je sais faire sans IA).')}` } : { text: `${b.describeApiError(e)} ${local.text}`, links: local.links };
         }
       }
     } else {
@@ -609,7 +610,8 @@ function ModeLine({ ai, label, until, now }: { ai: boolean; label: string; until
   const clock = left >= 3600 ? t('{h} h {min}', { h: Math.floor(left / 3600), min: String(Math.floor((left % 3600) / 60)).padStart(2, '0') }) : `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
   const text = !ai ? t('Mode simple, sans IA') : paused ? t('Mode simple · IA dans {clock}', { clock }) : label ? t('Mode intelligent · {label}', { label }) : t('Mode intelligent');
   // The pause follows a quota (« limite ») or a technical problem: say which.
-  const why = paused && aiPauseReason() === 'error' ? t('L’IA ne répond pas pour le moment : elle revient dans {clock}.', { clock }) : t('L’IA gratuite a atteint sa limite : elle revient dans {clock}.', { clock });
+  const reason = paused ? aiPauseReason() : 'limit';
+  const why = reason === 'error' ? t('L’IA ne répond pas pour le moment : elle revient dans {clock}.', { clock }) : reason === 'mine' ? t('Tu as utilisé tes questions du jour : l’IA revient dans {clock}.', { clock }) : t('L’IA gratuite a atteint sa limite : elle revient dans {clock}.', { clock });
   return (
     <p className="mt-0.5 flex items-center gap-1.5 text-[11px] leading-tight text-stone-500" title={paused ? why : text}>
       <span className={cx('h-1.5 w-1.5 shrink-0 rounded-full', !ai ? 'bg-stone-400' : paused ? 'bg-amber-500' : 'bg-emerald-500')} aria-hidden="true" />

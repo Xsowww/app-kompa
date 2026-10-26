@@ -70,7 +70,7 @@ async function post<T>(path: string, body: unknown, timeoutMs = 90_000): Promise
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       // Quota of the free AI reached: simple mode until the provider accepts requests again.
-      if (['rate_limited', 'daily_limit', 'site_limit'].includes(data.error)) pauseAi(Number(data.retryAfter) || 60);
+      if (['rate_limited', 'daily_limit', 'site_limit'].includes(data.error)) pauseAi(Number(data.retryAfter) || 60, data.error === 'daily_limit' ? 'mine' : 'limit');
       throw new CopilotApiError(data.error ?? `http_${res.status}`);
     }
     return data as T;
@@ -484,6 +484,7 @@ export function describeApiError(e: unknown): string {
     return t('Ma clé d’accès à l’IA ne marche pas (à vérifier sur le serveur) : je passe en mode simple.');
   }
   pauseAi(2 * 60, 'error');
-  if (code === 'network' || code === 'timeout') return t('J’ai perdu la connexion à l’IA : je passe en mode simple deux minutes.');
+  if (code === 'timeout') return t('L’IA met trop de temps à répondre : je passe en mode simple deux minutes.');
+  if (code === 'network') return t('J’ai perdu la connexion à l’IA : je passe en mode simple deux minutes.');
   return t('L’IA a un souci technique : je passe en mode simple deux minutes.');
 }
