@@ -19,6 +19,8 @@ export interface IcsSource {
 /** Timetables followed by link: paste one, see them, read them again, stop following one (lib/icsFeeds). */
 function Feeds({ onAdded }: { onAdded: (firstDate: string) => void }) {
   const feeds = useSettings(s => s.icsFeeds);
+  // A timetable for studies (« cours », the school's ENT), any agenda otherwise.
+  const study = (useSettings(s => s.usage) ?? 'etudes') === 'etudes';
   const events = useCalendar(s => s.events);
   const today = todayKey();
   const upcoming = (id: string) => events.some(e => e.date >= today && e.externalId?.startsWith(feedMark(id)));
@@ -51,7 +53,10 @@ function Feeds({ onAdded }: { onAdded: (firstDate: string) => void }) {
     setBusy('all');
     await refreshFeeds(true);
     setBusy(null);
-    toast(t('Emplois du temps à jour'), 'success');
+    // A link that failed is said in the list: not « à jour ».
+    const failed = (useSettings.getState().icsFeeds ?? []).filter(f => f.error).length;
+    if (failed) toast(tn(failed, '{n} lien n’a pas pu être lu : voir la liste.', '{n} liens n’ont pas pu être lus : voir la liste.'), 'error');
+    else toast(study ? t('Emplois du temps à jour') : t('Agendas à jour'), 'success');
   };
 
   const stop = async (id: string, name: string) => {
@@ -87,10 +92,10 @@ function Feeds({ onAdded }: { onAdded: (firstDate: string) => void }) {
       {error && <p id="feed-error" role="alert" className="mt-1.5 text-[12.5px] font-medium text-red-600 dark:text-red-400">{error}</p>}
       {pastOnly && (
         <button type="button" className="btn-secondary mt-2 h-9" disabled={!!busy} onClick={() => void add(undefined, true)}>
-          {t('Ajouter quand même ses cours passés')}
+          {study ? t('Ajouter quand même ses cours passés') : t('Ajouter quand même ses événements passés')}
         </button>
       )}
-      <p className="mt-1.5 text-[12px] text-stone-500">{t('Le lien « iCal » de ton ENT ou de Google Agenda. Mis à jour toutes les 3 h.')}</p>
+      <p className="mt-1.5 text-[12px] text-stone-500">{study ? t('Le lien « iCal » de ton ENT ou de Google Agenda. Mis à jour toutes les 3 h.') : t('Le lien « iCal » de ton agenda (Google Agenda, Outlook…). Mis à jour toutes les 3 h.')}</p>
 
       {feeds.length > 0 && (
         <div className="mt-3 rounded-xl border border-stone-200">
@@ -102,7 +107,7 @@ function Feeds({ onAdded }: { onAdded: (firstDate: string) => void }) {
                   {f.error ? (
                     <p className="text-[12px] text-red-600 dark:text-red-400">{feedErrorText(f.error)}</p>
                   ) : !upcoming(f.id) ? (
-                    <p className="text-[12px] text-amber-700 dark:text-amber-400">{t('Aucun cours à venir dans ce lien.')}</p>
+                    <p className="text-[12px] text-amber-700 dark:text-amber-400">{study ? t('Aucun cours à venir dans ce lien.') : t('Aucun événement à venir dans ce lien.')}</p>
                   ) : (
                     f.lastSync && <p className="text-[12px] text-stone-500">{t('Mis à jour le {when}', { when: fmt(new Date(f.lastSync), 'd MMM, HH:mm') })}</p>
                   )}
@@ -173,7 +178,7 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
     const updates = parsed.flatMap(e => {
       const old = byExternal.get(e.externalId);
       if (!old || !(current(old) || current(e))) return [];
-      const patch = { title: e.title, date: e.date, start: e.start, end: e.end, details: e.details };
+      const patch = { title: e.title, date: e.date, start: e.start, end: e.end, details: e.details, series: e.series };
       const same = (Object.keys(patch) as (keyof typeof patch)[]).every(k => (old[k] ?? undefined) === (patch[k] ?? undefined));
       return same ? [] : [{ id: old.id, patch }];
     });
@@ -196,7 +201,7 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
   const submit = () => {
     if (!plan || !changes) return;
     const cal = useCalendar.getState();
-    const list: NewEvent[] = plan.todo.map(e => ({ title: e.title, date: e.date, start: e.start, end: e.end, details: e.details, externalId: e.externalId, category: categoryOf(e) }));
+    const list: NewEvent[] = plan.todo.map(e => ({ title: e.title, date: e.date, start: e.start, end: e.end, details: e.details, externalId: e.externalId, category: categoryOf(e), series: e.series }));
     if (list.length) cal.addMany(list);
     for (const u of plan.updates) cal.update(u.id, u.patch);
     for (const e of plan.removals) cal.remove(e.id);

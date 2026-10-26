@@ -42,22 +42,27 @@ export const MAX_MINUTES = 10080 * 4;
 
 export const reminderOptions = (timed: boolean) => (timed ? TIMED_OPTIONS : DAY_OPTIONS);
 
-/** A big day (exam, important) is also reminded a week before and the day before at 18:00 (and that day at 9:00 without a time). */
-export function earlyReminders(date: string, time?: string): number[] {
+/**
+ * A big day (exam, important) is also reminded a week before and the day before at 18:00 (and that day at 9:00 without a time).
+ * With `now` (an event being made): not the ones already past (« 1 semaine avant » for an exam tomorrow), they
+ * would never ring. Without it (the scheduler), all of them: one just passed may still be due.
+ */
+export function earlyReminders(date: string, time?: string, now?: Date): number[] {
   const [y, m, d] = date.split('-').map(Number);
   const eve = new Date(y, m - 1, d - 1);
-  return time ? [10080, minutesBefore(date, time, `${eve.getFullYear()}-${pad(eve.getMonth() + 1)}-${pad(eve.getDate())}`, '18:00')] : [10080, 900, 0];
+  const all = time ? [10080, minutesBefore(date, time, `${eve.getFullYear()}-${pad(eve.getMonth() + 1)}-${pad(eve.getDate())}`, '18:00')] : [10080, 900, 0];
+  return now ? all.filter(min => reminderMoment(date, time, min) > now) : all;
 }
 
 /**
  * An event's reminders: its own, else, when it was made here, the usual ones (Profil › Notifications) if it has a time,
  * plus the early ones of a big day (category « examen » or marked important: isBigEvent in store/calendar).
  */
-export function eventReminders(e: { reminders?: number[]; date?: string; start?: string; externalId?: string; category?: string; important?: boolean }, defaults: number[]): number[] {
+export function eventReminders(e: { reminders?: number[]; date?: string; start?: string; externalId?: string; category?: string; important?: boolean }, defaults: number[], now?: Date): number[] {
   if (e.reminders) return e.reminders;
   if (e.externalId) return [];
   const base = e.start ? defaults : [];
-  return e.date && (e.category === 'examen' || e.important) ? (cleanReminders([...base, ...earlyReminders(e.date, e.start)]) ?? base) : base;
+  return e.date && (e.category === 'examen' || e.important) ? (cleanReminders([...base, ...earlyReminders(e.date, e.start, now)]) ?? base) : base;
 }
 
 /** « 45 min avant », « 3 h 30 avant », « 2 j 4 h avant ». */

@@ -49,3 +49,12 @@ describe('À venir : un événement sur plusieurs jours une seule fois', () => {
     expect(firstOfSpans(list).map(e => e.id)).toEqual(['a', 'b', 'd', 'e']);
   });
 });
+
+describe('spanTooLong', () => {
+  it('31 days at most: said, not cut (21 November → 31 December is 41 days)', async () => {
+    const { spanTooLong } = await import('../src/lib/repeat');
+    expect(spanTooLong('2026-11-21', '2026-12-31')).toBe(true);
+    expect(spanTooLong('2026-12-01', '2026-12-31')).toBe(false);
+    expect(spanTooLong('2026-12-01', '2027-01-01')).toBe(true);
+  });
+});

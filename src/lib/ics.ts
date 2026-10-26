@@ -16,6 +16,8 @@ export interface IcsEvent {
   start?: string; // HH:mm
   end?: string; // HH:mm
   details?: string;
+  /** The days of one event over several days are linked: « span-<UID>_<first day> » (see lib/repeat isSpan). */
+  series?: string;
 }
 
 export interface ParseOptions {
@@ -322,7 +324,8 @@ function detailsOf(ev: RawEvent): string | undefined {
     if (!m) return true;
     const key = m[1].trim();
     if (ROOM.test(key)) {
-      place ||= m[2].trim();
+      // « Salle : 307 » → « Salle 307 », not a bare number; « Lieu : Amphi A » → « Amphi A ».
+      place ||= /^\d/.test(m[2].trim()) ? `${key} ${m[2].trim()}` : m[2].trim();
       return false;
     }
     return !SUBJECT.test(key) && !NOISE.test(key);
@@ -332,8 +335,14 @@ function detailsOf(ev: RawEvent): string | undefined {
   return parts.length ? parts.join('\n') : undefined;
 }
 
-/** Turns one occurrence into calendar events (several when it spans several days). */
+/** Turns one occurrence into calendar events (several when it spans several days, linked by a « span- » series). */
 function toEvents(ev: RawEvent, start: Date, durationMs: number, allDay: boolean, externalId: (d: Date) => string, base: Omit<IcsEvent, 'externalId' | 'date'>): IcsEvent[] {
+  const days = splitDays(ev, start, durationMs, allDay, externalId, base);
+  const series = `span-${ev.uid}_${compactKey(start)}`;
+  return days.length > 1 ? days.map(e => ({ ...e, series })) : days;
+}
+
+function splitDays(ev: RawEvent, start: Date, durationMs: number, allDay: boolean, externalId: (d: Date) => string, base: Omit<IcsEvent, 'externalId' | 'date'>): IcsEvent[] {
   if (allDay) {
     const days = Math.min(31, Math.max(1, Math.round(durationMs / DAY_MS)));
     return Array.from({ length: days }, (_, i) => {

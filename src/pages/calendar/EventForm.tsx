@@ -18,7 +18,7 @@ import { FieldError } from '../../components/Field';
 import { fmtDay, fromKey, parseQuickAdd } from '../../lib/dates';
 import { cleanReminders, earlyReminders, eventReminders, followMoments } from '../../lib/reminders';
 import { covers } from '../../lib/periods';
-import { MAX_SPAN_DAYS, REPEATS, dayShift, defaultUntil, isSpan, repeatDays, shiftKey, spanDays, type Repeat } from '../../lib/repeat';
+import { MAX_SPAN_DAYS, REPEATS, dayShift, defaultUntil, isSpan, repeatDays, shiftKey, spanDays, spanTooLong, type Repeat } from '../../lib/repeat';
 import { feedLabel, feedOf } from '../../lib/icsFeeds';
 import { uid } from '../../lib/utils';
 import { t, tn } from '../../i18n';
@@ -84,7 +84,8 @@ export default function EventForm({ event, date, start: initialStart, end: initi
   const canSpan = !event && !repeat;
   const [endDay, setEndDay] = useState<string | null>(null); // null: ends the same day
   const spanning = canSpan && !!endDay && !!day && endDay > day;
-  const endDayMsg = canSpan && endDay && day && endDay <= day ? t('Le jour de fin doit être après le jour de début.') : '';
+  // Longer than MAX_SPAN_DAYS: said and blocked (a day typed past the little calendar's end), never cut without a word.
+  const endDayMsg = canSpan && endDay && day ? (endDay <= day ? t('Le jour de fin doit être après le jour de début.') : spanTooLong(day, endDay) ? t('{n} jours au plus.', { n: MAX_SPAN_DAYS }) : '') : '';
   const onTitle = (v: string) => {
     setTitle(v);
     if (v.trim()) setTitleError('');
@@ -99,11 +100,11 @@ export default function EventForm({ event, date, start: initialStart, end: initi
     if (canRepeat && !was.repeat) setRepeat(ok?.weekly ? 'week' : '');
   };
   const effective = category ?? guessCategory(cleanTitle || title, !!start, custom);
-  // My usual reminder and, for a big day, a week before and the day before (lib/reminders); a shared calendar: the chosen ones.
-  const reminders = shared ? (chosen ?? NONE) : eventReminders({ reminders: chosen, date: day, start, externalId: event?.externalId, category: effective, important }, defaults);
+  // My usual reminder and, for a big day, a week before and the day before when still to come (lib/reminders); a shared calendar: the chosen ones.
+  const reminders = shared ? (chosen ?? NONE) : eventReminders({ reminders: chosen, date: day, start, externalId: event?.externalId, category: effective, important }, defaults, new Date());
   // Becoming a big day with reminders already chosen: the early ones are added (removable).
   const becomeBig = (big: boolean) => {
-    if (!shared && big && chosen && day && !isBigEvent({ category: effective, important })) setChosen(cleanReminders([...chosen, ...earlyReminders(day, start || undefined)]));
+    if (!shared && big && chosen && day && !isBigEvent({ category: effective, important })) setChosen(cleanReminders([...chosen, ...earlyReminders(day, start || undefined, new Date())]));
   };
   const notes = useNotes(s => s.notes);
   const linked = event ? notes.filter(n => n.links?.some(l => l.kind === 'event' && l.id === event.id)) : [];
@@ -176,7 +177,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
                   ? tn(n, 'Sur plusieurs jours : encore {n} jour après celui-ci', 'Sur plusieurs jours : encore {n} jours après celui-ci')
                   : t('Dernier jour de l’événement')
                 : n
-                  ? t('Se répète : encore {n} fois après celui-ci', { n })
+                  ? tn(n, 'Se répète : encore {n} fois après celui-ci||une fois', 'Se répète : encore {n} fois après celui-ci')
                   : t('Dernier d’une répétition'))(nextInSeries(event, allEvents).length)}
           </p>
         )}

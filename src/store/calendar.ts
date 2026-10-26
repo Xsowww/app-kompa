@@ -214,7 +214,7 @@ export function guessCategory(title: string, timed = false, custom?: CustomCateg
  * later doesn't add one to it.)
  */
 function fresh(e: NewEvent): CalendarEvent {
-  const reminders = e.reminders ?? (!e.externalId && (e.start || isBigEvent(e)) ? [...eventReminders(e, getSettings().defaultReminders ?? [])] : undefined);
+  const reminders = e.reminders ?? (!e.externalId && (e.start || isBigEvent(e)) ? [...eventReminders(e, getSettings().defaultReminders ?? [], new Date())] : undefined);
   return { ...e, ...(reminders && { reminders }), id: uid(), done: false, createdAt: nowIso() };
 }
 

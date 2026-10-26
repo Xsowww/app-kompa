@@ -40,10 +40,17 @@ export class FeedError extends Error {
 
 /** What to say about a failure. */
 export function feedErrorText(code: string, last?: string): string {
+  // A timetable for studies (« cours »), any agenda otherwise.
+  const study = (getSettings().usage ?? 'etudes') === 'etudes';
   if (code === 'no_upcoming')
     return last
-      ? t('Aucun cours à venir dans ce lien : le dernier date du {day}. C’est sans doute le lien de l’an dernier : prends celui de cette année.', { day: fmtDay(fromKey(last), 'd MMMM') })
-      : t('Aucun cours à venir dans ce lien.');
+      ? study
+        ? t('Aucun cours à venir dans ce lien : le dernier date du {day}. C’est sans doute le lien de l’an dernier : prends celui de cette année.', { day: fmtDay(fromKey(last), 'd MMMM') })
+        : t('Aucun événement à venir dans ce lien : le dernier date du {day}.', { day: fmtDay(fromKey(last), 'd MMMM') })
+      : study
+        ? t('Aucun cours à venir dans ce lien.')
+        : t('Aucun événement à venir dans ce lien.');
+  if (code === 'already') return t('Tu es déjà abonné à ce lien.');
   if (code === 'bad_url') return t('Ce lien n’est pas valide : copie le lien d’abonnement complet (il commence par https:// ou webcal://).');
   if (code === 'not_ics') return t('Ce lien ne mène pas à un calendrier (.ics).');
   if (code === 'empty') return t('Aucun événement dans ce calendrier.');
@@ -106,7 +113,7 @@ export const feedMark = (feedId: string) => `feed:${feedId}:`;
 
 export interface FeedPlan {
   add: CalendarEvent[];
-  updates: { id: string; patch: Pick<CalendarEvent, 'title' | 'date' | 'start' | 'end' | 'details'> & Partial<Pick<CalendarEvent, 'category'>> }[];
+  updates: { id: string; patch: Pick<CalendarEvent, 'title' | 'date' | 'start' | 'end' | 'details' | 'series'> & Partial<Pick<CalendarEvent, 'category'>> }[];
   remove: string[];
 }
 
@@ -127,13 +134,14 @@ export function planFeed(feedId: string, items: (IcsEvent & { id: string })[], e
     seen.add(it.id);
     const old = mine.get(it.id);
     if (old) {
-      const patch: FeedPlan['updates'][number]['patch'] = { title: it.title, date: it.date, start: it.start, end: it.end, details: it.details };
+      // `series`: the days of an event over several days, linked (also the ones added before they were).
+      const patch: FeedPlan['updates'][number]['patch'] = { title: it.title, date: it.date, start: it.start, end: it.end, details: it.details, series: it.series };
       // Left « Perso » by an older guess: a class now (a category chosen by the student is kept).
       const category = timetableCategory(it.title, !!it.start);
       if (old.category === 'perso' && category !== 'perso') patch.category = category;
       if ((Object.keys(patch) as (keyof typeof patch)[]).some(k => (old[k] ?? undefined) !== (patch[k] ?? undefined))) plan.updates.push({ id: it.id, patch });
     } else if (!taken.has(it.id) && (pastToo || it.date >= today)) {
-      plan.add.push({ id: it.id, title: it.title, date: it.date, start: it.start, end: it.end, details: it.details, externalId: mark + it.externalId, category: timetableCategory(it.title, !!it.start), done: false, createdAt: now });
+      plan.add.push({ id: it.id, title: it.title, date: it.date, start: it.start, end: it.end, details: it.details, ...(it.series && { series: it.series }), externalId: mark + it.externalId, category: timetableCategory(it.title, !!it.start), done: false, createdAt: now });
     }
   }
   for (const e of mine.values()) if (!seen.has(e.id) && e.date >= today) plan.remove.push(e.id);
@@ -167,6 +175,8 @@ const saveFeed = (id: string, patch: Partial<IcsFeed>) =>
 /** `pastToo`: also the past events (asked after « no_upcoming »). */
 export async function subscribe(url: string, pastToo = false): Promise<{ feed: IcsFeed; plan: FeedPlan }> {
   const clean = url.trim().replace(/^webcals?:\/\//i, 'https://');
+  // The same link twice would add every event twice.
+  if ((getSettings().icsFeeds ?? []).some(f => f.url === clean)) throw new FeedError('already');
   const text = await downloadFeed(clean);
   const all = parseIcs(text);
   if (!all.length) throw new FeedError('empty');

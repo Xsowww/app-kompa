@@ -459,19 +459,21 @@ export default function CalendarPage() {
   // Same filter as the calendar (the category chips sit in this block).
   // An exam of today already over (its end, else its start, passed) is no longer « à venir », as on the home page.
   // Exams and events marked important (they count as big days too).
-  const isUpcomingExam = (e: CalendarEvent) => isBigEvent(e) && !e.done && !isOver(e) && e.date !== selected;
+  const isUpcomingExam = (e: CalendarEvent) => isBigEvent(e) && !e.done && !isOver(e);
   // A shared calendar has no « fait »: what is past is just past, not « en retard ».
-  const isHomeworkSoon = (e: CalendarEvent) => isDeliverable(e) && !e.done && daysUntil(e.date) <= 14 && (!shared || daysUntil(e.date) >= 0) && e.date !== selected;
+  const isHomeworkSoon = (e: CalendarEvent) => isDeliverable(e) && !e.done && daysUntil(e.date) <= 14 && (!shared || daysUntil(e.date) >= 0);
   // « Rien à afficher » only when a hidden category holds something this block would list (not a hidden « Sport »).
   // Anything still to come (not done, not over): after the important ones, the next things, whatever they are.
+  const isComing = (e: CalendarEvent) => !e.done && e.date >= today && !isOver(e);
   // Not the day shown below the calendar: its events are already listed there.
-  const isComing = (e: CalendarEvent) => !e.done && e.date >= today && !isOver(e) && e.date !== selected;
+  const away = (e: CalendarEvent) => e.date !== selected;
   // Sorted once per change of the events (and once a minute, for « over »), not at each key typed in the quick add.
   const minute = Math.floor(Date.now() / 60_000);
   const { upcomingHidden, upcomingExams, moreExams, nextUp } = useMemo(() => {
-    const upcomingHidden = filtering && events.some(e => !passes(e) && (isComing(e) || isHomeworkSoon(e)));
-    // An event over several days once, at its first day (not « J-3, J-4, J-5 »).
-    const pool = firstOfSpans([...visible].sort(sortEvents).filter(e => isUpcomingExam(e) || isHomeworkSoon(e) || isComing(e)));
+    const upcomingHidden = filtering && events.some(e => !passes(e) && away(e) && (isComing(e) || isHomeworkSoon(e)));
+    // An event over several days once, at its first day (not « J-3, J-4, J-5 »); none when that day is the one shown
+    // (its next day, J-4, would say the wrong day).
+    const pool = firstOfSpans([...visible].sort(sortEvents).filter(e => isUpcomingExam(e) || isHomeworkSoon(e) || isComing(e))).filter(away);
     const allUpcomingExams = pool.filter(isUpcomingExam);
     const upcomingExams = allExams ? allUpcomingExams : allUpcomingExams.slice(0, EXAMS_SHOWN);
     const moreExams = allUpcomingExams.length - EXAMS_SHOWN;
