@@ -4,7 +4,7 @@ import { ArrowUp, Check, Copy, Maximize2, Mic, Minimize2, RotateCcw, Square, X }
 import Character, { CopilotAvatar, type CopilotMood } from './Character';
 import { useCopilot, type CopilotLink, type CopilotOffer } from '../store/copilot';
 import { useAuth } from '../store/auth';
-import { localReply, type BotReply } from './localBrain';
+import { isYes, localReply, type BotReply } from './localBrain';
 import { acceptOffer, runOffer } from './offers';
 import * as claudeBrain from './claudeBrain';
 import { normalize, cx } from '../lib/utils';
@@ -28,7 +28,6 @@ const RECORD_QUESTION = { etudes: t('Comment enregistrer un cours ?'), travail: 
 const suggestions = (usage: keyof typeof RECORD_QUESTION, planOffered = false) =>
   [t('Analyse ma semaine'), ...(planOffered ? [] : [usage === 'etudes' ? t('Planifie mes révisions') : t('Bloque du temps pour préparer')]), RECORD_QUESTION[usage]];
 const NARROW = '(max-width: 1023px)';
-const YES = /^(oui|ouais|ok|okay|vas[- ]y|go|carrement|d'accord|dac|yes|yeah|yep|sure|si|vale|claro|dale|ja|klar|gerne|certo|va bene|avec plaisir|je veux bien|volontiers)\b/;
 
 /**
  * The character, his eyes following the mouse. Only this small part re-renders while the mouse moves
@@ -365,7 +364,7 @@ export default function Copilot() {
     push('user', clean);
 
     // "oui" to his last proposal → just do it
-    if (pending && YES.test(normalize(clean))) {
+    if (pending && (isYes(normalize(clean)) || /^(avec plaisir|je veux bien|volontiers)$/.test(normalize(clean)))) {
       const r = runOffer(pending);
       push('bot', r.text, { links: r.links });
       speak(r.text);

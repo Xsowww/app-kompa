@@ -29,3 +29,12 @@ describe('Kompaly: a text hidden in a note does not change anything by itself', 
     expect(useNotes.getState().notes.find(x => x.id === n.id)?.title).toBe('pirate');
   });
 });
+
+describe('Kompaly: only a plain yes confirms a deletion', () => {
+  it('« oui » confirms, a question or « si … » does not', async () => {
+    const { isYes } = await import('../src/copilot/localBrain');
+    const { normalize } = await import('../src/lib/utils');
+    for (const q of ['oui', 'ok', 'vas-y', 'oui je confirme']) expect(isYes(normalize(q))).toBe(true);
+    for (const q of ['si je la supprime, je pourrai la récupérer ?', 'ok mais attends, je réfléchis', 'oui ?']) expect(isYes(normalize(q))).toBe(false);
+  });
+});

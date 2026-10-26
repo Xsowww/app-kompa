@@ -70,7 +70,8 @@ const ask = (text: string, run: () => BotReply): BotReply => {
 // French first; the other site languages too (en, es, de, it), the confirmations being shown translated.
 const YES = /^(oui|ouais|ouep|ok|okay|vas[- ]y|go|carrement|d'accord|dac|yes|yeah|yep|sure|si|vale|claro|dale|ja|klar|gerne|jawohl|certo|va bene|confirme|je confirme|c'est bon)\b/;
 /** A clear « yes »: a short answer, not a question that happens to start with « si » or « ok ». */
-const isYes = (q: string) => YES.test(q) && !q.includes('?') && q.split(/\s+/).length <= 4 && !/^si\s+\S/.test(q);
+/** A plain yes (not a question, not « si … » nor a long sentence): the button stays the real confirmation. */
+export const isYes = (q: string) => YES.test(q) && !q.includes('?') && q.split(/\s+/).length <= 4 && !/^si\s+\S/.test(q);
 const NO = /^(non|nan|annule|laisse|nope|non merci|pas maintenant|surtout pas|no|cancel|nein|lieber nicht|cancela|annulla)\b/;
 
 function quizQuestion(z: Quiz) {
