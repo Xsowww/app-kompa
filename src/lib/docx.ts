@@ -26,6 +26,9 @@ const BULLET = /^([-*+•])\s+(.*)$/;
 const NUMBER = /^\d{1,3}[.)]\s+(.*)$/;
 /** A line that is only bold text (« **Définition** »): its own paragraph, not glued to the next line. */
 const BOLD_LINE = /^\*\*[^*].*\*\*:?$/;
+/** A table row « | a | b | » and the line under its header « |---|:--:| ». */
+const TABLE_ROW = /^\|(.*)\|$/;
+const TABLE_RULE = /^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?$/;
 
 export function parseMarkdown(md: string): Block[] {
   const blocks: Block[] = [];
@@ -34,6 +37,7 @@ export function parseMarkdown(md: string): Block[] {
   let lists = 0;
   let list: number | null = null; // numbered list being continued
   let lastLineWasItem = false;
+  let lastLineWasRow = false;
 
   const push = (b: Block) => {
     if (!isList(b)) list = null;
@@ -56,7 +60,21 @@ export function parseMarkdown(md: string): Block[] {
       continue;
     }
     let m: RegExpExecArray | null;
-    if ((m = HEADING.exec(line))) {
+    const wasRow = lastLineWasRow;
+    lastLineWasRow = false;
+    if (TABLE_RULE.test(line) && line.includes('|')) {
+      // Under the header row: that row in bold.
+      const last = blocks[blocks.length - 1];
+      if (wasRow && last?.kind === 'bullet') last.text = `**${last.text}**`;
+    } else if ((m = TABLE_ROW.exec(line))) {
+      // A table: one bullet per row, its cells side by side (Word, the preview and the PDF have no tables here).
+      flush();
+      const cells = m[1].split('|').map(c => c.trim());
+      if (cells.some(Boolean)) {
+        push({ kind: 'bullet', text: cells.map(c => c || '—').join(' · '), level: 0 });
+        lastLineWasRow = true;
+      }
+    } else if ((m = HEADING.exec(line))) {
       flush();
       const text = m[2].trim();
       const kind = m[1].length === 1 ? 'title' : m[1].length === 2 ? 'h1' : 'h2';

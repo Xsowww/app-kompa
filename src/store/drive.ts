@@ -119,12 +119,12 @@ function cloneTree(items: DriveItem[], ids: string[], targetId: string | null, k
     const pool = [...items, ...created];
     // Pasted next to the original, a copy is named like a duplicate (« A - copie.txt »), not « A (2).txt ».
     const clash = siblingNames(pool, parentId).includes(src.name);
-    const base = rename && (!keepName || clash) ? copyName(src.name) : src.name;
+    const base = rename && (!keepName || clash) ? copyName(src.name, src.kind === 'file') : src.name;
     const copy: DriveItem = {
       ...src,
       id: uid(),
       parentId,
-      name: uniqueName(base, siblingNames(pool, parentId)),
+      name: uniqueName(base, siblingNames(pool, parentId), src.kind === 'file'),
       createdAt: time,
       updatedAt: time,
       starred: false,
@@ -166,9 +166,9 @@ function failReason(e: unknown): string | undefined {
   return undefined;
 }
 
-function copyName(name: string) {
-  const dot = name.lastIndexOf('.');
-  return dot > 0 ? `${t('{name} - copie', { name: name.slice(0, dot) })}${name.slice(dot)}` : t('{name} - copie', { name });
+function copyName(name: string, file: boolean) {
+  const dot = file ? name.lastIndexOf('.') : -1;
+  return dot > 0 && !/\s/.test(name.slice(dot)) ? `${t('{name} - copie', { name: name.slice(0, dot) })}${name.slice(dot)}` : t('{name} - copie', { name });
 }
 
 export const useDrive = create<DriveState>()(
@@ -182,7 +182,7 @@ export const useDrive = create<DriveState>()(
         const time = nowIso();
         const folder: DriveItem = {
           id: uid(),
-          name: uniqueName(name.trim() || t('Nouveau dossier'), siblingNames(get().items, parentId)),
+          name: uniqueName(name.trim() || t('Nouveau dossier'), siblingNames(get().items, parentId), false),
           kind: 'folder',
           parentId,
           createdAt: time,
@@ -247,7 +247,7 @@ export const useDrive = create<DriveState>()(
         set(s => {
           const item = s.items.find(i => i.id === id);
           if (!item) return s;
-          const finalName = uniqueName(clean, siblingNames(s.items, item.parentId, id));
+          const finalName = uniqueName(clean, siblingNames(s.items, item.parentId, id), item.kind === 'file');
           return { items: s.items.map(i => (i.id === id ? { ...i, name: finalName, updatedAt: nowIso() } : i)) };
         });
       },
@@ -279,7 +279,7 @@ export const useDrive = create<DriveState>()(
           const { deletedAt: _d, ...clean } = it;
           const parentAlive = !clean.parentId || back.has(clean.parentId) || items.some(i => i.id === clean.parentId);
           const parentId = parentAlive ? clean.parentId : null;
-          const name = back.has(parentId ?? '') ? clean.name : uniqueName(clean.name, siblingNames([...items, ...restored], parentId));
+          const name = back.has(parentId ?? '') ? clean.name : uniqueName(clean.name, siblingNames([...items, ...restored], parentId), clean.kind === 'file');
           restored.push({ ...clean, parentId, name });
         }
         set(s => ({ items: [...s.items, ...restored], trash: s.trash.filter(i => !back.has(i.id)) }));
@@ -332,7 +332,7 @@ export const useDrive = create<DriveState>()(
           next[idx] = {
             ...next[idx],
             parentId: targetId,
-            name: uniqueName(next[idx].name, siblingNames(next, targetId, id)),
+            name: uniqueName(next[idx].name, siblingNames(next, targetId, id), next[idx].kind === 'file'),
             updatedAt: nowIso(),
           };
           moved++;

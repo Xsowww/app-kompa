@@ -118,3 +118,28 @@ describe('keepExtension', () => {
     expect(keepExtension('notes.txt', 'notes.v2')).toBe('notes.v2.txt');
   });
 });
+
+describe('drive twin names', () => {
+  it('numbers a folder at the end of its name, a dot there is no extension', async () => {
+    const d = useDrive.getState();
+    const a = d.createFolder('M. Dupont', null);
+    expect(d.createFolder('M. Dupont', null).name).toBe('M. Dupont (2)');
+    const box = d.createFolder('Classeur', null);
+    const v = d.createFolder('v1.2', box.id);
+    d.createFolder('v1.2', null);
+    expect(useDrive.getState().move([v.id], null)).toBe(1);
+    expect(useDrive.getState().items.find(i => i.id === v.id)?.name).toBe('v1.2 (2)');
+    useDrive.getState().copy([a.id]);
+    await useDrive.getState().paste(null);
+    expect(useDrive.getState().items.filter(i => i.parentId === null).map(i => i.name)).toContain('M. Dupont - copie');
+  });
+});
+
+describe('drive upload refused', () => {
+  it('says why in a few words for the upload card', async () => {
+    const { storageError } = await import('../src/lib/blobStore');
+    expect(storageError({ statusCode: '403', message: 'new row violates row-level security policy' })).toMatchObject({ reason: 'Plus de place' });
+    expect(storageError({ statusCode: '413', message: 'Payload too large' })).toMatchObject({ reason: 'Plus de 50 Mo' });
+    expect('reason' in storageError({ message: 'Failed to fetch' })).toBe(false);
+  });
+});

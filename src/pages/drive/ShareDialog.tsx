@@ -38,9 +38,12 @@ export default function ShareDialog({ item, onClose }: { item: DriveItem; onClos
     if (!supabase) return;
     setBusy(true);
     // Files live under "<userId>/<itemId>" in the private "drive" bucket (see blobStore).
-    const { data, error } = await supabase.storage.from('drive').createSignedUrl(blobKey(item.id).replace(':', '/'), days * 86400);
+    const { data, error } = await supabase.storage
+      .from('drive')
+      .createSignedUrl(blobKey(item.id).replace(':', '/'), days * 86400)
+      .catch(() => ({ data: null, error: true }));
     setBusy(false);
-    if (error || !data) return toast(t('Impossible de créer le lien. Le fichier est-il bien synchronisé ?'), 'error');
+    if (error || !data) return toast(t('Impossible de créer le lien. Vérifie ta connexion et réessaie.'), 'error');
     setLink({ url: data.signedUrl, days });
     setCopied(false);
     await copy(data.signedUrl);
@@ -70,6 +73,8 @@ export default function ShareDialog({ item, onClose }: { item: DriveItem; onClos
             {DURATIONS.map(d => (
               <button
                 key={d.days}
+                type="button"
+                aria-pressed={days === d.days}
                 onClick={() => setDays(d.days)}
                 className={cx('hit h-8 rounded-md px-3 font-medium transition-colors pointer-coarse:h-9', days === d.days ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
               >

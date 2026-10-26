@@ -160,4 +160,13 @@ describe('markdownToDocx', () => {
       expect(out).toContain(t);
     }
   });
+  it('turns a table into one line per row', () => {
+    expect(parseMarkdown('Avant\n| Grandeur | Unité |\n|---|:--:|\n| Force | N |\n|  | J |\n\n---')).toEqual([
+      { kind: 'p', text: 'Avant' },
+      { kind: 'bullet', text: '**Grandeur · Unité**', level: 0 },
+      { kind: 'bullet', text: 'Force · N', level: 0 },
+      { kind: 'bullet', text: '— · J', level: 0 },
+      { kind: 'rule' },
+    ]);
+  });
 });

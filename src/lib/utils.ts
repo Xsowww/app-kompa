@@ -57,12 +57,15 @@ export function stripHtml(html: string): string {
     .trim();
 }
 
-/** Returns `name` or `name (2)`, `name (3)`… so it doesn't clash with `taken`. */
-export function uniqueName(name: string, taken: string[]): string {
+/**
+ * Returns `name` or `name (2)`, `name (3)`… so it doesn't clash with `taken`. A file keeps its extension last
+ * (« td (2).pdf »); a folder has none (« M. Dupont (2) », « v1.2 (2) »), nor has a file whose « extension » holds a space.
+ */
+export function uniqueName(name: string, taken: string[], file = true): string {
   const set = new Set(taken.map(t => t.toLowerCase()));
   if (!set.has(name.toLowerCase())) return name;
   const dot = name.lastIndexOf('.');
-  const hasExt = dot > 0;
+  const hasExt = file && dot > 0 && !/\s/.test(name.slice(dot));
   const base = hasExt ? name.slice(0, dot) : name;
   const ext = hasExt ? name.slice(dot) : '';
   let i = 2;

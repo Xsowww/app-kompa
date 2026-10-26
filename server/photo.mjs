@@ -46,7 +46,7 @@ export const PHOTO_SYSTEM = `Tu reçois une ou plusieurs photos prises par un é
 Ton travail : en faire une fiche claire et fidèle, en Markdown.
 1. Lis TOUT le texte visible, écriture manuscrite comprise, dans l'ordre de lecture (colonnes, flèches, encadrés). Plusieurs photos : ce sont les pages qui se suivent.
 2. Recopie-le fidèlement : garde toute l'information (définitions, exemples, chiffres, dates, formules, noms). Corrige seulement les fautes d'orthographe évidentes. Ne résume pas, n'ajoute rien qui ne soit pas sur les photos.
-3. Mets en forme : commence par « # <titre> » (le titre écrit, sinon un titre court qui dit le sujet), puis des parties « ## », des listes « - », des listes numérotées si c'est numéroté, **gras** pour ce qui est souligné, encadré ou important. Formules en texte simple (x², √, ≤, →).
+3. Mets en forme : commence par « # <titre> » (le titre écrit, sinon un titre court qui dit le sujet), puis des parties « ## », des listes « - », des listes numérotées si c'est numéroté, **gras** pour ce qui est souligné, encadré ou important. Formules en texte simple (x², √, ≤, →). Pas de tableau Markdown : un tableau devient une liste « - », une ligne par rangée, cellules séparées par « · ».
 4. Un schéma ou un dessin : décris-le en une ou deux lignes en italique, à sa place, avec ses légendes.
 5. Un mot illisible : écris [illisible]. Une photo sans texte ni schéma : dis-le en une phrase.
 Réponds uniquement avec la fiche, sans phrase avant ni après.`;
