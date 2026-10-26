@@ -237,18 +237,27 @@ function LoadedEditor({ initial, onClose, readOnly, typed }: { initial: GroupNot
     setTitle(head);
     const el = titleInput.current;
     if (body !== null) {
-      if (body) {
-        editor.commands.setContent({ type: 'doc', content: body.split('\n').map(l => ({ type: 'paragraph', content: l ? [{ type: 'text', text: l }] : [] })) }, { emitUpdate: false });
-        html.current = editor.getHTML();
+      const fill = () => {
+        if (body) {
+          editor.commands.setContent({ type: 'doc', content: body.split('\n').map(l => ({ type: 'paragraph', content: l ? [{ type: 'text', text: l }] : [] })) }, { emitUpdate: false });
+          html.current = editor.getHTML();
+        }
+        editor.commands.setTextSelection(editor.state.doc.content.size);
+        editor.view.focus();
+        if (head.trim() || body.trim()) changed(); // saved once the text is in
+      };
+      // Its commands exist once it is attached to the page (a title pasted right away came before that).
+      if (editor.isInitialized) fill();
+      else {
+        const once = () => (editor.off('create', once), fill());
+        editor.on('create', once);
       }
-      editor.commands.setTextSelection(editor.state.doc.content.size);
-      editor.view.focus();
     } else if (el) {
       el.value = head;
       el.focus();
       el.setSelectionRange(head.length, head.length);
-    }
-    if (head.trim() || body?.trim()) changed();
+      if (head.trim()) changed();
+    } else if (head.trim()) changed();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- une seule fois, quand l'éditeur est là
   }, [editor]);
   useEffect(() => {
