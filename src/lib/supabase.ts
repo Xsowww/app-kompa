@@ -12,20 +12,16 @@ const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 export const arrivedWithLink = typeof location !== 'undefined' && /(?:^|[#&?])(?:access_token|code)=/.test(location.hash + location.search);
 
 /**
- * The new-password page is for whoever came by the reset e-mail, in this tab: an open session alone must not
- * change the password without the current one (that is Profil › Compte).
+ * The new-password page is for whoever came by a real reset e-mail, in this tab: an open session alone (or an
+ * address with a made-up « ?code=x ») must not change the password without the current one (that is Profil › Compte).
+ * Only Supabase's own PASSWORD_RECOVERY event, after it checked the link, opens it.
  */
 const RECOVERY_KEY = 'cop-recovery';
-try {
-  if (arrivedWithLink && location.pathname === '/reinitialisation') sessionStorage.setItem(RECOVERY_KEY, '1');
-} catch {
-  /* storage blocked: the page still works right after the link */
-}
 export const inRecovery = () => {
   try {
-    return arrivedWithLink || sessionStorage.getItem(RECOVERY_KEY) === '1';
+    return sessionStorage.getItem(RECOVERY_KEY) === '1';
   } catch {
-    return arrivedWithLink;
+    return false;
   }
 };
 export const endRecovery = () => {
@@ -112,6 +108,15 @@ const authStorage = {
 
 // serviceFetch: the « service perturbé » banner (lib/serviceStatus) learns from every request.
 export const supabase = url && key ? createClient(url, key, { auth: { storage: authStorage, persistSession: true, autoRefreshToken: true }, global: { fetch: serviceFetch } }) : null;
+// Listened to right away: the event comes once, while the client reads the link in the address.
+supabase?.auth.onAuthStateChange(event => {
+  if (event !== 'PASSWORD_RECOVERY') return;
+  try {
+    sessionStorage.setItem(RECOVERY_KEY, '1');
+  } catch {
+    /* storage blocked: the page will say the link expired */
+  }
+});
 if (url && key) setHealthCheck(() => serviceFetch(`${url}/auth/v1/health`, { headers: { apikey: key }, cache: 'no-store' }));
 
 /**

@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from './store/auth';
-import { inRecovery, linkError } from './lib/supabase';
+import { arrivedWithLink, inRecovery, linkError } from './lib/supabase';
 import { peekAfterLogin, rememberAfterLogin } from './lib/afterLogin';
 import { loadUserData, useWelcome } from './store/session';
 import { toast } from './store/ui';
@@ -171,7 +171,8 @@ function GuestOnly({ children }: { children: React.ReactNode }) {
 /** The new-password page only after a reset e-mail (or to say its link expired). */
 function ResetOnly({ children }: { children: React.ReactNode }) {
   const user = useAuth(s => s.user);
-  return linkError || inRecovery() ? children : <Navigate to={user ? '/profil?onglet=compte' : '/mot-de-passe-oublie'} replace />;
+  // A link in the address is checked by Supabase first (its event sets inRecovery); the form itself refuses without it.
+  return linkError || inRecovery() || arrivedWithLink ? children : <Navigate to={user ? '/profil?onglet=compte' : '/mot-de-passe-oublie'} replace />;
 }
 
 /** Kompaly's mark, styled by index.html (.boot-*): the same as the startup screen, its small dot moving. */

@@ -7,7 +7,7 @@ import { needsCredentials, reloginHint, savedAccounts, type SavedAccount } from 
 import { takeAfterLogin } from '../lib/afterLogin';
 import { toast } from '../store/ui';
 import { loadUserData, markLocalWelcome } from '../store/session';
-import { cloudEnabled, endRecovery, linkError, oauthError, passkeysAvailable, setRememberMe } from '../lib/supabase';
+import { cloudEnabled, endRecovery, inRecovery, linkError, oauthError, passkeysAvailable, setRememberMe } from '../lib/supabase';
 import { prefetchCaptcha } from '../lib/captcha';
 import { offerPasskey } from '../lib/passkeyOffer';
 import Character from '../copilot/Character';
@@ -216,6 +216,8 @@ export default function AuthPage({ mode }: { mode: Mode }) {
         return;
       }
       if (mode === 'reset') {
+        // Only after Supabase checked a real reset link: never from an open session alone.
+        if (cloudEnabled && !inRecovery()) return setError(t('Ce lien a expiré ou a déjà servi : redemande un e-mail de réinitialisation.'));
         await setNewPassword(password, needsCode ? code : undefined);
         endRecovery();
         await loadUserData();
