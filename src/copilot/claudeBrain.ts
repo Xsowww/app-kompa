@@ -481,7 +481,7 @@ export function describeApiError(e: unknown): string {
   // The AI doesn't answer: simple mode for a while instead of the same apology at every message.
   if (code === 'bad_key') {
     pauseAi(30 * 60, 'error');
-    return t('Ma clé d’accès à l’IA ne marche pas (à vérifier sur le serveur) : je passe en mode simple.');
+    return t('L’IA n’est pas disponible pour le moment : je passe en mode simple.');
   }
   pauseAi(2 * 60, 'error');
   if (code === 'timeout') return t('L’IA met trop de temps à répondre : je passe en mode simple deux minutes.');

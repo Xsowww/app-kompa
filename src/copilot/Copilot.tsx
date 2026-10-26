@@ -596,7 +596,7 @@ export default function Copilot() {
         >
           <WatchingCharacter offsetY={offsetY} pose={pose} blink={blink} mood={mood} size={104} />
           {/* Fingers: only his head shows at the edge, too small to tap; a wider invisible pad along the edge. */}
-          {!isOpen && <span aria-hidden className="pointer-events-auto absolute inset-y-1 right-0 hidden w-14 pointer-coarse:block" />}
+          {!isOpen && <span aria-hidden className="pointer-events-auto absolute inset-y-1 right-0 hidden w-8 pointer-coarse:block" />}
         </div>
       </div>
     </div>
