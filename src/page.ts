@@ -15,6 +15,13 @@ let root: Root | undefined;
 /** One React root: the home page draws in it first, the app then takes it over in place (no blank page in between). */
 export const pageRoot = () => (root ??= createRoot(document.getElementById('root')!));
 
+let quiet = 0;
+/** A load the visitor didn't ask for (pages fetched ahead, App.tsx): failing, it must not reload the page. */
+export function quietly<T>(load: () => Promise<T>) {
+  quiet++;
+  return load().finally(() => quiet--);
+}
+
 let watching = false;
 /** Once per page load, whichever of the two starts first. */
 export function watchPage() {
@@ -23,8 +30,10 @@ export function watchPage() {
   watchErrors();
   watchInstall();
   // A new version was put online while this tab was open: the old code files it asks for are gone.
-  // Reload once to get the new version (the error screen shows if that doesn't help).
+  // Reload once to get the new version (the error screen shows if that doesn't help). Offline, a reload would only
+  // show the browser's « no connection » page: the page asked for says so instead (App.tsx › lazyPage).
   window.addEventListener('vite:preloadError', e => {
+    if (quiet || navigator.onLine === false) return;
     if (sessionStorage.getItem('cop-reloaded')) return;
     sessionStorage.setItem('cop-reloaded', '1');
     e.preventDefault();

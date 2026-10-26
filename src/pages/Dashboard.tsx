@@ -198,7 +198,7 @@ export default function Dashboard() {
                 {nowEvent ? (
                   <>
                     <span className="mt-1.5 line-clamp-2 text-[22px] font-extrabold leading-tight tracking-[-0.03em] [overflow-wrap:anywhere] sm:text-[26px]">{nowEvent.title}</span>
-                    <span className="mt-0.5 block truncate text-[14px] text-white/85">
+                    <span className="mt-0.5 block truncate text-[14px] text-white/95">
                       <span className="tabular">{nowEvent.end ? `${nowEvent.start} – ${nowEvent.end}` : nowEvent.start}</span>
                       {nowEvent.details && ` · ${nowEvent.details.split('\n')[0]}`}
                     </span>
@@ -206,7 +206,7 @@ export default function Dashboard() {
                 ) : allDay.length ? (
                   <span className="mt-1.5 line-clamp-2 text-[22px] font-extrabold leading-tight tracking-[-0.03em] [overflow-wrap:anywhere] sm:text-[26px]">
                     {allDay[0].title}
-                    {allDay.length > 1 && <span className="font-semibold text-white/80"> +{allDay.length - 1}</span>}
+                    {allDay.length > 1 && <span className="font-semibold text-white/95"> +{allDay.length - 1}</span>}
                   </span>
                 ) : (
                   <span className="mt-1.5 block text-[22px] font-extrabold tracking-[-0.02em]">{todayEvents.length ? t('Plus rien de prévu.') : t('Rien de prévu.')}</span>

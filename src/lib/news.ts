@@ -25,10 +25,10 @@ export const RELEASES: Release[] = [
   {
     id: '2026-10-25',
     items: [
-      { icon: 'link', title: t('Ton emploi du temps, à jour tout seul'), text: t('Colle le lien iCal de ton ENT ou de Google Agenda : les cours arrivent et se mettent à jour toutes les 3 heures.'), to: '/calendrier' },
+      { icon: 'link', title: t('Ton emploi du temps, à jour tout seul'), text: t('Colle le lien iCal de ton agenda (ENT, Google Agenda, Outlook…) : les événements arrivent et se mettent à jour toutes les 3 heures.'), to: '/calendrier' },
       { icon: 'repeat', title: t('Des événements qui se répètent'), text: t('Chaque semaine, toutes les 2 semaines, chaque jour ou chaque mois, jusqu’à la date de ton choix, sans les vacances. Aussi dans les agendas partagés.'), to: '/calendrier' },
       { icon: 'span', title: t('Des événements sur plusieurs jours'), text: t('Un séminaire, un voyage, un stage : « Finit un autre jour » dans la fenêtre de l’événement.'), to: '/calendrier' },
-      { icon: 'bell', title: t('Les grands jours rappelés plus tôt'), text: t('Un examen ou un événement important te prévient une semaine avant et la veille à 18 h.') },
+      { icon: 'bell', title: t('Les grands jours rappelés plus tôt'), text: t('Un grand jour ou un événement important te prévient une semaine avant et la veille à 18:00.') },
       { icon: 'photo', title: t('Une fiche depuis une photo'), text: t('Prends tes notes en photo, même écrites à la main : Kompaly en fait une fiche PDF rangée dans ton Drive.'), to: '/drive' },
       { icon: 'zip', title: t('Ton Drive en .zip'), text: t('Un dossier, une sélection ou tout le Drive, en un seul fichier à garder.'), to: '/drive' },
       { icon: 'drone', title: t('Kompaly fait peau neuve'), text: t('Ton ami Kompaly est devenu un petit drone, avec ses humeurs sur son écran.') },

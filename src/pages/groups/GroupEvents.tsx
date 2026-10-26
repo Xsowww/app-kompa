@@ -158,7 +158,7 @@ function EventCard({ group, ev }: { group: Group; ev: GroupEvent }) {
           </span>
           {ev.place &&
             (isUrl(ev.place) ? (
-              <a href={ev.place.trim()} target="_blank" rel="noreferrer noopener" className="flex min-w-0 items-center gap-1 text-ink underline decoration-stone-300 underline-offset-2">
+              <a href={ev.place.trim()} target="_blank" rel="noreferrer noopener" className="hit flex min-w-0 items-center gap-1 text-ink underline decoration-stone-300 underline-offset-2">
                 <Link2 size={12} /> <span className="truncate">{t('Lien de la visio')}</span>
               </a>
             ) : (

@@ -90,7 +90,7 @@ function quizStep(input: string, q: string): BotReply {
     const verdict = checkAnswer(cur, input);
     if (verdict === 'good') {
       z.score++;
-      feedback = pick([t('Bien vu !'), t('Exact.'), t('Parfait, c’est ça.'), t('Yes, bonne réponse.')]) + (cur.mode === 'keywords' ? ` ${t('Pour compléter : {answer}', { answer: cur.answer })}` : '');
+      feedback = pick([t('Bien vu !'), t('Exact.'), t('Parfait, c’est ça.'), t('Oui, bonne réponse !')]) + (cur.mode === 'keywords' ? ` ${t('Pour compléter : {answer}', { answer: cur.answer })}` : '');
     } else if (verdict === 'partial') {
       z.score += 0.5;
       feedback = t('En partie. Ce qu’il fallait dire : {answer}', { answer: cur.answer });
@@ -299,12 +299,12 @@ function moreCommands(input: string, q: string): BotReply | null {
 const JOKES: Record<Usage, string[]> = {
   etudes: [
     t('Pourquoi les étudiants aiment les ascenseurs ? Parce que c’est le seul endroit où ils prennent de l’avance.'),
-    t('J’ai voulu réviser avec toi, mais j’ai paniqué en voyant le programme. Je suis qu’un petit casque, moi.'),
+    t('J’ai voulu réviser avec toi, mais j’ai paniqué en voyant le programme. Je ne suis qu’un petit drone, moi.'),
     t('Un partiel, c’est comme une série : tu ne regardes pas le dernier épisode sans avoir vu les précédents. Enfin… en théorie.'),
     t('Mon prof de maths m’a dit que j’étais moyen. C’était méchant, mais statistiquement juste.'),
   ],
   travail: [
-    t('Une réunion qui aurait pu être un e-mail, c’est comme un casque sans écran : ça fait du bruit, mais on ne voit rien.'),
+    t('Une réunion qui aurait pu être un e-mail, c’est comme un drone sans caméra : ça fait du bruit, mais on ne voit rien.'),
     t('J’ai demandé une augmentation à mon écran. Il m’a répondu : « Luminosité, oui. Salaire, non. »'),
     t('Mon agenda et moi, c’est compliqué : il dit « 30 minutes », je comprends « une heure et demie ».'),
     t("Le vendredi à 17h, je suis le seul ici à encore croire aux « petites modifs rapides »."),
@@ -466,7 +466,7 @@ export function localReply(raw: string): BotReply {
     const p = pendingConfirm;
     pendingConfirm = null;
     if (isYes(q)) return p.run();
-    if (NO.test(q)) return { text: t('Ok, je n’y touche pas.') };
+    if (NO.test(q)) return { text: t('OK, je n’y touche pas.') };
   }
 
   // ── Quiz in progress: every message is an answer ─────────────────────────
@@ -488,7 +488,7 @@ export function localReply(raw: string): BotReply {
     return runOffer(offer);
   }
   if (offer && (NO.test(q) || /^(plus tard|not now|later|luego|m[aá]s tarde|sp[aä]ter|pi[uù] tardi|dopo)\b/.test(q))) {
-    return { text: pick([t('Ok, je n’insiste pas. Je reste dans le coin.'), t('Pas de souci, on verra plus tard.')]) };
+    return { text: pick([t('OK, je n’insiste pas. Je reste dans le coin.'), t('Pas de souci, on verra plus tard.')]) };
   }
 
   // ── Recording (page « Enregistrer ») and sheets made from a Drive document ──
@@ -759,7 +759,7 @@ export function localReply(raw: string): BotReply {
 
   // ── Small talk ────────────────────────────────────────────────────────────
   if (/^(salut|bonjour|hello|hey|yo|coucou|bonsoir|wesh|cc)\b/.test(q)) {
-    return { text: pick([t('Salut ! 👋 Je surveillais ton écran, tout roule ?'), t('Hey ! Besoin d’un coup de main ?'), t('Coucou 😄 Qu’est-ce que je peux faire pour toi ?')]) };
+    return { text: pick([t('Salut ! 👋 Je passais par là, tout roule ?'), t('Hey ! Besoin d’un coup de main ?'), t('Coucou 😄 Qu’est-ce que je peux faire pour toi ?')]) };
   }
   if (/\b(merci|super|genial|top|parfait|nickel)\b/.test(q)) return { text: pick([t('Avec plaisir 😎'), t('Toujours là pour toi !'), t('De rien, je retourne me cacher derrière l’écran 👀')]) };
   if (/(qui es[- ]tu|t'es qui|c'est quoi ton nom|presente)/.test(q)) {

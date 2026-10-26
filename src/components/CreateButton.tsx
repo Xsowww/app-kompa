@@ -59,7 +59,7 @@ export default function CreateButton() {
           setMenu({ x: r.right, y: r.top - 8 });
         }}
         className={cx(
-          'fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-[max(16px,env(safe-area-inset-right))] z-40 flex h-14 w-14 items-center justify-center rounded-full bg-ink text-paper shadow-pop outline-none transition-colors hover:bg-stone-800',
+          'fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-[max(16px,env(safe-area-inset-right))] z-40 flex h-14 w-14 items-center justify-center rounded-full bg-ink text-paper shadow-pop outline-none ring-2 ring-paper/80 transition-colors hover:bg-stone-800',
           'focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-paper lg:bottom-6 lg:right-6',
         )}
       >

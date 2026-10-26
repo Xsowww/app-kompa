@@ -27,7 +27,7 @@ import { useGroupActivity, totalUnread } from '../store/groupActivity';
 import { useTrashCount } from '../lib/trash';
 import { useSettings } from '../store/settings';
 import { WORDS, groupWords } from '../lib/usage';
-import { ContextMenu, ReminderAlerts } from '../components/Overlays';
+import { ContextMenu, ReminderAlerts, ServiceBanner } from '../components/Overlays';
 import { PENDING_INVITE } from '../App';
 import { JoinedDialog } from '../pages/groups/Joined';
 import RecPill, { RecBadge } from '../pages/record/RecPill';
@@ -551,6 +551,7 @@ export default function AppShell() {
             <Avatar size={30} />
           </NavLink>
         </header>
+        <ServiceBanner inline />
         {searchOpen && (
           <div id="recherche-mobile" role="search" className="px-4 pb-2 md:px-8 lg:hidden">
             <GlobalSearch
@@ -659,7 +660,7 @@ function PhoneTabBar({ news, label, extra }: { news: (to: string) => number; lab
               className={({ isActive }) => cx('relative flex min-h-[72px] flex-col items-center justify-center gap-1.5 rounded-[16px] px-1 text-center text-[12px] font-semibold leading-tight transition-colors', isActive ? 'bg-stone-100 text-ink' : 'text-stone-600 hover:bg-stone-50')}
             >
               <n.icon size={22} strokeWidth={1.9} style={{ color: n.color }} aria-hidden />
-              <span>{n.label}</span>
+              <span>{label(n)}</span>
               {n.count > 0 && (
                 <span className={cx('absolute right-2 top-2 min-w-[18px] rounded-full px-1 text-center text-[10.5px] font-semibold leading-[18px] tabular', n.to === '/corbeille' ? 'bg-stone-200 text-stone-600' : n.urgent ? 'bg-red-500 text-white' : 'bg-urgent text-white')} aria-hidden>
                   {n.count > 9 ? '9+' : n.count}
@@ -687,7 +688,7 @@ function PhoneTabBar({ news, label, extra }: { news: (to: string) => number; lab
           type="button"
           aria-expanded={open}
           aria-controls={open ? 'nav-more-panel' : undefined}
-          aria-label={current ? t('Plus d’espaces (ici : {space})', { space: current.label }) : t('Plus d’espaces')}
+          aria-label={current ? t('Plus d’espaces (ici : {space})', { space: label(current) }) : t('Plus d’espaces')}
           onClick={() => setOpen(o => !o)}
           className={tab(!!current && !open)}
         >
@@ -695,7 +696,7 @@ function PhoneTabBar({ news, label, extra }: { news: (to: string) => number; lab
             {open ? <X size={19} strokeWidth={2.2} /> : <Shown size={19} strokeWidth={current ? 2.2 : 1.9} style={{ color: current ? current.color : undefined }} />}
             {!open && moreNews && <span className={cx('absolute -right-1 -top-0.5 h-2 w-2 rounded-full bg-red-500 ring-2', current ? 'ring-white' : 'ring-tile-dark')} aria-label={t('nouveautés')} />}
           </span>
-          <span className="max-w-full truncate">{open ? t('Fermer') : current ? (('short' in current && typeof current.short === 'string' && current.short) || current.label) : t('Plus')}</span>
+          <span className="max-w-full truncate">{open ? t('Fermer') : current ? (('short' in current && typeof current.short === 'string' && current.short) || label(current)) : t('Plus')}</span>
         </button>
       </nav>
     </>

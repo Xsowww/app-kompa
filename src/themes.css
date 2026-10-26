@@ -113,8 +113,9 @@
     0 0 0 0.5px var(--glass-line),
     var(--shadow-card);
 }
-:root[data-style='liquide'] :is(.bg-tile-blue, .bg-tile-dark) {
-  /* No sheen on the coloured tiles: it washed out their white text. */
+:root[data-style='liquide'] :is(.bg-tile-blue, .bg-tile-dark):not(nav) {
+  /* No sheen on the coloured tiles: it washed out their white text (:not(nav): as specific as the rule above, which
+     gave them the sheen all the same; the phone's tab bar keeps it). */
   background-image: none;
 }
 :root[data-style='liquide'] :is(.shadow-pop.bg-surface, .card.shadow-pop, #nav-more-panel, #copilot-panel) {
@@ -139,6 +140,8 @@
 }
 :root[data-style='liquide'][data-theme='dark'] aside nav a.bg-ink {
   background-color: rgb(255 255 255 / 0.12);
+  background-image: none;
+  color: var(--color-ink); /* the accent on light glass was hard to read */
 }
 /* Phones: the tab bar is a floating capsule of glass. */
 :root[data-style='liquide'] nav.bg-tile-dark {
@@ -158,7 +161,8 @@
   box-shadow: inset 1px 1px 0 var(--glass-hi), 0 0 0 0.5px var(--glass-line), 0 4px 12px -6px rgb(20 22 31 / 0.3);
 }
 :root[data-style='liquide'][data-theme='dark'] nav.bg-tile-dark > :is(a, button).bg-white {
-  background-color: rgb(255 255 255 / 0.16);
+  background-color: rgb(255 255 255 / 0.1);
+  color: var(--color-ink);
 }
 
 /* ===== Relief (neumorphism): everything cut from the same matter, raised or pressed ===== */

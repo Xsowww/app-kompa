@@ -564,6 +564,10 @@ function CopilotTab() {
 
 function StudiesTab() {
   const s = useSettings();
+  // Work and personal use: « créneaux » (time set aside), « séances » are for revising.
+  const studies = s.usage === 'etudes';
+  const count = studies ? t('Nombre de séances') : t('Nombre de créneaux');
+  const hour = studies ? t('Heure des séances') : t('Heure des créneaux');
   return (
     <div className="space-y-5">
       <Section title={t('Sessions focus')}>
@@ -581,12 +585,12 @@ function StudiesTab() {
         </Row>
       </Section>
 
-      <Section title={s.usage === 'etudes' ? t('Planification des révisions') : t('Temps de préparation')}>
-        <Row label={t('Nombre de séances')}>
-          <Stepper label={t('Nombre de séances')} value={s.revisionSessions} min={1} max={6} onChange={v => s.set({ revisionSessions: v })} />
+      <Section title={studies ? t('Planification des révisions') : t('Temps de préparation')}>
+        <Row label={count}>
+          <Stepper label={count} value={s.revisionSessions} min={1} max={6} onChange={v => s.set({ revisionSessions: v })} />
         </Row>
-        <Row label={t('Heure des séances')} hint={t('Chaque séance dure 1 h 30.')}>
-          <TimeField className="w-32" label={t('Heure des séances')} value={s.revisionTime} onChange={v => v && s.set({ revisionTime: v })} />
+        <Row label={hour} hint={studies ? t('Chaque séance dure 1 h 30.') : t('Chaque créneau dure 1 h 30.')}>
+          <TimeField className="w-32" label={hour} value={s.revisionTime} onChange={v => v && s.set({ revisionTime: v })} />
         </Row>
       </Section>
     </div>
@@ -601,10 +605,10 @@ const SHORTCUTS: { group: string; keys: [string, string][] }[] = [
   {
     group: t('Partout'),
     keys: [
-      ['Ctrl K', t('Rechercher')],
+      ['Ctrl + K', t('Rechercher')],
       [t('↑ ↓ · Entrée'), t('Choisir un résultat')],
       [t('Échap'), t('Fermer, désélectionner')],
-      [t('Maj F10'), t('Menu contextuel')],
+      [t('Maj + F10'), t('Menu contextuel')],
     ],
   },
   {
@@ -612,9 +616,9 @@ const SHORTCUTS: { group: string; keys: [string, string][] }[] = [
     keys: [
       [t('Entrée'), t('Ouvrir')],
       [t('Espace'), t('Sélectionner')],
-      ['Ctrl A', t('Tout sélectionner')],
-      ['Ctrl C · Ctrl X · Ctrl V', t('Copier, couper, coller')],
-      ['Ctrl D', t('Dupliquer')],
+      ['Ctrl + A', t('Tout sélectionner')],
+      ['Ctrl + C · Ctrl + X · Ctrl + V', t('Copier, couper, coller')],
+      ['Ctrl + D', t('Dupliquer')],
       ['F2', t('Renommer')],
       [t('Suppr'), t('Mettre à la corbeille')],
       [t('Retour arrière'), t('Dossier parent')],
@@ -635,8 +639,8 @@ const SHORTCUTS: { group: string; keys: [string, string][] }[] = [
   {
     group: t('Notes'),
     keys: [
-      ['Ctrl B · Ctrl I · Ctrl U', t('Gras, italique, souligné')],
-      ['Ctrl Z', t('Annuler la frappe')],
+      ['Ctrl + B · Ctrl + I · Ctrl + U', t('Gras, italique, souligné')],
+      ['Ctrl + Z', t('Annuler la frappe')],
       [t('Entrée'), t('Du titre au texte')],
       ['↑ ↓', t('Élément précédent, suivant')],
       ['F2', t('Renommer')],
@@ -648,7 +652,7 @@ const SHORTCUTS: { group: string; keys: [string, string][] }[] = [
     keys: [
       [t('Entrée'), t('Aperçu||d’un fichier')],
       ['↑ ↓', t('Élément précédent, suivant')],
-      ['Ctrl A', t('Tout sélectionner')],
+      ['Ctrl + A', t('Tout sélectionner')],
       [t('Suppr'), t('Supprimer définitivement')],
     ],
   },
@@ -664,7 +668,8 @@ const SHORTCUTS: { group: string; keys: [string, string][] }[] = [
   },
 ];
 
-const keyLabel = (k: string) => (IS_MAC ? k.replace(/Ctrl /g, '⌘ ').replace(/Alt /g, '⌥ ') : k);
+// Mac: ⌘ and ⌥; elsewhere the key's name in the language (« Strg » in German).
+const keyLabel = (k: string) => (IS_MAC ? k.replace(/Ctrl \+ /g, '⌘ ').replace(/Alt \+ /g, '⌥ ') : k.replace(/\bCtrl\b/g, t('Ctrl')));
 
 function ShortcutsTab() {
   return (
@@ -724,7 +729,7 @@ function NotificationsTab() {
   const testClosed = async () => {
     const r = await sendTestPush(10);
     if (r === 'ok') toast(t('Ferme ou quitte Kompaly : la notification arrive dans 10 secondes.'), 'success');
-    else toast(r === 'unavailable' ? t('Pas encore disponible.') : t('L’essai n’a pas pu partir, réessaie dans un instant.'), 'error');
+    else toast(r === 'unavailable' ? t('Pas encore disponible.') : t('L’essai n’a pas pu partir : réessaie dans un instant.'), 'error');
   };
 
   const hint =
@@ -795,9 +800,12 @@ function NotificationsTab() {
         <Row label={t('Kompaly')} hint={t('Ses suggestions, quand tu es ailleurs.')}>
           <Toggle label={t('Kompaly')} checked={s.copilotNotify} onChange={v => s.set({ copilotNotify: v })} />
         </Row>
-        <Row label={t('E-mail de conseils')} hint={t('Un seul, quelques jours après l’inscription.')}>
-          <Toggle label={t('E-mail de conseils')} checked={s.emailTips} onChange={x => s.set({ emailTips: x })} />
-        </Row>
+        {/* Local mode: no e-mail is ever sent. */}
+        {cloudEnabled && (
+          <Row label={t('E-mail de conseils')} hint={t('Un seul, quelques jours après l’inscription.')}>
+            <Toggle label={t('E-mail de conseils')} checked={s.emailTips} onChange={x => s.set({ emailTips: x })} />
+          </Row>
+        )}
       </Section>
     </div>
   );
@@ -1195,7 +1203,7 @@ export default function ProfilePage() {
           <h1 className="text-[24px] font-semibold tracking-[-0.02em]">{t('Profil et réglages')}</h1>
         </div>
         <div className="flex flex-col gap-6 md:flex-row">
-          <nav aria-label={t('Sections du profil')} className="grid shrink-0 grid-cols-4 gap-1.5 max-[359px]:grid-cols-3 md:flex md:w-48 md:flex-col md:gap-0.5">
+          <nav aria-label={t('Sections du profil')} className="grid shrink-0 grid-cols-4 gap-1.5 max-[379px]:grid-cols-3 md:flex md:w-48 md:flex-col md:gap-0.5">
             {TABS.map(tb => (
               <button
                 key={tb.key}

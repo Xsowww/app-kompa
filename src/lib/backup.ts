@@ -190,7 +190,7 @@ export async function wipeUserData() {
     // By owner, not by the ids this device knows: rows added on another device since the last pull go too.
     for (const table of OWN_TABLES) {
       const { error } = await supabase!.from(table).delete().eq('user_id', user);
-      if (error) throw new Error(t('L’effacement n’a pas pu se faire, réessaie dans un instant.'));
+      if (error) throw new Error(t('L’effacement n’a pas pu se faire : réessaie dans un instant.'));
     }
     // Every file under the account's folder, even those this device doesn't know about.
     await blobStore.removeFolder(user);

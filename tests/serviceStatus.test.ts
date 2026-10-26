@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { report, serviceFetch, useService } from '../src/lib/serviceStatus';
+import { report, serviceFetch, troubled, useService } from '../src/lib/serviceStatus';
 
 describe('bandeau service perturbé', () => {
   it('two failures in a row, then the first answer clears it', async () => {
@@ -27,5 +27,12 @@ describe('bandeau service perturbé', () => {
     expect(useService.getState().state).toBe('down');
     f.mockRestore();
     report(true);
+  });
+  it('a failed request already counts for the sync warning (the banner speaks for it)', () => {
+    expect(troubled()).toBe(false);
+    report(false);
+    expect(troubled()).toBe(true);
+    report(true);
+    expect(troubled()).toBe(false);
   });
 });

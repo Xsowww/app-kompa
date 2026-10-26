@@ -82,7 +82,7 @@ const STEPS: Step[] = [
     target: `input[aria-label="${t('Rechercher dans tes fichiers, notes, événements et tâches')}"], button[aria-label="${t('Rechercher')}"]`,
     title: t('La recherche'),
     text: (_, touch) =>
-      touch ? t('Retrouve n’importe quel fichier, note ou événement.') : t('Retrouve n’importe quel fichier, note ou événement. Raccourci\u00a0: {key} K.', { key: isMac ? '⌘' : t('Ctrl') }),
+      touch ? t('Retrouve n’importe quel fichier, note ou événement.') : t('Retrouve n’importe quel fichier, note ou événement. Raccourci\u00a0: {key} + K.', { key: isMac ? '⌘' : t('Ctrl') }),
   },
   {
     // His head, not the whole box: hidden at the edge, it is mostly empty.

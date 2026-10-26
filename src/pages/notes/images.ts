@@ -64,7 +64,7 @@ export async function compressImage(file: Blob): Promise<string> {
       if (dataUrlBytes(jpg) <= IMAGE_MAX_BYTES) return jpg;
     }
   }
-  throw new Error(t('Image trop lourde, même compressée (400 Ko max)'));
+  throw new Error(t('Image trop lourde, même compressée (400 Ko au maximum).'));
 }
 
 export const imageFiles = (list: FileList | null | undefined) => Array.from(list ?? []).filter(f => f.type.startsWith('image/'));

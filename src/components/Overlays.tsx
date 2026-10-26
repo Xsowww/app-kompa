@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { BellRing, CheckCircle2, CloudAlert, Info, WifiOff, XCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { create } from 'zustand';
 import { useUi, type Toast } from '../store/ui';
 import { cx } from '../lib/utils';
 import { retryNow, useService } from '../lib/serviceStatus';
@@ -27,7 +28,7 @@ function ToastRow({ t: item }: { t: Toast }) {
               if (!now || now === document.body) document.getElementById('contenu')?.focus({ preventScroll: true });
             }, 0);
           }}
-          title={item.action.label === t('Annuler') ? t('Annuler (Ctrl+Z)') : undefined}
+          title={item.action.label === t('Annuler') ? t('Annuler (Ctrl + Z)') : undefined}
         >
           {item.action.label}
         </button>
@@ -37,21 +38,33 @@ function ToastRow({ t: item }: { t: Toast }) {
 }
 
 /** Toasts are read out by screen readers: errors right away, everything else politely. */
-/** « Service perturbé » or « Hors ligne », at the top while it lasts (lib/serviceStatus). */
-export function ServiceBanner() {
+/** Pages that show the banner in their own flow (AppShell): the floating one stays away meanwhile. */
+const useInlineBanner = create<{ n: number }>(() => ({ n: 0 }));
+
+/**
+ * « Service perturbé » or « Hors ligne », while it lasts (lib/serviceStatus). In the app (`inline`): at the top of the
+ * page, pushing it down, so it hides neither the search nor the buttons under it. Elsewhere (sign-in, loading): floating.
+ */
+export function ServiceBanner({ inline }: { inline?: boolean }) {
   const state = useService(s => s.state);
-  if (state === 'ok') return null;
+  const hosted = useInlineBanner(s => s.n > 0);
+  useEffect(() => {
+    if (!inline) return;
+    useInlineBanner.setState(s => ({ n: s.n + 1 }));
+    return () => useInlineBanner.setState(s => ({ n: s.n - 1 }));
+  }, [inline]);
+  if (state === 'ok' || (!inline && hosted)) return null;
   const down = state === 'down';
   return (
-    <div className="pointer-events-none fixed inset-x-4 top-[max(0.5rem,env(safe-area-inset-top))] z-[70] flex justify-center">
-      <div role="status" aria-live="polite" className="enter pointer-events-auto flex max-w-[560px] items-center gap-2.5 rounded-2xl border-2 border-amber-400 bg-surface py-2 pl-3 pr-2 text-[13px] text-ink shadow-pop">
+    <div className={inline ? 'shrink-0 px-4 pb-2 md:px-8' : 'pointer-events-none fixed inset-x-4 top-[max(0.5rem,env(safe-area-inset-top))] z-[70] flex justify-center'}>
+      <div role="status" aria-live="polite" className={cx('enter pointer-events-auto flex items-center gap-2.5 rounded-2xl border-2 border-amber-400 bg-surface py-1.5 pl-3 pr-1.5 text-[13px] leading-snug text-ink', inline ? 'w-full' : 'max-w-[560px] shadow-pop')}>
         {down ? <CloudAlert size={16} className="shrink-0 text-amber-500" aria-hidden /> : <WifiOff size={16} className="shrink-0 text-amber-500" aria-hidden />}
-        <span className="min-w-0">
+        <span className="min-w-0 flex-1">
           <b className="font-semibold">{down ? t('Service perturbé.') : t('Hors ligne.')}</b>{' '}
           {down ? t('Tes changements restent sur cet appareil et partiront dès que ça revient.') : t('Tes changements restent sur cet appareil et partiront au retour de la connexion.')}
         </span>
         {down && (
-          <button type="button" className="shrink-0 rounded-lg px-2.5 py-1 font-semibold hover:bg-stone-100" onClick={() => void retryNow()}>
+          <button type="button" className="hit-sm shrink-0 rounded-lg px-2.5 py-1 font-semibold hover:bg-stone-100" onClick={() => void retryNow()}>
             {t('Réessayer')}
           </button>
         )}

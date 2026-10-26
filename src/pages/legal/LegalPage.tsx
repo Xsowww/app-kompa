@@ -7,7 +7,7 @@ import { lang, locale, t } from '../../i18n';
 
 export type LegalDoc = 'mentions' | 'confidentialite' | 'conditions';
 
-const UPDATED = new Date(2026, 9, 23).toLocaleDateString(locale(), { day: 'numeric', month: 'long', year: 'numeric' });
+const UPDATED = new Date(2026, 9, 26).toLocaleDateString(locale(), { day: 'numeric', month: 'long', year: 'numeric' });
 const CONTACT = 'contact@kompaly.com';
 
 type Section = { title: string; body: string[] };
@@ -71,6 +71,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
           t('Fournir le service que tu demandes en créant ton compte (exécution du contrat) : stocker et synchroniser tes contenus, les partager dans les groupes que tu rejoins, sécuriser ton compte.'),
           t('Garder le service sûr et fiable (intérêt légitime) : limites anti-abus, vérification anti-robot à l’inscription et à la connexion, journaux d’erreurs, traitement des signalements.'),
           t('Améliorer Kompaly (intérêt légitime) : lire les avis et corriger les bugs que tu nous envoies, et compter les visites de façon anonyme (voir « Stockage sur ton appareil »).'),
+          t('T’aider à prendre Kompaly en main (intérêt légitime) : un e-mail de bienvenue, puis un seul e-mail de conseils, désactivable dans Profil › Notifications.'),
         ],
       },
       {
@@ -97,7 +98,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
         body: [
           t('Personne d’autre que toi pour ton espace personnel. Les membres d’un groupe voient ce qui est partagé dans ce groupe.'),
           t('L’administrateur du site (l’éditeur) voit la liste des comptes pour faire fonctionner le service : prénom, e-mail, dates d’inscription et de dernière connexion, double authentification activée ou non, nombre de notes, d’événements et de fichiers, espace utilisé, noms des catégories que tu crées (sans tes événements). Il lit aussi les messages « Avis ou bug » et les signalements, avec la copie du contenu signalé. Jamais le reste du contenu de tes notes, fichiers ou événements.'),
-          t('Nos sous-traitants techniques les traitent uniquement pour faire fonctionner le service : Render (hébergement du site, serveurs à Francfort, Allemagne), Supabase (comptes, données et fichiers, serveurs en Irlande), Resend (envoi des e-mails du compte : confirmation, mot de passe oublié ; reçoit ton adresse e-mail, serveurs en Irlande), Cloudflare (vérification anti-robot Turnstile à l’inscription et à la connexion : reçoit ton adresse IP et des informations sur ton navigateur le temps de la vérification, sans pistage publicitaire ; et mesure d’audience anonyme ; contrat de traitement et clauses contractuelles types), Groq (fournisseur d’IA indiqué plus haut, et transcription du son des enregistrements, sans conservation) et Google (lecture des photos pour les fiches).'),
+          t('Nos sous-traitants techniques les traitent uniquement pour faire fonctionner le service : Render (hébergement du site, serveurs à Francfort, Allemagne), Supabase (comptes, données et fichiers, serveurs en Irlande), Resend (envoi des e-mails : confirmation, mot de passe oublié, bienvenue et conseils ; reçoit ton adresse e-mail et ton prénom, serveurs en Irlande), Cloudflare (vérification anti-robot Turnstile à l’inscription et à la connexion : reçoit ton adresse IP et des informations sur ton navigateur le temps de la vérification, sans pistage publicitaire ; et mesure d’audience anonyme ; contrat de traitement et clauses contractuelles types), Groq (fournisseur d’IA indiqué plus haut, et transcription du son des enregistrements, sans conservation) et Google (lecture des photos pour les fiches).'),
           t('Plusieurs de ces prestataires sont des sociétés établies hors de l’Union européenne (États-Unis, Singapour). Même quand leurs serveurs sont en Europe, leurs contrats de traitement des données prévoient les clauses contractuelles types de la Commission européenne ou le cadre de protection des données UE–États-Unis (Data Privacy Framework).'),
           t('Si tu te connectes avec Google ou Apple, ce service sait que tu utilises Kompaly, selon sa propre politique de confidentialité.'),
           t('Les notifications passent par le service de notifications de ton navigateur ou de ton téléphone (Google pour Chrome et Android, Apple pour Safari et iPhone, Mozilla pour Firefox, Microsoft pour Edge) : le message est chiffré de bout en bout, ce service ne peut pas le lire, il le transmet seulement à ton appareil.'),

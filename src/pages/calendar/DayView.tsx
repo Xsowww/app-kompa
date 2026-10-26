@@ -150,7 +150,7 @@ export default function DayView({ date, isToday, events, drag, onDragStart, onEd
           <div className="relative w-12 shrink-0 select-none">
             {hours.map(h => (
               <span key={h} className="tabular absolute right-2 -translate-y-1/2 text-[11px] text-stone-500" style={{ top: y(h * 60) }}>
-                {h === firstHour ? '' : t('{n}h', { n: h })}
+                {h === firstHour ? '' : t('{n} h||heure', { n: h })}
               </span>
             ))}
           </div>

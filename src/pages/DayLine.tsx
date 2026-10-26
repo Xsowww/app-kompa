@@ -46,7 +46,7 @@ export default function DayLine({ events, now }: { events: CalendarEvent[]; now:
           >
             {x.e.title}
             {/* Short of room, the name alone: its dot already says when. */}
-            {s.max >= 30 && <span className="font-medium text-white/80"> · {x.e.start}</span>}
+            {s.max >= 30 && <span className="font-medium text-white/95"> · {x.e.start}</span>}
           </span>
         );
       })}
