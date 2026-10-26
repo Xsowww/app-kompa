@@ -63,7 +63,7 @@ const WatchingCharacter = memo(function WatchingCharacter({ offsetY, ...props }:
   return <Character {...props} look={look} />;
 });
 
-function Extras({ links, offers, onGo, onOffer, disabled }: { links?: CopilotLink[]; offers?: CopilotOffer[]; onGo: (to: string) => void; onOffer: (o: CopilotOffer) => void; disabled?: boolean }) {
+function Extras({ links, offers, onGo, onOffer, disabled }: { links?: CopilotLink[]; offers?: CopilotOffer[]; onGo: (to: string) => void; onOffer: (o: CopilotOffer, rest: CopilotOffer[]) => void; disabled?: boolean }) {
   if (!links?.length && !offers?.length) return null;
   return (
     <div className="mt-2 flex flex-wrap gap-1.5">
@@ -71,9 +71,9 @@ function Extras({ links, offers, onGo, onOffer, disabled }: { links?: CopilotLin
         <button
           key={o.label}
           disabled={disabled}
-          onClick={() => onOffer(o)}
+          onClick={() => onOffer(o, offers.filter(x => x !== o && x.kind === 'confirm_change'))}
           className={cx(
-            'h-7 rounded-md px-2.5 text-[12px] font-medium transition-colors disabled:opacity-40 pointer-coarse:h-9',
+            'min-h-7 rounded-md px-2.5 py-1 text-left text-[12px] font-medium transition-colors disabled:opacity-40 pointer-coarse:min-h-9',
             i === 0 ? 'bg-ink text-paper hover:bg-stone-800' : 'border border-stone-200 bg-surface text-stone-700 hover:bg-stone-50',
           )}
         >
@@ -351,8 +351,9 @@ export default function Copilot() {
     setPose('open');
   };
 
-  const onOffer = (o: CopilotOffer) => {
-    const reply = acceptOffer(o);
+  // The other changes of the same answer stay clickable (they come back under the reply).
+  const onOffer = (o: CopilotOffer, rest: CopilotOffer[]) => {
+    const reply = acceptOffer(o, rest);
     speak(reply.text);
   };
 

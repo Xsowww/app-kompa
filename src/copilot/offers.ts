@@ -103,11 +103,11 @@ function run(offer: CopilotOffer): OfferResult {
 }
 
 /** Runs an offer from a button (or a "oui") and reports back in the conversation. */
-export function acceptOffer(offer: CopilotOffer) {
+export function acceptOffer(offer: CopilotOffer, rest: CopilotOffer[] = []) {
   const cop = useCopilot.getState();
   cop.push('user', offer.label);
   const reply = runOffer(offer);
-  if (useCopilot.getState().pose === 'open') cop.push('bot', reply.text, { links: reply.links });
-  else cop.say({ text: reply.text, links: reply.links, mood: 'happy' });
+  if (useCopilot.getState().pose === 'open') cop.push('bot', reply.text, { links: reply.links, ...(rest.length && { offers: rest }) });
+  else cop.say({ text: reply.text, links: reply.links, mood: 'happy', ...(rest.length && { offers: rest }) });
   return reply;
 }

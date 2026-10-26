@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { CalendarArrowDown, FileUp, Link2, Loader2, RefreshCw, X } from 'lucide-react';
 import { Modal } from '../../components/Overlays';
 import { catOf, timetableCategory, useCalendar, type EventCategory, type NewEvent } from '../../store/calendar';
@@ -179,15 +179,23 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
       const old = byExternal.get(e.externalId);
       if (!old || !(current(old) || current(e))) return [];
       const patch = { title: e.title, date: e.date, start: e.start, end: e.end, details: e.details, series: e.series };
-      const same = (Object.keys(patch) as (keyof typeof patch)[]).every(k => (old[k] ?? undefined) === (patch[k] ?? undefined));
-      return same ? [] : [{ id: old.id, patch }];
+      const differs = (Object.keys(patch) as (keyof typeof patch)[]).filter(k => (old[k] ?? undefined) !== (patch[k] ?? undefined));
+      return differs.length ? [{ id: old.id, patch, quiet: differs.every(k => k === 'series') }] : [];
     });
+    // Days of one event imported before they were linked: linked now, without calling it a change.
+    const relinks = updates.filter(u => u.quiet);
     const cancelled = cancelledBy(source.text);
     const removals = events.filter(e => e.externalId && current(e) && cancelled(e.externalId));
-    const duplicates = parsed.length - fresh.length - updates.length;
-    return { todo, duplicates, updates, removals, past: fresh.filter(e => e.date < today).length, cats };
+    const shown = updates.filter(u => !u.quiet);
+    const duplicates = parsed.length - fresh.length - shown.length;
+    return { todo, duplicates, updates: shown, relinks, removals, past: fresh.filter(e => e.date < today).length, cats };
   }, [parsed, source, events, skipPast, today]);
   const changes = plan ? plan.todo.length + plan.updates.length + plan.removals.length : 0;
+  useEffect(() => {
+    if (!plan?.relinks.length) return;
+    const cal = useCalendar.getState();
+    for (const u of plan.relinks) cal.update(u.id, { series: u.patch.series });
+  }, [plan]);
 
   const read = async (file: File | undefined) => {
     if (!file) return;
