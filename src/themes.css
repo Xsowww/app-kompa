@@ -98,7 +98,7 @@
   --color-stone-50: rgb(255 255 255 / 0.03);
   --color-stone-100: rgb(255 255 255 / 0.06);
   --color-stone-200: rgb(255 255 255 / 0.1);
-  --color-stone-500: #9ba1b5;
+  --color-stone-500: #a9afc1; /* ≥ 4.5:1 on the lighter glass cards */
   --shadow-card: 0 14px 34px -16px rgb(0 0 0 / 0.7);
 }
 :root[data-style='liquide'] :is(.card, aside.bg-surface, .shadow-pop.bg-surface, .card.shadow-pop, #nav-more-panel, #copilot-panel, .bg-tile-blue, .bg-tile-dark) {
@@ -146,10 +146,10 @@
 /* Phones: the tab bar is a floating capsule of glass. */
 :root[data-style='liquide'] nav.bg-tile-dark {
   border-radius: 999px;
-  background-color: rgb(255 255 255 / 0.55);
+  background-color: rgb(255 255 255 / 0.8); /* a white or black button passing under it keeps the tabs readable */
 }
 :root[data-style='liquide'][data-theme='dark'] nav.bg-tile-dark {
-  background-color: rgb(40 42 48 / 0.55);
+  background-color: rgb(40 42 48 / 0.92);
 }
 :root[data-style='liquide'] nav.bg-tile-dark > :is(a, button) {
   border-radius: 999px;

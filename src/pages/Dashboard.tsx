@@ -237,7 +237,7 @@ export default function Dashboard() {
                       {nextExam.important && <Flag size={14} className="shrink-0 fill-urgent text-urgent" aria-label={t('Important')} />}
                       <span className="truncate">{nextExam.title}</span>
                     </span>
-                    <span className="block text-[13px] first-letter:uppercase text-white/65">
+                    <span className="block text-[13px] first-letter:uppercase text-white/80">
                       {fmtDay(fromKey(nextExam.date), 'EEEE d MMMM')}
                       {nextExam.start && ` · ${nextExam.start}`}
                     </span>
@@ -245,16 +245,16 @@ export default function Dashboard() {
                 </Link>
                 {laterBig.length > 0 && (
                   <div className="mt-5 border-t border-white/10 pt-4">
-                    <p className="mb-1 text-[12px] font-semibold text-white/60">{t('Ensuite')}</p>
+                    <p className="mb-1 text-[12px] font-semibold text-white/75">{t('Ensuite')}</p>
                     <ul className="space-y-0.5">
                       {laterBig.map(e => {
                         const d = daysUntil(e.date);
                         return (
                           <li key={e.id}>
                             <Link to={linkToDay(e.date, e.id)} className="group flex items-center gap-2 rounded-md py-1 text-[12.5px] pointer-coarse:py-2">
-                              <span className={cx('tabular w-9 shrink-0 font-bold', d <= 3 ? 'text-urgent' : 'text-white/70')}>{d === 0 ? t('Auj.') : t('J-{n}', { n: d })}</span>
+                              <span className={cx('tabular w-9 shrink-0 font-bold', d <= 3 ? 'text-[#ffa27c]' : 'text-white/75')}>{d === 0 ? t('Auj.') : t('J-{n}', { n: d })}</span>
                               <span className="min-w-0 truncate group-hover:underline">{e.title}</span>
-                              <span className="ml-auto shrink-0 text-[12px] text-white/55">
+                              <span className="ml-auto shrink-0 text-[12px] text-white/75">
                                 {/* The week day is enough within 7 days (the column is narrow on a 1024 px screen). */}
                                 {fmtDay(fromKey(e.date), d < 7 ? 'EEE d' : 'EEE d MMM').replace(/^./, c => c.toUpperCase())}
                                 {e.start && ` · ${e.start}`}
@@ -265,7 +265,7 @@ export default function Dashboard() {
                       })}
                     </ul>
                     {bigDays.length > 3 && (
-                      <Link to="/calendrier" className="mt-1 inline-block text-[12px] text-white/55 hover:text-white hover:underline pointer-coarse:py-2">
+                      <Link to="/calendrier" className="mt-1 inline-block text-[12px] text-white/75 hover:text-white hover:underline pointer-coarse:py-2">
                         {tn(bigDays.length - 3, '+{n} autre dans le calendrier', '+{n} autres dans le calendrier')}
                       </Link>
                     )}
@@ -274,7 +274,7 @@ export default function Dashboard() {
                 <div className="mt-auto pt-4">
                   {hasRevisionPlan(nextExam) ? (
                     <div className="space-y-2">
-                      <p className="flex items-center gap-1.5 text-[12px] text-white/65">
+                      <p className="flex items-center gap-1.5 text-[12px] text-white/75">
                         <Check size={13} className="text-emerald-400" /> {words.planned}
                         {revisionSessions(nextExam)[0] && (
                           <Link to={linkToDay(revisionSessions(nextExam)[0].date, revisionSessions(nextExam)[0].id)} className="ml-auto font-semibold text-white/90 underline-offset-2 hover:text-white hover:underline">
@@ -301,7 +301,7 @@ export default function Dashboard() {
                 </div>
               </div>
             ) : (
-              <div className="py-1.5 text-[13px] text-white/65">
+              <div className="py-1.5 text-[13px] text-white/75">
                 <p>{words.noBig}</p>
                 <p className="mt-1 flex items-center gap-1 text-[12px]">
                   <Flag size={12} className="shrink-0" /> {t('Marque un événement important pour le voir ici.')}

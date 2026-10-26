@@ -997,7 +997,7 @@
  "Impossible de charger tes {groups}.": "Couldn’t load your {groups}.",
  "Impossible de charger.": "Couldn’t load.",
  "Impossible de copier un dossier dans lui-même ou dans un de ses sous-dossiers.": "Can’t copy a folder into itself or one of its subfolders.",
- "Impossible de créer : {docs}. Tu peux réessayer.": "Couldn’t create: {docs}. You can try again.",
+ "Impossible de créer : {docs}. Tu pourras le faire depuis le Drive : clic droit sur le document.": "Couldn’t create: {docs}. You can do it later from the Drive: right-click the document.",
  "Impossible de créer le lien. Vérifie ta connexion et réessaie.": "Couldn’t create the link. Check your connection and try again.",
  "Impossible de déplacer un dossier dans lui-même": "Can’t move a folder into itself",
  "Impossible de générer le QR code : réessaie dans un instant.": "Couldn’t generate the QR code: try again in a moment.",

@@ -713,7 +713,7 @@ async function saveDocuments() {
   patch(() => ({ phase: 'done', ...(failed.length && { failed }) }));
   live({ step: null, progress: null });
   notify(t('{doc} est prêt', { doc: words().docDone }), t('« {title} » est rangé dans ton Drive.', { title: done.title }));
-  if (failed.length) toast(t('Impossible de créer : {docs}. Tu peux réessayer.', { docs: failed.map(f => words().inText[f]).join(` ${t('et')} `) }), 'error');
+  if (failed.length) toast(t('Impossible de créer : {docs}. Tu pourras le faire depuis le Drive : clic droit sur le document.', { docs: failed.map(f => words().inText[f]).join(` ${t('et')} `) }), 'error');
 }
 
 /** The essentials of the class: the AI's points per part (or, when it couldn't write the parts, asked now). */
