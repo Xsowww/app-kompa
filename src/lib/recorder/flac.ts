@@ -196,3 +196,34 @@ export function encodeFlac(s: Float32Array): Blob {
   }
   return new Blob([w.bytes().slice()], { type: 'audio/flac' });
 }
+
+let worker: Worker | null | undefined;
+let nextId = 0;
+const waiting = new Map<number, { samples: Float32Array; done: (b: Blob) => void }>();
+
+/** encodeFlac in a worker (the page stays smooth); on the page itself where workers fail. */
+export function encodeFlacAsync(samples: Float32Array): Promise<Blob> {
+  if (worker === undefined) {
+    try {
+      worker = new Worker(new URL('./flacWorker.ts', import.meta.url), { type: 'module' });
+      worker.onmessage = (e: MessageEvent<{ id: number; blob: Blob }>) => {
+        waiting.get(e.data.id)?.done(e.data.blob);
+        waiting.delete(e.data.id);
+      };
+      worker.onerror = () => {
+        worker = null; // broken: the pieces still waiting are encoded here
+        for (const w of waiting.values()) w.done(encodeFlac(w.samples));
+        waiting.clear();
+      };
+    } catch {
+      worker = null;
+    }
+  }
+  if (!worker) return Promise.resolve(encodeFlac(samples));
+  const id = nextId++;
+  const w = worker;
+  return new Promise(done => {
+    waiting.set(id, { samples, done });
+    w.postMessage({ id, samples });
+  });
+}

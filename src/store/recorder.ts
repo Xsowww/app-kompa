@@ -17,7 +17,7 @@ import { chime, notify } from '../lib/notify';
 import { serviceWorker } from '../lib/push';
 import { keywordsFor, normalize, type Keyword } from '../lib/keywords';
 import { encodeWav, isSilent } from '../lib/recorder/audio';
-import { encodeFlac } from '../lib/recorder/flac';
+import { encodeFlacAsync } from '../lib/recorder/flac';
 import { startCapture, CaptureError, type Capture, type Piece, type SourceKind } from '../lib/recorder/capture';
 import { startLive, type LiveLane } from '../lib/recorder/live';
 import { CoursError, alertOtherDevices, isFinal, listPoints, transcribe, withRetry, writeDoc, writePart } from '../lib/recorder/api';
@@ -275,7 +275,7 @@ async function runPump() {
         const hint = `${s.title}. ${s.keywords.slice(0, 20).map(k => k.word).join(', ')}. ${before}`;
         try {
           // FLAC: the same sound, half the data. A server that refuses it gets the WAV, never a lost passage.
-          const send = () => transcribe(encodeFlac(piece.samples), hint).catch(e => (e instanceof CoursError && e.code === 'bad_audio' ? transcribe(encodeWav(piece.samples), hint) : Promise.reject(e)));
+          const send = async () => transcribe(await encodeFlacAsync(piece.samples), hint).catch(e => (e instanceof CoursError && e.code === 'bad_audio' ? transcribe(encodeWav(piece.samples), hint) : Promise.reject(e)));
           heard = await withRetry(send, {
             // While listening, a long wait is fine; once « Terminer » is pressed, a few tries only, then the document is filed.
             tries: () => (useRecLive.getState().hearing ? 50 : 5),
