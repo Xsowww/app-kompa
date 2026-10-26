@@ -47,7 +47,7 @@ const SORT_NAMES: Record<SortKey, string> = { name: t('nom'), date: t('modifié'
 
 const DRAG_MIME = 'application/x-cop-drive';
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
-const MOD = isMac ? '⌘' : 'Ctrl+';
+const MOD = isMac ? '⌘' : `${t('Ctrl')} + `;
 
 const folderColor = (item: DriveItem) => (item.color ? FOLDER_COLORS[item.color]?.color : undefined);
 
@@ -92,7 +92,7 @@ function sortItems(items: DriveItem[], list: DriveItem[], sort: Sort) {
   });
 }
 
-const CANT_COPY_INTO_ITSELF = t('Impossible de copier un dossier dans lui-même ou dans un de ses sous-dossiers');
+const CANT_COPY_INTO_ITSELF = t('Impossible de copier un dossier dans lui-même ou dans un de ses sous-dossiers.');
 const alreadyThere = (n: number) => (n > 1 ? t('Ces éléments sont déjà dans ce dossier') : t('Cet élément est déjà dans ce dossier'));
 
 export default function DrivePage() {

@@ -417,7 +417,7 @@ export function createRevisionNote(examId: string) {
 
 /**
  * Category of the preparation sessions: « Devoir » for studies, « À faire » for personal life; at work the
- * built-in ones (Réunion, Échéance, Devis…) don't fit, so a « Préparation » category of the account's own.
+ * built-in ones (Réunion, Échéance, Livrable…) don't fit, so a « Préparation » category of the account's own.
  */
 function sessionCategory(): EventCategory {
   if (getSettings().usage !== 'travail') return 'devoir';

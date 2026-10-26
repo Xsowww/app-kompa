@@ -202,8 +202,8 @@ function authMessage(e: AuthError | Error): string {
   if (msg.includes('captcha')) return t('La vérification anti-robot a échoué. Recharge la page et réessaie.');
   if (code === 'insufficient_aal' || msg.includes('aal2')) return AUTH_MSG.needCode;
   if (code === 'session_not_found' || msg.includes('session missing')) return t('Ce lien a expiré ou a déjà servi : redemande un e-mail de réinitialisation.');
-  if (msg.includes('fetch') || msg.includes('network')) return t('Connexion impossible, vérifie ton accès à internet.');
-  return t('Une erreur est survenue, réessaie dans un instant.');
+  if (msg.includes('fetch') || msg.includes('network')) return t('Connexion impossible : vérifie ton accès à internet.');
+  return t('Une erreur est survenue : réessaie dans un instant.');
 }
 
 async function cloud<R extends { data: unknown; error: AuthError | null }>(p: Promise<R>): Promise<R['data']> {
@@ -456,7 +456,7 @@ export const useAuth = create<AuthState>((set, get) => ({
         const msg = passkeyMessage(error);
         const status = (error as AuthError).status ?? 0;
         // Refused by the server without a known reason (not too many tries, not the anti-robot check): a key removed from the account.
-        if (status >= 400 && status < 500 && msg === t('Une erreur est survenue, réessaie dans un instant.')) throw new Error(t('Cette clé n’est plus liée à ton compte. Connecte-toi avec ton mot de passe, puis réactive Face ID dans Profil › Compte.'));
+        if (status >= 400 && status < 500 && msg === t('Une erreur est survenue : réessaie dans un instant.')) throw new Error(t('Cette clé n’est plus liée à ton compte. Connecte-toi avec ton mot de passe, puis réactive Face ID dans Profil › Compte.'));
         throw new Error(msg);
       }
       if (!data.user) throw new Error(passkeyMessage(new Error('no user')));
@@ -606,18 +606,19 @@ export const useAuth = create<AuthState>((set, get) => ({
       // afterwards would leave the account without its Drive.
       if (await nextMfaStep()) throw new Error(t('Reconnecte-toi avec le code de ton téléphone, puis réessaie.'));
       const { error: offline } = await supabase.from('profiles').select('id').eq('id', user.id).limit(1);
-      if (offline) throw new Error(t('La suppression a échoué, réessaie plus tard.'));
+      if (offline) throw new Error(t('La suppression a échoué : réessaie plus tard.'));
     }
     await beforeDelete?.();
     if (supabase) {
       const { error } = await supabase.rpc('delete_my_account');
       if (error) {
+        console.warn('[compte] delete_my_account', error); // PGRST202: supabase/schema.sql not run on the server
         throw new Error(
           error.code === 'PGRST202' || error.message.includes('delete_my_account')
-            ? t('La suppression de compte n’est pas encore activée sur le serveur. Lance supabase/schema.sql dans Supabase.')
+            ? t('La suppression du compte est momentanément indisponible. Réessaie plus tard ou écris-nous.')
             : beforeDelete
               ? t('Tes fichiers du Drive sont déjà effacés, mais pas ton compte : réessaie dans un instant.')
-              : t('La suppression a échoué, réessaie plus tard.'),
+              : t('La suppression a échoué : réessaie plus tard.'),
         );
       }
       stopSync();
@@ -734,7 +735,7 @@ export const useAuth = create<AuthState>((set, get) => ({
       for (const f of pending) await supabase.auth.mfa.unenroll({ factorId: f.id });
       ({ data, error } = await enroll());
     }
-    if (error || !data) throw new Error(t('Impossible de générer le QR code, réessaie dans un instant.'));
+    if (error || !data) throw new Error(t('Impossible de générer le QR code : réessaie dans un instant.'));
     const enrollment = { factorId: data.id, qrCode: data.totp.qr_code, secret: data.totp.secret, uri: data.totp.uri };
     try {
       sessionStorage.setItem(key, JSON.stringify(enrollment));
@@ -774,7 +775,7 @@ export const useAuth = create<AuthState>((set, get) => ({
         msg.includes('ip address')
           ? t('Ta connexion a changé pendant la vérification (VPN, 4G/Wi-Fi). Réessaie.')
           : msg.includes('expired')
-            ? t('Ce code a expiré, tape le nouveau code affiché.')
+            ? t('Ce code a expiré : tape le nouveau code affiché.')
             : msg.includes('rate') || msg.includes('too many')
               ? t('Trop de tentatives, attends un peu.')
               : t('Code incorrect. Vérifie que tu tapes le code Kompaly affiché en ce moment.'),

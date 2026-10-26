@@ -80,9 +80,9 @@ function Toolbar({ editor }: { editor: Editor }) {
           {btn(t('Titre 2'), Heading2, editor.isActive('heading', { level: 2 }), () => c().toggleHeading({ level: 2 }).run())}
         </>)}
         {group('g2', <>
-          {btn(t('Gras (Ctrl+B)'), Bold, editor.isActive('bold'), () => c().toggleBold().run())}
-          {btn(t('Italique (Ctrl+I)'), Italic, editor.isActive('italic'), () => c().toggleItalic().run())}
-          {btn(t('Souligné (Ctrl+U)'), Underline, editor.isActive('underline'), () => c().toggleUnderline().run())}
+          {btn(t('Gras (Ctrl + B)'), Bold, editor.isActive('bold'), () => c().toggleBold().run())}
+          {btn(t('Italique (Ctrl + I)'), Italic, editor.isActive('italic'), () => c().toggleItalic().run())}
+          {btn(t('Souligné (Ctrl + U)'), Underline, editor.isActive('underline'), () => c().toggleUnderline().run())}
           {btn(t('Barré'), Strikethrough, editor.isActive('strike'), () => c().toggleStrike().run())}
           {btn(t('Surligner'), Highlighter, editor.isActive('highlight'), () => c().toggleHighlight().run())}
         </>)}
@@ -95,7 +95,7 @@ function Toolbar({ editor }: { editor: Editor }) {
           {btn(t('Citation'), Quote, editor.isActive('blockquote'), () => c().toggleBlockquote().run())}
           {btn(t('Bloc de code'), Code2, editor.isActive('codeBlock'), () => c().toggleCodeBlock().run())}
           {btn(link !== null ? t('Modifier le lien') : t('Lien'), Link2, link !== null, () => void editLink())}
-          {link !== null && btn(t('Ouvrir le lien (ou Ctrl+clic)'), ExternalLink, false, () => openLink(withProtocol(link)))}
+          {link !== null && btn(t('Ouvrir le lien (ou Ctrl + clic)'), ExternalLink, false, () => openLink(withProtocol(link)))}
           {link !== null && btn(t('Retirer le lien'), Link2Off, false, () => c().extendMarkRange('link').unsetLink().run())}
           {btn(t('Séparateur'), Minus, false, () => c().setHorizontalRule().run())}
           <label
@@ -119,7 +119,7 @@ function Toolbar({ editor }: { editor: Editor }) {
       </label>
         </>)}
         {group('g5', <>
-          {btn(t('Annuler (Ctrl+Z)'), Undo2, false, () => c().undo().run())}
+          {btn(t('Annuler (Ctrl + Z)'), Undo2, false, () => c().undo().run())}
           {btn(t('Rétablir'), Redo2, false, () => c().redo().run())}
         </>)}
       </div>

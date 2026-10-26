@@ -161,7 +161,7 @@ function failReason(e: unknown): string | undefined {
   if (e instanceof StorageError && 'reason' in e) return String(e.reason);
   // Refused by the storage (lib/blobStore's words).
   const m = e instanceof Error ? e.message : '';
-  if (m === t('Fichier trop lourd : 50 Mo maximum.')) return t('Plus de 50 Mo');
+  if (m === t('Fichier trop lourd : 50 Mo au maximum.')) return t('Plus de 50 Mo');
   if (m === t('Le stockage du navigateur est plein : supprime des fichiers ou vide la corbeille.')) return t('Plus de place');
   return undefined;
 }

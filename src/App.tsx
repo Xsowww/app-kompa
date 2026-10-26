@@ -9,27 +9,80 @@ import AuthPage from './pages/AuthPage';
 import { DialogHost, ServiceBanner, Toasts } from './components/Overlays';
 import { t } from './i18n';
 import { PUBLIC_PAGES, pageHeads } from './lib/seoPages.mjs';
+import { quietly } from './page';
+
+/**
+ * A page's code, loaded the first time it opens. Offline, a page not opened yet can't arrive: rather than the
+ * browser's « no connection » page (lib/page reloads on a failed load), its link goes back to the page you were on,
+ * with a word. React.lazy keeps a load's outcome for good, so the next visit tries again.
+ */
+function lazyPage(load: () => Promise<{ default: React.ComponentType }>) {
+  const fresh = () =>
+    lazy(() =>
+      load().then(
+        // undefined: lib/page is reloading the page for a new version; the loading screen stays until then.
+        m => m ?? new Promise<never>(() => {}),
+        (e: unknown) => {
+          if (navigator.onLine !== false) throw e;
+          let done = false;
+          const NotYet = () => {
+            const back = history.length > 1;
+            useEffect(() => {
+              if (done) return; // StrictMode runs effects twice
+              done = true;
+              Lazy = fresh();
+              toast(t('Cette page s’ouvrira au retour de la connexion.'));
+              if (back) history.back();
+            }, [back]);
+            return back ? null : <p className="p-6 text-center text-[13px] text-stone-500">{t('Cette page s’ouvrira au retour de la connexion.')}</p>;
+          };
+          return { default: NotYet };
+        },
+      ),
+    );
+  let Lazy = fresh();
+  const Page = () => <Lazy />;
+  Page.load = load;
+  return Page;
+}
 
 // The app itself loads after the sign-in page: someone on /connexion doesn't wait for Kompaly and the editor.
 // Two-step sign-in: only the few accounts that turned it on need this page.
 const MfaPage = lazy(() => import('./pages/MfaPage'));
 const AppShell = lazy(() => import('./layout/AppShell'));
-const Dashboard = lazy(() => import('./pages/Dashboard'));
-const DrivePage = lazy(() => import('./pages/drive/DrivePage'));
+const Dashboard = lazyPage(() => import('./pages/Dashboard'));
+const DrivePage = lazyPage(() => import('./pages/drive/DrivePage'));
 const LegalPage = lazy(() => import('./pages/legal/LegalPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
-const CalendarPage = lazy(() => import('./pages/calendar/CalendarPage'));
-const NotesPage = lazy(() => import('./pages/notes/NotesPage'));
-const ProfilePage = lazy(() => import('./pages/profile/ProfilePage'));
-const AdminPage = lazy(() => import('./pages/admin/AdminPage'));
-const TasksPage = lazy(() => import('./pages/tasks/TasksPage'));
-const RecordPage = lazy(() => import('./pages/record/RecordPage'));
-const GroupsPage = lazy(() => import('./pages/groups/GroupsPage'));
-const AgendasPage = lazy(() => import('./pages/groups/AgendasPage'));
-const TrashPage = lazy(() => import('./pages/trash/TrashPage'));
+const CalendarPage = lazyPage(() => import('./pages/calendar/CalendarPage'));
+const NotesPage = lazyPage(() => import('./pages/notes/NotesPage'));
+const ProfilePage = lazyPage(() => import('./pages/profile/ProfilePage'));
+const AdminPage = lazyPage(() => import('./pages/admin/AdminPage'));
+const TasksPage = lazyPage(() => import('./pages/tasks/TasksPage'));
+const RecordPage = lazyPage(() => import('./pages/record/RecordPage'));
+const GroupsPage = lazyPage(() => import('./pages/groups/GroupsPage'));
+const AgendasPage = lazyPage(() => import('./pages/groups/AgendasPage'));
+const TrashPage = lazyPage(() => import('./pages/trash/TrashPage'));
 const WelcomePage = lazy(() => import('./pages/WelcomePage'));
 // The public home page, for visitors not signed in (and search engines).
 const LandingPage = lazy(() => import('./pages/LandingPage'));
+
+/** Signed in and online: the main pages' code arrives while nothing else happens, so they open offline too. */
+const PREFETCH: (() => Promise<unknown>)[] = [
+  ...[Dashboard, CalendarPage, TasksPage, NotesPage, DrivePage, RecordPage, ProfilePage, GroupsPage, AgendasPage, TrashPage].map(p => p.load),
+  () => import('./pages/notes/NoteEditor'), // a note opened offline
+];
+let prefetched = false;
+function prefetchPages() {
+  if (prefetched) return;
+  prefetched = true;
+  const conn = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
+  if (conn?.saveData) return; // the visitor asked to spare their data
+  const idle = window.requestIdleCallback ?? ((f: () => void) => setTimeout(f, 1500));
+  // Cut off on the way: the rest once the connection is back.
+  const next = (i: number): unknown => i < PREFETCH.length && idle(() => void quietly(PREFETCH[i]).then(() => next(i + 1), () => addEventListener('online', () => next(i), { once: true })));
+  setTimeout(() => next(0), 5000);
+}
 
 const TITLES: Record<string, string> = {
   '/': t('Accueil'),
@@ -194,6 +247,11 @@ export default function App() {
         }
       });
   }, []);
+
+  const signedIn = useAuth(s => !!s.user);
+  useEffect(() => {
+    if (ready && signedIn) prefetchPages();
+  }, [ready, signedIn]);
 
   if (!ready) return (
     <>

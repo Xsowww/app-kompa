@@ -413,7 +413,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
                   <span className="mb-1.5 flex items-center text-[12px] font-medium text-stone-600">
                     <label htmlFor="auth-password">{t('Mot de passe')}</label>
                     {mode === 'login' && cloudEnabled && (
-                      <Link to="/mot-de-passe-oublie" state={{ email: email.trim() }} className="ml-auto font-normal text-stone-500 hover:text-ink">
+                      <Link to="/mot-de-passe-oublie" state={{ email: email.trim() }} className="hit ml-auto font-normal text-stone-500 hover:text-ink">
                         {t('Oublié ?')}
                       </Link>
                     )}

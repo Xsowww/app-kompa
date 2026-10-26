@@ -28,7 +28,7 @@ describe('usage', () => {
   it('renames the categories', () => {
     applyUsage('travail');
     expect(CATEGORIES.cours.label).toBe('Réunion');
-    expect(CATEGORIES.devoir.label).toBe('Devis');
+    expect(CATEGORIES.devoir.label).toBe('Livrable');
     applyUsage('etudes');
     expect(CATEGORIES.cours.label).toBe('Cours');
   });

@@ -41,7 +41,7 @@ export const CATEGORIES: Record<BuiltinCategory, CategoryInfo> = {
 /** Names of the five built-in categories for each usage of the account (applied by applyUsage below). */
 export const CATEGORY_LABELS: Record<Usage, Record<BuiltinCategory, string>> = {
   etudes: { cours: t('Cours'), examen: t('Examen'), devoir: t('Devoir'), perso: t('Perso'), sport: t('Sport') },
-  travail: { cours: t('Réunion'), examen: t('Échéance'), devoir: t('Devis'), perso: t('Perso'), sport: t('Sport') },
+  travail: { cours: t('Réunion'), examen: t('Échéance'), devoir: t('Livrable'), perso: t('Perso'), sport: t('Sport') },
   perso: { cours: t('Rendez-vous'), examen: t('Grand jour'), devoir: t('À faire'), perso: t('Perso'), sport: t('Sport') },
 };
 
@@ -166,7 +166,7 @@ const SPORT = wordRe('sport|foot|basket|gym|muscu|course$|piscine|natation|yoga|
 // « Courses » (faire les courses) n'est ni du sport ni un cours.
 const STUDY_CLASS = wordRe('cours(?!es$)|amphi|cm$|lecture|classes?$|class$|lessons?$|\\p{L}*vorlesung|\\p{L}*kurs(?:e)?$|seminar$|lezion[ei]$|cors[oi]$|clases?$|profs?$|professeur|maths?$|math[ée]matiques|physique|chimie|histoire|anglais|fran[cç]ais|info$|informatique|bio$|biologie|[ée]co$|[ée]conomie|philo$|philosophie');
 
-/** A work title: Réunion (cours), Devis (devoir), Échéance (examen), or the private life (perso). */
+/** A work title: Réunion (cours), Livrable (devoir), Échéance (examen), or the private life (perso). */
 function workCategory(t: string, timed: boolean): EventCategory | undefined {
   // Private life seen from a work calendar: the dentist or a birthday is not a meeting nor a deadline.
   if (WORK_PERSO.test(t)) return 'perso';
@@ -181,7 +181,7 @@ function workCategory(t: string, timed: boolean): EventCategory | undefined {
 /**
  * Guess a category from the title so the student never has to think about it. `timed`: a TD or TP
  * with an hour is a class, not homework. Work and personal accounts use the same five categories under
- * other names (see lib/usage): Réunion / Échéance / Devis at work, Rendez-vous / Grand jour / À faire at home.
+ * other names (see lib/usage): Réunion / Échéance / Livrable at work, Rendez-vous / Grand jour / À faire at home.
  */
 export function guessCategory(title: string, timed = false, custom?: CustomCategory[]): EventCategory {
   const own = customCategoryIn(title, custom);

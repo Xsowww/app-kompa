@@ -4,6 +4,7 @@
 
 import { cleanReminders } from './reminders';
 import { supabase } from './supabase';
+import { troubled } from './serviceStatus';
 import { useCalendar, type CalendarEvent } from '../store/calendar';
 import { useNotes, type Note, type NoteFolder } from '../store/notes';
 import { cleanPeriods } from './periods';
@@ -374,7 +375,8 @@ async function send() {
     saveQueue();
   } catch (e) {
     console.error('[sync]', e);
-    if (!warned) {
+    // Lost network or a server down: the « Service perturbé » banner says it, if it lasts (lib/serviceStatus).
+    if (!warned && !troubled()) {
       warned = true;
       useUi.getState().toast(t('Synchronisation impossible pour le moment, nouvel essai automatique…'), 'error');
     }

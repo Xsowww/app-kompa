@@ -38,8 +38,8 @@ function Toolbar({ editor }: { editor: Editor }) {
       {btn(t('Titre 1'), Heading1, editor.isActive('heading', { level: 1 }), () => c().toggleHeading({ level: 1 }).run())}
       {btn(t('Titre 2'), Heading2, editor.isActive('heading', { level: 2 }), () => c().toggleHeading({ level: 2 }).run())}
       {sep('s1')}
-      {btn(t('Gras (Ctrl+B)'), Bold, editor.isActive('bold'), () => c().toggleBold().run())}
-      {btn(t('Italique (Ctrl+I)'), Italic, editor.isActive('italic'), () => c().toggleItalic().run())}
+      {btn(t('Gras (Ctrl + B)'), Bold, editor.isActive('bold'), () => c().toggleBold().run())}
+      {btn(t('Italique (Ctrl + I)'), Italic, editor.isActive('italic'), () => c().toggleItalic().run())}
       {btn(t('Barré'), Strikethrough, editor.isActive('strike'), () => c().toggleStrike().run())}
       {btn(t('Surligner'), Highlighter, editor.isActive('highlight'), () => c().toggleHighlight().run())}
       {sep('s2')}
@@ -58,7 +58,7 @@ function Toolbar({ editor }: { editor: Editor }) {
         });
       })}
       {sep('s4')}
-      {btn(t('Annuler (Ctrl+Z)'), Undo2, false, () => c().undo().run())}
+      {btn(t('Annuler (Ctrl + Z)'), Undo2, false, () => c().undo().run())}
       {btn(t('Rétablir'), Redo2, false, () => c().redo().run())}
     </div>
   );

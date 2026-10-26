@@ -51,7 +51,7 @@ export class StorageError extends Error {}
 /** Turns Supabase Storage's technical errors into something the student understands. */
 export function storageError(e: { message?: string; statusCode?: string | number } | null): StorageError {
   const m = `${e?.statusCode ?? ''} ${e?.message ?? ''}`;
-  if (/413|maximum allowed size|too large/i.test(m)) return new StorageError(t('Fichier trop lourd : 50 Mo maximum.'));
+  if (/413|maximum allowed size|too large/i.test(m)) return new StorageError(t('Fichier trop lourd : 50 Mo au maximum.'));
   if (/403|row-level security|unauthorized/i.test(m)) return new StorageError(QUOTA ? t('Plus de place : ton espace en ligne ({quota}) est plein. Vide la corbeille ou supprime des fichiers.', { quota: quotaLabel() }) : t('Plus de place : ton espace en ligne est plein. Vide la corbeille ou supprime des fichiers.'));
   return new StorageError(t('L’envoi a échoué. Vérifie ta connexion et réessaie.'));
 }

@@ -31,6 +31,9 @@ export function report(ok: boolean) {
   timer ??= setInterval(() => void check?.().catch(() => {}), 30_000);
 }
 
+/** A request just failed, or the banner shows: the banner speaks for it (no « Synchronisation impossible » on top). */
+export const troubled = () => fails > 0 || useService.getState().state !== 'ok';
+
 /** A server error, or Cloudflare's own pages when the server behind it doesn't answer (520-530). */
 export const isOutage = (status: number) => status >= 500;
 

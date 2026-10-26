@@ -168,8 +168,8 @@ export function groupError(e: unknown): string {
   if (/group full/i.test(msg)) return t('Plus de place : 50 membres au maximum dans {group}.', { group: w.this });
   if (/too many groups/i.test(msg)) return t('Tu fais déjà partie de 30 {groups}, c’est le maximum.', { groups: w.groups });
   if (/too large|exceeded the maximum|payload too large|413/i.test(msg)) return t('Fichier trop lourd : 50 Mo au maximum.');
-  if (/photo/i.test(msg) && /column|schema cache/i.test(msg)) return t('Les photos ne sont pas encore activées sur le serveur (migration 2026-10-19 à lancer).');
-  if (/group_periods|42P01|PGRST205/.test(msg)) return t('Les périodes ne sont pas encore activées sur le serveur (migration 2026-10-20 à lancer).');
+  if (/photo/i.test(msg) && /column|schema cache/i.test(msg)) return t('Les photos de groupe ne sont pas encore disponibles.');
+  if (/group_periods|42P01|PGRST205/.test(msg)) return t('Les périodes ne sont pas encore disponibles ici.');
   if (/group_events_category_check|group_events_reminders_check/.test(msg)) return AGENDA_MISSING;
   if (/too many periods/i.test(msg)) return t('Trop de périodes dans cet agenda (300 au maximum).');
   if (/mfa required/i.test(msg)) return t('Confirme d’abord ta connexion avec le code de ton téléphone.');
@@ -354,10 +354,10 @@ export async function fetchEvents(groupId: string, fromDate: string): Promise<{ 
 }
 
 /** « Pour qui » needs the column of migration 2026-10-24: without it, a clear message rather than the server's. */
-const PEOPLE_MISSING = t('Choisir pour qui est un événement demande une mise à jour du serveur (migration 2026-10-24). En attendant, laisse « Tout le monde ».');
+const PEOPLE_MISSING = t('Choisir pour qui est un événement n’est pas encore disponible. En attendant, laisse « Tout le monde ».');
 const noPeopleColumn = (e: { code?: string; message?: string } | null) => e?.code === 'PGRST204' && /people/.test(e.message ?? '');
 /** Reminders and own categories need migration 2026-10-27. */
-const AGENDA_MISSING = t('Les rappels et les catégories des agendas partagés demandent une mise à jour du serveur (migration 2026-10-27).');
+const AGENDA_MISSING = t('Les rappels et les catégories des agendas partagés ne sont pas encore disponibles.');
 const noRemindersColumn = (e: { code?: string; message?: string } | null) => e?.code === 'PGRST204' && /reminders/.test(e.message ?? '');
 
 /** A shared calendar's categories, for all its members (editors only: the database checks it). */
@@ -380,7 +380,7 @@ export async function createEvent(groupId: string, e: NewGroupEvent): Promise<Gr
 }
 
 /** Repeats and events over several days need migration 2026-10-31. */
-const SERIES_MISSING = t('Répéter ou faire durer un événement sur plusieurs jours dans un agenda partagé demande une mise à jour du serveur (migration 2026-10-31).');
+const SERIES_MISSING = t('Répéter un événement ou le faire durer plusieurs jours n’est pas encore disponible dans les agendas partagés.');
 const noSeriesColumn = (e: { code?: string; message?: string } | null) => e?.code === 'PGRST204' && /series/.test(e.message ?? '');
 
 /** Several events at once (a repeat, the days of an event): one request, one « Ajouté » for the others. */
@@ -419,7 +419,7 @@ export async function savePeriods(groupId: string, list: Period[]) {
   let res = await db().from('group_periods').upsert(rows);
   // Table made before the skipped days: a period in one piece is saved without them; one in pieces can't be.
   if (res.error?.code === 'PGRST204' && /skip/.test(res.error.message)) {
-    if (list.some(p => p.skip?.length)) throw new Refused(t('Une période en plusieurs morceaux demande une mise à jour du serveur (migration 2026-10-23). En attendant, choisis des jours qui se suivent.'));
+    if (list.some(p => p.skip?.length)) throw new Refused(t('Une période en plusieurs morceaux n’est pas encore disponible. En attendant, choisis des jours qui se suivent.'));
     res = await db().from('group_periods').upsert(rows.map(({ skip: _s, ...r }) => r));
   }
   // Table made before « pour qui »: saved for everyone rather than refused.
