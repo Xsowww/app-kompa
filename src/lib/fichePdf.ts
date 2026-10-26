@@ -7,26 +7,60 @@ import { t } from '../i18n';
 // The PDF's built-in fonts only know the Western European letters (WinAnsi): the other signs a sheet often has are
 // written in words or plain signs (« œ » too: jsPDF measures it too narrow, the next word would overlap it). shortcut: no Greek or Asian script; embed a Unicode font if users need them.
 const WRITE_AS: Record<string, string> = {
-  '→': '->', '⇒': '=>', '←': '<-', '⇐': '<=', '↔': '<->', '⇔': '<=>', '↑': '^', '↓': 'v', '≤': '<=', '≥': '>=', '≠': '!=', '≈': '~', '−': '-',
-  '√': 'racine de ', '∞': 'infini', '∑': 'somme', '∫': 'intégrale', '∈': ' appartient à ', '∉': " n'appartient pas à ", '∀': 'pour tout ', '∃': 'il existe ',
-  'α': 'alpha', 'β': 'bêta', 'γ': 'gamma', 'δ': 'delta', 'Δ': 'Delta', 'ε': 'epsilon', 'θ': 'thêta', 'λ': 'lambda', 'μ': 'µ', 'π': 'pi', 'ρ': 'rhô',
-  'σ': 'sigma', 'Σ': 'Sigma', 'τ': 'tau', 'φ': 'phi', 'ω': 'oméga', 'Ω': 'Oméga', 'œ': 'oe', 'Œ': 'OE', '✓': 'v', '✔': 'v', '✗': 'x', '✘': 'x', '★': '*', '☆': '*',
-  ' ': ' ', ' ': ' ', ' ': ' ', ' ': ' ', '⁰': '0', '⁴': '4', '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9', 'ⁿ': 'n',
-  '₀': '0', '₁': '1', '₂': '2', '₃': '3', '₄': '4', '₅': '5', '₆': '6', '₇': '7', '₈': '8', '₉': '9',
+  '→': '->', '⇒': '=>', '←': '<-', '⇐': '<=', '↔': '<->', '⇔': '<=>', '⟶': '->', '⟹': '=>', '⟵': '<-', '⟺': '<=>', '↦': '|->', '⇌': '<=>', '⇄': '<=>', '↑': '^', '↓': 'v',
+  '≤': '<=', '≥': '>=', '⩽': '<=', '⩾': '>=', '≠': '!=', '≈': '~', '≃': '~', '≅': '~', '∼': '~', '≡': '==', '≪': '<<', '≫': '>>', '−': '-', '∓': '-/+', '∗': '*', '⋅': '·', '∘': 'o', '∕': '/',
+  '√': 'racine de ', '∛': 'racine cubique de ', '∞': 'infini', '∑': 'somme', '∏': 'produit', '∫': 'intégrale', '∮': 'intégrale', '∂': 'd', '∆': 'Delta', '∇': 'nabla', '∝': ' proportionnel à ',
+  '∈': ' appartient à ', '∉': " n'appartient pas à ", '∀': 'pour tout ', '∃': 'il existe ', '∄': "il n'existe pas ", '∅': 'Ø', '∩': ' inter ', '∪': ' union ',
+  '⊂': ' inclus dans ', '⊆': ' inclus dans ', '⊄': " non inclus dans ", '⊃': ' contient ', '⊇': ' contient ', '∧': ' et ', '∨': ' ou ', '∴': 'donc', '∵': 'car',
+  '⊥': ' perpendiculaire à ', '∥': ' parallèle à ', '∠': 'angle ', '′': "'", '″': "''", 'ℓ': 'l', 'ℏ': 'h barre', '℃': '°C',
+  'ℝ': 'R', 'ℕ': 'N', 'ℤ': 'Z', 'ℚ': 'Q', 'ℂ': 'C', '⅓': '1/3', '⅔': '2/3', '⅕': '1/5', '⅖': '2/5', '⅗': '3/5', '⅘': '4/5', '⅙': '1/6', '⅚': '5/6', '⅛': '1/8', '⅜': '3/8', '⅝': '5/8', '⅞': '7/8',
+  'α': 'alpha', 'β': 'bêta', 'γ': 'gamma', 'δ': 'delta', 'ε': 'epsilon', 'ϵ': 'epsilon', 'ζ': 'zêta', 'η': 'êta', 'θ': 'thêta', 'ϑ': 'thêta', 'ι': 'iota', 'κ': 'kappa', 'λ': 'lambda', 'μ': 'µ',
+  'ν': 'nu', 'ξ': 'xi', 'ο': 'o', 'π': 'pi', 'ρ': 'rhô', 'σ': 'sigma', 'ς': 'sigma', 'τ': 'tau', 'υ': 'upsilon', 'φ': 'phi', 'ϕ': 'phi', 'χ': 'khi', 'ψ': 'psi', 'ω': 'oméga',
+  'Α': 'A', 'Β': 'B', 'Γ': 'Gamma', 'Δ': 'Delta', 'Ε': 'E', 'Ζ': 'Z', 'Η': 'H', 'Θ': 'Thêta', 'Ι': 'I', 'Κ': 'K', 'Λ': 'Lambda', 'Μ': 'M', 'Ν': 'N', 'Ξ': 'Xi', 'Ο': 'O', 'Π': 'Pi',
+  'Ρ': 'P', 'Σ': 'Sigma', 'Τ': 'T', 'Υ': 'Y', 'Φ': 'Phi', 'Χ': 'X', 'Ψ': 'Psi', 'Ω': 'Oméga',
+  'œ': 'oe', 'Œ': 'OE', '✓': 'v', '✔': 'v', '✗': 'x', '✘': 'x', '★': '*', '☆': '*', '‐': '-', '‑': '-', '‒': '-', '―': '—', '‹': '<', '›': '>',
+  '\u2002': ' ', '\u2003': ' ', '\u2009': ' ', '\u202f': ' ', '\u00a0': ' ',
+  '₀': '0', '₁': '1', '₂': '2', '₃': '3', '₄': '4', '₅': '5', '₆': '6', '₇': '7', '₈': '8', '₉': '9', '₊': '+', '₋': '-', '₌': '=', '₍': '(', '₎': ')',
 };
 // What WinAnsi has beyond Latin-1.
 const WIN_EXTRA = new Set('€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ');
+// Exponents: « x² » stays (², ³ and ¹ are in the font), the others are written « 10^-3 », « Ca^2+ », « x^(n+1) ».
+const SUP: Record<string, string> = { '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4', '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9', '⁺': '+', '⁻': '-', '⁼': '=', '⁽': '(', '⁾': ')', 'ⁿ': 'n', 'ⁱ': 'i' };
+const SUP_RUN = /[⁰¹²³⁴-⁹⁺⁻⁼⁽⁾ⁿⁱ]+/g;
+/** Left out: emoji, accents left alone after NFC, invisible signs. Any other sign the font lacks shows as « ? ». */
+const DROP = /[\p{Extended_Pictographic}\p{Emoji_Modifier}\p{Regional_Indicator}\p{M}\p{Cf}\p{Cc}]/u;
 
-/** Text the PDF fonts can draw: the signs above in words, emoji and other scripts left out. */
+/** Text the PDF fonts can draw: the signs above in words, emoji left out, any other sign as « ? ». */
 export function pdfSafe(text: string): string {
   let out = '';
-  for (const c of text.normalize('NFC')) {
+  const exponents = text.normalize('NFC').replace(SUP_RUN, run => {
+    if (/^[¹²³]+$/.test(run)) return run;
+    const plain = [...run].map(c => SUP[c]).join('');
+    return '^' + (plain.length > 1 && !/^[+-]?\d+[+-]?$/.test(plain) ? `(${plain})` : plain);
+  });
+  for (const c of exponents) {
     const code = c.codePointAt(0)!;
     if (c in WRITE_AS) out += WRITE_AS[c];
     else if ((code >= 0x20 && code <= 0x7e) || (code >= 0xa0 && code <= 0xff) || WIN_EXTRA.has(c)) out += c;
     else if (c === '\t') out += ' ';
+    else if (!DROP.test(c)) out += '?';
   }
-  return out;
+  return out.replace(/ {2,}/g, ' '); // « A ∩ B » → « A inter B », not two spaces each side
+}
+
+// jsPDF lacks the regular and italic Helvetica widths of these signs (it measures them all 0.53 em): « ½ » drawn wider than
+// measured would overlap the next word. Widths from Helvetica's metrics, in hundredths of an em like jsPDF's table.
+const HELVETICA_WIDTHS: Record<string, number> = {
+  '¦': 26, '\u00ad': 33.3, '¹': 33.3, '²': 33.3, '³': 33.3, '¶': 53.7, '¼': 83.4, '½': 83.4, '¾': 83.4, 'Ð': 72.2, '×': 58.4, 'Ý': 66.7, 'Þ': 66.7, 'ð': 55.6,
+  'ý': 50, 'þ': 55.6, '€': 55.6, 'Š': 66.7, 'Œ': 100, 'Ž': 61.1, 'š': 50, 'œ': 94.4, 'ž': 50,
+};
+function fixWidths(doc: import('jspdf').jsPDF) {
+  for (const style of ['normal', 'italic', 'bold', 'bolditalic']) {
+    doc.setFont('helvetica', style);
+    const widths = (doc.getFont() as { metadata?: { Unicode?: { widths?: Record<number, number> } } }).metadata?.Unicode?.widths;
+    if (!widths) continue;
+    for (const [c, w] of Object.entries(HELVETICA_WIDTHS)) widths[c.charCodeAt(0)] ??= w;
+  }
 }
 
 const PAGE = { w: 595.28, h: 841.89, margin: 56 };
@@ -46,6 +80,7 @@ export async function markdownToPdf(md: string, meta: { title?: string } = {}): 
   const { jsPDF } = await import('jspdf');
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   doc.setProperties({ title: pdfSafe(meta.title ?? ''), creator: 'Kompaly' });
+  fixWidths(doc);
   const right = PAGE.w - PAGE.margin;
   const bottom = PAGE.h - PAGE.margin;
   let y = PAGE.margin;

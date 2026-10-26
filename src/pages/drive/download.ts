@@ -3,6 +3,8 @@ import { toast } from '../../store/ui';
 import { zipPaths } from '../../lib/zipPaths';
 import { tn } from '../../i18n';
 
+let zipping = false;
+
 /** `getUrl` : d'où vient le contenu (par défaut, le Drive personnel). */
 export function downloadItem(item: Pick<DriveItem, 'id' | 'name'>, getUrl: (id: string) => Promise<string | null> = getFileUrl) {
   void getUrl(item.id).then(url => {
@@ -37,8 +39,18 @@ export function saveBlob(blob: Blob, name: string) {
 export async function downloadZip(items: DriveItem[], roots: string[], name: string) {
   const entries = zipPaths(items, roots);
   const files = entries.filter(e => !e.folder);
-  if (!entries.length) return;
-  toast(tn(files.length, 'Préparation du zip ({n} fichier)…', 'Préparation du zip ({n} fichiers)…'));
+  // One zip at a time: a double click makes one.
+  if (!entries.length || zipping) return;
+  zipping = true;
+  try {
+    await makeZip(entries, files.length, name);
+  } finally {
+    zipping = false;
+  }
+}
+
+async function makeZip(entries: ReturnType<typeof zipPaths>, files: number, name: string) {
+  toast(tn(files, 'Préparation du zip ({n} fichier)…', 'Préparation du zip ({n} fichiers)…'));
   const JSZip = (await import('jszip')).default;
   const zip = new JSZip();
   let missing = 0;
@@ -51,8 +63,10 @@ export async function downloadZip(items: DriveItem[], roots: string[], name: str
     if (blob) zip.file(e.path, blob);
     else missing++;
   }
+  // Not one file could be read: no empty zip, only the message.
+  if (files && missing === files) return toast(tn(missing, '{n} fichier n’a pas pu être ajouté : vérifie ta connexion et réessaie.', '{n} fichiers n’ont pas pu être ajoutés : vérifie ta connexion et réessaie.'), 'error');
   // Pictures, PDFs and videos are already compressed: stored as they are (fast, same size).
   const out = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
-  saveBlob(out, `${name.replace(/[/\\]/g, '-')}.zip`);
+  saveBlob(out, `${name.replace(/[\\/:*?"<>|]/g, '-')}.zip`);
   if (missing) toast(tn(missing, '{n} fichier n’a pas pu être ajouté : vérifie ta connexion et réessaie.', '{n} fichiers n’ont pas pu être ajoutés : vérifie ta connexion et réessaie.'), 'error');
 }

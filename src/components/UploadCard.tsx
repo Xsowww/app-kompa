@@ -174,7 +174,9 @@ function Card({ items, offline }: { items: Upload[]; offline: boolean }) {
               <span className={cx('min-w-0 flex-1 truncate', u.status === 'error' ? 'text-red-600' : 'text-ink')} title={u.name}>
                 {u.name}
               </span>
-              {u.status === 'active' ? (
+              {u.status === 'active' && u.waiting ? (
+                <span className="shrink-0 font-medium text-stone-500">{t('En attente')}</span>
+              ) : u.status === 'active' ? (
                 <Bar value={u.size ? Math.floor((u.loaded / u.size) * 100) : 0} label={u.name} className="h-1 w-14 shrink-0" />
               ) : u.status === 'paused' ? (
                 <span className="shrink-0 font-medium text-stone-500">{t('En pause')}</span>

@@ -40,18 +40,29 @@ export function flushStorage() {
       localStorage.removeItem(key);
       continue;
     }
-    try {
-      localStorage.setItem(key, JSON.stringify(value));
-      failing.delete(name);
-    } catch {
-      // Browser storage full (usually many images pasted in notes). Without this, the error
-      // would surface in whatever action changed the store and break it halfway.
-      failing.add(name);
-      warnFull();
-    }
+    write(key, name, value);
   }
   pending.clear();
 }
+
+function write(key: string, name: string, value: unknown) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    failing.delete(name);
+  } catch {
+    // Browser storage full (usually many images pasted in notes). Without this, the error
+    // would surface in whatever action changed the store and break it halfway.
+    failing.add(name);
+    warnFull();
+  }
+}
+
+/**
+ * Saved at once, not a moment later: the Drive's list is small, and its files are stored apart (IndexedDB). With a
+ * delay, a folder made in another tab in the meantime saved that tab's older list over this one: an imported file
+ * vanished from the list (its content left in storage) in both tabs.
+ */
+const AT_ONCE = new Set(['drive']);
 
 /** An account's data removed from this device: its saves still waiting must not bring it back. */
 export function dropPendingStorage(userId: string) {
@@ -77,6 +88,10 @@ export const userStorage: PersistStorage<unknown> = {
   },
   setItem: (name, value) => {
     if (!currentUserId) return;
+    if (AT_ONCE.has(name)) {
+      pending.delete(keyOf(name));
+      return write(keyOf(name), name, value);
+    }
     pending.set(keyOf(name), value);
     timer ??= setTimeout(flushStorage, 400);
   },

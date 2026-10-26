@@ -11,10 +11,12 @@ import { trapTab } from '../../lib/a11y';
 import { docxToHtml, pptxSlides, revokeSlides, type Slide } from './officePreview';
 import { t } from '../../i18n';
 
-// Word documents rendered as a clean page (mammoth's HTML carries no styling of its own). Theme surface, not white:
-// the stone-* text turns light in the dark theme.
+// A page in the theme's colour (not white: the stone-* text turns light in the dark theme), never see-through: the
+// glass styles' surface is, so it is laid on the page's own colour.
+const OPAQUE = 'bg-paper [background-image:linear-gradient(var(--color-surface),var(--color-surface))]';
+// Word documents rendered as a clean page (mammoth's HTML carries no styling of its own). A long link or word wraps.
 const PAGE =
-  'max-h-[82vh] w-[min(820px,92vw)] overflow-auto rounded-md bg-surface px-8 py-10 text-[14.5px] leading-relaxed text-stone-800 shadow-2xl md:px-16 md:py-14 ' +
+  `max-h-[82vh] w-[min(820px,92vw)] overflow-auto rounded-md ${OPAQUE} [overflow-wrap:anywhere] px-8 py-10 text-[14.5px] leading-relaxed text-stone-800 shadow-2xl md:px-16 md:py-14 ` +
   '[&_h1]:mb-3 [&_h1]:mt-6 [&_h1]:text-[1.6em] [&_h1]:font-semibold [&_h1]:leading-tight [&_h2]:mb-2 [&_h2]:mt-5 [&_h2]:text-[1.3em] [&_h2]:font-semibold ' +
   '[&_h3]:mb-2 [&_h3]:mt-4 [&_h3]:font-semibold [&_p]:my-2.5 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-6 [&_li]:my-1 ' +
   '[&_a]:text-brand-700 [&_a]:underline [&_img]:my-3 [&_img]:max-w-full [&_table]:my-3 [&_table]:w-full [&_table]:border-collapse ' +
@@ -191,7 +193,7 @@ export default function PreviewModal({
               <div className="max-h-[82vh] w-[min(860px,92vw)] space-y-4 overflow-auto pb-2">
                 {slides.length === 0 && <p className="text-center text-white/70">{t('Cette présentation ne contient aucune diapositive.')}</p>}
                 {slides.map((s, i) => (
-                  <section key={i} className="rounded-lg bg-surface p-6 shadow-2xl md:p-8">
+                  <section key={i} className={`rounded-lg ${OPAQUE} p-6 shadow-2xl [overflow-wrap:anywhere] md:p-8`}>
                     <p className="tabular text-[11px] font-medium uppercase tracking-wide text-stone-500">
                       {t('Diapositive {n}/{total}', { n: i + 1, total: slides.length })}
                     </p>
@@ -219,9 +221,9 @@ export default function PreviewModal({
               </div>
             )
           ) : plain ? (
-            <pre className="max-h-[80vh] w-[min(900px,92vw)] overflow-auto rounded-md bg-surface p-5 font-mono text-[12px] text-stone-800">{text || <span className="font-sans text-stone-500">{t('Ce fichier est vide.')}</span>}</pre>
+            <pre className={`max-h-[80vh] w-[min(900px,92vw)] overflow-auto rounded-md ${OPAQUE} p-5 font-mono text-[12px] text-stone-800`}>{text || <span className="font-sans text-stone-500">{t('Ce fichier est vide.')}</span>}</pre>
           ) : (
-            <div className="rounded-xl bg-surface p-10 text-center">
+            <div className={`rounded-xl ${OPAQUE} p-10 text-center`}>
               <FileIcon category={cat} size={64} ext={item.name.split('.').pop()} />
               <p className="mt-4 text-[14px] font-medium">{failed ? t('Ce fichier n’a pas pu être lu') : t('Pas d’aperçu pour ce type de fichier')}</p>
               {(cat === 'doc' || cat === 'slides') && !failed && <p className="mt-1 text-[13px] text-stone-500">{t('L’aperçu fonctionne avec les formats .docx et .pptx.')}</p>}

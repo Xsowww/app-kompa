@@ -17,6 +17,21 @@ export default function PdfView({ url, title, page: target }: { url: string; tit
   const scrolled = useRef(false);
   const [failed, setFailed] = useState(false);
   const doc = useRef<import('pdfjs-dist').PDFDocumentProxy | null>(null);
+  // The pages' width, followed (a phone turned, a window resized): the pages are drawn again at the new width.
+  const [width, setWidth] = useState(0);
+
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const measure = () => {
+      const pad = parseFloat(getComputedStyle(el).paddingLeft) || 16;
+      setWidth(Math.floor(el.clientWidth - 2 * pad));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [failed]);
 
   useEffect(() => {
     let cancelled = false;
@@ -46,11 +61,12 @@ export default function PdfView({ url, title, page: target }: { url: string; tit
   useEffect(() => {
     const d = doc.current;
     const el = box.current;
-    if (!d || !el || !total) return;
+    if (!d || !el || !total || width <= 0) return;
     let cancelled = false;
     let io: IntersectionObserver | undefined;
-    const pad = parseFloat(getComputedStyle(el).paddingLeft) || 16;
-    const width = el.clientWidth - 2 * pad;
+    let rendering: import('pdfjs-dist').RenderTask | null = null;
+    const at = String(width); // a page drawn at another width (or not finished) is drawn again
+    const queued = new Set<HTMLCanvasElement>();
     const ratio = Math.min(window.devicePixelRatio || 1, 2);
     const goTo = target && target > 1 && target <= Math.min(total, shown) && !scrolled.current ? target : 0;
     const viewportOf = async (n: number) => {
@@ -61,15 +77,19 @@ export default function PdfView({ url, title, page: target }: { url: string; tit
     // One page at a time, in the order they come into view.
     let queue = Promise.resolve();
     const draw = (canvas: HTMLCanvasElement) => {
-      if (canvas.dataset.drawn) return;
-      canvas.dataset.drawn = '1';
+      if (canvas.dataset.drawn === at || queued.has(canvas)) return;
+      queued.add(canvas);
       // (Goes on when more pages are added; stops by itself, on an error, once the document is closed.)
       queue = queue.then(async () => {
+        if (cancelled) return;
         const { page, viewport } = await viewportOf(Number(canvas.dataset.page));
+        if (cancelled) return;
         canvas.width = viewport.width;
         canvas.height = viewport.height;
         size(canvas, viewport);
-        await page.render({ canvas, canvasContext: canvas.getContext('2d')!, viewport }).promise.catch(() => undefined);
+        rendering = page.render({ canvas, canvasContext: canvas.getContext('2d')!, viewport });
+        await rendering.promise.then(() => (canvas.dataset.drawn = at)).catch(() => undefined);
+        rendering = null;
       });
       // Closed while drawing (pdf.js: « Transport destroyed »): nothing left to draw.
       queue = queue.catch(() => undefined);
@@ -78,7 +98,7 @@ export default function PdfView({ url, title, page: target }: { url: string; tit
       try {
         const { viewport } = await viewportOf(goTo || 1);
         if (cancelled) return;
-        const waiting = [...el.querySelectorAll<HTMLCanvasElement>('canvas:not([data-drawn])')];
+        const waiting = [...el.querySelectorAll<HTMLCanvasElement>('canvas')].filter(c => c.dataset.drawn !== at);
         waiting.forEach(c => size(c, viewport));
         if (goTo) {
           el.querySelector(`canvas[data-page="${goTo}"]`)?.scrollIntoView({ block: 'start' });
@@ -93,14 +113,15 @@ export default function PdfView({ url, title, page: target }: { url: string; tit
     return () => {
       cancelled = true;
       io?.disconnect();
+      rendering?.cancel();
     };
-  }, [total, shown, target]);
+  }, [total, shown, target, width]);
 
   if (failed)
     return <p className="rounded-md bg-surface px-6 py-10 text-center text-[13px] text-stone-600 shadow-2xl">{t('Impossible d’afficher ce PDF. Télécharge-le pour l’ouvrir.')}</p>;
 
   return (
-    <div ref={box} role="document" aria-label={title} className="h-[min(82vh,calc(100dvh-8rem))] w-[min(1000px,calc(100vw-2rem))] overflow-y-auto rounded-md bg-stone-200 p-4 shadow-2xl max-sm:p-2">
+    <div ref={box} role="document" aria-label={title} className="h-[min(82vh,calc(100dvh-8rem))] w-[min(1000px,calc(100vw-2rem))] overflow-y-auto rounded-md [scrollbar-gutter:stable] bg-stone-200 p-4 shadow-2xl max-sm:p-2">
       {!total && (
         <div className="flex h-full items-center justify-center text-stone-500">
           <Loader2 size={22} className="animate-spin" />

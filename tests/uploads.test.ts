@@ -157,6 +157,22 @@ describe('pause, resume, cancel', () => {
     expect(undo).toHaveBeenCalledWith('stored');
   });
 
+  it('says « waiting » until a file of the batch starts', async () => {
+    const a = trackUpload('a', 10);
+    const b = trackUpload('b', 10);
+    const waiting = () => useUploads.getState().items.map(u => !!u.waiting);
+    expect(waiting()).toEqual([true, true]);
+    pauseUpload(a.id);
+    const run = sendUpload(a, async () => 'ok');
+    await Promise.resolve();
+    expect(waiting()).toEqual([true, true]); // paused before it began: still waiting
+    resumeUpload(a.id);
+    await run;
+    expect(waiting()).toEqual([false, true]);
+    await sendUpload(b, async () => 'ok');
+    expect(waiting()).toEqual([false, false]);
+  });
+
   it('a paused file waiting its turn is cancelled without being sent', async () => {
     const a = trackUpload('a', 10);
     pauseUpload(a.id);

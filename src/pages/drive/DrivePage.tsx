@@ -1156,7 +1156,7 @@ function PendingUploads({ where }: { where: string }) {
           <span className="flex min-w-0 flex-1 items-center gap-2.5 opacity-60">
             <FileIcon category={categoryOf({ kind: 'file', name: u.name })} size={26} ext={u.name.split('.').pop()} />
             <span className="min-w-0 flex-1 truncate font-medium">{u.name}</span>
-            <span className="tabular shrink-0 text-[12px] text-stone-500">{u.status === 'paused' ? t('En pause') : `${u.size ? Math.floor((u.loaded / u.size) * 100) : 0}\u00a0%`}</span>
+            <span className="tabular shrink-0 text-[12px] text-stone-500">{u.status === 'paused' ? t('En pause') : u.waiting ? t('En attente') : `${u.size ? Math.floor((u.loaded / u.size) * 100) : 0}\u00a0%`}</span>
           </span>
           <span className="flex shrink-0 items-center">
             <FileButtons u={u} onCancel={b => keepFocus(b.closest('li'), document.getElementById('contenu'))} />

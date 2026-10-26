@@ -21,6 +21,8 @@ export interface Upload {
   where?: string;
   /** Why it failed, in a few words (« Plus de 50 Mo »): shown on its line instead of « Échec ». */
   reason?: string;
+  /** Not started yet: its batch sends one file at a time (and waits while one before it is paused). */
+  waiting?: boolean;
 }
 
 export interface UploadHandle {
@@ -99,7 +101,7 @@ export function trackUpload(name: string, size: number, where?: string): UploadH
   const id = `u${++seq}`;
   const c: Control = { ctrl: new AbortController(), cancelled: false, waiters: [] };
   controls.set(id, c);
-  useUploads.setState({ items: [...keep, { id, name, size, loaded: 0, status: 'active', where }] });
+  useUploads.setState({ items: [...keep, { id, name, size, loaded: 0, status: 'active', where, waiting: true }] });
   settle();
   const end = (status: 'done' | 'error', reason?: string) => {
     controls.delete(id);
@@ -175,6 +177,7 @@ export const isUploadAbort = (e: unknown) => e instanceof Error && e.name === 'A
 export async function sendUpload<T>(h: UploadHandle, send: (signal: AbortSignal) => Promise<T>, undo?: (result: T | null) => Promise<unknown>): Promise<T | null> {
   for (;;) {
     await h.whenResumed();
+    patch(h.id, u => !!u.waiting, () => ({ waiting: false }));
     if (h.cancelled) {
       // Cancelled while paused: a resumable upload stopped earlier may be waiting on the server.
       await undo?.(null)?.catch(() => undefined);

@@ -35,4 +35,9 @@ describe('sauvegarde sur l’appareil', () => {
     flushStorage();
     expect(memory.has('cop:c:notes')).toBe(false);
   });
+  it('écrit le Drive tout de suite (un autre onglet ne l’écrase pas avec une liste plus ancienne)', async () => {
+    setStorageUser('d');
+    await userStorage.setItem('drive', v(3));
+    expect(JSON.parse(memory.get('cop:d:drive')!)).toEqual(v(3));
+  });
 });

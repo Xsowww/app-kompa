@@ -6,7 +6,7 @@ import { Camera, FileDown, ImagePlus, Loader2, ScanText, X } from 'lucide-react'
 import { Modal } from '../../components/Overlays';
 import { useDrive } from '../../store/drive';
 import { saveBlob } from './download';
-import { toast } from '../../store/ui';
+import { confirmAction, toast } from '../../store/ui';
 import { CoursError, readPhotoSheet } from '../../lib/recorder/api';
 import { cx } from '../../lib/utils';
 import { t } from '../../i18n';
@@ -32,32 +32,38 @@ function failure(e: unknown): string {
   if (code === 'disabled' || code === 'http_404') return t('La lecture des photos n’est pas encore activée sur Kompaly.');
   if (code === 'daily_limit' || code === 'site_limit') return t('Limite du jour atteinte : réessaie demain.');
   if (code === 'rate_limited') return t('Beaucoup de demandes en ce moment : réessaie dans une minute.');
-  if (code === 'too_large') return t('Photos trop lourdes : enlève-en une et réessaie.');
+  if (code === 'too_large' || code === 'http_413') return t('Photos trop lourdes : enlève-en une et réessaie.');
   // 524: Cloudflare gave up waiting for the server.
   if (code === 'timeout' || code === 'http_504' || code === 'http_524') return t('La lecture a pris trop de temps. Réessaie, une photo à la fois.');
   if (code === 'network') return t('Pas de réponse. Vérifie ta connexion et réessaie.');
-  return t('La lecture n’a pas marché. Réessaie avec une photo plus nette.');
+  // The photo itself: unreadable, or nothing came out of it.
+  if (code === 'bad_photo' || code === 'empty_answer' || code === 'http_400') return t('La lecture n’a pas marché. Réessaie avec une photo plus nette.');
+  // The rest is the service: the AI down or refusing the key (upstream, bad_key), the server failing (500, 502 page…).
+  return t('Le service de lecture ne répond pas. Réessaie dans quelques minutes.');
 }
 
 export default function PhotoSheetDialog({ folderId, onClose }: { folderId: string | null; onClose: () => void }) {
   const [photos, setPhotos] = useState<string[]>([]);
   const [step, setStep] = useState<'pick' | 'reading' | 'check'>('pick');
   const [md, setMd] = useState('');
+  const [readMd, setReadMd] = useState(''); // as read, to know if it was corrected
   const [html, setHtml] = useState('');
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const camera = useRef<HTMLInputElement>(null);
   const gallery = useRef<HTMLInputElement>(null);
+  const reading = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (step === 'check' && !editing) void import('../../lib/docx').then(m => setHtml(m.markdownToHtml(md)));
   }, [step, editing, md]);
 
   const add = async (files: FileList | null) => {
-    const list = [...(files ?? [])].filter(f => f.type.startsWith('image/') || /\.(heic|heif)$/i.test(f.name));
+    const all = [...(files ?? [])];
+    const list = all.filter(f => f.type.startsWith('image/') || /\.(heic|heif)$/i.test(f.name));
+    setError(list.length < all.length ? t('Choisis des photos (JPEG, PNG).') : '');
     if (!list.length) return;
-    setError('');
     const room = MAX_PHOTOS - photos.length;
     if (list.length > room) toast(t('{n} photos au plus par fiche.', { n: MAX_PHOTOS }), 'info');
     const out: string[] = [];
@@ -72,16 +78,33 @@ export default function PhotoSheetDialog({ folderId, onClose }: { folderId: stri
   };
 
   const read = async () => {
+    const ctrl = new AbortController();
+    reading.current = ctrl;
     setStep('reading');
     setError('');
     try {
-      setMd(await readPhotoSheet(photos));
+      const text = await readPhotoSheet(photos, ctrl.signal);
+      if (ctrl.signal.aborted) return;
+      setMd(text);
+      setReadMd(text);
       setEditing(false);
       setStep('check');
     } catch (e) {
+      if (ctrl.signal.aborted) return;
       setError(failure(e));
       setStep('pick');
     }
+  };
+  /** Stops a reading under way: back to the photos, a late answer is ignored. */
+  const stopReading = () => {
+    reading.current?.abort();
+    setStep('pick');
+  };
+  useEffect(() => () => reading.current?.abort(), []);
+
+  const otherPhotos = async () => {
+    if (md !== readMd && !(await confirmAction(t('Revenir aux photos ?'), t('Les corrections faites dans le texte seront perdues.'), t('Autres photos')))) return;
+    setStep('pick');
   };
 
   const pdf = async () => {
@@ -111,7 +134,7 @@ export default function PhotoSheetDialog({ folderId, onClose }: { folderId: stri
   };
 
   return (
-    <Modal open onClose={() => step !== 'reading' && !saving && onClose()} width={step === 'check' ? 640 : 460}>
+    <Modal open onClose={() => (step === 'reading' ? stopReading() : !saving && onClose())} width={step === 'check' ? 640 : 460}>
       <h3 className="flex items-center gap-2 text-[15px] font-semibold">
         <ScanText size={17} /> {t('Fiche depuis une photo')}
       </h3>
@@ -153,7 +176,7 @@ export default function PhotoSheetDialog({ folderId, onClose }: { folderId: stri
             </p>
           )}
           <div className="mt-6 flex justify-end gap-2">
-            <button type="button" className="btn-secondary" onClick={onClose} disabled={step === 'reading'}>
+            <button type="button" className="btn-secondary" onClick={step === 'reading' ? stopReading : onClose}>
               {t('Annuler')}
             </button>
             <button type="button" className="btn-primary" disabled={!photos.length || step === 'reading'} onClick={() => void read()}>
@@ -176,10 +199,10 @@ export default function PhotoSheetDialog({ folderId, onClose }: { folderId: stri
           {editing ? (
             <textarea value={md} onChange={e => setMd(e.target.value)} aria-label={t('Texte de la fiche')} className="field mt-3 h-[52vh] w-full resize-none py-2 font-mono text-[13px] leading-relaxed" />
           ) : (
-            <div className="doc-preview mt-3 max-h-[52vh] overflow-y-auto rounded-xl border border-stone-200 p-4 text-[14px] leading-relaxed [&_blockquote]:border-l-2 [&_blockquote]:border-stone-300 [&_blockquote]:pl-3 [&_blockquote]:text-stone-600 [&_h1]:text-[20px] [&_h1]:font-bold [&_h2]:mt-5 [&_h2]:text-[16px] [&_h2]:font-semibold [&_h3]:mt-4 [&_h3]:font-semibold [&_li]:my-1 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:my-2 [&_ul]:list-disc [&_ul]:pl-6" dangerouslySetInnerHTML={{ __html: html }} />
+            <div className="doc-preview mt-3 max-h-[52vh] overflow-y-auto rounded-xl [overflow-wrap:anywhere] border border-stone-200 p-4 text-[14px] leading-relaxed [&_blockquote]:border-l-2 [&_blockquote]:border-stone-300 [&_blockquote]:pl-3 [&_blockquote]:text-stone-600 [&_h1]:text-[20px] [&_h1]:font-bold [&_h2]:mt-5 [&_h2]:text-[16px] [&_h2]:font-semibold [&_h3]:mt-4 [&_h3]:font-semibold [&_li]:my-1 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:my-2 [&_ul]:list-disc [&_ul]:pl-6" dangerouslySetInnerHTML={{ __html: html }} />
           )}
           <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
-            <button type="button" className="btn-ghost mr-auto" onClick={() => setStep('pick')} disabled={saving}>
+            <button type="button" className="btn-ghost mr-auto" onClick={() => void otherPhotos()} disabled={saving}>
               {t('Autres photos')}
             </button>
             <button type="button" className="btn-secondary" onClick={() => void download()} disabled={saving || !md.trim()}>

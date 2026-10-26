@@ -12,7 +12,8 @@ export function zipPaths(items: Pick<DriveItem, 'id' | 'name' | 'kind' | 'parent
   const walk = (list: typeof items, dir: string) => {
     const taken = new Set<string>();
     for (const i of list) {
-      const clean = i.name.replace(/[/\\]/g, '-').trim() || t('Sans titre');
+      // Names Windows can open too: no \ / : * ? " < > |, no dot or space at the end, never « . » or « .. ».
+      const clean = i.name.replace(/[\\/:*?"<>|]/g, '-').replace(/[.\s]+$/, '').trim() || t('Sans titre');
       const dot = i.kind === 'file' ? clean.lastIndexOf('.') : -1;
       const [base, ext] = dot > 0 ? [clean.slice(0, dot), clean.slice(dot)] : [clean, ''];
       let name = clean;
