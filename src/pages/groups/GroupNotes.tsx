@@ -1,6 +1,6 @@
 import { LoadFailed } from './shared';
 import { EmptyState, Skeleton } from '../../components/EmptyState';
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type FocusEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { FilePlus2, FileText } from 'lucide-react';
 import { useGroups } from '../../store/groups';
@@ -33,6 +33,8 @@ export default function GroupNotes({ group }: { group: Group }) {
   // Pendant la création (aller-retour réseau), le titre se tape déjà : il est repris par l'éditeur.
   const [draft, setDraft] = useState('');
   const draftRef = useRef('');
+  const [draftBody, setDraftBody] = useState<string | null>(null);
+  const bodyRef = useRef<string | null>(null);
   const [fresh, setFresh] = useState<GroupNote>();
   const openId = params.get('note');
   // The draft title stays on screen until the note is really open (the URL change can come a frame later).
@@ -53,6 +55,8 @@ export default function GroupNotes({ group }: { group: Group }) {
     setCreating(true);
     setDraft('');
     draftRef.current = '';
+    setDraftBody(null);
+    bodyRef.current = null;
     try {
       const n = await createNote(group.id);
       useGroups.getState().upsertNote(summary(n));
@@ -64,36 +68,59 @@ export default function GroupNotes({ group }: { group: Group }) {
     }
   };
 
+  // The title being typed while the note is created: kept on screen (and focused) until the editor takes it over.
+  // « Entrée » goes on to the first lines of the note, as in the editor; both are handed over to it.
+  // Shown again while the editor loads: the caret goes back to the end of what was typed.
+  const toEnd = (e: FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => e.currentTarget.setSelectionRange(e.currentTarget.value.length, e.currentTarget.value.length);
+  const draftInput = (
+    <div className="flex min-h-0 flex-1 flex-col px-4 pt-5 md:px-10" aria-busy="true">
+      <input
+        autoFocus={draftBody === null}
+        onFocus={toEnd}
+        value={draft}
+        onChange={e => {
+          setDraft(e.target.value);
+          draftRef.current = e.target.value;
+        }}
+        onKeyDown={e => {
+          if (e.key !== 'Enter') return;
+          e.preventDefault();
+          setDraftBody(b => b ?? '');
+          bodyRef.current ??= '';
+        }}
+        placeholder={t('Sans titre')}
+        aria-label={t('Titre de la note')}
+        maxLength={200}
+        className="ml-9 w-[calc(100%-36px)] bg-transparent text-[24px] font-semibold tracking-[-0.02em] outline-none placeholder:text-stone-500"
+      />
+      <p className="ml-9 mt-0.5 text-[12px] text-stone-500">{t('Création de la note…')}</p>
+      {draftBody !== null && (
+        <textarea
+          autoFocus
+          onFocus={toEnd}
+          value={draftBody}
+          onChange={e => {
+            setDraftBody(e.target.value);
+            bodyRef.current = e.target.value;
+          }}
+          aria-label={t('Contenu de la note')}
+          className="ml-9 mt-8 w-[calc(100%-36px)] flex-1 resize-none bg-transparent text-[15px] outline-none"
+        />
+      )}
+    </div>
+  );
+
   if (openId) {
     return (
       <div className="card flex min-h-0 flex-1 flex-col overflow-hidden">
-        <Suspense fallback={<div className="flex-1" />}>
-          <GroupNoteEditor key={openId} noteId={openId} readOnly={!canEdit} onClose={() => open(null)} fresh={fresh && { note: fresh, title: draftRef }} />
+        <Suspense fallback={fresh?.id === openId ? draftInput : <div className="flex-1" />}>
+          <GroupNoteEditor key={openId} noteId={openId} readOnly={!canEdit} onClose={() => open(null)} fresh={fresh && { note: fresh, title: draftRef, body: bodyRef }} />
         </Suspense>
       </div>
     );
   }
 
-  if (creating) {
-    return (
-      <div className="card flex min-h-0 flex-1 flex-col overflow-hidden px-4 pt-5 md:px-10" aria-busy="true">
-        <input
-          autoFocus
-          value={draft}
-          onChange={e => {
-            setDraft(e.target.value);
-            draftRef.current = e.target.value;
-          }}
-          onKeyDown={e => e.key === 'Enter' && e.preventDefault()}
-          placeholder={t('Sans titre')}
-          aria-label={t('Titre de la note')}
-          maxLength={200}
-          className="ml-9 w-[calc(100%-36px)] bg-transparent text-[24px] font-semibold tracking-[-0.02em] outline-none placeholder:text-stone-500"
-        />
-        <p className="ml-9 mt-0.5 text-[12px] text-stone-500">{t('Création de la note…')}</p>
-      </div>
-    );
-  }
+  if (creating) return <div className="card flex min-h-0 flex-1 flex-col overflow-hidden">{draftInput}</div>;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">

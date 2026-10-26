@@ -81,7 +81,8 @@ export default function AdminInbox({ inbox, missing, reload }: { inbox: Inbox | 
           ) : (
             <ul className="divide-y divide-stone-100">
               {reports.map(r => (
-                <li key={r.id} className="px-4 py-3">
+                // A long link or word in a report wraps instead of going out of the card.
+                <li key={r.id} className="px-4 py-3 [overflow-wrap:anywhere]">
                   <div className="flex flex-wrap items-baseline gap-x-2 text-[12px] text-stone-500">
                     <span className="font-medium text-ink">{KIND[r.kind]}</span>
                     {r.snapshot.group && <span>· {r.snapshot.group}</span>}

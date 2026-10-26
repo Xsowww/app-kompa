@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useEditor, EditorContent, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -70,8 +70,11 @@ type Status = 'saved' | 'pending' | 'saving' | 'error';
 const untitled = (s: string) => s === 'Sans titre' || s === t('Sans titre');
 
 /** Charge la note, puis affiche l'éditeur. */
-/** `fresh` : la note qu'on vient de créer (pas de rechargement) et le titre déjà tapé pendant sa création. */
-export default function GroupNoteEditor({ noteId, onClose, readOnly = false, fresh }: { noteId: string; onClose: () => void; readOnly?: boolean; fresh?: { note: GroupNote; title: { current: string } } }) {
+/** What was typed while a new note was being created: its title, and its first lines after « Entrée » (null: none). */
+type Typed = { title: { current: string }; body?: { current: string | null } };
+
+/** `fresh` : la note qu'on vient de créer (pas de rechargement) et ce qui a déjà été tapé pendant sa création. */
+export default function GroupNoteEditor({ noteId, onClose, readOnly = false, fresh }: { noteId: string; onClose: () => void; readOnly?: boolean; fresh?: { note: GroupNote } & Typed }) {
   const preset = fresh?.note.id === noteId ? fresh : undefined;
   const [note, setNote] = useState<GroupNote | null | undefined | 'error'>(preset?.note);
   const [attempt, setAttempt] = useState(0);
@@ -115,11 +118,12 @@ export default function GroupNoteEditor({ noteId, onClose, readOnly = false, fre
         <button className="btn-secondary mt-4" onClick={onClose}>{t('Retour à la liste')}</button>
       </div>
     );
-  return <LoadedEditor initial={note} onClose={onClose} readOnly={readOnly} startTitle={preset?.title.current} />;
+  return <LoadedEditor initial={note} onClose={onClose} readOnly={readOnly} typed={preset} />;
 }
 
 /** `readOnly` : lecteur du groupe (la base refuserait de toute façon l'enregistrement). */
-function LoadedEditor({ initial, onClose, readOnly, startTitle }: { initial: GroupNote; onClose: () => void; readOnly: boolean; startTitle?: string }) {
+function LoadedEditor({ initial, onClose, readOnly, typed }: { initial: GroupNote; onClose: () => void; readOnly: boolean; typed?: Typed }) {
+  const startTitle = typed?.title.current;
   const w = useGroupWords();
   const id = initial.id;
   const nameOf = useMemberName(initial.groupId);
@@ -202,16 +206,6 @@ function LoadedEditor({ initial, onClose, readOnly, startTitle }: { initial: Gro
     timer.current = setTimeout(() => void save(), 800);
   }, [save]);
 
-  // Note neuve : on continue le titre commencé pendant sa création (curseur à la fin), et on l'enregistre.
-  useEffect(() => {
-    if (startTitle === undefined || readOnly) return;
-    const el = titleInput.current;
-    el?.focus();
-    el?.setSelectionRange(el.value.length, el.value.length);
-    if (startTitle.trim()) changed();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- une seule fois, à l'ouverture
-  }, []);
-
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ link: { openOnClick: false, autolink: true } }),
@@ -232,6 +226,30 @@ function LoadedEditor({ initial, onClose, readOnly, startTitle }: { initial: Gro
   });
   useEffect(() => {
     editorRef.current = editor;
+  }, [editor]);
+  // Note neuve : on continue ce qui a été tapé pendant sa création, jusqu'à la dernière lettre (titre, puis
+  // premières lignes après « Entrée »), curseur à la fin, et on l'enregistre. Avant l'affichage : aucune touche perdue.
+  useLayoutEffect(() => {
+    if (!typed || readOnly || !editor) return;
+    const head = typed.title.current;
+    const body = typed.body?.current ?? null;
+    titleRef.current = head;
+    setTitle(head);
+    const el = titleInput.current;
+    if (body !== null) {
+      if (body) {
+        editor.commands.setContent({ type: 'doc', content: body.split('\n').map(l => ({ type: 'paragraph', content: l ? [{ type: 'text', text: l }] : [] })) }, { emitUpdate: false });
+        html.current = editor.getHTML();
+      }
+      editor.commands.setTextSelection(editor.state.doc.content.size);
+      editor.view.focus();
+    } else if (el) {
+      el.value = head;
+      el.focus();
+      el.setSelectionRange(head.length, head.length);
+    }
+    if (head.trim() || body?.trim()) changed();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- une seule fois, quand l'éditeur est là
   }, [editor]);
   useEffect(() => {
     editor?.setEditable(!readOnly, false); // sans « update » : rien à enregistrer
@@ -339,7 +357,8 @@ function LoadedEditor({ initial, onClose, readOnly, startTitle }: { initial: Gro
               titleRef.current = e.target.value;
               changed();
             }}
-            onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), editor.commands.focus('start'))}
+            // The text takes the very next key (focus('start') alone waits a frame: a quick key went to the title).
+            onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), editor.commands.setTextSelection(0), editor.view.focus())}
             className="w-full bg-transparent text-[20px] font-semibold md:text-[24px] tracking-[-0.02em] outline-none placeholder:text-stone-500"
           />
           <p className={cx('mt-0.5 text-[12px]', conflict ? 'text-amber-700' : status === 'error' ? 'text-red-600' : 'text-stone-500')}>{statusText}</p>

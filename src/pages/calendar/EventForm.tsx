@@ -1,11 +1,12 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Check, FileText, Flag, Link2, Plus, Trash2 } from 'lucide-react';
+import { Bell, Check, FileText, Flag, Link2, Plus, Trash2 } from 'lucide-react';
 import SeriesIcon from './SeriesIcon';
 import { Modal } from '../../components/Overlays';
+import { ReportDialog } from '../../components/FeedbackDialogs';
 import { useNotes } from '../../store/notes';
 import { catOf, allCategories, guessCategory, isBigEvent, nextInSeries, type CalendarEvent, type EventCategory } from '../../store/calendar';
-import { askSeriesScope, removeEvent, useCalendarSource } from './source';
+import { askSeriesScope, changedFields, removeEvent, useCalendarSource } from './source';
 import PeoplePicker from './PeoplePicker';
 import { useSettings } from '../../store/settings';
 import { toast } from '../../store/ui';
@@ -16,7 +17,7 @@ import ReminderPicker from '../../components/ReminderPicker';
 import { DateField, SelectField, TimeField } from '../../components/Pickers';
 import { FieldError } from '../../components/Field';
 import { fmtDay, fromKey, parseQuickAdd } from '../../lib/dates';
-import { cleanReminders, earlyReminders, eventReminders, followMoments } from '../../lib/reminders';
+import { cleanReminders, earlyReminders, eventReminders, followMoments, reminderLabel } from '../../lib/reminders';
 import { covers } from '../../lib/periods';
 import { MAX_SPAN_DAYS, REPEATS, dayShift, defaultUntil, isSpan, repeatDays, shiftKey, spanDays, type Repeat } from '../../lib/repeat';
 import { feedLabel, feedOf } from '../../lib/icsFeeds';
@@ -40,7 +41,64 @@ interface Props {
   onSaved?: (ev: Pick<CalendarEvent, 'date' | 'category' | 'important'>) => void;
 }
 
-export default function EventForm({ event, date, start: initialStart, end: initialEnd, title: initialTitle, onClose, onSaved }: Props) {
+/** A reader of a shared calendar: the whole event (place, notes, for whom, reminders), with nothing to change. */
+function EventView({ event: ev, onClose }: { event: CalendarEvent; onClose: () => void }) {
+  const shared = useCalendarSource().shared!;
+  const [reporting, setReporting] = useState(false);
+  const c = catOf(ev.category);
+  const who = (id: string) => shared.people.find(p => p.id === id)?.name ?? shared.nameOf(id);
+  const reminders = ev.reminders ?? [];
+  const row = (label: string, value: React.ReactNode) => (
+    <div>
+      <dt className="text-[12px] font-medium text-stone-600">{label}</dt>
+      <dd className="mt-0.5 text-[13.5px]">{value}</dd>
+    </div>
+  );
+  return (
+    <Modal open onClose={onClose} width={460}>
+      <h3 className="text-[15px] font-semibold [overflow-wrap:anywhere]">{ev.title}</h3>
+      <p className="mt-1 text-[13px] text-stone-600 first-letter:uppercase">
+        {fmtDay(fromKey(ev.date), 'EEEE d MMMM')} · {ev.start ? (ev.end ? `${ev.start}\u00a0–\u00a0${ev.end}` : ev.start) : t('Journée')}
+      </p>
+      <p className="mt-1 flex items-center gap-1.5 text-[12px] text-stone-500">
+        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: c.color }} />
+        <span style={{ color: c.text }}>{c.label}</span>
+        <SeriesIcon series={ev.series} size={11} />
+        <span className="min-w-0 truncate">· {t('par {name}', { name: shared.author(ev.id) })}</span>
+      </p>
+      <dl className="mt-4 grid gap-3">
+        {row(t('Pour qui'), ev.people?.length ? ev.people.map(who).join(', ') : t('Tout le monde'))}
+        {reminders.length > 0 &&
+          row(
+            t('Rappels'),
+            <span className="inline-flex items-center gap-1.5">
+              <Bell size={12} aria-hidden className="shrink-0 text-stone-500" />
+              {reminders.map(m => reminderLabel(m, !!ev.start, ev.date, ev.start)).join(', ')}
+            </span>,
+          )}
+        {ev.details && row(t('Notes'), <span className="block whitespace-pre-line [overflow-wrap:anywhere]">{ev.details}</span>)}
+      </dl>
+      <div className="mt-6 flex items-center gap-2">
+        {!shared.byMe(ev.id) && (
+          <button type="button" className="btn-ghost" onClick={() => setReporting(true)} aria-label={t('Signaler « {title} »', { title: ev.title })}>
+            <Flag size={15} /> {t('Signaler')}
+          </button>
+        )}
+        <button type="button" className="btn-secondary ml-auto" onClick={onClose}>
+          {t('Fermer')}
+        </button>
+      </div>
+      <ReportDialog target={reporting ? { kind: 'event', id: ev.id, title: ev.title } : null} onClose={() => setReporting(false)} />
+    </Modal>
+  );
+}
+
+export default function EventForm(props: Props) {
+  const { shared } = useCalendarSource();
+  return props.event && shared && !shared.canEdit ? <EventView event={props.event} onClose={props.onClose} /> : <EventEditor {...props} />;
+}
+
+function EventEditor({ event, date, start: initialStart, end: initialEnd, title: initialTitle, onClose, onSaved }: Props) {
   // My calendar or a shared one (no « important » there; its own categories, and reminders for each member it is for).
   const source = useCalendarSource();
   const { add, addMany, update, updateSeries, shared, categories: custom, periods, events: allEvents } = source;
@@ -106,6 +164,8 @@ export default function EventForm({ event, date, start: initialStart, end: initi
     if (!shared && big && chosen && day && !isBigEvent({ category: effective, important })) setChosen(cleanReminders([...chosen, ...earlyReminders(day, start || undefined)]));
   };
   const notes = useNotes(s => s.notes);
+  // Someone else's event in a shared calendar: it can be reported to the administrator.
+  const [reporting, setReporting] = useState(false);
   const linked = event ? notes.filter(n => n.links?.some(l => l.kind === 'event' && l.id === event.id)) : [];
 
   const timeError = !spanning && !!start && !!end && end <= start;
@@ -122,17 +182,21 @@ export default function EventForm({ event, date, start: initialStart, end: initi
     if (!day || timeMsg || endDayMsg || impossible || (series && !series.days.length)) return;
     // An end without a start can't be sent: the start field is required then (see below).
     const data = { title: cleanTitle, date: day, start: start || undefined, end: start && end ? end : undefined, category: effective, details: details.trim() || undefined, important: important || undefined, reminders: chosen, ...(shared && { people }) };
-    if (event?.series) {
+    // A shared calendar: only what was changed here, so that what another member changed meanwhile isn't undone.
+    const changes: Partial<typeof data> = event && shared ? changedFields(data, event) : data;
+    if (event && !Object.keys(changes).length) {
+      // Nothing changed: nothing to send.
+    } else if (event?.series) {
       const scope = await askSeriesScope(event, 'edit', allEvents);
       if (!scope) return;
       if (scope === 'next' && isSpan(event.series)) {
         // The next days of an event over several days keep their own times and days: only the rest follows.
-        const { start: _s, end: _e, date: _d, reminders: _r, ...rest } = data;
-        updateSeries(event.id, rest);
-        update(event.id, data);
-      } else if (scope === 'next') updateSeries(event.id, data);
-      else update(event.id, data);
-    } else if (event) update(event.id, data);
+        const { start: _s, end: _e, date: _d, reminders: _r, ...rest } = changes;
+        if (Object.keys(rest).length) updateSeries(event.id, rest);
+        if (Object.keys(rest).length < Object.keys(changes).length) update(event.id, changes);
+      } else if (scope === 'next') updateSeries(event.id, changes);
+      else update(event.id, changes);
+    } else if (event) update(event.id, changes);
     else if (series) {
       const id = uid();
       addMany(series.days.map(d => ({ ...data, date: d, series: id })));
@@ -419,6 +483,11 @@ export default function EventForm({ event, date, start: initialStart, end: initi
               <Trash2 size={15} /> <span className="max-sm:sr-only">{t('Supprimer')}</span>
             </button>
           )}
+          {event && shared && !shared.byMe(event.id) && (
+            <button type="button" className="icon-btn" title={t('Signaler')} aria-label={t('Signaler « {title} »', { title: event.title })} onClick={() => setReporting(true)}>
+              <Flag size={15} />
+            </button>
+          )}
           <button type="button" className="btn-secondary ml-auto" onClick={onClose}>
             {t('Annuler')}
           </button>
@@ -428,6 +497,7 @@ export default function EventForm({ event, date, start: initialStart, end: initi
           </button>
         </div>
       </form>
+      {event && <ReportDialog target={reporting ? { kind: 'event', id: event.id, title: event.title } : null} onClose={() => setReporting(false)} />}
     </Modal>
   );
 }

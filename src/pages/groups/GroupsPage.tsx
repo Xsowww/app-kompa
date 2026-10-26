@@ -238,12 +238,16 @@ function Groups() {
   const narrow = useNarrow();
   // The « + » button, no group open: create one, or join one with its code. A group open: its tab's line and
   // the sharing ones (ShareActions), for whoever may write in it.
-  // Always offered (after what goes in the group open), so another group is one tap away from anywhere here.
+  // Always offered (after what goes in the group open), so another group is one tap away from anywhere here;
+  // but not over a note open on a phone (it fills the screen, the button would sit on its text).
+  const noteOpen = narrow && tab === 'notes' && !!params.get('note');
   useCreateActions(
-    [
-      { label: t('Créer {a}', { a: w.a }), icon: <Plus />, onClick: () => setDialog('create') },
-      { label: t('Rejoindre avec un code'), icon: <LogIn />, onClick: () => setDialog('join') },
-    ],
+    noteOpen
+      ? []
+      : [
+          { label: t('Créer {a}', { a: w.a }), icon: <Plus />, onClick: () => setDialog('create') },
+          { label: t('Rejoindre avec un code'), icon: <LogIn />, onClick: () => setDialog('join') },
+        ],
     1,
   );
 
@@ -339,7 +343,7 @@ function Groups() {
                 )}
               </div>
               {/* Not over a shared note open on a phone (it fills the screen). */}
-              {rights.canEdit && !(narrow && tab === 'notes' && params.get('note')) && (
+              {rights.canEdit && !noteOpen && (
                 <ShareActions
                   group={active}
                   device={tab !== 'fichiers'}

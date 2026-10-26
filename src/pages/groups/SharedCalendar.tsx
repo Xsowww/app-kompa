@@ -3,8 +3,8 @@ import CalendarPage from '../calendar/CalendarPage';
 import { CalendarSourceContext, type CalendarSource } from '../calendar/source';
 import { CATEGORIES, applyUsage, type CalendarEvent, type CategoryScope, type CustomCategory, type EventCategory } from '../../store/calendar';
 import { useGroups } from '../../store/groups';
-import { toast } from '../../store/ui';
-import { createEvent, createEvents, deleteEvent, deleteEvents, deletePeriod, groupError, savePeriods, setAgendaCategories, updateEvent, type Group, type GroupEvent, type NewGroupEvent } from '../../lib/groups';
+import { toast, useUi } from '../../store/ui';
+import { READ_ONLY_AGENDA, Refused, createEvent, createEvents, deleteEvent, deleteEvents, deletePeriod, groupError, refusedRights, savePeriods, setAgendaCategories, updateEvent, updateEvents, type Group, type GroupEvent, type NewGroupEvent } from '../../lib/groups';
 import { useMemberName, useRights } from './util';
 import { LoadFailed } from './shared';
 import { useAuth } from '../../store/auth';
@@ -64,8 +64,13 @@ export default function SharedCalendar({ group }: { group: Group }) {
   const [, redraw] = useState(0);
   // shortcut: a shared calendar (coloc, famille, équipe) names the built-in categories the same way for every member,
   // whatever their own usage: the everyday names, set before the calendar draws and put back when it closes.
+  // Set again once drawn: going from one shared calendar to another, the one closing puts the account's names back
+  // after the new one has set its own.
   useState(() => applyUsage('perso'));
-  useEffect(() => () => applyUsage(useSettings.getState().usage), []);
+  useEffect(() => {
+    applyUsage('perso');
+    return () => applyUsage(useSettings.getState().usage);
+  }, []);
   useEffect(() => {
     // A removal still waiting for its « Annuler » can't reach the server once the tab is closing: the browser asks first.
     const warn = (e: BeforeUnloadEvent) => {
@@ -92,9 +97,24 @@ export default function SharedCalendar({ group }: { group: Group }) {
     const reload = () => useGroups.getState().refresh(group.id, ['events']);
     // Shown at once; the server's answer (and the other members' changes) follow by Realtime.
     const patchLocal = (fn: (l: GroupEvent[]) => GroupEvent[]) => useGroups.setState(s => ({ events: { ...s.events, [group.id]: fn(s.events[group.id] ?? []) } }));
-    const fail = (e: unknown) => {
-      toast(groupError(e), 'error');
-      void reload();
+    // Not done: the « Ajouté » / « Enregistré » said at once goes, one message stays. Refused for lack of rights
+    // (made reader meanwhile): said so, without « Réessayer », and my role is read again (the calendar turns read-only).
+    const notDone = (e: unknown, say: (why: string) => string, retry?: () => void) => {
+      useUi.setState(s => ({ toasts: s.toasts.filter(x => x.tone !== 'success') }));
+      const denied = refusedRights(e);
+      if (denied) toast(READ_ONLY_AGENDA, 'error');
+      // A refusal the app words (deleted by another member, server to update): sending again would change nothing.
+      else toast(say(groupError(e)), 'error', retry && !(e instanceof Refused) ? { label: t('Réessayer'), run: retry } : undefined);
+      void useGroups.getState().refresh(group.id, denied ? ['members', 'events'] : ['events']);
+    };
+    const fail = (e: unknown) => notDone(e, why => why);
+    // Changes to events (one, or this one and the next ones): shown at once; not saved (no connection…), one message,
+    // and « Réessayer » sends them all again.
+    const save = (title: string, changes: [string, Partial<NewGroupEvent>][], request: () => Promise<unknown>) => {
+      const by = new Map(changes);
+      patchLocal(l => l.map(e => (by.has(e.id) ? { ...e, ...by.get(e.id) } : e)));
+      const send = () => void request().catch(err => notDone(err, why => t('Modification de « {title} » non enregistrée : {why}', { title, why }), send));
+      send();
     };
     // Shown at once, saved for every member; the server's list (cleaned) replaces it.
     const setCategories = (categories: CustomCategory[]) =>
@@ -117,6 +137,7 @@ export default function SharedCalendar({ group }: { group: Group }) {
         group,
         canEdit,
         author: id => nameOf(list.find(e => e.id === id)?.createdBy ?? null),
+        byMe: id => !!me && list.find(e => e.id === id)?.createdBy === me,
         people: [...(members ?? [])].sort((a, b) => Number(b.userId === me) - Number(a.userId === me) || a.name.localeCompare(b.name)).map(m => ({ id: m.userId, name: m.userId === me ? t('Moi') : m.name })),
         nameOf: id => nameOf(id, t('toi')),
         nameFor: id => nameOf(id, t('toi||après pour')),
@@ -131,10 +152,7 @@ export default function SharedCalendar({ group }: { group: Group }) {
         const send = () =>
           void createEvent(group.id, row)
             .then(reload)
-            .catch(err => {
-              toast(t('« {title} » n’a pas été ajouté : {why}', { title: e.title, why: groupError(err) }), 'error', { label: t('Réessayer'), run: send });
-              void reload();
-            });
+            .catch(err => notDone(err, why => t('« {title} » n’a pas été ajouté : {why}', { title: e.title, why }), send));
         send();
       },
       addMany: list => {
@@ -142,10 +160,7 @@ export default function SharedCalendar({ group }: { group: Group }) {
         const send = () =>
           void createEvents(group.id, rows)
             .then(reload)
-            .catch(err => {
-              toast(t('« {title} » n’a pas été ajouté : {why}', { title: rows[0]?.title ?? '', why: groupError(err) }), 'error', { label: t('Réessayer'), run: send });
-              void reload();
-            });
+            .catch(err => notDone(err, why => t('« {title} » n’a pas été ajouté : {why}', { title: rows[0]?.title ?? '', why }), send));
         send();
       },
       updateSeries: (id, patch) => {
@@ -153,19 +168,20 @@ export default function SharedCalendar({ group }: { group: Group }) {
         if (!ev?.series) return self.update(id, patch);
         const shift = patch.date ? dayShift(ev.date, patch.date) : 0;
         const { date: _d, ...rest } = patch;
-        self.update(id, patch);
-        for (const x of list.filter(e => e.series === ev.series && e.date > ev.date)) self.update(x.id, { ...rest, ...(shift && { date: shiftKey(x.date, shift) }) });
+        const next = list.filter(e => e.series === ev.series && e.date > ev.date);
+        if (!shift) {
+          // The same change on all of them: one request.
+          const ids = [id, ...next.map(e => e.id)];
+          const row = toRow(rest, category);
+          return save(ev.title, ids.map(x => [x, row]), () => updateEvents(ids, row));
+        }
+        // A new day moves each of them by as many days.
+        const changes: [string, Partial<NewGroupEvent>][] = [[id, toRow(patch, category)], ...next.map(x => [x.id, toRow({ ...rest, date: shiftKey(x.date, shift) }, category)] as [string, Partial<NewGroupEvent>])];
+        save(ev.title, changes, () => Promise.all(changes.map(([x, row]) => updateEvent(x, row))));
       },
       update: (id, patch) => {
         const row = toRow(patch, category);
-        const title = list.find(e => e.id === id)?.title ?? '';
-        patchLocal(l => l.map(e => (e.id === id ? { ...e, ...row } : e)));
-        const send = () =>
-          void updateEvent(id, row).catch(err => {
-            toast(t('Modification de « {title} » non enregistrée : {why}', { title, why: groupError(err) }), 'error', { label: t('Réessayer'), run: send });
-            void reload();
-          });
-        send();
+        save(list.find(e => e.id === id)?.title ?? '', [[id, row]], () => updateEvent(id, row));
       },
       toggleDone: () => undefined, // no « fait » in a shared calendar
       removeMany: ids => {

@@ -136,7 +136,7 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
           <div className="card flex flex-wrap items-center gap-3 p-4">
             <div className="min-w-[220px] flex-1">
               <p className="text-[14px] font-medium">{t('Inviter quelqu’un')}</p>
-              <p className="mt-0.5 text-[13px] text-stone-500">{t('Envoie-lui le code affiché sous le nom du groupe.')}</p>
+              <p className="mt-0.5 text-[13px] text-stone-500">{t('Envoie-lui le code affiché sous le nom {of}.', { of: w.of })}</p>
             </div>
             <button className="btn-secondary h-8 px-3" title={t('Nouveau code (l’ancien ne marchera plus)')} disabled={busy} onClick={() => void newCode()}>
               <RefreshCw size={14} /> {t('Nouveau code')}
@@ -158,19 +158,21 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
         {members?.map(m => (
           <div key={m.userId} className="group flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2.5">
             <MemberDot userId={m.userId} name={m.name} size={30} className="ring-0" />
-            <div className="min-w-[150px] flex-1">
-              <p className="truncate text-[13px] font-medium">
-                {m.name}
-                {m.userId === me && <span className="font-normal text-stone-500"> {t('(toi)')}</span>}
+            <div className="min-w-[120px] flex-1">
+              {/* The owner's badge on the name's line: on a small phone it doesn't fall under the picture. */}
+              <p className="flex items-center gap-2 text-[13px] font-medium">
+                <span className="truncate">
+                  {m.name}
+                  {m.userId === me && <span className="font-normal text-stone-500"> {t('(toi)')}</span>}
+                </span>
+                {m.isOwner && <span className="shrink-0 rounded-md bg-stone-100 px-2 py-0.5 text-[11px] font-medium text-stone-600">{t('Propriétaire')}</span>}
               </p>
               <p className="text-[12px] text-stone-500">{t('Depuis le {date}', { date: fmt(new Date(m.joinedAt), 'd MMMM yyyy') })}</p>
             </div>
-            {m.isOwner ? (
-              <span className="rounded-md bg-stone-100 px-2 py-0.5 text-[11px] font-medium text-stone-600">{t('Propriétaire')}</span>
-            ) : isOwner ? (
-              <div className="ml-auto flex flex-wrap items-center gap-x-3 gap-y-2">
+            {!m.isOwner && isOwner ? (
+              <div className="ml-auto flex flex-wrap items-center gap-2">
                 <SelectField<GroupRole>
-                  className="h-9 w-32 text-[13px]"
+                  className="h-9 w-32 shrink-0 text-[13px]"
                   label={t('Rôle de {name}', { name: m.name })}
                   value={m.role}
                   disabled={busy}
@@ -180,17 +182,16 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
                     { value: 'editeur', label: t('Éditeur'), hint: t('Ajoute et modifie') },
                   ]}
                 />
-                <label className="check-hit flex items-center gap-1.5 text-[12px] text-stone-600">
-                  <input type="checkbox" className="h-4 w-4 accent-[var(--color-ink)]" checked={m.canInvite} disabled={busy} onChange={e => void setRights(m, m.role, e.target.checked)} />
+                <label className="check-hit flex min-w-17 grow basis-17 items-center gap-1.5 text-[12px] leading-tight text-stone-600">
+                  <input type="checkbox" className="h-4 w-4 shrink-0 accent-[var(--color-ink)]" checked={m.canInvite} disabled={busy} onChange={e => void setRights(m, m.role, e.target.checked)} />
                   {t('Peut inviter')}
                 </label>
+                {/* With the role: on a small phone they go to the next line together (« Peut inviter » on two lines if needed). */}
+                <button className="icon-btn hover:text-red-600" title={t('Retirer {name}', { name: m.name })} aria-label={t('Retirer {name}', { name: m.name })} disabled={busy} onClick={() => void kick(m)}>
+                  <UserMinus size={15} />
+                </button>
               </div>
             ) : null}
-            {isOwner && m.userId !== me && (
-              <button className="icon-btn hover:text-red-600" title={t('Retirer {name}', { name: m.name })} aria-label={t('Retirer {name}', { name: m.name })} disabled={busy} onClick={() => void kick(m)}>
-                <UserMinus size={15} />
-              </button>
-            )}
           </div>
         ))}
       </div>
