@@ -55,6 +55,8 @@ export interface Session {
   files: Partial<Record<'cours' | Make, string>>;
   /** Documents that couldn't be made at the end (to make later from the list). */
   failed?: Make[];
+  /** Seconds of sound heard but not yet written (kept in memory only): a reload marks them as a gap. */
+  unsent?: [number, number];
 }
 
 /** A class recorded before: what's needed to make its revision sheet or exam later. */
@@ -160,7 +162,7 @@ export const elapsed = (s: Session | null = session()) => (s ? recordedSeconds(s
 
 // Length of a piece of sound sent to be written: short, so the text follows closely (~10 s); longer when the
 // browser already shows the words as they're said (the micro in Chrome, Edge, Safari), to spare the day's allowance.
-const pieceSeconds = () => (quick && Date.now() - quickHeardAt < 30_000 ? 20 : 10);
+const pieceSeconds = () => (quick && Date.now() - quickHeardAt < 30_000 ? 20 : 14); // ≥ 10 s once cut: each piece is paid 10 s at least
 let quickHeardAt = 0;
 let lastLoud = 0;
 const MAX_WAITING = 45;
@@ -289,6 +291,7 @@ async function runPump() {
       }
       pieces.shift();
       addHeard(piece, heard);
+      patch(() => ({ unsent: pieces.length ? [pieces[0].start, pieces[pieces.length - 1].end] : undefined }));
     }
   } finally {
     live({ queue: pieces.length });
@@ -300,6 +303,14 @@ function offReason(e: CoursError) {
   if (e.code === 'site_limit') return t('Kompaly a atteint sa limite de transcription pour aujourd’hui.');
   if (e.code === 'daily_limit') return t('Tu as atteint ta limite de transcription pour aujourd’hui.');
   return t('La transcription ne répond plus.');
+}
+
+/** After a reload: the sound that was waiting in the closed page is lost, the document says so (« passage non transcrit »). */
+function markLostSound() {
+  const lost = session()?.unsent;
+  if (!lost || capture || pieces.length) return; // still in memory: not lost, it will be sent
+  addHeard({ start: lost[0], end: lost[1], samples: new Float32Array(0) }, null);
+  patch(() => ({ unsent: undefined }));
 }
 
 /** A piece written down (or not: then what the browser heard, or a gap). */
@@ -391,6 +402,7 @@ async function listen(kind: SourceKind, offset: number) {
       // Nobody speaking: nothing to send (it also saves the day's allowance).
       if (isSilent(p.samples)) return;
       pieces.push(p);
+      patch(() => ({ unsent: [pieces[0].start, p.end] }));
       // The server out of reach for a long time: past ~15 min of sound waiting, the oldest pieces (not the one
       // being sent) keep only what the browser heard, so the memory doesn't fill up.
       while (pieces.length > MAX_WAITING) addHeard(pieces.splice(1, 1)[0], null);
@@ -590,7 +602,10 @@ export async function resumeListening() {
     lastAudible = lastText = Date.now();
     warned = { sound: false, silence: false };
     if (s.source === 'micro') hearLive();
-  } else await listen(s.source, elapsed(s)); // the offset is taken while still paused: the time doesn't move
+  } else {
+    markLostSound();
+    await listen(s.source, elapsed(s)); // the offset is taken while still paused: the time doesn't move
+  }
   if (!session()?.pausedAt) return;
   patch(x => ({ paused: (x.paused ?? 0) + Date.now() - x.pausedAt!, pausedAt: undefined }));
   toast(t('Enregistrement repris'), 'info');
@@ -615,7 +630,8 @@ export function star() {
 /** Ends the class: last sound written down, last parts rewritten, then the documents in the Drive. */
 export async function finishRecording() {
   const s = session();
-  if (!s || s.phase !== 'running') return;
+  if (!s || s.phase !== 'running' || recordingElsewhere()) return; // the tab that hears finishes it
+  markLostSound();
   const now = Date.now();
   // Finished while paused: that pause is left out too.
   patch(x => ({ phase: 'finishing', endedAt: now, ...(x.pausedAt && { pausedAt: undefined, paused: (x.paused ?? 0) + now - x.pausedAt }) }));
@@ -674,8 +690,12 @@ async function saveDocuments() {
   const info = await pointsOf(s);
   const failed: Make[] = [];
   for (const kind of ['fiche', 'examen'] as Make[]) {
-    // Nothing written down: no summary to make (not a failure to retry).
-    if (!s.make[kind] || session()!.files[kind] || !info.points.length) continue;
+    if (!s.make[kind] || session()!.files[kind]) continue;
+    if (!info.points.length) {
+      // Words were heard but the AI gave no points (out of reach): said, not skipped in silence.
+      if (s.segments.some(x => x.text.trim())) failed.push(kind);
+      continue; // nothing written down: no summary to make
+    }
     live({ step: `${words().long[kind]}…`, progress: null });
     try {
       const id = await makeDoc(kind, s.title, info, name, folderId);

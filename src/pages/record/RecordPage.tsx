@@ -283,13 +283,14 @@ function Running({ s }: { s: Session }) {
         <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-stone-100 pb-4">
           <span className="flex items-center gap-2 text-[13px] font-semibold">
             <span className={cx('h-2.5 w-2.5 rounded-full', recording ? 'animate-pulse bg-red-500' : paused ? 'bg-amber-400' : 'bg-stone-400')} aria-hidden />
-            {finishing ? t('Terminé') : paused ? t('En pause') : live.hearing ? t('Enregistrement') : t('Écoute arrêtée')}
+            {finishing ? t('Terminé') : paused ? t('En pause') : live.hearing || elsewhere ? t('Enregistrement') : t('Écoute arrêtée')}
             <span className="tabular text-[15px] font-semibold">{clock(elapsed(s))}</span>
           </span>
           {/* On a phone the title often goes to the next line: no « · » left alone in front of it. */}
           <span className="min-w-0 truncate text-[14px] font-semibold text-stone-700" title={s.title}><span className="max-sm:hidden">· </span>{s.title}</span>
           {recording && <Level value={live.level} />}
-          {!finishing && (
+          {/* Recorded in another tab: the buttons are there, not here (a « Terminer » here filed a second copy). */}
+          {!finishing && !elsewhere && (
             <span className="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto">
               <button type="button" className="btn-secondary h-9 px-2.5" onClick={() => setSettings(true)} title={t('Mots-clés')} aria-label={t('Mots-clés')}>
                 <Bell size={15} /> <span className="tabular text-[12.5px]">{s.keywords.length}</span>
@@ -380,7 +381,7 @@ function Status({ s }: { s: Session }) {
   // « Written by the browser » only while it really writes something.
   const browserWrites = s.source === 'micro' && live.quickLane && s.segments.at(-1)?.origin !== 'manquant';
   if (s.transcriptionOff) bits.push(browserWrites ? `${s.transcriptionOff} ${t('La suite est écrite par le navigateur.')}` : s.transcriptionOff);
-  else if (live.waiting) bits.push(t('Le serveur est occupé : reprise dans {s} s.', { s: live.waiting }));
+  else if (live.waiting) bits.push(navigator.onLine ? t('Le serveur est occupé : reprise dans {s} s.', { s: live.waiting }) : t('Pas de connexion : le son est gardé et sera envoyé au retour du réseau.'));
   if (s.aiOff) bits.push(s.aiOff);
   else if (s.parts.length) bits.push(tn(s.parts.length, '{n} partie {ofDoc} déjà rédigée.', '{n} parties {ofDoc} déjà rédigées.', { ofDoc: w.ofDoc }));
   if (!bits.length) return null;

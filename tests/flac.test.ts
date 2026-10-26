@@ -70,10 +70,17 @@ describe('encodeFlac', () => {
       const flac = new Uint8Array(await encodeFlac(s).arrayBuffer());
       const wav = new Int16Array((await encodeWav(s).arrayBuffer()).slice(44));
       expect(Array.from(decode(flac))).toEqual(Array.from(wav));
-      expect(flacSeconds(Buffer.from(flac))).toBeCloseTo(s.length / 16000, 6);
+      // Never less than the real length (noise that does not compress counts a little more, never less).
+      expect(flacSeconds(Buffer.from(flac))).toBeGreaterThanOrEqual(s.length / 16000 - 1e-9);
+      if (name === 'voice' || name === 'silence') expect(flacSeconds(Buffer.from(flac))).toBeCloseTo(s.length / 16000, 6);
     });
   it('is smaller than the WAV for a voice', async () => {
     expect((await encodeFlac(voice).arrayBuffer()).byteLength).toBeLessThan((await encodeWav(voice).arrayBuffer()).byteLength * 0.75);
+  });
+  it('a header that lies about the length still counts what the data holds', async () => {
+    const flac = Buffer.from(await encodeFlac(voice).arrayBuffer());
+    flac.writeUInt32BE(8000, 22); // « 0.5 s »
+    expect(flacSeconds(flac)).toBeGreaterThan(1.2); // 3 s of a very regular sound: at least 40 % counted
   });
   it('refuses what is not a 16 kHz mono FLAC', () => {
     expect(flacSeconds(Buffer.from('RIFF0000WAVEfmt '))).toBeNull();

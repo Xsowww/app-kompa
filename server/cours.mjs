@@ -69,7 +69,9 @@ export function flacSeconds(buf) {
   const bits = (((buf[20] & 1) << 4) | (buf[21] >> 4)) + 1;
   const samples = (buf[21] & 0xf) * 2 ** 32 + buf.readUInt32BE(22);
   if (channels !== 1 || rate !== 16_000 || bits !== 16 || !samples) return null;
-  return samples / 16_000;
+  // The header is the sender's word: never count less than the data could hold (speech compresses to ~55 %
+  // of a WAV, noise to ~75 %), or a header saying 0.5 s would carry 90 s past the quota.
+  return Math.max(samples / 16_000, ((buf.length - 42) / BYTES_PER_SECOND) * 1.3);
 }
 
 // What Whisper writes on silence or noise (it learnt them from subtitles): never part of a class.
