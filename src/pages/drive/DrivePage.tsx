@@ -359,7 +359,7 @@ export default function DrivePage() {
     if (!ids.length) return;
     const items = useDrive.getState().items.filter(i => ids.includes(i.id));
     const one = items.length === 1 ? items[0] : null;
-    const title = one ? t('Mettre « {name} » à la corbeille ?', { name: one.name }) : tn(ids.length, 'Mettre {n} élément à la corbeille ?', 'Mettre {n} éléments à la corbeille ?');
+    const title = one ? t('Mettre «\u00a0{name}\u00a0» à la corbeille\u00a0?', { name: one.name }) : tn(ids.length, 'Mettre {n} élément à la corbeille ?', 'Mettre {n} éléments à la corbeille ?');
     const folders = items.some(i => i.kind === 'folder');
     const body = one
       ? `${folders ? `${t('Le dossier part avec tout son contenu.')} ` : ''}${t('Tu pourras le récupérer dans la corbeille.')}`

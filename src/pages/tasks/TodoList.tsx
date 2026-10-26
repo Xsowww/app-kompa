@@ -6,6 +6,7 @@ import { EmptyState } from '../../components/EmptyState';
 import { useTodos, type Todo } from '../../store/todos';
 import { countdownLabel, daysUntil, fmt, fmtDay, fromKey, parseQuickAdd, todayKey } from '../../lib/dates';
 import { cx } from '../../lib/utils';
+import { reminderMoment } from '../../lib/reminders';
 import { isTourTodo, startTour } from '../../store/tour';
 import { useProgressive } from '../../lib/useProgressive';
 import { confirmAction, toast } from '../../store/ui';
@@ -69,12 +70,12 @@ const refocusTodo = (id: string) =>
 const focusDueButton = (id: string) => setTimeout(() => document.querySelector<HTMLElement>(`[data-due="${id}"]`)?.focus(), 0);
 
 // A task doesn't go to the trash: said before it goes (« Annuler » stays a few seconds in the message after).
-const confirmRemove = (todo: Todo) => confirmAction(t('Supprimer définitivement «\u00a0{title}\u00a0» ?', { title: todo.title }), t('Les tâches ne vont pas à la corbeille.'), t('Supprimer'));
+const confirmRemove = (todo: Todo) => confirmAction(t('Supprimer définitivement «\u00a0{title}\u00a0»\u00a0?', { title: todo.title }), t('Les tâches ne vont pas à la corbeille.'), t('Supprimer'));
 
 /** Removes tasks with a way back: a single tap on the bin must not lose one for good. */
 function removeWithUndo(gone: Todo[]) {
   if (!gone.length) return;
-  const text = gone.length === 1 ? t('Tâche « {title} » supprimée', { title: gone[0].title }) : t('{n} tâches supprimées', { n: gone.length });
+  const text = gone.length === 1 ? t('Tâche «\u00a0{title}\u00a0» supprimée', { title: gone[0].title }) : t('{n} tâches supprimées', { n: gone.length });
   toast(text, 'info', {
     label: t('Annuler||l’action'),
     run: () => {
@@ -113,7 +114,8 @@ const TodoRow = memo(function TodoRow({ t: todo, editable, preview, now = 0, gro
   };
   const overdue = !todo.done && !!todo.due && todo.due < todayKey();
   const canEdit = editable && !todo.done;
-  const hasReminder = !!todo.due && !!todo.reminders?.length;
+  // A reminder still to come (one whose moment passed can't ring any more: no bell).
+  const hasReminder = !!todo.due && !!todo.reminders?.some(m => reminderMoment(todo.due!, todo.time, m).getTime() > Date.now());
   const noDay = group === 'today';
   const showDue = !!todo.due && !(noDay && !todo.time);
 
@@ -158,6 +160,7 @@ const TodoRow = memo(function TodoRow({ t: todo, editable, preview, now = 0, gro
           value={title}
           onChange={e => setTitle(e.target.value)}
           onBlur={() => save(false)}
+          maxLength={160}
           onKeyDown={e => {
             if (e.key === 'Enter') save(true);
             if (e.key === 'Escape') {

@@ -43,7 +43,7 @@ function customMinutes(c: Custom, date: string | undefined, time: string | undef
   } else {
     if (!date || !c.day || !/^\d{2}:\d{2}$/.test(c.at)) return { error: t('Indique un jour et une heure.') };
     minutes = minutesBefore(date, time, c.day, c.at);
-    if (minutes < 0) return { error: time ? t('C’est après le début : choisis un moment avant.') : t('C’est après 09:00 le jour même : choisis un moment avant.') };
+    if (minutes < 0) return { error: time ? t('C’est après le début\u00a0: choisis un moment avant.') : t('C’est après 09:00 le jour même\u00a0: choisis un moment avant.') };
   }
   if (minutes > MAX_MINUTES) return { error: t('4 semaines avant au plus.') };
   if (taken.includes(minutes)) return { error: t('Ce rappel est déjà dans la liste.') };
@@ -93,7 +93,7 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
     if (next === 'on') {
       void devicePushChanged();
       toast(t('Notifications activées sur cet appareil'), 'success');
-    } else if (next === 'denied') toast(t('Notifications bloquées : autorise-les dans les réglages de ton navigateur.'), 'error');
+    } else if (next === 'denied') toast(t('Notifications bloquées\u00a0: autorise-les dans les réglages de ton navigateur.'), 'error');
   };
 
   return (
@@ -121,7 +121,7 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
           {!value.length && !over && <span className="mr-1 text-[13px] text-stone-500">{t('Aucun')}</span>}
           {over && !custom && (
             <span className="text-[12.5px] text-stone-500">
-              {needsTime ? t('Pour un rappel aujourd’hui, indique une heure.') : value.length ? t('Ce moment est passé.') : t('Ce moment est déjà passé : plus de rappel possible.')}
+              {needsTime ? t('Pour un rappel aujourd’hui, indique une heure.') : value.length ? t('Ce moment est passé.') : t('Ce moment est déjà passé\u00a0: plus de rappel possible.')}
             </span>
           )}
           {value.length < 10 && !custom && !over && (
@@ -234,7 +234,7 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
             </div>
           )}
           <p className={cx('mt-2 text-[12px]', check?.error ? 'text-red-600' : 'text-stone-600')} aria-live="polite">
-            {check?.error ?? (check?.minutes !== undefined && date ? t('Rappel : {when}', { when: reminderLabel(check.minutes, timed, date, time).replace(/^./, c => c.toLowerCase()) }) : '')}
+            {check?.error ?? (check?.minutes !== undefined && date ? t('Rappel\u00a0: {when}', { when: reminderLabel(check.minutes, timed, date, time).replace(/^./, c => c.toLowerCase()) }) : '')}
           </p>
           <div className="mt-2.5 flex justify-end gap-2">
             <button type="button" className="btn-secondary h-8 px-3 text-[13px]" onClick={() => setCustom(null)}>
@@ -261,9 +261,9 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
           ) : state === 'install' ? (
             <span>{t('Sur iPhone, ajoute Kompaly à l’écran d’accueil (Partager › Sur l’écran d’accueil) pour recevoir les notifications.')}</span>
           ) : state === 'denied' ? (
-            <span>{t('Notifications bloquées : autorise-les dans les réglages de ton navigateur.')}</span>
+            <span>{t('Notifications bloquées\u00a0: autorise-les dans les réglages de ton navigateur.')}</span>
           ) : (
-            <span>{t('Ce navigateur n’affiche pas de notifications : le rappel s’affichera seulement dans Kompaly.')}</span>
+            <span>{t('Ce navigateur n’affiche pas de notifications\u00a0: le rappel s’affichera seulement dans Kompaly.')}</span>
           )}
         </p>
       )}

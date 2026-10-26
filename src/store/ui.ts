@@ -38,6 +38,8 @@ interface DialogRequest {
   fileName?: boolean;
   /** Text dialog: a web address (keyboard with « / » and « .com » on phones). */
   url?: boolean;
+  /** Text dialog: the longest text it takes (a note's title field stops at 200). */
+  maxLength?: number;
   resolve: (value: string | boolean | null) => void;
 }
 
@@ -76,7 +78,7 @@ export const useUi = create<UiState>((set, get) => ({
 
 export const toast = (text: string, tone?: Toast['tone'], action?: ToastAction) => useUi.getState().toast(text, tone, action);
 
-export function askText(title: string, defaultValue = '', confirmLabel = t('Valider'), options: { fileName?: boolean; url?: boolean } = {}): Promise<string | null> {
+export function askText(title: string, defaultValue = '', confirmLabel = t('Valider'), options: { fileName?: boolean; url?: boolean; maxLength?: number } = {}): Promise<string | null> {
   return new Promise(resolve =>
     useUi.setState({ dialog: { kind: 'prompt', title, defaultValue, confirmLabel, ...options, resolve: v => resolve(typeof v === 'string' ? v : null) } }),
   );

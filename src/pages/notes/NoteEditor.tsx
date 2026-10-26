@@ -15,7 +15,7 @@ import { useNotes, type Note } from '../../store/notes';
 import { askText, toast } from '../../store/ui';
 import { cx } from '../../lib/utils';
 import { compressImage, imageFiles } from './images';
-import { registerEditorFlush, withProtocol } from './noteUtils';
+import { registerEditorFlush, tablesToLines, withProtocol } from './noteUtils';
 import { localSavesFailing } from '../../lib/userStorage';
 import './notes.css';
 import { t } from '../../i18n';
@@ -169,6 +169,7 @@ export default function NoteEditor({ note, readOnly = false, inset = 'px-4 pb-ro
         openLink(withProtocol(a.getAttribute('href') ?? ''));
         return true;
       },
+      transformPastedHTML: tablesToLines,
       handlePaste: (view, event) => {
         const files = imageFiles(event.clipboardData?.files);
         if (!files.length) return false;
@@ -197,10 +198,25 @@ export default function NoteEditor({ note, readOnly = false, inset = 'px-4 pb-ro
   // Newer version from another device (synchronisation): shown here, unless the student is
   // typing (then their text wins). Without this, the next keystroke would save the old text over it.
   useEffect(() => {
-    if (!editor || editor.isDestroyed || unsaved.current || note.content === known.current) return;
+    if (!editor || editor.isDestroyed || note.content === known.current) return;
+    if (unsaved.current) {
+      // Typed here while another tab (or device) saved this note: this version is saved over it, so say it,
+      // with the other one a click away (its text vanished without a word).
+      const other = note.content;
+      toast(t('Cette note a aussi été modifiée dans un autre onglet ou appareil\u00a0: ta version est gardée.'), 'info', {
+        label: t('Reprendre l’autre'),
+        run: () => {
+          if (editor.isDestroyed) return;
+          clearTimeout(saveTimer.current);
+          editor.commands.setContent(other, { emitUpdate: false });
+          save(editor.getHTML());
+        },
+      });
+      return;
+    }
     editor.commands.setContent(note.content, { emitUpdate: false });
     known.current = editor.getHTML();
-  }, [editor, note.content]);
+  }, [editor, note.content, save]);
 
   // Flush pending save when switching notes, leaving the page or closing the tab.
   useEffect(() => {

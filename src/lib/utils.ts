@@ -39,10 +39,14 @@ export function formatBytes(bytes = 0): string {
   return t('{n} {unit}', { n, unit: units[i] });
 }
 
-/** Plain text of some HTML, entities decoded (« & », not « &amp; »). Only for text, never to put back as HTML. */
+/**
+ * Plain text of some HTML, entities decoded (« & », not « &amp; »). Only for text, never to put back as HTML.
+ * A formatting tag inside a word leaves it whole (« théo<strong>rème</strong> »); any other tag (paragraph, line, cell…) separates.
+ */
 export function stripHtml(html: string): string {
   const entities: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
   return html
+    .replace(/<\/?(?:a|abbr|b|code|del|em|font|i|ins|mark|s|small|span|strike|strong|sub|sup|u)\b[^>]*>/gi, '')
     .replace(/<[^>]+>/g, ' ')
     .replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e: string) => {
       if (e[0] !== '#') return entities[e.toLowerCase()] ?? m;

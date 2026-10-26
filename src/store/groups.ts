@@ -32,6 +32,8 @@ interface GroupsState {
   refresh: (id: string, parts?: Part[]) => Promise<void>;
   upsertNote: (n: GroupNoteSummary) => void;
   dropNote: (groupId: string, id: string) => void;
+  /** Leaving the Groups / Agendas page: no group open, no more live updates. What was read stays (the search finds it). */
+  leave: () => void;
   /** Vide tout (déconnexion, changement de compte). */
   reset: () => void;
 }
@@ -176,6 +178,11 @@ export const useGroups = create<GroupsState>((set, get) => {
 
     dropNote(groupId, id) {
       set(s => ({ notes: { ...s.notes, [groupId]: (s.notes[groupId] ?? []).filter(n => n.id !== id) } }));
+    },
+
+    leave() {
+      subscribe(null);
+      set({ activeId: null });
     },
 
     reset() {

@@ -16,6 +16,7 @@ import { renameToKompa } from '../lib/renameToKompa';
 import { USAGES } from '../lib/usage';
 import { create } from 'zustand';
 import { useRecorder, stopHearing } from './recorder';
+import { useGroups } from './groups';
 import { lang, t } from '../i18n';
 
 // Two tabs of the same account: what one saves, the other loads (else its next save would erase it).
@@ -115,6 +116,7 @@ async function load() {
   useFocus.setState({ phase: null, pausedLeft: null, label: '' });
   useCopilot.getState().reset();
   useSettings.getState().reset();
+  useGroups.getState().reset();
   // A class being recorded belongs to the account that started it: its sound stops, what's written stays saved.
   stopHearing();
   useRecorder.setState({ session: null, history: [], folders: {} });

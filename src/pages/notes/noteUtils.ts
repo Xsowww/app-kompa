@@ -13,6 +13,27 @@ export const isBlankNote = (n: Note) =>
   !n.links?.length &&
   !n.content.replace(/<\/?(?:p|br)\b[^>]*>|&nbsp;|\s/g, '');
 
+// ── Paste ──────────────────────────────────────────────────────────
+/**
+ * A table pasted from a web page, Word or Excel: one line per row, its cells separated by « · »
+ * (the editor has no tables: they came out as « NomNoteAlice15Bob12 » on one line).
+ */
+export function tablesToLines(html: string) {
+  if (!/<table/i.test(html)) return html;
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  for (const table of [...doc.querySelectorAll('table')]) {
+    const lines = [...table.querySelectorAll('tr')].flatMap(tr => {
+      const cells = [...tr.children].filter(c => /^T[DH]$/.test(c.tagName)).map(c => (c.textContent ?? '').replace(/\s+/g, ' ').trim()).filter(Boolean);
+      if (!cells.length) return [];
+      const p = doc.createElement('p');
+      p.textContent = cells.join(' · ');
+      return [p];
+    });
+    table.replaceWith(...lines);
+  }
+  return doc.body.innerHTML;
+}
+
 // ── Open editor bridge ─────────────────────────────────────────────
 let flushOpen: (() => void) | null = null;
 /** Called by NoteEditor with its flush function, and with (null, itself) when it unmounts. */

@@ -226,7 +226,7 @@ export default function NotesPage() {
   ]);
 
   const newFolder = async (parentId: string | null = targetFolder) => {
-    const name = await askText(parentId ? t('Nouveau sous-dossier') : t('Nouveau dossier'), t('Nouveau dossier'), t('Créer'));
+    const name = await askText(parentId ? t('Nouveau sous-dossier') : t('Nouveau dossier'), t('Nouveau dossier'), t('Créer'), { maxLength: 200 });
     if (name === null) return;
     const f = store.createFolder(name, parentId);
     setExpanded(s => new Set([...s, f.id, ...(parentId ? [parentId] : [])]));
@@ -234,12 +234,12 @@ export default function NotesPage() {
   };
 
   const renameFolder = async (f: NoteFolder) => {
-    const name = await askText(t('Renommer le dossier'), f.name, t('Renommer'));
+    const name = await askText(t('Renommer le dossier'), f.name, t('Renommer'), { maxLength: 200 });
     if (name) store.renameFolder(f.id, name);
   };
 
   const renameNote = async (n: Note) => {
-    const name = await askText(t('Renommer la note'), n.title, t('Renommer'));
+    const name = await askText(t('Renommer la note'), n.title, t('Renommer'), { maxLength: 200 });
     if (name) store.updateNote(n.id, { title: name });
   };
 
@@ -256,7 +256,7 @@ export default function NotesPage() {
   };
 
   const deleteFolder = async (f: NoteFolder) => {
-    if (!(await confirmAction(t('Mettre le dossier « {name} » à la corbeille ?', { name: f.name }), t('Avec ses notes et sous-dossiers. Tu pourras les récupérer dans la corbeille.'), t('Mettre à la corbeille')))) return;
+    if (!(await confirmAction(t('Mettre le dossier «\u00a0{name}\u00a0» à la corbeille\u00a0?', { name: f.name }), t('Avec ses notes et sous-dossiers. Tu pourras les récupérer dans la corbeille.'), t('Mettre à la corbeille')))) return;
     if (active?.folderId && isInside(active.folderId, f.id)) {
       flushNoteEditor();
       openNote(null);
@@ -288,7 +288,7 @@ export default function NotesPage() {
   };
 
   const deleteNote = async (n: Note) => {
-    if (!(await confirmAction(t('Mettre « {name} » à la corbeille ?', { name: n.title.trim() || t('Sans titre') }), t('Tu pourras la récupérer dans la corbeille pendant 30 jours.'), t('Mettre à la corbeille')))) return;
+    if (!(await confirmAction(t('Mettre «\u00a0{name}\u00a0» à la corbeille\u00a0?', { name: n.title.trim() || t('Sans titre') }), t('Tu pourras la récupérer dans la corbeille pendant 30 jours.'), t('Mettre à la corbeille')))) return;
     focusNeighbour(n.id);
     if (n.id === noteId) {
       flushNoteEditor();
@@ -584,9 +584,10 @@ export default function NotesPage() {
               </button>
               <div className="order-last w-full min-w-0 lg:order-none lg:w-auto lg:flex-1">
                 <NoteTitle key={active.id} note={active} />
-                <p className="mt-1 text-[12px] text-stone-500">
-                  {folders.find(f => f.id === active.folderId)?.name ?? t('Sans dossier')}{' '}
-                  <span className="whitespace-nowrap">· {t('modifiée {time}', { time: relativeTime(active.updatedAt) })}</span>
+                {/* A long folder name ends with « … », the time stays whole. */}
+                <p className="mt-1 flex min-w-0 text-[12px] text-stone-500">
+                  <span className="truncate">{folders.find(f => f.id === active.folderId)?.name ?? t('Sans dossier')}</span>
+                  <span className="shrink-0 whitespace-nowrap">&nbsp;· {t('modifiée {time}', { time: relativeTime(active.updatedAt) })}</span>
                 </p>
                 <LinkChips note={active} />
               </div>
@@ -608,8 +609,8 @@ export default function NotesPage() {
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
             <NotebookPen size={28} strokeWidth={1.5} className="text-stone-300" />
-            {/* No note at all: the list already says so (and the « + » button offers the templates). */}
-            {notes.length > 0 && <p className="mt-3 text-[13px] text-stone-500">{t('Choisis une note.')}</p>}
+            {/* Nothing at all: the list already says so (and the « + » button offers the templates). Folders only: said here. */}
+            {(notes.length > 0 || folders.length > 0) && <p className="mt-3 text-[13px] text-stone-500">{notes.length > 0 ? t('Choisis une note.') : t('Aucune note pour l’instant.')}</p>}
           </div>
         )}
       </section>

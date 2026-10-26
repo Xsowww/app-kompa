@@ -18,7 +18,8 @@ interface FocusState {
   start: (label?: string) => void;
   pause: () => void;
   resume: () => void;
-  stop: () => void;
+  /** Ends the session; returns the minutes of concentration counted (those done before « Arrêter »). */
+  stop: () => number;
   tick: () => void;
 }
 
@@ -52,7 +53,22 @@ export const useFocus = create<FocusState>()(
         const s = get();
         if (s.phase && s.pausedLeft !== null) set({ endsAt: Date.now() + s.pausedLeft, pausedLeft: null });
       },
-      stop: () => set({ phase: null, pausedLeft: null, label: '' }),
+      stop() {
+        const s = get();
+        // Stopped before the end: the whole minutes already done count, like a session that ends.
+        let minutes = 0;
+        if (s.phase === 'focus') {
+          const done = (s.minutes || getSettings().focusMinutes) * 60_000 - focusLeft(s);
+          minutes = Math.floor(done / 60_000);
+          if (minutes >= 1) {
+            const settings = getSettings();
+            useSettings.getState().set({ focusSessions: settings.focusSessions + 1, focusTotalMinutes: settings.focusTotalMinutes + minutes });
+            useFocusLog.getState().log(s.label, minutes, new Date(Date.now() - done).toISOString());
+          } else minutes = 0;
+        }
+        set({ phase: null, pausedLeft: null, label: '' });
+        return minutes;
+      },
 
       /** Called every second by the timer widget; switches phases when time is up (even long after, tab closed). */
       tick() {

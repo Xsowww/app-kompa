@@ -39,12 +39,12 @@ export const NOTE_TEMPLATES: NoteTemplate[] = [
     title: t('Fiche de révision'),
     html: () =>
       [
-        `<p><strong>${t('Matière :')}</strong> </p>`,
-        `<p><strong>${t('Chapitre :')}</strong> </p>`,
+        `<p><strong>${t('Matière\u00a0:')}</strong> </p>`,
+        `<p><strong>${t('Chapitre\u00a0:')}</strong> </p>`,
         `<h2>${t('L’essentiel en 3 phrases')}</h2>`,
         olist(['', '', '']),
         `<h2>${t('Définitions')}</h2>`,
-        list([`<strong>${t('Terme')}</strong> : `]),
+        list([`<strong>${t('Terme')}</strong>\u00a0: `]),
         `<h2>${t('Formules et règles')}</h2>`,
         list(['']),
         `<h2>${t('Exemple type')}</h2>`,
@@ -62,8 +62,8 @@ export const NOTE_TEMPLATES: NoteTemplate[] = [
     title: t('Compte rendu de TP'),
     html: () =>
       [
-        `<p><strong>${t('Date :')}</strong> ${today()}</p>`,
-        `<p><strong>${t('Binôme :')}</strong> </p>`,
+        `<p><strong>${t('Date\u00a0:')}</strong> ${today()}</p>`,
+        `<p><strong>${t('Binôme\u00a0:')}</strong> </p>`,
         `<h2>${t('Objectif')}</h2>`,
         `<p>${t('Ce que le TP cherche à mesurer ou à montrer.')}</p>`,
         `<h2>${t('Matériel')}</h2>`,
@@ -87,19 +87,19 @@ export const NOTE_TEMPLATES: NoteTemplate[] = [
     title: t('Plan de dissertation'),
     html: () =>
       [
-        `<p><strong>${t('Sujet :')}</strong> </p>`,
+        `<p><strong>${t('Sujet\u00a0:')}</strong> </p>`,
         `<h2>${t('Introduction')}</h2>`,
-        list([`<strong>${t('Accroche')}</strong> : `, `<strong>${t('Définition des termes')}</strong> : `, `<strong>${t('Problématique')}</strong> : `, `<strong>${t('Annonce du plan')}</strong> : `]),
+        list([`<strong>${t('Accroche')}</strong>\u00a0: `, `<strong>${t('Définition des termes')}</strong>\u00a0: `, `<strong>${t('Problématique')}</strong>\u00a0: `, `<strong>${t('Annonce du plan')}</strong>\u00a0: `]),
         '<h2>I. </h2>',
         list([`<strong>A.</strong> ${t('Argument — exemple')}`, `<strong>B.</strong> ${t('Argument — exemple')}`]),
-        `<p><em>${t('Transition :')}</em> </p>`,
+        `<p><em>${t('Transition\u00a0:')}</em> </p>`,
         '<h2>II. </h2>',
         list([`<strong>A.</strong> ${t('Argument — exemple')}`, `<strong>B.</strong> ${t('Argument — exemple')}`]),
-        `<p><em>${t('Transition :')}</em> </p>`,
+        `<p><em>${t('Transition\u00a0:')}</em> </p>`,
         '<h2>III. </h2>',
         list([`<strong>A.</strong> ${t('Argument — exemple')}`, `<strong>B.</strong> ${t('Argument — exemple')}`]),
         `<h2>${t('Conclusion')}</h2>`,
-        list([`<strong>${t('Bilan')}</strong> : ${t('réponse à la problématique')}`, `<strong>${t('Ouverture')}</strong> : `]),
+        list([`<strong>${t('Bilan')}</strong>\u00a0: ${t('réponse à la problématique')}`, `<strong>${t('Ouverture')}</strong>\u00a0: `]),
         `<h2>${t('Références à placer')}</h2>`,
         list(['']),
       ].join(''),
@@ -111,8 +111,8 @@ export const NOTE_TEMPLATES: NoteTemplate[] = [
     title: t('Cours'),
     html: () =>
       [
-        `<p><strong>${t('Date :')}</strong> ${today()}</p>`,
-        `<p><strong>${t('Enseignant :')}</strong> </p>`,
+        `<p><strong>${t('Date\u00a0:')}</strong> ${today()}</p>`,
+        `<p><strong>${t('Enseignant\u00a0:')}</strong> </p>`,
         `<h2>${t('Plan du cours')}</h2>`,
         olist(['']),
         `<h2>${t('Notes')}</h2>`,
@@ -132,9 +132,9 @@ export const NOTE_TEMPLATES: NoteTemplate[] = [
     title: t('Exposé'),
     html: () =>
       [
-        `<p><strong>${t('Sujet :')}</strong> </p>`,
-        `<p><strong>${t('Date de passage :')}</strong> </p>`,
-        `<p><strong>${t('Durée :')}</strong> ${t('10 min + questions')}</p>`,
+        `<p><strong>${t('Sujet\u00a0:')}</strong> </p>`,
+        `<p><strong>${t('Date de passage\u00a0:')}</strong> </p>`,
+        `<p><strong>${t('Durée\u00a0:')}</strong> ${t('10 min + questions')}</p>`,
         `<h2>${t('Message principal')}</h2>`,
         `<p>${t('Ce que le public doit retenir en une phrase.')}</p>`,
         `<h2>${t('Déroulé')}</h2>`,

@@ -216,7 +216,11 @@ export const useNotes = create<NotesState>()(
       duplicateNote(id) {
         const src = get().notes.find(n => n.id === id);
         if (!src) return null;
-        return get().createNote({ title: t('{name} - copie', { name: src.title }), content: src.content, folderId: src.folderId });
+        const copy = get().createNote({ title: t('{name} - copie', { name: src.title }), content: src.content, folderId: src.folderId });
+        // Its links too (exam, PDF…): a copy without them lost what the note was about.
+        if (!src.links?.length) return copy;
+        get().updateNote(copy.id, { links: src.links.map(l => ({ ...l })) });
+        return get().notes.find(n => n.id === copy.id) ?? copy;
       },
     }),
     { name: 'notes', storage: userStorage, skipHydration: true },

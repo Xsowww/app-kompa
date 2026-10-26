@@ -7,7 +7,8 @@ import { useCalendar } from '../store/calendar';
 import { startBadgeWatcher } from '../lib/badges';
 import { subjectSuggestions } from '../pages/tasks/focusStats';
 import { cx } from '../lib/utils';
-import { t } from '../i18n';
+import { toast } from '../store/ui';
+import { t, tn } from '../i18n';
 
 /** Asks what the session is about before starting (optional, free text + quick chips). */
 function SubjectPicker({ onStart, onCancel }: { onStart: (subject: string) => void; onCancel: () => void }) {
@@ -58,7 +59,7 @@ function SubjectPicker({ onStart, onCancel }: { onStart: (subject: string) => vo
               key={s}
               onClick={() => onStart(s)}
               className="max-w-full truncate rounded-md border border-stone-200 px-1.5 py-0.5 text-[11px] pointer-coarse:min-h-9 pointer-coarse:px-2.5 text-stone-600 transition-colors hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700"
-              title={t('Démarrer sur « {subject} »', { subject: s })}
+              title={t('Démarrer sur «\u00a0{subject}\u00a0»', { subject: s })}
             >
               {s}
             </button>
@@ -148,7 +149,8 @@ export default function FocusTimer() {
         </button>
         <button
           onClick={() => {
-            focus.stop();
+            const n = focus.stop();
+            if (n) toast(tn(n, '{n}\u00a0minute de concentration comptée', '{n}\u00a0minutes de concentration comptées'), 'success');
             focusLater('[data-focus-start]');
           }}
           className="flex h-7 w-8 items-center justify-center rounded-md bg-surface pointer-coarse:h-9 pointer-coarse:w-10 text-stone-500 shadow-card hover:text-red-600" title={t('Arrêter')} aria-label={t('Arrêter')}>
