@@ -71,7 +71,7 @@ export async function authenticate(req, env) {
     const r = await fetch(`${url}/auth/v1/user`, { headers: { apikey: key, Authorization: `Bearer ${token}` } });
     // Refused tokens are remembered too: a loop of fake tokens must not hammer Supabase Auth.
     const user = r.ok ? { id: (await r.json()).id } : null;
-    if (tokenCache.size > 5000) tokenCache.clear();
+    if (tokenCache.size > 5000) for (const [k, v] of tokenCache) if (v.until <= Date.now() || tokenCache.size > 5000) tokenCache.delete(k); // oldest first, never all at once
     tokenCache.set(token, { user, until: Date.now() + 60_000 });
     return user;
   } catch {

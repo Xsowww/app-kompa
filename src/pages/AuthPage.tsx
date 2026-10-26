@@ -7,7 +7,7 @@ import { needsCredentials, reloginHint, savedAccounts, type SavedAccount } from 
 import { takeAfterLogin } from '../lib/afterLogin';
 import { toast } from '../store/ui';
 import { loadUserData, markLocalWelcome } from '../store/session';
-import { cloudEnabled, linkError, oauthError, passkeysAvailable, setRememberMe } from '../lib/supabase';
+import { cloudEnabled, endRecovery, linkError, oauthError, passkeysAvailable, setRememberMe } from '../lib/supabase';
 import { prefetchCaptcha } from '../lib/captcha';
 import { offerPasskey } from '../lib/passkeyOffer';
 import Character from '../copilot/Character';
@@ -114,13 +114,14 @@ export default function AuthPage({ mode }: { mode: Mode }) {
   const [asked] = useState(() => (askedEmail ? savedAccounts().find(a => a.email.toLowerCase() === askedEmail.toLowerCase()) : undefined));
   // « Mot de passe oublié ? » clicked after typing the e-mail: it is already there, one click sends the link.
   const typed = (useLocation().state as { email?: string } | null)?.email;
-  const [email, setEmail] = useState(askedEmail || (mode === 'forgot' ? (typed ?? '') : ''));
+  const [email, setEmail] = useState(askedEmail || (mode === 'forgot' || mode === 'login' ? (typed ?? '') : ''));
   const [password, setPassword] = useState('');
   const [show, setShow] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [oldEnough, setOldEnough] = useState(false);
   const [remember, setRemember] = useState(true);
-  const [error, setError] = useState(mode === 'login' ? (linkError ?? '') : '');
+  // A reset link that expired: said as soon as the page opens, with a way to ask again.
+  const [error, setError] = useState(mode === 'login' ? (linkError ?? '') : mode === 'reset' && linkError ? t('Ce lien a expiré ou a déjà servi : redemande un e-mail de réinitialisation.') : '');
   const [info, setInfo] = useState(askedEmail ? reloginHint(asked) : '');
   const [switching, setSwitching] = useState<string | null>(null);
   const [hasSaved, setHasSaved] = useState(() => savedAccounts().length > 0);
@@ -216,6 +217,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
       }
       if (mode === 'reset') {
         await setNewPassword(password, needsCode ? code : undefined);
+        endRecovery();
         await loadUserData();
         navigate('/');
         toast(t('Mot de passe modifié'), 'success');
@@ -520,8 +522,12 @@ export default function AuthPage({ mode }: { mode: Mode }) {
 
             <p className="mt-6 text-center text-[13px] text-stone-500">
               {mode === 'login' ? t('Pas encore de compte ?') : mode === 'register' ? t('Déjà un compte ?') : null}{' '}
-              <Link to={mode === 'login' ? '/inscription' : '/connexion'} className="hit font-medium text-ink underline decoration-stone-300 underline-offset-4 hover:decoration-ink">
-                {mode === 'login' ? t('Créer un compte') : mode === 'register' ? t('Se connecter') : t('Retour à la connexion')}
+              <Link
+                to={mode === 'login' ? '/inscription' : mode === 'reset' && linkError ? '/mot-de-passe-oublie' : '/connexion'}
+                state={mode === 'forgot' && email.trim() ? { email: email.trim() } : undefined}
+                className="hit font-medium text-ink underline decoration-stone-300 underline-offset-4 hover:decoration-ink"
+              >
+                {mode === 'login' ? t('Créer un compte') : mode === 'register' ? t('Se connecter') : mode === 'reset' && linkError ? t('Redemander un e-mail') : t('Retour à la connexion')}
               </Link>
             </p>
           </form>

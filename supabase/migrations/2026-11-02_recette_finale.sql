@@ -97,3 +97,79 @@ create trigger keep_member_people before insert or update of people, group_id on
 drop policy if exists "2fa obligatoire" on public.deleted_groups;
 create policy "2fa obligatoire" on public.deleted_groups as restrictive for all to authenticated
   using ((select public.mfa_ok())) with check ((select public.mfa_ok()));
+
+-- ── Même verrou pour les autres limites : création de groupe, signalements, avis ──
+create or replace function public.create_group(p_name text, p_color text default null, p_kind text default 'groupe') returns public.groups
+language plpgsql security definer set search_path = '' as $$
+declare
+  me uuid := auth.uid();
+  g public.groups;
+begin
+  if me is null then raise exception 'not authenticated'; end if;
+  if not public.mfa_ok() then raise exception 'mfa required'; end if;
+  perform pg_advisory_xact_lock(hashtext('limit:' || auth.uid()::text));
+  if (select count(*) from public.group_members where user_id = me) >= 30 then
+    raise exception 'too many groups';
+  end if;
+  insert into public.groups (name, color, invite_code, owner_id, kind)
+    values (btrim(p_name), nullif(lower(p_color), ''), public.new_group_code(), me, case when p_kind = 'agenda' then 'agenda' else 'groupe' end)
+    returning * into g;
+  insert into public.group_members (group_id, user_id) values (g.id, me);
+  return g;
+end;
+$$;
+revoke all on function public.create_group(text, text, text) from public, anon;
+grant execute on function public.create_group(text, text, text) to authenticated;
+
+create or replace function public.report_group_item(p_kind text, p_item uuid, p_reason text, p_message text)
+returns void
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_group uuid;
+  v_author uuid;
+  v_snap jsonb;
+begin
+  -- Avec un téléphone associé, le code est exigé (mfa_ok) ; la double authentification est facultative.
+  if auth.uid() is null or not public.mfa_ok() then
+    raise exception 'mfa required';
+  end if;
+  perform pg_advisory_xact_lock(hashtext('limit:' || auth.uid()::text));
+  -- 20 signalements par jour et par compte : assez pour un vrai problème, pas pour inonder.
+  if (select count(*) from public.reports where reporter_id = auth.uid() and created_at > now() - interval '1 day') >= 20 then
+    raise exception 'too many reports';
+  end if;
+  if p_kind = 'note' then
+    select group_id, created_by, jsonb_build_object('title', title, 'excerpt',
+             left(btrim(regexp_replace(regexp_replace(content, '<[^>]*>', ' ', 'g'), '\s+', ' ', 'g')), 600))
+      into v_group, v_author, v_snap from public.group_notes where id = p_item;
+  elsif p_kind = 'file' then
+    select group_id, created_by, jsonb_build_object('title', name, 'mime', mime, 'size', size)
+      into v_group, v_author, v_snap from public.group_files where id = p_item;
+  elsif p_kind = 'event' then
+    select group_id, created_by, jsonb_build_object('title', title, 'date', date, 'start', start_time, 'place', place)
+      into v_group, v_author, v_snap from public.group_events where id = p_item;
+  else
+    raise exception 'bad kind';
+  end if;
+  if v_group is null or not public.is_group_member(v_group) then
+    raise exception 'forbidden';
+  end if;
+  v_snap := v_snap || jsonb_build_object('group', (select name from public.groups where id = v_group));
+  insert into public.reports (reporter_id, group_id, kind, item_id, author_id, reason, message, snapshot)
+  values (auth.uid(), v_group, p_kind, p_item, v_author, p_reason, nullif(btrim(left(coalesce(p_message, ''), 1000)), ''), v_snap);
+end;
+$$;
+revoke all on function public.report_group_item(text, uuid, text, text) from public, anon;
+grant execute on function public.report_group_item(text, uuid, text, text) to authenticated;
+
+create or replace function public.feedback_limit() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  perform pg_advisory_xact_lock(hashtext('limit:' || new.user_id::text));
+  new.created_at := now();
+  if (select count(*) from public.feedback where user_id = new.user_id and created_at > now() - interval '1 hour') >= 10 then
+    raise exception 'too many messages';
+  end if;
+  return new;
+end;
+$$;

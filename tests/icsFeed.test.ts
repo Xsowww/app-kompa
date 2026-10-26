@@ -11,6 +11,8 @@ describe('abonnement par lien : adresses refusées', () => {
   it('private addresses, also written as IPv6', () => {
     expect(isPublicAddress('8.8.8.8')).toBe(true);
     expect(isPublicAddress('192.168.1.1')).toBe(false);
+    for (const a of ['::7f00:1', '::ffff:0:7f00:1', '2002:7f00:1::', '64:ff9b:1::7f00:1']) expect(isPublicAddress(a)).toBe(false);
+    expect(isPublicAddress('2a01:cb00::1')).toBe(true);
     expect(isPublicAddress('::ffff:10.0.0.1')).toBe(false);
     expect(isPublicAddress('fd00::1')).toBe(false);
     expect(isPublicAddress('2606:4700::1')).toBe(true);

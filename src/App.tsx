@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from './store/auth';
+import { inRecovery, linkError } from './lib/supabase';
 import { peekAfterLogin, rememberAfterLogin } from './lib/afterLogin';
 import { loadUserData, useWelcome } from './store/session';
 import { toast } from './store/ui';
@@ -114,6 +115,12 @@ function GuestOnly({ children }: { children: React.ReactNode }) {
   return user ? <Navigate to={mfaStep ? '/securite' : peekAfterLogin()} replace /> : children;
 }
 
+/** The new-password page only after a reset e-mail (or to say its link expired). */
+function ResetOnly({ children }: { children: React.ReactNode }) {
+  const user = useAuth(s => s.user);
+  return linkError || inRecovery() ? children : <Navigate to={user ? '/profil?onglet=compte' : '/mot-de-passe-oublie'} replace />;
+}
+
 /** Kompaly's mark, styled by index.html (.boot-*): the same as the startup screen, its small dot moving. */
 const BootMark = ({ size }: { size: number }) => (
   <svg viewBox="0 0 32 32" width={size} height={size} aria-hidden>
@@ -202,7 +209,7 @@ export default function App() {
         <Route path="/connexion" element={<GuestOnly><AuthPage key="login" mode="login" /></GuestOnly>} />
         <Route path="/inscription" element={<GuestOnly><AuthPage key="register" mode="register" /></GuestOnly>} />
         <Route path="/mot-de-passe-oublie" element={<GuestOnly><AuthPage key="forgot" mode="forgot" /></GuestOnly>} />
-        <Route path="/reinitialisation" element={<AuthPage key="reset" mode="reset" />} />
+        <Route path="/reinitialisation" element={<ResetOnly><AuthPage key="reset" mode="reset" /></ResetOnly>} />
         <Route path="/securite" element={<Suspense fallback={<Loading full />}><MfaPage /></Suspense>} />
         <Route path="/bienvenue" element={<WelcomeOnly><Suspense fallback={<Loading full />}><WelcomePage /></Suspense></WelcomeOnly>} />
         <Route path="/mentions-legales" element={<Suspense fallback={<Loading full />}><LegalPage doc="mentions" /></Suspense>} />

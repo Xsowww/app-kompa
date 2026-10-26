@@ -6,7 +6,7 @@ import type { CustomCategory } from './calendar';
 import type { Period } from '../lib/periods';
 import type { IcsFeed } from '../lib/icsFeeds';
 import { DEFAULT_KEYWORDS, type Keyword } from '../lib/keywords';
-import { t } from '../i18n';
+import { t, type Lang } from '../i18n';
 
 export type AccentKey = 'orange' | 'bleu' | 'vert' | 'violet' | 'rose' | 'encre';
 export type Chattiness = 'calme' | 'normal' | 'bavard';
@@ -14,7 +14,7 @@ export type ThemeMode = 'clair' | 'sombre' | 'auto';
 /** The look of the cards and buttons (index.css, data-style on <html>): bento, frosted glass, Liquid Glass, soft relief. */
 export type UiStyle = 'classique' | 'verre' | 'liquide' | 'relief';
 export const UI_STYLES: UiStyle[] = ['classique', 'verre', 'liquide', 'relief'];
-export type Language = 'fr' | 'en';
+export type Language = Lang;
 /** Kompaly's personality presets (the server turns them into instructions). */
 export type PersonaKey = 'pote' | 'coach' | 'prof' | 'zen' | 'taquin';
 

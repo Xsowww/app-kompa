@@ -16,7 +16,7 @@ import { renameToKompa } from '../lib/renameToKompa';
 import { USAGES } from '../lib/usage';
 import { create } from 'zustand';
 import { useRecorder, stopHearing } from './recorder';
-import { t } from '../i18n';
+import { lang, t } from '../i18n';
 
 // Two tabs of the same account: what one saves, the other loads (else its next save would erase it).
 const PERSISTED = { drive: useDrive, calendar: useCalendar, notes: useNotes, copilot: useCopilot, settings: useSettings, todos: useTodos, 'focus-log': useFocusLog, focus: useFocus };
@@ -165,6 +165,12 @@ async function load() {
   renameToKompa();
   applyUsage(useSettings.getState().usage);
   applyAppearance(useSettings.getState());
+  keepLanguage();
+}
+
+/** The site's language goes on the account too: the server writes its e-mails in it. */
+function keepLanguage() {
+  if (useSettings.getState().language !== lang) useSettings.getState().set({ language: lang });
 }
 
 /** The download behind a copy already shown (load): what it changes (theme, usage…) applies when it lands. */
@@ -176,6 +182,7 @@ async function catchUp(userId: string, left: Promise<void>) {
     useWelcome.setState({ pending: !profile.onboarded });
     applyUsage(useSettings.getState().usage);
     applyAppearance(useSettings.getState());
+    keepLanguage();
   } catch (e) {
     console.error('[sync] chargement', e);
     if (getStorageUser() === userId) toast(t('Impossible de charger tes données en ligne. Tu vois la dernière version enregistrée sur cet appareil.'), 'error');

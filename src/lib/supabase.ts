@@ -11,6 +11,31 @@ const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 /** This page was opened by a sign-in link (e-mail confirmation, Google…): read before the client clears the URL. */
 export const arrivedWithLink = typeof location !== 'undefined' && /(?:^|[#&?])(?:access_token|code)=/.test(location.hash + location.search);
 
+/**
+ * The new-password page is for whoever came by the reset e-mail, in this tab: an open session alone must not
+ * change the password without the current one (that is Profil › Compte).
+ */
+const RECOVERY_KEY = 'cop-recovery';
+try {
+  if (arrivedWithLink && location.pathname === '/reinitialisation') sessionStorage.setItem(RECOVERY_KEY, '1');
+} catch {
+  /* storage blocked: the page still works right after the link */
+}
+export const inRecovery = () => {
+  try {
+    return arrivedWithLink || sessionStorage.getItem(RECOVERY_KEY) === '1';
+  } catch {
+    return arrivedWithLink;
+  }
+};
+export const endRecovery = () => {
+  try {
+    sessionStorage.removeItem(RECOVERY_KEY);
+  } catch {
+    /* storage blocked */
+  }
+};
+
 /** Set just before leaving for Google or Apple: an error on the way back is theirs, not an e-mail link's. */
 export const OAUTH_KEY = 'cop-oauth';
 
