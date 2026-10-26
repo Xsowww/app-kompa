@@ -203,6 +203,8 @@ export default function AdminPage() {
   const u = stats?.users;
   const c = stats?.content;
   const pending = openCount(inbox);
+  // « À traiter » as soon as it is read, even when the figures couldn't be (said above it).
+  const inboxShown = view === 'traiter' && (!!inbox || inboxMissing);
   const pendingReports = inbox?.reports.filter(r => r.status === 'open').length ?? 0;
   const count: Partial<Record<View, number>> = { traiter: pending, comptes: stats?.accounts.length };
 
@@ -266,7 +268,7 @@ export default function AdminPage() {
           </div>
         </nav>
 
-        {error && (stats || needCode) && (
+        {error && (stats || needCode || inboxShown) && (
           <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-700">
             <p className="min-w-0 flex-1">{error}</p>
             {needCode && (
@@ -285,7 +287,9 @@ export default function AdminPage() {
           </div>
         )}
 
-        {!stats ? (
+        {inboxShown ? (
+          <AdminInbox inbox={inbox} missing={inboxMissing} reload={() => void load()} />
+        ) : !stats ? (
           !error ? (
             <div className="flex justify-center py-20" role="status" aria-label={t('Chargement')}>
               <Loader2 className="animate-spin text-stone-400 motion-reduce:animate-none" />
@@ -352,8 +356,6 @@ export default function AdminPage() {
               </div>
             </section>
           </div>
-        ) : view === 'traiter' ? (
-          <AdminInbox inbox={inbox} missing={inboxMissing} reload={() => void load()} />
         ) : view === 'comptes' ? (
           <AccountsTable accounts={accounts} total={stats.accounts.length} query={query} setQuery={setQuery} />
         ) : (

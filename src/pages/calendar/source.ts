@@ -21,6 +21,8 @@ export interface CalendarSource {
   shared: {
     group: Group;
     author: (eventId: string) => string;
+    /** Added by me (someone else's can be reported). */
+    byMe: (eventId: string) => boolean;
     canEdit: boolean;
     /** Members, for « pour qui » on periods (me first, named « Moi »). */
     people: { id: string; name: string }[];
@@ -89,7 +91,8 @@ export function eventTitle(ev: Pick<CalendarEvent, 'title' | 'people'>, shared: 
   if (!shared || !ev.people?.length) return ev.title;
   const names = ev.people.map(shared.nameOf);
   const who = names.length > 2 ? `${names.slice(0, 2).join(', ')} +${names.length - 2}` : names.length === 2 ? t('{a} et {b}', { a: names[0], b: names[1] }) : names.join('');
-  return `${who} · ${ev.title}`;
+  // At the start of the label: « Toi · Ménage », as « Léa · Courses ».
+  return `${who.charAt(0).toUpperCase()}${who.slice(1)} · ${ev.title}`;
 }
 
 /**
@@ -141,4 +144,10 @@ export async function removeEvent(ev: CalendarEvent, source: CalendarSource): Pr
   else if (!source.shared || nextInSeries(ev, source.events).length || (await confirmRemoveEvent(ev, source.shared))) source.remove(ev.id);
   else return false;
   return true;
+}
+
+/** The fields of `data` that differ from the event as it was (empty, none and [] are the same). */
+export function changedFields<T extends object>(data: T, before: object): Partial<T> {
+  const norm = (v: unknown) => JSON.stringify(v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length) ? null : v);
+  return Object.fromEntries(Object.entries(data).filter(([k, v]) => norm(v) !== norm((before as Record<string, unknown>)[k]))) as Partial<T>;
 }

@@ -104,7 +104,8 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
         >
           {ev.done && <Check size={11} strokeWidth={3} className="text-paper" />}
         </button>}
-        <button className={cx('min-w-0 flex-1 text-left pointer-coarse:py-2', readOnly && 'cursor-default')} onClick={readOnly ? undefined : onEdit}>
+        {/* A reader opens it too: the whole event, read-only (EventForm). */}
+        <button className="min-w-0 flex-1 text-left pointer-coarse:py-2" onClick={onEdit}>
           <p className={cx('text-[14px] font-medium leading-snug hyphens-auto [overflow-wrap:anywhere]', ev.done && 'text-stone-500 line-through')}>
             {ev.important && <Flag size={12} className="mr-1 inline-block -translate-y-px fill-amber-500 text-amber-500" aria-label={t('Important')} />}
             {ev.title}
@@ -275,7 +276,8 @@ export default function CalendarPage() {
   const [form, setFormState] = useState<{ event?: CalendarEvent; date: string; start?: string; end?: string; title?: string; fromQuick?: boolean } | null>(null);
   // A reader of a shared calendar sees it, without the ways to change it (the server refuses them anyway).
   const readOnly = !!shared && !shared.canEdit;
-  const setForm = (f: typeof form) => setFormState(readOnly ? null : f);
+  // A reader opens an event to read it all (EventForm shows it without anything to change), nothing else.
+  const setForm = (f: typeof form) => setFormState(readOnly && !f?.event ? null : f);
   const [importing, setImporting] = useState<{ initial?: IcsSource } | null>(null);
   // The « + » button: the full form for the day shown, and (my own calendar) the import of a .ics.
   // A reader of a shared calendar: nothing to create, no button.

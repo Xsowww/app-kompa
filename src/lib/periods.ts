@@ -90,7 +90,8 @@ export function periodLabel(p: Pick<Period, 'title' | 'people'>, nameOf?: (userI
   if (!p.people?.length || !nameOf) return p.title;
   const names = p.people.map(nameOf);
   const who = names.length > 2 ? `${names.slice(0, 2).join(', ')} +${names.length - 2}` : names.length === 2 ? t('{a} et {b}', { a: names[0], b: names[1] }) : names.join('');
-  return `${who} · ${p.title}`;
+  // At the start of the label: « Toi · Ménage », as « Léa · Courses ».
+  return `${who.charAt(0).toUpperCase()}${who.slice(1)} · ${p.title}`;
 }
 
 export const cleanPeriods = (list: unknown): Period[] => (Array.isArray(list) ? list.map(cleanPeriod).filter((p): p is Period => !!p) : []);

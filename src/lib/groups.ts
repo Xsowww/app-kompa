@@ -159,6 +159,13 @@ function db(): SupabaseClient {
 /** A refusal the app words itself (« Seul le propriétaire… »): shown as it is. */
 export class Refused extends Error {}
 
+/** In a shared calendar, the words for an event the database refuses to change (made reader meanwhile). */
+export const READ_ONLY_AGENDA = t('Tu peux seulement consulter cet agenda.');
+
+/** The database refused for lack of rights (made reader meanwhile…): « Réessayer » would change nothing. */
+export const refusedRights = (e: unknown) =>
+  (e instanceof Refused && e.message === READ_ONLY_AGENDA) || /forbidden|row-level security|permission denied/i.test(String((e as { message?: string })?.message ?? ''));
+
 /** Message lisible pour une erreur Supabase / réseau. */
 export function groupError(e: unknown): string {
   const w = words();
@@ -187,6 +194,21 @@ function check<T>(res: { data: T; error: unknown }): T {
 function changed(res: { data: unknown; error: unknown }, refused: string) {
   const rows = check(res) as unknown[] | null;
   if (!rows || rows.length === 0) throw new Refused(refused);
+}
+
+/**
+ * Events: no row changed either when they are gone (another member deleted them) or when I may only read them.
+ * Read again to say which. Gone and `removing`: what was asked is done.
+ */
+async function eventsChanged(res: { data: unknown; error: unknown }, ids: string[], removing = false) {
+  const rows = check(res) as unknown[] | null;
+  if (rows?.length) return;
+  const left = check(await db().from('group_events').select('id').in('id', ids)) as unknown[] | null;
+  if (!left?.length) {
+    if (removing) return;
+    throw new Refused(t('Cet événement a été supprimé par un autre membre.'));
+  }
+  throw new Refused(space === 'agenda' ? READ_ONLY_AGENDA : t('Seul l’auteur ou le propriétaire peut le faire.'));
 }
 
 /** The account actually signed in (the one the database sees), not the one a stale tab displays. */
@@ -395,7 +417,7 @@ export async function createEvents(groupId: string, list: NewGroupEvent[]): Prom
 
 /** Deletes several events (« this one and the next ones »). */
 export async function deleteEvents(ids: string[]) {
-  changed(await db().from('group_events').delete().in('id', ids).select('id'), t('Seul l’auteur ou le propriétaire peut le faire.'));
+  await eventsChanged(await db().from('group_events').delete().in('id', ids).select('id'), ids, true);
 }
 
 /** Shared calendars: any editor changes any event (the database checks it). */
@@ -432,6 +454,11 @@ export async function deletePeriod(id: string) {
 }
 
 export async function updateEvent(id: string, patch: Partial<NewGroupEvent>) {
+  return updateEvents([id], patch);
+}
+
+/** The same change on several events (« this one and the next ones »): one request. */
+export async function updateEvents(ids: string[], patch: Partial<NewGroupEvent>) {
   const row: Row = {};
   if (patch.title !== undefined) row.title = patch.title;
   if (patch.date !== undefined) row.date = patch.date;
@@ -442,19 +469,20 @@ export async function updateEvent(id: string, patch: Partial<NewGroupEvent>) {
   if (patch.details !== undefined) row.details = patch.details;
   if (patch.people !== undefined) row.people = patch.people;
   if (patch.reminders !== undefined) row.reminders = patch.reminders;
-  let res = await db().from('group_events').update(row).eq('id', id).select('id');
+  const send = () => db().from('group_events').update(row).in('id', ids).select('id');
+  let res = await send();
   // A server without the newer columns: saved without them when they are empty, else said clearly.
   for (const [col, missing, msg] of [['people', noPeopleColumn, PEOPLE_MISSING], ['reminders', noRemindersColumn, AGENDA_MISSING]] as const) {
     if (!missing(res.error)) continue;
     if ((row[col] as unknown[] | undefined)?.length) throw new Refused(msg);
     delete row[col];
-    res = await db().from('group_events').update(row).eq('id', id).select('id');
+    res = await send();
   }
-  changed(res, t('Tu peux seulement consulter cet agenda.'));
+  await eventsChanged(res, ids);
 }
 
 export async function deleteEvent(id: string) {
-  changed(await db().from('group_events').delete().eq('id', id).select('id'), t('Seul l’auteur ou le propriétaire peut le faire.'));
+  await eventsChanged(await db().from('group_events').delete().eq('id', id).select('id'), [id], true);
 }
 
 export async function setAttendance(groupId: string, eventId: string, coming: boolean) {
