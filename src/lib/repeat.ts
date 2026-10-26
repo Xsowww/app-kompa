@@ -44,6 +44,8 @@ export const shiftKey = (key: string, days: number) => toKey(addDays(fromKey(key
 
 /** Longest event over several days. */
 export const MAX_SPAN_DAYS = 31;
+/** From `from` to `to` is more days than an event over several days can last (said, not cut). */
+export const spanTooLong = (from: string, to: string) => dayShift(from, to) + 1 > MAX_SPAN_DAYS;
 /** An event over several days is one event a day, linked by a series id starting with « span- » (not a repeat). */
 export const isSpan = (series?: string) => !!series?.startsWith('span-');
 

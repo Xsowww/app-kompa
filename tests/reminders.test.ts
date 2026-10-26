@@ -94,14 +94,21 @@ describe('rappels', () => {
 describe('rappels des grands jours', () => {
   it('a week before and the day before at 18:00, plus the usual one', () => {
     // Exam at 08:00: the day before at 18:00 is 14 h before.
-    expect(eventReminders({ date: '2026-11-20', start: '08:00', category: 'examen' }, [15])).toEqual([10080, 840, 15]);
+    expect(eventReminders({ date: '2026-11-20', start: '08:00', category: 'examen' }, [15], now)).toEqual([10080, 840, 15]);
   });
   it('all day: a week before, the day before at 18:00, that day at 9:00', () => {
-    expect(eventReminders({ date: '2026-11-20', important: true, category: 'cours' }, [15])).toEqual([10080, 900, 0]);
+    expect(eventReminders({ date: '2026-11-20', important: true, category: 'cours' }, [15], now)).toEqual([10080, 900, 0]);
   });
   it('its own reminders, an imported one or an ordinary one: unchanged', () => {
     expect(eventReminders({ date: '2026-11-20', start: '08:00', category: 'examen', reminders: [30] }, [15])).toEqual([30]);
     expect(eventReminders({ date: '2026-11-20', category: 'examen', externalId: 'x' }, [15])).toEqual([]);
     expect(eventReminders({ date: '2026-11-20', start: '08:00', category: 'cours' }, [15])).toEqual([15]);
+  });
+  it('an exam tomorrow at 9:00: not « 1 semaine avant », already past (the usual one stays)', () => {
+    // now: Thursday 16 October, 10:00.
+    expect(eventReminders({ date: '2026-10-17', start: '09:00', category: 'examen' }, [15], now)).toEqual([900, 15]);
+    expect(eventReminders({ date: '2026-10-16', important: true }, [15], now)).toEqual([]);
+    // Chosen by hand: kept as chosen.
+    expect(eventReminders({ date: '2026-10-17', start: '09:00', category: 'examen', reminders: [10080] }, [15], now)).toEqual([10080]);
   });
 });

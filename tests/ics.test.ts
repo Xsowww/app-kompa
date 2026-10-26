@@ -120,3 +120,34 @@ describe('emploi du temps Hyperplanning : titre et notes courts', () => {
     expect(e.details).toBe('Salle 307\nEnseignant : M. Martin');
   });
 });
+
+describe('parseIcs : les jours d’un même événement sont reliés', () => {
+  it('une série « span- » par occurrence, rien pour un événement d’un jour', () => {
+    const list = parseIcs(
+      cal(
+        ev('UID:rome', 'DTSTART;VALUE=DATE:20261029', 'DTEND;VALUE=DATE:20261102', 'SUMMARY:Voyage à Rome'),
+        ev('UID:sem', 'DTSTART:20261102T090000', 'DTEND:20261103T170000', 'SUMMARY:Séminaire'),
+        ev('UID:we', 'DTSTART;VALUE=DATE:20261107', 'DTEND;VALUE=DATE:20261109', 'RRULE:FREQ=WEEKLY;COUNT=2', 'SUMMARY:Week-end'),
+        ev('UID:solo', 'DTSTART:20261104T100000', 'DTEND:20261104T120000', 'SUMMARY:TD'),
+      ),
+      { now },
+    );
+    const by = (title: string) => list.filter(e => e.title === title).map(e => e.series);
+    expect(by('Voyage à Rome')).toEqual(Array(4).fill('span-rome_20261029'));
+    expect(by('Séminaire')).toEqual(['span-sem_20261102', 'span-sem_20261102']);
+    expect(by('Week-end')).toEqual(['span-we_20261107', 'span-we_20261107', 'span-we_20261114', 'span-we_20261114']);
+    expect(by('TD')).toEqual([undefined]);
+  });
+
+  it('« Salle : 307 » garde le mot ; « Salle : Amphi A » non', () => {
+    const [a, b] = parseIcs(
+      cal(
+        ev('UID:a', 'DTSTART:20261014T080000', 'DTEND:20261014T100000', 'SUMMARY:CM', 'DESCRIPTION:Salle : 307'),
+        ev('UID:b', 'DTSTART:20261015T080000', 'DTEND:20261015T100000', 'SUMMARY:CM', 'DESCRIPTION:Salle : Amphi A'),
+      ),
+      { now },
+    );
+    expect(a.details).toBe('Salle 307');
+    expect(b.details).toBe('Amphi A');
+  });
+});

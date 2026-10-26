@@ -6,7 +6,8 @@ Object.assign(globalThis, {
   location: new URL('http://localhost/'),
   localStorage: { getItem: (k: string) => memory.get(k) ?? null, setItem: (k: string, v: string) => memory.set(k, v), removeItem: (k: string) => memory.delete(k) },
 });
-const { planFeed, stableId, feedName, feedMark, feedLabel } = await import('../src/lib/icsFeeds');
+const { planFeed, stableId, feedName, feedMark, feedLabel, subscribe } = await import('../src/lib/icsFeeds');
+const { useSettings } = await import('../src/store/settings');
 
 const ev = (id: string, date: string, extra: Partial<CalendarEvent> = {}): CalendarEvent => ({ id, title: 'Maths', date, start: '08:00', category: 'cours', done: false, createdAt: 'x', externalId: feedMark('f1') + id, ...extra });
 const it_ = (id: string, date: string, title = 'Maths', start = '08:00') => ({ id, externalId: id, title, date, start });
@@ -45,5 +46,16 @@ describe('abonnement à un emploi du temps', () => {
     expect(feedName('BEGIN:VCALENDAR\n', 'webcal://www.hyperplanning.fr/x')).toBe('hyperplanning.fr');
     expect(feedName('BEGIN:VCALENDAR\r\nX-WR-CALNAME;LANGUAGE=fr:HYP - DUPONT Lina 01/02/2003 (11192 - Aix-en-Prove\r\n nce | DCGA MAST1) - du 01 septembre 2025 au 11 octobre 2026\r\n', 'https://x.fr')).toBe('Hyperplanning · DCGA MAST1');
     expect(feedLabel('L2 Droit')).toBe('L2 Droit');
+  });
+  it('the days of an event over several days are linked, also the ones added before', () => {
+    const span = (id: string, date: string) => ({ ...it_(id, date), series: 'span-rome_20261029' });
+    const plan = planFeed('f1', [span('r1', '2026-10-29'), span('r2', '2026-10-30')], [ev('r1', '2026-10-29')], [], '2026-10-25');
+    expect(plan.add.map(e => e.series)).toEqual(['span-rome_20261029']);
+    expect(plan.updates).toEqual([{ id: 'r1', patch: expect.objectContaining({ series: 'span-rome_20261029' }) }]);
+  });
+  it('the same link twice: refused, before downloading it', async () => {
+    useSettings.setState({ icsFeeds: [{ id: 'f1', url: 'https://edt.example/l2.ics', name: 'L2' }] });
+    // Downloading would fail otherwise (« network »: no server here).
+    await expect(subscribe(' webcal://edt.example/l2.ics ')).rejects.toMatchObject({ code: 'already' });
   });
 });

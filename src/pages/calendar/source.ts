@@ -122,7 +122,7 @@ export async function askSeriesScope(ev: Pick<CalendarEvent, 'id' | 'series' | '
   const span = isSpan(ev.series);
   const answer = await askChoice(
     action === 'delete' ? t('Supprimer « {title} » ?', { title: ev.title }) : t('Modifier « {title} »', { title: ev.title }),
-    span ? tn(next, 'Cet événement dure plusieurs jours ({n} jour après celui-ci).', 'Cet événement dure plusieurs jours ({n} jours après celui-ci).') : t('Cet événement se répète ({n} fois après celui-ci).', { n: next }),
+    span ? tn(next, 'Cet événement dure plusieurs jours ({n} jour après celui-ci).', 'Cet événement dure plusieurs jours ({n} jours après celui-ci).') : tn(next, 'Cet événement se répète ({n} fois après celui-ci).||une fois', 'Cet événement se répète ({n} fois après celui-ci).'),
     span ? t('Seulement ce jour') : t('Seulement celui-ci'),
     span ? t('Ce jour et les suivants') : t('Celui-ci et les suivants'),
     action === 'delete',
