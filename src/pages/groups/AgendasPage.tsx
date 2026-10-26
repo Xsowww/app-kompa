@@ -73,10 +73,10 @@ function Agendas() {
     };
   }, [active?.id]);
 
+  // Another account's groups are emptied by loadUserData (session.ts); leaving keeps what was read, for the search.
   useEffect(() => {
-    useGroups.getState().reset();
     void useGroups.getState().loadGroups();
-    return () => useGroups.getState().reset();
+    return () => useGroups.getState().leave();
   }, [userId]);
   useEffect(() => watchFocus(), []);
   useEffect(() => {

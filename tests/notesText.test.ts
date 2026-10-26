@@ -16,6 +16,11 @@ describe('stripHtml', () => {
   it('leaves unknown entities alone', () => {
     expect(stripHtml('a &foo; b')).toBe('a &foo; b');
   });
+  it('keeps a word whole across formatting, separates blocks', () => {
+    expect(stripHtml('<p>Le théo<strong>rème</strong> de l’<mark>ADN</mark> <a href="x">lien</a>s</p>')).toBe('Le théorème de l’ADN liens');
+    expect(stripHtml('<p>un</p><p>deux<br>trois</p><ul><li><p>quatre</p></li></ul><table><tr><td>a</td><td>b</td></tr></table>')).toBe('un deux trois quatre a b');
+    expect(stripHtml('<h2>Titre</h2><blockquote><p>cit</p></blockquote><img src="x">fin')).toBe('Titre cit fin');
+  });
 });
 
 describe('withProtocol', () => {

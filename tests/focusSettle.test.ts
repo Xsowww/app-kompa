@@ -20,6 +20,18 @@ beforeEach(() => {
 });
 
 describe('focus session', () => {
+  it('counts the minutes done when stopped before the end, none under one', () => {
+    useFocus.getState().start('Maths');
+    vi.setSystemTime(Date.now() + 20 * MIN + 30_000);
+    expect(useFocus.getState().stop()).toBe(20);
+    expect(useFocus.getState().phase).toBeNull();
+    expect(useFocusLog.getState().sessions[0]).toMatchObject({ subject: 'Maths', minutes: 20 });
+    useFocus.getState().start('Physique');
+    vi.setSystemTime(Date.now() + 40_000);
+    expect(useFocus.getState().stop()).toBe(0);
+    expect(useFocusLog.getState().sessions).toHaveLength(1);
+  });
+
   it('counts a session that ended while the tab was closed, even after the break', () => {
     useFocus.getState().start('Histoire');
     vi.setSystemTime(Date.now() + 35 * MIN);

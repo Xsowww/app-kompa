@@ -243,7 +243,7 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
                 size="sm"
                 tone="search"
                 title={t('Aucun résultat pour «\u00a0{q}\u00a0»', { q: q.trim() })}
-                text={reading ? t('Je lis encore le contenu de tes fichiers : réessaie dans un instant.') : undefined}
+                text={reading ? t('Je lis encore le contenu de tes fichiers\u00a0: réessaie dans un instant.') : undefined}
                 action={{ label: t('Effacer la recherche'), icon: X, onClick: () => (setQ(''), inputRef.current?.focus()) }}
               />
             </div>

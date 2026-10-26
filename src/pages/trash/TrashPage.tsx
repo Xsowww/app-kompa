@@ -13,7 +13,7 @@ import { cx } from '../../lib/utils';
 import { fmt } from '../../lib/dates';
 import { isMenuKey, menuPoint } from '../../lib/a11y';
 import {
-  useTrash, daysLeft, folderContent, restoreTrash, purgeTrash, emptyAllTrash, TRASH_TYPES, type TrashEntry, type TrashType,
+  useTrash, daysLeft, eventsWhen, folderContent, restoreTrash, purgeTrash, emptyAllTrash, TRASH_TYPES, type TrashEntry, type TrashType,
 } from '../../lib/trash';
 import { TRASH_DAYS } from '../../store/drive';
 import { t, tn } from '../../i18n';
@@ -91,7 +91,7 @@ function PreviewDialog({ entry, onClose, onRestore, onPurge }: { entry: TrashEnt
         ) : entry.kind === 'event' ? (
           <dl className="grid grid-cols-[96px_1fr] gap-x-3 gap-y-2 text-[13px]">
             <dt className="text-stone-500">{t('Date')}</dt>
-            <dd className="first-letter:uppercase">{fmt(parseISO(entry.event.date), 'EEEE d MMMM yyyy')}</dd>
+            <dd className="first-letter:uppercase">{entry.events.length > 1 ? eventsWhen(entry.events) : fmt(parseISO(entry.event.date), 'EEEE d MMMM yyyy')}</dd>
             <dt className="text-stone-500">{t('Heure')}</dt>
             <dd className="tabular">{entry.event.start ? `${entry.event.start}${entry.event.end ? ` – ${entry.event.end}` : ''}` : t('Toute la journée')}</dd>
             <dt className="text-stone-500">{t('Catégorie')}</dt>
@@ -215,12 +215,14 @@ export default function TrashPage() {
       const text = r.orphan
         ? n > 1
           ? tn(n, '{n} élément restauré à la racine (dossier d’origine supprimé)', '{n} éléments restaurés à la racine (dossier d’origine supprimé)')
-          : t('« {name} » restauré à la racine (dossier d’origine supprimé)', { name })
+          : t('«\u00a0{name}\u00a0» restauré à la racine (dossier d’origine supprimé)', { name })
         : n > 1
           ? tn(n, '{n} élément restauré', '{n} éléments restaurés')
-          : t('« {name} » restauré', { name });
+          : t('«\u00a0{name}\u00a0» restauré', { name });
+      // Several at once: the one renamed on its way back is named (alone, its new name is in the message already).
+      const renamed = n > 1 && r.renamed.length ? ` · ${t('nouveau nom\u00a0: {names}', { names: r.renamed.map(x => `«\u00a0${x}\u00a0»`).join(', ') })}` : '';
       const href = n === 1 ? r.href : null;
-      toast(text, 'success', href ? { label: t('Ouvrir'), run: () => navigate(href) } : undefined);
+      toast(text + renamed, 'success', href ? { label: t('Ouvrir'), run: () => navigate(href) } : undefined);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [visible, previewId, openPreview, navigate],
@@ -231,7 +233,7 @@ export default function TrashPage() {
       if (!ids.length) return;
       const first = all.find(e => e.id === ids[0]);
       const ok = await confirmAction(
-        ids.length === 1 ? t('Supprimer « {name} » définitivement ?', { name: first?.name ?? '' }) : tn(ids.length, 'Supprimer {n} élément définitivement ?', 'Supprimer {n} éléments définitivement ?'),
+        ids.length === 1 ? t('Supprimer «\u00a0{name}\u00a0» définitivement\u00a0?', { name: first?.name ?? '' }) : tn(ids.length, 'Supprimer {n} élément définitivement\u00a0?', 'Supprimer {n} éléments définitivement\u00a0?'),
         ids.length === 1 ? t('Impossible de le récupérer ensuite.') : t('Impossible de les récupérer ensuite.'),
         t('Supprimer définitivement'),
       );
@@ -248,7 +250,7 @@ export default function TrashPage() {
 
   const emptyAll = async () => {
     if (!all.length) return;
-    const ok = await confirmAction(t('Vider la corbeille ?'), tn(all.length, '{n} élément sera supprimé définitivement.', '{n} éléments seront supprimés définitivement.'), t('Vider la corbeille'));
+    const ok = await confirmAction(t('Vider la corbeille\u00a0?'), tn(all.length, '{n} élément sera supprimé définitivement.', '{n} éléments seront supprimés définitivement.'), t('Vider la corbeille'));
     if (!ok) return;
     emptyAllTrash();
     setSelected(new Set());

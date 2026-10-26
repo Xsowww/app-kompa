@@ -2,7 +2,7 @@
 // own store; this module lists them together and restores / purges them by id.
 
 import { useMemo } from 'react';
-import { parseISO } from 'date-fns';
+import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { fmt } from './dates';
 import { useDrive, pathOf, trashRoots, withDescendants, TRASH_DAYS, type DriveItem } from '../store/drive';
 import { useNotes, notesTrashRoots, folderDescendants, type Note, type NoteFolder } from '../store/notes';
@@ -16,7 +16,8 @@ export type TrashEntry = { id: string; type: TrashType; name: string; deletedAt:
   | { kind: 'note'; note: Note }
   | { kind: 'noteFolder'; folder: NoteFolder }
   | { kind: 'drive'; item: DriveItem }
-  | { kind: 'event'; event: CalendarEvent }
+  // An event that repeats or lasts several days, deleted at once: one entry, `event` its first day, `events` all of them.
+  | { kind: 'event'; event: CalendarEvent; events: CalendarEvent[] }
 );
 
 export const TRASH_TYPES: { key: TrashType; label: string }[] = [
@@ -42,6 +43,28 @@ const current = (): Sources => {
 
 export const eventDay = (date: string) => fmt(parseISO(date), 'EEE d MMM').replace(/^./, c => c.toUpperCase());
 
+/** Deleted events, the occurrences of a series deleted together (same series, same moment) in one group, by date. */
+export function eventGroups(trash: CalendarEvent[]): CalendarEvent[][] {
+  const groups = new Map<string, CalendarEvent[]>();
+  for (const e of trash) {
+    const k = e.series ? `${e.series}|${e.deletedAt ?? ''}` : e.id;
+    const g = groups.get(k);
+    if (g) g.push(e);
+    else groups.set(k, [e]);
+  }
+  return [...groups.values()].map(g => g.sort((a, b) => a.date.localeCompare(b.date)));
+}
+
+/** When a group of deleted events took place: « Jeu. 29 oct. », « du 29 oct. au 1er nov. » (days in a row) or « 6 fois ». */
+export function eventsWhen(events: CalendarEvent[]) {
+  if (events.length === 1) return eventDay(events[0].date);
+  const days = events.map(e => e.date);
+  const inARow = days.every((d, i) => !i || differenceInCalendarDays(parseISO(d), parseISO(days[i - 1])) === 1);
+  if (!inARow) return t('{n} fois', { n: events.length });
+  const [a, b] = [parseISO(days[0]), parseISO(days.at(-1)!)];
+  return t('du {start} au {end}', { start: fmt(a, a.getFullYear() === b.getFullYear() ? 'd MMM' : 'd MMM yyyy'), end: fmt(b, b.getFullYear() === new Date().getFullYear() ? 'd MMM' : 'd MMM yyyy') });
+}
+
 function notesPlace(folders: NoteFolder[], parentId: string | null) {
   if (!parentId) return { place: t('Notes'), placeGone: false };
   const names: string[] = [];
@@ -62,16 +85,20 @@ export function collectTrash(s: Sources = current()): TrashEntry[] {
     ...roots.notes.map(n => ({ id: n.id, type: 'notes' as const, kind: 'note' as const, note: n, name: n.title, deletedAt: n.deletedAt ?? '', ...notesPlace(s.noteFolders, n.folderId) })),
     ...roots.folders.map(f => ({ id: f.id, type: 'notes' as const, kind: 'noteFolder' as const, folder: f, name: f.name, deletedAt: f.deletedAt ?? '', ...notesPlace(s.noteFolders, f.parentId) })),
     ...trashRoots(s.driveTrash).map(i => ({ id: i.id, type: 'drive' as const, kind: 'drive' as const, item: i, name: i.name, deletedAt: i.deletedAt ?? '', ...drivePlace(s.driveItems, i.parentId) })),
-    ...s.eventTrash.map(e => ({
-      id: e.id,
-      type: 'calendar' as const,
-      kind: 'event' as const,
-      event: e,
-      name: e.title,
-      deletedAt: e.deletedAt ?? '',
-      place: t('Calendrier · {day}', { day: eventDay(e.date) }) + (e.start ? ` · ${e.start}` : ''),
-      placeGone: false,
-    })),
+    ...eventGroups(s.eventTrash).map(events => {
+      const e = events[0];
+      return {
+        id: e.id,
+        type: 'calendar' as const,
+        kind: 'event' as const,
+        event: e,
+        events,
+        name: e.title,
+        deletedAt: e.deletedAt ?? '',
+        place: t('Calendrier · {day}', { day: eventsWhen(events) }) + (e.start ? ` · ${e.start}` : ''),
+        placeGone: false,
+      };
+    }),
   ];
   return out.sort((a, b) => b.deletedAt.localeCompare(a.deletedAt) || a.name.localeCompare(b.name, locale()));
 }
@@ -95,11 +122,11 @@ export function useTrashCount(): number {
   const driveTrash = useDrive(s => s.trash);
   const trashFolders = useNotes(s => s.trashFolders);
   const trashNotes = useNotes(s => s.trashNotes);
-  const events = useCalendar(s => s.trash.length);
+  const eventTrash = useCalendar(s => s.trash);
   return useMemo(() => {
     const r = notesTrashRoots(trashFolders, trashNotes);
-    return trashRoots(driveTrash).length + r.folders.length + r.notes.length + events;
-  }, [driveTrash, trashFolders, trashNotes, events]);
+    return trashRoots(driveTrash).length + r.folders.length + r.notes.length + eventGroups(eventTrash).length;
+  }, [driveTrash, trashFolders, trashNotes, eventTrash]);
 }
 
 /** Days left before an entry is deleted for good. */
@@ -153,19 +180,30 @@ export interface RestoreResult {
   orphan: boolean;
   /** Where the (first) restored thing now lives. */
   href: string | null;
+  /** New names of those that came back renamed (« Biologie (2) »: one of that name was made since). */
+  renamed: string[];
 }
 
 /** Puts entries (by id) back where they were. */
 export function restoreTrash(ids: string[]): RestoreResult {
   const entries = collectTrash().filter(e => ids.includes(e.id));
-  if (!entries.length) return { names: [], orphan: false, href: null };
-  const orphan = entries.some(e => e.placeGone);
-  const by = (t: TrashType) => entries.filter(e => e.type === t).map(e => e.id);
+  if (!entries.length) return { names: [], orphan: false, href: null, renamed: [] };
+  const by = (t: TrashType) => entries.flatMap(e => (e.type !== t ? [] : e.kind === 'event' ? e.events.map(x => x.id) : [e.id]));
   if (by('drive').length) useDrive.getState().restore(by('drive'));
   if (by('notes').length) useNotes.getState().restore(by('notes'));
   if (by('calendar').length) useCalendar.getState().restore(by('calendar'));
+  // Read after the restore: a note restored with its folder found it again (« Mitose » and « Biologie » together).
+  const orphan = entries.some(e => e.placeGone && placeGoneNow(e));
   // Names read again after the restore: one that came back next to a new one of the same name is renamed (« Biologie (2) »).
-  return { names: entries.map(e => nameNow(e) ?? e.name), orphan, href: hrefOf(entries[0]) };
+  const names = entries.map(e => nameNow(e) ?? e.name);
+  return { names, orphan, href: hrefOf(entries[0]), renamed: names.filter((n, i) => n !== entries[i].name) };
+}
+
+/** Its folder is still missing (it went back to the root). */
+function placeGoneNow(e: TrashEntry) {
+  if (e.kind === 'drive') return !!e.item.parentId && !useDrive.getState().items.some(i => i.id === e.item.parentId);
+  const parent = e.kind === 'note' ? e.note.folderId : e.kind === 'noteFolder' ? e.folder.parentId : null;
+  return !!parent && !useNotes.getState().folders.some(f => f.id === parent);
 }
 
 function nameNow(e: TrashEntry): string | undefined {
@@ -189,7 +227,7 @@ function hrefOf(e: TrashEntry): string | null {
 /** Deletes entries (by id) for good, with what was deleted together with them. */
 export function purgeTrash(ids: string[]) {
   const entries = collectTrash().filter(e => ids.includes(e.id));
-  const by = (t: TrashType) => entries.filter(e => e.type === t).map(e => e.id);
+  const by = (t: TrashType) => entries.flatMap(e => (e.type !== t ? [] : e.kind === 'event' ? e.events.map(x => x.id) : [e.id]));
   if (by('drive').length) useDrive.getState().purge(by('drive'));
   if (by('notes').length) useNotes.getState().purge(by('notes'));
   if (by('calendar').length) useCalendar.getState().purge(by('calendar'));

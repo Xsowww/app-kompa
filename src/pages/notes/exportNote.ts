@@ -102,8 +102,22 @@ export function printNote(note: Note, subtitle?: string): Promise<void> {
 
 // ── Markdown ────────────────────────────────────────────────────────
 
+/** Text that stays text: what Markdown would read as formatting, a link or HTML (« <script> », « x <y et y> z ») is escaped. */
+export const mdText = (s: string) => s.replace(/([\\*_`[\]<>])/g, '\\$1');
+
+/** Code between enough backticks that the ones inside don't close it (« a`b » → « ``a`b`` »); 3 at least for a block. */
+export function mdFence(code: string, min = 1) {
+  const longest = Math.max(0, ...(code.match(/`+/g) ?? []).map(r => r.length));
+  return '`'.repeat(Math.max(min, longest + 1));
+}
+export const mdCode = (code: string) => {
+  const f = mdFence(code);
+  const pad = /^`|`$/.test(code) ? ' ' : '';
+  return f + pad + code + pad + f;
+};
+
 function inline(node: Node): string {
-  if (node.nodeType === Node.TEXT_NODE) return (node.textContent ?? '').replace(/([*_`[\]])/g, '\\$1');
+  if (node.nodeType === Node.TEXT_NODE) return mdText(node.textContent ?? '');
   if (!(node instanceof HTMLElement)) return '';
   const inner = () => Array.from(node.childNodes).map(inline).join('');
   switch (node.tagName) {
@@ -119,7 +133,7 @@ function inline(node: Node): string {
     case 'MARK':
       return wrap(inner(), '==');
     case 'CODE':
-      return '`' + (node.textContent ?? '') + '`';
+      return mdCode(node.textContent ?? '');
     case 'A':
       return `[${inner()}](${node.getAttribute('href') ?? ''})`;
     case 'IMG':
@@ -153,9 +167,12 @@ function block(el: Element, indent = ''): string {
       case 'BLOCKQUOTE':
         out.push(block(node).split('\n').map(l => `> ${l}`.trimEnd()).join('\n'));
         break;
-      case 'PRE':
-        out.push('```\n' + (node.textContent ?? '') + '\n```');
+      case 'PRE': {
+        const code = node.textContent ?? '';
+        const f = mdFence(code, 3);
+        out.push(`${f}\n${code}\n${f}`);
         break;
+      }
       case 'HR':
         out.push('---');
         break;
@@ -190,7 +207,7 @@ function block(el: Element, indent = ''): string {
 
 export function noteToMarkdown(note: Note): string {
   const root = new DOMParser().parseFromString(`<body>${note.content}</body>`, 'text/html').body;
-  return `# ${note.title}\n\n${block(root).replace(/\n{3,}/g, '\n\n').trim()}\n`;
+  return `# ${mdText(note.title)}\n\n${block(root).replace(/\n{3,}/g, '\n\n').trim()}\n`;
 }
 
 export function downloadMarkdown(note: Note) {

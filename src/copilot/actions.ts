@@ -84,7 +84,23 @@ const score = (h: string, q: string) => {
 export function search(query: string, limit = 8, shared?: SharedContent): SearchHit[] {
   const q = normalize(query);
   if (!q) return [];
-  const hits: (SearchHit & { s: number })[] = [];
+  // `past`: an event already over, after one to come of the same score.
+  const hits: (SearchHit & { s: number; past?: boolean; date?: string })[] = [];
+  const today = todayKey();
+  // An event that repeats or lasts several days: one line, its next day (the last one when all are over).
+  const bySeries = new Map<string, number>();
+  const pushEvent = (series: string | null | undefined, date: string, hit: SearchHit & { s: number }) => {
+    const h = { ...hit, past: date < today, date };
+    const i = series ? bySeries.get(series) : undefined;
+    if (i === undefined) {
+      if (series) bySeries.set(series, hits.length);
+      hits.push(h);
+      return;
+    }
+    const old = hits[i];
+    const better = h.past !== old.past ? !h.past : h.past ? date > old.date! : date < old.date!;
+    hits[i] = better ? { ...h, s: Math.max(h.s, old.s) } : { ...old, s: Math.max(h.s, old.s) };
+  };
   const { items } = useDrive.getState();
   for (const it of items) {
     const s = score(prep(it, 'name', () => normalize(it.name)), q);
@@ -111,9 +127,10 @@ export function search(query: string, limit = 8, shared?: SharedContent): Search
       hits.push({ s, type: 'note', id: n.id, title: n.title, where: folder?.name ?? '', to: linkToNote(n.id) });
     }
   }
+  // Its notes count like a note's text.
   for (const e of useCalendar.getState().events) {
-    const s = score(prep(e, 'title', () => normalize(e.title)), q);
-    if (s) hits.push({ s, type: 'événement', id: e.id, title: e.title, where: fmtDay(fromKey(e.date), 'EEEE d MMMM'), to: linkToDay(e.date, e.id) });
+    const s = Math.max(score(prep(e, 'title', () => normalize(e.title)), q), e.details ? score(prep(e, 'details', () => normalize(e.details!)), q) * 0.6 : 0);
+    if (s) pushEvent(e.series, e.date, { s, type: 'événement', id: e.id, title: e.title, where: fmtDay(fromKey(e.date), 'EEEE d MMMM'), to: linkToDay(e.date, e.id) });
   }
   // Tasks still to do (a ticked one leaves the list: nothing to open there).
   for (const todo of useTodos.getState().todos) {
@@ -127,12 +144,17 @@ export function search(query: string, limit = 8, shared?: SharedContent): Search
       if (s) hits.push({ s: s * 0.9, type: 'note partagée', id: n.id, title: n.title, where: g.name, to: `/groupes?g=${g.id}&onglet=notes&note=${n.id}` });
     }
     for (const e of shared?.events[g.id] ?? []) {
-      const s = score(prep(e, 'title', () => normalize(e.title)), q);
+      const more = [e.place, e.details].filter(Boolean).join(' ');
+      const s = Math.max(score(prep(e, 'title', () => normalize(e.title)), q), more ? score(prep(e, 'more', () => normalize(more)), q) * 0.6 : 0);
       const to = g.kind === 'agenda' ? `/agendas?g=${g.id}` : `/groupes?g=${g.id}&onglet=revisions`;
-      if (s) hits.push({ s: s * 0.9, type: 'événement partagé', id: e.id, title: e.title, where: `${g.name} · ${fmtDay(fromKey(e.date), 'EEEE d MMMM')}`, to });
+      if (s) pushEvent(e.series && `${g.id}:${e.series}`, e.date, { s: s * 0.9, type: 'événement partagé', id: e.id, title: e.title, where: `${g.name} · ${fmtDay(fromKey(e.date), 'EEEE d MMMM')}`, to });
     }
   }
-  return hits.sort((a, b) => b.s - a.s).slice(0, limit).map(({ s: _s, ...h }) => h);
+  return hits
+    // Same score: what's to come first (soonest first), then what's over (latest first).
+    .sort((a, b) => b.s - a.s || Number(!!a.past) - Number(!!b.past) || (a.date && b.date ? (a.past ? b.date.localeCompare(a.date) : a.date.localeCompare(b.date)) : 0))
+    .slice(0, limit)
+    .map(({ s: _s, past: _p, date: _d, ...h }) => h);
 }
 
 export function eventsBetween(from: string, to: string) {
@@ -712,8 +734,8 @@ export function stopFocus() {
   const s = useFocus.getState();
   if (!s.phase) return null;
   const subject = s.label;
-  s.stop();
-  return { stopped: true, subject };
+  const minutesCounted = s.stop();
+  return { stopped: true, subject, minutesCounted };
 }
 
 export function focusStatus() {

@@ -185,6 +185,7 @@ function DialogBody() {
           ref={inputRef}
           value={value}
           onChange={e => setValue(e.target.value)}
+          maxLength={dialog.maxLength}
           aria-label={dialog.title}
           // Not type="url": « kompaly.com » (no https://) is accepted, the browser would refuse it.
           {...(dialog.url && { inputMode: 'url' as const, autoCapitalize: 'off', autoCorrect: 'off', spellCheck: false })}

@@ -37,7 +37,7 @@ export default function NoteMoveDialog({ target, onClose }: { target: NoteMoveTa
 
   return (
     <Modal open onClose={onClose} width={420}>
-      <h3 className="truncate text-[15px] font-semibold">{t('Déplacer « {name} »', { name: target.name })}</h3>
+      <h3 className="truncate text-[15px] font-semibold">{t('Déplacer «\u00a0{name}\u00a0»', { name: target.name })}</h3>
       <div className="mt-4 max-h-80 overflow-y-auto rounded-lg border border-stone-200 p-1">
         <Choice selected={dest === null} depth={0} onClick={() => setDest(null)}>
           <NotebookPen size={15} className="shrink-0 text-stone-500" />

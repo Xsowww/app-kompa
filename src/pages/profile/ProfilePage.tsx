@@ -629,12 +629,18 @@ const SHORTCUTS: { group: string; keys: [string, string][] }[] = [
     ],
   },
   {
+    group: t('Tâches'),
+    keys: [[`${t('Entrée')} · F2`, t('Renommer')]],
+  },
+  {
     group: t('Notes'),
     keys: [
       ['Ctrl B · Ctrl I · Ctrl U', t('Gras, italique, souligné')],
       ['Ctrl Z', t('Annuler la frappe')],
       [t('Entrée'), t('Du titre au texte')],
-      ['F2', t('Renommer un dossier')],
+      ['↑ ↓', t('Élément précédent, suivant')],
+      ['F2', t('Renommer')],
+      [t('Suppr'), t('Mettre à la corbeille')],
     ],
   },
   {
