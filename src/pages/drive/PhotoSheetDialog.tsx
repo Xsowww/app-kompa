@@ -199,7 +199,7 @@ export default function PhotoSheetDialog({ folderId, onClose }: { folderId: stri
           {editing ? (
             <textarea value={md} onChange={e => setMd(e.target.value)} aria-label={t('Texte de la fiche')} className="field mt-3 h-[52vh] w-full resize-none py-2 font-mono text-[13px] leading-relaxed" />
           ) : (
-            <div className="doc-preview mt-3 max-h-[52vh] overflow-y-auto rounded-xl [overflow-wrap:anywhere] border border-stone-200 p-4 text-[14px] leading-relaxed [&_blockquote]:border-l-2 [&_blockquote]:border-stone-300 [&_blockquote]:pl-3 [&_blockquote]:text-stone-600 [&_h1]:text-[20px] [&_h1]:font-bold [&_h2]:mt-5 [&_h2]:text-[16px] [&_h2]:font-semibold [&_h3]:mt-4 [&_h3]:font-semibold [&_li]:my-1 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:my-2 [&_ul]:list-disc [&_ul]:pl-6" dangerouslySetInnerHTML={{ __html: html }} />
+            <div className="doc-preview mt-3 max-h-[52vh] overflow-y-auto rounded-xl break-words border border-stone-200 p-4 text-[14px] leading-relaxed [&_blockquote]:border-l-2 [&_blockquote]:border-stone-300 [&_blockquote]:pl-3 [&_blockquote]:text-stone-600 [&_h1]:text-[20px] [&_h1]:font-bold [&_h2]:mt-5 [&_h2]:text-[16px] [&_h2]:font-semibold [&_h3]:mt-4 [&_h3]:font-semibold [&_li]:my-1 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:my-2 [&_ul]:list-disc [&_ul]:pl-6" dangerouslySetInnerHTML={{ __html: html }} />
           )}
           <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
             <button type="button" className="btn-ghost mr-auto" onClick={() => void otherPhotos()} disabled={saving}>

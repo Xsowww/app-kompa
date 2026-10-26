@@ -28,6 +28,10 @@ describe('Kompaly: a text hidden in a note does not change anything by itself', 
     runOffer(reply.offers![0]);
     expect(useNotes.getState().notes.find(x => x.id === n.id)?.title).toBe('pirate');
   });
+  it('a confirmed change that fails says so (not « C’est fait. »)', () => {
+    const r = runOffer({ label: 'x', kind: 'confirm_change', payload: { name: 'rename_item', input: JSON.stringify({ id: 'absent', new_name: 'y' }) } });
+    expect(r.text).toMatch(/^Ça n’a pas marché/);
+  });
 });
 
 describe('Kompaly: only a plain yes confirms a deletion', () => {

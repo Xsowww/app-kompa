@@ -15,18 +15,21 @@ import { useFocus, settleFocus } from './focus';
 import { renameToKompa } from '../lib/renameToKompa';
 import { USAGES } from '../lib/usage';
 import { create } from 'zustand';
-import { useRecorder, stopHearing } from './recorder';
+import { useRecorder, useRecLive, stopHearing } from './recorder';
 import { useGroups } from './groups';
 import { lang, t } from '../i18n';
 
 // Two tabs of the same account: what one saves, the other loads (else its next save would erase it).
-const PERSISTED = { drive: useDrive, calendar: useCalendar, notes: useNotes, copilot: useCopilot, settings: useSettings, todos: useTodos, 'focus-log': useFocusLog, focus: useFocus };
+const PERSISTED = { drive: useDrive, calendar: useCalendar, notes: useNotes, copilot: useCopilot, settings: useSettings, todos: useTodos, 'focus-log': useFocusLog, focus: useFocus, cours: useRecorder };
 if (typeof window !== 'undefined')
   addEventListener('storage', e => {
     const prefix = `cop:${getStorageUser()}:`;
     if (!getStorageUser() || e.newValue === null || !e.key?.startsWith(prefix)) return;
     // What the other tab saved, it sends itself (synchronous storage: the whole reload is inside `quietly`).
-    const store = PERSISTED[e.key.slice(prefix.length) as keyof typeof PERSISTED];
+    const name = e.key.slice(prefix.length) as keyof typeof PERSISTED;
+    // The class being recorded here is this tab's own: only the other tabs follow it (« Terminé » there too).
+    if (name === 'cours' && useRecLive.getState().hearing) return;
+    const store = PERSISTED[name];
     quietly(() => void store?.persist.rehydrate());
   });
 

@@ -137,12 +137,89 @@ function changeLabel(name: string, input: Record<string, unknown>): string {
 pendingChanges.apply = (name, input) => {
   if (!CHANGES.has(name)) return { text: t('Je ne peux plus le faire, redemande-le-moi.') };
   const links: CopilotLink[] = [];
-  void runTool(name, input, links, []);
-  return { text: t('C’est fait.'), links };
+  try {
+    change(name, input, links);
+    return { text: t('C’est fait.'), links };
+  } catch (e) {
+    return { text: t('Ça n’a pas marché : {reason}', { reason: (e as Error).message }) };
+  }
 };
+
+/** The changes to what already exists: run at once, or after the student's click (confirm_change). */
+function change(name: string, input: Record<string, unknown>, links: CopilotLink[]): unknown {
+  switch (name) {
+    case 'update_event': {
+      const ev = updateEvent(str(input.event_id), {
+        title: str(input.title) || undefined,
+        date: str(input.date) || undefined,
+        start: str(input.start) || undefined,
+        end: str(input.end) || undefined,
+        done: typeof input.done === 'boolean' ? input.done : undefined,
+        important: typeof input.important === 'boolean' ? input.important : undefined,
+      });
+      if (!ev) throw new Error('événement introuvable');
+      links.push({ label: t('Voir le jour'), to: linkToDay(ev.date, ev.id) });
+      return { updated: describeEvent(ev) };
+    }
+    case 'append_to_note': {
+      const n = appendToNote(str(input.note_id), typeof input.content === 'string' ? input.content : '');
+      if (!n) throw new Error('note introuvable');
+      links.push({ label: t('Ouvrir « {name} »', { name: n.title }), to: linkToNote(n.id) });
+      return { updated: n.title };
+    }
+    case 'rename_item': {
+      const s = renameItem(str(input.id), str(input.new_name));
+      if (!s) throw new Error('élément introuvable ou nom vide');
+      links.push({ label: itemName(s), to: linkToItem(s) });
+      return { renamed: itemName(s) };
+    }
+    case 'move_item': {
+      const res = moveItem(str(input.id), str(input.folder) || undefined);
+      if ('error' in res) throw new Error(res.error);
+      links.push({ label: itemName(res.moved), to: linkToItem(res.moved) });
+      return { moved: itemName(res.moved), to: res.to };
+    }
+    case 'star_file': {
+      const it = setStar(str(input.id), input.starred !== false);
+      if (!it) throw new Error('fichier ou dossier du Drive introuvable');
+      return { item: it.name, starred: input.starred !== false };
+    }
+    case 'set_folder_color': {
+      const f = setFolderColor(str(input.folder), str(input.color));
+      if (!f) throw new Error('dossier du Drive ou couleur introuvable');
+      links.push({ label: f.name, to: linkToDriveFolder(f.id) });
+      return { folder: f.name, color: str(input.color) };
+    }
+    case 'restore_from_trash': {
+      const res = restoreFromTrash(ids(input.ids));
+      if (!res.restored.length) throw new Error('rien trouvé dans la corbeille avec ces id');
+      links.push(...res.links);
+      return { restored: res.restored, missing: res.missing };
+    }
+    case 'complete_todo': {
+      const todo = completeTodo(str(input.todo_id), input.done !== false);
+      if (!todo) throw new Error('tâche introuvable');
+      return { todo: todo.title, done: input.done !== false };
+    }
+    case 'update_settings': {
+      const changed = updateSettings({
+        accent: str(input.accent) || undefined,
+        theme: str(input.theme) || undefined,
+        reduceMotion: typeof input.reduce_motion === 'boolean' ? input.reduce_motion : undefined,
+        chattiness: str(input.chattiness) || undefined,
+      });
+      if (!changed) throw new Error('aucun réglage valide fourni');
+      links.push({ label: t('Réglages'), to: '/profil' });
+      return { changed };
+    }
+    default:
+      throw new Error(`outil inconnu : ${name}`);
+  }
+}
 
 async function runTool(name: string, input: Record<string, unknown>, links: CopilotLink[], offers: CopilotOffer[]): Promise<unknown> {
   if ('_invalid_arguments' in input) throw new Error('arguments illisibles (JSON invalide), réessaie avec des arguments JSON valides');
+  if (CHANGES.has(name)) return change(name, input, links);
   switch (name) {
     case 'search_site': {
       const hits = search(str(input.query), 10);
@@ -193,19 +270,6 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
       links.push({ label: t('Voir le jour'), to: linkToDay(ev.date, ev.id) });
       return { created: describeEvent(ev), id: ev.id };
     }
-    case 'update_event': {
-      const ev = updateEvent(str(input.event_id), {
-        title: str(input.title) || undefined,
-        date: str(input.date) || undefined,
-        start: str(input.start) || undefined,
-        end: str(input.end) || undefined,
-        done: typeof input.done === 'boolean' ? input.done : undefined,
-        important: typeof input.important === 'boolean' ? input.important : undefined,
-      });
-      if (!ev) throw new Error('événement introuvable');
-      links.push({ label: t('Voir le jour'), to: linkToDay(ev.date, ev.id) });
-      return { updated: describeEvent(ev) };
-    }
     case 'delete_event': {
       const ev = useCalendar.getState().events.find(e => e.id === str(input.event_id));
       if (!ev) throw new Error('événement introuvable (il faut son id exact, voir list_events)');
@@ -235,12 +299,6 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
       links.push({ label: t('Ouvrir « {name} »', { name: n.title }), to: linkToNote(n.id) });
       return { created: n.title, id: n.id };
     }
-    case 'append_to_note': {
-      const n = appendToNote(str(input.note_id), typeof input.content === 'string' ? input.content : '');
-      if (!n) throw new Error('note introuvable');
-      links.push({ label: t('Ouvrir « {name} »', { name: n.title }), to: linkToNote(n.id) });
-      return { updated: n.title };
-    }
     case 'create_folder': {
       if (input.space === 'notes') {
         const f = useNotes.getState().createFolder(str(input.name), null);
@@ -250,29 +308,6 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
       const f = createDriveFolder(str(input.name), str(input.parent) || undefined);
       links.push({ label: f.name, to: linkToDriveFolder(f.id) });
       return { created: f.name, id: f.id };
-    }
-    case 'rename_item': {
-      const s = renameItem(str(input.id), str(input.new_name));
-      if (!s) throw new Error('élément introuvable ou nom vide');
-      links.push({ label: itemName(s), to: linkToItem(s) });
-      return { renamed: itemName(s) };
-    }
-    case 'move_item': {
-      const res = moveItem(str(input.id), str(input.folder) || undefined);
-      if ('error' in res) throw new Error(res.error);
-      links.push({ label: itemName(res.moved), to: linkToItem(res.moved) });
-      return { moved: itemName(res.moved), to: res.to };
-    }
-    case 'star_file': {
-      const it = setStar(str(input.id), input.starred !== false);
-      if (!it) throw new Error('fichier ou dossier du Drive introuvable');
-      return { item: it.name, starred: input.starred !== false };
-    }
-    case 'set_folder_color': {
-      const f = setFolderColor(str(input.folder), str(input.color));
-      if (!f) throw new Error('dossier du Drive ou couleur introuvable');
-      links.push({ label: f.name, to: linkToDriveFolder(f.id) });
-      return { folder: f.name, color: str(input.color) };
     }
     case 'trash_items': {
       const found = ids(input.ids).flatMap(id => {
@@ -293,12 +328,6 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
       links.push({ label: t('Corbeille'), to: '/corbeille' });
       return list.length ? list : { result: 'la corbeille est vide' };
     }
-    case 'restore_from_trash': {
-      const res = restoreFromTrash(ids(input.ids));
-      if (!res.restored.length) throw new Error('rien trouvé dans la corbeille avec ces id');
-      links.push(...res.links);
-      return { restored: res.restored, missing: res.missing };
-    }
     case 'list_todos': {
       const list = listTodos(input.include_done === true);
       return list.length ? list : { result: 'aucune tâche' };
@@ -307,11 +336,6 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
       if (!str(input.title)) throw new Error('title requis');
       const todo = addTodo(str(input.title), str(input.due) || undefined);
       return { created: todo.title, id: todo.id, due: todo.due };
-    }
-    case 'complete_todo': {
-      const todo = completeTodo(str(input.todo_id), input.done !== false);
-      if (!todo) throw new Error('tâche introuvable');
-      return { todo: todo.title, done: input.done !== false };
     }
     case 'delete_todo': {
       const todo = useTodos.getState().todos.find(x => x.id === str(input.todo_id));
@@ -323,17 +347,6 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
       return { started: startFocus(str(input.subject)) };
     case 'stop_focus':
       return stopFocus() ?? { result: 'aucune session en cours' };
-    case 'update_settings': {
-      const changed = updateSettings({
-        accent: str(input.accent) || undefined,
-        theme: str(input.theme) || undefined,
-        reduceMotion: typeof input.reduce_motion === 'boolean' ? input.reduce_motion : undefined,
-        chattiness: str(input.chattiness) || undefined,
-      });
-      if (!changed) throw new Error('aucun réglage valide fourni');
-      links.push({ label: t('Réglages'), to: '/profil' });
-      return { changed };
-    }
     case 'open_page':
       goTo(str(input.path) || '/');
       return { opened: str(input.path) };
