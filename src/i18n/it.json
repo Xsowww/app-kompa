@@ -1039,6 +1039,7 @@
  "Je ne trouve pas « {subject} » parmi {upcoming}. Quel est son nom dans le calendrier ?": "Non trovo «{subject}» tra {upcoming}. Come si chiama nel calendario?",
  "Je ne trouve rien qui s’appelle « {term} ».": "Non trovo niente che si chiami «{term}».",
  "Je ne vois {none} {big} à venir dans ton calendrier. Ajoute-{it} et je m’occupe du reste.": "Nel tuo calendario, {big} in arrivo: {none}. Aggiungi{it} e al resto penso io.",
+ "Je n’ai pas de réponse cette fois. Tu peux reformuler ?": "Questa volta non ho una risposta. Puoi riformulare?",
  "Je n’ai pas réussi à t’entendre.": "Non sono riuscito a sentirti.",
  "Je n’ai pas tout compris : l’IA n’est pas disponible, je comprends seulement des demandes simples. Essaie par exemple :": "Non ho capito bene: l’IA non è disponibile, capisco solo richieste semplici. Prova per esempio:",
  "Je sais…": "So…",

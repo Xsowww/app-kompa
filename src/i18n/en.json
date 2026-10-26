@@ -1039,6 +1039,7 @@
  "Je ne trouve pas « {subject} » parmi {upcoming}. Quel est son nom dans le calendrier ?": "I can’t find “{subject}” among {upcoming}. What’s it called in the calendar?",
  "Je ne trouve rien qui s’appelle « {term} ».": "I can’t find anything called “{term}”.",
  "Je ne vois {none} {big} à venir dans ton calendrier. Ajoute-{it} et je m’occupe du reste.": "I can see {none} {big} coming up in your calendar. Add {it} and I’ll take care of the rest.",
+ "Je n’ai pas de réponse cette fois. Tu peux reformuler ?": "I don’t have an answer this time. Could you rephrase?",
  "Je n’ai pas réussi à t’entendre.": "I couldn’t hear you.",
  "Je n’ai pas tout compris : l’IA n’est pas disponible, je comprends seulement des demandes simples. Essaie par exemple :": "I didn’t quite get that: the AI isn’t available, so I only understand simple requests. Try for example:",
  "Je sais…": "I can…",

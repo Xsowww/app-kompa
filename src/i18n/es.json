@@ -1039,6 +1039,7 @@
  "Je ne trouve pas « {subject} » parmi {upcoming}. Quel est son nom dans le calendrier ?": "No encuentro «{subject}» entre {upcoming}. ¿Cómo se llama en el calendario?",
  "Je ne trouve rien qui s’appelle « {term} ».": "No encuentro nada que se llame «{term}».",
  "Je ne vois {none} {big} à venir dans ton calendrier. Ajoute-{it} et je m’occupe du reste.": "Busco {big} en tu calendario y no veo {none} a la vista. Añáde{it} y yo me encargo del resto.",
+ "Je n’ai pas de réponse cette fois. Tu peux reformuler ?": "Esta vez no tengo respuesta. ¿Puedes reformularlo?",
  "Je n’ai pas réussi à t’entendre.": "No he conseguido oírte.",
  "Je n’ai pas tout compris : l’IA n’est pas disponible, je comprends seulement des demandes simples. Essaie par exemple :": "No lo he entendido del todo: la IA no está disponible, solo entiendo peticiones sencillas. Prueba por ejemplo:",
  "Je sais…": "Sé…",

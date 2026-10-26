@@ -1039,6 +1039,7 @@
  "Je ne trouve pas « {subject} » parmi {upcoming}. Quel est son nom dans le calendrier ?": "Ich habe {upcoming} durchsucht, aber „{subject}“ nicht gefunden. Wie heißt der Eintrag im Kalender?",
  "Je ne trouve rien qui s’appelle « {term} ».": "Ich finde nichts mit dem Namen „{term}“.",
  "Je ne vois {none} {big} à venir dans ton calendrier. Ajoute-{it} et je m’occupe du reste.": "In deinem Kalender sehe ich {none} anstehende {big}. Trag {it} ein, und ich kümmere mich um den Rest.",
+ "Je n’ai pas de réponse cette fois. Tu peux reformuler ?": "Diesmal habe ich keine Antwort. Kannst du es anders formulieren?",
  "Je n’ai pas réussi à t’entendre.": "Ich konnte dich nicht verstehen.",
  "Je n’ai pas tout compris : l’IA n’est pas disponible, je comprends seulement des demandes simples. Essaie par exemple :": "Das habe ich nicht ganz verstanden: Die KI ist nicht verfügbar, ich verstehe nur einfache Anfragen. Versuch zum Beispiel:",
  "Je sais…": "Ich kann …",

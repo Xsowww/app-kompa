@@ -383,7 +383,12 @@ export async function claudeReply(text: string, userName: string): Promise<BotRe
           .join('\n')
           .trim();
         const unique = links.filter((l, i) => links.findIndex(x => x.to === l.to) === i).slice(0, 4);
-        return { text: answer || (offers.length ? t('Tu confirmes ?') : t('C’est fait.')), links: unique, offers };
+        if (answer) return { text: answer, links: unique, offers };
+        // An empty answer: say so honestly (« done » only when a tool did act), and keep a readable turn in the
+        // history, or every next question would be refused for this empty message.
+        const said = offers.length ? t('Tu confirmes ?') : acted ? t('C’est fait.') : t('Je n’ai pas de réponse cette fois. Tu peux reformuler ?');
+        history[history.length - 1] = { role: 'assistant', content: [{ type: 'text', text: said }] };
+        return { text: said, links: unique, offers };
       }
       const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];
       for (const tu of toolUses) {
