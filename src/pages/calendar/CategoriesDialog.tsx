@@ -99,7 +99,7 @@ function Row({ cat }: { cat: CustomCategory }) {
   const count = events.filter(e => e.category === cat.id).length;
   const remove = async () => {
     const msg = count ? tn(count, 'Son événement passera dans « {category} ».', 'Ses {n} événements passeront dans « {category} ».', { category: CATEGORIES.perso.label }) : t('Aucun événement ne l’utilise.');
-    if (!(await confirmAction(t('Supprimer « {title} » ?', { title: cat.label }), msg, t('Supprimer')))) return;
+    if (!(await confirmAction(t('Supprimer « {title} » ?', { title: cat.label }), msg, t('Supprimer')))) return;
     deleteCategory(cat.id, scope);
     // Its row (and the button the confirmation gave the focus back to) is gone: stay in the dialog.
     setTimeout(() => document.querySelector<HTMLInputElement>('[data-new-category]')?.focus(), 0);

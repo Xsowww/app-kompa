@@ -23,10 +23,11 @@ export function tablesToLines(html: string) {
   const doc = new DOMParser().parseFromString(html, 'text/html');
   for (const table of [...doc.querySelectorAll('table')]) {
     const lines = [...table.querySelectorAll('tr')].flatMap(tr => {
-      const cells = [...tr.children].filter(c => /^T[DH]$/.test(c.tagName)).map(c => (c.textContent ?? '').replace(/\s+/g, ' ').trim()).filter(Boolean);
-      if (!cells.length) return [];
+      const cells = [...tr.children].filter(c => /^T[DH]$/.test(c.tagName)).map(c => (c.textContent ?? '').replace(/\s+/g, ' ').trim());
+      if (!cells.some(Boolean)) return [];
+      // An empty cell keeps its place (« Bob · – · Absent »): the columns stay readable.
       const p = doc.createElement('p');
-      p.textContent = cells.join(' · ');
+      p.textContent = cells.map(c => c || '–').join(' · ');
       return [p];
     });
     table.replaceWith(...lines);

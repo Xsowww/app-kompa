@@ -61,7 +61,41 @@ export function wavSeconds(buf) {
   return (buf.length - 44) / BYTES_PER_SECOND;
 }
 
-/** The same sound as a FLAC file (src/lib/recorder/flac.ts, half the size): its length from STREAMINFO, or null. */
+/** CRC-8 of FLAC frame headers (polynomial 0x07). */
+function crc8(buf, from, to) {
+  let c = 0;
+  for (let i = from; i < to; i++) {
+    c ^= buf[i];
+    for (let k = 0; k < 8; k++) c = c & 0x80 ? ((c << 1) ^ 0x07) & 0xff : (c << 1) & 0xff;
+  }
+  return c;
+}
+
+/** Samples in the frames really present (a decoder reads them all, whatever STREAMINFO says). */
+function frameSamples(buf, start) {
+  let total = 0;
+  for (let i = start; i + 6 < buf.length; i++) {
+    if (buf[i] !== 0xff || (buf[i + 1] & 0xfe) !== 0xf8) continue;
+    const bsCode = buf[i + 2] >> 4, rateCode = buf[i + 2] & 0xf;
+    let j = i + 4;
+    // Frame or sample number, UTF-8 style: its first byte says how many follow.
+    const lead = buf[j];
+    const more = lead < 0x80 ? 0 : lead >= 0xfe ? 6 : lead >= 0xfc ? 5 : lead >= 0xf8 ? 4 : lead >= 0xf0 ? 3 : lead >= 0xe0 ? 2 : lead >= 0xc0 ? 1 : -1;
+    if (more < 0 || bsCode === 0) continue;
+    j += 1 + more;
+    let size = bsCode === 1 ? 192 : bsCode <= 5 ? 576 << (bsCode - 2) : bsCode >= 8 ? 256 << (bsCode - 8) : 0;
+    if (bsCode === 6) size = buf[j++] + 1;
+    else if (bsCode === 7) (size = buf.readUInt16BE(j) + 1), (j += 2);
+    if (rateCode === 12) j += 1;
+    else if (rateCode === 13 || rateCode === 14) j += 2;
+    if (j >= buf.length || crc8(buf, i, j) !== buf[j]) continue;
+    total += size;
+    i = j; // past this header
+  }
+  return total;
+}
+
+/** The same sound as a FLAC file (src/lib/recorder/flac.ts, half the size): its length, or null. */
 export function flacSeconds(buf) {
   if (buf.length < 42 || buf.toString('ascii', 0, 4) !== 'fLaC' || (buf[4] & 0x7f) !== 0) return null;
   const rate = buf.readUInt32BE(18) >>> 12;
@@ -69,9 +103,9 @@ export function flacSeconds(buf) {
   const bits = (((buf[20] & 1) << 4) | (buf[21] >> 4)) + 1;
   const samples = (buf[21] & 0xf) * 2 ** 32 + buf.readUInt32BE(22);
   if (channels !== 1 || rate !== 16_000 || bits !== 16 || !samples) return null;
-  // The header is the sender's word: never count less than the data could hold (speech compresses to ~55 %
-  // of a WAV, noise to ~75 %), or a header saying 0.5 s would carry 90 s past the quota.
-  return Math.max(samples / 16_000, ((buf.length - 42) / BYTES_PER_SECOND) * 1.3);
+  // The header is the sender's word: the frames present are what gets transcribed (and paid), even 10 min
+  // of silence that compresses to almost nothing.
+  return Math.max(samples, frameSamples(buf, 42)) / 16_000;
 }
 
 // What Whisper writes on silence or noise (it learnt them from subtitles): never part of a class.

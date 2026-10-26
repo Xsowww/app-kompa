@@ -193,7 +193,7 @@ export default function PreviewModal({
               <div className="max-h-[82vh] w-[min(860px,92vw)] space-y-4 overflow-auto pb-2">
                 {slides.length === 0 && <p className="text-center text-white/70">{t('Cette présentation ne contient aucune diapositive.')}</p>}
                 {slides.map((s, i) => (
-                  <section key={i} className={`rounded-lg ${OPAQUE} p-6 shadow-2xl break-words md:p-8`}>
+                  <section key={i} className={`rounded-lg ${OPAQUE} p-6 shadow-2xl [overflow-wrap:anywhere] md:p-8`}>
                     <p className="tabular text-[11px] font-medium uppercase tracking-wide text-stone-500">
                       {t('Diapositive {n}/{total}', { n: i + 1, total: slides.length })}
                     </p>

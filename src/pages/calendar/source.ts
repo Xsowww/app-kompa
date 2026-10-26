@@ -101,7 +101,7 @@ export function eventTitle(ev: Pick<CalendarEvent, 'title' | 'people'>, shared: 
  */
 export function confirmRemoveEvent(ev: Pick<CalendarEvent, 'title'>, shared: CalendarSource['shared']): Promise<boolean> {
   if (!shared) return Promise.resolve(true);
-  return confirmAction(t('Supprimer « {title} » ?', { title: ev.title }), t('L’événement disparaît pour tous les membres de « {name} ».', { name: shared.group.name }), t('Supprimer'));
+  return confirmAction(t('Supprimer « {title} » ?', { title: ev.title }), t('L’événement disparaît pour tous les membres de « {name} ».', { name: shared.group.name }), t('Supprimer'));
 }
 
 /** Where periods can be imported from: my own calendar (« perso »), my other shared calendars. */
@@ -124,7 +124,7 @@ export async function askSeriesScope(ev: Pick<CalendarEvent, 'id' | 'series' | '
   if (!next) return 'one';
   const span = isSpan(ev.series);
   const answer = await askChoice(
-    action === 'delete' ? t('Supprimer « {title} » ?', { title: ev.title }) : t('Modifier « {title} »', { title: ev.title }),
+    action === 'delete' ? t('Supprimer « {title} » ?', { title: ev.title }) : t('Modifier « {title} »', { title: ev.title }),
     span ? tn(next, 'Cet événement dure plusieurs jours ({n} jour après celui-ci).', 'Cet événement dure plusieurs jours ({n} jours après celui-ci).') : tn(next, 'Cet événement se répète ({n} fois après celui-ci).||une fois', 'Cet événement se répète ({n} fois après celui-ci).'),
     span ? t('Seulement ce jour') : t('Seulement celui-ci'),
     span ? t('Ce jour et les suivants') : t('Celui-ci et les suivants'),

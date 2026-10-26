@@ -391,7 +391,7 @@ export default function PeriodsDialog({ day, onClose }: { day: string; onClose: 
   }, [canEdit]);
 
   const remove = async (p: Period) => {
-    if (await confirmAction(t('Supprimer « {title} » ?', { title: p.title }), t('Les événements restent.'), t('Supprimer'))) source.removePeriod(p.id);
+    if (await confirmAction(t('Supprimer « {title} » ?', { title: p.title }), t('Les événements restent.'), t('Supprimer'))) source.removePeriod(p.id);
   };
 
   return (

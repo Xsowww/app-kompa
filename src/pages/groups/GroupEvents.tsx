@@ -120,7 +120,7 @@ function EventCard({ group, ev }: { group: Group; ev: GroupEvent }) {
   };
 
   const remove = async () => {
-    if (!(await confirmAction(t('Supprimer « {title} » ?', { title: ev.title }), t('{The} disparaît pour tous les membres {of}.', { The: w.meet.The, of: w.of }), t('Supprimer {the}', { the: w.meet.the })))) return;
+    if (!(await confirmAction(t('Supprimer « {title} » ?', { title: ev.title }), t('{The} disparaît pour tous les membres {of}.', { The: w.meet.The, of: w.of }), t('Supprimer {the}', { the: w.meet.the })))) return;
     try {
       await deleteEvent(ev.id);
       await useGroups.getState().refresh(group.id, ['events']);

@@ -82,6 +82,12 @@ describe('encodeFlac', () => {
     flac.writeUInt32BE(8000, 22); // « 0.5 s »
     expect(flacSeconds(flac)).toBeGreaterThan(1.2); // 3 s of a very regular sound: at least 40 % counted
   });
+  it('10 min of silence under a header saying 0.5 s still counts 10 min (the frames are counted)', async () => {
+    const flac = Buffer.from(await encodeFlac(new Float32Array(16000 * 600)).arrayBuffer());
+    flac.writeUInt32BE(8000, 22);
+    expect(flac.length).toBeLessThan(100_000);
+    expect(flacSeconds(flac)).toBeCloseTo(600, 0);
+  });
   it('refuses what is not a 16 kHz mono FLAC', () => {
     expect(flacSeconds(Buffer.from('RIFF0000WAVEfmt '))).toBeNull();
   });
