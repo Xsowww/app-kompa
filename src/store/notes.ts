@@ -84,7 +84,7 @@ export const useNotes = create<NotesState>()(
 
       createFolder(name, parentId) {
         const taken = get().folders.filter(f => f.parentId === parentId).map(f => f.name);
-        const folder: NoteFolder = { id: uid(), name: uniqueName(name.trim() || t('Nouveau dossier'), taken), parentId, createdAt: nowIso() };
+        const folder: NoteFolder = { id: uid(), name: uniqueName(name.trim() || t('Nouveau dossier'), taken, false), parentId, createdAt: nowIso() };
         set(s => ({ folders: [...s.folders, folder] }));
         return folder;
       },
@@ -93,7 +93,7 @@ export const useNotes = create<NotesState>()(
         if (!name.trim()) return;
         const folder = get().folders.find(f => f.id === id);
         const taken = get().folders.filter(f => f.parentId === folder?.parentId && f.id !== id).map(f => f.name);
-        set(s => ({ folders: s.folders.map(f => (f.id === id ? { ...f, name: uniqueName(name.trim(), taken) } : f)) }));
+        set(s => ({ folders: s.folders.map(f => (f.id === id ? { ...f, name: uniqueName(name.trim(), taken, false) } : f)) }));
       },
 
       setFolderColor(id, color) {
@@ -118,7 +118,7 @@ export const useNotes = create<NotesState>()(
         if (parentId && folderDescendants(folders, id).includes(parentId)) return;
         // Same rule as creating or renaming: no two folders with the same name side by side.
         const taken = folders.filter(f => f.parentId === parentId && f.id !== id).map(f => f.name);
-        const name = uniqueName(folder.name, taken);
+        const name = uniqueName(folder.name, taken, false);
         set(s => ({ folders: s.folders.map(f => (f.id === id ? { ...f, parentId, name } : f)) }));
       },
 
@@ -171,7 +171,7 @@ export const useNotes = create<NotesState>()(
         const placed: NoteFolder[] = [];
         for (const f of get().trashFolders.filter(f => backF.has(f.id))) {
           const parentId = alive(f.parentId) ? f.parentId : null;
-          const name = parentId && backF.has(parentId) ? f.name : uniqueName(f.name, [...folders, ...placed].filter(x => x.parentId === parentId).map(x => x.name));
+          const name = parentId && backF.has(parentId) ? f.name : uniqueName(f.name, [...folders, ...placed].filter(x => x.parentId === parentId).map(x => x.name), false);
           placed.push({ ...strip(f), parentId, name });
         }
         set(s => ({
