@@ -13,7 +13,7 @@ export interface CopilotLink {
 /** A button Kompaly offers (serialisable, executed by copilot/offers.ts). */
 export interface CopilotOffer {
   label: string;
-  kind: 'plan_revisions' | 'revision_note' | 'mark_done' | 'open' | 'confirm_delete';
+  kind: 'plan_revisions' | 'revision_note' | 'mark_done' | 'open' | 'confirm_delete' | 'confirm_change';
   payload?: Record<string, string>;
 }
 

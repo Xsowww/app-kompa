@@ -14,6 +14,9 @@ const studying = () => (getSettings().usage ?? 'etudes') === 'etudes';
 
 const gone = () => (studying() ? t('Je ne retrouve plus cet examen.') : t('Je ne retrouve plus cet événement.'));
 
+/** Set by claudeBrain: makes a change the AI asked for once the student clicked (see confirm_change there). */
+export const pendingChanges: { apply?: (name: string, input: Record<string, unknown>) => OfferResult } = {};
+
 /** What the student did with buttons since the AI last spoke (it doesn't see the clicks otherwise). */
 export const offerLog: string[] = [];
 
@@ -72,6 +75,14 @@ function run(offer: CopilotOffer): OfferResult {
     case 'open':
       goTo(p.to ?? '/');
       return { text: t('C’est ouvert.') };
+    case 'confirm_change': {
+      if (!pendingChanges.apply) return { text: t('Je ne peux plus le faire, redemande-le-moi.') };
+      try {
+        return pendingChanges.apply(p.name ?? '', JSON.parse(p.input ?? '{}') as Record<string, unknown>);
+      } catch (e) {
+        return { text: t('Ça n’a pas marché : {reason}', { reason: (e as Error).message }) };
+      }
+    }
     case 'confirm_delete': {
       // Deletions asked to the AI only happen here, on the student's click (or « oui »).
       const ids = (p.ids ?? '').split(',').filter(Boolean);

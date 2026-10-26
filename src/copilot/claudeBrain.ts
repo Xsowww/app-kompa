@@ -32,7 +32,7 @@ import {
   findItem, linkToItem, itemName, renameItem, moveItem, setStar, setFolderColor, listTrash, restoreFromTrash,
   searchNotes, listTodos, addTodo, completeTodo, startFocus, stopFocus, updateSettings,
 } from './actions';
-import { offerLog } from './offers';
+import { offerLog, pendingChanges } from './offers';
 import { readFileText } from './fileText';
 import type { BotReply } from './localBrain';
 import { aiPausedUntil, pauseAi } from './aiPause';
@@ -108,8 +108,38 @@ const ids = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typ
 /** Deletions wait for the student: a tool call (maybe triggered by text hidden in a file) never deletes by itself. */
 const awaitingClick = (what: string) => ({
   awaiting_confirmation: what,
-  note: "Rien n'est supprimé : un bouton de confirmation est affiché sous ta réponse. Demande-lui de cliquer (ou de répondre « oui »). Ne dis pas que c'est fait.",
+  note: "Rien n'est fait : un bouton de confirmation est affiché sous ta réponse. Demande-lui de cliquer (ou de répondre « oui »). Ne dis pas que c'est fait.",
 });
+
+// Once a file or a note has been read, its text could carry orders (« rename this file… ») the AI might follow.
+// From then on, changes to what already exists wait for a click too, like deletions. Adding stays direct.
+const READS = new Set(['read_file', 'read_note', 'search_notes', 'search_site']);
+const CHANGES = new Set(['update_event', 'append_to_note', 'rename_item', 'move_item', 'star_file', 'set_folder_color', 'restore_from_trash', 'complete_todo', 'update_settings']);
+const hasReadContent = () => history.some(m => m.role === 'assistant' && Array.isArray(m.content) && m.content.some(b => b.type === 'tool_use' && READS.has(b.name)));
+
+/** The button for a change asked after a reading: what it does, in the student's words. */
+function changeLabel(name: string, input: Record<string, unknown>): string {
+  const item = findItem(str(input.id));
+  const named = item ? itemName(item) : '';
+  const ev = useCalendar.getState().events.find(e => e.id === str(input.event_id));
+  const todo = useTodos.getState().todos.find(x => x.id === str(input.todo_id));
+  const note = useNotes.getState().notes.find(n => n.id === str(input.note_id));
+  if (name === 'rename_item' && named) return t('Renommer « {name} » en « {to} »', { name: named, to: str(input.new_name) });
+  if (name === 'move_item' && named) return t('Déplacer « {name} »', { name: named });
+  if (name === 'update_event' && ev) return t('Modifier « {title} »', { title: ev.title });
+  if (name === 'append_to_note' && note) return t('Ajouter du texte à « {title} »', { title: note.title });
+  if (name === 'complete_todo' && todo) return t('Cocher « {title} »', { title: todo.title });
+  if (name === 'restore_from_trash') return t('Restaurer depuis la corbeille');
+  if (name === 'update_settings') return t('Changer les réglages');
+  return t('Oui, fais-le');
+}
+
+pendingChanges.apply = (name, input) => {
+  if (!CHANGES.has(name)) return { text: t('Je ne peux plus le faire, redemande-le-moi.') };
+  const links: CopilotLink[] = [];
+  void runTool(name, input, links, []);
+  return { text: t('C’est fait.'), links };
+};
 
 async function runTool(name: string, input: Record<string, unknown>, links: CopilotLink[], offers: CopilotOffer[]): Promise<unknown> {
   if ('_invalid_arguments' in input) throw new Error('arguments illisibles (JSON invalide), réessaie avec des arguments JSON valides');
@@ -392,6 +422,12 @@ export async function claudeReply(text: string, userName: string): Promise<BotRe
       }
       const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];
       for (const tu of toolUses) {
+        const input = (tu.input ?? {}) as Record<string, unknown>;
+        if (CHANGES.has(tu.name) && hasReadContent()) {
+          offers.push({ label: changeLabel(tu.name, input), kind: 'confirm_change', payload: { name: tu.name, input: JSON.stringify(input) } });
+          results.push({ type: 'tool_result', tool_use_id: tu.id, content: JSON.stringify(awaitingClick(changeLabel(tu.name, input))) });
+          continue;
+        }
         acted = true;
         try {
           const out = await runTool(tu.name, (tu.input ?? {}) as Record<string, unknown>, links, offers);
