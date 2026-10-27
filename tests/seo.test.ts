@@ -28,10 +28,12 @@ describe('what search engines read', () => {
     expect(ld(withHead(html, '/', null))).toMatch(/^Kompaly réunit ton agenda/);
   });
 
-  it('lists every page in every language in the sitemap', () => {
+  it('lists the pages worth finding, in every language, in the sitemap', () => {
     const xml = sitemapXml();
-    expect(xml.match(/<url>/g)).toHaveLength(30); // 6 pages × 5 languages
+    expect(xml.match(/<url>/g)).toHaveLength(10); // home and sign-up × 5 languages
     expect(xml).toContain('<loc>https://kompaly.com/inscription?lang=de</loc>');
+    expect(xml).not.toContain('/connexion');
+    expect(xml).not.toContain('/mentions-legales');
     // The address without ?lang is the same French page: only in the hreflang (x-default), not listed twice.
     expect(xml).not.toContain('<loc>https://kompaly.com/</loc>');
     expect(xml).toContain('hreflang="x-default" href="https://kompaly.com/"');

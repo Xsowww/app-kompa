@@ -74,11 +74,15 @@ export function withHead(html, page, lang) {
 export const robotsTxt = () => `User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: ${siteUrl()}/sitemap.xml\n`;
 
 /**
- * Every public page in every language (?lang=…: the address without it shows the same French page, under
+ * Each listed page in every language (?lang=…: the address without it shows the same French page, under
  * another canonical), each listing its other languages and x-default (what Google asks for hreflang).
  */
+// Only the pages worth finding in a search: sign-in and the legal pages stay reachable, but listing them in
+// 5 languages made Google put the whole site aside (« Détectée, actuellement non indexée »).
+const SITEMAP_PAGES = ['/', '/inscription'];
+
 export function sitemapXml() {
-  const entries = PUBLIC_PAGES.flatMap(page => {
+  const entries = SITEMAP_PAGES.flatMap(page => {
     const links = alternates(page)
       .map(([hl, href]) => `    <xhtml:link rel="alternate" hreflang="${hl}" href="${esc(href)}"/>`)
       .join('\n');
