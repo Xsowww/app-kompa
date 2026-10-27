@@ -146,7 +146,8 @@ const authSettings = () =>
 /** Google and Apple sign-in buttons show only once they are switched on in Supabase (Authentication › Providers). */
 export function oauthProviders(): Promise<OAuthProvider[]> {
   if (!url || !key) return Promise.resolve([]);
-  return authSettings().then(s => (['google', 'apple'] as const).filter(p => s.external?.[p] === true));
+  // shortcut: Apple's button hidden until the Apple Developer account is bought; put 'apple' back in this list then.
+  return authSettings().then(s => (['google'] as const).filter(p => s.external?.[p] === true));
 }
 
 /** Face ID / fingerprint sign-in: switched on in Supabase (Authentication › Passkeys) and possible in this browser. */
