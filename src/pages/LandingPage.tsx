@@ -10,6 +10,9 @@ import { LEGAL_LINKS } from './legal/links';
 import { cx } from '../lib/utils';
 import { t } from '../i18n';
 
+// Kompaly's own accounts; also listed in index.html (sameAs) for Google.
+const SOCIAL_LINKS = [{ label: 'Instagram', href: 'https://www.instagram.com/kompaly_app/' }];
+
 // The public home page (kompaly.com/ for someone not signed in): what Kompaly is, for search engines and newcomers.
 
 const PHRASE = t('Présentation client jeudi 14h important');
@@ -372,6 +375,11 @@ export default function LandingPage() {
             <a href="mailto:contact@kompaly.com" className="hover:text-ink pointer-coarse:py-2">
               contact@kompaly.com
             </a>
+            {SOCIAL_LINKS.map(l => (
+              <a key={l.href} href={l.href} target="_blank" rel="me noopener noreferrer" className="hover:text-ink pointer-coarse:py-2">
+                {l.label}
+              </a>
+            ))}
           </nav>
           <span className="sm:ml-auto">© 2026 Kompaly</span>
         </div>
