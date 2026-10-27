@@ -11,7 +11,10 @@ import { cx } from '../lib/utils';
 import { t } from '../i18n';
 
 // Kompaly's own accounts; also listed in index.html (sameAs) for Google.
-const SOCIAL_LINKS = [{ label: 'Instagram', href: 'https://www.instagram.com/kompaly_app/' }];
+const SOCIAL_LINKS = [
+  { label: 'Instagram', href: 'https://www.instagram.com/kompaly_app/' },
+  { label: 'LinkedIn', href: 'https://www.linkedin.com/company/kompaly/' },
+];
 
 // The public home page (kompaly.com/ for someone not signed in): what Kompaly is, for search engines and newcomers.
 
