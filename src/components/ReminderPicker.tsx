@@ -111,7 +111,7 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
               <button
                 type="button"
                 onClick={() => onChange(value.filter(x => x !== m))}
-                className="hit flex h-6 w-6 items-center justify-center rounded text-brand-600 transition-colors hover:bg-brand-100"
+                className="hit flex h-6 w-6 items-center justify-center rounded-full text-brand-600 transition-colors hover:bg-brand-100"
                 aria-label={t('Retirer le rappel « {reminder} »', { reminder: reminderLabel(m, timed, date, time) })}
               >
                 <X size={13} />

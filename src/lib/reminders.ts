@@ -61,7 +61,8 @@ export function earlyReminders(date: string, time?: string, now?: Date): number[
 export function eventReminders(e: { reminders?: number[]; date?: string; start?: string; externalId?: string; category?: string; important?: boolean }, defaults: number[], now?: Date): number[] {
   if (e.reminders) return e.reminders;
   if (e.externalId) return [];
-  const base = e.start ? defaults : [];
+  // A usual reminder whose moment has already passed (« 1 jour avant » on an event made for today) is left out.
+  const base = e.start ? (now && e.date ? defaults.filter(min => reminderMoment(e.date!, e.start, min) > now) : defaults) : [];
   return e.date && (e.category === 'examen' || e.important) ? (cleanReminders([...base, ...earlyReminders(e.date, e.start, now)]) ?? base) : base;
 }
 

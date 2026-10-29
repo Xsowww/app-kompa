@@ -4,6 +4,7 @@
 // care which provider is behind. Tools run here, on the student's data.
 
 import type Anthropic from '@anthropic-ai/sdk';
+import { create } from 'zustand';
 import { fmt, todayKey } from '../lib/dates';
 import { lang, t, tn } from '../i18n';
 import { useCopilot, type CopilotLink, type CopilotOffer } from '../store/copilot';
@@ -56,6 +57,35 @@ function persona() {
   return { persona, personaNotes: personaNotes.slice(0, 600), lang };
 }
 
+/** Questions asked to the AI today, as the server counts them (the bar in Kompaly's panel). Kept for the day on this device. */
+export interface AiQuota {
+  used: number;
+  max: number;
+  day: string;
+}
+const QUOTA_KEY = 'kompaly-ai-quota';
+function storedQuota(): AiQuota | null {
+  try {
+    const q = JSON.parse(localStorage.getItem(QUOTA_KEY) ?? 'null') as AiQuota | null;
+    return q && q.day === todayKey() ? q : null;
+  } catch {
+    return null;
+  }
+}
+export const useAiQuota = create<{ quota: AiQuota | null }>(() => ({ quota: storedQuota() }));
+function keepQuota(q: unknown) {
+  if (!q || typeof q !== 'object') return;
+  const { used, max } = q as { used?: unknown; max?: unknown };
+  if (typeof used !== 'number' || typeof max !== 'number' || max <= 0) return;
+  const quota = { used, max, day: todayKey() };
+  useAiQuota.setState({ quota });
+  try {
+    localStorage.setItem(QUOTA_KEY, JSON.stringify(quota));
+  } catch {
+    /* private mode: shown until the page closes */
+  }
+}
+
 async function post<T>(path: string, body: unknown, timeoutMs = 90_000): Promise<T> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -68,6 +98,7 @@ async function post<T>(path: string, body: unknown, timeoutMs = 90_000): Promise
       signal: ctrl.signal,
     });
     const data = await res.json().catch(() => ({}));
+    keepQuota(data.quota);
     if (!res.ok) {
       // Quota of the free AI reached: simple mode until the provider accepts requests again.
       if (['rate_limited', 'daily_limit', 'site_limit'].includes(data.error)) pauseAi(Number(data.retryAfter) || 60, data.error === 'daily_limit' ? 'mine' : 'limit');

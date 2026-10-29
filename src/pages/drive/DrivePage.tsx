@@ -533,6 +533,15 @@ export default function DrivePage() {
     if (!selected.has(item.id)) setSelected(new Set([item.id]));
     e.dataTransfer.setData(DRAG_MIME, JSON.stringify(ids));
     e.dataTransfer.effectAllowed = 'copyMove';
+    // The browser's picture of the tile shows the page behind its rounded corners (square corners):
+    // a copy placed off screen, with nothing behind it, keeps them round.
+    const tile = e.currentTarget as HTMLElement;
+    const box = tile.getBoundingClientRect();
+    const ghost = tile.cloneNode(true) as HTMLElement;
+    Object.assign(ghost.style, { position: 'fixed', top: '-10000px', left: '-10000px', width: `${box.width}px`, height: `${box.height}px`, pointerEvents: 'none' });
+    document.body.appendChild(ghost);
+    e.dataTransfer.setDragImage(ghost, e.clientX - box.left, e.clientY - box.top);
+    setTimeout(() => ghost.remove(), 0);
     setDragging(true);
   };
 

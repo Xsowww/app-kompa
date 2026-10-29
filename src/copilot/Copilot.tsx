@@ -460,6 +460,7 @@ export default function Copilot() {
                 Kompaly
               </p>
               <ModeLine ai={aiEnabled} label={providerLabel} until={pausedUntil} now={now} />
+              {aiEnabled && <QuotaBar />}
             </div>
             <button title={wide ? t('Réduire') : t('Agrandir')} aria-label={wide ? t('Réduire') : t('Agrandir')} onClick={() => setWide(w => !w)} className="icon-btn hidden sm:flex" tabIndex={isOpen ? 0 : -1}>
               {wide ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
@@ -601,6 +602,29 @@ export default function Copilot() {
           {!isOpen && <span aria-hidden className="pointer-events-auto absolute inset-y-1 right-0 hidden w-8 pointer-coarse:block" />}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** How many of today's questions to the AI are used: fills up, turns amber near the end, red when none are left. */
+function QuotaBar() {
+  const quota = claudeBrain.useAiQuota(s => s.quota);
+  if (!quota || quota.day !== todayKey()) return null;
+  const share = Math.min(1, quota.used / quota.max);
+  const left = quota.max - quota.used;
+  return (
+    <div className="mt-1 flex items-center gap-2" title={t('Questions à l’IA aujourd’hui : {used} sur {max}. Le compteur repart à zéro à minuit.', { used: quota.used, max: quota.max })}>
+      <div
+        className="h-1.5 w-20 overflow-hidden rounded-full bg-stone-200"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={quota.max}
+        aria-valuenow={quota.used}
+        aria-label={t('Questions à l’IA aujourd’hui')}
+      >
+        <div className={cx('h-full rounded-full transition-[width] duration-300', left <= 0 ? 'bg-red-500' : share >= 0.8 ? 'bg-amber-500' : 'bg-brand-500')} style={{ width: `${share * 100}%` }} />
+      </div>
+      <span className="tabular text-[11px] leading-tight text-stone-500">{t('{used}/{max} questions', { used: quota.used, max: quota.max })}</span>
     </div>
   );
 }

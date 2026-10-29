@@ -150,6 +150,12 @@ export function secondsToParisMidnight() {
   return 86_400 - (h * 3600 + m * 60 + s);
 }
 
+/** Where the person stands today: questions asked and allowed (the bar in Kompaly's panel). */
+export function quotaOf(who, env) {
+  const max = Number(env.AI_DAILY_QUESTIONS) || 30;
+  return { used: quotaDay === parisDay() ? Math.min(max, usage.get(who)?.questions ?? 0) : 0, max };
+}
+
 /** Counts one call. Returns the error code when a limit is reached, else null. */
 export function overQuota(who, question, provider, env) {
   if (quotaDay !== parisDay()) {
@@ -325,11 +331,11 @@ export async function handleCopilot(req, res, env = process.env) {
     }
     const limit = overQuota(who, messages.at(-1) && isQuestion(messages.at(-1)), provider, env);
     if (limit) {
-      send(res, 429, { error: limit, retryAfter: secondsToParisMidnight() });
+      send(res, 429, { error: limit, retryAfter: secondsToParisMidnight(), quota: quotaOf(who, env) });
       return true;
     }
     const response = await chat(provider, { system: chatSystem(body), tools: TOOLS, messages, maxTokens: provider.id === 'anthropic' ? 16000 : 8000 });
-    send(res, 200, response);
+    send(res, 200, { ...response, quota: quotaOf(who, env) });
   } catch (e) {
     if (e instanceof ProviderError) send(res, { timeout: 504, rate_limited: 429, too_large: 413 }[e.code] ?? 502, { error: e.code, status: e.status, retryAfter: e.retryAfter });
     else if (e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError) send(res, 502, { error: 'bad_key' });

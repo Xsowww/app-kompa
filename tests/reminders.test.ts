@@ -99,6 +99,10 @@ describe('rappels des grands jours', () => {
   it('all day: a week before, the day before at 18:00, that day at 9:00', () => {
     expect(eventReminders({ date: '2026-11-20', important: true, category: 'cours' }, [15], now)).toEqual([10080, 900, 0]);
   });
+  it('a usual reminder already past is left out (« 1 jour avant » on an event made for today)', () => {
+    const today = new Date(2026, 9, 29, 14, 0);
+    expect(eventReminders({ date: '2026-10-29', start: '17:00', category: 'perso' }, [1440, 15], today)).toEqual([15]);
+  });
   it('its own reminders, an imported one or an ordinary one: unchanged', () => {
     expect(eventReminders({ date: '2026-11-20', start: '08:00', category: 'examen', reminders: [30] }, [15])).toEqual([30]);
     expect(eventReminders({ date: '2026-11-20', category: 'examen', externalId: 'x' }, [15])).toEqual([]);
