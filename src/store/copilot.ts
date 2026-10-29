@@ -13,7 +13,10 @@ export interface CopilotLink {
 /** A button Kompaly offers (serialisable, executed by copilot/offers.ts). */
 export interface CopilotOffer {
   label: string;
-  kind: 'plan_revisions' | 'revision_note' | 'mark_done' | 'open' | 'confirm_delete' | 'confirm_change';
+  kind:
+    | 'plan_revisions' | 'revision_note' | 'mark_done' | 'open' | 'confirm_delete' | 'confirm_change'
+    // Kompaly's initiatives (proactive.ts): done on the click, without the AI, except « ask » (a question sent to the AI).
+    | 'add_todo' | 'create_note' | 'add_reminder' | 'rehearse' | 'spread_todos' | 'start_focus' | 'ack' | 'ask';
   payload?: Record<string, string>;
 }
 
@@ -51,6 +54,9 @@ interface CopilotState {
   memory: Record<string, number>;
   /** the last proposal made, so that a plain "oui" can accept it */
   pendingOffer: CopilotOffer | null;
+  /** A question a button asks Kompaly for the student (« Fais une fiche de… »): the chat opens and sends it. */
+  ask: string | null;
+  askKompaly: (question: string | null) => void;
   push: (role: CopilotMessage['role'], text: string, extra?: Partial<Pick<CopilotMessage, 'links' | 'offers' | 'proactive' | 'brief'>>) => void;
   setPose: (pose: CopilotPose) => void;
   say: (bubble: Bubble) => void;
@@ -79,6 +85,8 @@ export const useCopilot = create<CopilotState>()(
       offsetY: 0.62,
       memory: {},
       pendingOffer: null,
+      ask: null,
+      askKompaly: question => set({ ask: question }),
 
       push: (role, text, extra = {}) =>
         set(s => ({

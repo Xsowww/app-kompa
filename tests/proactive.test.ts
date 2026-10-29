@@ -46,7 +46,7 @@ describe('periodic remarks', () => {
 
   it('says nothing when everything has already been said', () => {
     useCalendar.setState({ events: [ev('exam', 'Partiel de droit', day(4), 'examen')] });
-    useCopilot.setState({ memory: { 'exam-soon:exam': Date.now() } });
+    useCopilot.setState({ memory: { 'exam-soon:exam': Date.now(), [`focus-nudge:${day(0)}`]: Date.now() } });
     expect(nextNudge(noon())).toBeUndefined();
   });
 
@@ -79,5 +79,18 @@ describe('pause of the AI', () => {
     expect(describeApiError(new CopilotApiError('rate_limited'))).toContain('mode simple une minute');
     pauseAi(300);
     expect(describeApiError(new CopilotApiError('rate_limited'))).toContain('mode simple 5 minutes');
+  });
+});
+
+describe('initiatives from what the events are', () => {
+  it('a birthday in three days: the gift, unless one is already in the tasks', async () => {
+    const { useTodos } = await import('../src/store/todos');
+    useTodos.setState({ todos: [] });
+    useCalendar.setState({ events: [{ id: 'bday', title: 'Anniversaire de Léa', date: day(3), category: 'perso', done: false, createdAt: '2026-10-01T00:00:00Z' }] });
+    const n = nextNudge(noon());
+    expect(n?.key).toBe('gift:bday');
+    expect(n?.offers?.[0]).toMatchObject({ kind: 'add_todo', payload: { title: 'Acheter un cadeau pour Léa', due: day(2) } });
+    useTodos.setState({ todos: [{ id: 't', title: 'Acheter un cadeau pour Léa', done: false, createdAt: new Date().toISOString() }] });
+    expect(nextNudge(noon())).toBeUndefined();
   });
 });

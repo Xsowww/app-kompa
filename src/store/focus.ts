@@ -5,7 +5,7 @@ import { getSettings, useSettings } from './settings';
 import { useCopilot } from './copilot';
 import { notify, chime } from '../lib/notify';
 import { useFocusLog } from './focusLog';
-import { t, tn } from '../i18n';
+import { lang, t, tn } from '../i18n';
 
 export type FocusPhase = 'focus' | 'break';
 
@@ -102,7 +102,9 @@ export const useFocus = create<FocusState>()(
                   ? tn(pause, 'Session terminée sur «\u00a0{label}\u00a0». Tu as mérité ta pause de {n}\u00a0minute.', 'Session terminée sur «\u00a0{label}\u00a0». Tu as mérité ta pause de {n}\u00a0minutes.', { label: s.label })
                   : tn(pause, 'Session terminée. Tu as mérité ta pause de {n}\u00a0minute.', 'Session terminée. Tu as mérité ta pause de {n}\u00a0minutes.'),
               ]);
-          useCopilot.getState().say({ text, mood: 'happy' });
+          // 12. A button to write down what was done, while it is fresh.
+          const note = s.label ? t('Session focus — {label}', { label: s.label }) : t('Session focus du {date}', { date: new Date().toLocaleDateString(lang) });
+          useCopilot.getState().say({ text, mood: 'happy', offers: [{ label: t('Noter ce que j’ai fait'), kind: 'create_note', payload: { title: note, content: t('Ce que j’ai fait :\n- \n\nCe qu’il reste :\n- ') } }] });
           notify(t('Session terminée'), late ? tn(breakLeft, 'Il reste {n}\u00a0minute de pause.', 'Il reste {n}\u00a0minutes de pause.') : tn(pause, 'Pause de {n}\u00a0minute.', 'Pause de {n}\u00a0minutes.'));
           set({ phase: 'break', endsAt: breakEndsAt, minutes: settings.breakMinutes });
         } else {

@@ -4,8 +4,10 @@ import { useCopilot, type CopilotOffer, type CopilotLink } from '../store/copilo
 import { useCalendar } from '../store/calendar';
 import { useTodos } from '../store/todos';
 import type { Note } from '../store/notes';
-import { alreadyPlanned, createRevisionNote, hasRevisionPlan, planRevisions, goTo, linkToNote, linkToDay, deleteEvent, trashItems, openNoteLabel } from './actions';
-import { fmt, fromKey } from '../lib/dates';
+import { alreadyPlanned, createRevisionNote, hasRevisionPlan, planRevisions, goTo, linkToNote, linkToDay, deleteEvent, trashItems, openNoteLabel, createNote, addTodo, startFocus } from './actions';
+import { fmt, fromKey, toKey, todayKey } from '../lib/dates';
+import { cleanReminders, offsetLabel } from '../lib/reminders';
+import { addDays } from 'date-fns';
 import { getSettings } from '../store/settings';
 import { t, tn } from '../i18n';
 
@@ -83,6 +85,45 @@ function run(offer: CopilotOffer): OfferResult {
         return { text: t('Ça n’a pas marché : {reason}', { reason: (e as Error).message }) };
       }
     }
+    case 'add_todo': {
+      const todo = addTodo(p.title ?? '', p.due);
+      return { text: t('Tâche « {title} » ajoutée.', { title: todo.title }), links: [{ label: t('Voir mes tâches'), to: '/taches' }] };
+    }
+    case 'create_note': {
+      const note = createNote(p.title || t('Note'), p.content ?? '');
+      return { text: t('Note « {title} » prête.', { title: note.title }), links: [{ label: t('Ouvrir la note « {name} »', { name: note.title }), to: linkToNote(note.id) }] };
+    }
+    case 'add_reminder': {
+      const ev = useCalendar.getState().events.find(e => e.id === p.eventId);
+      if (!ev) return { text: t('Introuvable, il a dû être supprimé.') };
+      const minutes = Number(p.minutes) || 60;
+      useCalendar.getState().update(ev.id, { reminders: cleanReminders([...(ev.reminders ?? []), minutes]) });
+      return { text: t('C’est noté : je te préviens {when} « {title} ».', { when: offsetLabel(minutes), title: ev.title }), links: [{ label: t('Voir le jour'), to: linkToDay(ev.date, ev.id) }] };
+    }
+    case 'rehearse': {
+      // Two rehearsals at 18:00, the two days before (only those still to come).
+      const ev = useCalendar.getState().events.find(e => e.id === p.eventId);
+      if (!ev) return { text: gone() };
+      const days = [2, 1].map(n => toKey(addDays(fromKey(ev.date), -n))).filter(d => d > todayKey() || (d === todayKey() && new Date().getHours() < 17));
+      if (!days.length) return { text: t('Plus le temps de caler une répétition avant : bon courage pour « {title} » !', { title: ev.title }) };
+      for (const date of days) useCalendar.getState().add({ title: t('Répétition — {title}', { title: ev.title }), date, start: '18:00', end: '18:45', category: 'perso' });
+      return { text: tn(days.length, '{n} répétition calée avant « {title} ».', '{n} répétitions calées avant « {title} ».', { title: ev.title }), links: [{ label: t('Voir le planning'), to: linkToDay(days[0]) }] };
+    }
+    case 'spread_todos': {
+      // The tasks without a date, two a day from tomorrow, oldest first.
+      const todos = useTodos.getState().todos.filter(x => !x.done && !x.due).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+      todos.forEach((x, i) => useTodos.getState().update(x.id, { due: toKey(addDays(new Date(), 1 + Math.floor(i / 2))) }));
+      return { text: tn(todos.length, '{n} tâche a maintenant une date.', '{n} tâches ont maintenant une date, deux par jour à partir de demain.'), links: [{ label: t('Voir mes tâches'), to: '/taches' }] };
+    }
+    case 'start_focus': {
+      const res = startFocus(p.subject ?? '');
+      return { text: t('Session focus de {n} min lancée. Je ne te dérange plus.', { n: res.minutes }) };
+    }
+    case 'ack':
+      return { text: p.text || t('Parfait.') };
+    case 'ask':
+      // Sent by the chat itself (acceptOffer): here only when there is no AI to ask.
+      return { text: t('Pour ça, il me faut l’IA : elle n’est pas disponible pour le moment.') };
     case 'confirm_delete': {
       // Deletions asked to the AI only happen here, on the student's click (or « oui »).
       const ids = (p.ids ?? '').split(',').filter(Boolean);
@@ -105,6 +146,11 @@ function run(offer: CopilotOffer): OfferResult {
 /** Runs an offer from a button (or a "oui") and reports back in the conversation. */
 export function acceptOffer(offer: CopilotOffer, rest: CopilotOffer[] = []) {
   const cop = useCopilot.getState();
+  // A question for the AI: the chat opens and sends it as the student's own message.
+  if (offer.kind === 'ask' && offer.payload?.prompt && cop.aiEnabled) {
+    cop.askKompaly(offer.payload.prompt);
+    return { text: '' };
+  }
   cop.push('user', offer.label);
   const reply = runOffer(offer);
   if (useCopilot.getState().pose === 'open') cop.push('bot', reply.text, { links: reply.links, ...(rest.length && { offers: rest }) });

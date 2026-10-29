@@ -20,6 +20,9 @@ import { notify } from '../lib/notify';
 import { usageWords } from '../lib/usage';
 import { isSessionTitle } from './revisionPlan';
 import { t, tn } from '../i18n';
+import { useAgendaNews } from '../store/agendaNews';
+import { normalize } from '../lib/utils';
+import { eventKind, birthdayOf, hasAddress, overlapping, looksRecurring, hasActionItems, isGroupProject } from './initiatives';
 
 /** minimum delay between two spontaneous remarks, depending on the student's preference */
 const MIN_GAP = { calme: 20 * 60_000, normal: 5 * 60_000, bavard: 2 * 60_000 };
@@ -125,7 +128,67 @@ function bigEventFallback(e: CalendarEvent, d: number) {
       ]);
 }
 
+/** A button that asks the AI (only when there is one: the simple mode couldn't answer it). */
+const ask = (label: string, prompt: string): CopilotOffer[] => (useCopilot.getState().aiEnabled ? [{ label, kind: 'ask', payload: { prompt } }] : []);
+const atTime = (e: CalendarEvent) => (e.start ? t(' à {time}', { time: e.start.replace(':', 'h') }) : '');
+
 // ── Reactions to what the student does ──────────────────────────────────────
+
+/** An ordinary event just added (not a big day): a clash, a rehearsal to plan, when to leave, a habit to repeat. */
+function onOrdinaryEventAdded(e: CalendarEvent) {
+  if (hasStarted(e) || /^r[ée]p[ée]tition\b/i.test(e.title)) return;
+  const events = useCalendar.getState().events;
+  const d = daysUntil(e.date);
+  const clash = overlapping(e, events);
+  if (clash.length) {
+    void nudge({
+      key: `overlap:${e.id}`,
+      every: 365 * DAY,
+      urgent: true,
+      situation: { evenement: "l'utilisateur vient d'ajouter un événement qui tombe en même temps qu'un autre", ajoute: e.title, deja_prevu: clash.map(o => `${o.title} à ${o.start}`), quand: when(e) },
+      fallback: t('« {title} » tombe en même temps que « {other} », {when}.', { title: e.title, other: clash[0].title, when: when(e) }),
+      links: [{ label: t('Voir le jour'), to: linkToDay(e.date, e.id) }],
+      mood: 'alert',
+    });
+    return;
+  }
+  if (eventKind(e) === 'presentation' && d >= 2) {
+    void nudge({
+      key: `rehearse:${e.id}`,
+      every: 365 * DAY,
+      urgent: true,
+      situation: { evenement: "l'utilisateur vient d'ajouter une présentation ou un oral", titre: e.title, quand: when(e), jours_restants: d },
+      fallback: t('« {title} » {when}. Je te cale deux répétitions avant ?', { title: e.title, when: inDays(d) }),
+      offers: [{ label: t('Caler deux répétitions'), kind: 'rehearse', payload: { eventId: e.id } }],
+    });
+    return;
+  }
+  if (hasAddress(e) && e.start && !(e.reminders ?? []).some(m => m >= 45)) {
+    void nudge({
+      key: `leave:${e.id}`,
+      every: 365 * DAY,
+      urgent: true,
+      situation: { evenement: "l'utilisateur vient d'ajouter un rendez-vous à une adresse : demande-lui s'il veut être prévenu à l'heure de partir", titre: e.title, quand: when(e) },
+      fallback: t('« {title} » {when} : je te préviens à l’heure de partir ?', { title: e.title, when: when(e) }),
+      offers: [
+        { label: t('Me prévenir 1 h avant'), kind: 'add_reminder', payload: { eventId: e.id, minutes: '60' } },
+        { label: t('Me prévenir 30 min avant'), kind: 'add_reminder', payload: { eventId: e.id, minutes: '30' } },
+      ],
+    });
+    return;
+  }
+  if (looksRecurring(e, events)) {
+    void nudge({
+      key: `recurring:${normalize(e.title)}`,
+      every: 90 * DAY,
+      urgent: true,
+      situation: { evenement: "l'utilisateur ajoute à la main, chaque semaine, le même événement au même horaire : propose d'en faire un événement qui se répète", titre: e.title },
+      fallback: t('« {title} » revient chaque semaine à la même heure : tu veux qu’il se répète tout seul ?', { title: e.title }),
+      links: [{ label: t('Ouvrir pour le répéter'), to: linkToDay(e.date, e.id) }],
+    });
+  }
+}
+
 
 function onEventAdded(e: CalendarEvent) {
   if (isSessionTitle(e.title)) return; // created by Kompaly himself
@@ -142,14 +205,18 @@ function onEventAdded(e: CalendarEvent) {
       fallback: bigEventFallback(e, d),
       offers: examOffers(e),
     });
-  } else if (isDeliverable(e) && daysUntil(e.date) <= 1 && !isOver(e)) {
+    return;
+  }
+  if (isDeliverable(e) && daysUntil(e.date) <= 1 && !isOver(e)) {
     void nudge({
       key: `hw-added:${e.id}`,
       every: 365 * DAY,
       situation: { evenement: "l'étudiant ajoute un devoir à rendre très bientôt", devoir: e.title, quand: when(e) },
       fallback: daysUntil(e.date) === 0 ? t('« {title} » pour aujourd’hui. Courage !', { title: e.title }) : t('« {title} » pour demain. Courage !', { title: e.title }),
     });
+    return;
   }
+  onOrdinaryEventAdded(e);
 }
 
 function onEventDone(e: CalendarEvent) {
@@ -173,8 +240,25 @@ function onEventDone(e: CalendarEvent) {
   }
 }
 
-function onFilesUploaded(count: number) {
+function onFilesUploaded(count: number, added: { id: string; name: string }[]) {
   const files = useDrive.getState().items.filter(i => i.kind === 'file');
+  const pdf = added.length <= 3 ? added.find(f => /\.pdf$/i.test(f.name)) : undefined;
+  if (files.length !== count && pdf && useCopilot.getState().aiEnabled) {
+    void nudge({
+      key: `pdf:${pdf.id}`,
+      every: 365 * DAY,
+      urgent: true,
+      situation: { evenement: "l'utilisateur vient d'ajouter un PDF dans son Drive : propose d'en faire une fiche ou un quiz (ou un résumé hors études)", fichier: pdf.name },
+      fallback: studying() ? t('« {name} » est dans ton Drive. Je t’en fais une fiche ou un quiz ?', { name: pdf.name }) : t('« {name} » est dans ton Drive. Je t’en fais un résumé ?', { name: pdf.name }),
+      offers: studying()
+        ? [
+            ...ask(t('Faire une fiche'), t('Lis le fichier « {name} » de mon Drive et fais-en une fiche de révision claire dans mes notes.', { name: pdf.name })),
+            ...ask(t('Faire un quiz'), t('Lis le fichier « {name} » de mon Drive et crée une note avec un quiz de 10 questions pour le réviser.', { name: pdf.name })),
+          ]
+        : ask(t('Faire un résumé'), t('Lis le fichier « {name} » de mon Drive et fais-en un résumé en points clés dans mes notes.', { name: pdf.name })),
+    });
+    return;
+  }
   if (files.length === count) {
     void nudge({
       key: 'first-upload',
@@ -274,6 +358,162 @@ export function periodicNudges(now = new Date()): Nudge[] {
       situation: { evenement: 'une note créée il y a plusieurs jours est toujours vide', note: empty.title },
       fallback: t('Ta note « {title} » est vide depuis un moment.', { title: empty.title }),
       links: [{ label: t('Ouvrir la note'), to: linkToNote(empty.id) }],
+    });
+  }
+  out.push(...otherNudges(now, events));
+  return out;
+}
+
+/** Birthdays, meetings, appointments, trips, a full day, tasks left waiting, the Drive and notes, group work. */
+function otherNudges(now: Date, events: CalendarEvent[]): Nudge[] {
+  const out: Nudge[] = [];
+  const today = toKey(now);
+  const tomorrow = toKey(addDays(now, 1));
+  const h = now.getHours();
+  const ahead = events.filter(e => !e.done && !e.deletedAt && e.date >= today);
+  const todos = useTodos.getState().todos;
+  const taskTitles = [...todos.map(x => normalize(x.title)), ...events.map(e => normalize(e.title))];
+
+  // 1. A birthday in the next days, and no gift in the tasks or the calendar
+  for (const b of ahead.filter(e => eventKind(e) === 'anniversaire' && daysUntil(e.date) >= 1 && daysUntil(e.date) <= 5)) {
+    const who = birthdayOf(b.title);
+    if (taskTitles.some(x => /cadeau/.test(x) && (!who || x.includes(normalize(who))))) continue;
+    const eve = toKey(addDays(fromKey(b.date), -1));
+    out.push({
+      key: `gift:${b.id}`,
+      every: 365 * DAY,
+      situation: { evenement: 'un anniversaire approche : demande gentiment si le cadeau est trouvé', anniversaire: b.title, quand: when(b) },
+      fallback: who ? t('L’anniversaire de {who} {when}. Tu as trouvé un cadeau ?', { who, when: inDays(daysUntil(b.date)) }) : t('« {title} » {when}. Tu as pensé au cadeau ?', { title: b.title, when: inDays(daysUntil(b.date)) }),
+      offers: [
+        { label: t('Ajouter « acheter un cadeau »'), kind: 'add_todo', payload: { title: who ? t('Acheter un cadeau pour {who}', { who }) : t('Acheter un cadeau ({title})', { title: b.title }), due: eve > today ? eve : today } },
+        { label: t('C’est déjà fait'), kind: 'ack', payload: { text: t('Parfait, une chose de moins !') } },
+      ],
+    });
+  }
+
+  // 2. A meeting tomorrow: an agenda to prepare
+  const meeting = ahead.find(e => e.date === tomorrow && eventKind(e) === 'reunion');
+  if (meeting && h >= 14) {
+    out.push({
+      key: `agenda-note:${meeting.id}`,
+      every: 365 * DAY,
+      situation: { evenement: 'réunion demain : propose de préparer un ordre du jour', reunion: meeting.title, quand: when(meeting) },
+      fallback: t('Demain{time}, « {title} ». Je te prépare une note pour l’ordre du jour ?', { title: meeting.title, time: atTime(meeting) }),
+      offers: [{ label: t('Préparer l’ordre du jour'), kind: 'create_note', payload: { title: t('Ordre du jour — {title}', { title: meeting.title }), content: t('Objectif :\n\nPoints à aborder :\n- \n- \n\nQuestions à poser :\n- \n\nDécisions et suites :\n- ') } }],
+    });
+  }
+
+  // 4. A medical appointment tomorrow: the papers to bring
+  const medical = ahead.find(e => e.date === tomorrow && eventKind(e) === 'medical');
+  if (medical && h >= 17) {
+    out.push({
+      key: `medical:${medical.id}`,
+      every: 365 * DAY,
+      situation: { evenement: 'rendez-vous médical demain : rappelle la carte Vitale et les papiers', rendez_vous: medical.title, quand: when(medical) },
+      fallback: t('Demain{time}, « {title} ». Pense à ta carte Vitale et à ta mutuelle.', { title: medical.title, time: atTime(medical) }),
+      mood: 'happy',
+    });
+  }
+
+  // 5. A trip in the next days: what to pack, the tickets
+  const trip = ahead.find(e => eventKind(e) === 'voyage' && daysUntil(e.date) >= 1 && daysUntil(e.date) <= 4);
+  if (trip) {
+    out.push({
+      key: `trip:${trip.id}`,
+      every: 365 * DAY,
+      situation: { evenement: 'un voyage ou un déplacement approche : propose une liste de choses à emporter et de vérifier les billets', voyage: trip.title, quand: when(trip) },
+      fallback: t('« {title} » {when}. Je te fais une liste de choses à emporter ?', { title: trip.title, when: inDays(daysUntil(trip.date)) }),
+      offers: [
+        { label: t('Faire la liste à emporter'), kind: 'create_note', payload: { title: t('À emporter — {title}', { title: trip.title }), content: t('Papiers :\n- Pièce d’identité\n- Billets et réservations\n- Carte bancaire\n\nAffaires :\n- Chargeur de téléphone\n- Vêtements\n- Trousse de toilette\n- Médicaments\n\nAvant de partir :\n- Vérifier l’horaire de départ\n- ') } },
+        ...ask(t('Vérifier mes billets'), t('Est-ce que j’ai mes billets ou mes réservations pour « {title} » dans mon Drive ?', { title: trip.title })),
+      ],
+    });
+  }
+
+  // 9. Tomorrow is full
+  const full = ahead.filter(e => e.date === tomorrow);
+  if (full.length >= 5 && h >= 17) {
+    out.push({
+      key: `busy:${tomorrow}`,
+      every: DAY,
+      situation: { evenement: 'la journée de demain est très chargée', nombre: full.length, demain: full.map(e => `${e.title}${e.start ? ` ${e.start}` : ''}`) },
+      fallback: tn(full.length, 'Demain, {n} chose prévue.', 'Demain, {n} choses prévues : grosse journée. On regarde ce qu’on peut alléger ?'),
+      offers: ask(t('Alléger ma journée'), t('Ma journée de demain est chargée : propose-moi ce que je peux décaler ou faire avant.')),
+      links: [{ label: t('Voir demain'), to: linkToDay(tomorrow) }],
+    });
+  }
+
+  // 10. A task waiting for more than a week
+  const stale = todos.filter(x => !x.done && (!x.due || x.due < today) && now.getTime() - new Date(x.createdAt).getTime() > 7 * DAY).sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0];
+  if (stale) {
+    out.push({
+      key: `stale:${stale.id}`,
+      every: 7 * DAY,
+      situation: { evenement: 'une tâche attend depuis plus d’une semaine : propose de la découper en petites étapes', tache: stale.title },
+      fallback: t('« {title} » attend depuis plus d’une semaine. On la découpe en petites étapes ?', { title: stale.title }),
+      offers: ask(t('Découper en étapes'), t('Découpe la tâche « {title} » en 3 petites étapes et ajoute-les à mes tâches.', { title: stale.title })),
+      links: [{ label: t('Voir mes tâches'), to: '/taches' }],
+    });
+  }
+
+  // 11. Many tasks without a date
+  const undated = todos.filter(x => !x.done && !x.due);
+  if (undated.length >= 5) {
+    out.push({
+      key: `spread:${toKey(weekStart(now))}`,
+      every: 7 * DAY,
+      situation: { evenement: 'beaucoup de tâches sans date : propose de les répartir sur les prochains jours', nombre: undated.length },
+      fallback: t('{n} tâches n’ont pas de date. Je les répartis sur les prochains jours ?', { n: undated.length }),
+      offers: [{ label: t('Les répartir'), kind: 'spread_todos' }],
+    });
+  }
+
+  // 13. A big day this week and no focus session for three days
+  const soon = ahead.filter(e => big(e) && daysUntil(e.date) >= 1 && daysUntil(e.date) <= 7).sort(sortEvents)[0];
+  const lastFocus = Math.max(0, ...useFocusLog.getState().sessions.map(x => new Date(x.startedAt).getTime()));
+  if (soon && h >= 9 && h < 20 && now.getTime() - lastFocus > 3 * DAY) {
+    out.push({
+      key: `focus-nudge:${today}`,
+      every: 2 * DAY,
+      situation: { evenement: 'un grand jour approche et aucune session focus depuis plusieurs jours : propose d’en lancer une', titre: soon.title, jours_restants: daysUntil(soon.date) },
+      fallback: t('« {title} » {when}. Une session focus de {n} min maintenant ?', { title: soon.title, when: inDays(daysUntil(soon.date)), n: getSettings().focusMinutes }),
+      offers: [{ label: t('Lancer une session focus'), kind: 'start_focus', payload: { subject: soon.title } }],
+    });
+  }
+
+  // 16. Loose files at the root of the Drive
+  const loose = useDrive.getState().items.filter(i => i.kind === 'file' && !i.parentId);
+  if (loose.length >= 10 && useCopilot.getState().aiEnabled) {
+    out.push({
+      key: 'tidy-drive',
+      every: 30 * DAY,
+      situation: { evenement: 'beaucoup de fichiers en vrac à la racine du Drive : propose de les ranger', nombre: loose.length },
+      fallback: t('{n} fichiers sont en vrac à la racine de ton Drive. Je les range dans des dossiers ?', { n: loose.length }),
+      offers: ask(t('Ranger mon Drive'), t('Range les fichiers à la racine de mon Drive dans des dossiers par thème (crée les dossiers qu’il faut).')),
+    });
+  }
+
+  // 17. A recent note with things to do in it
+  const actions = useNotes.getState().notes.find(n => now.getTime() - new Date(n.updatedAt ?? n.createdAt).getTime() < 2 * DAY && hasActionItems(n.content));
+  if (actions && useCopilot.getState().aiEnabled) {
+    out.push({
+      key: `note-actions:${actions.id}`,
+      every: 30 * DAY,
+      situation: { evenement: 'une note récente contient des choses à faire : propose d’en faire des tâches', note: actions.title },
+      fallback: t('Ta note « {title} » contient des choses à faire. J’en fais des tâches ?', { title: actions.title }),
+      offers: ask(t('En faire des tâches'), t('Lis la note « {title} » et ajoute à mes tâches les choses à faire qu’elle contient.', { title: actions.title })),
+    });
+  }
+
+  // 19. A group project coming: share out the work
+  const project = ahead.find(e => isGroupProject(e.title) && daysUntil(e.date) >= 2 && daysUntil(e.date) <= 10);
+  if (project && useCopilot.getState().aiEnabled) {
+    out.push({
+      key: `group-split:${project.id}`,
+      every: 365 * DAY,
+      situation: { evenement: 'un projet de groupe approche : propose de répartir le travail', projet: project.title, quand: when(project) },
+      fallback: t('« {title} » {when}. On répartit le travail du groupe ?', { title: project.title, when: inDays(daysUntil(project.date)) }),
+      offers: ask(t('Répartir le travail'), t('Pour « {title} », crée une note qui répartit le travail entre les membres du groupe, avec une étape et une date pour chacun.', { title: project.title })),
     });
   }
   return out;
@@ -476,9 +716,41 @@ export function startProactive() {
     }),
     useDrive.subscribe((s, prev) => {
       const added = s.items.filter(i => i.kind === 'file').length - prev.items.filter(i => i.kind === 'file').length;
-      if (added > 0) onFilesUploaded(added);
+      if (added > 0) {
+        const before = new Set(prev.items.map(i => i.id));
+        onFilesUploaded(added, s.items.filter(i => i.kind === 'file' && !before.has(i.id)).map(i => ({ id: i.id, name: i.name })));
+      }
+    }),
+    // 18. Something new in a shared calendar (added by the others)
+    useAgendaNews.subscribe((s, prev) => {
+      const sum = (n: Record<string, number>) => Object.values(n).reduce((a, b) => a + b, 0);
+      if (sum(s.news) <= sum(prev.news)) return;
+      void nudge({
+        key: `agenda-news:${todayKey()}`,
+        every: 6 * HOUR,
+        situation: { evenement: 'quelqu’un a ajouté ou changé quelque chose dans un agenda partagé de l’utilisateur', nouveautes: sum(s.news) },
+        fallback: t('Du nouveau dans un de tes agendas partagés.'),
+        links: [{ label: t('Voir les agendas partagés'), to: '/agendas' }],
+      });
     }),
   ];
+  // 15. A recording just finished: the dates and tasks said in it
+  void import('../store/recorder').then(({ useRecorder }) =>
+    unsubs.push(
+      useRecorder.subscribe((s, prev) => {
+        const done = s.history[0];
+        if (!done || prev.history[0]?.id === done.id || !useCopilot.getState().aiEnabled) return;
+        void nudge({
+          key: `rec:${done.id}`,
+          every: 365 * DAY,
+          urgent: true,
+          situation: { evenement: 'un enregistrement vient d’être rangé dans le Drive : propose d’ajouter les dates et tâches qui y sont mentionnées', titre: done.title },
+          fallback: t('« {title} » est rangé. J’ajoute à ton agenda les dates et les tâches qui y sont mentionnées ?', { title: done.title }),
+          offers: ask(t('Ajouter dates et tâches'), t('Lis le document de l’enregistrement « {title} » dans mon Drive et ajoute à mon agenda et à mes tâches ce qui y est prévu (dates, choses à faire).', { title: done.title })),
+        });
+      }),
+    ),
+  );
   const greetTimer = setTimeout(greet, 1500);
   const first = setTimeout(periodicCheck, 25_000);
   const interval = setInterval(periodicCheck, 2 * 60_000);

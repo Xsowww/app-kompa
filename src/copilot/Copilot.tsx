@@ -366,7 +366,12 @@ export default function Copilot() {
     const pending = useCopilot.getState().pendingOffer;
     push('user', clean);
 
-    // "oui" to his last proposal → just do it
+    // "oui" to his last proposal → just do it (a question for the AI: asked right after)
+    if (pending?.kind === 'ask' && pending.payload?.prompt && aiEnabled && (isYes(normalize(clean)) || /^(avec plaisir|je veux bien|volontiers)$/.test(normalize(clean)))) {
+      useCopilot.setState({ pendingOffer: null });
+      setTimeout(() => void send(pending.payload!.prompt), 0);
+      return;
+    }
     if (pending && (isYes(normalize(clean)) || /^(avec plaisir|je veux bien|volontiers)$/.test(normalize(clean)))) {
       const r = runOffer(pending);
       push('bot', r.text, { links: r.links });
@@ -398,6 +403,17 @@ export default function Copilot() {
     push('bot', reply.text, { links: reply.links, offers: reply.offers });
     speak(reply.text);
   }
+
+  // A button of a remark asked Kompaly something (« Fais une fiche de… »): the chat opens and sends it.
+  const asked = useCopilot(s => s.ask);
+  useEffect(() => {
+    if (!asked || thinking) return;
+    useCopilot.getState().askKompaly(null);
+    clearBubble();
+    setPose('open');
+    void send(asked);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- send reads the latest state itself
+  }, [asked, thinking]);
 
   // Talking instead of typing: words appear as they're recognised, sent at the end.
   const dictation = useDictation(setInput, said => void send(said));
