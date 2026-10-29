@@ -158,8 +158,8 @@ export function overQuota(who, question, provider, env) {
     siteCalls = 0;
   }
   const perStudent = Number(env.AI_DAILY_QUESTIONS) || 30;
-  // Default site ceiling: Groq's free tier, or ~100 € a month of Claude (a question is 2-3 calls). AI_DAILY_BUDGET overrides.
-  const site = Number(env.AI_DAILY_BUDGET) || (provider.id === 'groq' ? 900 : provider.id === 'anthropic' ? 250 : Infinity);
+  // Default site ceiling: Groq's free tier, or well under 100 $ a month of Claude Haiku (a question is 2-3 calls). AI_DAILY_BUDGET overrides.
+  const site = Number(env.AI_DAILY_BUDGET) || (provider.id === 'groq' ? 900 : provider.id === 'anthropic' ? 1500 : Infinity);
   const u = usage.get(who) ?? { questions: 0, calls: 0 };
   if (siteCalls >= site) return 'site_limit';
   if ((question && u.questions >= perStudent) || u.calls >= perStudent * 6) return 'daily_limit';

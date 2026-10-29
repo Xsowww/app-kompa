@@ -81,7 +81,7 @@ Pour qu'il comprenne tout, choisis un fournisseur dans `.env` (détails dans `.e
 | `openrouter` | gratuit avec les modèles `:free` | `meta-llama/llama-3.3-70b-instruct:free` | [openrouter.ai](https://openrouter.ai/keys) |
 | `mistral` | offre gratuite « Experiment » | `mistral-small-latest` | [console.mistral.ai](https://console.mistral.ai) |
 | `ollama` | gratuit, tourne sur ta machine | `llama3.1` | aucune ([ollama.com](https://ollama.com)) |
-| `anthropic` | payant | `claude-sonnet-5-5` | [console.anthropic.com](https://console.anthropic.com) |
+| `anthropic` | payant | `claude-haiku-5-5` | [console.anthropic.com](https://console.anthropic.com) |
 | `openai-compatible` | selon le service | `AI_MODEL` | `AI_BASE_URL` + `AI_API_KEY` |
 
 **Ne plus recréer `.env` à chaque lancement** : `AI_PROVIDER=groq` est déjà dans la configuration publique du projet (`.env.supabase.public`). Il ne reste que la clé, à enregistrer **une seule fois** comme secret, jamais dans le code :
