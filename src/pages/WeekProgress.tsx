@@ -17,7 +17,7 @@ export default function WeekProgress({ from, to }: { from: string; to: string })
     <div className="flex flex-1 flex-col">
     <div className="flex items-center gap-5" role="group" aria-label={`${tn(done, '{n} tâche sur {total} faite cette semaine.', '{n} tâches sur {total} faites cette semaine.', { total })} ${cheer(done, total)}`}>
       <span className="relative h-[116px] w-[116px] shrink-0">
-        <svg viewBox="0 0 116 116" className="h-full w-full -rotate-90" aria-hidden>
+        <svg viewBox="0 0 116 116" className="h-full w-full" shapeRendering="geometricPrecision" aria-hidden>
           <circle cx="58" cy="58" r={R} fill="none" strokeWidth="12" className="stroke-stone-100" />
           <circle
             cx="58"
@@ -25,9 +25,12 @@ export default function WeekProgress({ from, to }: { from: string; to: string })
             r={R}
             fill="none"
             strokeWidth="12"
-            strokeLinecap="round"
-            strokeDasharray={C}
-            strokeDashoffset={C * (1 - ratio)}
+            // Rotated inside the drawing (a CSS rotation turns the ring into a blurry picture on some screens);
+            // full: a plain circle, the two round ends of the stroke would make a bump where they meet.
+            transform="rotate(-90 58 58)"
+            strokeLinecap={full ? 'butt' : 'round'}
+            strokeDasharray={full ? undefined : C}
+            strokeDashoffset={full ? undefined : C * (1 - ratio)}
             className={cx('transition-[stroke-dashoffset,stroke] duration-700 ease-out', full ? 'stroke-emerald-500' : 'stroke-tile-blue', !done && !full && 'opacity-0')}
           />
         </svg>
