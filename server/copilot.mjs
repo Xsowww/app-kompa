@@ -34,7 +34,7 @@ function getClient(apiKey) {
 
 /** Server-side refusal fallback, for the models that accept the « default » form. */
 const fallbackParams = model =>
-  /^claude-(opus-5-5|opus-5|fable-5-1)$/.test(model) ? { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' } : {};
+  /^claude-(opus-5-5|opus-5|fable-5-1|sonnet-5-5)$/.test(model) ? { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' } : {};
 
 async function anthropicChat(p, { system, messages, tools, maxTokens }) {
   const response = await getClient(p.apiKey).beta.messages.create({
@@ -155,7 +155,8 @@ export function overQuota(who, question, provider, env) {
     siteCalls = 0;
   }
   const perStudent = Number(env.AI_DAILY_QUESTIONS) || 30;
-  const site = Number(env.AI_DAILY_BUDGET) || (provider.id === 'groq' ? 900 : Infinity);
+  // Default site ceiling: Groq's free tier, or ~100 € a month of Claude (a question is 2-3 calls). AI_DAILY_BUDGET overrides.
+  const site = Number(env.AI_DAILY_BUDGET) || (provider.id === 'groq' ? 900 : provider.id === 'anthropic' ? 250 : Infinity);
   const u = usage.get(who) ?? { questions: 0, calls: 0 };
   if (siteCalls >= site) return 'site_limit';
   if ((question && u.questions >= perStudent) || u.calls >= perStudent * 6) return 'daily_limit';
@@ -213,7 +214,8 @@ export function trimHistory(messages, { budget, toolChars }) {
 }
 
 // Groq's free tier allows 8 000 tokens per minute and the prompt with its tools already takes ~3 700.
-const sizeFor = provider => (provider.id === 'anthropic' ? { budget: 400_000, toolChars: 30_000 } : { budget: 10_000, toolChars: 6_000 });
+// Claude reads more history and longer files, but within a paid budget (~25 000 tokens a request at most).
+const sizeFor = provider => (provider.id === 'anthropic' ? { budget: 80_000, toolChars: 20_000 } : { budget: 10_000, toolChars: 6_000 });
 
 export function readJson(req) {
   return new Promise((resolve, reject) => {
