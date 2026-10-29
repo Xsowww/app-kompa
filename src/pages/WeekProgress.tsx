@@ -8,8 +8,9 @@ import { tn } from '../i18n';
 export default function WeekProgress({ from, to }: { from: string; to: string }) {
   const todos = useTodos(s => s.todos);
   const { total, done } = weekItems(todos, from, to);
-  const ratio = total ? done / total : 0;
-  const full = total > 0 && done === total;
+  // Nothing to do this week: nothing left either, so the ring is full (not an empty 0 %).
+  const ratio = total ? done / total : 1;
+  const full = done === total;
   const R = 46;
   const C = 2 * Math.PI * R;
   return (
@@ -27,7 +28,7 @@ export default function WeekProgress({ from, to }: { from: string; to: string })
             strokeLinecap="round"
             strokeDasharray={C}
             strokeDashoffset={C * (1 - ratio)}
-            className={cx('transition-[stroke-dashoffset,stroke] duration-700 ease-out', full ? 'stroke-emerald-500' : 'stroke-tile-blue', !done && 'opacity-0')}
+            className={cx('transition-[stroke-dashoffset,stroke] duration-700 ease-out', full ? 'stroke-emerald-500' : 'stroke-tile-blue', !done && !full && 'opacity-0')}
           />
         </svg>
         <span className="absolute inset-0 flex flex-col items-center justify-center">
