@@ -512,3 +512,34 @@ body {
 :is(input, textarea, [contenteditable]:not([contenteditable='false'])) {
   caret-color: auto;
 }
+
+/* Checkboxes and radios drawn in Kompaly's style (like a task's box), not the browser's square.
+   In the base layer, so a size or margin class on the input (h-4, mt-0.5…) still wins. */
+@layer base {
+  input[type='checkbox'], input[type='radio'] {
+    appearance: none;
+    flex-shrink: 0;
+    width: 1rem;
+    height: 1rem;
+    margin: 0;
+    border: 1.5px solid var(--color-stone-300);
+    border-radius: 5px;
+    background: var(--color-surface) center / 75% no-repeat;
+    cursor: pointer;
+    transition: background-color 0.15s, border-color 0.15s, box-shadow 0.15s;
+  }
+  input[type='radio'] { border-radius: 9999px; }
+  :is(input[type='checkbox'], input[type='radio']):hover:not(:disabled) { border-color: var(--color-stone-500); }
+  input[type='checkbox']:checked {
+    background-color: var(--color-ink);
+    border-color: var(--color-ink);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23eceef3' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+  }
+  [data-theme='dark'] input[type='checkbox']:checked {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230c0d12' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+  }
+  input[type='radio']:checked { border-color: var(--color-ink); background-color: var(--color-ink); box-shadow: inset 0 0 0 3px var(--color-surface); }
+  :is(input[type='checkbox'], input[type='radio']):focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+  :is(input[type='checkbox'], input[type='radio']):disabled { opacity: 0.45; cursor: not-allowed; }
+  :is(input[type='checkbox'], input[type='radio'])[aria-invalid='true'] { border-color: var(--color-red-600); }
+}
