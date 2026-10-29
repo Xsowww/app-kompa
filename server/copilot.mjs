@@ -33,15 +33,18 @@ function getClient(apiKey) {
 }
 
 /** Server-side refusal fallback, for the models that accept the « default » form. */
-const fallbackParams = model =>
-  /^claude-(opus-5-5|opus-5|fable-5-1|sonnet-5-5)$/.test(model) ? { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' } : {};
+const hasFallback = model => /^claude-(opus-5-5|opus-5|fable-5-1|sonnet-5-5)$/.test(model);
 
 async function anthropicChat(p, { system, messages, tools, maxTokens }) {
   const response = await getClient(p.apiKey).beta.messages.create({
     model: p.model,
     max_tokens: maxTokens,
     output_config: { effort: 'low' },
-    ...fallbackParams(p.model),
+    // trimHistory shortens earlier tool results and the [Contexte] changes each time: new accounts get a 400 for a
+    // thinking block replayed after such an edit, so the API drops that old reasoning instead of refusing the request.
+    thinking: { type: 'adaptive', block_binding: { prefix_mismatch_behavior: 'drop_block' } },
+    betas: ['thinking-binding-controls-2026-08-01', ...(hasFallback(p.model) ? ['server-side-fallback-2026-07-01'] : [])],
+    ...(hasFallback(p.model) ? { fallbacks: 'default' } : {}),
     system,
     ...(tools ? { tools } : {}),
     messages,

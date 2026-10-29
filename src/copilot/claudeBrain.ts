@@ -32,6 +32,7 @@ import {
   findItem, linkToItem, itemName, renameItem, moveItem, setStar, setFolderColor, listTrash, restoreFromTrash,
   searchNotes, listTodos, addTodo, completeTodo, startFocus, stopFocus, updateSettings,
 } from './actions';
+import type { SearchHit, SiteItem } from './actions';
 import { offerLog, pendingChanges } from './offers';
 import { readFileText } from './fileText';
 import type { BotReply } from './localBrain';
@@ -146,6 +147,17 @@ pendingChanges.apply = (name, input) => {
 };
 
 /** The changes to what already exists: run at once, or after the student's click (confirm_change). */
+/** A button's text says what a click does (« Ouvrir le fichier « X » »), not just a name. */
+function hitLabel(type: SearchHit['type'], name: string): string {
+  if (type === 'dossier' || type === 'dossier de notes') return t('Voir le dossier « {name} »', { name });
+  if (type === 'fichier') return t('Ouvrir le fichier « {name} »', { name });
+  if (type === 'note' || type === 'note partagée') return t('Ouvrir la note « {name} »', { name });
+  if (type === 'tâche') return t('Voir la tâche « {name} »', { name });
+  return t('Voir « {name} » dans le calendrier', { name });
+}
+const itemLabel = (s: SiteItem) =>
+  hitLabel(s.space === 'drive' ? (s.item.kind === 'folder' ? 'dossier' : 'fichier') : s.space === 'note' ? 'note' : 'dossier de notes', itemName(s));
+
 function change(name: string, input: Record<string, unknown>, links: CopilotLink[]): unknown {
   switch (name) {
     case 'update_event': {
@@ -164,19 +176,19 @@ function change(name: string, input: Record<string, unknown>, links: CopilotLink
     case 'append_to_note': {
       const n = appendToNote(str(input.note_id), typeof input.content === 'string' ? input.content : '');
       if (!n) throw new Error('note introuvable');
-      links.push({ label: t('Ouvrir « {name} »', { name: n.title }), to: linkToNote(n.id) });
+      links.push({ label: hitLabel('note', n.title), to: linkToNote(n.id) });
       return { updated: n.title };
     }
     case 'rename_item': {
       const s = renameItem(str(input.id), str(input.new_name));
       if (!s) throw new Error('élément introuvable ou nom vide');
-      links.push({ label: itemName(s), to: linkToItem(s) });
+      links.push({ label: itemLabel(s), to: linkToItem(s) });
       return { renamed: itemName(s) };
     }
     case 'move_item': {
       const res = moveItem(str(input.id), str(input.folder) || undefined);
       if ('error' in res) throw new Error(res.error);
-      links.push({ label: itemName(res.moved), to: linkToItem(res.moved) });
+      links.push({ label: itemLabel(res.moved), to: linkToItem(res.moved) });
       return { moved: itemName(res.moved), to: res.to };
     }
     case 'star_file': {
@@ -187,7 +199,7 @@ function change(name: string, input: Record<string, unknown>, links: CopilotLink
     case 'set_folder_color': {
       const f = setFolderColor(str(input.folder), str(input.color));
       if (!f) throw new Error('dossier du Drive ou couleur introuvable');
-      links.push({ label: f.name, to: linkToDriveFolder(f.id) });
+      links.push({ label: hitLabel('dossier', f.name), to: linkToDriveFolder(f.id) });
       return { folder: f.name, color: str(input.color) };
     }
     case 'restore_from_trash': {
@@ -223,12 +235,12 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
   switch (name) {
     case 'search_site': {
       const hits = search(str(input.query), 10);
-      links.push(...hits.slice(0, 3).map(h => ({ label: h.title, to: h.to })));
+      links.push(...hits.slice(0, 3).map(h => ({ label: hitLabel(h.type, h.title), to: h.to })));
       return hits.map(({ to: _to, ...h }) => h);
     }
     case 'search_notes': {
       const hits = searchNotes(str(input.query));
-      links.push(...hits.slice(0, 3).map(h => ({ label: h.title, to: linkToNote(h.id) })));
+      links.push(...hits.slice(0, 3).map(h => ({ label: hitLabel('note', h.title), to: linkToNote(h.id) })));
       return hits.length ? hits : { result: 'aucune note ne contient ce texte' };
     }
     case 'get_overview':
@@ -238,17 +250,17 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
     case 'read_file': {
       const res = await readFileText(str(input.file_id));
       const s = findItem(str(input.file_id));
-      if (!('error' in res) && s) links.push({ label: t('Ouvrir « {name} »', { name: itemName(s) }), to: linkToItem(s) });
+      if (!('error' in res) && s) links.push({ label: itemLabel(s), to: linkToItem(s) });
       return res;
     }
     case 'list_drive_folder': {
       const res = listDriveFolder(str(input.folder) || undefined);
-      if (res) links.push({ label: res.folder, to: res.link });
+      if (res) links.push({ label: hitLabel('dossier', res.folder), to: res.link });
       return res ?? { error: 'dossier introuvable' };
     }
     case 'analyze_calendar': {
       const a = analyzeCalendar();
-      links.push({ label: t('Calendrier'), to: '/calendrier' });
+      links.push({ label: t('Ouvrir le calendrier'), to: '/calendrier' });
       const ev = (list: typeof a.today) => list.map(e => ({ id: e.id, desc: describeEvent(e) }));
       return { ...a, today: ev(a.today), exams: ev(a.exams), lateHomework: ev(a.lateHomework), nextDeadlines: ev(a.nextDeadlines) };
     }
@@ -296,17 +308,17 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
     }
     case 'create_note': {
       const n = createNote(str(input.title) || 'Note', typeof input.content === 'string' ? input.content : '', str(input.folder) || undefined);
-      links.push({ label: t('Ouvrir « {name} »', { name: n.title }), to: linkToNote(n.id) });
+      links.push({ label: hitLabel('note', n.title), to: linkToNote(n.id) });
       return { created: n.title, id: n.id };
     }
     case 'create_folder': {
       if (input.space === 'notes') {
         const f = useNotes.getState().createFolder(str(input.name), null);
-        links.push({ label: f.name, to: `/notes?dossier=${f.id}` });
+        links.push({ label: hitLabel('dossier de notes', f.name), to: `/notes?dossier=${f.id}` });
         return { created: f.name, id: f.id };
       }
       const f = createDriveFolder(str(input.name), str(input.parent) || undefined);
-      links.push({ label: f.name, to: linkToDriveFolder(f.id) });
+      links.push({ label: hitLabel('dossier', f.name), to: linkToDriveFolder(f.id) });
       return { created: f.name, id: f.id };
     }
     case 'trash_items': {
