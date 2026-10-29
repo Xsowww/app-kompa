@@ -7,7 +7,7 @@ import { useCalendar, isBigEvent } from '../store/calendar';
 import { buildQuiz, checkAnswer, type Quiz } from './quiz';
 import {
   addTodo, listTodos, completeTodo, deleteTodo, listTrash, findInTrash, restoreFromTrash, trashItems, deleteEvent, renameItem, moveItem,
-  itemName, linkToItem, HIT_LABEL, setStar, setFolderColor, searchNotes, findNote, startFocus, stopFocus, updateSettings,
+  itemName, linkToItem, hitLabel, HIT_LABEL, setStar, setFolderColor, searchNotes, findNote, startFocus, stopFocus, updateSettings,
 } from './actions';
 import type { CopilotLink, CopilotOffer } from '../store/copilot';
 import {
@@ -249,7 +249,7 @@ function moreCommands(input: string, q: string): BotReply | null {
     if (!hits.length) return { text: t('Aucune note ne parle de « {term} ».', { term: g(1) }) };
     return {
       text: `${tn(hits.length, '« {term} » apparaît dans {n} note :', '« {term} » apparaît dans {n} notes :', { term: g(1) })}\n${hits.slice(0, 5).map(h => `- **${h.title}**${h.excerpts[0] ? ` : ${h.excerpts[0]}` : ''}`).join('\n')}`,
-      links: hits.slice(0, 3).map(h => ({ label: h.title, to: linkToNote(h.id) })),
+      links: hits.slice(0, 3).map(h => ({ label: hitLabel('note', h.title), to: linkToNote(h.id) })),
     };
   }
 
@@ -365,7 +365,7 @@ function sheetFromDocument(input: string, q: string): BotReply {
         file: file ? t('« {title} »', { title: file.title }) : t('le document (Word, PDF ou texte)'),
         action: label,
       }),
-    links: [file ? { label: file.title, to: file.to } : { label: t('Drive'), to: '/drive' }],
+    links: [file ? { label: hitLabel(file.type, file.title), to: file.to } : { label: t('Ouvrir le Drive'), to: '/drive' }],
   };
 }
 
@@ -722,7 +722,8 @@ export function localReply(raw: string): BotReply {
       text: `${tn(hits.length, 'J’ai trouvé {n} résultat pour « {term} » :', 'J’ai trouvé {n} résultats pour « {term} » :', { term })}\n${hits.map(h => `• ${h.title} (${HIT_LABEL[h.type]})${h.where ? ` — ${h.where}` : ''}`).join('\n')}`,
       // Two hits with the same name (the sessions of a plan, a note in two folders): their day or place tells them apart.
       links: hits.slice(0, 4).map((h, _i, shown) => {
-        const label = (h.type === 'événement' || hits.filter(x => x.title === h.title).length > 1) && h.where ? `${h.title} · ${h.where}` : h.title;
+        const name = (h.type === 'événement' || hits.filter(x => x.title === h.title).length > 1) && h.where ? `${h.title} · ${h.where}` : h.title;
+        const label = hitLabel(h.type, name);
         // Still the same (two notes of the same name in one folder): numbered.
         const same = shown.filter(x => x.title === h.title && x.where === h.where);
         return { label: same.length > 1 ? `${label} (${same.indexOf(h) + 1})` : label, to: h.to };

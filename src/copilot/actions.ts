@@ -551,6 +551,18 @@ export function findItem(ref: string): SiteItem | null {
 
 export const itemName = (s: SiteItem) => (s.space === 'note' ? s.item.title : s.item.name);
 
+/** A button's text says what a click does (« Ouvrir le fichier « X » »), not just a name. */
+export function hitLabel(type: SearchHit['type'], name: string): string {
+  if (type === 'dossier' || type === 'dossier de notes') return t('Voir le dossier « {name} »', { name });
+  if (type === 'fichier') return t('Ouvrir le fichier « {name} »', { name });
+  if (type === 'note' || type === 'note partagée') return t('Ouvrir la note « {name} »', { name });
+  if (type === 'tâche') return t('Voir la tâche « {name} »', { name });
+  return t('Voir « {name} » dans le calendrier', { name });
+}
+export const itemLabel = (s: SiteItem) =>
+  hitLabel(s.space === 'drive' ? (s.item.kind === 'folder' ? 'dossier' : 'fichier') : s.space === 'note' ? 'note' : 'dossier de notes', itemName(s));
+
+
 export function linkToItem(s: SiteItem): string {
   if (s.space === 'note') return linkToNote(s.item.id);
   if (s.space === 'notes-folder') return `/notes?dossier=${s.item.id}`;
@@ -655,7 +667,7 @@ export function restoreFromTrash(refs: string[]) {
     }
     const r = restoreTrash([found.id]);
     restored.push(found.name);
-    if (r.href) links.push({ label: found.name, to: r.href });
+    if (r.href) links.push({ label: t('Ouvrir « {name} »', { name: found.name }), to: r.href });
   }
   return { restored, missing, links };
 }

@@ -29,10 +29,9 @@ import { accessToken } from '../lib/supabase';
 import {
   search, analyzeCalendar, eventsBetween, addEvent, createNote, createDriveFolder, listDriveFolder, readNote, overview,
   linkToNote, linkToDriveFolder, linkToDay, describeEvent, findExam, planRevisions, hasRevisionPlan, revisionSessions, alreadyPlanned, openNoteLabel, appendToNote, updateEvent, goTo,
-  findItem, linkToItem, itemName, renameItem, moveItem, setStar, setFolderColor, listTrash, restoreFromTrash,
+  findItem, linkToItem, itemName, hitLabel, itemLabel, renameItem, moveItem, setStar, setFolderColor, listTrash, restoreFromTrash,
   searchNotes, listTodos, addTodo, completeTodo, startFocus, stopFocus, updateSettings,
 } from './actions';
-import type { SearchHit, SiteItem } from './actions';
 import { offerLog, pendingChanges } from './offers';
 import { readFileText } from './fileText';
 import type { BotReply } from './localBrain';
@@ -147,17 +146,6 @@ pendingChanges.apply = (name, input) => {
 };
 
 /** The changes to what already exists: run at once, or after the student's click (confirm_change). */
-/** A button's text says what a click does (« Ouvrir le fichier « X » »), not just a name. */
-function hitLabel(type: SearchHit['type'], name: string): string {
-  if (type === 'dossier' || type === 'dossier de notes') return t('Voir le dossier « {name} »', { name });
-  if (type === 'fichier') return t('Ouvrir le fichier « {name} »', { name });
-  if (type === 'note' || type === 'note partagée') return t('Ouvrir la note « {name} »', { name });
-  if (type === 'tâche') return t('Voir la tâche « {name} »', { name });
-  return t('Voir « {name} » dans le calendrier', { name });
-}
-const itemLabel = (s: SiteItem) =>
-  hitLabel(s.space === 'drive' ? (s.item.kind === 'folder' ? 'dossier' : 'fichier') : s.space === 'note' ? 'note' : 'dossier de notes', itemName(s));
-
 function change(name: string, input: Record<string, unknown>, links: CopilotLink[]): unknown {
   switch (name) {
     case 'update_event': {

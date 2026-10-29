@@ -1,6 +1,6 @@
 import { memo, useEffect, useLayoutEffect, useRef, useState, type ComponentProps, type FormEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ArrowUp, Check, Copy, Maximize2, Mic, Minimize2, RotateCcw, Square, X } from 'lucide-react';
+import { ArrowUp, ArrowUpRight, Check, Copy, Maximize2, Mic, Minimize2, RotateCcw, Square, X } from 'lucide-react';
 import Character, { CopilotAvatar, type CopilotMood } from './Character';
 import { useCopilot, type CopilotLink, type CopilotOffer } from '../store/copilot';
 import { useAuth } from '../store/auth';
@@ -84,9 +84,11 @@ function Extras({ links, offers, onGo, onOffer, disabled }: { links?: CopilotLin
         <button
           key={l.to + l.label}
           onClick={() => onGo(l.to)}
-          className="h-7 max-w-full truncate rounded-md border border-stone-200 bg-surface px-2.5 text-[12px] font-medium text-stone-700 transition-colors hover:bg-stone-50 pointer-coarse:h-9"
+          // A filled button with an arrow « go there »: it reads as an action, not as a mention.
+          className="inline-flex h-8 max-w-full items-center gap-1.5 rounded-lg bg-brand-solid px-3 text-[12.5px] font-semibold text-on-brand transition-colors hover:bg-brand-solid-hover pointer-coarse:h-10"
         >
-          {frenchSpacing(l.label)} →
+          <span className="truncate">{frenchSpacing(l.label)}</span>
+          <ArrowUpRight size={14} strokeWidth={2.4} className="shrink-0" aria-hidden />
         </button>
       ))}
     </div>
@@ -509,7 +511,7 @@ export default function Copilot() {
               ref={inputRef}
               value={input}
               onChange={e => setInput(e.target.value)}
-              placeholder={dictation.listening ? t('Je t’écoute…') : t('Écris à Kompaly…')}
+              placeholder={dictation.listening ? t('Je t’écoute… touche ■ pour envoyer') : dictation.busy ? t('J’écris ce que tu as dit…') : t('Écris à Kompaly…')}
               aria-label={t('Message pour Kompaly')}
               className={cx(
                 'h-9 min-w-0 flex-1 rounded-lg bg-stone-50 px-3 text-[13px] outline-none placeholder:text-stone-500 focus:bg-stone-100 focus-visible:ring-2 focus-visible:ring-focus',
@@ -521,7 +523,7 @@ export default function Copilot() {
               <button
                 type="button"
                 onClick={() => (dictation.listening ? dictation.stop() : dictation.start())}
-                disabled={thinking}
+                disabled={thinking || dictation.busy}
                 className={cx(
                   'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors disabled:opacity-30',
                   dictation.listening ? 'bg-brand-solid text-on-brand' : 'text-stone-500 hover:bg-stone-100 hover:text-ink',
