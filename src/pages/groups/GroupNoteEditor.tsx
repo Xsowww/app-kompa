@@ -4,7 +4,8 @@ import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Highlight from '@tiptap/extension-highlight';
 import TiptapImage from '@tiptap/extension-image';
-import { TaskList, TaskItem } from '@tiptap/extension-list';
+import { TaskList } from '@tiptap/extension-list';
+import { QuietTaskItem } from '../notes/taskItem';
 import {
   AlertTriangle, ArrowLeft, Bold, Italic, Strikethrough, Highlighter, Heading1, Heading2, List, ListOrdered, ListChecks, Quote, Code2, Link2, Trash2, Undo2, Redo2, Flag,
 } from 'lucide-react';
@@ -213,7 +214,7 @@ function LoadedEditor({ initial, onClose, readOnly, typed }: { initial: GroupNot
       Highlight,
       TiptapImage.configure({ allowBase64: true }), // notes partagées depuis ses notes perso
       TaskList,
-      TaskItem.configure({ nested: true }),
+      QuietTaskItem.configure({ nested: true }),
     ],
     content: initial.content,
     editable: !readOnly,

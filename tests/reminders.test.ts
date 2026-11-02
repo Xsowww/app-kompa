@@ -116,3 +116,13 @@ describe('rappels des grands jours', () => {
     expect(eventReminders({ date: '2026-10-17', start: '09:00', category: 'examen', reminders: [10080] }, [15], now)).toEqual([10080]);
   });
 });
+
+describe('rappels des tâches datées', () => {
+  it('the day before at 18:00 and that day at 9:00, those already past left out', async () => {
+    const { taskReminders } = await import('../src/lib/reminders');
+    expect(taskReminders('2026-11-10', undefined, new Date(2026, 10, 2, 12))).toEqual([900, 0]);
+    expect(taskReminders('2026-11-10', undefined, new Date(2026, 10, 9, 19))).toEqual([0]);
+    expect(taskReminders('2026-11-10', '14:00', new Date(2026, 10, 2, 12))).toEqual([60]);
+    expect(taskReminders('2026-11-10', undefined, new Date(2026, 10, 10, 10))).toEqual([]);
+  });
+});

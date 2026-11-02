@@ -421,6 +421,12 @@ body {
 /* Tiptap repeats the checkbox's aria-label in a hidden span: read twice by screen readers. */
 .prose-note ul[data-type='taskList'] li > label > span { display: none; }
 .prose-note ul[data-type='taskList'] input { accent-color: var(--color-ink); width: 15px; height: 15px; }
+/* iPhone zooms into editable text written smaller than 16 px when it gets the focus: 16 px under a finger. */
+@media (pointer: coarse) {
+  .prose-note { font-size: 16px; }
+}
+/* A double tap doesn't zoom the page (the pinch still does): taps on buttons and boxes stay taps. */
+html { touch-action: manipulation; }
 /* Fingers: the label around the box takes taps 11 px around it (same box, same place). */
 @media (pointer: coarse) {
   .prose-note ul[data-type='taskList'] li > label { position: relative; z-index: 1; padding: 11px; margin: calc(0.28em - 11px) -11px -11px; }

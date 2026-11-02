@@ -4,7 +4,7 @@ import { DateField, TimeField } from '../../components/Pickers';
 import { Modal } from '../../components/Overlays';
 import Field from '../../components/Field';
 import ReminderPicker from '../../components/ReminderPicker';
-import { followMoments } from '../../lib/reminders';
+import { followMoments, taskReminders } from '../../lib/reminders';
 import { useTodos, type Todo } from '../../store/todos';
 import { toast } from '../../store/ui';
 import { t } from '../../i18n';
@@ -61,6 +61,8 @@ export default function TaskDialog({ todo, onClose, remind, onDelete }: { todo?:
               onChange={v => {
                 // « La veille à 9h » follows the task to its new day.
                 if (due && v) setReminders(r => followMoments(r, { date: due, time: time || undefined }, { date: v, time: time || undefined }, r));
+                // A first due day: the usual reminders of a task (the day before at 18:00, that day at 9:00), shown here to change.
+                else if (!due && v && !reminders.length) setReminders(taskReminders(v, time || undefined));
                 setDue(v);
               }}
               label={t('Échéance')}

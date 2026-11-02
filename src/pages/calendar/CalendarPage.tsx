@@ -471,7 +471,7 @@ export default function CalendarPage() {
   const away = (e: CalendarEvent) => e.date !== selected;
   // Sorted once per change of the events (and once a minute, for « over »), not at each key typed in the quick add.
   const minute = Math.floor(Date.now() / 60_000);
-  const { upcomingHidden, upcomingExams, moreExams, nextUp } = useMemo(() => {
+  const { upcomingHidden, upcomingExams, moreExams, nextUp, lateEvents } = useMemo(() => {
     const upcomingHidden = filtering && events.some(e => !passes(e) && away(e) && (isComing(e) || isHomeworkSoon(e)));
     // An event over several days once, at its first day (not « J-3, J-4, J-5 »); none when that day is the one shown
     // (its next day, J-4, would say the wrong day).
@@ -485,7 +485,12 @@ export default function CalendarPage() {
     const listed = new Set([...allUpcomingExams, ...homework].map(e => e.id));
     const others = pool.filter(e => isComing(e) && !listed.has(e.id)).slice(0, Math.max(1, EXAMS_SHOWN - upcomingExams.length));
     const nextUp = [...homework, ...others].sort(sortEvents);
-    return { upcomingHidden, allUpcomingExams, upcomingExams, moreExams, nextUp };
+    // « En retard »: own events of the last two weeks, over and not ticked (classes from a timetable and homework,
+    // already listed above with « Retard », aside). A shared calendar has no « fait ».
+    const lateEvents = shared
+      ? []
+      : visible.filter(e => !e.done && !e.externalId && e.category !== 'cours' && !isDeliverable(e) && isOver(e) && daysUntil(e.date) >= -14).sort((a, b) => sortEvents(b, a));
+    return { upcomingHidden, allUpcomingExams, upcomingExams, moreExams, nextUp, lateEvents };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the helpers above only read these values
   }, [events, visible, passes, filtering, allExams, shared, today, minute, selected]);
 
@@ -845,6 +850,48 @@ export default function CalendarPage() {
           </section>
 
           <aside aria-labelledby="a-venir-titre" className="card min-w-0 self-start p-4">
+            {lateEvents.length > 0 && (
+              <section aria-labelledby="en-retard-titre" className="mb-4 border-b border-stone-200 pb-3">
+                <div className="mb-2 flex items-center gap-2">
+                  <h2 id="en-retard-titre" className="text-[13px] font-semibold text-urgent-text">
+                    {t('En retard')} · {lateEvents.length}
+                  </h2>
+                  <button
+                    onClick={() => lateEvents.forEach(e => source.toggleDone(e.id))}
+                    className="ml-auto rounded-md px-1.5 py-0.5 text-[12px] font-medium text-stone-500 transition-colors hover:bg-stone-50 hover:text-ink pointer-coarse:py-2"
+                  >
+                    {t('Tout marquer comme fait')}
+                  </button>
+                </div>
+                <ul className="-mx-1.5">
+                  {lateEvents.slice(0, 6).map(e => (
+                    <li key={e.id} className="flex items-center">
+                      <button onClick={() => showEvent(e)} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1.5 py-1.5 text-left transition-colors hover:bg-stone-50">
+                        <span className="min-w-0 flex-1">
+                          <span className="flex min-w-0 items-center gap-1.5 text-[13px] font-medium">
+                            <Dot color={catOf(e.category).color} size={6} />
+                            <span className="truncate">{e.title}</span>
+                          </span>
+                          <span className="block text-[12px] first-letter:uppercase text-stone-500">
+                            {fmtDay(fromKey(e.date), 'EEE d MMM')}
+                            {e.start && ` · ${e.start}`}
+                          </span>
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => source.toggleDone(e.id)}
+                        className="hit ml-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-[1.5px] border-stone-300 text-transparent transition-colors hover:border-emerald-500 hover:text-emerald-500"
+                        title={t('Marquer comme fait')}
+                        aria-label={t('Marquer « {title} » comme fait', { title: e.title })}
+                      >
+                        <Check size={13} strokeWidth={3} />
+                      </button>
+                    </li>
+                  ))}
+                  {lateEvents.length > 6 && <li className="px-1.5 pt-1 text-[12px] text-stone-500">{tn(lateEvents.length - 6, 'et {n} autre', 'et {n} autres')}</li>}
+                </ul>
+              </section>
+            )}
             <h2 id="a-venir-titre" className="mb-2 text-[13px] font-medium text-stone-600">
               {t('À venir')}
             </h2>

@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { uid, nowIso } from '../lib/utils';
 import { userStorage } from '../lib/userStorage';
 import { t } from '../i18n';
+import { taskReminders } from '../lib/reminders';
 
 /** A simple to-do, independent from the calendar (« acheter une calculatrice »). */
 export interface Todo {
@@ -34,11 +35,19 @@ export const useTodos = create<TodosState>()(
     (set, get) => ({
       todos: [],
       add(title, due, time) {
-        const todo: Todo = { id: uid(), title: title.trim() || t('Tâche'), done: false, due: due || undefined, ...(due && time && { time }), createdAt: nowIso() };
+        const todo: Todo = { id: uid(), title: title.trim() || t('Tâche'), done: false, due: due || undefined, ...(due && time && { time }), ...(due && { reminders: taskReminders(due, time) }), createdAt: nowIso() };
         set(s => ({ todos: [...s.todos, todo] }));
         return todo;
       },
-      update: (id, patch) => set(s => ({ todos: s.todos.map(t => (t.id === id ? { ...t, ...patch } : t)) })),
+      // A task given a date for the first time (« Les répartir », the task dialog) gets the usual reminders too.
+      update: (id, patch) =>
+        set(s => ({
+          todos: s.todos.map(x => {
+            if (x.id !== id) return x;
+            const next = { ...x, ...patch };
+            return next.due && !x.due && next.reminders === undefined ? { ...next, reminders: taskReminders(next.due, next.time) } : next;
+          }),
+        })),
       toggle: id =>
         set(s => ({ todos: s.todos.map(t => (t.id === id ? { ...t, done: !t.done, doneAt: t.done ? undefined : nowIso() } : t)) })),
       remove(id) {

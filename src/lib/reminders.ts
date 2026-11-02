@@ -66,6 +66,15 @@ export function eventReminders(e: { reminders?: number[]; date?: string; start?:
   return e.date && (e.category === 'examen' || e.important) ? (cleanReminders([...base, ...earlyReminders(e.date, e.start, now)]) ?? base) : base;
 }
 
+/**
+ * A new dated task's reminders: the day before at 18:00 and that day at 9:00, or an hour before a task with a time;
+ * those already past are left out (a task for today, made in the afternoon, gets none rather than one in the past).
+ */
+export function taskReminders(due: string, time?: string, now = new Date()): number[] {
+  const all = time ? [60] : [900, 0];
+  return all.filter(min => reminderMoment(due, time, min) > now);
+}
+
 /** « 45 min avant », « 3 h 30 avant », « 2 j 4 h avant ». */
 export function offsetLabel(minutes: number): string {
   if (minutes === 0) return t('À l’heure');

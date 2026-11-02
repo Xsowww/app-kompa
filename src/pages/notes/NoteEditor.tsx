@@ -4,7 +4,8 @@ import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import Highlight from '@tiptap/extension-highlight';
-import { TaskList, TaskItem } from '@tiptap/extension-list';
+import { TaskList } from '@tiptap/extension-list';
+import { QuietTaskItem } from './taskItem';
 import TiptapImage from '@tiptap/extension-image';
 import type { EditorView } from '@tiptap/pm/view';
 import { NodeSelection } from '@tiptap/pm/state';
@@ -153,7 +154,7 @@ export default function NoteEditor({ note, readOnly = false, inset = 'px-4 pb-ro
       Placeholder.configure({ placeholder: t('Commence à écrire… (tape «\u00a0#\u00a0» pour un titre, «\u00a0-\u00a0» pour une liste)') }),
       Highlight,
       TaskList,
-      TaskItem.configure({
+      QuietTaskItem.configure({
         nested: true,
         a11y: { checkboxLabel: node => (node.textContent.trim() ? t('Case à cocher\u00a0: {text}', { text: node.textContent.trim() }) : t('Case à cocher vide')) },
       }),
