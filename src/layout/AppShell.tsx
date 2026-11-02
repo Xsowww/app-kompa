@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { LayoutGrid, Mic, House, FolderClosed, CalendarDays, CalendarRange, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn, ListChecks, Users, Trash2, ArrowLeftRight, UserRound, UserPlus, LogOut, Sparkles, X } from 'lucide-react';
 import { EmptyState } from '../components/EmptyState';
@@ -610,6 +610,43 @@ function PhoneTabBar({ news, label, extra }: { news: (to: string) => number; lab
   const main = NAV.filter(n => !('more' in n));
   const more = [...NAV.filter(n => 'more' in n).map(n => ({ ...n, aria: label(n), count: news(n.to), urgent: n.to === '/agendas' })), ...extra];
   const current = more.find(n => pathname === n.to || pathname.startsWith(`${n.to}/`));
+  const navigate = useNavigate();
+  // A finger sliding along the bar: the page follows each tab passed over; over « Plus » the panel opens, and lifting on one of its spaces goes there.
+  const slide = useRef<{ x: number; y: number; on: boolean; last: string | null; pushed: boolean } | null>(null);
+  const [hover, setHover] = useState<string | null>(null);
+  const onSlideDown = (e: ReactPointerEvent) => {
+    if (e.pointerType !== 'mouse') slide.current = { x: e.clientX, y: e.clientY, on: false, last: null, pushed: false };
+  };
+  const onSlideMove = (e: ReactPointerEvent) => {
+    const s = slide.current;
+    if (!s) return;
+    if (!s.on && Math.hypot(e.clientX - s.x, e.clientY - s.y) < 10) return;
+    s.on = true;
+    const key = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-tab]')?.dataset.tab ?? null;
+    if (key === s.last) return;
+    s.last = key;
+    setHover(key?.startsWith('p:') ? key.slice(2) : null);
+    if (!key || key.startsWith('p:')) return;
+    navigator.vibrate?.(5);
+    if (key === 'more') return setOpen(true);
+    if (key === pathname) return;
+    navigate(key, { replace: s.pushed }); // one history step for the whole slide
+    s.pushed = true;
+  };
+  const onSlideEnd = (e: ReactPointerEvent) => {
+    const s = slide.current;
+    slide.current = null;
+    setHover(null);
+    if (!s?.on || e.type === 'pointercancel') return;
+    // The click that ends a slide must not toggle « Plus » or open anything else.
+    const swallow = (c: MouseEvent) => (c.stopPropagation(), c.preventDefault());
+    window.addEventListener('click', swallow, true);
+    setTimeout(() => window.removeEventListener('click', swallow, true), 0);
+    if (hover) {
+      setOpen(false);
+      navigate(hover);
+    }
+  };
   const moreNews = more.some(n => n.to !== '/corbeille' && n.count > 0);
 
   // Another page: the panel goes. A press anywhere else, or Échap, closes it.
@@ -620,7 +657,7 @@ function PhoneTabBar({ news, label, extra }: { news: (to: string) => number; lab
   }
   useEffect(() => {
     if (!open) return;
-    panel.current?.querySelector<HTMLElement>('a')?.focus();
+    if (!slide.current) panel.current?.querySelector<HTMLElement>('a')?.focus(); // opened by a slide: the finger chooses, no focus ring
     const onDown = (e: PointerEvent) => {
       const t = e.target as Node;
       if (!panel.current?.contains(t) && !button.current?.contains(t)) setOpen(false);
@@ -656,8 +693,9 @@ function PhoneTabBar({ news, label, extra }: { news: (to: string) => number; lab
               key={n.to}
               to={n.to}
               aria-label={n.aria}
+              data-tab={`p:${n.to}`}
               onClick={() => setOpen(false)}
-              className={({ isActive }) => cx('relative flex min-h-[72px] flex-col items-center justify-center gap-1.5 rounded-[16px] px-1 text-center text-[12px] font-semibold leading-tight transition-colors', isActive ? 'bg-stone-100 text-ink' : 'text-stone-600 hover:bg-stone-50')}
+              className={({ isActive }) => cx('relative flex min-h-[72px] flex-col items-center justify-center gap-1.5 rounded-[16px] px-1 text-center text-[12px] font-semibold leading-tight transition-colors', hover === n.to ? 'bg-stone-200 text-ink' : isActive ? 'bg-stone-100 text-ink' : 'text-stone-600 hover:bg-stone-50')}
             >
               <n.icon size={22} strokeWidth={1.9} style={{ color: n.color }} aria-hidden />
               <span>{label(n)}</span>
@@ -670,9 +708,14 @@ function PhoneTabBar({ news, label, extra }: { news: (to: string) => number; lab
           ))}
         </div>
       )}
-      <nav aria-label={t('Navigation principale')} className="fixed bottom-[max(12px,env(safe-area-inset-bottom))] left-[max(12px,env(safe-area-inset-left))] right-[max(12px,env(safe-area-inset-right))] z-30 flex rounded-[22px] bg-tile-dark p-1 shadow-pop ring-1 ring-white/10 lg:hidden">
+      <nav aria-label={t('Navigation principale')} className="fixed bottom-[max(12px,env(safe-area-inset-bottom))] left-[max(12px,env(safe-area-inset-left))] right-[max(12px,env(safe-area-inset-right))] z-30 flex touch-none select-none rounded-[22px] bg-tile-dark p-1 shadow-pop ring-1 ring-white/10 lg:hidden"
+        onPointerDown={onSlideDown}
+        onPointerMove={onSlideMove}
+        onPointerUp={onSlideEnd}
+        onPointerCancel={onSlideEnd}
+      >
         {main.map(n => (
-          <NavLink key={n.to} to={n.to} end={n.end} className={({ isActive }) => tab(isActive)}>
+          <NavLink key={n.to} to={n.to} end={n.end} data-tab={n.to} draggable={false} className={({ isActive }) => tab(isActive)}>
             {({ isActive }) => (
               <>
                 <n.icon size={19} strokeWidth={isActive ? 2.2 : 1.9} style={{ color: isActive ? n.color : undefined }} />
@@ -685,6 +728,7 @@ function PhoneTabBar({ news, label, extra }: { news: (to: string) => number; lab
         <button
           ref={button}
           id="nav-more"
+          data-tab="more"
           type="button"
           aria-expanded={open}
           aria-controls={open ? 'nav-more-panel' : undefined}
