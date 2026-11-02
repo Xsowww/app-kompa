@@ -21,6 +21,8 @@ import { WORDS } from '../lib/usage';
 import { periodColor, periodText, periodTint, periodUntil, periodsOn } from '../lib/periods';
 import WeekProgress from './WeekProgress';
 import DayLine from './DayLine';
+import { isLateEvent } from '../lib/late';
+import { useTodos } from '../store/todos';
 import { t, tn } from '../i18n';
 
 /** A bento tile: white by default, `dark` for the big day (the strongest tile of the page). */
@@ -88,6 +90,9 @@ export default function Dashboard() {
   const events = useCalendar(s => s.events);
 
   const today = useToday();
+  const todos = useTodos(s => s.todos);
+  const lateEvents = events.filter(e => isLateEvent(e)).length;
+  const lateTodos = todos.filter(x => !x.done && x.due && x.due < today).length;
   // To the minute: the clock, the day line and « dans 20 min » move on their own.
   const now = useMinute();
   const hour = now.getHours();
@@ -162,6 +167,20 @@ export default function Dashboard() {
             <h1 className="mt-0.5 text-[32px] font-extrabold tracking-[-0.035em]">
               {t('{hello}, {name}', { hello, name: user.name })}
             </h1>
+            {(lateEvents > 0 || lateTodos > 0) && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {lateEvents > 0 && (
+                  <Link to="/calendrier" className="hit-sm flex h-7 items-center rounded-full bg-red-50 px-3 text-[12.5px] font-semibold text-urgent-text">
+                    {tn(lateEvents, '{n} événement en retard', '{n} événements en retard')}
+                  </Link>
+                )}
+                {lateTodos > 0 && (
+                  <Link to="/taches" className="hit-sm flex h-7 items-center rounded-full bg-red-50 px-3 text-[12.5px] font-semibold text-urgent-text">
+                    {tn(lateTodos, '{n} tâche en retard', '{n} tâches en retard')}
+                  </Link>
+                )}
+              </div>
+            )}
             {nowPeriods.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {nowPeriods.map(p => (
@@ -219,7 +238,8 @@ export default function Dashboard() {
           </Link>
 
           {/* Next exam */}
-          <Widget dark title={notExam ? t('Prochain grand jour') : words.nextBig} className="lg:col-start-2 lg:row-span-2 lg:row-start-1">
+          {/* Nothing coming: a small light card, not a tall dark one with two lines in it (the column moves up). */}
+          <Widget dark={!!nextExam} title={notExam ? t('Prochain grand jour') : words.nextBig} className={cx('lg:col-start-2 lg:row-start-1', nextExam && 'lg:row-span-2')}>
             {nextExam ? (
               <div className="flex flex-1 flex-col">
                 <Link to={linkToDay(nextExam.date, nextExam.id)} className="group flex flex-col gap-3">
@@ -301,7 +321,7 @@ export default function Dashboard() {
                 </div>
               </div>
             ) : (
-              <div className="py-1.5 text-[13px] text-white/75">
+              <div className="text-[13px] text-stone-500">
                 <p>{words.noBig}</p>
                 <p className="mt-1 flex items-center gap-1 text-[12px]">
                   <Flag size={12} className="shrink-0" /> {t('Marque un événement important pour le voir ici.')}
@@ -339,12 +359,12 @@ export default function Dashboard() {
           </Widget>
 
           {/* Week: a ring that fills as the week's tasks get ticked */}
-          <Widget title={t('Ma semaine')} className="lg:col-start-2 lg:row-start-3">
+          <Widget title={t('Ma semaine')} className={cx('lg:col-start-2', nextExam ? 'lg:row-start-3' : 'lg:row-start-2')}>
             <WeekProgress from={weekDays[0]} to={weekDays[6]} />
           </Widget>
 
           {/* Notes */}
-          <Widget title={t('Notes récentes')} to="/notes" linkLabel={t('Ouvrir les notes')} className="lg:col-start-2 lg:row-start-4">
+          <Widget title={t('Notes récentes')} to="/notes" linkLabel={t('Ouvrir les notes')} className={cx('lg:col-start-2', nextExam ? 'lg:row-start-4' : 'lg:row-start-3')}>
             {recentNotes.length === 0 ? (
               <EmptyState
                 size="sm"

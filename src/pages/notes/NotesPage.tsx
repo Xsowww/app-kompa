@@ -73,6 +73,16 @@ export default function NotesPage() {
     if (arrivedOn) flashWhenReady(() => document.querySelector(`[data-note-open="${CSS.escape(arrivedOn)}"]`)?.parentElement); // its row
   }, [arrivedOn]);
   const active = notes.find(n => n.id === noteId);
+  // A computer shows the list and the note side by side: arriving on Notes, the last note changed opens instead of an
+  // empty panel (once per visit: closing it afterwards keeps it closed). A phone shows the list first.
+  const autoOpened = useRef(false);
+  useEffect(() => {
+    if (autoOpened.current || noteId || folderParam || !matchMedia('(min-width: 1024px)').matches) return;
+    autoOpened.current = true;
+    const last = [...notes].sort((a, b) => (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt))[0];
+    if (last) setParams({ note: last.id }, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on arrival
+  }, []);
 
   // The trash lives on its own page now: old links (and links to a deleted note) go there.
   // Checked when the link changes only, not when the open note is deleted from here.

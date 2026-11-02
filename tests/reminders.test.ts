@@ -126,3 +126,22 @@ describe('rappels des tâches datées', () => {
     expect(taskReminders('2026-11-10', undefined, new Date(2026, 10, 10, 10))).toEqual([]);
   });
 });
+
+describe('résumé du matin des tâches', () => {
+  it('one notification at 8:00 with the tasks due that day or late, nothing on a day without', async () => {
+    const { taskDigests } = await import('../src/lib/reminders');
+    const todos = [
+      { id: 'a', title: 'Envoyer le devis', done: false, due: '2026-11-03' },
+      { id: 'b', title: 'Payer la facture', done: false, due: '2026-11-01' },
+      { id: 'c', title: 'Fait', done: true, due: '2026-11-03' },
+      { id: 'd', title: 'Sans date', done: false },
+    ];
+    const list = taskDigests(todos, new Date(2026, 10, 2, 20, 0), 2);
+    expect(list.map(x => [x.key, x.fireAt.getHours(), x.title])).toEqual([
+      ['digest:2026-11-03', 8, '2 tâches à faire aujourd’hui'],
+      ['digest:2026-11-04', 8, '2 tâches à faire aujourd’hui'],
+    ]);
+    expect(list[0].body).toBe('Envoyer le devis, Payer la facture');
+    expect(taskDigests([], new Date(2026, 10, 2, 20, 0))).toEqual([]);
+  });
+});

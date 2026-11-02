@@ -845,8 +845,8 @@ export default function DrivePage() {
 
       <StorageGauge />
 
-      {/* Breadcrumb / selection bar */}
-      <div className="flex h-10 items-center gap-1 text-[13px]">
+      {/* Breadcrumb / selection bar. Empty at the root of the Drive: on a phone it would only leave a hole above the files. */}
+      <div className={cx('flex h-10 items-center gap-1 text-[13px]', !bar && !filtering && (!tabAll || (!breadcrumb.length && !clipboard?.ids.length)) && 'max-sm:h-0')}>
         {bar ? (
           <div className="enter flex h-10 w-full items-center gap-0.5 overflow-x-auto rounded-lg bg-inverse px-1.5 text-on-inverse shadow-pop">
             <button className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md hover:bg-on-inverse/10 sm:h-8 sm:w-8 pointer-coarse:h-9 pointer-coarse:w-9" onClick={() => setSelected(new Set())} title={t('Désélectionner (Échap)')} aria-label={t('Désélectionner (Échap)')}>

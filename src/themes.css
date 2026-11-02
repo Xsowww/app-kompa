@@ -19,6 +19,7 @@
     #e7eaf6;
   --color-surface: rgb(255 255 255 / 0.56);
   --glass-strong: rgb(255 255 255 / 0.86);
+  --dialog-bg: #f6f7fc;
   --glass-edge: rgb(255 255 255 / 0.75);
   --glass-shine: rgb(255 255 255 / 0.6);
   --color-stone-50: rgb(20 22 31 / 0.035);
@@ -38,6 +39,7 @@
     #0b0d18;
   --color-surface: rgb(26 30 50 / 0.55);
   --glass-strong: rgb(22 25 42 / 0.9);
+  --dialog-bg: #171a2c;
   --glass-edge: rgb(255 255 255 / 0.12);
   --glass-shine: rgb(255 255 255 / 0.1);
   --color-stone-50: rgb(255 255 255 / 0.04);
@@ -74,6 +76,7 @@
     #eceef2;
   --color-surface: rgb(255 255 255 / 0.5);
   --glass-strong: rgb(250 251 253 / 0.86);
+  --dialog-bg: #f8f9fb;
   --glass-hi: rgb(255 255 255 / 0.95);
   --glass-lo: rgb(255 255 255 / 0.45);
   --glass-line: rgb(20 22 31 / 0.07);
@@ -91,6 +94,7 @@
     #111215;
   --color-surface: rgb(255 255 255 / 0.06);
   --glass-strong: rgb(32 34 40 / 0.9);
+  --dialog-bg: #202228;
   --glass-hi: rgb(255 255 255 / 0.22);
   --glass-lo: rgb(255 255 255 / 0.07);
   --glass-line: rgb(0 0 0 / 0.4);
@@ -259,6 +263,20 @@
   background-color: transparent;
   color: var(--color-brand-600);
   box-shadow: var(--nm-pressed);
+}
+
+/* Dialogs are solid: through the glass, the tab bar of a phone showed under « Annuler / Ajouter ».
+   (« #… »: the weight of the glass rules above, which have ids.) */
+:root[data-style] :is([aria-modal='true'].bg-surface, #specificity-of-the-rules-above) {
+  background-color: var(--dialog-bg, var(--color-surface));
+}
+/* Relief: the main button is filled with the accent, it stands out of the matter instead of being blue text on grey. */
+:root[data-style='relief'] .btn-primary {
+  background-color: var(--color-brand-solid);
+  color: var(--color-on-brand);
+}
+:root[data-style='relief'] .btn-primary:active {
+  background-color: var(--color-brand-solid-hover);
 }
 
 /* Keyboard focus on buttons whose ring the styles above replaced: an outline instead. */

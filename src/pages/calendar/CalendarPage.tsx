@@ -18,6 +18,7 @@ import { eventTitle, periodIdeas, removeEvent, useCalendarSource } from './sourc
 import DayView from './DayView';
 import SeriesIcon from './SeriesIcon';
 import { firstOfSpans } from '../../lib/repeat';
+import { isLateEvent } from '../../lib/late';
 import ImportIcsDialog, { type IcsSource } from './ImportIcsDialog';
 import { useCreateActions } from '../../store/create';
 import { isIcsFile } from '../../lib/ics';
@@ -489,7 +490,7 @@ export default function CalendarPage() {
     // already listed above with « Retard », aside). A shared calendar has no « fait ».
     const lateEvents = shared
       ? []
-      : visible.filter(e => !e.done && !e.externalId && e.category !== 'cours' && !isDeliverable(e) && isOver(e) && daysUntil(e.date) >= -14).sort((a, b) => sortEvents(b, a));
+      : visible.filter(e => isLateEvent(e)).sort((a, b) => sortEvents(b, a));
     return { upcomingHidden, allUpcomingExams, upcomingExams, moreExams, nextUp, lateEvents };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the helpers above only read these values
   }, [events, visible, passes, filtering, allExams, shared, today, minute, selected]);
@@ -523,7 +524,20 @@ export default function CalendarPage() {
             has no title here (its page has one): the date starts the row. Phones: two rows, the views and tools
             under the date, the tools at the right edge. One height for all (36 px under a finger). */}
         <div className="flex flex-wrap items-center gap-x-2 gap-y-3 pb-4 pt-2">
-          {!shared && <h1 className="mr-3 text-[24px] font-semibold tracking-[-0.02em] max-sm:w-full">{t('Calendrier')}</h1>}
+          {!shared && (
+            <h1 className="mr-3 flex items-center gap-2 text-[24px] font-semibold tracking-[-0.02em] max-sm:w-full">
+              {t('Calendrier')}
+              {/* Phones and tablets: the « En retard » list is far below the month, this takes there. */}
+              {lateEvents.length > 0 && (
+                <button
+                  onClick={() => document.getElementById('en-retard')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                  className="rounded-full bg-red-50 px-2.5 py-1 text-[12px] font-semibold tracking-normal text-urgent-text lg:hidden pointer-coarse:py-2"
+                >
+                  {tn(lateEvents.length, '{n} en retard', '{n} en retard')}
+                </button>
+              )}
+            </h1>
+          )}
           <div className={cx('flex items-center gap-2', !shared && 'sm:ml-auto')}>
             <div className="flex items-center gap-1">
               <button className="icon-btn pointer-coarse:h-9 pointer-coarse:w-9" onClick={() => shift(-1)} title={mode === 'day' ? t('Jour précédent') : t('Précédent')} aria-label={mode === 'day' ? t('Jour précédent') : t('Précédent')}>
@@ -851,7 +865,7 @@ export default function CalendarPage() {
 
           <aside aria-labelledby="a-venir-titre" className="card min-w-0 self-start p-4">
             {lateEvents.length > 0 && (
-              <section aria-labelledby="en-retard-titre" className="mb-4 border-b border-stone-200 pb-3">
+              <section id="en-retard" aria-labelledby="en-retard-titre" className="mb-4 scroll-mt-20 border-b border-stone-200 pb-3">
                 <div className="mb-2 flex items-center gap-2">
                   <h2 id="en-retard-titre" className="text-[13px] font-semibold text-urgent-text">
                     {t('En retard')} · {lateEvents.length}

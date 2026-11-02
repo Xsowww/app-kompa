@@ -46,7 +46,8 @@ function WorkTime() {
       <div className="mb-3 lg:hidden">
         <FocusTimer />
       </div>
-      <div className="card p-5">
+      {/* Never a session yet: no « 0 min » card (the timer above, or in the side bar, is where it starts). */}
+      <div className={cx('card p-5', sessions.length === 0 && 'hidden')}>
         <div className="flex items-baseline gap-2">
           <h2 id="travail-titre" className="mr-auto text-[13px] font-medium text-stone-600">
             {t('Temps de travail')}

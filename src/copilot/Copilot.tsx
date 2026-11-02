@@ -590,7 +590,7 @@ export default function Copilot() {
         <div
           className={cx(
             'relative origin-right cursor-pointer touch-none transition-[translate] duration-300 max-sm:scale-[0.8]',
-            pose === 'hidden' && 'max-sm:translate-x-1.5',
+            pose === 'hidden' && 'max-sm:translate-x-5',
             isOpen && 'pointer-events-none',
           )}
           style={{ clipPath: 'inset(-80px 0 -80px -80px)', translate: isOpen && screen.w < 640 ? `0 ${perch}px` : undefined }}

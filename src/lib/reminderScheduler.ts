@@ -10,7 +10,7 @@
 // Every reminder has a key (lib/reminders): shown once, whichever way it came. Several due at the same moment
 // (a morning's tasks at 9:00): one notification for all (lib/notifyGroups, as the server does).
 
-import { eventReminders, upcomingReminders, type DueReminder, type ReminderSource } from './reminders';
+import { eventReminders, upcomingReminders, taskDigests, type DueReminder, type ReminderSource } from './reminders';
 import { useCalendar } from '../store/calendar';
 import { useTodos } from '../store/todos';
 import { useSettings, getSettings } from '../store/settings';
@@ -134,7 +134,8 @@ function plan() {
   timers = [];
   if (!userId) return;
   const now = Date.now();
-  const list = upcomingReminders(sources(), new Date(now));
+  // Plus, with « Point du matin » on, one summary of the day's tasks at 8:00.
+  const list = [...upcomingReminders(sources(), new Date(now)), ...(getSettings().morningBrief ? taskDigests(useTodos.getState().todos, new Date(now)) : [])];
   void sendToServer(list).catch(() => undefined); // offline: sent again at the next change or hour
   const delay = push ? FALLBACK_DELAY : 0;
   const next = [...list, ...shared]
@@ -255,7 +256,7 @@ export function startReminders(id: string): () => void {
     useGroups.subscribe((s, p) => s.events !== p.events && loadSharedSoon()),
     useCalendar.subscribe((s, p) => s.events !== p.events && planSoon()),
     useTodos.subscribe((s, p) => s.todos !== p.todos && planSoon()),
-    useSettings.subscribe((s, p) => s.defaultReminders !== p.defaultReminders && planSoon()),
+    useSettings.subscribe((s, p) => (s.defaultReminders !== p.defaultReminders || s.morningBrief !== p.morningBrief) && planSoon()),
   ];
   const hourly = setInterval(loadSharedSoon, 3_600_000); // then plan()
   const onVisible = () => document.visibilityState === 'visible' && loadSharedSoon();

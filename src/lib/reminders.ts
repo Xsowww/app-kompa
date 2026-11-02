@@ -4,7 +4,7 @@
 // A reminder is a number of minutes before the item's moment: its start time, or 9:00 that day for an
 // event without a time or a task without a time (« la veille, 18 h » = 15 h before 9:00).
 
-import { t } from '../i18n';
+import { t, tn } from '../i18n';
 
 export interface ReminderOption {
   minutes: number;
@@ -218,3 +218,21 @@ export function followMoments(list: number[], from: { date: string; time?: strin
   return kept.length || !list.length ? kept : fallback;
 }
 
+
+/**
+ * The morning summary of the tasks (one notification instead of one per task): at 8:00 on each of the next days,
+ * how many tasks are due that day or late by then, and the first ones. Nothing on a day with none.
+ */
+export function taskDigests(todos: { id: string; title: string; done: boolean; due?: string }[], now = new Date(), days = 2): DueReminder[] {
+  const out: DueReminder[] = [];
+  for (let i = 0; i <= days; i++) {
+    const at = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i, 8, 0);
+    if (at <= now) continue;
+    const day = `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, '0')}-${String(at.getDate()).padStart(2, '0')}`;
+    const due = todos.filter(x => !x.done && x.due && x.due <= day);
+    if (!due.length) continue;
+    const names = due.slice(0, 3).map(x => x.title).join(', ') + (due.length > 3 ? '…' : '');
+    out.push({ key: `digest:${day}`, fireAt: at, title: tn(due.length, '{n} tâche à faire aujourd’hui', '{n} tâches à faire aujourd’hui'), body: names, url: '/taches' });
+  }
+  return out;
+}
