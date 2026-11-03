@@ -164,11 +164,14 @@ export function eventsBetween(from: string, to: string) {
     .sort(sortEvents);
 }
 
+/** « 9h », « 14h30 » in French; the other languages keep « 09:00 » (« um 9h » read wrong). */
+export const hourLabel = (hm: string) => (lang === 'fr' ? hm.replace(':', 'h').replace(/h00$/, 'h').replace(/^0(?=\d)/, '') : hm);
+
 export function describeEvent(e: { title: string; date: string; start?: string; end?: string; category: EventCategory; done?: boolean; important?: boolean }) {
   const c = catOf(e.category);
-  // « 9h », « 14h30 » in French; the other languages keep « 09:00 » (« um 9h » read wrong), and their capitals (German nouns).
+  // The other languages keep their capitals (German nouns).
   const fr = lang === 'fr';
-  const h = (hm: string) => (fr ? hm.replace(':', 'h').replace(/h00$/, 'h').replace(/^0(?=\d)/, '') : hm);
+  const h = hourLabel;
   const time = e.start ? ` ${t('à {time}', { time: `${h(e.start)}${e.end ? `–${h(e.end)}` : ''}` })}` : '';
   return `${e.title} (${fr ? c.label.toLowerCase() : c.label}) — ${fmtDay(fromKey(e.date), 'EEEE d MMM')}${time}${e.important ? ` · ${t('important')}` : ''}${e.done ? ` · ${t('fait')}` : ''}`;
 }

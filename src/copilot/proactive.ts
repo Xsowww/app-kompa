@@ -13,7 +13,7 @@ import { useFocus } from '../store/focus';
 import { toKey, todayKey, daysUntil, fmt, fromKey, weekStart, countdownLabel, isOver, hasStarted } from '../lib/dates';
 
 export { isOver };
-import { hasRevisionPlan, linkToDay, linkToNote } from './actions';
+import { hasRevisionPlan, hourLabel, linkToDay, linkToNote } from './actions';
 import { aiNudge, type NudgeKind } from './claudeBrain';
 import { getSettings } from '../store/settings';
 import { notify } from '../lib/notify';
@@ -91,7 +91,8 @@ async function nudge(n: Nudge) {
   return true;
 }
 
-const when = (e: CalendarEvent) => `${fmt(fromKey(e.date), 'EEEE d MMMM')}${e.start ? ` à ${e.start.replace(':', 'h')}` : ''}`;
+// « mardi 4 novembre à 14h », « Tuesday 4 November at 14:00 »: the hour and its « à » translated (lib i18n).
+const when = (e: CalendarEvent) => `${fmt(fromKey(e.date), 'EEEE d MMMM')}${atTime(e)}`;
 
 const studying = () => (getSettings().usage ?? 'etudes') === 'etudes';
 /** The big days Kompaly helps prepare for: exams in studies; deadlines, « grands jours » and important events elsewhere. */
@@ -130,7 +131,9 @@ function bigEventFallback(e: CalendarEvent, d: number) {
 
 /** A button that asks the AI (only when there is one: the simple mode couldn't answer it). */
 const ask = (label: string, prompt: string): CopilotOffer[] => (useCopilot.getState().aiEnabled ? [{ label, kind: 'ask', payload: { prompt } }] : []);
-const atTime = (e: CalendarEvent) => (e.start ? t(' à {time}', { time: e.start.replace(':', 'h') }) : '');
+function atTime(e: CalendarEvent) {
+  return e.start ? t(' à {time}', { time: hourLabel(e.start) }) : '';
+}
 
 // ── Reactions to what the student does ──────────────────────────────────────
 
