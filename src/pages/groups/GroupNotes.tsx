@@ -1,13 +1,15 @@
-import { LoadFailed } from './shared';
+import { ListTools, LoadFailed } from './shared';
+import { sortNotes, type NoteSort } from './logic';
+import { usePendingRemovals } from './pending';
 import { EmptyState, Skeleton } from '../../components/EmptyState';
-import { lazy, Suspense, useEffect, useRef, useState, type FocusEvent } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type FocusEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { FilePlus2, FileText } from 'lucide-react';
 import { useGroups } from '../../store/groups';
 import { toast } from '../../store/ui';
 import { createNote, groupError, summary, type Group, type GroupNote } from '../../lib/groups';
 import { cx, relativeTime } from '../../lib/utils';
-import { useMemberName, useRights } from './util';
+import { useMemberName, useRememberedSort, useRights } from './util';
 import { useCreateActions, useNarrow } from '../../store/create';
 import { PlusHint } from '../../components/CreateButton';
 import { t, tn } from '../../i18n';
@@ -46,6 +48,12 @@ export default function GroupNotes({ group }: { group: Group }) {
   }
 
   const open = (id: string | null) => setParams(id ? { g: group.id, note: id } : { g: group.id });
+  const [query, setQuery] = useState('');
+  const [sort, setSort] = useRememberedSort<NoteSort>('cop-groupe-notes-tri', ['modifiees', 'creees', 'titre']);
+  // A note just deleted (its « Annuler » still on screen) is already gone from the list.
+  const pending = usePendingRemovals(s => s.ids);
+  const listed = useMemo(() => notes?.filter(n => !pending.includes(n.id)), [notes, pending]);
+  const shown = useMemo(() => sortNotes(listed ?? [], sort, query), [listed, sort, query]);
   // The « + » button (the sharing lines follow it, GroupShare).
   // Not over a note open on a phone (it fills the screen).
   const narrow = useNarrow();
@@ -125,11 +133,25 @@ export default function GroupNotes({ group }: { group: Group }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* Empty, loading or failed: the state below says it. Adding: the « + » button. */}
-      {notes && notes.length > 0 && <p className="eyebrow pb-3">{tn(notes.length, '{n} note partagée', '{n} notes partagées')}</p>}
+      {listed && listed.length > 0 && (
+        <ListTools
+          count={tn(listed.length, '{n} note partagée', '{n} notes partagées')}
+          query={query}
+          onQuery={setQuery}
+          placeholder={t('Rechercher une note')}
+          sort={sort}
+          onSort={setSort}
+          sorts={[
+            { value: 'modifiees', label: t('Modifiées récemment') },
+            { value: 'creees', label: t('Créées récemment') },
+            { value: 'titre', label: t('Titre (A → Z)') },
+          ]}
+        />
+      )}
 
       <div className="shadow-room min-h-0 flex-1 overflow-y-auto pb-room">
         {!notes && (failed ? <LoadFailed groupId={group.id} part="notes" className="card" /> : <Skeleton className="card p-3" />)}
-        {notes && notes.length === 0 && (
+        {listed && listed.length === 0 && (
           <EmptyState
             className="card"
             icon={FileText}
@@ -138,10 +160,11 @@ export default function GroupNotes({ group }: { group: Group }) {
             preview="list"
           />
         )}
-        {notes && notes.length > 0 && (
+        {listed && listed.length > 0 && shown.length === 0 && <p className="card p-6 text-center text-[13px] text-stone-500">{t('Aucune note trouvée')}</p>}
+        {shown.length > 0 && (
           <div className="card divide-y divide-stone-100 overflow-hidden">
-            {notes.map(n => (
-              <button key={n.id} onClick={() => open(n.id)} className={cx('flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-stone-50')}>
+            {shown.map(n => (
+              <button key={n.id} onClick={() => open(n.id)} title={n.title} className={cx('flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-stone-50')}>
                 <FileText size={16} className="shrink-0 text-stone-400" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[14px] font-medium">{n.title}</span>

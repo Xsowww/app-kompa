@@ -66,6 +66,7 @@ function EventView({ event: ev, onClose }: { event: CalendarEvent; onClose: () =
         <SeriesIcon series={ev.series} size={11} />
         <span className="min-w-0 truncate">· {t('par {name}', { name: shared.author(ev.id) })}</span>
       </p>
+      {shared.changed(ev.id) && <p className="mt-0.5 text-[12px] text-stone-500">{shared.changed(ev.id)}</p>}
       <dl className="mt-4 grid gap-3">
         {row(t('Pour qui'), ev.people?.length ? ev.people.map(who).join(', ') : t('Tout le monde'))}
         {reminders.length > 0 &&
@@ -226,6 +227,8 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
     <Modal open onClose={onClose} width={460}>
       <form onSubmit={submit}>
         <h3 className="text-[15px] font-semibold">{event ? t('Modifier l’événement') : t('Nouvel événement')}</h3>
+        {/* A shared calendar: who changed it last (pages/groups/SharedCalendar). */}
+        {event && shared?.changed(event.id) && <p className="mt-1 text-[12px] text-stone-500">{shared.changed(event.id)}</p>}
         {event && !shared && (f => f && (
           <p className="mt-1 flex items-center gap-1.5 text-[12px] text-stone-500">
             <Link2 size={12} aria-hidden />

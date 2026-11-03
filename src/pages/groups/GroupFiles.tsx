@@ -1,19 +1,21 @@
-import { LoadFailed } from './shared';
+import { ListTools, LoadFailed } from './shared';
+import { sortFiles, type FileSort } from './logic';
+import { removeWithUndo, usePendingRemovals } from './pending';
 import { EmptyState, Skeleton } from '../../components/EmptyState';
-import { useCallback, useRef, useState } from 'react';
-import { Download, Flag, FolderDown, Monitor, MoreHorizontal, Paperclip, Trash2 } from 'lucide-react';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { Download, Flag, FolderDown, Monitor, MoreHorizontal, Paperclip, Pencil, Trash2 } from 'lucide-react';
 import { useAuth } from '../../store/auth';
 import { ReportDialog } from '../../components/FeedbackDialogs';
 import { useGroups } from '../../store/groups';
 import { categoryOf, useDrive, type DriveItem } from '../../store/drive';
-import { confirmAction, toast } from '../../store/ui';
+import { askText, toast } from '../../store/ui';
 import FileIcon from '../../components/FileIcon';
 import { ContextMenu, type MenuItem } from '../../components/Overlays';
 import PreviewModal from '../drive/PreviewModal';
 import { downloadItem } from '../drive/download';
-import { deleteFile, downloadFile, groupError, type Group, type GroupFile } from '../../lib/groups';
+import { deleteFile, downloadFile, groupError, renameFile, type Group, type GroupFile } from '../../lib/groups';
 import { cx, formatBytes, relativeTime } from '../../lib/utils';
-import { shareFiles, useGroupWords, useMemberName, useRights } from './util';
+import { shareFiles, useMemberName, useRememberedSort, useRights } from './util';
 import { useCreateActions } from '../../store/create';
 import { PlusHint } from '../../components/CreateButton';
 import { t, tn } from '../../i18n';
@@ -22,8 +24,13 @@ import { t, tn } from '../../i18n';
 const asItem = (f: GroupFile): DriveItem => ({ id: f.id, name: f.name, kind: 'file', parentId: null, mime: f.mime ?? undefined, size: f.size, createdAt: f.createdAt, updatedAt: f.createdAt });
 
 export default function GroupFiles({ group }: { group: Group }) {
-  const w = useGroupWords();
-  const files = useGroups(s => s.files[group.id]);
+  const all = useGroups(s => s.files[group.id]);
+  // A file just deleted (its « Annuler » still on screen) is already gone from the list.
+  const pending = usePendingRemovals(s => s.ids);
+  const files = useMemo(() => all?.filter(f => !pending.includes(f.id)), [all, pending]);
+  const [query, setQuery] = useState('');
+  const [sort, setSort] = useRememberedSort<FileSort>('cop-groupe-fichiers-tri', ['recents', 'nom', 'taille']);
+  const shown = useMemo(() => sortFiles(files ?? [], sort, query), [files, sort, query]);
   const failed = useGroups(s => s.loadFailed[`${group.id}:files`]);
   const nameOf = useMemberName(group.id);
   const { canEdit } = useRights(group);
@@ -61,12 +68,20 @@ export default function GroupFiles({ group }: { group: Group }) {
     }
   };
 
-  const remove = async (f: GroupFile) => {
-    if (!(await confirmAction(t('Supprimer « {name} » ?', { name: f.name }), t('Il disparaît pour tous les membres {of}.', { of: w.of })))) return;
-    try {
+  // For every member, for good: « Annuler » in the message rather than a question first. As the database: its author or the owner.
+  const canDelete = (f: GroupFile) => canEdit && (f.createdBy === me || group.ownerId === me);
+  const remove = (f: GroupFile) =>
+    removeWithUndo([f.id], t('« {name} » supprimé', { name: f.name }), async () => {
       await deleteFile(f);
       await useGroups.getState().refresh(group.id, ['files']);
-      toast(t('Fichier supprimé'), 'success');
+    });
+
+  const rename = async (f: GroupFile) => {
+    const name = await askText(t('Renommer le fichier'), f.name, t('Renommer'), { fileName: true, maxLength: 255 });
+    if (!name?.trim() || name.trim() === f.name) return;
+    try {
+      await renameFile(f, name);
+      await useGroups.getState().refresh(group.id, ['files']);
     } catch (e) {
       toast(groupError(e), 'error');
     }
@@ -75,8 +90,9 @@ export default function GroupFiles({ group }: { group: Group }) {
   // Phones: only « Télécharger » stays beside the name, the rest goes in « Plus d’actions » (4 icons cut the name short).
   const moreItems = (f: GroupFile): MenuItem[] => [
     { label: t('Copier dans mon Drive'), icon: <FolderDown size={15} />, onClick: () => void toDrive(f) },
+    ...(canEdit ? [{ label: t('Renommer'), icon: <Pencil size={15} />, onClick: () => void rename(f) }] : []),
     ...(f.createdBy !== me ? [{ label: t('Signaler'), icon: <Flag size={15} />, onClick: () => setReporting(f) }] : []),
-    ...(canEdit ? [{ label: t('Supprimer'), icon: <Trash2 size={15} />, danger: true, onClick: () => void remove(f) }] : []),
+    ...(canDelete(f) ? [{ label: t('Supprimer'), icon: <Trash2 size={15} />, danger: true, onClick: () => remove(f) }] : []),
   ];
 
   const drop = (e: React.DragEvent) => {
@@ -100,7 +116,19 @@ export default function GroupFiles({ group }: { group: Group }) {
     >
       {files && files.length > 0 && (
         // Adding: the « + » button, or a drop here.
-        <p className="eyebrow pb-3">{tn(files.length, '{n} fichier partagé', '{n} fichiers partagés')}</p>
+        <ListTools
+          count={tn(files.length, '{n} fichier partagé', '{n} fichiers partagés')}
+          query={query}
+          onQuery={setQuery}
+          placeholder={t('Rechercher un fichier')}
+          sort={sort}
+          onSort={setSort}
+          sorts={[
+            { value: 'recents', label: t('Partagés récemment') },
+            { value: 'nom', label: t('Nom (A → Z)') },
+            { value: 'taille', label: t('Taille') },
+          ]}
+        />
       )}
       <div className={cx('shadow-room min-h-0 flex-1 overflow-y-auto rounded-xl pb-room', over && 'outline-2 outline-dashed outline-stone-300')}>
         {!files && (failed ? <LoadFailed groupId={group.id} part="files" className="card" /> : <Skeleton className="card p-3" />)}
@@ -113,9 +141,10 @@ export default function GroupFiles({ group }: { group: Group }) {
             preview="list"
           />
         )}
-        {files && files.length > 0 && (
+        {files && files.length > 0 && shown.length === 0 && <p className="card p-6 text-center text-[13px] text-stone-500">{t('Aucun fichier trouvé')}</p>}
+        {shown.length > 0 && (
           <div className="card divide-y divide-stone-100 overflow-hidden">
-            {files.map(f => (
+            {shown.map(f => (
               <div key={f.id} className="flex items-center gap-3 px-4 py-2.5">
                 <button className="flex min-w-0 flex-1 items-center gap-3 text-left" onClick={() => setPreview(f)} title={t('Aperçu de {name}', { name: f.name })}>
                   <FileIcon category={categoryOf({ kind: 'file', mime: f.mime ?? undefined, name: f.name })} size={32} ext={f.name.split('.').pop()} />
@@ -139,7 +168,12 @@ export default function GroupFiles({ group }: { group: Group }) {
                     </button>
                   )}
                   {canEdit && (
-                    <button className="icon-btn hover:text-red-600 max-sm:hidden" title={t('Supprimer')} aria-label={t('Supprimer {name}', { name: f.name })} onClick={() => void remove(f)}>
+                    <button className="icon-btn max-sm:hidden" title={t('Renommer')} aria-label={t('Renommer {name}', { name: f.name })} onClick={() => void rename(f)}>
+                      <Pencil size={15} />
+                    </button>
+                  )}
+                  {canDelete(f) && (
+                    <button className="icon-btn hover:text-red-600 max-sm:hidden" title={t('Supprimer')} aria-label={t('Supprimer {name}', { name: f.name })} onClick={() => remove(f)}>
                       <Trash2 size={15} />
                     </button>
                   )}
