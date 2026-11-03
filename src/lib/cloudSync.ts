@@ -193,6 +193,8 @@ let changes = 0;
 let lastPull = 0;
 
 const hasPending = () => profileKeys.size > 0 || ORDER.some(t => pending[t].upserts.size || pending[t].deletes.size);
+/** Changes waiting to be sent: one per thing changed or deleted (the settings count as one). */
+export const pendingCount = () => ORDER.reduce((n, t) => n + pending[t].upserts.size + pending[t].deletes.size, profileKeys.size ? 1 : 0);
 
 // The queue is mirrored in localStorage, so a change made just before closing the tab
 // is sent on the next visit instead of being overwritten by the older cloud copy.

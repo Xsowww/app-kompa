@@ -43,14 +43,36 @@ interface DialogRequest {
   resolve: (value: string | boolean | null) => void;
 }
 
+export interface ToastOptions {
+  /** How long it stays (ms); 0: until closed (its ✕ or its button). */
+  duration?: number;
+}
+
+/** Errors stay longer (read, then acted on); a toast with a button leaves time to reach it. */
+export const toastDuration = (tone: Toast['tone'], action?: ToastAction) => (tone === 'error' ? 8000 : action ? 6000 : 3500);
+
+/** Each toast's countdown: what is left of it, and since when it runs (none while paused). */
+const timers = new Map<string, { left: number; since: number; timer?: ReturnType<typeof setTimeout> }>();
+const stopTimer = (id: string) => {
+  const c = timers.get(id);
+  if (c?.timer) {
+    clearTimeout(c.timer);
+    c.left -= Date.now() - c.since;
+    c.timer = undefined;
+  }
+};
+
 interface UiState {
   toasts: Toast[];
   alerts: ReminderAlert[];
   /** Reports and feedback still to handle (admins only): the badge on « Administration ». */
   adminPending: number;
   dialog: DialogRequest | null;
-  toast: (text: string, tone?: Toast['tone'], action?: ToastAction) => void;
+  toast: (text: string, tone?: Toast['tone'], action?: ToastAction, options?: ToastOptions) => void;
   dismissToast: (id: string) => void;
+  /** The pointer or the focus is on the toast: it waits (it might be being read, or its button reached). */
+  pauseToast: (id: string) => void;
+  resumeToast: (id: string) => void;
   showAlert: (a: ReminderAlert) => void;
   dismissAlert: (key: string) => void;
   closeDialog: (value: string | boolean | null) => void;
@@ -61,13 +83,31 @@ export const useUi = create<UiState>((set, get) => ({
   alerts: [],
   adminPending: 0,
   dialog: null,
-  toast(text, tone = 'info', action) {
+  toast(text, tone = 'info', action, options = {}) {
     const t: Toast = { id: uid(), text, tone, action };
     // A success makes an earlier error out of date (retried and done): it isn't left on screen beside it.
-    set(s => ({ toasts: [...(tone === 'success' ? s.toasts.filter(x => x.tone !== 'error') : s.toasts), t] }));
-    setTimeout(() => get().dismissToast(t.id), action ? 6000 : 3500);
+    // The same message again (a button pressed twice…): one toast, the new one, not two alike stacked.
+    const gone = get().toasts.filter(x => (tone === 'success' && x.tone === 'error') || (x.text === text && x.tone === tone));
+    gone.forEach(x => (stopTimer(x.id), timers.delete(x.id)));
+    set(s => ({ toasts: [...s.toasts.filter(x => !gone.includes(x)), t] }));
+    const duration = options.duration ?? toastDuration(tone, action);
+    if (duration > 0) {
+      timers.set(t.id, { left: duration, since: 0 });
+      get().resumeToast(t.id);
+    }
   },
-  dismissToast: id => set(s => ({ toasts: s.toasts.filter(t => t.id !== id) })),
+  dismissToast(id) {
+    stopTimer(id);
+    timers.delete(id);
+    set(s => ({ toasts: s.toasts.filter(t => t.id !== id) }));
+  },
+  pauseToast: stopTimer,
+  resumeToast(id) {
+    const c = timers.get(id);
+    if (!c || c.timer) return;
+    c.since = Date.now();
+    c.timer = setTimeout(() => get().dismissToast(id), Math.max(c.left, 1000)); // a moment to leave it, at least
+  },
   showAlert: a => set(s => (s.alerts.some(x => x.key === a.key) ? s : { alerts: [...s.alerts, a].slice(-4) })),
   dismissAlert: key => set(s => ({ alerts: s.alerts.filter(a => a.key !== key) })),
   closeDialog(value) {
@@ -76,7 +116,7 @@ export const useUi = create<UiState>((set, get) => ({
   },
 }));
 
-export const toast = (text: string, tone?: Toast['tone'], action?: ToastAction) => useUi.getState().toast(text, tone, action);
+export const toast = (text: string, tone?: Toast['tone'], action?: ToastAction, options?: ToastOptions) => useUi.getState().toast(text, tone, action, options);
 
 export function askText(title: string, defaultValue = '', confirmLabel = t('Valider'), options: { fileName?: boolean; url?: boolean; maxLength?: number } = {}): Promise<string | null> {
   return new Promise(resolve =>
