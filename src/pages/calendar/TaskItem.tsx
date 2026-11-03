@@ -28,8 +28,8 @@ export function TaskChip({ todo, onOpen, className, wrap }: { todo: Todo; onOpen
   return (
     <span
       className={cx(
-        'flex min-w-0 max-w-full gap-1.5 rounded-md border border-dashed border-stone-300 px-1.5 text-[12px] text-stone-600',
-        wrap ? 'min-h-6 items-start py-[3px] leading-4 pointer-coarse:min-h-9 pointer-coarse:items-center' : 'h-6 items-center pointer-coarse:h-9',
+        'flex min-w-0 max-w-full rounded-md border border-dashed border-stone-300 text-stone-600',
+        wrap ? 'min-h-6 items-start gap-1 px-1 py-[3px] text-[11.5px] leading-4 pointer-coarse:min-h-9 pointer-coarse:items-center' : 'h-6 items-center gap-1.5 px-1.5 text-[12px] pointer-coarse:h-9',
         todo.done && 'opacity-60',
         className,
       )}

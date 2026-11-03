@@ -63,12 +63,9 @@ const wideQuery = media('(min-width: 640px)');
 const subscribeWide = subscribeTo(wideQuery);
 const useWide = () => useSyncExternalStore(subscribeWide, () => wideQuery?.matches ?? true);
 // A low screen (a phone on its side): the fixed header keeps one row, its tools as icons.
-const shortQuery = media('(max-height: 500px)');
+const shortQuery = media('(max-height: 500px) and (width < 64rem)'); // as the `short:` variant (index.css)
 const subscribeShort = subscribeTo(shortQuery);
 const useShort = () => useSyncExternalStore(subscribeShort, () => shortQuery?.matches ?? false);
-const coarseQuery = media('(pointer: coarse)');
-const subscribeCoarse = subscribeTo(coarseQuery);
-const useCoarse = () => useSyncExternalStore(subscribeCoarse, () => coarseQuery?.matches ?? false);
 // From a tablet the week is an hourly grid of seven columns; on a phone, the seven days one under the other.
 const gridQuery = media('(min-width: 768px)');
 const subscribeGrid = subscribeTo(gridQuery);
@@ -242,7 +239,7 @@ function CalendarFilter({ categories, shown, importantOnly, tasksOnly, onToggle,
         title={t('Filtrer les événements affichés')}
       >
         <ListFilter size={15} />
-        <span className="max-sm:sr-only [@media(max-height:500px)]:sr-only">{t('Filtrer')}</span>
+        <span className="max-sm:sr-only short:sr-only">{t('Filtrer')}</span>
         {count > 0 && <span className="tabular rounded-full bg-ink px-1.5 text-[11px] leading-[18px] text-paper">{count}</span>}
       </button>
       {open && (
@@ -252,10 +249,10 @@ function CalendarFilter({ categories, shown, importantOnly, tasksOnly, onToggle,
           id="filtre-calendrier"
           role="group"
           aria-label={t('Filtrer les événements')}
-          className="pop absolute right-0 top-full z-[60] mt-2 max-h-[min(70dvh,560px)] w-64 overflow-y-auto overscroll-contain rounded-xl border border-stone-200 bg-surface p-2 shadow-pop [@media(max-height:500px)]:fixed [@media(max-height:500px)]:inset-x-4 [@media(max-height:500px)]:top-3 [@media(max-height:500px)]:z-[90] [@media(max-height:500px)]:mx-auto [@media(max-height:500px)]:mt-0 [@media(max-height:500px)]:max-h-[calc(100dvh-24px)] [@media(max-height:500px)]:w-auto [@media(max-height:500px)]:max-w-2xl"
+          className="pop absolute right-0 top-full z-[60] mt-2 max-h-[min(70dvh,560px)] w-64 overflow-y-auto overscroll-contain rounded-xl border border-stone-200 bg-surface p-2 shadow-pop short:fixed short:inset-x-4 short:top-3 short:z-[90] short:mx-auto short:mt-0 short:max-h-[calc(100dvh-24px)] short:w-auto short:max-w-2xl"
         >
           <p className="px-2 pb-1 pt-0.5 text-[12px] text-stone-500">{t('Afficher seulement :')}</p>
-          <div className="[@media(max-height:500px)]:grid [@media(max-height:500px)]:grid-cols-3 [@media(max-height:500px)]:gap-x-1">
+          <div className="short:grid short:grid-cols-3 short:gap-x-1">
           {onImportant && (
             <label className={row}>
               <input type="checkbox" className={box} checked={importantOnly} onChange={onImportant} />
@@ -270,7 +267,7 @@ function CalendarFilter({ categories, shown, importantOnly, tasksOnly, onToggle,
               {t('Tâches')}
             </label>
           )}
-          {(onImportant || onTasks) && <div className="my-1 h-px bg-stone-100 [@media(max-height:500px)]:hidden" />}
+          {(onImportant || onTasks) && <div className="my-1 h-px bg-stone-100 short:hidden" />}
           {categories.map(k => {
             const c = catOf(k);
             return (
@@ -361,11 +358,6 @@ export default function CalendarPage() {
   const weekGrid = useWeekGrid();
   const custom = source.categories; // a shared calendar: its own (mine aren't the others')
   const usage = useSettings(s => s.usage);
-  // The fixed header's background in the glass looks: the page's own wallpaper, fixed as it is (seamless); under a
-  // finger (Safari draws no fixed background there) the page's colour, frosted.
-  const look = useSettings(s => s.style);
-  const coarse = useCoarse();
-  const glassHead = (look === 'verre' || look === 'liquide') && !coarse;
   const words = { ...(WORDS[usage] ?? WORDS.etudes), ...(shared && AGENDA_EXAMPLES) };
   const wide = useWide();
   const short = useShort();
@@ -759,17 +751,8 @@ export default function CalendarPage() {
         {/* Header: the date (‹ month ›, Aujourd’hui), then the views and the tools at the right. A shared calendar
             has no title here (its page has one): the date starts the row. Phones: two rows, the views and tools
             under the date, the tools at the right edge. One height for all (36 px under a finger).
-            Fixed at the top while the page scrolls, over a background of the page's own colour (a frosted one in the
-            glass looks, laid under it: a backdrop filter on the header itself would hold the filter's panel). */}
-        <div ref={headRef} className={cx('sticky top-0 z-30', compactHead ? 'pb-3 pt-1' : 'pb-4 pt-2')}>
-          <div
-            aria-hidden
-            className={cx(
-              'pointer-events-none absolute inset-y-0 -z-10 bg-paper [:root[data-style=liquide]_&]:bg-paper/75 [:root[data-style=liquide]_&]:backdrop-blur-xl [:root[data-style=verre]_&]:bg-paper/70 [:root[data-style=verre]_&]:backdrop-blur-xl',
-              shared ? '-inset-x-4' : '-inset-x-4 md:-inset-x-8',
-            )}
-            style={glassHead ? { background: 'var(--wallpaper, var(--color-paper))', backgroundAttachment: 'fixed', backdropFilter: 'none' } : undefined}
-          />
+            Fixed at the top while the page scrolls (the shared page-head: the page's own background, in every look). */}
+        <div ref={headRef} className={cx('page-head', compactHead ? 'pb-3 pt-1' : 'pb-4 pt-2')}>
           <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
           {!compactHead && title}
           <div className={cx('flex items-center gap-2', !shared && 'sm:ml-auto')}>
@@ -797,10 +780,10 @@ export default function CalendarPage() {
             </button>
           </div>
           <div className={cx('flex items-center gap-2 max-sm:w-full', shared && 'ml-auto')}>
-            {/* A capsule of capsules: the chosen view the same shape as its frame, 3 px inside it in every look. */}
-            <div className="flex h-8 items-center rounded-full bg-stone-100 p-[3px] text-[13px] pointer-coarse:h-9" role="group" aria-label={t('Affichage')}>
+            {/* The shared segmented control (index.css › seg): the chosen view the same shape as its frame, in every look. */}
+            <div className="seg text-[13px]" role="group" aria-label={t('Affichage')}>
               {MODES.map(m => (
-                <button key={m.id} onClick={() => setMode(m.id)} aria-pressed={mode === m.id} className={cx('hit h-full rounded-full px-2.5 font-medium transition-colors pointer-coarse:min-w-11 sm:px-3', mode === m.id ? 'bg-surface text-ink shadow-[0_1px_2px_rgb(20_22_31/0.14)]' : 'text-stone-500 hover:text-ink')}>
+                <button key={m.id} onClick={() => setMode(m.id)} aria-pressed={mode === m.id} className="seg-item pointer-coarse:min-w-11 sm:px-3">
                   {m.label}
                 </button>
               ))}

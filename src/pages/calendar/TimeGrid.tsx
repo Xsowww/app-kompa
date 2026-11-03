@@ -112,9 +112,9 @@ export default function TimeGrid({ days, today, selected, events, todos, periods
         onClick={() => onEdit(ev)}
         onContextMenu={onMenu && (e => onMenu(ev, e))}
         className={cx(
-          'flex max-w-full shrink-0 touch-manipulation select-none gap-1.5 rounded-md pl-2.5 pr-2 text-left text-[12px] font-medium [-webkit-touch-callout:none]',
+          'flex max-w-full shrink-0 touch-manipulation select-none gap-1.5 rounded-md text-left font-medium [-webkit-touch-callout:none]',
           // A week's narrow column: two lines of title (« Anniversaire de Léa », not « Annivers… »).
-          week ? 'min-h-6 items-start py-1 leading-4 pointer-coarse:min-h-9 pointer-coarse:items-center' : 'h-6 items-center truncate pointer-coarse:h-9',
+          week ? 'min-h-6 items-start py-1 pl-2 pr-1 text-[11.5px] leading-4 pointer-coarse:min-h-9 pointer-coarse:items-center' : 'h-6 items-center truncate pl-2.5 pr-2 text-[12px] pointer-coarse:h-9',
           dragged?.id === ev.id && 'opacity-40',
         )}
         // An event: a solid chip with its colour bar, as the blocks of the hours (a task: a dashed outline and a square box).
@@ -131,7 +131,7 @@ export default function TimeGrid({ days, today, selected, events, todos, periods
   // card's own colour over the page's (opaque in the glass looks too).
   const header = week && (
     <div
-      className="sticky z-20 grid overflow-y-hidden border-b border-stone-200 [scrollbar-gutter:stable]"
+      className="sticky z-10 grid overflow-y-hidden border-b border-stone-200 [scrollbar-gutter:stable]"
       style={{ gridTemplateColumns: cols, top: 'var(--cal-head, 0px)', background: 'linear-gradient(var(--color-surface), var(--color-surface)), var(--color-paper)' }}
     >
       <span />
@@ -145,11 +145,11 @@ export default function TimeGrid({ days, today, selected, events, todos, periods
             onClick={() => onSelectDay?.(d)}
             aria-pressed={isSel}
             aria-label={`${fmt(fromKey(d), 'EEEE d MMMM')}${d === today ? t(', aujourd’hui') : ''}`}
-            className={cx('flex flex-col items-center justify-center border-l border-stone-200 py-1.5 transition-colors [@media(max-height:500px)]:flex-row [@media(max-height:500px)]:gap-1.5 [@media(max-height:500px)]:py-1', isSel ? 'bg-stone-100' : 'hover:bg-stone-50')}
+            className={cx('flex flex-col items-center justify-center border-l border-stone-200 py-1.5 transition-colors short:flex-row short:gap-1.5 short:py-1', isSel ? 'bg-stone-100' : 'hover:bg-stone-50')}
             style={tint.length ? { backgroundImage: periodsFill(tint, isSel ? 26 : 13) } : undefined}
           >
             <span className="text-[11px] font-medium capitalize text-stone-500">{fmt(fromKey(d), 'EEE')}</span>
-            <span className={cx('tabular mt-0.5 flex h-7 w-7 [@media(max-height:500px)]:mt-0 items-center justify-center rounded-full text-[14px] font-semibold', isSel ? 'bg-tile-blue text-white' : d === today && 'text-brand-600')}>{fmt(fromKey(d), 'd')}</span>
+            <span className={cx('tabular mt-0.5 flex h-7 w-7 short:mt-0 items-center justify-center rounded-full text-[14px] font-semibold', isSel ? 'bg-tile-blue text-white' : d === today && 'text-brand-600')}>{fmt(fromKey(d), 'd')}</span>
           </button>
         );
       })}
@@ -216,7 +216,8 @@ export default function TimeGrid({ days, today, selected, events, todos, periods
 
   return (
     // Clipped to its corners without being a scrolling box (overflow-clip): the day names can stay at the top.
-    <div className="overflow-clip rounded-lg border border-stone-200">
+    // Its own layer (isolate): the now line and the blocks pass under the page's fixed header, not over it.
+    <div className="isolate overflow-clip rounded-lg border border-stone-200">
       {header}
       {allDayRow}
 
