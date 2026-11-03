@@ -86,10 +86,14 @@ function keepQuota(q: unknown) {
   }
 }
 
-async function post<T>(path: string, body: unknown, timeoutMs = 90_000): Promise<T> {
+/** `stop`: « Arrêter » pressed in the panel (the request is dropped, said as 'aborted', not as a timeout). */
+async function post<T>(path: string, body: unknown, timeoutMs = 90_000, stop?: AbortSignal): Promise<T> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  const onStop = () => ctrl.abort();
+  stop?.addEventListener('abort', onStop, { once: true });
   try {
+    if (stop?.aborted) throw new CopilotApiError('aborted');
     const token = await accessToken();
     const res = await fetch(`/api/copilot/${path}`, {
       method: 'POST',
@@ -107,10 +111,25 @@ async function post<T>(path: string, body: unknown, timeoutMs = 90_000): Promise
     return data as T;
   } catch (e) {
     if (e instanceof CopilotApiError) throw e;
+    if (stop?.aborted) throw new CopilotApiError('aborted');
     throw new CopilotApiError((e as Error).name === 'AbortError' ? 'timeout' : 'network');
   } finally {
     clearTimeout(timer);
+    stop?.removeEventListener('abort', onStop);
   }
+}
+
+/** Stopped with « Arrêter »: nothing to apologise for, and no pause of the AI. */
+export function wasStopped(e: unknown) {
+  const cause = e instanceof PartlyDone ? e.reason : e;
+  return cause instanceof CopilotApiError && cause.code === 'aborted';
+}
+
+/** A failure worth a « Réessayer » (a network or server hiccup), not a limit, a question too long, nor half done (it would be done twice). */
+export function canRetry(e: unknown) {
+  if (e instanceof PartlyDone) return false;
+  const code = e instanceof CopilotApiError ? e.code : 'unknown';
+  return !['aborted', 'rate_limited', 'daily_limit', 'site_limit', 'too_large', 'bad_key'].includes(code);
 }
 
 export interface AiStatus {
@@ -434,7 +453,7 @@ export class PartlyDone extends Error {
   }
 }
 
-export async function claudeReply(text: string, userName: string): Promise<BotReply> {
+export async function claudeReply(text: string, userName: string, stop?: AbortSignal): Promise<BotReply> {
   const links: CopilotLink[] = [];
   const offers: CopilotOffer[] = [];
   const starts = history.flatMap((m, i) => (m.role === 'user' && Array.isArray(m.content) && m.content.some(b => b.type === 'text') ? [i] : []));
@@ -444,7 +463,7 @@ export async function claudeReply(text: string, userName: string): Promise<BotRe
   history.push({ role: 'user', content: [{ type: 'text', text: contextBlock() }, { type: 'text', text }] });
   try {
     for (let step = 0; step < 10; step++) {
-      const res = await post<{ content: Block[]; stop_reason: string }>('chat', { messages: history, userName, ...persona() });
+      const res = await post<{ content: Block[]; stop_reason: string }>('chat', { messages: history, userName, ...persona() }, undefined, stop);
       history.push({ role: 'assistant', content: res.content as Anthropic.Beta.BetaContentBlockParam[] });
       if (res.stop_reason === 'refusal') return { text: t('Là je préfère ne pas m’aventurer. On parle d’autre chose ?') };
       if (res.stop_reason === 'pause_turn') continue;
@@ -481,6 +500,8 @@ export async function claudeReply(text: string, userName: string): Promise<BotRe
         }
       }
       history.push({ role: 'user', content: results });
+      // Stopped while the tools ran: no next call (what they did stays done).
+      if (stop?.aborted) throw new CopilotApiError('aborted');
     }
     return { text: t('J’ai fait plusieurs choses, jette un œil.'), links, offers };
   } catch (e) {

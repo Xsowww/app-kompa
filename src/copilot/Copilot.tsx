@@ -1,21 +1,24 @@
-import { memo, useEffect, useLayoutEffect, useRef, useState, type ComponentProps, type FormEvent } from 'react';
+import { Fragment, memo, useEffect, useLayoutEffect, useRef, useState, type ComponentProps, type FormEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ArrowUp, ArrowUpRight, Check, Copy, Maximize2, Mic, Minimize2, RotateCcw, Square, X } from 'lucide-react';
+import { ArrowUp, ArrowUpRight, Check, Copy, Maximize2, Mic, Minimize2, RefreshCw, RotateCcw, Square, X } from 'lucide-react';
 import Character, { CopilotAvatar, type CopilotMood } from './Character';
-import { useCopilot, type CopilotLink, type CopilotOffer } from '../store/copilot';
+import { toggleKompaly, useCopilot, type CopilotLink, type CopilotOffer } from '../store/copilot';
 import { useAuth } from '../store/auth';
-import { isYes, localReply, type BotReply } from './localBrain';
+import { startTour } from '../store/tour';
+import { toast } from '../store/ui';
+import { isTourRequest, isYes, localReply, type BotReply } from './localBrain';
 import { acceptOffer, runOffer } from './offers';
 import * as claudeBrain from './claudeBrain';
 import { normalize, cx } from '../lib/utils';
 import { useSettings } from '../store/settings';
 import Markdown from './Markdown';
 import { frenchSpacing, stripMarkdown } from './markdown';
-import { aiPausedUntil, aiPauseReason } from './aiPause';
+import { aiPausedUntil, aiPauseReason, resumeAfterError } from './aiPause';
 import { useDictation } from './voice';
 import { homeVisited } from './proactive';
 import { trapTab } from '../lib/a11y';
-import { toKey, todayKey } from '../lib/dates';
+import { fmt, toKey, todayKey } from '../lib/dates';
+import { dayLabel, leastCovering, type Box } from './panel';
 import { t } from '../i18n';
 
 // The AI part (and the Anthropic types it uses) is loaded on first use.
@@ -28,6 +31,11 @@ const RECORD_QUESTION = { etudes: t('Comment enregistrer un cours ?'), travail: 
 const suggestions = (usage: keyof typeof RECORD_QUESTION, planOffered = false) =>
   [t('Analyse ma semaine'), ...(planOffered ? [] : [usage === 'etudes' ? t('Planifie mes révisions') : t('Bloque du temps pour préparer')]), RECORD_QUESTION[usage]];
 const NARROW = '(max-width: 1023px)';
+/** The bubble moved off the cards (Tailwind's -translate-y-[85%] is the same `translate` property: kept in it). */
+const shifted = (x: number, y: number) => (x || y ? `${x}px calc(-85% + ${y}px)` : undefined);
+const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
+/** The input grows with the text up to about five lines, then scrolls. */
+const INPUT_MAX = 116;
 
 /**
  * The character, his eyes following the mouse. Only this small part re-renders while the mouse moves
@@ -117,7 +125,7 @@ function CopyButton({ text }: { text: string }) {
 export default function Copilot() {
   const navigate = useNavigate();
   const user = useAuth(s => s.user);
-  const { messages, pose, bubble, thinking, aiEnabled, offsetY: savedY } = useCopilot();
+  const { messages, pose, bubble, thinking, aiEnabled, offsetY: savedY, unread } = useCopilot();
   // Never down over the « + » button, bottom right (components/CreateButton): his lowest place stays above it.
   const [screen, setScreen] = useState(() => ({ w: window.innerWidth, h: window.innerHeight }));
   useEffect(() => {
@@ -159,8 +167,14 @@ export default function Copilot() {
   // Phones and tablets: the open panel covers the page, so it is a modal dialog there (Tab stays inside).
   const [narrow, setNarrow] = useState(() => matchMedia(NARROW).matches);
   const { pathname } = useLocation();
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const drag = useRef<{ startY: number; moved: boolean } | null>(null);
+  // « Arrêter »: drops the AI's answer being waited for.
+  const stopRef = useRef<AbortController | null>(null);
+  // Who opened the panel (the menu's « Kompaly », Ctrl+J…): the focus goes back there when it closes.
+  const opener = useRef<HTMLElement | null>(null);
+  const bubbleRef = useRef<HTMLDivElement>(null);
+  const [bubbleShift, setBubbleShift] = useState({ x: 0, y: 0 });
 
   // Is the AI brain plugged in on the server?
   useEffect(() => {
@@ -275,7 +289,8 @@ export default function Copilot() {
       // The phone's keyboard shrinks only the visual viewport (iOS, Chrome Android): the panel goes above it.
       const vv = window.visualViewport;
       const keyboard = vv ? Math.max(0, H - vv.height - vv.offsetTop) : 0;
-      const top = (phone ? 76 : margin) + (vv?.offsetTop ?? 0); // room for his head above the panel
+      // Phones: room for his head above the panel, under the top bar (he covered its avatar); hidden, just under the bar.
+      const top = (phone ? (visible ? 104 : 64) : margin) + (vv?.offsetTop ?? 0);
       // Above the bottom navigation on phones and tablets, and above the imports card (components/UploadCard).
       const room = parseFloat(document.documentElement.style.getPropertyValue('--uploads-room')) || 0;
       const bottom = keyboard > 80 ? keyboard + margin : Math.max(window.innerWidth < 1024 ? 68 : margin, room);
@@ -301,10 +316,11 @@ export default function Copilot() {
       window.removeEventListener('resize', place);
       window.removeEventListener('uploads-room', place);
     };
-  }, [offsetY, wide]);
+  }, [offsetY, wide, visible]);
 
   useEffect(() => {
     if (pose !== 'open') return;
+    opener.current = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null;
     const timer = setTimeout(() => inputRef.current?.focus(), 200);
     // Échap closes Kompaly, unless what was opened over it took the key (the search, a dialog…).
     const panel = panelRef.current;
@@ -329,9 +345,10 @@ export default function Copilot() {
       clearTimeout(timer);
       window.removeEventListener('keydown', onKey);
       document.removeEventListener('pointerdown', onDown, true);
-      // Closing: give the focus back to the character rather than losing it.
+      // Closing: give the focus back to what opened it (the character, the menu's « Kompaly »…) rather than losing it.
       const now = document.activeElement;
-      if (!now || now === document.body || panel?.contains(now)) character?.focus();
+      const back = opener.current?.isConnected && !panel?.contains(opener.current) ? opener.current : character;
+      if (!now || now === document.body || panel?.contains(now)) back?.focus();
     };
   }, [pose, setPose]);
 
@@ -347,11 +364,15 @@ export default function Copilot() {
     setTimeout(() => setTalking(false), Math.min(2200, 300 + text.length * 16));
   };
 
-  const open = () => {
+  const open = () => setPose('open');
+  // However it opens (the character, the menu's « Kompaly », Ctrl+J): the remark goes, the greeting comes.
+  const isOpen = pose === 'open';
+  useEffect(() => {
+    if (!isOpen) return;
     clearBubble();
     hello();
-    setPose('open');
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hello reads the latest state itself
+  }, [isOpen]);
 
   // The other changes of the same answer stay clickable (they come back under the reply).
   const onOffer = (o: CopilotOffer, rest: CopilotOffer[]) => {
@@ -359,12 +380,21 @@ export default function Copilot() {
     speak(reply.text);
   };
 
-  async function send(text: string) {
+  /** `again`: « Réessayer » — the question is already in the conversation, its failed answer goes. */
+  async function send(text: string, again = false) {
     const clean = text.trim();
     if (!clean || thinking) return;
-    setInput('');
+    if (!again) setInput('');
     const pending = useCopilot.getState().pendingOffer;
-    push('user', clean);
+    if (!again) push('user', clean);
+
+    // « Fais-moi visiter »: the guided tour, panel closed so that it shows (with or without the AI).
+    if (isTourRequest(clean)) {
+      push('bot', t('C’est parti pour la visite\u00a0!'));
+      setPose('hidden');
+      setTimeout(startTour, 250);
+      return;
+    }
 
     // "oui" to his last proposal → just do it (a question for the AI: asked right after)
     if (pending?.kind === 'ask' && pending.payload?.prompt && aiEnabled && (isYes(normalize(clean)) || /^(avec plaisir|je veux bien|volontiers)$/.test(normalize(clean)))) {
@@ -380,29 +410,53 @@ export default function Copilot() {
     }
 
     setThinking(true);
-    let reply: BotReply;
+    const stop = new AbortController();
+    stopRef.current = stop;
+    let reply: BotReply & { retry?: string };
     if (aiEnabled && !(await brain()).aiPausedUntil()) {
       try {
-        reply = await (await brain()).claudeReply(clean, user?.name ?? '');
+        reply = await (await brain()).claudeReply(clean, user?.name ?? '', stop.signal);
       } catch (e) {
         const b = await brain();
-        if (e instanceof b.PartlyDone) {
+        if (b.wasStopped(e)) {
+          // « Arrêter »: no apology and no simple-mode answer, only what was already done.
+          reply = e instanceof b.PartlyDone ? { text: `${t('J’arrête là.')} ${t('Ce que j’avais déjà fait est enregistré.')}`, links: e.links } : { text: t('J’arrête là.') };
+        } else if (e instanceof b.PartlyDone) {
           // Something was already created: doing the question again in simple mode would make it twice.
           reply = { text: `${b.describeApiError(e.reason)} ${t('Ce que j’avais déjà fait est enregistré.')}`, links: e.links };
         } else {
           const local = localReply(clean);
           // Not understood without the AI: the error alone, not the whole list of simple requests after it.
           reply = local.unknown ? { text: `${b.describeApiError(e)} ${t('Repose ta question un peu plus tard (« aide » pour ce que je sais faire sans IA).')}` } : { text: `${b.describeApiError(e)} ${local.text}`, links: local.links };
+          // A hiccup (network, server), not a limit: « Réessayer » asks the AI again.
+          if (b.canRetry(e)) reply.retry = clean;
         }
       }
     } else {
       await new Promise(r => setTimeout(r, 350 + Math.random() * 350));
-      reply = localReply(clean);
+      reply = stop.signal.aborted ? { text: t('J’arrête là.') } : localReply(clean);
     }
+    stopRef.current = null;
     setThinking(false);
-    push('bot', reply.text, { links: reply.links, offers: reply.offers });
+    push('bot', reply.text, { links: reply.links, offers: reply.offers, retry: reply.retry });
     speak(reply.text);
   }
+
+  const retry = (id: string, question: string) => {
+    resumeAfterError();
+    useCopilot.setState(s => ({ messages: s.messages.filter(m => m.id !== id) }));
+    void send(question, true);
+  };
+
+  // « Nouvelle conversation »: the old one can come back with « Annuler » (no confirmation to answer first).
+  const restart = () => {
+    const before = useCopilot.getState();
+    const kept = { messages: before.messages, pendingOffer: before.pendingOffer };
+    clearHistory();
+    hello();
+    void brain().then(m => m.resetClaudeHistory());
+    if (kept.messages.some(m => m.role === 'user')) toast(t('Nouvelle conversation'), 'info', { label: t('Annuler'), run: () => useCopilot.setState(kept) });
+  };
 
   // A button of a remark asked Kompaly something (« Fais une fiche de… »): the chat opens and sends it.
   const asked = useCopilot(s => s.ask);
@@ -440,11 +494,58 @@ export default function Copilot() {
     if (d && !d.moved) open();
   };
 
-  if (!visible) return null;
+  // The field grows with what is typed (pasted lines included), up to about five lines.
+  useLayoutEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, INPUT_MAX)}px`;
+  }, [input, wide, isOpen]);
+
+  // Computers: a remark's bubble goes where it hides the least of the page — beside him, else above the « + »,
+  // a little higher or lower, or left of the card under it (the calendar's « À venir », a column of the home page).
+  useLayoutEffect(() => {
+    const el = bubbleRef.current;
+    const keep = (x: number, y: number) => {
+      if (el) el.style.translate = shifted(x, y) ?? '';
+      setBubbleShift(s => (s.x === x && s.y === y ? s : { x, y }));
+    };
+    if (!el || window.innerWidth < 1024) return keep(0, 0);
+    el.style.translate = '';
+    // Its size without the entrance animation's scale (the same centre).
+    const r = el.getBoundingClientRect();
+    const usual: Box = { left: r.left + (r.width - el.offsetWidth) / 2, top: r.top + (r.height - el.offsetHeight) / 2, width: el.offsetWidth, height: el.offsetHeight };
+    const cardAt = (x: number, y: number) =>
+      document
+        .elementsFromPoint(x, y)
+        .find(e => !rootRef.current?.contains(e))
+        ?.closest('.card, aside, nav, #create-button') ?? null;
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const plus = document.getElementById('create-button')?.getBoundingClientRect();
+    const fit = (b: Box): Box => ({ ...b, left: Math.max(12, Math.min(b.left, W - b.width - 12)), top: Math.max(12, Math.min(b.top, H - b.height - 12)) });
+    const places = [
+      usual,
+      { ...usual, left: W - 24 - usual.width, top: (plus?.top ?? H - 24) - 12 - usual.height },
+      { ...usual, top: usual.top - usual.height - 16 },
+      { ...usual, top: usual.top + usual.height + 16 },
+    ];
+    const under = cardAt(usual.left + usual.width / 2, usual.top + usual.height / 2)?.getBoundingClientRect();
+    if (under) places.push({ ...usual, left: under.left - 12 - usual.width });
+    const spots = places.map(fit);
+    const best = spots[leastCovering(spots, (x, y) => !!cardAt(x, y))];
+    keep(Math.round(best.left - usual.left), Math.round(best.top - usual.top));
+  }, [bubble, isOpen, offsetY]);
+
+  // Hidden in the settings: no character, but the conversation still opens from the menu (« Kompaly ») and Ctrl+J.
+  if (!visible && !isOpen) return null;
 
   const mood: CopilotMood = thinking ? 'think' : talking ? 'talk' : bubble ? (bubble.mood ?? 'happy') : asleep && pose === 'hidden' ? 'sleep' : 'idle';
-  const isOpen = pose === 'open';
   const lastBot = [...messages].reverse().find(m => m.role === 'bot' && (!m.proactive || m.offers?.length));
+  const last = messages.at(-1);
+  // A remark of the bubble used (a button, a link) or closed: read.
+  const read = () => useCopilot.setState({ unread: false });
+  const recall = () => [...messages].reverse().find(m => m.role === 'user')?.text ?? '';
 
   return (
     <div ref={rootRef} className="pointer-events-none fixed right-0 z-50" style={{ top: `${offsetY * 100}%`, transform: 'translateY(-50%)' }}>
@@ -460,8 +561,9 @@ export default function Copilot() {
           inert={!isOpen}
           style={{ marginTop: shift, maxHeight: cap }}
           className={cx(
-            // Phone: the whole width, over the character; larger screens: beside it.
-            'absolute right-3 top-1/2 z-10 flex -translate-y-1/2 origin-right flex-col overflow-hidden rounded-2xl border border-stone-200 bg-surface shadow-pop transition-all duration-200 sm:right-[104px]',
+            // Phone: the whole width, over the character; larger screens: beside it (at the edge when he is hidden).
+            'absolute right-3 top-1/2 z-10 flex -translate-y-1/2 origin-right flex-col overflow-hidden rounded-2xl border border-stone-200 bg-surface shadow-pop transition-all duration-200',
+            visible ? 'sm:right-[104px]' : 'sm:right-6',
             wide ? 'h-[min(720px,86vh)] w-[calc(100vw-24px)] sm:w-[min(600px,calc(100vw-120px))]' : 'max-h-[min(600px,72vh)] w-[calc(100vw-24px)] sm:max-h-[min(600px,80vh)] sm:w-[min(380px,calc(100vw-120px))]',
             isOpen ? 'pointer-events-auto scale-100 opacity-100' : 'pointer-events-none scale-95 opacity-0',
           )}
@@ -481,7 +583,7 @@ export default function Copilot() {
             <button title={wide ? t('Réduire') : t('Agrandir')} aria-label={wide ? t('Réduire') : t('Agrandir')} onClick={() => setWide(w => !w)} className="icon-btn hidden sm:flex" tabIndex={isOpen ? 0 : -1}>
               {wide ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
             </button>
-            <button title={t('Nouvelle conversation')} aria-label={t('Nouvelle conversation')} onClick={() => { clearHistory(); hello(); void brain().then(m => m.resetClaudeHistory()); }} className="icon-btn pointer-coarse:h-9 pointer-coarse:w-9" tabIndex={isOpen ? 0 : -1}>
+            <button title={t('Nouvelle conversation')} aria-label={t('Nouvelle conversation')} onClick={restart} disabled={thinking} className="icon-btn pointer-coarse:h-9 pointer-coarse:w-9 disabled:opacity-40" tabIndex={isOpen ? 0 : -1}>
               <RotateCcw size={15} />
             </button>
             <button title={t('Fermer (Échap)')} aria-label={t('Fermer (Échap)')} onClick={() => setPose('hidden')} className="icon-btn pointer-coarse:h-9 pointer-coarse:w-9" tabIndex={isOpen ? 0 : -1}>
@@ -490,20 +592,36 @@ export default function Copilot() {
           </div>
 
           <div ref={listRef} role="log" aria-live="polite" aria-label={t('Conversation avec Kompaly')} className="flex-1 space-y-2.5 overflow-y-auto px-3.5 py-3.5">
-            {messages.map(m => (
-              <div key={m.id} className={cx('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}>
-                <div
-                  className={cx(
-                    'group relative min-w-0 max-w-[88%] rounded-2xl px-3 py-2 text-[13px] leading-[1.55] [overflow-wrap:anywhere]',
-                    m.role === 'user' ? 'whitespace-pre-line rounded-br-md bg-inverse text-on-inverse' : 'rounded-bl-md bg-stone-100 text-stone-800',
-                  )}
-                >
-                  {m.role === 'user' ? m.text : <Markdown text={m.text} />}
-                  {m.role === 'bot' && <Extras links={m.links} offers={m.offers} onGo={go} onOffer={onOffer} disabled={m !== lastBot} />}
-                  {m.role === 'bot' && m.text.length > 160 && <CopyButton text={m.text} />}
-                </div>
-              </div>
-            ))}
+            {messages.map((m, i) => {
+              const newDay = i === 0 || toKey(new Date(messages[i - 1].at)) !== toKey(new Date(m.at));
+              return (
+                <Fragment key={m.id}>
+                  {/* « Aujourd’hui », « Hier » or the date, above the first message of the day. */}
+                  {newDay && <p className="pt-1 text-center text-[11px] font-medium text-stone-500 first-letter:uppercase">{dayLabel(m.at)}</p>}
+                  <div className={cx('group/msg flex items-end gap-1.5', m.role === 'user' ? 'flex-row-reverse' : 'flex-row')}>
+                    <div
+                      className={cx(
+                        'group relative min-w-0 max-w-[85%] rounded-2xl px-3 py-2 text-[13px] leading-[1.55] [overflow-wrap:anywhere]',
+                        m.role === 'user' ? 'whitespace-pre-line rounded-br-md bg-inverse text-on-inverse' : 'rounded-bl-md bg-stone-100 text-stone-800',
+                      )}
+                    >
+                      {m.role === 'user' ? m.text : <Markdown text={m.text} />}
+                      {m.role === 'bot' && <Extras links={m.links} offers={m.offers} onGo={go} onOffer={onOffer} disabled={m !== lastBot} />}
+                      {m.role === 'bot' && m.retry && m === last && !thinking && (
+                        <button type="button" onClick={() => retry(m.id, m.retry!)} className="mt-2 inline-flex h-7 items-center gap-1.5 rounded-md border border-stone-200 bg-surface px-2.5 text-[12px] font-medium text-stone-700 hover:bg-stone-50 pointer-coarse:h-9" tabIndex={isOpen ? 0 : -1}>
+                          <RefreshCw size={12} aria-hidden /> {t('Réessayer')}
+                        </button>
+                      )}
+                      {m.role === 'bot' && m.text.length > 160 && <CopyButton text={m.text} />}
+                    </div>
+                    {/* The time, on hover (read out with each message, it would only be noise). */}
+                    <time dateTime={m.at} aria-hidden className="tabular mb-1 shrink-0 text-[10.5px] text-stone-400 opacity-0 transition-opacity group-hover/msg:opacity-100">
+                      {fmt(new Date(m.at), 'HH:mm')}
+                    </time>
+                  </div>
+                </Fragment>
+              );
+            })}
             {thinking && (
               <div className="flex w-fit gap-1 rounded-2xl rounded-bl-md bg-stone-100 px-3 py-2.5" role="img" aria-label={t('Kompaly réfléchit…')}>
                 {[0, 1, 2].map(i => (
@@ -523,15 +641,30 @@ export default function Copilot() {
             </div>
           )}
 
-          <form onSubmit={onSubmit} className="flex items-center gap-2 border-t border-stone-100 p-2.5">
-            <input
+          <form onSubmit={onSubmit} className="flex items-end gap-2 border-t border-stone-100 p-2.5">
+            {/* Entrée sends, Maj+Entrée goes to the line; ↑ in the empty field brings the last message back. */}
+            <textarea
               ref={inputRef}
+              rows={1}
               value={input}
               onChange={e => setInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.shiftKey && !e.altKey && !e.nativeEvent.isComposing) {
+                  e.preventDefault();
+                  e.currentTarget.form?.requestSubmit();
+                } else if (e.key === 'ArrowUp' && !input && recall()) {
+                  e.preventDefault();
+                  const text = recall();
+                  setInput(text);
+                  const el = e.currentTarget;
+                  requestAnimationFrame(() => el.setSelectionRange(text.length, text.length));
+                }
+              }}
+              enterKeyHint="send"
               placeholder={dictation.listening ? t('Je t’écoute… touche ■ pour envoyer') : dictation.busy ? t('J’écris ce que tu as dit…') : t('Écris à Kompaly…')}
               aria-label={t('Message pour Kompaly')}
               className={cx(
-                'h-9 min-w-0 flex-1 rounded-lg bg-stone-50 px-3 text-[13px] outline-none placeholder:text-stone-500 focus:bg-stone-100 focus-visible:ring-2 focus-visible:ring-focus',
+                'block min-h-9 min-w-0 flex-1 resize-none overflow-y-auto rounded-lg bg-stone-50 px-3 py-[7px] text-[13px] leading-[1.55] outline-none placeholder:text-stone-500 focus:bg-stone-100 focus-visible:ring-2 focus-visible:ring-focus',
                 dictation.listening && 'bg-brand-50 placeholder:text-brand-600',
               )}
               tabIndex={isOpen ? 0 : -1}
@@ -552,14 +685,26 @@ export default function Copilot() {
                 {dictation.listening ? <Square size={13} fill="currentColor" /> : <Mic size={16} />}
               </button>
             )}
-            <button type="submit" disabled={!input.trim() || thinking} className="flex h-9 w-9 items-center justify-center rounded-lg bg-ink text-paper transition-colors hover:bg-stone-800 disabled:opacity-30" title={t('Envoyer')} aria-label={t('Envoyer')} tabIndex={isOpen ? 0 : -1}>
-              <ArrowUp size={16} />
-            </button>
+            {/* While he answers, this button stops him (the question stays: ↑ brings it back). */}
+            {thinking ? (
+              <button type="button" onClick={() => stopRef.current?.abort()} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-ink text-paper transition-colors hover:bg-stone-800" title={t('Arrêter')} aria-label={t('Arrêter la réponse')} tabIndex={isOpen ? 0 : -1}>
+                <Square size={12} fill="currentColor" />
+              </button>
+            ) : (
+              <button type="submit" disabled={!input.trim()} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-ink text-paper transition-colors hover:bg-stone-800 disabled:opacity-30" title={t('Envoyer (Entrée)')} aria-label={t('Envoyer')} tabIndex={isOpen ? 0 : -1}>
+                <ArrowUp size={16} />
+              </button>
+            )}
           </form>
           {dictation.error && <p className="px-3.5 pb-2 text-[11px] text-red-600">{dictation.error}</p>}
           {/* Required by the EU AI Act: the student knows they are talking to an AI (only true in smart mode). */}
           {aiEnabled && pausedUntil <= now && (
-            <p className="px-3.5 pb-2 text-center text-[10.5px] text-stone-500">{t('Kompaly est une IA\u00a0: il peut se tromper, vérifie ce qui compte.')}</p>
+            <p className="px-3.5 pb-2 text-center text-[10.5px] text-stone-500">
+              {t('Kompaly est une IA : il peut se tromper, vérifie ce qui compte.')}{' '}
+              <a href="/confidentialite" onClick={e => (e.preventDefault(), go('/confidentialite'))} className="underline decoration-stone-300 underline-offset-2 hover:text-ink" tabIndex={isOpen ? 0 : -1}>
+                {t('Confidentialité')}
+              </a>
+            </p>
           )}
         </div>
 
@@ -568,9 +713,14 @@ export default function Copilot() {
           {bubble && !isOpen ? bubble.text : ''}
         </div>
 
-        {/* Spontaneous remark */}
-        {bubble && !isOpen && (
-          <div className="pop pointer-events-auto absolute right-[92px] top-1/2 z-10 w-[min(270px,calc(100vw-110px))] -translate-y-[85%] rounded-2xl rounded-br-sm border border-stone-200 bg-surface px-3.5 py-3 text-[13px] leading-[1.5] text-stone-800 shadow-pop">
+        {/* Spontaneous remark (on computers, moved off the cards it would hide: see above). */}
+        {bubble && !isOpen && visible && (
+          <div
+            ref={bubbleRef}
+            style={{ translate: shifted(bubbleShift.x, bubbleShift.y) }}
+            className="pop pointer-events-auto absolute right-[92px] top-1/2 z-10 w-[min(270px,calc(100vw-110px))] -translate-y-[85%] rounded-2xl rounded-br-sm border border-stone-200 bg-surface px-3.5 py-3 text-[13px] leading-[1.5] text-stone-800 shadow-pop"
+            onClickCapture={e => (e.target as Element).closest('button') && read()}
+          >
             <button onClick={clearBubble} className="hit-sm absolute right-1.5 top-1.5 rounded p-1 text-stone-400 hover:text-stone-600" title={t('Fermer')} aria-label={t('Fermer le message')}>
               <X size={12} />
             </button>
@@ -584,41 +734,95 @@ export default function Copilot() {
         {/* The character */}
         {/* Only the drawn shapes take clicks (Character): the empty corners of its
             box sit over page buttons near the right edge. */}
-        {/* Phones: a bit smaller and, hidden, a little further out (only in the page margin, not over the cards).
+        {/* Phones: a bit smaller and, hidden, only his head at the edge (the drone's arm alone looked like a bug).
+            Computers: hidden, a little further out, within the page margin and off the cards.
             Open, he stays in sight but is only a picture (the panel's ✕ closes it; the focus comes back to him then):
             beside the panel on large screens, over its top edge on phones (the panel takes the whole width). */}
-        <div
-          className={cx(
-            'relative origin-right cursor-pointer touch-none transition-[translate] duration-300 max-sm:scale-[0.8]',
-            pose === 'hidden' && 'max-sm:translate-x-5',
-            isOpen && 'pointer-events-none',
-          )}
-          style={{ clipPath: 'inset(-80px 0 -80px -80px)', translate: isOpen && screen.w < 640 ? `0 ${perch}px` : undefined }}
-          aria-hidden={isOpen || undefined}
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onMouseEnter={() => pose === 'hidden' && setPose('peek')}
-          onMouseLeave={() => pose === 'peek' && !bubble && setPose('hidden')}
-          title={t('Parler à Kompaly')}
-          ref={charRef}
-          role="button"
-          tabIndex={isOpen ? -1 : 0}
-          aria-label={t('Parler à Kompaly')}
-          aria-expanded={isOpen}
-          aria-controls="copilot-panel"
-          onKeyDown={e => {
-            if (e.key !== 'Enter' && e.key !== ' ') return;
-            e.preventDefault();
-            open();
-          }}
-        >
-          <WatchingCharacter offsetY={offsetY} pose={pose} blink={blink} mood={mood} size={104} />
-          {/* Fingers: only his head shows at the edge, too small to tap; a wider invisible pad along the edge. */}
-          {!isOpen && <span aria-hidden className="pointer-events-auto absolute inset-y-1 right-0 hidden w-8 pointer-coarse:block" />}
-        </div>
+        {visible && (
+          <div
+            className={cx(
+              'relative origin-right cursor-pointer touch-none transition-[translate] duration-300 max-sm:scale-[0.8]',
+              pose === 'hidden' && 'sm:translate-x-2',
+              isOpen && 'pointer-events-none',
+            )}
+            style={{ clipPath: 'inset(-80px 0 -80px -80px)', translate: isOpen && screen.w < 640 ? `0 ${perch}px` : undefined }}
+            aria-hidden={isOpen || undefined}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onMouseEnter={() => pose === 'hidden' && setPose('peek')}
+            onMouseLeave={() => pose === 'peek' && !bubble && setPose('hidden')}
+            title={t('Parler à Kompaly')}
+            ref={charRef}
+            role="button"
+            tabIndex={isOpen ? -1 : 0}
+            aria-label={unread ? t('Parler à Kompaly (nouveau message)') : t('Parler à Kompaly')}
+            aria-expanded={isOpen}
+            aria-controls="copilot-panel"
+            onKeyDown={e => {
+              if (e.key !== 'Enter' && e.key !== ' ') return;
+              e.preventDefault();
+              open();
+            }}
+          >
+            <div className={cx('transition-opacity duration-300', pose === 'hidden' && 'max-sm:opacity-0')}>
+              <WatchingCharacter offsetY={offsetY} pose={pose} blink={blink} mood={mood} size={104} />
+            </div>
+            {/* Phones at rest: his head peeks out of the edge, small and recognisable. */}
+            {pose === 'hidden' && (
+              <span aria-hidden className="cop-hover pointer-events-auto absolute right-0 top-1/2 -mt-[22px] translate-x-[22%] sm:hidden">
+                <CopilotAvatar size={52} />
+              </span>
+            )}
+            {/* Something said while the panel was closed: a dot until it is opened (the remark is in the conversation). */}
+            {unread && !isOpen && (
+              <span aria-hidden className="pointer-events-none absolute right-[30px] top-[38%] h-3 w-3 rounded-full bg-red-500 ring-2 ring-paper max-sm:right-[34px] max-sm:top-[36%]" />
+            )}
+            {/* Fingers: only his head shows at the edge, too small to tap; a wider invisible pad along the edge. */}
+            {!isOpen && <span aria-hidden className="pointer-events-auto absolute inset-y-1 right-0 hidden w-8 pointer-coarse:block" />}
+          </div>
+        )}
       </div>
     </div>
+  );
+}
+
+/**
+ * « Kompaly » in the menu: the conversation from anywhere, even with the character hidden (Profil › Kompaly).
+ * `phone`: a small head in the top bar, only when the character is hidden (the bar has little room).
+ */
+export function KompalyEntry({ phone }: { phone?: boolean }) {
+  const visible = useSettings(s => s.copilotVisible);
+  const open = useCopilot(s => s.pose === 'open');
+  const unread = useCopilot(s => s.unread);
+  if (phone && visible) return null;
+  const label = unread ? t('Kompaly (nouveau message)') : t('Kompaly');
+  if (phone)
+    return (
+      <button type="button" onClick={() => toggleKompaly()} aria-expanded={open} aria-controls="copilot-panel" className="icon-btn relative lg:hidden" title={t('Kompaly')} aria-label={label}>
+        <CopilotAvatar size={24} />
+        {unread && <span aria-hidden className="absolute right-0.5 top-1 h-2 w-2 rounded-full bg-red-500 ring-2 ring-paper" />}
+      </button>
+    );
+  return (
+    <button
+      type="button"
+      onClick={() => toggleKompaly()}
+      aria-expanded={open}
+      aria-controls="copilot-panel"
+      aria-label={label}
+      aria-keyshortcuts={isMac ? 'Meta+J' : 'Control+J'}
+      className="mb-1 flex h-10 items-center gap-3 rounded-lg px-2.5 text-left text-[14px] text-stone-500 transition-colors hover:bg-stone-100 hover:text-ink"
+    >
+      <span className="relative flex w-[18px] justify-center">
+        <CopilotAvatar size={20} />
+        {unread && <span aria-hidden className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-red-500 ring-2 ring-surface" />}
+      </span>
+      {t('Kompaly')}
+      <span aria-hidden className="kbd ml-auto">
+        {isMac ? '⌘' : t('Ctrl')} J
+      </span>
+    </button>
   );
 }
 
