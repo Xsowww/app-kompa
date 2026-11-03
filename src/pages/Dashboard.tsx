@@ -21,7 +21,7 @@ import { WORDS } from '../lib/usage';
 import { periodColor, periodText, periodTint, periodUntil, periodsOn } from '../lib/periods';
 import WeekProgress from './WeekProgress';
 import DayLine from './DayLine';
-import { isLateEvent } from '../lib/late';
+import { listLate } from '../lib/late';
 import { useTodos } from '../store/todos';
 import { t, tn } from '../i18n';
 
@@ -91,7 +91,7 @@ export default function Dashboard() {
 
   const today = useToday();
   const todos = useTodos(s => s.todos);
-  const lateEvents = events.filter(e => isLateEvent(e)).length;
+  const lateEvents = listLate(events).length;
   const lateTodos = todos.filter(x => !x.done && x.due && x.due < today).length;
   // To the minute: the clock, the day line and « dans 20 min » move on their own.
   const now = useMinute();
