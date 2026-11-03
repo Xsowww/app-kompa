@@ -111,7 +111,8 @@ function Setup() {
   ] as const;
 
   return (
-    <section className="card mx-auto max-w-[620px] space-y-5 p-5 sm:p-7" aria-label={t('Nouvel enregistrement')}>
+    // Under the title, at its left edge (centred, it sat 200 px right of it on a computer).
+    <section className="card max-w-[620px] space-y-5 p-5 sm:p-7" aria-label={t('Nouvel enregistrement')}>
       <input
         className="field h-12 w-full text-[16px] font-medium"
         value={title}
@@ -167,7 +168,8 @@ function Setup() {
       )}
 
       <div className="flex flex-wrap items-center gap-2 text-[13.5px]">
-        <span className="mr-1 text-stone-500">{t('Créer aussi')}</span>
+        {/* Phones: on its own line, so that the two choices stay side by side under it. */}
+        <span className="mr-1 text-stone-500 max-sm:w-full">{t('Créer aussi')}</span>
         {(['fiche', 'examen'] as Make[]).map(k => (
           <button
             key={k}
@@ -286,8 +288,8 @@ function Running({ s }: { s: Session }) {
             {finishing ? t('Terminé') : paused ? t('En pause') : live.hearing || elsewhere ? t('Enregistrement') : t('Écoute arrêtée')}
             <span className="tabular text-[15px] font-semibold">{clock(elapsed(s))}</span>
           </span>
-          {/* On a phone the title often goes to the next line: no « · » left alone in front of it. */}
-          <span className="min-w-0 truncate text-[14px] font-semibold text-stone-700" title={s.title}><span className="max-sm:hidden">· </span>{s.title}</span>
+          {/* No « · » before it: when the title goes to the next line (any width), it was left alone at its start. */}
+          <span className="min-w-0 truncate text-[14px] font-semibold text-stone-700" title={s.title}>{s.title}</span>
           {recording && <Level value={live.level} />}
           {/* Recorded in another tab: the buttons are there, not here (a « Terminer » here filed a second copy). */}
           {!finishing && !elsewhere && (
@@ -484,7 +486,7 @@ function History() {
   // Nothing recorded yet: the shape of what will be listed here, under the form (its « Démarrer » is the way to start).
   if (!history.length)
     return (
-      <section className="mx-auto mt-8 max-w-[620px]" aria-labelledby="cours-passes">
+      <section className="mt-8 max-w-[620px]" aria-labelledby="cours-passes">
         <h2 id="cours-passes" className="mb-3 text-[16px] font-semibold">{w.history}</h2>
         <EmptyState className="card" size="sm" icon={Mic} title={t('Aucun enregistrement pour l’instant.')} preview="list" />
       </section>
