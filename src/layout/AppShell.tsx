@@ -762,9 +762,9 @@ function PhoneTabBar({ news, label, extra }: { news: (to: string) => number; lab
         <div
           ref={panel}
           id="nav-more-panel"
-          // As many columns as fit (80 px at least): one row on most phones, 2 on the narrowest; on a wide screen
+          // As many columns as fit (76 px at least): one row from 360 px wide, 2 on narrower phones; on a wide screen
           // (landscape, tablet) a compact panel at the right, above « Plus », not a wide sheet of white.
-          className="enter fixed bottom-[calc(max(12px,env(safe-area-inset-bottom))+4.5rem)] short:bottom-[calc(max(12px,env(safe-area-inset-bottom))+3.75rem)] left-[max(12px,env(safe-area-inset-left))] right-[max(12px,env(safe-area-inset-right))] z-[45] grid grid-cols-[repeat(auto-fit,minmax(80px,1fr))] gap-1.5 rounded-[22px] border border-stone-200 bg-surface p-2 shadow-pop sm:left-auto sm:w-[440px] lg:hidden"
+          className="enter fixed bottom-[calc(max(12px,env(safe-area-inset-bottom))+4.5rem)] short:bottom-[calc(max(12px,env(safe-area-inset-bottom))+3.75rem)] left-[max(12px,env(safe-area-inset-left))] right-[max(12px,env(safe-area-inset-right))] z-[45] grid grid-cols-[repeat(auto-fit,minmax(76px,1fr))] gap-1.5 rounded-[22px] border border-stone-200 bg-surface p-2 shadow-pop sm:left-auto sm:w-[440px] lg:hidden"
         >
           {more.map(n => (
             <NavLink
