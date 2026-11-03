@@ -284,6 +284,25 @@
   background-color: var(--color-brand-solid-hover);
 }
 
+/* Segmented controls (index.css › seg): Liquid Glass makes them capsules in a capsule; Relief hollows the frame out and
+   raises the chosen choice, with small shadows that stay within the frame's 3 px (the hovered one: half of them). */
+:root[data-style='liquide'] :is(.seg, .seg-item) {
+  border-radius: 999px;
+}
+:root[data-style='relief'] .seg {
+  background-color: var(--color-paper);
+  box-shadow: var(--nm-pressed);
+}
+:root[data-style='relief'] .seg-item:hover {
+  background-color: transparent;
+  box-shadow: 1px 1px 3px var(--nm-dark), -1px -1px 3px var(--nm-light);
+}
+:root[data-style='relief'] .seg-item:is([aria-pressed='true'], [aria-checked='true'], [aria-selected='true'], [data-active]) {
+  background-color: var(--color-surface);
+  color: var(--color-brand-600);
+  box-shadow: 2px 2px 4px var(--nm-dark), -2px -2px 4px var(--nm-light);
+}
+
 /* Keyboard focus on buttons whose ring the styles above replaced: an outline instead. */
 :root[data-style] :is(.btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-danger, .icon-btn):focus-visible {
   outline: 2px solid var(--color-focus);

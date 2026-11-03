@@ -313,6 +313,96 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Component classes: in the components layer, always there (used or not by a page yet), and a utility on the same
+   element (h-8, rounded-…, text-…) still wins over them. */
+@layer components {
+  /* Segmented control (Jour | Semaine | Mois, Clair | Sombre, Mon Drive | Favoris…): `seg` on the frame, `seg-item` on
+     each choice, chosen = aria-pressed / aria-checked / aria-selected="true" (or data-active). The choices are concentric
+     with the frame (12 px corners, 3 px around: 9 px corners), all the same height; the hovered one shows the very shape
+     of the chosen one, inside the frame. Text size: on the frame (text-[12px]…). The 8 looks: themes.css. */
+  .seg {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 12px;
+    background-color: var(--color-stone-100);
+  }
+  .seg-item {
+    position: relative;
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 28px;
+    min-width: 0;
+    padding-inline: 10px;
+    border-radius: 9px;
+    font-weight: 500;
+    white-space: nowrap;
+    color: var(--color-stone-500);
+    transition: background-color 0.15s, color 0.15s, box-shadow 0.15s;
+    &:hover {
+      color: var(--color-ink);
+      background-color: color-mix(in srgb, var(--color-surface) 50%, transparent);
+    }
+    &:is([aria-pressed='true'], [aria-checked='true'], [aria-selected='true'], [data-active]) {
+      color: var(--color-ink);
+      background-color: var(--color-surface);
+      box-shadow: var(--shadow-card);
+    }
+    /* The ring in the frame's 3 px, around the choice's own corners (not over its neighbours). */
+    &:focus-visible {
+      outline: 2px solid var(--color-focus);
+      outline-offset: 0;
+    }
+    @media (pointer: coarse) {
+      height: 36px;
+    }
+  }
+
+  /* A page's essentials kept in view while it scrolls (title, main actions, tabs, search): `page-head` on that bar,
+     the first child of the page's scroll area. Its background is the page's own (the wallpaper of Verre or Liquid
+     Glass, fixed: the same pixels as around it, no band), solid, so nothing shows through. The 8 px above and below
+     leave room for the focus rings of its buttons; what scrolls under it goes under (z-index 20, below menus and
+     dialogs). One line on a phone: keep it to title + 1-2 icons there. */
+  .page-head {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    padding-block: 8px;
+    background: var(--wallpaper, var(--color-paper));
+    background-attachment: fixed;
+  }
+  /* iPhone and iPad ignore a fixed background (it would be drawn in the bar's own box): the plain page colour there. */
+  @supports (-webkit-touch-callout: none) {
+    .page-head {
+      background: var(--color-paper);
+    }
+  }
+
+  /* A dialog's buttons (components/Overlays › Modal): on one line when they fit, else they wrap (the main one stays
+     last, on the right), and a label too long for the width goes on two lines inside its button, never cut nor
+     scrolled sideways. A secondary action at the left: give it `mr-auto` (an icon button is best on a phone). */
+  .modal-foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 24px;
+  }
+}
+/* (Outside the layers: over the buttons' own height and nowrap, which are utilities.) */
+.modal-foot > :is(.btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-danger) {
+  max-width: 100%;
+  height: auto;
+  min-height: 2.5rem;
+  white-space: normal;
+  text-align: center;
+}
+
 /* Phones: while the « Plus » panel is open, the « + » button behind it is hidden (its top showed between the panel
    and the tab bar). */
 body:has(#nav-more-panel) #create-button {
@@ -340,11 +430,11 @@ body:has(#nav-more-panel) #create-button {
    In the base layer, so a position class the button already has (absolute…) still wins. */
 @layer base {
   @media (pointer: coarse) {
-    .icon-btn, .hit, .hit-sm, .btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-danger, button.field { position: relative; }
+    .icon-btn, .hit, .hit-sm, .btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-danger, .seg-item, button.field { position: relative; }
   }
 }
 @media (pointer: coarse) {
-  .icon-btn::after, .hit::after, .hit-sm::after, .btn::after, .btn-primary::after, .btn-secondary::after, .btn-ghost::after, .btn-danger::after, button.field::after {
+  .icon-btn::after, .hit::after, .hit-sm::after, .btn::after, .btn-primary::after, .btn-secondary::after, .btn-ghost::after, .btn-danger::after, .seg-item::after, button.field::after {
     content: '';
     position: absolute;
     inset: min(0px, calc(50% - 22px));
