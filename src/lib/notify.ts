@@ -1,5 +1,6 @@
 import { deviceState, serviceWorker } from './push';
-import { locale, t } from '../i18n';
+import { notificationButtons } from './reminders';
+import { locale } from '../i18n';
 
 /** True when this device may show system notifications (allowed by the browser and in Profil › Notifications). */
 export const canNotify = () => typeof window !== 'undefined' && deviceState() === 'on';
@@ -7,14 +8,15 @@ export const canNotify = () => typeof window !== 'undefined' && deviceState() ==
 /**
  * System notification (computer's notification centre, phone's lock screen). Through the service worker:
  * Android and installed apps only accept that way. `tag`: a second one with the same tag replaces the first.
+ * `keys`: the reminders it stands for (« Plus tard » and « Fait » act on them: public/sw.js › notificationclick).
  */
-export async function showSystemNotification(title: string, body: string, tag?: string, url = '/') {
+export async function showSystemNotification(title: string, body: string, tag?: string, url = '/', keys: string[] = tag ? [tag] : []) {
   if (!canNotify()) return false;
   try {
     const reg = await serviceWorker();
-    // Same look as the service worker's (public/sw.js › notificationOptions): logo, badge, « Voir » / « OK ».
-    const options = { body, tag, lang: locale(), icon: '/icon-192.png', badge: '/notification-badge.png', data: { url }, timestamp: Date.now() };
-    if (reg) await reg.showNotification(title, { ...options, actions: [{ action: 'voir', title: t('Voir') }, { action: 'ok', title: t('OK') }] } as NotificationOptions);
+    // Same look as the service worker's (public/sw.js › notificationOptions): logo, badge, the two buttons.
+    const options = { body, tag, lang: locale(), icon: '/icon-192.png', badge: '/notification-badge.png', data: { url, keys }, timestamp: Date.now() };
+    if (reg) await reg.showNotification(title, { ...options, actions: notificationButtons(keys) } as NotificationOptions);
     else new Notification(title, options);
     return true;
   } catch {

@@ -1189,6 +1189,9 @@ alter table public.events add column if not exists reminders jsonb
 alter table public.todos add column if not exists due_time text check (due_time is null or due_time ~ '^\d{2}:\d{2}$');
 alter table public.todos add column if not exists reminders jsonb
   check (reminders is null or (jsonb_typeof(reminders) = 'array' and jsonb_array_length(reminders) <= 10));
+-- Tâches : corbeille (30 jours) et répétition (2026-11-03).
+alter table public.todos add column if not exists deleted_at timestamptz;
+alter table public.todos add column if not exists repeat text check (repeat is null or repeat in ('day', 'week', 'month', 'year'));
 
 -- ── File des rappels à envoyer ──────────────────────────────────────────────
 -- L'appli calcule les prochains rappels (elle connaît le fuseau horaire de la personne) et les dépose ici ;

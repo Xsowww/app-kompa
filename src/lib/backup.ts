@@ -173,7 +173,7 @@ export function resetLocalData() {
   useDrive.setState({ items: [], trash: [], clipboard: null });
   useNotes.setState({ notes: [], folders: [], trashNotes: [], trashFolders: [] });
   useCalendar.setState({ events: [], trash: [] });
-  useTodos.setState({ todos: [] });
+  useTodos.setState({ todos: [], trash: [] });
   useFocusLog.setState({ sessions: [] });
   useCopilot.getState().clearHistory();
   useCopilot.setState({ memory: {} });

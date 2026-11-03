@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Eye, FileText, Folder, ListFilter, MoreHorizontal, RotateCcw, Trash2, X } from 'lucide-react';
+import { Eye, FileText, Folder, ListFilter, ListTodo, MoreHorizontal, RotateCcw, Trash2, X } from 'lucide-react';
 import { EmptyState } from '../../components/EmptyState';
 import { parseISO } from 'date-fns';
 import { categoryOf, FOLDER_COLORS, folderIconStyle, type DriveItem } from '../../store/drive';
@@ -19,7 +19,7 @@ import { TRASH_DAYS } from '../../store/drive';
 import { t, tn } from '../../i18n';
 
 /** `?type=` values (French, like the other URLs) ⇄ trash types. */
-const PARAM: Record<TrashType, string> = { notes: 'notes', drive: 'drive', calendar: 'calendrier' };
+const PARAM: Record<TrashType, string> = { notes: 'notes', drive: 'drive', calendar: 'calendrier', tasks: 'taches' };
 const fromParam = (v: string | null): TrashType | null => (Object.keys(PARAM) as TrashType[]).find(k => PARAM[k] === v) ?? null;
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
@@ -45,7 +45,7 @@ function EntryIcon({ entry, size = 28 }: { entry: TrashEntry; size?: number }) {
       </span>
     );
   }
-  const Icon = entry.kind === 'noteFolder' ? Folder : FileText;
+  const Icon = entry.kind === 'noteFolder' ? Folder : entry.kind === 'task' ? ListTodo : FileText;
   return (
     <span className={box} style={{ width: size, height: size }} aria-hidden>
       {/* A coloured notes folder keeps its colour here, like in the notes. */}
@@ -58,6 +58,7 @@ function kindLabel(e: TrashEntry) {
   if (e.kind === 'note') return t('Note');
   if (e.kind === 'noteFolder') return t('Dossier de notes');
   if (e.kind === 'event') return t('Événement');
+  if (e.kind === 'task') return t('Tâche');
   return e.item.kind === 'folder' ? t('Dossier du Drive') : t('Fichier du Drive');
 }
 
@@ -73,7 +74,7 @@ function PreviewDialog({ entry, onClose, onRestore, onPurge }: { entry: TrashEnt
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-[16px] font-semibold tracking-[-0.01em]">{entry.name}</h2>
           <p className="mt-0.5 truncate text-[12px] text-stone-500">
-            {kindLabel(entry)} · {entry.kind === 'event' ? t('Calendrier') : entry.place}
+            {kindLabel(entry)} · {entry.kind === 'event' ? t('Calendrier') : entry.kind === 'task' ? t('Tâches') : entry.place}
           </p>
         </div>
         <button className="icon-btn -mr-1.5 -mt-1" onClick={onClose} title={t('Fermer (Échap)')} aria-label={t('Fermer')}>
@@ -106,6 +107,15 @@ function PreviewDialog({ entry, onClose, onRestore, onPurge }: { entry: TrashEnt
                 <dd className="whitespace-pre-wrap text-stone-700">{entry.event.details}</dd>
               </>
             )}
+          </dl>
+        ) : entry.kind === 'task' ? (
+          <dl className="grid grid-cols-[96px_1fr] gap-x-3 gap-y-2 text-[13px]">
+            <dt className="text-stone-500">{t('Échéance')}</dt>
+            <dd className="first-letter:uppercase">
+              {entry.task.due ? fmt(parseISO(entry.task.due), 'EEEE d MMMM yyyy') + (entry.task.time ? ` · ${entry.task.time}` : '') : t('Sans échéance')}
+            </dd>
+            <dt className="text-stone-500">{t('État')}</dt>
+            <dd>{entry.task.done ? t('Faite') : t('À faire')}</dd>
           </dl>
         ) : isFolder ? (
           content.length ? (
@@ -158,7 +168,7 @@ export default function TrashPage() {
   const refocusAt = useRef<number | null>(null);
 
   const counts = useMemo(() => {
-    const c: Record<TrashType, number> = { notes: 0, drive: 0, calendar: 0 };
+    const c: Record<TrashType, number> = { notes: 0, drive: 0, calendar: 0, tasks: 0 };
     for (const e of all) c[e.type]++;
     return c;
   }, [all]);

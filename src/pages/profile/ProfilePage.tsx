@@ -25,7 +25,7 @@ import { exportBackup, importBackup, exportIcs, wipeUserData, clearBeforeAccount
 import { chime, showSystemNotification } from '../../lib/notify';
 import { deviceState, disableDevice, enableDevice, pushActive, sendTestPush } from '../../lib/push';
 import { devicePushChanged } from '../../lib/reminderScheduler';
-import { TIMED_OPTIONS } from '../../lib/reminders';
+import { TASK_DEFAULTS, TIMED_OPTIONS } from '../../lib/reminders';
 import { install, installed, macSafari, useInstallOffer } from '../../lib/install';
 import { formatBytes, noteText, cx } from '../../lib/utils';
 import { fmt, todayKey } from '../../lib/dates';
@@ -787,6 +787,16 @@ function NotificationsTab() {
             label={t('Rappel par défaut')}
             className="h-9 w-52"
             options={[{ value: -1, label: t('Aucun') }, ...TIMED_OPTIONS.map(o => ({ value: o.minutes, label: o.label }))]}
+          />
+        </Row>
+        {/* With « Point du matin », the 8:00 summary takes the place of the 9:00 reminder (lib/reminders › upcomingReminders). */}
+        <Row label={t('Rappel par défaut des tâches')} hint={s.morningBrief ? t('Pour les tâches datées. Le jour même, le résumé de 8 h remplace le rappel de 9 h.') : t('Pour les tâches datées (1 h avant celles qui ont une heure).')}>
+          <SelectField<string>
+            value={TASK_DEFAULTS.find(o => o.minutes.join() === [...s.defaultTaskReminders].sort((a, b) => b - a).join())?.value ?? 'les-deux'}
+            onChange={v => s.set({ defaultTaskReminders: TASK_DEFAULTS.find(o => o.value === v)?.minutes ?? [900, 0] })}
+            label={t('Rappel par défaut des tâches')}
+            className="h-9 w-52"
+            options={TASK_DEFAULTS.map(o => ({ value: o.value, label: o.label }))}
           />
         </Row>
       </Section>

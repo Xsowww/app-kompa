@@ -41,11 +41,26 @@ async function deviceAccounts() {
     return [];
   }
 }
+// With them, the site's language and the words of the buttons (the server's pushes don't carry them).
+const WORDS = '/__kompaly/mots';
+const metaJson = v => new Response(JSON.stringify(v), { headers: { 'Content-Type': 'application/json' } });
 self.addEventListener('message', e => {
   if (e.data?.type !== 'kompaly-accounts' || !Array.isArray(e.data.accounts)) return;
   const list = e.data.accounts.filter(a => a && typeof a.id === 'string' && typeof a.label === 'string').slice(0, 20);
-  e.waitUntil(caches.open(META).then(c => c.put(ACCOUNTS, new Response(JSON.stringify(list), { headers: { 'Content-Type': 'application/json' } }))));
+  const b = e.data.buttons && typeof e.data.buttons === 'object' ? e.data.buttons : {};
+  const text = v => (typeof v === 'string' ? v.slice(0, 40) : undefined);
+  const words = { lang: text(e.data.lang), voir: text(b.voir), ok: text(b.ok), later: text(b.later), done: text(b.done) };
+  e.waitUntil(caches.open(META).then(c => Promise.all([c.put(ACCOUNTS, metaJson(list)), c.put(WORDS, metaJson(words))])));
 });
+async function deviceWords() {
+  try {
+    const res = await (await caches.open(META)).match(WORDS);
+    const w = res ? await res.json() : null;
+    return w && typeof w === 'object' ? w : {};
+  } catch {
+    return {};
+  }
+}
 
 /** With two accounts or more on this device: the last line says which one the notification is for. */
 async function withAccount(data) {
@@ -58,21 +73,32 @@ async function withAccount(data) {
   return { ...data, body: `${data.body ? `${data.body}\n` : ''}${line}` };
 }
 
-/** Same look as the app's own notifications (src/lib/notify.ts): keep the two in step. */
-function notificationOptions(data) {
+/** The reminders a push stands for: several sent as one (`keys`), else its tag. */
+const keysOf = data => (Array.isArray(data.keys) && data.keys.length ? data.keys.map(String) : data.tag ? [String(data.tag)] : []);
+/** A reminder of a task or an event of mine (not the morning summary « task:matin:… »): as src/lib/reminders › reminderItem. */
+const isItem = key => /^(task|event):[^:]+:/.test(key) && !key.startsWith('task:matin:');
+
+/**
+ * Same look as the app's own notifications (src/lib/notify.ts, lib/reminders › notificationButtons): keep them in step.
+ * `words`: the site's language and its words (French until a page has given them).
+ */
+function notificationOptions(data, words = {}) {
+  const keys = keysOf(data);
+  const mine = keys.length > 0 && keys.every(isItem);
+  const voir = { action: 'voir', title: words.voir || 'Voir' };
   return {
     body: data.body || '',
     tag: data.tag || undefined, // the same reminder from the page and from the server: shown once
-    lang: 'fr',
+    lang: words.lang || 'fr',
     icon: '/icon-192.png', // the Kompaly logo
     badge: '/notification-badge.png', // Android status bar: one colour, the logo's two circles
-    data: { url: data.url || '/', user: data.user || null },
+    data: { url: data.url || '/', user: data.user || null, keys },
     timestamp: Date.now(),
     // Computers and Android (Chrome, Edge): two buttons under the notification; elsewhere a tap opens it.
-    actions: [
-      { action: 'voir', title: 'Voir' },
-      { action: 'ok', title: 'OK' },
-    ],
+    // A reminder of mine: « Plus tard » (10 min) and « Fait » (« Voir » for several); the others: « Voir » and « OK ».
+    actions: mine
+      ? [{ action: 'plus-tard', title: words.later || 'Plus tard' }, new Set(keys.map(k => k.split(':').slice(0, 2).join(':'))).size === 1 ? { action: 'fait', title: words.done || 'Fait' } : voir]
+      : [voir, { action: 'ok', title: words.ok || 'OK' }],
   };
 }
 
@@ -104,11 +130,21 @@ self.addEventListener('push', e => {
     (async () => {
       const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
       if ((await shownInPage(windows, data)) && inPageAllowed) return;
-      await self.registration.showNotification(title, notificationOptions(await withAccount(data)));
+      await self.registration.showNotification(title, notificationOptions(await withAccount(data), await deviceWords()));
       await rememberShown(data);
     })(),
   );
 });
+
+/** Asks the open page to do « Plus tard » or « Fait » (src/lib/reminderScheduler); true once it said it did. */
+function doneInPage(tab, message) {
+  return new Promise(resolve => {
+    const ch = new MessageChannel();
+    ch.port1.onmessage = () => resolve(true);
+    tab.postMessage(message, [ch.port2]);
+    setTimeout(() => resolve(false), 1000);
+  });
+}
 
 self.addEventListener('notificationclick', e => {
   e.notification.close();
@@ -116,20 +152,32 @@ self.addEventListener('notificationclick', e => {
   const target = new URL(e.notification.data?.url || '/', self.location.origin);
   // Only Kompaly's own pages (« //ailleurs.example » would leave the site).
   const url = target.origin === self.location.origin ? target.href : `${self.location.origin}/`;
+  // « Plus tard », « Fait »: the app does it (its tasks, events and reminders), the page staying where it is.
+  const action = e.action === 'plus-tard' || e.action === 'fait' ? e.action : '';
+  const keys = Array.isArray(e.notification.data?.keys) ? e.notification.data.keys : [];
   e.waitUntil(
     (async () => {
       const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
       const tab = windows.find(w => new URL(w.url).origin === self.location.origin);
       const user = e.notification.data?.user || undefined;
+      if (tab && action) {
+        // A page asleep in the background (phone) answers once woken: brought forward then (the message waits for it).
+        if (!(await doneInPage(tab, { type: 'kompaly-action', action, keys, url, user }))) await tab.focus().catch(() => undefined);
+        return;
+      }
       if (tab) {
         // The app goes to the page itself (no reload), in the notification's account: src/lib/reminderScheduler.ts.
         tab.postMessage({ type: 'kompaly-open', url, user });
         await tab.focus();
         return;
       }
-      // No tab: the app opens on that account (« compte » in the address, read once signed in).
+      // No tab: the app opens on that account (« compte » in the address, read once signed in), and does the action.
       const open = new URL(url);
       if (user) open.searchParams.set('compte', user);
+      if (action) {
+        open.searchParams.set('action', action);
+        open.searchParams.set('cles', keys.join(','));
+      }
       await self.clients.openWindow(open.href);
     })(),
   );

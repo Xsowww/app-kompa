@@ -22,7 +22,7 @@ describe('rappels', () => {
     expect(r[0].body).toBe('Aujourd’hui · 14:00\nAgenda');
     expect(r[1].body).toBe('Dans 15 min · 14:00\nAgenda');
     expect(r[2].body).toBe('Maintenant · 14:00\nAgenda');
-    expect(r[0].url).toBe('/calendrier?jour=2026-10-16');
+    expect(r[0].url).toBe('/calendrier?jour=2026-10-16&evt=e1');
   });
 
   it('les rappels passés, les éléments faits et sans date ne sont pas gardés', () => {
@@ -45,7 +45,7 @@ describe('rappels', () => {
     ]);
     expect(r[0].body).toBe('À faire demain\nTâches');
     expect(r[1].body).toBe('À faire aujourd’hui\nTâches');
-    expect(r[0].url).toBe('/taches');
+    expect(r[0].url).toBe('/taches?tache=t');
   });
 
   it('clé stable : la même pour le même rappel, différente si l’heure change', () => {
@@ -138,10 +138,56 @@ describe('résumé du matin des tâches', () => {
     ];
     const list = taskDigests(todos, new Date(2026, 10, 2, 20, 0), 2);
     expect(list.map(x => [x.key, x.fireAt.getHours(), x.title])).toEqual([
-      ['digest:2026-11-03', 8, '2 tâches à faire aujourd’hui'],
-      ['digest:2026-11-04', 8, '2 tâches à faire aujourd’hui'],
+      ['task:matin:2026-11-03', 8, '2 tâches à faire aujourd’hui'],
+      ['task:matin:2026-11-04', 8, '2 tâches à faire aujourd’hui'],
     ]);
     expect(list[0].body).toBe('Envoyer le devis, Payer la facture');
     expect(taskDigests([], new Date(2026, 10, 2, 20, 0))).toEqual([]);
+  });
+});
+
+describe('rappels : plus tard, résumé du matin, boutons', () => {
+  it('« Plus tard » : le rappel revient à l’heure dite, avec sa propre clé ; passé ou élément fait, rien', () => {
+    const at = new Date(2026, 9, 16, 10, 10).toISOString();
+    const r = upcomingReminders([{ kind: 'task', id: 't1', title: 'Appeler la banque', date: '2026-10-16', reminders: [], snoozes: [at, new Date(2026, 9, 16, 9, 0).toISOString()] }], now);
+    expect(r.map(x => [x.key, x.fireAt.getHours(), x.fireAt.getMinutes()])).toEqual([[`task:t1:plus-tard:${Date.parse(at)}`, 10, 10]]);
+    expect(r[0].url).toBe('/taches?tache=t1');
+    expect(upcomingReminders([{ kind: 'task', id: 't1', title: 'X', date: '2026-10-16', done: true, snoozes: [at] }], now)).toEqual([]);
+  });
+
+  it('le résumé de 8 h remplace le rappel de 9 h d’une tâche sans heure, pas celui de la veille ni celui d’une tâche à l’heure dite', () => {
+    const items = [
+      { kind: 'task' as const, id: 'a', title: 'Envoyer le dossier', date: '2026-10-18', reminders: [900, 0] },
+      { kind: 'task' as const, id: 'b', title: 'Réunion', date: '2026-10-18', time: '14:00', reminders: [60] },
+    ];
+    const keys = (days?: Set<string>) => upcomingReminders(items, now, 35, days).map(x => x.key.split(':').slice(0, 3).join(':'));
+    expect(keys()).toEqual(['task:a:900', 'task:a:0', 'task:b:60']);
+    expect(keys(new Set(['2026-10-18']))).toEqual(['task:a:900', 'task:b:60']);
+    expect(keys(new Set(['2026-10-19']))).toEqual(['task:a:900', 'task:a:0', 'task:b:60']);
+  });
+
+  it('rappels par défaut des tâches : ceux choisis, 1 h avant une tâche à l’heure dite, aucun si « Aucun »', async () => {
+    const { taskReminders } = await import('../src/lib/reminders');
+    const before = new Date(2026, 10, 2, 12);
+    expect(taskReminders('2026-11-10', undefined, before, [900])).toEqual([900]);
+    expect(taskReminders('2026-11-10', undefined, before, [0])).toEqual([0]);
+    expect(taskReminders('2026-11-10', '14:00', before, [0])).toEqual([60]);
+    expect(taskReminders('2026-11-10', undefined, before, [])).toEqual([]);
+    expect(taskReminders('2026-11-10', '14:00', before, [])).toEqual([]);
+  });
+
+  it('les boutons : « Plus tard » et « Fait » sur un rappel à moi, « Voir » pour plusieurs, « Voir » et « OK » sinon', async () => {
+    const { notificationButtons, reminderItems } = await import('../src/lib/reminders');
+    const { familyOf } = await import('../src/lib/notifyGroups.mjs');
+    expect(notificationButtons(['task:t1:0:2026-10-16T09:00']).map(b => b.action)).toEqual(['plus-tard', 'fait']);
+    expect(notificationButtons(['task:t1:0:2026-10-16T09:00', 'event:e1:15:2026-10-16T10:00']).map(b => b.action)).toEqual(['plus-tard', 'voir']);
+    expect(notificationButtons(['task:t1:900:x', 'task:t1:plus-tard:1']).map(b => b.action)).toEqual(['plus-tard', 'fait']);
+    for (const other of [['task:matin:2026-11-03'], ['agenda:x:y'], ['test'], []]) expect(notificationButtons(other).map(b => b.action)).toEqual(['voir', 'ok']);
+    expect(reminderItems(['event:e1:15:x', 'task:t2:plus-tard:5'])).toEqual([
+      { kind: 'event', id: 'e1' },
+      { kind: 'task', id: 't2' },
+    ]);
+    expect(familyOf('task:matin:2026-11-03')).toBe('matin');
+    expect(familyOf('task:t1:0:x')).toBe('rappel');
   });
 });

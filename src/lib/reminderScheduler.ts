@@ -9,8 +9,11 @@
 //   reads the next day's ones (RPC my_shared_reminders) and times them the same way.
 // Every reminder has a key (lib/reminders): shown once, whichever way it came. Several due at the same moment
 // (a morning's tasks at 9:00): one notification for all (lib/notifyGroups, as the server does).
+// « Plus tard » and « Fait » (the card in the app, the system notification's buttons): lib/reminderActions; what
+// « Plus tard » puts off is in the settings (reminderSnoozes, on every device), planned here again with the rest.
 
 import { eventReminders, upcomingReminders, taskDigests, type DueReminder, type ReminderSource } from './reminders';
+import { reminderAction } from './reminderActions';
 import { useCalendar } from '../store/calendar';
 import { useTodos } from '../store/todos';
 import { useSettings, getSettings } from '../store/settings';
@@ -24,7 +27,7 @@ import { useAuth } from '../store/auth';
 import { useGroups } from '../store/groups';
 import { savedAccount, savedAccounts } from './accounts';
 import { groupByMoment, mergeNotifications } from './notifyGroups.mjs';
-import { t } from '../i18n';
+import { locale, t } from '../i18n';
 
 /** Push on this device: the server's notification comes first; the app shows it only if it didn't come. */
 const FALLBACK_DELAY = 45_000;
@@ -63,7 +66,9 @@ function markShown(key: string) {
 
 // ── What to remind ──────────────────────────────────────────────────────────
 function sources(): ReminderSource[] {
-  const defaults = getSettings().defaultReminders;
+  const { defaultReminders: defaults, reminderSnoozes } = getSettings();
+  const snoozes = new Map<string, string[]>();
+  for (const z of reminderSnoozes ?? []) snoozes.set(z.item, [...(snoozes.get(z.item) ?? []), z.at]);
   return [
     ...useCalendar.getState().events.map(e => ({
       kind: 'event' as const,
@@ -75,14 +80,15 @@ function sources(): ReminderSource[] {
       done: e.done,
       // Events made before reminders existed: the usual reminder, if they have a time.
       reminders: eventReminders(e, defaults),
+      snoozes: snoozes.get(`event:${e.id}`),
     })),
-    ...useTodos.getState().todos.map(t => ({ kind: 'task' as const, id: t.id, title: t.title, date: t.due, time: t.time, done: t.done, reminders: t.reminders })),
+    ...useTodos.getState().todos.map(t => ({ kind: 'task' as const, id: t.id, title: t.title, date: t.due, time: t.time, done: t.done, reminders: t.reminders, snoozes: snoozes.get(`task:${t.id}`) })),
   ];
 }
 
 // ── Showing one ─────────────────────────────────────────────────────────────
-function showInApp(r: { key: string; title: string; body: string; url: string }) {
-  useUi.getState().showAlert({ key: r.key, title: r.title, body: r.body, url: r.url, at: Date.now() });
+function showInApp(r: { key: string; title: string; body: string; url: string; keys?: string[] }) {
+  useUi.getState().showAlert({ key: r.key, title: r.title, body: r.body, url: r.url, keys: r.keys, at: Date.now() });
   if (getSettings().reminderSound) chime();
 }
 
@@ -95,7 +101,7 @@ function fire(group: DueReminder[]) {
   else {
     // Same last line as the server's notifications when this device holds several accounts (public/sw.js).
     const account = savedAccounts().length > 1 && userId ? accountLabels()[userId] : undefined;
-    void showSystemNotification(r.title, account ? `${r.body}\n${t('Compte {account}', { account })}` : r.body, r.key, r.url).then(ok => ok || showInApp(r));
+    void showSystemNotification(r.title, account ? `${r.body}\n${t('Compte {account}', { account })}` : r.body, r.key, r.url, r.keys).then(ok => ok || showInApp(r));
   }
 }
 
@@ -134,8 +140,10 @@ function plan() {
   timers = [];
   if (!userId) return;
   const now = Date.now();
-  // Plus, with « Point du matin » on, one summary of the day's tasks at 8:00.
-  const list = [...upcomingReminders(sources(), new Date(now)), ...(getSettings().morningBrief ? taskDigests(useTodos.getState().todos, new Date(now)) : [])];
+  // Plus, with « Point du matin » on, one summary of the day's tasks at 8:00 (which takes the place of their 9:00 reminder).
+  const digests = getSettings().morningBrief ? taskDigests(useTodos.getState().todos, new Date(now)) : [];
+  const digestDays = new Set(digests.map(d => d.key.slice(d.key.lastIndexOf(':') + 1)));
+  const list = [...upcomingReminders(sources(), new Date(now), 35, digestDays), ...digests];
   void sendToServer(list).catch(() => undefined); // offline: sent again at the next change or hour
   const delay = push ? FALLBACK_DELAY : 0;
   const next = [...list, ...shared]
@@ -164,9 +172,18 @@ interface PushedReminder {
   test?: boolean;
 }
 function onWorkerMessage(e: MessageEvent) {
-  const d = e.data as { type?: string; url?: string; user?: string; reminder?: PushedReminder; mayShow?: boolean } | null;
+  const d = e.data as { type?: string; url?: string; user?: string; reminder?: PushedReminder; mayShow?: boolean; action?: string; keys?: unknown } | null;
   if (d?.type === 'kompaly-open' && d.url) {
     openFor(d.url, d.user);
+    return;
+  }
+  // « Plus tard » or « Fait » tapped on a notification: done here, without bringing the page forward.
+  if (d?.type === 'kompaly-action') {
+    e.ports[0]?.postMessage('done');
+    const keys = Array.isArray(d.keys) ? d.keys.map(String) : [];
+    // Another account's reminder: that account opens and does it (from the address, followNotificationAction).
+    if (d.user && d.user !== userId) openFor(withAction(d.url || '/', d.action ?? '', keys), d.user);
+    else reminderAction(d.action === 'fait' ? 'done' : 'later', keys);
     return;
   }
   if (d?.type !== 'kompaly-reminder' || !d.reminder) return;
@@ -184,7 +201,7 @@ function onWorkerMessage(e: MessageEvent) {
     if (agenda === viewingAgenda()) return reply('shown');
   }
   if (d.mayShow && document.visibilityState === 'visible') {
-    if (!seen) showInApp({ key, title: r.title || 'Kompaly', body: r.body || '', url: r.url || '/' });
+    if (!seen) showInApp({ key, title: r.title || 'Kompaly', body: r.body || '', url: r.url || '/', keys });
     return reply('shown');
   }
   reply('no');
@@ -220,11 +237,27 @@ function accountLabels(): Record<string, string> {
   return Object.fromEntries(list.map(a => [a.id, names.filter(n => n === a.name.trim().toLowerCase()).length > 1 || !a.name.trim() ? a.email : a.name.trim()]));
 }
 
-/** Tells the service worker this device's accounts: with two or more, each notification says which one it is for. */
+/**
+ * Tells the service worker this device's accounts (with two or more, each notification says which one it is for),
+ * and the words of its buttons in the site's language (the server's notifications come without them).
+ */
 async function shareAccounts() {
   const reg = await navigator.serviceWorker?.ready.catch(() => null);
   const labels = accountLabels();
-  reg?.active?.postMessage({ type: 'kompaly-accounts', accounts: Object.entries(labels).map(([id, label]) => ({ id, label, line: t('Compte {account}', { account: label }) })) });
+  reg?.active?.postMessage({
+    type: 'kompaly-accounts',
+    accounts: Object.entries(labels).map(([id, label]) => ({ id, label, line: t('Compte {account}', { account: label }) })),
+    lang: locale(),
+    buttons: { voir: t('Voir'), ok: t('OK'), later: t('Plus tard'), done: t('Fait||coché') },
+  });
+}
+
+/** The address that does « Plus tard » or « Fait » once open (`action`, `cles`): read by followNotificationAction. */
+function withAction(url: string, action: string, keys: string[]) {
+  const u = new URL(url, location.origin);
+  u.searchParams.set('action', action);
+  u.searchParams.set('cles', keys.join(','));
+  return u.pathname + u.search + u.hash;
 }
 
 /** Opened from a notification of another account (no Kompaly tab was open): switch to it. */
@@ -235,7 +268,21 @@ function followNotificationAccount() {
   params.delete('compte');
   const url = location.pathname + (params.size ? `?${params}` : '') + location.hash;
   history.replaceState(history.state, '', url);
-  if (target !== userId) openFor(url, target);
+  if (target === userId) return false;
+  openFor(url, target);
+  return true;
+}
+
+/** Opened by « Plus tard » or « Fait » of a notification while no Kompaly page was open (public/sw.js): done now. */
+function followNotificationAction() {
+  const params = new URLSearchParams(location.search);
+  const action = params.get('action');
+  if (action !== 'plus-tard' && action !== 'fait') return;
+  const keys = (params.get('cles') ?? '').split(',').filter(Boolean);
+  params.delete('action');
+  params.delete('cles');
+  history.replaceState(history.state, '', location.pathname + (params.size ? `?${params}` : '') + location.hash);
+  reminderAction(action === 'fait' ? 'done' : 'later', keys);
 }
 
 /** What the service worker showed while no Kompaly page was open (public/sw.js): not shown again here. */
@@ -256,13 +303,13 @@ export function startReminders(id: string): () => void {
     useGroups.subscribe((s, p) => s.events !== p.events && loadSharedSoon()),
     useCalendar.subscribe((s, p) => s.events !== p.events && planSoon()),
     useTodos.subscribe((s, p) => s.todos !== p.todos && planSoon()),
-    useSettings.subscribe((s, p) => (s.defaultReminders !== p.defaultReminders || s.morningBrief !== p.morningBrief) && planSoon()),
+    useSettings.subscribe((s, p) => (s.defaultReminders !== p.defaultReminders || s.morningBrief !== p.morningBrief || s.reminderSnoozes !== p.reminderSnoozes) && planSoon()),
   ];
   const hourly = setInterval(loadSharedSoon, 3_600_000); // then plan()
   const onVisible = () => document.visibilityState === 'visible' && loadSharedSoon();
   document.addEventListener('visibilitychange', onVisible);
   navigator.serviceWorker?.addEventListener('message', onWorkerMessage);
-  followNotificationAccount();
+  if (!followNotificationAccount()) followNotificationAction();
   void shareAccounts().catch(() => undefined);
   void (async () => {
     await refreshDevice().catch(() => undefined);

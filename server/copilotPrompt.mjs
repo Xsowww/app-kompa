@@ -301,7 +301,7 @@ export const TOOLS = [
   },
   {
     name: 'delete_todo',
-    description: "Propose de supprimer une tâche (définitif) : affiche un bouton de confirmation à l'utilisateur. id exact (list_todos) requis.",
+    description: "Propose de supprimer une tâche (elle va à la corbeille, récupérable 30 jours) : affiche un bouton de confirmation à l'utilisateur. id exact (list_todos) requis.",
     input_schema: { type: 'object', properties: { todo_id: { type: 'string' } }, required: ['todo_id'] },
   },
   {

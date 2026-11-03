@@ -114,7 +114,7 @@ async function load() {
   useDrive.setState({ items: [], trash: [], clipboard: null });
   useCalendar.setState({ events: [], trash: [] });
   useNotes.setState({ folders: [], notes: [], trashFolders: [], trashNotes: [] });
-  useTodos.setState({ todos: [] });
+  useTodos.setState({ todos: [], trash: [] });
   useFocusLog.setState({ sessions: [] });
   useFocus.setState({ phase: null, pausedLeft: null, label: '' });
   useCopilot.getState().reset();
@@ -166,6 +166,7 @@ async function load() {
   useDrive.getState().purgeExpired();
   useNotes.getState().purgeExpired();
   useCalendar.getState().purgeExpired();
+  useTodos.getState().purgeExpired();
   settleFocus();
   renameToKompa();
   applyUsage(useSettings.getState().usage);

@@ -6,7 +6,8 @@ import { useFocusLog } from '../../store/focusLog';
 import { toKey, fmt, fromKey } from '../../lib/dates';
 import { cx } from '../../lib/utils';
 import FocusTimer from '../../components/FocusTimer';
-import TodoList from './TodoList';
+import TodoList, { DoneTasks } from './TodoList';
+import { useTodos } from '../../store/todos';
 import TaskDialog from './TaskDialog';
 import { useCreateActions } from '../../store/create';
 import { flashWhenReady } from '../../lib/flash';
@@ -137,23 +138,33 @@ export default function TasksPage() {
     if (adding) navigate({ search: '' }, { replace: true });
   }, [adding, navigate]);
 
-  // /taches?tache=… (from « Ma semaine »): that task lights up once on screen.
+  // /taches?tache=… (from « Ma semaine », a reminder): that task lights up once on screen.
   const wanted = new URLSearchParams(location.search).get('tache');
   useEffect(() => {
     if (!wanted) return;
     flashWhenReady(() => document.querySelector(`[data-todo="${CSS.escape(wanted)}"]`)?.closest('li'));
   }, [wanted]);
 
+  // The right column: the focus timer (below lg: from lg the side bar has it), « Faites », the work time.
+  // Nothing for it from lg (no ticked task, no session yet): the list takes the whole width, no empty half.
+  const hasDone = useTodos(s => s.todos.some(x => x.done));
+  const hasSessions = useFocusLog(s => s.sessions.length > 0);
+  const aside = hasDone || hasSessions;
+
   return (
     <div className="h-full overflow-y-auto px-4 pb-room md:px-8">
       <div className="mx-auto max-w-[1180px]">
         <h1 className="pb-7 pt-2 text-[24px] font-semibold tracking-[-0.02em]">{t('Tâches')}</h1>
 
-        <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
+        {/* Two columns from md (an iPad held upright has the room). */}
+        <div className={cx('grid grid-cols-1 items-start gap-5 md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]', !aside && 'lg:grid-cols-1')}>
           <section id="taches" aria-label={t('Liste des tâches')} className="card flex min-h-[240px] flex-col p-5">
             <TodoList grouped />
           </section>
-          <WorkTime />
+          <div className={cx('min-w-0 space-y-5', !aside && 'lg:hidden')}>
+            <WorkTime />
+            <DoneTasks />
+          </div>
         </div>
       </div>
       {creating && <TaskDialog onClose={() => setCreating(false)} />}

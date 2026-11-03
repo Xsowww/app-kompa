@@ -1,4 +1,4 @@
-// One trash for the whole app: Notes, Drive and Calendar each keep their deleted things in their
+// One trash for the whole app: Notes, Drive, Calendar and Tasks each keep their deleted things in their
 // own store; this module lists them together and restores / purges them by id.
 
 import { useMemo } from 'react';
@@ -7,10 +7,11 @@ import { fmt } from './dates';
 import { useDrive, pathOf, trashRoots, withDescendants, TRASH_DAYS, type DriveItem } from '../store/drive';
 import { useNotes, notesTrashRoots, folderDescendants, type Note, type NoteFolder } from '../store/notes';
 import { useCalendar, type CalendarEvent } from '../store/calendar';
+import { useTodos, type Todo } from '../store/todos';
 import { toast } from '../store/ui';
 import { locale, t } from '../i18n';
 
-export type TrashType = 'notes' | 'drive' | 'calendar';
+export type TrashType = 'notes' | 'drive' | 'calendar' | 'tasks';
 
 export type TrashEntry = { id: string; type: TrashType; name: string; deletedAt: string; place: string; placeGone: boolean } & (
   | { kind: 'note'; note: Note }
@@ -18,12 +19,14 @@ export type TrashEntry = { id: string; type: TrashType; name: string; deletedAt:
   | { kind: 'drive'; item: DriveItem }
   // An event that repeats or lasts several days, deleted at once: one entry, `event` its first day, `events` all of them.
   | { kind: 'event'; event: CalendarEvent; events: CalendarEvent[] }
+  | { kind: 'task'; task: Todo }
 );
 
 export const TRASH_TYPES: { key: TrashType; label: string }[] = [
   { key: 'notes', label: t('Notes') },
   { key: 'drive', label: t('Drive') },
   { key: 'calendar', label: t('Calendrier') },
+  { key: 'tasks', label: t('Tâches') },
 ];
 
 interface Sources {
@@ -33,12 +36,13 @@ interface Sources {
   trashFolders: NoteFolder[];
   trashNotes: Note[];
   eventTrash: CalendarEvent[];
+  taskTrash: Todo[];
 }
 
 const current = (): Sources => {
   const d = useDrive.getState();
   const n = useNotes.getState();
-  return { driveItems: d.items, driveTrash: d.trash, noteFolders: n.folders, trashFolders: n.trashFolders, trashNotes: n.trashNotes, eventTrash: useCalendar.getState().trash };
+  return { driveItems: d.items, driveTrash: d.trash, noteFolders: n.folders, trashFolders: n.trashFolders, trashNotes: n.trashNotes, eventTrash: useCalendar.getState().trash, taskTrash: useTodos.getState().trash };
 };
 
 export const eventDay = (date: string) => fmt(parseISO(date), 'EEE d MMM').replace(/^./, c => c.toUpperCase());
@@ -99,6 +103,8 @@ export function collectTrash(s: Sources = current()): TrashEntry[] {
         placeGone: false,
       };
     }),
+    // « Tâches · Ven. 7 nov. »: its due day, when it had one.
+    ...s.taskTrash.map(x => ({ id: x.id, type: 'tasks' as const, kind: 'task' as const, task: x, name: x.title, deletedAt: x.deletedAt ?? '', place: x.due ? t('Tâches · {day}', { day: eventDay(x.due) }) : t('Tâches'), placeGone: false })),
   ];
   return out.sort((a, b) => b.deletedAt.localeCompare(a.deletedAt) || a.name.localeCompare(b.name, locale()));
 }
@@ -111,9 +117,10 @@ export function useTrash(): TrashEntry[] {
   const trashFolders = useNotes(s => s.trashFolders);
   const trashNotes = useNotes(s => s.trashNotes);
   const eventTrash = useCalendar(s => s.trash);
+  const taskTrash = useTodos(s => s.trash);
   return useMemo(
-    () => collectTrash({ driveItems, driveTrash, noteFolders, trashFolders, trashNotes, eventTrash }),
-    [driveItems, driveTrash, noteFolders, trashFolders, trashNotes, eventTrash],
+    () => collectTrash({ driveItems, driveTrash, noteFolders, trashFolders, trashNotes, eventTrash, taskTrash }),
+    [driveItems, driveTrash, noteFolders, trashFolders, trashNotes, eventTrash, taskTrash],
   );
 }
 
@@ -123,10 +130,11 @@ export function useTrashCount(): number {
   const trashFolders = useNotes(s => s.trashFolders);
   const trashNotes = useNotes(s => s.trashNotes);
   const eventTrash = useCalendar(s => s.trash);
+  const taskTrash = useTodos(s => s.trash);
   return useMemo(() => {
     const r = notesTrashRoots(trashFolders, trashNotes);
-    return trashRoots(driveTrash).length + r.folders.length + r.notes.length + eventGroups(eventTrash).length;
-  }, [driveTrash, trashFolders, trashNotes, eventTrash]);
+    return trashRoots(driveTrash).length + r.folders.length + r.notes.length + eventGroups(eventTrash).length + taskTrash.length;
+  }, [driveTrash, trashFolders, trashNotes, eventTrash, taskTrash]);
 }
 
 /** Days left before an entry is deleted for good. */
@@ -192,6 +200,7 @@ export function restoreTrash(ids: string[]): RestoreResult {
   if (by('drive').length) useDrive.getState().restore(by('drive'));
   if (by('notes').length) useNotes.getState().restore(by('notes'));
   if (by('calendar').length) useCalendar.getState().restore(by('calendar'));
+  if (by('tasks').length) useTodos.getState().restore(by('tasks'));
   // Read after the restore: a note restored with its folder found it again (« Mitose » and « Biologie » together).
   const orphan = entries.some(e => e.placeGone && placeGoneNow(e));
   // Names read again after the restore: one that came back next to a new one of the same name is renamed (« Biologie (2) »).
@@ -218,6 +227,7 @@ function hrefOf(e: TrashEntry): string | null {
   if (e.kind === 'note') return `/notes?note=${e.id}`;
   if (e.kind === 'noteFolder') return `/notes?dossier=${e.id}`;
   if (e.kind === 'event') return `/calendrier?jour=${e.event.date}`;
+  if (e.kind === 'task') return `/taches?tache=${e.id}`;
   const item = useDrive.getState().items.find(i => i.id === e.id);
   if (!item) return null;
   if (item.kind === 'folder') return `/drive?dossier=${item.id}`;
@@ -231,12 +241,14 @@ export function purgeTrash(ids: string[]) {
   if (by('drive').length) useDrive.getState().purge(by('drive'));
   if (by('notes').length) useNotes.getState().purge(by('notes'));
   if (by('calendar').length) useCalendar.getState().purge(by('calendar'));
+  if (by('tasks').length) useTodos.getState().purge(by('tasks'));
 }
 
 export function emptyAllTrash() {
   useDrive.getState().emptyTrash();
   useNotes.getState().emptyTrash();
   useCalendar.getState().emptyTrash();
+  useTodos.getState().emptyTrash();
 }
 
 /** True when this id is a note in the trash (deep links to it go to the trash). */
