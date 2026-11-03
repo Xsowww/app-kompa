@@ -32,6 +32,8 @@ export function resolveTranscriber(env = process.env) {
 let day = '';
 let perUser = new Map();
 let siteSeconds = 0;
+let month = ''; // the month so far, for the admins (memory of this process, like the day)
+let monthSeconds = 0;
 const parisDay = () => new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris' }).format(new Date());
 
 /** Counts `seconds` of sound. Returns the error code when a limit is reached, else null. */
@@ -48,7 +50,27 @@ export function overAudioQuota(who, seconds, t, env = process.env) {
   if (used + seconds > userMax) return 'daily_limit';
   perUser.set(who, used + seconds);
   siteSeconds += seconds;
+  if (month !== day.slice(0, 7)) {
+    month = day.slice(0, 7);
+    monthSeconds = 0;
+  }
+  monthSeconds += seconds;
   return null;
+}
+
+/** Minutes of sound written down today and this month, for the admins (GET /api/copilot/admin). */
+export function audioUsage(env = process.env) {
+  const t = resolveTranscriber(env);
+  const today = day === parisDay();
+  const round = s => Math.round((s / 60) * 10) / 10;
+  return {
+    configured: !!t,
+    today: today ? round(siteSeconds) : 0,
+    month: month === parisDay().slice(0, 7) ? round(monthSeconds) : 0,
+    accounts: today ? perUser.size : 0,
+    siteMax: Number(env.TRANSCRIBE_SITE_MINUTES) || (t?.groq ? 450 : null),
+    perAccount: Number(env.TRANSCRIBE_DAILY_MINUTES) || 240,
+  };
 }
 
 /** A 16 kHz mono 16-bit PCM WAV, as the page makes them. Returns its length in seconds, or null. */
