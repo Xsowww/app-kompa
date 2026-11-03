@@ -1,6 +1,6 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Bell, Check, FileText, Flag, Link2, Plus, Trash2 } from 'lucide-react';
+import { Bell, CalendarPlus, Check, Copy, FileText, Flag, Link2, MapPin, Plus, Trash2 } from 'lucide-react';
 import SeriesIcon from './SeriesIcon';
 import { Modal } from '../../components/Overlays';
 import { ReportDialog } from '../../components/FeedbackDialogs';
@@ -22,9 +22,12 @@ import { covers } from '../../lib/periods';
 import { MAX_SPAN_DAYS, REPEATS, dayShift, defaultUntil, isSpan, repeatDays, shiftKey, spanDays, spanTooLong, type Repeat } from '../../lib/repeat';
 import { feedLabel, feedOf } from '../../lib/icsFeeds';
 import { uid } from '../../lib/utils';
+import { copyToMyCalendar } from './agendas';
 import { t, tn } from '../../i18n';
 
 const NONE: number[] = [];
+/** The repeat a sentence asks for: « tous les mardis » every week, « tous les ans » every year. */
+const repeatSaid = (p: { weekly?: boolean; yearly?: boolean }): Repeat | '' => (p.weekly ? 'week' : p.yearly ? 'year' : '');
 /** Periods a repeat skips at first (they can be ticked off): the holidays. */
 const HOLIDAYS = /vacance|cong[ée]|holiday|vacation|ferien|urlaub|vacacion|vacanz|feri[ea]/i;
 
@@ -36,6 +39,10 @@ interface Props {
   end?: string;
   /** A new event from the calendar's bar: what was typed (« Sport tous les mardis 18h »). */
   title?: string;
+  /** « Dupliquer »: a new event filled in as this one (nothing is added before « Ajouter »). */
+  template?: CalendarEvent;
+  /** « Dupliquer » in the window of an event: the parent opens the new one, filled in. */
+  onDuplicate?: (ev: CalendarEvent) => void;
   onClose: () => void;
   /** After « Ajouter » / « Enregistrer », with the saved event (the calendar goes to its day). */
   onSaved?: (ev: Pick<CalendarEvent, 'date' | 'category' | 'important'>) => void;
@@ -67,6 +74,7 @@ function EventView({ event: ev, onClose }: { event: CalendarEvent; onClose: () =
         <span className="min-w-0 truncate">· {t('par {name}', { name: shared.author(ev.id) })}</span>
       </p>
       <dl className="mt-4 grid gap-3">
+        {ev.place && row(t('Lieu'), <span className="[overflow-wrap:anywhere]">{ev.place}</span>)}
         {row(t('Pour qui'), ev.people?.length ? ev.people.map(who).join(', ') : t('Tout le monde'))}
         {reminders.length > 0 &&
           row(
@@ -79,9 +87,12 @@ function EventView({ event: ev, onClose }: { event: CalendarEvent; onClose: () =
         {ev.details && row(t('Notes'), <span className="block whitespace-pre-line [overflow-wrap:anywhere]">{ev.details}</span>)}
       </dl>
       <div className="mt-6 flex items-center gap-2">
+        <button type="button" className="btn-ghost" onClick={() => (copyToMyCalendar(ev), onClose())} title={t('Copier dans mon agenda')}>
+          <CalendarPlus size={15} /> <span className="max-sm:sr-only">{t('Copier dans mon agenda')}</span>
+        </button>
         {!shared.byMe(ev.id) && (
           <button type="button" className="btn-ghost" onClick={() => setReporting(true)} aria-label={t('Signaler « {title} »', { title: ev.title })}>
-            <Flag size={15} /> {t('Signaler')}
+            <Flag size={15} /> <span className="max-sm:sr-only">{t('Signaler')}</span>
           </button>
         )}
         <button type="button" className="btn-secondary ml-auto" onClick={onClose}>
@@ -98,21 +109,26 @@ export default function EventForm(props: Props) {
   return props.event && shared && !shared.canEdit ? <EventView event={props.event} onClose={props.onClose} /> : <EventEditor {...props} />;
 }
 
-function EventEditor({ event, date, start: initialStart, end: initialEnd, title: initialTitle, onClose, onSaved }: Props) {
+function EventEditor({ event, date, start: initialStart, end: initialEnd, title: initialTitle, template, onDuplicate, onClose, onSaved }: Props) {
   // My calendar or a shared one (no « important » there; its own categories, and reminders for each member it is for).
   const source = useCalendarSource();
   const { add, addMany, update, updateSeries, shared, categories: custom, periods, events: allEvents } = source;
-  const [title, setTitle] = useState(event?.title ?? initialTitle ?? '');
+  // An event changed, or the one duplicated (its times and all, on the day it is opened for).
+  const base = event ?? template;
+  const [title, setTitle] = useState(base?.title ?? initialTitle ?? '');
   const [day, setDay] = useState(event?.date ?? date);
-  const [start, setStart] = useState(event?.start ?? initialStart ?? '');
-  const [end, setEnd] = useState(event?.end ?? initialEnd ?? '');
-  const [category, setCategory] = useState<EventCategory | null>(event?.category ?? null);
-  const [details, setDetails] = useState(event?.details ?? '');
-  const [important, setImportant] = useState(!!event?.important);
+  const [start, setStart] = useState(base?.start ?? initialStart ?? '');
+  const [end, setEnd] = useState(base?.end ?? initialEnd ?? '');
+  const [category, setCategory] = useState<EventCategory | null>(base?.category ?? null);
+  const [details, setDetails] = useState(base?.details ?? '');
+  const [place, setPlace] = useState(base?.place ?? '');
+  const [important, setImportant] = useState(!!base?.important);
   // Shared calendar: who it is for (none: everyone).
-  const [people, setPeople] = useState<string[]>(event?.people ?? []);
+  const [people, setPeople] = useState<string[]>(base?.people ?? []);
   // undefined = not chosen: the usual reminder (Profil › Notifications) for an event with a time.
-  const [chosen, setChosen] = useState<number[] | undefined>(event?.reminders);
+  const [chosen, setChosen] = useState<number[] | undefined>(base?.reminders);
+  // A duplicate's title is read as a sentence only once changed (« Cours 8h » duplicated stays « Cours 8h »).
+  const [retyped, setRetyped] = useState(false);
   const mine = useSettings(s => s.defaultReminders);
   const feeds = useSettings(s => s.icsFeeds);
   // My usual reminder isn't imposed on the members of a shared calendar: none until one is chosen.
@@ -122,17 +138,17 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
   // A new event: « Dentiste demain 16h » fills the day and the times (as the calendar's bar), unless they were set by
   // hand; saved as « Dentiste ». Editing one leaves its title as it is.
   const touched = useRef({ day: false, start: false, end: false, important: false, repeat: false });
-  const parsed = !event && title.trim() ? parseQuickAdd(title) : null;
-  const understood = !!parsed && !parsed.impossible && !!(parsed.date || parsed.start || parsed.important);
+  const parsed = !event && (!template || retyped) && title.trim() ? parseQuickAdd(title) : null;
+  const understood = !!parsed && !parsed.impossible && !!(parsed.date || parsed.start || parsed.important || parsed.yearly);
   // « 31/11 »: said and blocked, unless the day was chosen by hand.
   const [dayByHand, setDayByHand] = useState(false);
   const impossible = !!parsed?.impossible && !dayByHand;
   const cleanTitle = understood ? parsed.title : title.trim();
   // Repeating: my own calendar, a new event (« tous les mardis » in the title chooses « Chaque semaine »).
   const canRepeat = !event;
-  const [repeat, setRepeat] = useState<Repeat | ''>(() => (canRepeat && initialTitle && parseQuickAdd(initialTitle).weekly ? 'week' : ''));
+  const [repeat, setRepeat] = useState<Repeat | ''>(() => (canRepeat && initialTitle ? repeatSaid(parseQuickAdd(initialTitle)) : ''));
   const [until, setUntil] = useState('');
-  const lastDay = until || (day ? defaultUntil(day) : '');
+  const lastDay = until || (day && repeat ? defaultUntil(day, repeat) : '');
   const around = repeat && day ? periods.filter(p => p.start <= lastDay && p.end >= day) : [];
   // Ticked: not on those days (the holidays at first).
   const [skipped, setSkipped] = useState<string[] | null>(null);
@@ -146,6 +162,7 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
   const endDayMsg = canSpan && endDay && day ? (endDay <= day ? t('Le jour de fin doit être après le jour de début.') : spanTooLong(day, endDay) ? t('{n} jours au plus.', { n: MAX_SPAN_DAYS }) : '') : '';
   const onTitle = (v: string) => {
     setTitle(v);
+    setRetyped(true);
     if (v.trim()) setTitleError('');
     if (event) return;
     const p = v.trim() ? parseQuickAdd(v) : null;
@@ -155,7 +172,7 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
     if (!was.start) setStart(ok?.start ?? initialStart ?? '');
     if (!was.end) setEnd(ok?.end ?? (ok?.start ? '' : (initialEnd ?? '')));
     if (!was.important) setImportant(!!ok?.important);
-    if (canRepeat && !was.repeat) setRepeat(ok?.weekly ? 'week' : '');
+    if (canRepeat && !was.repeat) setRepeat(ok ? repeatSaid(ok) : '');
   };
   const effective = category ?? guessCategory(cleanTitle || title, !!start, custom);
   // My usual reminder and, for a big day, a week before and the day before when still to come (lib/reminders); a shared calendar: the chosen ones.
@@ -182,7 +199,7 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
     }
     if (!day || timeMsg || endDayMsg || impossible || (series && !series.days.length)) return;
     // An end without a start can't be sent: the start field is required then (see below).
-    const data = { title: cleanTitle, date: day, start: start || undefined, end: start && end ? end : undefined, category: effective, details: details.trim() || undefined, important: important || undefined, reminders: chosen, ...(shared && { people }) };
+    const data = { title: cleanTitle, date: day, start: start || undefined, end: start && end ? end : undefined, category: effective, details: details.trim() || undefined, place: place.trim() || undefined, important: important || undefined, reminders: chosen, ...(shared && { people }) };
     // A shared calendar: only what was changed here, so that what another member changed meanwhile isn't undone.
     const changes: Partial<typeof data> = event && shared ? changedFields(data, event) : data;
     if (event && !Object.keys(changes).length) {
@@ -267,6 +284,7 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
                 parsed.date && day === parsed.date && fmtDay(fromKey(parsed.date), 'EEEE d MMMM'),
                 parsed.start && start === parsed.start && (parsed.end && end === parsed.end ? `${parsed.start}\u00a0–\u00a0${parsed.end}` : parsed.start),
                 parsed.important && important && t('important'),
+                parsed.yearly && repeat === 'year' && t('chaque année'),
               ]
                 .filter(Boolean)
                 .join(' · '),
@@ -358,6 +376,11 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
         </div>
         {/* Said as soon as the times are chosen, under them. */}
         <FieldError id="event-time-err">{timeMsg}</FieldError>
+
+        <label className="relative mt-4 block">
+          <MapPin size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" aria-hidden />
+          <input value={place} onChange={e => setPlace(e.target.value)} maxLength={300} placeholder={t('Lieu (facultatif)')} aria-label={t('Lieu')} className="field h-10 w-full pl-9 text-[14px]" />
+        </label>
 
         {canSpan &&
           (endDay === null ? (
@@ -482,6 +505,16 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
               }}
             >
               <Trash2 size={15} /> <span className="max-sm:sr-only">{t('Supprimer')}</span>
+            </button>
+          )}
+          {event && onDuplicate && (
+            <button type="button" className="btn-ghost px-2.5" title={t('Dupliquer')} onClick={() => (onClose(), onDuplicate(event))}>
+              <Copy size={15} /> <span className="max-sm:sr-only">{t('Dupliquer')}</span>
+            </button>
+          )}
+          {event && shared && (
+            <button type="button" className="icon-btn" title={t('Copier dans mon agenda')} aria-label={t('Copier dans mon agenda')} onClick={() => (copyToMyCalendar(event), onClose())}>
+              <CalendarPlus size={15} />
             </button>
           )}
           {event && shared && !shared.byMe(event.id) && (

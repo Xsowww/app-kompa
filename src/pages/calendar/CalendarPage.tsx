@@ -1,8 +1,8 @@
 import { useToday } from '../../lib/useToday';
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent, type PointerEvent as ReactPointerEvent } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { addDays, addMonths, endOfMonth, startOfMonth, isSameMonth } from 'date-fns';
-import { Bell, Check, Flag, Link2, ListFilter, ChevronLeft, ChevronRight, Plus, Trash2, CornerDownLeft, CalendarArrowDown, CalendarArrowUp, CalendarRange, CalendarPlus, CalendarClock } from 'lucide-react';
+import { Bell, Check, Copy, ExternalLink, Flag, Link2, ListFilter, ListTodo, MapPin, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, CornerDownLeft, CalendarArrowDown, CalendarArrowUp, CalendarRange, CalendarPlus, CalendarClock } from 'lucide-react';
 import { EmptyState, Skeleton } from '../../components/EmptyState';
 import { catOf, allCategories, guessCategory, isDeliverable, isBigEvent, sortEvents, type CalendarEvent, type EventCategory } from '../../store/calendar';
 import { parseQuickAdd, toKey, fromKey, todayKey, validKey, fmt, fmtDay, weekStart, countdownLabel, daysUntil, toMinutes, fromMinutes, isOver } from '../../lib/dates';
@@ -15,18 +15,26 @@ import { covers, periodColor, periodUntil, periodLabel, periodsFill, weekLanes, 
 import { cx } from '../../lib/utils';
 import EventForm from './EventForm';
 import { eventTitle, periodIdeas, removeEvent, useCalendarSource } from './source';
-import DayView from './DayView';
+import TimeGrid from './TimeGrid';
 import SeriesIcon from './SeriesIcon';
 import { firstOfSpans } from '../../lib/repeat';
 import { isLateEvent } from '../../lib/late';
 import ImportIcsDialog, { type IcsSource } from './ImportIcsDialog';
 import { useCreateActions } from '../../store/create';
 import { isIcsFile } from '../../lib/ics';
-import { useEventDrag, type DropTarget } from './useEventDrag';
+import { useEventDrag, type DragMode, type DropTarget } from './useEventDrag';
 import { exportIcs } from '../../lib/backup';
 import { flashWhenReady } from '../../lib/flash';
 import { eventReminders, followMoments, reminderLabel } from '../../lib/reminders';
 import { feedLabel, feedOf } from '../../lib/icsFeeds';
+import { useTodos, type Todo } from '../../store/todos';
+import TaskDialog from '../tasks/TaskDialog';
+import { TaskRow } from './TaskItem';
+import { isFor, spanBars, sweptRange, tasksOn, upcomingList } from './layout';
+import { agendaLink, copyToMyCalendar, fromAgenda, useAgendaOverlay } from './agendas';
+import { ContextMenu, type MenuItem } from '../../components/Overlays';
+import { isMenuKey, menuPoint } from '../../lib/a11y';
+import { GROUP_COLORS, type Group } from '../../lib/groups';
 import { t, tn } from '../../i18n';
 
 type Mode = 'week' | 'month' | 'day';
@@ -46,16 +54,19 @@ function savedMode(): Mode {
   }
 }
 
-// Phones get a shorter hint in the quick add (the long example was cut in the middle of a word at 375 px).
-const wideQuery = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(min-width: 640px)') : null;
-const subscribeWide = (cb: () => void) => {
-  wideQuery?.addEventListener('change', cb);
-  return () => wideQuery?.removeEventListener('change', cb);
+const media = (q: string) => (typeof window !== 'undefined' && window.matchMedia ? window.matchMedia(q) : null);
+const subscribeTo = (mq: MediaQueryList | null) => (cb: () => void) => {
+  mq?.addEventListener('change', cb);
+  return () => mq?.removeEventListener('change', cb);
 };
+// Phones get a shorter hint in the quick add (the long example was cut in the middle of a word at 375 px).
+const wideQuery = media('(min-width: 640px)');
+const subscribeWide = subscribeTo(wideQuery);
 const useWide = () => useSyncExternalStore(subscribeWide, () => wideQuery?.matches ?? true);
-
-/** How many exams « À venir » lists before « Voir les … autres ». */
-const EXAMS_SHOWN = 4;
+// From a tablet the week is an hourly grid of seven columns; on a phone, the seven days one under the other.
+const gridQuery = media('(min-width: 768px)');
+const subscribeGrid = subscribeTo(gridQuery);
+const useWeekGrid = () => useSyncExternalStore(subscribeGrid, () => gridQuery?.matches ?? true);
 
 function Dot({ color, size = 8 }: { color: string; size?: number }) {
   return <span className="inline-block shrink-0 rounded-full" style={{ background: color, width: size, height: size }} />;
@@ -66,12 +77,17 @@ interface EventItemProps {
   onEdit: () => void;
   dragging: boolean;
   onDragStart: (e: ReactPointerEvent<HTMLElement>) => void;
+  onMenu: (e: ReactMouseEvent<HTMLElement> | React.KeyboardEvent<HTMLElement>) => void;
 }
 
-function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
+function EventItem({ ev, onEdit, dragging, onDragStart, onMenu }: EventItemProps) {
   const source = useCalendarSource();
   const { toggleDone, shared } = source;
-  const readOnly = !!shared && !shared.canEdit; // a reader of a shared calendar: nothing to change
+  // A reader of a shared calendar, or a shared calendar's event shown in mine: nothing to change here.
+  const agenda = fromAgenda(ev);
+  const readOnly = (!!shared && !shared.canEdit) || agenda;
+  // Today's events already over: lighter, what is left of the day stands out.
+  const past = !ev.done && ev.date === todayKey() && isOver(ev);
   const c = catOf(ev.category);
   const defaults = useSettings(s => s.defaultReminders);
   // A shared calendar's reminders are the ones chosen on it (no usual reminder of mine there).
@@ -94,11 +110,13 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
       <div
         data-event={ev.id}
         onPointerDown={readOnly ? undefined : onDragStart}
+        onContextMenu={e => (e.preventDefault(), onMenu(e))}
+        onKeyDown={e => isMenuKey(e) && (e.preventDefault(), onMenu(e))}
         title={readOnly ? undefined : t('Glisse sur un autre jour pour déplacer')}
-        className={cx('flex min-w-0 flex-1 touch-manipulation items-start gap-3 rounded-[16px] bg-stone-50 py-3 pl-3 pr-2 transition-colors [-webkit-touch-callout:none] hover:bg-stone-100', ev.done && 'opacity-60', dragging && 'opacity-40')}
+        className={cx('flex min-w-0 flex-1 touch-manipulation items-start gap-3 rounded-[16px] bg-stone-50 py-3 pl-3 pr-2 transition-colors [-webkit-touch-callout:none] hover:bg-stone-100', (ev.done || past) && 'opacity-60', dragging && 'opacity-40')}
       >
         <span className="mt-0.5 w-[3px] self-stretch rounded-full" style={{ background: c.color, opacity: ev.done ? 0.35 : 1 }} />
-        {!shared && <button
+        {!shared && !agenda && <button
           onClick={() => toggleDone(ev.id)}
           className={cx('hit mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors', ev.done ? 'border-ink bg-ink' : 'border-stone-300 hover:border-stone-500')}
           title={ev.done ? t('Marquer comme à faire') : t('Marquer comme fait')} aria-label={ev.done ? t('Marquer « {title} » comme à faire', { title: ev.title }) : t('Marquer « {title} » comme fait', { title: ev.title })}
@@ -119,6 +137,12 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
                 <Link2 size={11} className="shrink-0" aria-hidden /> <span className="truncate">{feedLabel(feed.name)}</span>
               </span>
             )}
+            {ev.place && (
+              <span className="ml-1.5 inline-flex max-w-full items-center gap-1 align-bottom">
+                <MapPin size={11} className="shrink-0" aria-label={t('Lieu')} /> <span className="truncate">{ev.place}</span>
+              </span>
+            )}
+            {agenda && <ExternalLink size={11} className="ml-1.5 inline-block -translate-y-px" aria-label={t('Ouvre l’agenda partagé')} />}
             {shared && ev.people?.length ? ` · ${t('pour {names}', { names: ev.people.map(shared.nameFor).join(', ') })}` : ''}
             {shared && ` · ${t('par {name}', { name: shared.author(ev.id) })}`}
             {isBigEvent(ev) && !ev.done && ` · ${countdownLabel(ev.date)}`}
@@ -150,24 +174,35 @@ function EventItem({ ev, onEdit, dragging, onDragStart }: EventItemProps) {
 
 
 /**
- * « Filtrer » : everything is shown by default; ticking categories (or « Importants ») shows only those.
+ * « Filtrer » : everything is shown by default; ticking categories (or « Importants », « Tâches ») shows only those.
+ * Below, my shared calendars shown over mine (all at first), or « Pour qui » in a shared calendar.
  * A popover of real checkboxes (keyboard, screen readers), closed by Échap or a click outside.
  */
-function CalendarFilter({ categories, shown, importantOnly, onToggle, onImportant, onReset, onManage }: {
+function CalendarFilter({ categories, shown, importantOnly, tasksOnly, onToggle, onImportant, onTasks, onReset, onManage, agendas, hiddenAgendas, onAgenda, people, forWho, onForWho }: {
   categories: EventCategory[];
   shown: Set<EventCategory>;
   importantOnly: boolean;
+  tasksOnly: boolean;
   onToggle: (k: EventCategory) => void;
-  /** Absent in a shared calendar (nothing is marked important there). */
+  /** Absent in a shared calendar (nothing is marked important there, no tasks). */
   onImportant?: () => void;
+  onTasks?: () => void;
   onReset: () => void;
   /** Absent for a reader of a shared calendar (its categories are changed by its editors). */
   onManage?: () => void;
+  /** My calendar: my shared calendars, ticked when shown over it. */
+  agendas: Group[];
+  hiddenAgendas: string[];
+  onAgenda: (id: string) => void;
+  /** A shared calendar: its members (« Moi » first), to see what is for one of them. */
+  people?: { id: string; name: string }[];
+  forWho: string | null;
+  onForWho: (id: string | null) => void;
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
-  const count = shown.size + (importantOnly ? 1 : 0);
+  const count = shown.size + (importantOnly ? 1 : 0) + (tasksOnly ? 1 : 0) + (forWho ? 1 : 0);
   useEffect(() => {
     if (!open) return;
     // Lower on the page (shared agenda on a phone) it went under the tab bar: the page scrolls to show it whole.
@@ -206,18 +241,23 @@ function CalendarFilter({ categories, shown, importantOnly, onToggle, onImportan
         {count > 0 && <span className="tabular rounded-full bg-ink px-1.5 text-[11px] leading-[18px] text-paper">{count}</span>}
       </button>
       {open && (
-        <div id="filtre-calendrier" role="group" aria-label={t('Filtrer les événements')} className="pop absolute right-0 top-full z-[60] mt-2 w-64 rounded-xl border border-stone-200 bg-surface p-2 shadow-pop">
+        <div id="filtre-calendrier" role="group" aria-label={t('Filtrer les événements')} className="pop absolute right-0 top-full z-[60] mt-2 max-h-[min(70dvh,560px)] w-64 overflow-y-auto overscroll-contain rounded-xl border border-stone-200 bg-surface p-2 shadow-pop">
           <p className="px-2 pb-1 pt-0.5 text-[12px] text-stone-500">{t('Afficher seulement :')}</p>
           {onImportant && (
-            <>
-              <label className={row}>
-                <input type="checkbox" className={box} checked={importantOnly} onChange={onImportant} />
-                <Flag size={13} className="shrink-0 fill-amber-500 text-amber-500" />
-                {t('Importants')}
-              </label>
-              <div className="my-1 h-px bg-stone-100" />
-            </>
+            <label className={row}>
+              <input type="checkbox" className={box} checked={importantOnly} onChange={onImportant} />
+              <Flag size={13} className="shrink-0 fill-amber-500 text-amber-500" />
+              {t('Importants')}
+            </label>
           )}
+          {onTasks && (
+            <label className={row}>
+              <input type="checkbox" className={box} checked={tasksOnly} onChange={onTasks} />
+              <ListTodo size={13} className="shrink-0 text-stone-500" />
+              {t('Tâches')}
+            </label>
+          )}
+          {(onImportant || onTasks) && <div className="my-1 h-px bg-stone-100" />}
           {categories.map(k => {
             const c = catOf(k);
             return (
@@ -228,6 +268,29 @@ function CalendarFilter({ categories, shown, importantOnly, onToggle, onImportan
               </label>
             );
           })}
+          {people && people.length > 1 && (
+            <div role="radiogroup" aria-label={t('Pour qui')} className="mt-1 border-t border-stone-100 pt-1">
+              <p className="px-2 pb-1 pt-1 text-[12px] text-stone-500">{t('Pour qui :')}</p>
+              {[{ id: null, name: t('Tout le monde') }, ...people].map(p => (
+                <label key={p.id ?? ''} className={row}>
+                  <input type="radio" name="pour-qui" className={box} checked={forWho === p.id} onChange={() => onForWho(p.id)} />
+                  <span className="min-w-0 truncate">{p.name}</span>
+                </label>
+              ))}
+            </div>
+          )}
+          {agendas.length > 0 && (
+            <div className="mt-1 border-t border-stone-100 pt-1">
+              <p className="px-2 pb-1 pt-1 text-[12px] text-stone-500">{t('Mes agendas partagés')}</p>
+              {agendas.map(g => (
+                <label key={g.id} className={row}>
+                  <input type="checkbox" className={box} checked={!hiddenAgendas.includes(g.id)} onChange={() => onAgenda(g.id)} />
+                  <span className="h-2 w-2 shrink-0 rounded-sm" style={{ background: g.color ?? GROUP_COLORS[0] }} />
+                  <span className="min-w-0 truncate">{g.name}</span>
+                </label>
+              ))}
+            </div>
+          )}
           <div className="mt-1 flex items-center gap-1 border-t border-stone-100 pt-2">
             <button type="button" className="btn-ghost h-8 px-2 text-[12px]" disabled={!count} onClick={onReset}>
               {t('Tout afficher')}
@@ -253,28 +316,46 @@ function CalendarFilter({ categories, shown, importantOnly, onToggle, onImportan
 
 export default function CalendarPage() {
   const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
+  const location = useLocation();
   const source = useCalendarSource();
-  const { events, shared } = source;
+  const { events: ownEvents, shared } = source;
+  // My calendar: my shared calendars' events over it (read-only here), in each one's colour.
+  const overlay = useAgendaOverlay(!shared);
+  const events = useMemo(() => (shared || !overlay.events.length ? ownEvents : [...ownEvents, ...overlay.events]), [shared, ownEvents, overlay.events]);
+  const hiddenAgendas = useSettings(s => s.hiddenAgendas) ?? [];
+  // My tasks with a due day, on their day (not in a shared calendar: they are mine).
+  const allTodos = useTodos(s => s.todos);
+  const [task, setTask] = useState<Todo | null>(null);
   const [selected, setSelected] = useState(() => validKey(params.get('jour')) ?? todayKey());
   const [mode, setModeState] = useState<Mode>(savedMode);
   const [quick, setQuick] = useState('');
-  // Filter: nothing ticked shows everything; ticked categories (and/or « Importants ») show only those.
+  // Filter: nothing ticked shows everything; ticked categories (and/or « Importants », « Tâches ») show only those.
   const [shown, setShown] = useState<Set<EventCategory>>(new Set());
   const [importantOnly, setImportantOnly] = useState(false);
-  const filtering = shown.size > 0 || importantOnly;
+  const [tasksOnly, setTasksOnly] = useState(false);
+  // A shared calendar: what is for one member (an event for everyone is for each of them).
+  const [forWho, setForWho] = useState<string | null>(null);
+  const filtering = shown.size > 0 || importantOnly || tasksOnly || !!forWho;
   const clearFilter = () => {
     setShown(new Set());
     setImportantOnly(false);
+    setTasksOnly(false);
+    setForWho(null);
   };
+  const todos = useMemo(() => (shared || (filtering && !tasksOnly) ? [] : allTodos.filter(x => x.due)), [shared, filtering, tasksOnly, allTodos]);
+  const [menu, setMenu] = useState<{ x: number; y: number; ev: CalendarEvent } | null>(null);
+  const weekGrid = useWeekGrid();
   const custom = source.categories; // a shared calendar: its own (mine aren't the others')
   const usage = useSettings(s => s.usage);
   const words = { ...(WORDS[usage] ?? WORDS.etudes), ...(shared && AGENDA_EXAMPLES) };
   const wide = useWide();
-  const [allExams, setAllExams] = useState(false);
+  const [allUpcoming, setAllUpcoming] = useState(false);
   const [managing, setManaging] = useState(false);
   const [periodsOpen, setPeriodsOpen] = useState(false);
   // fromQuick: opened from the quick add (« demain 14h » without a title), whose text is cleared once saved.
-  const [form, setFormState] = useState<{ event?: CalendarEvent; date: string; start?: string; end?: string; title?: string; fromQuick?: boolean } | null>(null);
+  // template: « Dupliquer », a new event filled in as that one.
+  const [form, setFormState] = useState<{ event?: CalendarEvent; template?: CalendarEvent; date: string; start?: string; end?: string; title?: string; fromQuick?: boolean } | null>(null);
   // A reader of a shared calendar sees it, without the ways to change it (the server refuses them anyway).
   const readOnly = !!shared && !shared.canEdit;
   // A reader opens an event to read it all (EventForm shows it without anything to change), nothing else.
@@ -324,7 +405,37 @@ export default function CalendarPage() {
       if (!readOnly) setFormState({ date: selected });
       setParams(p => (p.delete('ajout'), p), { replace: true });
     }
-  }, [params, setParams, readOnly, selected]);
+    // ?filtre=importants (« +N autres » of the home page's big day): only the important ones.
+    if (params.get('filtre') === 'importants') {
+      if (!shared) setImportantOnly(true);
+      setParams(p => (p.delete('filtre'), p), { replace: true });
+    }
+  }, [params, setParams, readOnly, selected, shared]);
+
+  /** An event opened: its window, or, a shared calendar's event shown in mine, its day in that agenda. */
+  const openEvent = (ev: CalendarEvent) => (fromAgenda(ev) ? navigate(agendaLink(ev)) : setForm({ event: ev, date: ev.date }));
+  /** Right click (or the menu key) on an event: what can be done with it. */
+  const openMenu = (ev: CalendarEvent, e: ReactMouseEvent<HTMLElement> | React.KeyboardEvent<HTMLElement>) => {
+    e.preventDefault();
+    setMenu({ ...menuPoint(e), ev });
+  };
+  const menuItems = (ev: CalendarEvent): MenuItem[] => {
+    if (fromAgenda(ev))
+      return [
+        { label: t('Ouvrir dans « {name} »', { name: ev.agenda.name }), icon: <ExternalLink size={15} />, onClick: () => navigate(agendaLink(ev)) },
+        { label: t('Copier dans mon agenda'), icon: <CalendarPlus size={15} />, onClick: () => copyToMyCalendar(ev) },
+      ];
+    if (readOnly) return [{ label: t('Ouvrir'), icon: <ExternalLink size={15} />, onClick: () => openEvent(ev) }, { label: t('Copier dans mon agenda'), icon: <CalendarPlus size={15} />, onClick: () => copyToMyCalendar(ev) }];
+    return [
+      { label: t('Modifier'), icon: <Pencil size={15} />, onClick: () => openEvent(ev) },
+      { label: t('Dupliquer'), icon: <Copy size={15} />, onClick: () => setForm({ template: ev, date: ev.date }) },
+      ...(shared
+        ? [{ label: t('Copier dans mon agenda'), icon: <CalendarPlus size={15} />, onClick: () => copyToMyCalendar(ev) }]
+        : [{ label: ev.done ? t('Marquer comme à faire') : t('Marquer comme fait'), icon: <Check size={15} />, onClick: () => source.toggleDone(ev.id) }]),
+      { label: '', divider: true, onClick: () => undefined },
+      { label: t('Supprimer'), icon: <Trash2 size={15} />, danger: true, onClick: () => void removeEvent(ev, source) },
+    ];
+  };
 
   /** A row of « À venir »: its day, and the event glowing in it. */
   const showEvent = (e: Pick<CalendarEvent, 'id' | 'date'>) => {
@@ -338,7 +449,12 @@ export default function CalendarPage() {
     if (jour) setParams(p => (p.delete('jour'), p), { replace: true });
   };
 
-  const passes = useCallback((e: Pick<CalendarEvent, 'category' | 'important'>) => (shown.size === 0 || shown.has(e.category)) && (!importantOnly || isBigEvent(e)), [shown, importantOnly]);
+  const passes = useCallback(
+    (e: Pick<CalendarEvent, 'category' | 'important' | 'people'>) =>
+      // « Tâches » alone ticked: the tasks only.
+      !(tasksOnly && !shown.size && !importantOnly) && (shown.size === 0 || shown.has(e.category)) && (!importantOnly || isBigEvent(e)) && isFor(e, forWho),
+    [shown, importantOnly, tasksOnly, forWho],
+  );
   const visible = useMemo(() => events.filter(passes), [events, passes]);
   const byDay = useMemo(() => {
     const m = new Map<string, CalendarEvent[]>();
@@ -350,6 +466,7 @@ export default function CalendarPage() {
   const today = useToday();
   const week = Array.from({ length: 7 }, (_, i) => addDays(weekStart(selDate), i));
   const dayEvents = byDay.get(selected) ?? [];
+  const dayTasks = tasksOn(todos, selected);
   // Periods (« En entreprise »…): a band over the week, a tint on their days.
   const { periods } = source;
   const weekKeys = week.map(toKey);
@@ -380,8 +497,8 @@ export default function CalendarPage() {
     e.preventDefault();
     if (parsed?.impossible) return;
     if (!parsed?.title) return openForm();
-    // « Sport tous les mardis 18h » on my calendar: the form, to choose until when it repeats.
-    if (parsed.weekly) return setForm({ date: quickDate, start: parsed.start ?? undefined, end: parsed.end ?? undefined, title: quick, fromQuick: true });
+    // « Sport tous les mardis 18h », « Anniversaire de Léa le 12 mars tous les ans »: the form, to choose until when it repeats.
+    if (parsed.weekly || parsed.yearly) return setForm({ date: quickDate, start: parsed.start ?? undefined, end: parsed.end ?? undefined, title: quick, fromQuick: true });
     const date = quickDate;
     source.add({ title: parsed.title, date, start: parsed.start ?? undefined, end: parsed.end ?? undefined, category: parsedCat!, important: parsed.important });
     setQuick('');
@@ -401,13 +518,21 @@ export default function CalendarPage() {
     selectDay(today >= toKey(first) && today <= toKey(last) ? today : toKey(first));
   };
 
-  // ← / → move one day (↑ / ↓ one week outside the day view), like a desktop agenda.
+  // ← / → move one day (↑ / ↓ one week outside the day view), like a desktop agenda. T: today; J, S, M: the day,
+  // week or month view (never while typing, with a modifier, or with a window open).
   const keysRef = useRef<(e: KeyboardEvent) => void>(() => undefined);
   useEffect(() => {
     keysRef.current = e => {
-      if (form || importing || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (form || importing || task || e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return;
       const el = e.target as HTMLElement | null;
-      if (el?.closest('input, textarea, select, [contenteditable="true"], [role="dialog"], [aria-modal="true"]')) return;
+      if (el?.closest('input, textarea, select, [contenteditable="true"], [role="dialog"], [aria-modal="true"], [role="menu"]') || document.querySelector('[aria-modal="true"]')) return;
+      const view = !e.shiftKey && !e.repeat && ({ t: 'today', j: 'day', s: 'week', m: 'month' } as const)[e.key.toLowerCase() as 't' | 'j' | 's' | 'm'];
+      if (view) {
+        e.preventDefault();
+        if (view === 'today') selectDay(today);
+        else setMode(view);
+        return;
+      }
       const delta = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: mode === 'day' ? 0 : -7, ArrowDown: mode === 'day' ? 0 : 7 }[e.key];
       if (!delta) return;
       e.preventDefault();
@@ -420,8 +545,19 @@ export default function CalendarPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  // Drag an event onto another day, or onto another time in the day view.
-  const moveEvent = (ev: CalendarEvent, target: DropTarget) => {
+  // Drag an event onto another day, or onto another time in the hourly grid; its bottom edge to another end;
+  // over empty slots, a new event that long.
+  const moveEvent = (ev: CalendarEvent, target: DropTarget, dragMode: DragMode) => {
+    if (dragMode === 'create') {
+      const r = sweptRange(toMinutes(ev.start!), target.minutes!);
+      return setForm({ date: ev.date, start: fromMinutes(r.from), end: fromMinutes(r.to) });
+    }
+    if (dragMode === 'resize') {
+      const end = fromMinutes(Math.max(toMinutes(ev.start!) + 15, target.minutes!));
+      if (end === ev.end) return;
+      source.update(ev.id, { end });
+      return toast(t('Finit à {time}', { time: end }), 'success', { label: t('Annuler||l’action'), run: () => source.update(ev.id, { end: ev.end }) });
+    }
     const patch: Partial<CalendarEvent> = { date: target.day };
     if (target.minutes !== undefined) {
       const length = ev.start && ev.end ? toMinutes(ev.end) - toMinutes(ev.start) : ev.start ? null : 60;
@@ -441,7 +577,9 @@ export default function CalendarPage() {
     toast(label, 'success', { label: t('Annuler||l’action'), run: () => update(ev.id, before) });
   };
   const { drag, ghostRef, start: dragStart } = useEventDrag(moveEvent);
-  const startDrag: typeof dragStart = (...a) => (readOnly ? undefined : dragStart(...a));
+  // Nothing moves on a read-only calendar, nor a shared calendar's event shown in mine.
+  const canChange = (ev: CalendarEvent) => !readOnly && !fromAgenda(ev);
+  const startDrag: typeof dragStart = (ev, ...a) => (canChange(ev) ? dragStart(ev, ...a) : undefined);
   const dropDay = drag?.target && drag.target.minutes === undefined ? drag.target.day : null;
 
   // Drop an .ics file anywhere on the page to import it.
@@ -468,32 +606,32 @@ export default function CalendarPage() {
   // « Rien à afficher » only when a hidden category holds something this block would list (not a hidden « Sport »).
   // Anything still to come (not done, not over): after the important ones, the next things, whatever they are.
   const isComing = (e: CalendarEvent) => !e.done && e.date >= today && !isOver(e);
-  // Not the day shown below the calendar: its events are already listed there.
-  const away = (e: CalendarEvent) => e.date !== selected;
+  // Not the day shown below the calendar: its events are already listed there (the week shows all its days).
+  const away = (e: CalendarEvent) => mode === 'week' || e.date !== selected;
   // Sorted once per change of the events (and once a minute, for « over »), not at each key typed in the quick add.
   const minute = Math.floor(Date.now() / 60_000);
-  const { upcomingHidden, upcomingExams, moreExams, nextUp, lateEvents } = useMemo(() => {
+  const { upcomingHidden, upcoming, lateEvents } = useMemo(() => {
     const upcomingHidden = filtering && events.some(e => !passes(e) && away(e) && (isComing(e) || isHomeworkSoon(e)));
     // An event over several days once, at its first day (not « J-3, J-4, J-5 »); none when that day is the one shown
     // (its next day, J-4, would say the wrong day).
     const pool = firstOfSpans([...visible].sort(sortEvents).filter(e => isUpcomingExam(e) || isHomeworkSoon(e) || isComing(e))).filter(away);
-    const allUpcomingExams = pool.filter(isUpcomingExam);
-    const upcomingExams = allExams ? allUpcomingExams : allUpcomingExams.slice(0, EXAMS_SHOWN);
-    const moreExams = allUpcomingExams.length - EXAMS_SHOWN;
-    // An important homework to come is already in the list above: not twice.
-    const homework = pool.filter(e => isHomeworkSoon(e) && !isUpcomingExam(e)).slice(0, 6);
-    // After the important ones, one list in time order: homework to hand in (late first) and the next events.
-    const listed = new Set([...allUpcomingExams, ...homework].map(e => e.id));
-    const others = pool.filter(e => isComing(e) && !listed.has(e.id)).slice(0, Math.max(1, EXAMS_SHOWN - upcomingExams.length));
-    const nextUp = [...homework, ...others].sort(sortEvents);
+    // One list in date order: the important ones (marked, one per repeat) among homework to hand in and the next events.
+    const upcoming = upcomingList(pool, e => (isUpcomingExam(e) ? 'big' : isHomeworkSoon(e) ? 'homework' : 'other'));
     // « En retard »: own events of the last two weeks, over and not ticked (classes from a timetable and homework,
     // already listed above with « Retard », aside). A shared calendar has no « fait ».
     const lateEvents = shared
       ? []
-      : visible.filter(e => isLateEvent(e)).sort((a, b) => sortEvents(b, a));
-    return { upcomingHidden, allUpcomingExams, upcomingExams, moreExams, nextUp, lateEvents };
+      : visible.filter(e => !fromAgenda(e) && isLateEvent(e)).sort((a, b) => sortEvents(b, a));
+    return { upcomingHidden, upcoming, lateEvents };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the helpers above only read these values
-  }, [events, visible, passes, filtering, allExams, shared, today, minute, selected]);
+  }, [events, visible, passes, filtering, shared, today, minute, selected, mode]);
+  const upcomingRows = allUpcoming ? [...upcoming.shown, ...upcoming.more].sort(sortEvents) : upcoming.shown;
+
+  // /calendrier#en-retard (the home page's « N en retard »): straight to that list, once it is drawn.
+  const late = lateEvents.length > 0;
+  useEffect(() => {
+    if (location.hash === '#en-retard' && late) flashWhenReady(() => document.getElementById('en-retard'));
+  }, [location.hash, location.key, late]);
 
   const monthDays = useMemo(() => {
     const ref = fromKey(selected);
@@ -503,6 +641,20 @@ export default function CalendarPage() {
     for (let d = start; d <= end || days.length % 7 !== 0; d = addDays(d, 1)) days.push(d);
     return days;
   }, [selected]);
+  // The month by rows of a week: an event over several days is one bar across its days in each row.
+  const monthRows = useMemo(() => {
+    if (mode !== 'month') return [];
+    const rows: { days: Date[]; keys: string[] }[] = [];
+    for (let i = 0; i < monthDays.length; i += 7) {
+      const days = monthDays.slice(i, i + 7);
+      rows.push({ days, keys: days.map(toKey) });
+    }
+    return rows.map(r => {
+      const bars = spanBars(r.keys.flatMap(k => byDay.get(k) ?? []), r.keys);
+      const barred = new Set(bars.flatMap(b => r.keys.flatMap(k => (byDay.get(k) ?? []).filter(e => e.series === b.ev.series).map(e => e.id))));
+      return { ...r, bars, barred, lanes: bars.length ? Math.max(...bars.map(b => b.lane)) + 1 : 0 };
+    });
+  }, [mode, monthDays, byDay]);
 
   const monthBands = mode === 'month' && monthDays.length ? periodsBetween(periods, toKey(monthDays[0]), toKey(monthDays[monthDays.length - 1])) : [];
 
@@ -531,7 +683,7 @@ export default function CalendarPage() {
               {lateEvents.length > 0 && (
                 <button
                   onClick={() => document.getElementById('en-retard')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-                  className="rounded-full bg-red-50 px-2.5 py-1 text-[12px] font-semibold tracking-normal text-urgent-text lg:hidden pointer-coarse:py-2"
+                  className="rounded-full bg-red-50 px-2.5 py-1 text-[12px] font-semibold tracking-normal text-urgent-text xl:hidden pointer-coarse:py-2"
                 >
                   {tn(lateEvents.length, '{n} en retard', '{n} en retard')}
                 </button>
@@ -581,6 +733,7 @@ export default function CalendarPage() {
                 categories={allCategories(custom)}
                 shown={shown}
                 importantOnly={importantOnly}
+                tasksOnly={tasksOnly}
                 onToggle={k =>
                   setShown(prev => {
                     const n = new Set(prev);
@@ -590,15 +743,27 @@ export default function CalendarPage() {
                   })
                 }
                 onImportant={shared ? undefined : () => setImportantOnly(v => !v)}
+                onTasks={shared ? undefined : () => setTasksOnly(v => !v)}
                 onReset={clearFilter}
                 onManage={readOnly ? undefined : () => setManaging(true)}
+                agendas={overlay.agendas}
+                hiddenAgendas={hiddenAgendas}
+                onAgenda={id => useSettings.getState().set({ hiddenAgendas: hiddenAgendas.includes(id) ? hiddenAgendas.filter(x => x !== id) : [...hiddenAgendas, id] })}
+                people={shared?.people}
+                forWho={forWho}
+                onForWho={setForWho}
               />
-              {/* Not on phones, where the row has no room for it: Profil › Données exports too. Importing: the « + » button. */}
-              {!shared && (
-                <button className="icon-btn hidden h-8 w-8 disabled:opacity-40 sm:inline-flex" disabled={!events.length} onClick={() => (exportIcs(), toast(t('Calendrier exporté'), 'success'))} title={t('Exporter le calendrier (.ics)')} aria-label={t('Exporter le calendrier (.ics)')}>
-                  <CalendarArrowUp size={16} />
-                </button>
-              )}
+              {/* Mine: not on phones, where the row has no room for it (Profil › Données exports too). A shared calendar
+                  has no title on this row: its export fits there, and is the only one. Importing: the « + » button. */}
+              <button
+                className={cx('icon-btn h-8 w-8 disabled:opacity-40', shared ? 'inline-flex pointer-coarse:h-9 pointer-coarse:w-9' : 'hidden sm:inline-flex')}
+                disabled={!ownEvents.length}
+                onClick={() => (exportIcs(ownEvents, shared?.group.name), toast(shared ? t('Agenda « {name} » exporté', { name: shared.group.name }) : t('Calendrier exporté'), 'success'))}
+                title={shared ? t('Exporter cet agenda (.ics)') : t('Exporter le calendrier (.ics)')}
+                aria-label={shared ? t('Exporter cet agenda (.ics)') : t('Exporter le calendrier (.ics)')}
+              >
+                <CalendarArrowUp size={16} />
+              </button>
             </div>
           </div>
         </div>
@@ -651,7 +816,7 @@ export default function CalendarPage() {
                   </span>
                 </>
               )}
-              {parsed.weekly && <span className="w-full text-stone-500">{t('Entrée\u00a0: choisir jusqu’à quand.')}</span>}
+              {(parsed.weekly || parsed.yearly) && <span className="w-full text-stone-500">{t('Entrée\u00a0: choisir jusqu’à quand.')}</span>}
               {parsed.impossible && <span className="w-full font-medium text-red-600 dark:text-red-400">{t('Cette date n’existe pas : corrige-la pour ajouter.')}</span>}
             </div>
           )}
@@ -661,29 +826,101 @@ export default function CalendarPage() {
         {/* Two columns from 1280 px: at 1024 px (with the sidebar) the calendar was left ~370 px, the month without titles. */}
         <div className="mt-4 grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
           <section className="card min-w-0 p-4 md:p-5">
-            {mode !== 'month' ? (
-              <>
-              {weekBands.length > 0 && (
-                <div className="mb-1 grid grid-cols-7 gap-1" role="group" aria-label={t('Périodes de la semaine')}>
-                  {weekLanes(weekBands, weekKeys).filter(b => b.lane < 3).map(({ period: p, from, to, lane }) => {
+            {weekBands.length > 0 && mode !== 'month' && (
+              // Over the week grid, the bands start after the hours column, as its days do.
+              <div className={cx('mb-1 grid gap-1', mode === 'week' && weekGrid && 'overflow-y-hidden px-px [scrollbar-gutter:stable]')} style={{ gridTemplateColumns: mode === 'week' && weekGrid ? '48px repeat(7, minmax(0, 1fr))' : 'repeat(7, minmax(0, 1fr))' }} role="group" aria-label={t('Périodes de la semaine')}>
+                {weekLanes(weekBands, weekKeys).filter(b => b.lane < 3).map(({ period: p, from, to, lane }) => {
+                  const o = mode === 'week' && weekGrid ? 2 : 1;
+                  return (
+                    <span
+                      key={`${p.id}-${from}`}
+                      title={`${label(p)} · ${periodRange(p, fmtDay)}`}
+                      className="flex h-6 min-w-0 items-center gap-1.5 rounded-md px-2 text-left text-[11.5px] font-semibold"
+                      style={{ gridColumn: `${from + o} / ${to + o + 1}`, gridRow: lane + 1, background: periodTint(p, 20), color: periodText(p) }}
+                    >
+                      <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: periodColor(p) }} aria-hidden />
+                      <span className="truncate">{label(p)}</span>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+            {mode === 'week' ? (
+              weekGrid ? (
+                <TimeGrid
+                  days={weekKeys}
+                  today={today}
+                  selected={selected}
+                  events={weekKeys.flatMap(k => byDay.get(k) ?? [])}
+                  todos={todos}
+                  periods={periods}
+                  drag={drag}
+                  canChange={canChange}
+                  canTick={ev => !shared && !fromAgenda(ev)}
+                  canCreate={!readOnly}
+                  onDragStart={startDrag}
+                  onEdit={openEvent}
+                  onToggle={ev => source.toggleDone(ev.id)}
+                  onCreate={(date, start, end) => setForm({ date, start, end })}
+                  onMenu={openMenu}
+                  onSelectDay={selectDay}
+                  onOpenTask={setTask}
+                />
+              ) : shared?.unread ? (
+                shared.unread === 'loading' && <Skeleton shape="slots" rows={3} className="py-2" />
+              ) : (
+                // A phone: the seven days one under the other, each with its events and tasks (a day opens in the day view).
+                <div className="-mt-1 space-y-4">
+                  {weekKeys.map(key => {
+                    const evs = byDay.get(key) ?? [];
+                    const tasks = tasksOn(todos, key);
+                    const dayPeriods = periodsOn(periods, key);
                     return (
-                      <span
-                        key={`${p.id}-${from}`}
-                        title={`${label(p)} · ${periodRange(p, fmtDay)}`}
-                        className="flex h-6 min-w-0 items-center gap-1.5 rounded-md px-2 text-left text-[11.5px] font-semibold"
-                        style={{ gridColumn: `${from + 1} / ${to + 2}`, gridRow: lane + 1, background: periodTint(p, 20), color: periodText(p) }}
-                      >
-                        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: periodColor(p) }} aria-hidden />
-                        <span className="truncate">{label(p)}</span>
-                      </span>
+                      <section key={key} data-drop-day={key} aria-label={fmt(fromKey(key), 'EEEE d MMMM')} className={cx('rounded-xl transition-colors', dropDay === key && 'bg-brand-50 ring-2 ring-brand-500/40')}>
+                        <div className="mb-2 flex items-center gap-2 border-b border-stone-100 pb-1.5">
+                          <button
+                            type="button"
+                            onClick={() => (selectDay(key), setMode('day'))}
+                            className={cx('flex min-h-9 items-center gap-1.5 rounded-md text-left text-[14px] font-semibold', key === today && 'text-brand-600')}
+                            title={t('Voir la journée')}
+                          >
+                            <span className="first-letter:uppercase">{fmt(fromKey(key), 'EEEE d')}</span>
+                            {key === today && <span className="text-[12px] font-medium">{t('Aujourd’hui')}</span>}
+                          </button>
+                          {dayPeriods.slice(0, 2).map(p => (
+                            <span key={p.id} className="flex h-5 min-w-0 max-w-[9rem] items-center rounded-full px-2 text-[11px] font-semibold" style={{ background: periodTint(p, 18), color: periodText(p) }}>
+                              <span className="truncate">{label(p)}</span>
+                            </span>
+                          ))}
+                          {!readOnly && (
+                            <button type="button" className="icon-btn ml-auto h-9 w-9" onClick={() => setForm({ date: key })} title={t('Nouvel événement')} aria-label={t('Nouvel événement le {day}', { day: fmt(fromKey(key), 'EEEE d MMMM') })}>
+                              <Plus size={16} />
+                            </button>
+                          )}
+                        </div>
+                        {evs.length || tasks.length ? (
+                          <div className="space-y-2">
+                            {evs.map(ev => (
+                              <EventItem key={ev.id} ev={ev} dragging={drag?.ev.id === ev.id} onDragStart={e => startDrag(ev, e)} onEdit={() => openEvent(ev)} onMenu={e => openMenu(ev, e)} />
+                            ))}
+                            {tasks.map(x => (
+                              <TaskRow key={x.id} todo={x} onOpen={setTask} />
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="pl-1 text-[13px] text-stone-500">{t('Rien de prévu.')}</p>
+                        )}
+                      </section>
                     );
                   })}
                 </div>
-              )}
+              )
+            ) : mode === 'day' ? (
               <div className="grid grid-cols-7 gap-1">
                 {week.map(d => {
                   const key = toKey(d);
                   const evs = byDay.get(key) ?? [];
+                  const tasks = tasksOn(todos, key);
                   const isSel = key === selected;
                   const isToday = key === today;
                   const tint = tintOf(key);
@@ -692,7 +929,7 @@ export default function CalendarPage() {
                       key={key}
                       data-drop-day={key}
                       aria-pressed={isSel}
-                      aria-label={`${fmt(d, 'EEEE d MMMM')}${isToday ? t(', aujourd’hui') : ''}${evs.length ? tn(evs.length, ', {n} événement', ', {n} événements') : ''}`}
+                      aria-label={`${fmt(d, 'EEEE d MMMM')}${isToday ? t(', aujourd’hui') : ''}${evs.length ? tn(evs.length, ', {n} événement', ', {n} événements') : ''}${tasks.length ? tn(tasks.length, ', {n} tâche', ', {n} tâches') : ''}`}
                       onClick={() => selectDay(key)}
                       onDoubleClick={() => setForm({ date: key })}
                       className={cx(
@@ -711,16 +948,17 @@ export default function CalendarPage() {
                       >
                         {fmt(d, 'd')}
                       </span>
-                      <span className="mt-1.5 flex h-1.5 gap-[3px]">
-                        {evs.slice(0, 4).map(e => (
+                      {/* No silent cap: past four, the number of the others. */}
+                      <span className="mt-1.5 flex h-1.5 items-center gap-[3px]">
+                        {evs.slice(0, evs.length > 4 ? 3 : 4).map(e => (
                           <span key={e.id} className="h-1.5 w-1.5 rounded-full" style={{ background: catOf(e.category).color, opacity: e.done ? 0.3 : 1 }} />
                         ))}
+                        {evs.length > 4 && <span className="tabular text-[9.5px] font-semibold leading-none text-stone-500">+{evs.length - 3}</span>}
                       </span>
                     </button>
                   );
                 })}
               </div>
-              </>
             ) : (
               <div className="@container">
                 <div className="grid grid-cols-7 pb-1.5 text-center text-[11px] font-medium text-stone-500">
@@ -728,77 +966,133 @@ export default function CalendarPage() {
                     <span key={d}>{d}</span>
                   ))}
                 </div>
-                <div className="grid grid-cols-7 overflow-hidden rounded-lg border border-stone-200 bg-stone-200 [gap:1px]">
-                  {monthDays.map((d, i) => {
-                    const key = toKey(d);
-                    const evs = byDay.get(key) ?? [];
-                    const isSel = key === selected;
-                    const dayPeriods = periodsOn(periods, key);
-                    const tint = dayPeriods[0];
-                    // Each name where its period starts (or starts again after skipped days), and at the start of each week row.
-                    const named = dayPeriods.filter(p => i % 7 === 0 || !covers(p, toKey(addDays(d, -1))));
-                    return (
-                      <button
-                        key={key}
-                        data-drop-day={key}
-                        aria-pressed={isSel}
-                        aria-label={`${fmt(d, 'EEEE d MMMM')}${key === today ? t(', aujourd’hui') : ''}${evs.length ? tn(evs.length, ', {n} événement', ', {n} événements') : ''}`}
-                        onClick={() => selectDay(key)}
-                        onDoubleClick={() => setForm({ date: key })}
-                        className={cx(
-                          'relative flex min-h-16 flex-col items-stretch p-1 text-left transition-colors @md:min-h-[84px]',
-                          dropDay === key ? 'bg-brand-50 shadow-[inset_0_0_0_2px_var(--color-brand-200)]' : isSel ? 'bg-stone-50' : 'bg-surface hover:bg-stone-50',
-                          !isSameMonth(d, selDate) && 'text-stone-500',
-                        )}
-                        // Tint over the cell's own background (white or grey), so the grid lines stay.
-                        style={tint && dropDay !== key ? { backgroundImage: fillOf(key, isSel ? 24 : 13) } : undefined}
-                      >
-                        {dayPeriods.length > 0 && (
-                          <span className="absolute inset-x-0 top-0 flex flex-col" aria-hidden>
-                            {dayPeriods.slice(0, 3).map(p => <span key={p.id} className="h-[3px]" style={{ background: periodColor(p) }} />)}
-                          </span>
-                        )}
-                        <span
-                          className={cx(
-                            'tabular mb-0.5 flex h-6 w-6 items-center justify-center self-center rounded-full text-[12px] font-medium @md:self-start',
-                            isSel ? 'bg-tile-blue text-white' : key === today && 'text-brand-600',
-                          )}
-                        >
-                          {fmt(d, 'd')}
-                        </span>
-                        {/* Under the number: every day number stays on the same line, with or without a period. */}
-                        {named.slice(0, 2).map(p => (
-                          <span key={p.id} className="hidden truncate px-1 text-[10px] font-semibold leading-tight @md:block" style={{ color: periodText(p) }}>{label(p)}</span>
-                        ))}
-                        {evs.slice(0, 2).map(e => (
-                          <span
-                            key={e.id}
-                            onPointerDown={p => startDrag(e, p)}
-                            // A double click on an event opens it; on the rest of the day, a new event.
-                            onDoubleClick={x => {
-                              x.stopPropagation();
-                              setForm({ event: e, date: e.date });
-                            }}
-                            title={readOnly ? eventTitle(e, shared) : t('{title} · double-clic pour modifier', { title: eventTitle(e, shared) })}
-                            className={cx('mb-0.5 hidden cursor-grab select-none items-center gap-1 truncate rounded px-1 text-[11px] text-stone-700 hover:bg-stone-100 @md:flex', drag?.ev.id === e.id && 'opacity-40')}
-                            style={{ textDecoration: e.done ? 'line-through' : undefined }}
+                <div className="flex flex-col overflow-hidden rounded-lg border border-stone-200 bg-stone-200 [gap:1px]">
+                  {monthRows.map((row, r) => (
+                    <div key={row.keys[0]} className="relative grid grid-cols-7 [gap:1px]" style={{ '--lanes': row.lanes } as React.CSSProperties}>
+                      {row.days.map((d, c) => {
+                        const i = r * 7 + c;
+                        const key = row.keys[c];
+                        const all = byDay.get(key) ?? [];
+                        const evs = all.filter(e => !row.barred.has(e.id));
+                        const tasks = tasksOn(todos, key);
+                        const isSel = key === selected;
+                        const dayPeriods = periodsOn(periods, key);
+                        const tint = dayPeriods[0];
+                        // Each name where its period starts (or starts again after skipped days), and at the start of each week row.
+                        const named = dayPeriods.filter(p => i % 7 === 0 || !covers(p, toKey(addDays(d, -1))));
+                        const items = [...evs.map(ev => ({ ev })), ...tasks.map(todo => ({ todo }))];
+                        return (
+                          <button
+                            key={key}
+                            data-drop-day={key}
+                            aria-pressed={isSel}
+                            aria-label={`${fmt(d, 'EEEE d MMMM')}${key === today ? t(', aujourd’hui') : ''}${all.length ? tn(all.length, ', {n} événement', ', {n} événements') : ''}${tasks.length ? tn(tasks.length, ', {n} tâche', ', {n} tâches') : ''}`}
+                            onClick={() => selectDay(key)}
+                            onDoubleClick={() => setForm({ date: key })}
+                            className={cx(
+                              'relative flex min-h-16 min-w-0 flex-col items-stretch p-1 text-left transition-colors @md:min-h-[84px]',
+                              dropDay === key ? 'bg-brand-50 shadow-[inset_0_0_0_2px_var(--color-brand-200)]' : isSel ? 'bg-stone-50' : 'bg-surface hover:bg-stone-50',
+                              !isSameMonth(d, selDate) && 'text-stone-500',
+                            )}
+                            // Tint over the cell's own background (white or grey), so the grid lines stay.
+                            style={tint && dropDay !== key ? { backgroundImage: fillOf(key, isSel ? 24 : 13) } : undefined}
                           >
-                            <Dot color={catOf(e.category).color} size={6} />
-                            <span className="truncate">{eventTitle(e, shared)}</span>
-                            <SeriesIcon series={e.series} size={10} className="shrink-0 text-stone-500" />
-                          </span>
-                        ))}
-                        {evs.length > 0 && (
-                          <span className="flex justify-center gap-0.5 @md:hidden">
-                            {evs.slice(0, 3).map(e => (
-                              <Dot key={e.id} color={catOf(e.category).color} size={5} />
+                            {dayPeriods.length > 0 && (
+                              <span className="absolute inset-x-0 top-0 flex flex-col" aria-hidden>
+                                {dayPeriods.slice(0, 3).map(p => <span key={p.id} className="h-[3px]" style={{ background: periodColor(p) }} />)}
+                              </span>
+                            )}
+                            <span
+                              className={cx(
+                                'tabular mb-0.5 flex h-6 w-6 shrink-0 items-center justify-center self-center rounded-full text-[12px] font-medium @md:self-start',
+                                isSel ? 'bg-tile-blue text-white' : key === today && 'text-brand-600',
+                              )}
+                            >
+                              {fmt(d, 'd')}
+                            </span>
+                            {/* Room for the bars of the events over several days, drawn over the row. */}
+                            {row.lanes > 0 && <span aria-hidden className="block h-[calc(var(--lanes)*6px)] shrink-0 @md:h-[calc(var(--lanes)*20px)]" />}
+                            {/* Under the number: every day number stays on the same line, with or without a period. */}
+                            {named.slice(0, 2).map(p => (
+                              <span key={p.id} className="hidden truncate px-1 text-[10px] font-semibold leading-tight @md:block" style={{ color: periodText(p) }}>{label(p)}</span>
                             ))}
-                          </span>
-                        )}
-                        {evs.length > 2 && <span className="hidden px-1 text-[10px] text-stone-500 @md:block">{tn(evs.length - 2, '+{n} autre', '+{n} autres')}</span>}
-                      </button>
-                    );
-                  })}
+                            {items.slice(0, 2).map(it =>
+                              'ev' in it ? (
+                                <span
+                                  key={it.ev.id}
+                                  onPointerDown={p => startDrag(it.ev, p)}
+                                  onContextMenu={x => (x.stopPropagation(), openMenu(it.ev, x))}
+                                  // A double click on an event opens it; on the rest of the day, a new event.
+                                  onDoubleClick={x => {
+                                    x.stopPropagation();
+                                    openEvent(it.ev);
+                                  }}
+                                  title={!canChange(it.ev) ? eventTitle(it.ev, shared) : t('{title} · double-clic pour modifier', { title: eventTitle(it.ev, shared) })}
+                                  className={cx('mb-0.5 hidden select-none items-center gap-1 truncate rounded px-1 text-[11px] text-stone-700 hover:bg-stone-100 @md:flex', canChange(it.ev) && 'cursor-grab', drag?.ev.id === it.ev.id && 'opacity-40')}
+                                  style={{ textDecoration: it.ev.done ? 'line-through' : undefined }}
+                                >
+                                  <Dot color={catOf(it.ev.category).color} size={6} />
+                                  <span className="truncate">{eventTitle(it.ev, shared)}</span>
+                                  <SeriesIcon series={it.ev.series} size={10} className="shrink-0 text-stone-500" />
+                                </span>
+                              ) : (
+                                // A task, lighter: a small square and its title in grey (opened from the day's list).
+                                <span key={it.todo.id} className={cx('mb-0.5 hidden items-center gap-1 truncate px-1 text-[11px] text-stone-500 @md:flex', it.todo.done && 'line-through')}>
+                                  <span className="h-[7px] w-[7px] shrink-0 rounded-[2px] border border-stone-400" aria-hidden />
+                                  <span className="truncate">{it.todo.title}</span>
+                                </span>
+                              ),
+                            )}
+                            {items.length > 0 && (
+                              <span className="flex justify-center gap-0.5 @md:hidden">
+                                {evs.slice(0, 3).map(e => (
+                                  <Dot key={e.id} color={catOf(e.category).color} size={5} />
+                                ))}
+                                {tasks.length > 0 && evs.length < 3 && <span className="h-[5px] w-[5px] rounded-[1.5px] border border-stone-400" aria-hidden />}
+                              </span>
+                            )}
+                            {items.length > 2 && <span className="hidden px-1 text-[10px] text-stone-500 @md:block">{tn(items.length - 2, '+{n} autre', '+{n} autres')}</span>}
+                          </button>
+                        );
+                      })}
+                      {/* Events over several days: one bar across their days of the row (a line on a phone). */}
+                      {row.bars.map(({ ev, from, to, lane, before, after }) => {
+                        const n = to - from + 1;
+                        const c = catOf(ev.category);
+                        return (
+                          <button
+                            key={`${ev.series}-${from}`}
+                            type="button"
+                            data-event={ev.id}
+                            onClick={() => openEvent(ev)}
+                            onContextMenu={x => openMenu(ev, x)}
+                            title={eventTitle(ev, shared)}
+                            aria-label={eventTitle(ev, shared)}
+                            className={cx(
+                              // A line in its colour on a phone, a light bar with its name from a tablet.
+                              'pointer-events-none absolute flex h-1 items-center gap-1 overflow-hidden bg-[var(--bar)] px-1.5 text-left text-[11px] font-medium @md:pointer-events-auto @md:h-[18px] @md:bg-[var(--bar-soft)]',
+                              'top-[calc(30px+var(--lane)*6px)] @md:top-[calc(30px+var(--lane)*20px)]',
+                              before ? 'rounded-l-none' : 'rounded-l',
+                              after ? 'rounded-r-none' : 'rounded-r',
+                              ev.done && 'line-through opacity-60',
+                              drag && '@md:pointer-events-none',
+                            )}
+                            style={{
+                              '--lane': lane,
+                              '--bar': c.color,
+                              '--bar-soft': c.soft,
+                              left: `calc(${from} * (100% - 6px) / 7 + ${from}px + ${before ? 0 : 3}px)`,
+                              width: `calc(${n} * (100% - 6px) / 7 + ${n - 1}px - ${(before ? 0 : 3) + (after ? 0 : 3)}px)`,
+                              color: c.text,
+                              boxShadow: before ? undefined : `inset 3px 0 0 ${c.color}`,
+                            } as React.CSSProperties}
+                          >
+                            <span className="hidden truncate @md:inline">{eventTitle(ev, shared)}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))}
                 </div>
                 {monthBands.length > 0 && (
                   <div className="mt-2.5 flex flex-wrap gap-1.5" role="group" aria-label={t('Périodes du mois')}>
@@ -814,7 +1108,8 @@ export default function CalendarPage() {
               </div>
             )}
 
-            {/* Selected day */}
+            {/* Selected day (the week shows all its days above) */}
+            {mode !== 'week' && (
             <div className="mt-5 border-t border-stone-100 pt-5">
               <div className="mb-4 flex flex-wrap items-baseline gap-x-2 gap-y-1">
                 <h2 className="text-[16px] font-semibold first-letter:uppercase">{selected === today ? t('Aujourd’hui') : fmt(selDate, 'EEEE d MMMM')}</h2>
@@ -831,18 +1126,26 @@ export default function CalendarPage() {
                 ))}
               </div>
               {mode === 'day' ? (
-                <DayView
-                  date={selected}
-                  isToday={selected === today}
+                <TimeGrid
+                  days={[selected]}
+                  today={today}
                   events={dayEvents}
+                  todos={todos}
+                  periods={periods}
                   drag={drag}
+                  canChange={canChange}
+                  canTick={ev => !shared && !fromAgenda(ev)}
+                  canCreate={!readOnly}
                   onDragStart={startDrag}
-                  onEdit={ev => setForm({ event: ev, date: ev.date })}
-                  onCreate={(start, end) => setForm({ date: selected, start, end })}
+                  onEdit={openEvent}
+                  onToggle={ev => source.toggleDone(ev.id)}
+                  onCreate={(date, start, end) => setForm({ date, start, end })}
+                  onMenu={openMenu}
+                  onOpenTask={setTask}
                 />
               ) : shared?.unread ? (
                 shared.unread === 'loading' && <Skeleton shape="slots" rows={2} className="py-2" />
-              ) : dayEvents.length === 0 ? (
+              ) : dayEvents.length === 0 && dayTasks.length === 0 ? (
                 events.some(e => e.date === selected) ? (
                   <EmptyState size="sm" tone="search" icon={ListFilter} title={t('Rien à afficher avec ce filtre.')} action={{ label: t('Retirer les filtres'), onClick: clearFilter }} />
                 ) : (
@@ -856,11 +1159,15 @@ export default function CalendarPage() {
               ) : (
                 <div className="space-y-2">
                   {dayEvents.map(ev => (
-                    <EventItem key={ev.id} ev={ev} dragging={drag?.ev.id === ev.id} onDragStart={e => startDrag(ev, e)} onEdit={() => setForm({ event: ev, date: ev.date })} />
+                    <EventItem key={ev.id} ev={ev} dragging={drag?.ev.id === ev.id} onDragStart={e => startDrag(ev, e)} onEdit={() => openEvent(ev)} onMenu={e => openMenu(ev, e)} />
+                  ))}
+                  {dayTasks.map(x => (
+                    <TaskRow key={x.id} todo={x} onOpen={setTask} />
                   ))}
                 </div>
               )}
             </div>
+            )}
           </section>
 
           <aside aria-labelledby="a-venir-titre" className="card min-w-0 self-start p-4">
@@ -911,7 +1218,7 @@ export default function CalendarPage() {
             </h2>
             {shared?.unread ? (
               shared.unread === 'loading' && <Skeleton rows={2} className="py-1" />
-            ) : upcomingExams.length === 0 && nextUp.length === 0 ? (
+            ) : upcomingRows.length === 0 ? (
               upcomingHidden ? (
                 // « Retirer les filtres » is in the day's section (and the filter button is up there).
                 <EmptyState size="sm" tone="search" icon={ListFilter} title={t('Rien à afficher avec ce filtre.')} />
@@ -919,43 +1226,23 @@ export default function CalendarPage() {
                 <EmptyState size="sm" icon={CalendarClock} title={t('Rien de prévu pour la suite.')} />
               )
             ) : (
+              // One list in date order; the important ones marked (flag, the days left in bold).
               <ul className="-mx-1.5">
-                {upcomingExams.map(e => {
-                  const n = daysUntil(e.date);
-                  return (
-                    <li key={e.id}>
-                      <button onClick={() => showEvent(e)} className="flex w-full items-center gap-3 rounded-lg px-1.5 py-1.5 text-left transition-colors hover:bg-stone-50">
-                        <span className={cx('tabular w-9 shrink-0 text-[13px] font-semibold', n <= 3 ? 'font-extrabold text-urgent-text' : 'text-ink')}>{n === 0 ? t('Auj.') : t('J-{n}', { n })}</span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[13px] font-medium">{eventTitle(e, shared)}</span>
-                          <span className="block text-[12px] first-letter:uppercase text-stone-500">
-                            {fmtDay(fromKey(e.date), 'EEE d MMM')}
-                            {e.start && ` · ${e.start}`}
-                          </span>
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
-                {moreExams > 0 && (
-                  <li>
-                    <button onClick={() => setAllExams(v => !v)} aria-expanded={allExams} className="w-full rounded-lg px-1.5 py-1 text-left text-[12px] font-medium text-stone-500 transition-colors hover:bg-stone-50 hover:text-ink pointer-coarse:py-2">
-                      {allExams ? t('Réduire') : tn(moreExams, 'Voir {n} autre', 'Voir {n} autres')}
-                    </button>
-                  </li>
-                )}
-                {nextUp.map(e => {
+                {upcomingRows.map(e => {
                   const n = daysUntil(e.date);
                   const late = e.date < today;
+                  const big = isUpcomingExam(e);
                   const toHandIn = isDeliverable(e) && !shared;
                   return (
                     <li key={e.id} className="flex items-center">
                       <button onClick={() => showEvent(e)} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1.5 py-1.5 text-left transition-colors hover:bg-stone-50">
-                        <span className={cx('tabular w-9 shrink-0 text-[12px] font-semibold', late ? 'font-extrabold text-urgent-text' : 'text-stone-500')}>{late ? t('Retard') : n === 0 ? t('Auj.') : n === 1 ? t('Dem.') : t('J-{n}', { n })}</span>
+                        <span className={cx('tabular w-9 shrink-0 font-semibold', big ? 'text-[13px]' : 'text-[12px]', late || (big && n <= 3) ? 'font-extrabold text-urgent-text' : big ? 'text-ink' : 'text-stone-500')}>
+                          {late ? t('Retard') : n === 0 ? t('Auj.') : n === 1 ? t('Dem.') : t('J-{n}', { n })}
+                        </span>
                         <span className="min-w-0 flex-1">
                           <span className="flex min-w-0 items-center gap-1.5 text-[13px] font-medium">
-                            <Dot color={catOf(e.category).color} size={6} />
-                            <span className="truncate">{eventTitle(e, shared)}</span>
+                            {big ? <Flag size={11} className="shrink-0 fill-amber-500 text-amber-500" aria-label={t('Important')} /> : <Dot color={catOf(e.category).color} size={6} />}
+                            <span className={cx('truncate', big && 'font-semibold')}>{eventTitle(e, shared)}</span>
                             <SeriesIcon series={e.series} size={10} className="shrink-0 text-stone-500" />
                           </span>
                           <span className="block text-[12px] first-letter:uppercase text-stone-500">
@@ -979,6 +1266,13 @@ export default function CalendarPage() {
                     </li>
                   );
                 })}
+                {upcoming.more.length > 0 && (
+                  <li>
+                    <button onClick={() => setAllUpcoming(v => !v)} aria-expanded={allUpcoming} className="w-full rounded-lg px-1.5 py-1 text-left text-[12px] font-medium text-stone-500 transition-colors hover:bg-stone-50 hover:text-ink pointer-coarse:py-2">
+                      {allUpcoming ? t('Réduire') : tn(upcoming.more.length, 'Voir {n} autre', 'Voir {n} autres')}
+                    </button>
+                  </li>
+                )}
               </ul>
             )}
 
@@ -988,11 +1282,15 @@ export default function CalendarPage() {
 
       {form && (
         <EventForm
+          // A duplicate opened from an event's window is another form, with its own fields.
+          key={form.event?.id ?? (form.template ? `copie-${form.template.id}` : 'nouveau')}
           event={form.event}
+          template={form.template}
           date={form.date}
           start={form.start}
           end={form.end}
           title={form.title}
+          onDuplicate={ev => setForm({ template: ev, date: ev.date })}
           onClose={() => setForm(null)}
           onSaved={ev => {
             if (form.fromQuick) setQuick('');
@@ -1003,6 +1301,8 @@ export default function CalendarPage() {
       {importing && <ImportIcsDialog initial={importing.initial} onClose={() => setImporting(null)} onImported={selectDay} />}
       {managing && <CategoriesDialog onClose={() => setManaging(false)} />}
       {periodsOpen && <PeriodsDialog day={selected} onClose={() => setPeriodsOpen(false)} />}
+      {task && <TaskDialog todo={task} onClose={() => setTask(null)} />}
+      {menu && <ContextMenu x={menu.x} y={menu.y} items={menuItems(menu.ev)} label={menu.ev.title} onClose={() => setMenu(null)} />}
 
       {/* Chip that follows the pointer while an event is dragged */}
       {drag && (
@@ -1010,8 +1310,8 @@ export default function CalendarPage() {
           ref={ghostRef}
           className={cx(
             'pointer-events-none fixed left-0 top-0 z-[80] flex max-w-56 items-center gap-1.5 rounded-md border border-stone-200 bg-surface px-2 py-1 text-[12px] font-medium shadow-pop transition-opacity',
-            // Over the hourly grid the dashed preview already shows where it lands.
-            drag.target?.minutes !== undefined && 'opacity-0',
+            // Over the hourly grid the dashed preview already shows where it lands (a new event or an end: there only).
+            (drag.target?.minutes !== undefined || drag.mode !== 'move') && 'opacity-0',
           )}
         >
           <Dot color={catOf(drag.ev.category).color} size={7} />
