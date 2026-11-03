@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ChevronRight, FilePlus2, FolderPlus, Folder, FolderOpen, FolderInput, FileText, Pencil, Trash2, CopyPlus, Pin, PinOff, Search, ArrowLeft, MoreHorizontal, NotebookPen,
   Paperclip, Printer, FileDown, BookOpenCheck, FlaskConical, ScrollText, GraduationCap, Presentation, Users, X,
+  ArrowUpDown, Check, HardDriveUpload, FolderDown,
 } from 'lucide-react';
 import { EmptyState } from '../../components/EmptyState';
 import { useNotes, type Note, type NoteFolder } from '../../store/notes';
@@ -19,21 +20,58 @@ import { useProgressive } from '../../lib/useProgressive';
 import { cx, normalize, noteSearchText, noteText, relativeTime } from '../../lib/utils';
 import { LinkChips, LinkPicker } from './NoteLinks';
 import { noteTemplates, type NoteTemplate } from './templates';
-import { downloadMarkdown, printNote } from './exportNote';
+import { downloadMarkdown, exportNotesZip, printNote } from './exportNote';
+import { saveNoteToDrive } from './driveBridge';
 import { arrowNav, isMenuKey, menuPoint } from '../../lib/a11y';
-import { flushNoteEditor, isBlankNote } from './noteUtils';
+import { countWords, fileHref, flushNoteEditor, isBlankNote, sortNotes, type NoteSort } from './noteUtils';
+import { highlightParts, textSnippet } from '../../lib/textFind';
+import { StorageError } from '../../lib/blobStore';
 import { isTrashedNote } from '../../lib/trash';
 import NoteMoveDialog, { type NoteMoveTarget } from './NoteMoveDialog';
 import { takeContentBuffer, takeTitleBuffer } from './titleBuffer';
 import { useCreateActions, useNarrow } from '../../store/create';
 import type { Editor } from '@tiptap/react';
-import { t, locale } from '../../i18n';
+import { t, tn, locale } from '../../i18n';
 
 // The editor (Tiptap) is heavy: load it when a note opens, and ahead of time once the list is idle.
 const loadEditor = () => import('./NoteEditor');
 const NoteEditor = lazy(loadEditor);
 
 const DRAG_NOTE = 'application/x-cop-note';
+const SORT_KEY = 'cop:notes-sort';
+const SORTS: { key: NoteSort; label: string }[] = [
+  { key: 'modified', label: t('Modifiées récemment') },
+  { key: 'created', label: t('Créées récemment') },
+  { key: 'title', label: t('Titre (A → Z)') },
+];
+function readSort(): NoteSort {
+  try {
+    const v = localStorage.getItem(SORT_KEY);
+    return v === 'created' || v === 'title' ? v : 'modified';
+  } catch {
+    return 'modified';
+  }
+}
+
+/** The date in the list: the time today, « 3 oct. » this year, « 3 oct. 2025 » before. */
+function listDate(iso: string) {
+  const d = new Date(iso);
+  const now = new Date();
+  if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleDateString(locale(), d.getFullYear() === now.getFullYear() ? { day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+/** The words searched for, marked in a result's extract. */
+const marked = (text: string, q: string) =>
+  highlightParts(text, q).map((p, i) =>
+    p.hit ? (
+      <mark key={i} className="rounded-sm bg-amber-100 px-px text-ink">
+        {p.text}
+      </mark>
+    ) : (
+      p.text
+    ),
+  );
 const DRAG_FOLDER = 'application/x-cop-note-folder';
 
 const TEMPLATE_ICONS: Record<string, typeof FileText> = {
@@ -106,13 +144,27 @@ export default function NotesPage() {
   const [dropOn, setDropOn] = useState<string | null>(null);
   const [linking, setLinking] = useState(false);
   const [moving, setMoving] = useState<NoteMoveTarget | null>(null);
+  const [sortBy, setSortBy] = useState<NoteSort>(readSort);
+  const chooseSort = (by: NoteSort) => {
+    setSortBy(by);
+    try {
+      localStorage.setItem(SORT_KEY, by);
+    } catch {
+      /* private browsing: the order just isn't remembered */
+    }
+  };
+  // Several notes chosen (Ctrl / Maj + clic, Ctrl+A, a long press on a phone): moved, pinned, exported or trashed together.
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const selectedIds = notes.filter(n => selected.has(n.id)).map(n => n.id);
   // Focus (and select) the title of a note we just created, once its editor is on screen.
   const focusTitleFor = useRef<string | null>(null);
 
-  const openNote = (id: string | null) => {
+  /** `q`: words a search found in it, marked in the note once open. */
+  const openNote = (id: string | null, q?: string) => {
     setCreated(null);
-    setParams(id ? { note: id } : {});
+    setParams(id ? (q ? { note: id, q } : { note: id }) : {});
   };
+  const searched = params.get('q') ?? undefined;
   const showNew = (id: string) => {
     focusTitleFor.current = id;
     setCreated(id);
@@ -308,6 +360,92 @@ export default function NotesPage() {
     toast(t('Mis à la corbeille'), 'info', { label: t('Annuler||l’action'), run: () => restoreAndFocus(n.id, 'note') });
   };
 
+  // ── Several notes at once ──
+  const anchor = useRef<string | null>(null);
+  /** The notes of the list, in the order shown. */
+  const shownIds = () => [...document.querySelectorAll<HTMLElement>('aside [data-note-open]')].map(el => el.dataset.noteOpen!);
+  const clearSelection = () => setSelected(new Set());
+  const toggle = (id: string) => {
+    anchor.current = id;
+    setSelected(sel => {
+      const next = new Set(sel);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const selectRange = (id: string) => {
+    const order = shownIds();
+    const a = order.indexOf(anchor.current ?? id);
+    const b = order.indexOf(id);
+    if (a < 0 || b < 0) return toggle(id);
+    setSelected(new Set(order.slice(Math.min(a, b), Math.max(a, b) + 1)));
+  };
+  // The last pointer (a finger: a tap adds to the selection once there is one) and a long press that just selected
+  // (the tap that ends it opens nothing).
+  const pointer = useRef('mouse');
+  const pressed = useRef(false);
+  const press = (e: React.PointerEvent, id: string) => {
+    pointer.current = e.pointerType;
+    if (e.pointerType !== 'touch') return;
+    const [x0, y0] = [e.clientX, e.clientY];
+    function stop() {
+      clearTimeout(timer);
+      removeEventListener('pointermove', move);
+      removeEventListener('pointerup', stop);
+      removeEventListener('pointercancel', stop);
+    }
+    function move(m: PointerEvent) {
+      if (Math.hypot(m.clientX - x0, m.clientY - y0) > 10) stop();
+    }
+    const timer = setTimeout(() => {
+      stop();
+      pressed.current = true;
+      toggle(id);
+      navigator.vibrate?.(10);
+    }, 450);
+    addEventListener('pointermove', move);
+    addEventListener('pointerup', stop);
+    addEventListener('pointercancel', stop);
+  };
+  const clickRow = (e: React.MouseEvent, id: string) => {
+    if (pressed.current) return void (pressed.current = false);
+    if (e.shiftKey && anchor.current) return selectRange(id);
+    if (e.metaKey || e.ctrlKey || (selected.size > 0 && pointer.current === 'touch')) return toggle(id);
+    if (selected.size) clearSelection();
+    anchor.current = id;
+    openNote(id);
+    setFocusFolder(null);
+  };
+  const trashSelected = async () => {
+    const ids = selectedIds;
+    if (!ids.length) return;
+    if (!(await confirmAction(tn(ids.length, 'Mettre {n} note à la corbeille ?', 'Mettre {n} notes à la corbeille ?'), t('Tu pourras les récupérer dans la corbeille pendant 30 jours.'), t('Mettre à la corbeille')))) return;
+    if (noteId && ids.includes(noteId)) {
+      flushNoteEditor();
+      openNote(null);
+    }
+    ids.forEach(id => store.removeNote(id));
+    clearSelection();
+    toast(tn(ids.length, '{n} note mise à la corbeille', '{n} notes mises à la corbeille'), 'info', { label: t('Annuler||l’action'), run: () => useNotes.getState().restore(ids) });
+  };
+  const allPinned = selectedIds.length > 0 && selectedIds.every(id => notes.find(n => n.id === id)?.pinned);
+  const exportMenu = (roots: string[], name: string): MenuItem[] => [
+    { label: t('Markdown (.zip)'), icon: <FileDown size={15} />, onClick: () => (flushNoteEditor(), void exportNotesZip(roots, 'md', name, useNotes.getState())) },
+    { label: t('Word (.zip)'), icon: <FileDown size={15} />, onClick: () => (flushNoteEditor(), void exportNotesZip(roots, 'docx', name, useNotes.getState())) },
+  ];
+  /** Ctrl+A, Échap on the list (not in its search field). */
+  const listKeys = (e: React.KeyboardEvent) => {
+    if ((e.target as HTMLElement).closest('input, textarea')) return;
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
+      e.preventDefault();
+      setSelected(new Set(shownIds()));
+    } else if (e.key === 'Escape' && selected.size) {
+      e.stopPropagation();
+      clearSelection();
+    }
+  };
+
   const folderPath = (id: string | null) => {
     const names: string[] = [];
     for (let f = folders.find(x => x.id === id); f; f = folders.find(x => x.id === f!.parentId)) names.unshift(f.name);
@@ -323,6 +461,20 @@ export default function NotesPage() {
   const exportMd = (n: Note) => {
     flushNoteEditor();
     downloadMarkdown(useNotes.getState().notes.find(x => x.id === n.id) ?? n);
+  };
+
+  // A Word copy at the root of the Drive; the note points to it (the Drive lists it among the file's « Notes liées »).
+  const saveToDrive = async (n: Note) => {
+    flushNoteEditor();
+    const fresh = useNotes.getState().notes.find(x => x.id === n.id) ?? n;
+    try {
+      const { file, images } = await saveNoteToDrive(fresh);
+      if (!file) return;
+      store.updateNote(fresh.id, { links: [...(fresh.links ?? []), { kind: 'file', id: file.id }] });
+      toast(images ? t('Enregistré dans le Drive, sans les images') : t('Enregistré dans le Drive'), 'success', { label: t('Voir'), run: () => navigate(fileHref(file)) });
+    } catch (e) {
+      toast(e instanceof StorageError ? e.message : t('L’enregistrement dans le Drive a échoué. Réessaie.'), 'error');
+    }
   };
 
   // « Partager dans un groupe… »: a copy goes to the group, as with the group's own « Partager » (the note stays private).
@@ -356,6 +508,7 @@ export default function NotesPage() {
   const exportItems = (n: Note): MenuItem[] => [
     { label: t('Exporter en PDF'), icon: <Printer size={15} />, onClick: () => exportPdf(n) },
     { label: t('Exporter en Markdown'), icon: <FileDown size={15} />, onClick: () => exportMd(n) },
+    { label: t('Enregistrer dans le Drive (.docx)'), icon: <HardDriveUpload size={15} />, onClick: () => void saveToDrive(n) },
   ];
 
   // Keyboard shortcuts shown in the menus, not on touch screens.
@@ -386,6 +539,7 @@ export default function NotesPage() {
     { label: t('Renommer'), icon: <Pencil size={15} />, shortcut: keyHint('F2'), onClick: () => void renameFolder(f) },
     { label: t('Déplacer vers…'), icon: <FolderInput size={15} />, onClick: () => setMoving({ kind: 'folder', id: f.id, name: f.name, from: f.parentId }) },
     ...(f.parentId ? [{ label: t('Remonter à la racine'), icon: <FolderOpen size={15} />, onClick: () => store.moveFolder(f.id, null) }] : []),
+    { label: t('Exporter le dossier…'), icon: <FolderDown size={15} />, onClick: () => setMenu({ ...menuAt.current, items: exportMenu([f.id], f.name) }) },
     { label: '', divider: true, onClick: () => {} },
     {
       label: t('Couleur du dossier'),
@@ -409,7 +563,7 @@ export default function NotesPage() {
     return { x: r.right - 208, y: r.bottom + 4 };
   };
 
-  const sortNotes = (list: Note[]) => [...list].sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned) || b.updatedAt.localeCompare(a.updatedAt));
+  const sortList = (list: Note[]) => sortNotes(list, sortBy, locale());
 
   // ── Drag & drop (notes and folders into folders) ─────
   const dragOver = (key: string) => (e: React.DragEvent) => {
@@ -435,8 +589,8 @@ export default function NotesPage() {
   });
   const q = normalize(query);
   const results = useMemo(
-    () => (q ? sortNotes(notes.filter(n => noteSearchText(n).includes(q))) : []),
-    [q, notes],
+    () => (q ? sortNotes(notes.filter(n => noteSearchText(n).includes(q)), sortBy, locale()) : []),
+    [q, notes, sortBy],
   );
 
   // The row's main part and its « … » button are siblings: no button nested in a button.
@@ -449,16 +603,22 @@ export default function NotesPage() {
       openNote(id);
       setFocusFolder(null);
     },
-    menuAt: (e, n) => setMenu({ ...menuPoint(e), items: noteMenu(n) }),
+    click: clickRow,
+    press,
+    // A long press of a finger selects (Android also calls it a right click): no menu then.
+    menuAt: (e, n) => (e.type === 'contextmenu' && pointer.current === 'touch' ? undefined : setMenu({ ...menuPoint(e), items: noteMenu(n) })),
     menuUnder: (e, n) => setMenu({ ...menuUnder(e), items: noteMenu(n) }),
-    keys: (e, n) => rowKeys(e, () => void deleteNote(n), () => void renameNote(n)),
+    // Suppr on one of several notes chosen: all of them.
+    keys: (e, n) => rowKeys(e, () => void (selected.size > 1 && selected.has(n.id) ? trashSelected() : deleteNote(n)), () => void renameNote(n)),
   };
-  const renderNote = (n: Note, depth: number) => (noteRows-- <= 0 ? null : <NoteRow key={n.id} note={n} depth={depth} active={n.id === noteId} actions={rowActions} />);
+  const selecting = selected.size > 0;
+  const renderNote = (n: Note, depth: number) =>
+    noteRows-- <= 0 ? null : <NoteRow key={n.id} note={n} depth={depth} active={n.id === noteId} selected={selected.has(n.id)} selecting={selecting} created={sortBy === 'created'} actions={rowActions} />;
 
   const renderFolder = (f: NoteFolder, depth: number): React.ReactNode => {
     const open = expanded.has(f.id);
     const kids = folders.filter(x => x.parentId === f.id).sort((a, b) => a.name.localeCompare(b.name, locale()));
-    const fnotes = sortNotes(notes.filter(n => n.folderId === f.id));
+    const fnotes = sortList(notes.filter(n => n.folderId === f.id));
     return (
       <div key={f.id}>
         <div
@@ -537,8 +697,43 @@ export default function NotesPage() {
     );
   };
 
+  // Phones: the header folds into one line while the text is scrolled down, or while typing in it (keyboard open):
+  // back, title, links and the toolbar took a third of the screen above the text.
+  const [scrolledDown, setScrolledDown] = useState(false);
+  const [typing, setTyping] = useState(false);
+  const lastY = useRef(0);
+  const [foldedFor, setFoldedFor] = useState(activeId);
+  if (foldedFor !== activeId) {
+    setFoldedFor(activeId);
+    setScrolledDown(false);
+  }
+  const folded = scrolledDown || typing;
+  const onTextScroll = (e: React.UIEvent) => {
+    const el = e.target as HTMLElement;
+    if (!el.hasAttribute('data-note-scroll') || !matchMedia('(max-width: 767px)').matches) return;
+    const y = el.scrollTop;
+    if (y > lastY.current + 6 && y > 48) setScrolledDown(true);
+    else if (y < lastY.current - 6 || y < 8) setScrolledDown(false);
+    lastY.current = y;
+  };
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv || !activeId) return;
+    const check = () => setTyping(matchMedia('(max-width: 767px)').matches && !!document.activeElement?.closest('.prose-note') && vv.height < window.innerHeight * 0.8);
+    vv.addEventListener('resize', check);
+    document.addEventListener('focusin', check);
+    document.addEventListener('focusout', check);
+    return () => {
+      vv.removeEventListener('resize', check);
+      document.removeEventListener('focusin', check);
+      document.removeEventListener('focusout', check);
+    };
+  }, [activeId]);
+  const activeText = active ? noteText(active) : '';
+  const words = countWords(activeText);
+
   const rootFolders = folders.filter(f => f.parentId === null).sort((a, b) => a.name.localeCompare(b.name, locale()));
-  const rootNotes = sortNotes(notes.filter(n => n.folderId === null));
+  const rootNotes = sortList(notes.filter(n => n.folderId === null));
   const mainOpen = !!active;
 
   return (
@@ -546,14 +741,56 @@ export default function NotesPage() {
       {/* A note open on a phone hides the list and its title: the page keeps one for screen readers. */}
       {mainOpen && <h1 className="sr-only md:hidden">{t('Notes')}</h1>}
       {/* Sidebar */}
-      <aside className={cx('w-full shrink-0 flex-col md:flex md:w-[268px]', mainOpen ? 'hidden' : 'flex')}>
+      <aside className={cx('w-full shrink-0 flex-col md:flex md:w-[268px]', mainOpen ? 'hidden' : 'flex')} onKeyDown={listKeys} onPointerDownCapture={e => (pointer.current = e.pointerType)}>
         <div className="flex items-center gap-1.5 pb-4 pt-2">
           <h1 className="text-[24px] font-semibold tracking-[-0.02em]">{t('Notes')}</h1>
         </div>
-        <div className="relative mb-2">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
-          <input value={query} onChange={e => setQuery(e.target.value)} placeholder={t('Rechercher dans les notes')} aria-label={t('Rechercher dans les notes')} className="field w-full pl-8" />
-        </div>
+        {selectedIds.length > 0 ? (
+          <div className="enter mb-2 flex h-10 shrink-0 items-center gap-0.5 rounded-lg bg-inverse px-1 text-on-inverse shadow-pop pointer-coarse:h-11">
+            {(() => {
+              const barBtn = 'flex h-8 w-7 shrink-0 items-center justify-center rounded-md text-on-inverse/85 hover:bg-on-inverse/10 hover:text-on-inverse pointer-coarse:h-9 pointer-coarse:w-9';
+              const name = tn(selectedIds.length, '{n} note', '{n} notes');
+              return (
+                <>
+                  <button className={barBtn} onClick={clearSelection} title={t('Désélectionner (Échap)')} aria-label={t('Désélectionner (Échap)')}>
+                    <X size={15} />
+                  </button>
+                  <span className="mr-auto truncate px-1 text-[13px] font-medium" role="status">
+                    {tn(selectedIds.length, '{n} sélectionnée', '{n} sélectionnées')}
+                  </span>
+                  <button className={barBtn} onClick={() => setMoving({ kind: 'notes', ids: selectedIds, name, from: null })} title={t('Déplacer vers…')} aria-label={t('Déplacer vers…')}>
+                    <FolderInput size={15} />
+                  </button>
+                  <button className={barBtn} onClick={() => selectedIds.forEach(id => store.updateNote(id, { pinned: !allPinned }))} title={allPinned ? t('Désépingler') : t('Épingler')} aria-label={allPinned ? t('Désépingler') : t('Épingler')}>
+                    {allPinned ? <PinOff size={15} /> : <Pin size={15} />}
+                  </button>
+                  <button className={barBtn} onClick={e => setMenu({ ...menuUnder(e), items: exportMenu(selectedIds, t('Notes')) })} title={t('Exporter')} aria-label={t('Exporter')} aria-haspopup="menu">
+                    <FileDown size={15} />
+                  </button>
+                  <button className={barBtn} onClick={() => void trashSelected()} title={t('Mettre à la corbeille')} aria-label={t('Mettre à la corbeille')}>
+                    <Trash2 size={15} />
+                  </button>
+                </>
+              );
+            })()}
+          </div>
+        ) : (
+          <div className="mb-2 flex gap-1.5">
+            <div className="relative min-w-0 flex-1">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+              <input value={query} onChange={e => setQuery(e.target.value)} placeholder={t('Rechercher dans les notes')} aria-label={t('Rechercher dans les notes')} className="field w-full pl-8" />
+            </div>
+            <button
+              className="icon-btn h-10 w-10 pointer-coarse:h-11 pointer-coarse:w-11"
+              title={t('Trier')}
+              aria-label={t('Trier (actuellement : {order})', { order: SORTS.find(x => x.key === sortBy)!.label })}
+              aria-haspopup="menu"
+              onClick={e => setMenu({ ...menuUnder(e), items: SORTS.map(x => ({ label: x.label, icon: x.key === sortBy ? <Check size={15} /> : <ArrowUpDown size={15} className="opacity-0" />, onClick: () => chooseSort(x.key) })) })}
+            >
+              <ArrowUpDown size={16} />
+            </button>
+          </div>
+        )}
         <div
           className={cx('min-h-0 flex-1 overflow-y-auto rounded-lg p-1 pb-room', dropOn === 'root' && 'ring-1 ring-brand-500')}
           {...dropProps(null, 'root')}
@@ -561,12 +798,16 @@ export default function NotesPage() {
         >
           {q ? (
             results.length ? (
-              results.map(n => (
-                <button key={n.id} onClick={() => openNote(n.id)} className={cx('block w-full rounded-md px-2.5 py-2 text-left hover:bg-stone-50', n.id === noteId && 'bg-stone-100')}>
-                  <p className="truncate text-[13px] font-medium">{n.title}</p>
-                  <p className="truncate text-[12px] text-stone-500">{noteText(n) || t('Note vide')}</p>
-                </button>
-              ))
+              // Each one with the words found, in its title or in an extract of its text (and marked once open).
+              results.map(n => {
+                const extract = textSnippet(noteText(n), query, 24, 80);
+                return (
+                  <button key={n.id} onClick={() => openNote(n.id, query.trim())} title={n.title} className={cx('block w-full rounded-md px-2.5 py-2 text-left hover:bg-stone-50', n.id === noteId && 'bg-stone-100')}>
+                    <p className="truncate text-[13px] font-medium">{marked(n.title, query)}</p>
+                    <p className="line-clamp-2 text-[12px] leading-snug text-stone-500">{extract ? marked(extract, query) : noteText(n).slice(0, 160) || t('Note vide')}</p>
+                  </button>
+                );
+              })
             ) : (
               <EmptyState size="sm" tone="search" title={t('Aucun résultat pour « {q} »', { q: query.trim() })} action={{ label: t('Effacer la recherche'), icon: X, onClick: () => setQuery('') }} />
             )
@@ -584,20 +825,30 @@ export default function NotesPage() {
       </aside>
 
       {/* Editor */}
-      <section className={cx('card min-w-0 flex-1 flex-col overflow-hidden md:mt-2', mainOpen ? 'flex' : 'hidden md:flex')}>
+      <section className={cx('card min-w-0 flex-1 flex-col overflow-hidden md:mt-2', mainOpen ? 'flex' : 'hidden md:flex')} onScrollCapture={onTextScroll}>
         {active ? (
           <>
             {/* Under lg the actions sit above the title, which gets the whole width (it was 173 px wide at 768). */}
-            <div className="flex flex-wrap items-start gap-1 px-4 pt-6 md:px-12 max-lg:pt-4">
+            <div className={cx('flex flex-wrap items-start gap-1 px-4 pt-6 md:px-12 max-lg:pt-4', folded && 'max-md:flex-nowrap max-md:items-center max-md:pb-1 max-md:pt-1.5')}>
               <button className="icon-btn mt-1 md:hidden" onClick={() => openNote(null)} title={t('Retour')} aria-label={t('Retour')}>
                 <ArrowLeft size={17} />
               </button>
-              <div className="order-last w-full min-w-0 lg:order-none lg:w-auto lg:flex-1">
+              {folded && (
+                <button className="mt-1 min-w-0 flex-1 truncate text-left text-[15px] font-semibold md:hidden" onClick={() => (setScrolledDown(false), setTyping(false))} aria-label={t('Afficher l’en-tête de la note')}>
+                  {active.title}
+                </button>
+              )}
+              <div className={cx('order-last w-full min-w-0 lg:order-none lg:w-auto lg:flex-1', folded && 'max-md:hidden')}>
                 <NoteTitle key={active.id} note={active} />
                 {/* A long folder name ends with « … », the time stays whole. */}
                 <p className="mt-1 flex min-w-0 text-[12px] text-stone-500">
                   <span className="truncate">{folders.find(f => f.id === active.folderId)?.name ?? t('Sans dossier')}</span>
                   <span className="shrink-0 whitespace-nowrap">&nbsp;· {t('modifiée {time}', { time: relativeTime(active.updatedAt) })}</span>
+                  {/* Discreet: how long the note is (characters on wider screens). */}
+                  <span className="shrink-0 whitespace-nowrap">
+                    &nbsp;· {tn(words, '{n} mot', '{n} mots')}
+                    <span className="max-sm:hidden">&nbsp;· {tn([...activeText].length, '{n} caractère', '{n} caractères')}</span>
+                  </span>
                 </p>
                 <LinkChips note={active} />
               </div>
@@ -612,7 +863,7 @@ export default function NotesPage() {
               </button>
             </div>
             <Suspense fallback={<div className="flex-1" />}>
-              <NoteEditor key={active.id} note={active} />
+              <NoteEditor key={active.id} note={active} highlight={searched} />
             </Suspense>
             <LinkPicker note={active} open={linking} onClose={() => setLinking(false)} />
           </>
@@ -638,43 +889,63 @@ export default function NotesPage() {
  */
 interface RowActions {
   open: (id: string) => void;
+  click: (e: React.MouseEvent, id: string) => void;
+  press: (e: React.PointerEvent, id: string) => void;
   menuAt: (e: React.MouseEvent | React.KeyboardEvent, n: Note) => void;
   menuUnder: (e: React.MouseEvent, n: Note) => void;
   keys: (e: React.KeyboardEvent<HTMLElement>, n: Note) => void;
 }
 
-/** A note in the list: re-rendered only when its note or its « open » state changes (hundreds of them). */
-const NoteRow = memo(function NoteRow({ note: n, depth, active, actions }: { note: Note; depth: number; active: boolean; actions: RefObject<RowActions> }) {
+/**
+ * A note in the list, with its date and the start of its text: re-rendered only when its note or its state changes
+ * (hundreds of them). `created`: the list is in the order the notes were made (that date is shown).
+ */
+const NoteRow = memo(function NoteRow({ note: n, depth, active, selected, selecting, created, actions }: { note: Note; depth: number; active: boolean; selected: boolean; selecting: boolean; created: boolean; actions: RefObject<RowActions> }) {
   return (
     <div
       draggable
       onDragStart={e => e.dataTransfer.setData(DRAG_NOTE, n.id)}
       onContextMenu={e => { e.preventDefault(); actions.current.menuAt(e, n); }}
       className={cx(
-        'list-row group flex h-8 items-center gap-1 rounded-md pr-1 text-[13px] transition-colors pointer-coarse:h-9',
-        active ? 'bg-stone-100 font-medium text-ink' : 'text-stone-600 hover:bg-stone-50 hover:text-ink',
+        'list-row group flex select-none items-center gap-1 rounded-md pr-1 text-[13px] transition-colors [-webkit-touch-callout:none]',
+        selected ? 'bg-brand-50 text-ink ring-1 ring-inset ring-brand-200' : active ? 'bg-stone-100 text-ink' : 'text-stone-600 hover:bg-stone-50 hover:text-ink',
       )}
     >
       <div
         data-note-open={n.id}
-        onClick={() => actions.current.open(n.id)}
+        onClick={e => actions.current.click(e, n.id)}
+        onPointerDown={e => actions.current.press(e, n.id)}
         role="button"
         tabIndex={0}
+        title={n.title}
         aria-current={active ? 'page' : undefined}
+        aria-pressed={selecting ? selected : undefined}
         onKeyDown={e => {
           if (isMenuKey(e)) { e.preventDefault(); actions.current.menuAt(e, n); }
           else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); actions.current.open(n.id); }
           else actions.current.keys(e, n);
         }}
-        className="flex h-full min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md"
+        className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-start gap-2 rounded-md py-1.5"
         style={{ paddingLeft: 10 + depth * 16 }}
       >
-        <FileText size={14} className="shrink-0 text-stone-400" />
-        <span className="flex-1 truncate">{n.title}</span>
-        {n.pinned && <Pin size={11} className="shrink-0 text-stone-400" aria-label={t('Épinglée')} />}
+        {selecting ? (
+          <span aria-hidden className={cx('mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-[1.5px]', selected ? 'border-brand-600 bg-brand-600 text-white' : 'border-stone-300')}>
+            {selected && <Check size={10} strokeWidth={3.5} />}
+          </span>
+        ) : (
+          <FileText size={14} className="mt-[3px] shrink-0 text-stone-400" />
+        )}
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-1.5">
+            <span className={cx('flex-1 truncate', active && 'font-medium')}>{n.title}</span>
+            {n.pinned && <Pin size={11} className="shrink-0 text-stone-400" aria-label={t('Épinglée')} />}
+            <span className="tabular shrink-0 text-[11px] text-stone-500">{listDate(created ? n.createdAt : n.updatedAt)}</span>
+          </span>
+          <span className="block truncate text-[12px] leading-snug text-stone-500">{noteText(n) || t('Note vide')}</span>
+        </span>
       </div>
       <button
-        className="icon-btn touch-show h-6 w-6 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:h-9 pointer-coarse:w-9"
+        className="icon-btn touch-show h-6 w-6 shrink-0 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 pointer-coarse:h-9 pointer-coarse:w-9"
         tabIndex={-1}
         title={t('Plus d’actions')}
         aria-label={t('Plus d’actions pour «\u00a0{name}\u00a0»', { name: n.title })}
