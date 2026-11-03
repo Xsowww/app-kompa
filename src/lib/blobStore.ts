@@ -12,11 +12,18 @@ let dbPromise: Promise<IDBDatabase> | null = null;
 
 function openDb(): Promise<IDBDatabase> {
   if (!dbPromise) {
-    dbPromise = new Promise((resolve, reject) => {
+    dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
       const req = indexedDB.open(DB_NAME, 1);
       req.onupgradeneeded = () => req.result.createObjectStore(STORE);
-      req.onsuccess = () => resolve(req.result);
+      req.onsuccess = () => {
+        // Closed by the browser (site data cleared…): opened again at the next call.
+        req.result.onclose = () => (dbPromise = null);
+        resolve(req.result);
+      };
       req.onerror = () => reject(req.error);
+    }).catch(e => {
+      dbPromise = null; // a refusal (private browsing, a moment of trouble) is not kept forever
+      throw e;
     });
   }
   return dbPromise;
@@ -28,10 +35,23 @@ function run<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<
       new Promise<T>((resolve, reject) => {
         const tx = db.transaction(STORE, mode);
         const req = fn(tx.objectStore(STORE));
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error);
+        // Done once written for good: a full disk often refuses the file only then (the transaction aborts).
+        tx.oncomplete = () => resolve(req.result);
+        tx.onabort = tx.onerror = () => reject(tx.error ?? req.error);
       }),
   );
+}
+
+/**
+ * What to tell the student when this browser could not store a file: only a full storage says « plein »;
+ * storage refused (private browsing, blocked site data) or another trouble get their own words.
+ */
+export function localSaveError(e: unknown): StorageError {
+  const name = e instanceof DOMException || e instanceof Error ? e.name : '';
+  if (name === 'QuotaExceededError') return Object.assign(new StorageError(t('Le stockage du navigateur est plein : supprime des fichiers ou vide la corbeille.')), { reason: t('Plus de place') });
+  if (name === 'SecurityError' || name === 'InvalidAccessError')
+    return Object.assign(new StorageError(t('Ce navigateur refuse d’enregistrer des fichiers (navigation privée ou données de site bloquées).')), { reason: t('Stockage refusé') });
+  return Object.assign(new StorageError(t('Le fichier n’a pas pu être enregistré dans ce navigateur. Réessaie ; si ça continue, recharge la page.')), { reason: t('Échec de l’enregistrement') });
 }
 
 /** Limits also enforced by Supabase (bucket size limit and storage policy, see supabase/schema.sql). */
@@ -65,8 +85,8 @@ const local = {
   put: (key: string, blob: Blob, _onProgress?: (loaded: number) => void, signal?: AbortSignal) =>
     signal?.aborted
       ? Promise.reject(abortError())
-      : run('readwrite', s => s.put(blob, key)).catch(() => {
-          throw new StorageError(t('Le stockage du navigateur est plein : supprime des fichiers ou vide la corbeille.'));
+      : run('readwrite', s => s.put(blob, key)).catch(e => {
+          throw localSaveError(e);
         }),
   get: (key: string) => run<Blob | undefined>('readonly', s => s.get(key)),
   delete: (key: string) => run('readwrite', s => s.delete(key)),
