@@ -4,14 +4,17 @@ import { useCopilot, type CopilotOffer, type CopilotLink } from '../store/copilo
 import { useCalendar } from '../store/calendar';
 import { useTodos } from '../store/todos';
 import type { Note } from '../store/notes';
-import { alreadyPlanned, createRevisionNote, hasRevisionPlan, planRevisions, goTo, linkToNote, linkToDay, deleteEvent, trashItems, openNoteLabel, createNote, addTodo, startFocus } from './actions';
+import { alreadyPlanned, createRevisionNote, hasRevisionPlan, planRevisions, goTo, linkToNote, linkToDay, deleteEvent, trashItems, openNoteLabel, createNote, addTodo, startFocus, restoreFromTrash } from './actions';
 import { fmt, fromKey, toKey, todayKey } from '../lib/dates';
 import { cleanReminders, offsetLabel } from '../lib/reminders';
 import { addDays } from 'date-fns';
 import { getSettings } from '../store/settings';
 import { t, tn } from '../i18n';
 
-type OfferResult = { text: string; links?: CopilotLink[] };
+type OfferResult = { text: string; links?: CopilotLink[]; offers?: CopilotOffer[] };
+
+/** « Annuler » after a deletion: puts these back from the trash. */
+const undo = (ids: string[]): CopilotOffer[] => [{ label: t('Annuler'), kind: 'undo_trash', payload: { ids: ids.join(',') } }];
 const studying = () => (getSettings().usage ?? 'etudes') === 'etudes';
 
 const gone = () => (studying() ? t('Je ne retrouve plus cet examen.') : t('Je ne retrouve plus cet événement.'));
@@ -80,6 +83,16 @@ function run(offer: CopilotOffer): OfferResult {
     case 'confirm_change': {
       if (!pendingChanges.apply) return { text: t('Je ne peux plus le faire, redemande-le-moi.') };
       try {
+        // Several changes asked together (offerMerge): one click applies them all.
+        if (p.name === 'batch') {
+          const list = JSON.parse(p.input ?? '[]') as { name: string; input: Record<string, unknown> }[];
+          const res = list.map(c => pendingChanges.apply!(c.name, c.input));
+          const failed = res.filter(r => r.text !== t('C’est fait.'));
+          return {
+            text: failed.length ? `${tn(list.length - failed.length, '{n} changement fait.', '{n} changements faits.')} ${failed.map(r => r.text).join(' ')}` : tn(list.length, 'C’est fait.', 'C’est fait : {n} changements.'),
+            links: res.flatMap(r => r.links ?? []).filter((l, i, a) => a.findIndex(x => x.to === l.to) === i).slice(0, 3),
+          };
+        }
         return pendingChanges.apply(p.name ?? '', JSON.parse(p.input ?? '{}') as Record<string, unknown>);
       } catch (e) {
         return { text: t('Ça n’a pas marché : {reason}', { reason: (e as Error).message }) };
@@ -128,17 +141,28 @@ function run(offer: CopilotOffer): OfferResult {
       // Deletions asked to the AI only happen here, on the student's click (or « oui »).
       const ids = (p.ids ?? '').split(',').filter(Boolean);
       if (p.what === 'event') {
-        const ev = deleteEvent(ids[0]);
-        return ev ? { text: t('« {title} » est dans la corbeille, récupérable 30 jours.', { title: ev.title }), links: [{ label: t('Corbeille'), to: '/corbeille?type=calendrier' }] } : { text: t('Introuvable, il a déjà dû être supprimé.') };
+        const gone = ids.map(deleteEvent).filter(e => e !== null);
+        if (!gone.length) return { text: t('Introuvable, il a déjà dû être supprimé.') };
+        return {
+          text: gone.length === 1 ? t('« {title} » est dans la corbeille, récupérable 30 jours.', { title: gone[0].title }) : tn(gone.length, '{n} événement mis à la corbeille, récupérable 30 jours.', '{n} événements mis à la corbeille, récupérables 30 jours.'),
+          offers: undo(gone.map(e => e.id)),
+        };
       }
       if (p.what === 'todo') {
-        const todo = useTodos.getState().todos.find(x => x.id === ids[0]);
-        if (!todo) return { text: t('Introuvable, elle a déjà dû être supprimée.') };
-        useTodos.getState().remove(todo.id);
-        return { text: t('« {title} » est dans la corbeille, récupérable 30 jours.', { title: todo.title }), links: [{ label: t('Corbeille'), to: '/corbeille?type=taches' }] };
+        const todos = useTodos.getState().todos.filter(x => ids.includes(x.id) && !x.deletedAt);
+        if (!todos.length) return { text: t('Introuvable, elle a déjà dû être supprimée.') };
+        todos.forEach(x => useTodos.getState().remove(x.id));
+        return {
+          text: todos.length === 1 ? t('« {title} » est dans la corbeille, récupérable 30 jours.', { title: todos[0].title }) : tn(todos.length, '{n} tâche mise à la corbeille, récupérable 30 jours.', '{n} tâches mises à la corbeille, récupérables 30 jours.'),
+          offers: undo(todos.map(x => x.id)),
+        };
       }
       const res = trashItems(ids);
-      return res.done.length ? { text: t('Mis à la corbeille : {names}. Récupérable 30 jours.', { names: res.done.join(', ') }), links: [{ label: t('Corbeille'), to: '/corbeille' }] } : { text: t('Introuvable, déjà supprimé.') };
+      return res.done.length ? { text: t('Mis à la corbeille : {names}. Récupérable 30 jours.', { names: res.done.join(', ') }), offers: undo(ids) } : { text: t('Introuvable, déjà supprimé.') };
+    }
+    case 'undo_trash': {
+      const res = restoreFromTrash((p.ids ?? '').split(',').filter(Boolean));
+      return res.restored.length ? { text: tn(res.restored.length, 'Annulé : {n} élément remis à sa place.', 'Annulé : {n} éléments remis à leur place.') } : { text: t('Déjà remis à sa place.') };
     }
   }
 }
@@ -153,7 +177,8 @@ export function acceptOffer(offer: CopilotOffer, rest: CopilotOffer[] = []) {
   }
   cop.push('user', offer.label);
   const reply = runOffer(offer);
-  if (useCopilot.getState().pose === 'open') cop.push('bot', reply.text, { links: reply.links, ...(rest.length && { offers: rest }) });
-  else cop.say({ text: reply.text, links: reply.links, mood: 'happy', ...(rest.length && { offers: rest }) });
+  const offers = [...(reply.offers ?? []), ...rest];
+  if (useCopilot.getState().pose === 'open') cop.push('bot', reply.text, { links: reply.links, ...(offers.length && { offers }) });
+  else cop.say({ text: reply.text, links: reply.links, mood: 'happy', ...(offers.length && { offers }) });
   return reply;
 }
