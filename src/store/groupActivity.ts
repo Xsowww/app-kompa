@@ -5,6 +5,7 @@ import { fetchGroups, sessionUserId, type Group } from '../lib/groups';
 import { canNotify, notify } from '../lib/notify';
 import { pushActive } from '../lib/push';
 import { getSettings, useSettings } from './settings';
+import { useGroups } from './groups';
 import { toast } from './ui';
 import { goTo } from '../copilot/actions';
 import { groupWords } from '../lib/usage';
@@ -110,7 +111,11 @@ export const useGroupActivity = create<ActivityState>((set, get) => ({
     // Sa propre liste : celle du store est vidée et rechargée par la page Groupes à chaque visite.
     let groups: Group[];
     try {
-      groups = (await fetchGroups()).filter(g => g.kind === 'groupe'); // shared calendars notify by push
+      const all = await fetchGroups();
+      groups = all.filter(g => g.kind === 'groupe'); // shared calendars notify by push
+      // Removed from one, or one deleted, while elsewhere in the app: the list read again says it (store/groups).
+      const known = useGroups.getState();
+      if (known.loaded && !known.failed && known.groups.some(g => !all.some(x => x.id === g.id))) void known.loadGroups();
     } catch {
       return; // réseau coupé : on garde l'affichage actuel
     }

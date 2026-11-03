@@ -2727,6 +2727,7 @@
  "modifié le {date}": "modified on {date}",
  "modifié par {name} {when}": "edited by {name} {when}",
  "modifié {time}": "modified {time}",
+ "modifiée par {name} {when}": "edited by {name} {when}",
  "modifiée {time}": "edited {time}",
  "moment marqué": "marked moment",
  "moment-là": "time",

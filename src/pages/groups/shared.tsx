@@ -19,12 +19,13 @@ export function ListTools<T extends string>({ count, query, onQuery, placeholder
 }) {
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pb-3">
-      <p className="eyebrow mr-auto">{count}</p>
+      {/* Phones: the count on its own line, the search and the order side by side under it. */}
+      <p className="eyebrow mr-auto max-sm:w-full">{count}</p>
       <div className="relative min-w-0 flex-1 basis-40 sm:max-w-[260px]">
         <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" aria-hidden />
         <input type="search" value={query} onChange={e => onQuery(e.target.value)} placeholder={placeholder} aria-label={placeholder} className="field h-9 w-full pl-8 text-[13px]" />
       </div>
-      <SelectField<T> className="h-9 w-48 shrink-0 text-[13px]" label={t('Trier')} value={sort} onChange={onSort} options={sorts} />
+      <SelectField<T> className="h-9 w-40 shrink-0 text-[13px] sm:w-48" label={t('Trier')} value={sort} onChange={onSort} options={sorts} />
     </div>
   );
 }

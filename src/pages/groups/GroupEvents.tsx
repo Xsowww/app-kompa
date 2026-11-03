@@ -211,7 +211,9 @@ function EventCard({ group, ev, onEdit }: { group: Group; ev: GroupEvent; onEdit
         : coming.length <= 3
           ? tn(coming.length, '{names} vient', '{names} viennent', { names: names.join(', ').replace(/, ([^,]*)$/, ` ${t('et')} $1`) })
           : t('{names} et {n} autres viennent', { names: names.slice(0, 2).join(', '), n: coming.length - 2 });
-  const proposed = [t('une révision'), t('une réunion')].includes(w.meet.a) ? t('Proposée par {name}', { name: nameOf(ev.createdBy) }) : t('Proposé par {name}', { name: nameOf(ev.createdBy) });
+  // « Révision » and « réunion » are feminine, « rendez-vous » masculine.
+  const feminine = [t('une révision'), t('une réunion')].includes(w.meet.a);
+  const proposed = feminine ? t('Proposée par {name}', { name: nameOf(ev.createdBy) }) : t('Proposé par {name}', { name: nameOf(ev.createdBy) });
 
   return (
     <div className="card group flex flex-wrap items-start gap-3 p-4 sm:flex-nowrap sm:items-center">
@@ -258,7 +260,7 @@ function EventCard({ group, ev, onEdit }: { group: Group; ev: GroupEvent; onEdit
         </div>
         <p className="mt-1 text-[11px] text-stone-500">
           {proposed}
-          {changedAfter(ev) && ` · ${t('modifié par {name} {when}', { name: nameOf(ev.updatedBy), when: relativeTime(ev.updatedAt!) })}`}
+          {changedAfter(ev) && ` · ${(feminine ? t('modifiée par {name} {when}', { name: nameOf(ev.updatedBy), when: relativeTime(ev.updatedAt!) }) : t('modifié par {name} {when}', { name: nameOf(ev.updatedBy), when: relativeTime(ev.updatedAt!) }))}`}
         </p>
       </div>
       <div className="flex shrink-0 basis-full items-center gap-1.5 pl-[68px] sm:basis-auto sm:pl-0">
