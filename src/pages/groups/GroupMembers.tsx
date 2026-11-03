@@ -28,6 +28,7 @@ export function GroupActions({ group, onLeft, withCode = false }: { group: Group
   const [busy, setBusy] = useState(false);
   const [heirs, setHeirs] = useState<GroupMember[] | null>(null);
   const [heir, setHeir] = useState<string | null>(null);
+  const canChoose = useFinitions(); // choosing who takes over: migration 2026-11-03 (before it, the oldest member)
 
   const run = async (job: () => Promise<void>) => {
     setBusy(true);
@@ -77,7 +78,7 @@ export function GroupActions({ group, onLeft, withCode = false }: { group: Group
     const others = members.filter(m => m.userId !== me);
     const alone = others.length === 0;
     // The owner with other members: who takes over, in the window below.
-    if (isOwner && !alone) {
+    if (isOwner && !alone && canChoose) {
       setHeir(defaultHeir(members, me));
       return setHeirs(others);
     }
@@ -86,6 +87,10 @@ export function GroupActions({ group, onLeft, withCode = false }: { group: Group
       ? agenda
         ? t('Il n’y a que toi : tout sera supprimé ({the} et ses {many}).', { the: w.the, many: w.meet.many })
         : t('Il n’y a que toi : tout sera supprimé ({the}, ses notes, ses fichiers et ses {many}).', { the: w.the, many: w.meet.many })
+      : isOwner
+        ? agenda
+          ? t('Le membre le plus ancien deviendra propriétaire. Tu pourras revenir avec le lien.')
+          : t('Le membre le plus ancien deviendra propriétaire. Tu pourras revenir avec le code.')
       : mine?.role !== 'editeur'
         ? agenda
           ? t('Tu pourras revenir avec le lien.')
