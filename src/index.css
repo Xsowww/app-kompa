@@ -3,6 +3,9 @@
 
 /* `dark:` targets the dark theme set by applyAppearance() (data-theme on <html>). */
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+/* `short:` a phone held sideways (a window less than 500 px high, without the side bar): the tab bar and the top bar
+   give their height back to the page. */
+@custom-variant short (@media (max-height: 500px) and (width < 64rem));
 
 @theme {
   --font-sans: 'Plus Jakarta Sans Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;

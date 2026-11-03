@@ -68,14 +68,14 @@ export function ServiceBanner({ inline }: { inline?: boolean }) {
   if (state === 'ok' || (!inline && hosted)) return null;
   const down = state === 'down';
   return (
-    // In the app: within the pages' centred column (layout/AppShell). Phones: one short line, the page keeps its room.
+    // In the app: within the pages' centred column (layout/AppShell). Phones: the few words that matter, the button keeps its room (cut after « Tes … », the longer text said nothing).
     <div className={inline ? 'mx-auto w-full max-w-[1244px] shrink-0 px-4 pb-2 md:px-8' : 'pointer-events-none fixed inset-x-4 top-[max(0.5rem,env(safe-area-inset-top))] z-[70] flex justify-center'}>
       <div role="status" aria-live="polite" className={cx('enter pointer-events-auto flex items-center gap-2.5 rounded-2xl border-2 border-amber-400 bg-surface py-1.5 pl-3 pr-1.5 text-[13px] leading-snug text-ink max-sm:min-h-9 max-sm:py-1', inline ? 'w-full' : 'max-w-[560px] shadow-pop')}>
         {down ? <CloudAlert size={16} className="shrink-0 text-amber-500" aria-hidden /> : <WifiOff size={16} className="shrink-0 text-amber-500" aria-hidden />}
-        <span className="min-w-0 flex-1 max-sm:truncate">
+        <span className="min-w-0 flex-1 max-sm:line-clamp-2">
           <b className="font-semibold">{down ? t('Service perturbé.') : t('Hors ligne.')}</b>{' '}
           <span className="max-sm:hidden">{down ? t('Tes changements restent sur cet appareil et partiront dès que ça revient.') : t('Tes changements restent sur cet appareil et partiront au retour de la connexion.')}</span>
-          <span className="sm:hidden">{down ? t('Tes changements partiront dès que ça revient.') : t('Tes changements partiront au retour.')}</span>
+          <span className="sm:hidden">{t('Rien n’est perdu.')}</span>
         </span>
         {down && (
           <button type="button" className="hit-sm shrink-0 rounded-lg px-2.5 py-1 font-semibold hover:bg-stone-100" onClick={() => void retryNow()}>

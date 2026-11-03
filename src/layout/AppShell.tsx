@@ -570,7 +570,7 @@ export default function AppShell() {
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Wide screens: the header, like every page, keeps to the same centred column (1180 px of content, the pages'
             `max-w-[1180px]` or `max-w-[1244px]` with their padding), so the search and the bin line up with it. */}
-        <header className="mx-auto flex h-14 w-full max-w-[1244px] shrink-0 items-center gap-3 px-4 md:px-8">
+        <header className="mx-auto flex h-14 w-full max-w-[1244px] shrink-0 items-center gap-3 px-4 short:h-12 md:px-8">
           <span className="lg:hidden">
             <Logo />
           </span>
@@ -751,8 +751,9 @@ function PhoneTabBar({ news, label, extra }: { news: (to: string) => number; lab
     };
   }, [open]);
 
+  // Sideways (short): the icon beside its name, on one line, a lower bar.
   const tab = (active: boolean) =>
-    cx('flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-[17px] py-1.5 text-[10px] font-semibold tracking-[-0.01em] transition-colors max-[339px]:text-[9px]', active ? 'bg-white text-[#14161f]' : 'text-white/60 hover:text-white');
+    cx('flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-[17px] py-1.5 text-[10px] font-semibold tracking-[-0.01em] transition-colors max-[339px]:text-[9px] short:flex-row short:justify-center short:gap-1.5 short:py-2 short:text-[12px] [&_svg]:shrink-0', active ? 'bg-white text-[#14161f]' : 'text-white/60 hover:text-white');
   const Shown = current?.icon ?? LayoutGrid;
 
   return (
@@ -763,7 +764,7 @@ function PhoneTabBar({ news, label, extra }: { news: (to: string) => number; lab
           id="nav-more-panel"
           // As many columns as fit (80 px at least): one row on most phones, 2 on the narrowest; on a wide screen
           // (landscape, tablet) a compact panel at the right, above « Plus », not a wide sheet of white.
-          className="enter fixed bottom-[calc(max(12px,env(safe-area-inset-bottom))+4.5rem)] left-[max(12px,env(safe-area-inset-left))] right-[max(12px,env(safe-area-inset-right))] z-[45] grid grid-cols-[repeat(auto-fit,minmax(80px,1fr))] gap-1.5 rounded-[22px] border border-stone-200 bg-surface p-2 shadow-pop sm:left-auto sm:w-[440px] lg:hidden"
+          className="enter fixed bottom-[calc(max(12px,env(safe-area-inset-bottom))+4.5rem)] short:bottom-[calc(max(12px,env(safe-area-inset-bottom))+3.75rem)] left-[max(12px,env(safe-area-inset-left))] right-[max(12px,env(safe-area-inset-right))] z-[45] grid grid-cols-[repeat(auto-fit,minmax(80px,1fr))] gap-1.5 rounded-[22px] border border-stone-200 bg-surface p-2 shadow-pop sm:left-auto sm:w-[440px] lg:hidden"
         >
           {more.map(n => (
             <NavLink
