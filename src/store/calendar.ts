@@ -62,6 +62,8 @@ export interface CalendarEvent {
   category: EventCategory;
   done: boolean;
   details?: string;
+  /** Where it happens (« Salle B12 », « Cabinet du Dr Martin »): shown in the lists and searched. */
+  place?: string;
   /** Marked important by the person (flag): the home page counts it among the big days to come. */
   important?: boolean;
   /** Reminders, in minutes before the start (or before 9:00 for an event without a time): lib/reminders. */
@@ -228,8 +230,9 @@ export function timetableCategory(title: string, timed: boolean): EventCategory 
   return c === 'perso' && timed ? 'cours' : c;
 }
 
+/** By day, then the day's events without a time first (as in the day view: a birthday above the hours), then by hour. */
 export const sortEvents = (a: CalendarEvent, b: CalendarEvent) =>
-  a.date.localeCompare(b.date) || (a.start ?? '99').localeCompare(b.start ?? '99');
+  a.date.localeCompare(b.date) || (a.start ?? '').localeCompare(b.start ?? '');
 
 export const useCalendar = create<CalendarState>()(
   persist(

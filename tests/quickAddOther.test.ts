@@ -12,6 +12,7 @@ describe('saisie rapide dans les autres langues', () => {
     expect(p('en', 'Gym next Friday 6-7pm')).toMatchObject({ title: 'Gym', date: '2026-10-30', start: '18:00', end: '19:00' });
     expect(p('en', 'Essay due November 12th urgent')).toMatchObject({ title: 'Essay', date: '2026-11-12', important: true });
     expect(p('en', 'Team meeting every Monday 14:00')).toMatchObject({ title: 'Team meeting', date: '2026-10-19', start: '14:00', weekly: true });
+    expect(p('en', "Mum's birthday March 12 every year")).toMatchObject({ title: "Mum's birthday", date: '2027-03-12', yearly: true });
     expect(p('en', 'Report on 12/11')).toMatchObject({ title: 'Report', date: '2026-11-12' });
   });
   it('espagnol', () => {

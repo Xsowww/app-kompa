@@ -33,6 +33,7 @@ const eventToRow = (e: CalendarEvent): Row => ({
   category: e.category,
   done: e.done,
   details: e.details ?? null,
+  place: e.place ?? null,
   important: !!e.important,
   reminders: e.reminders ?? null,
   external_id: e.externalId ?? null,
@@ -49,6 +50,7 @@ const rowToEvent = (r: Row): CalendarEvent => ({
   category: r.category as CalendarEvent['category'],
   done: r.done as boolean,
   details: (r.details as string) ?? undefined,
+  place: (r.place as string) || undefined,
   important: r.important === true || undefined,
   reminders: cleanReminders(r.reminders),
   externalId: (r.external_id as string) ?? undefined,
@@ -59,13 +61,16 @@ const rowToEvent = (r: Row): CalendarEvent => ({
 
 /**
  * A server without the « series » column yet (migration 2026-10-30 not applied) sends rows without it:
- * each event keeps the series known on this device, else its repeats would come back unlinked.
+ * each event keeps the series known on this device, else its repeats would come back unlinked. The same for
+ * the place (migration 2026-11-03).
  */
 const eventsKeepingSeries = (local: CalendarEvent[]) => {
-  const known = new Map(local.filter(e => e.series).map(e => [e.id, e.series]));
+  const known = new Map(local.filter(e => e.series || e.place).map(e => [e.id, e]));
   return (r: Row): CalendarEvent => {
     const e = rowToEvent(r);
-    return 'series' in r || !known.has(e.id) ? e : { ...e, series: known.get(e.id) };
+    const mine = known.get(e.id);
+    if (!mine) return e;
+    return { ...e, ...(!('series' in r) && mine.series && { series: mine.series }), ...(!('place' in r) && mine.place && { place: mine.place }) };
   };
 };
 
@@ -179,7 +184,7 @@ const unstamped = (rows: Row[]) => rows.map(({ updated_at: _u, ...r }) => r);
 const missingStamp = (e: { code?: string; message?: string } | null) => e?.code === 'PGRST204' && !!e.message?.includes('updated_at');
 const missingColumn = (e: { code?: string; message?: string } | null, col: string) => e?.code === 'PGRST204' && !!e.message?.includes(col);
 // Columns added by later migrations: a server without them yet gets the rows without them (kept on this device).
-const OPTIONAL: Partial<Record<Table, string[]>> = { events: ['important', 'reminders', 'series'], todos: ['due_time', 'reminders', 'repeat', 'deleted_at'], note_folders: ['color'] };
+const OPTIONAL: Partial<Record<Table, string[]>> = { events: ['important', 'reminders', 'series', 'place'], todos: ['due_time', 'reminders', 'repeat', 'deleted_at'], note_folders: ['color'] };
 const absent = new Map<Table, Set<string>>();
 const withoutAbsent = (table: Table, rows: Row[]) => {
   const cols = absent.get(table);

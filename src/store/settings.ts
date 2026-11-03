@@ -80,6 +80,7 @@ export interface Settings {
   groupsSeen: Record<string, string>; // « groupId:tab » → last time the student looked (synced across devices)
   customCategories: CustomCategory[]; // calendar categories created by the student
   periods: Period[]; // « En entreprise », « Vacances »… shown as a tint over the calendar days
+  hiddenAgendas: string[]; // shared calendars left out of my calendar and the home page (all shown by default)
   icsFeeds: IcsFeed[]; // timetables followed by link (lib/icsFeeds), read again every few hours
   newsSeen: string; // last « Nouveautés » release read (lib/news), so it is shown once per account
   emailTips: boolean; // the tips e-mail a few days after signing up (server/emails.mjs)
@@ -131,6 +132,7 @@ export const DEFAULT_SETTINGS: Settings = {
   groupsSeen: {},
   customCategories: [],
   periods: [],
+  hiddenAgendas: [],
   icsFeeds: [],
   newsSeen: '',
   emailTips: true,

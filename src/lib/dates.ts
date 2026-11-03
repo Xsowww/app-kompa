@@ -63,6 +63,8 @@ export interface ParsedQuickAdd {
   end: string | null;
   /** « tous les mardis », « chaque lundi »: the event form offers « Chaque semaine » (lib/repeat). */
   weekly?: boolean;
+  /** « tous les ans », « chaque année » (a birthday): the event form offers « Chaque année ». */
+  yearly?: boolean;
   /** « important », « urgent » or « ! » in the sentence: the event is flagged important. */
   important?: boolean;
   /** A date that doesn't exist (« le 31/11 », « 30 février »): left in the title, to be corrected. */
@@ -94,6 +96,7 @@ export function parseQuickAdd(input: string, base = new Date(), language = lang)
   let start: string | null = null;
   let end: string | null = null;
   let weekly = false;
+  let yearly = false;
   let impossible = false; // « le 30 février »: no date, rather than « le 30 » of this month
   // Same length as `text` (accents stripped, no trim) so match indices map back.
   // The typographic apostrophe of phone keyboards (« aujourd’hui ») counts as a plain one.
@@ -181,6 +184,9 @@ export function parseQuickAdd(input: string, base = new Date(), language = lang)
   let important = false;
   const flag = cut(/\s(?:\(?(?:tres\s)?(?:important|importante|urgent|urgente)\)?|!+)(?=\s)/);
   if (flag) important = true;
+
+  // « Anniversaire de Léa le 12 mars tous les ans »: the date as said, repeated each year.
+  if (cut(/\s(?:tous\sles\sans|chaque\sannee|toutes\sles\sannees)(?=\s)/)) yearly = true;
 
   // Every week: the next one.
   const every = cut(new RegExp(`\\s(?:tous\\sles|chaque)\\s(${DAY})s?${PERIOD}(?=\\s)`));
@@ -280,6 +286,7 @@ export function parseQuickAdd(input: string, base = new Date(), language = lang)
     start,
     end,
     ...(weekly && { weekly }),
+    ...(yearly && { yearly }),
     ...(important && { important }),
     ...(impossible && { impossible }),
   };

@@ -1,15 +1,22 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import type { CalendarEvent } from '../../store/calendar';
 
-/** Where an event is dropped: a day (week strip, month cell) or a precise time slot (day view). */
+/** Where an event is dropped: a day (week list, month cell) or a precise time slot (hourly grid). */
 export interface DropTarget {
   day: string;
   minutes?: number;
 }
 
+/**
+ * 'move': the event to another day or time. On the hourly grid only, the event's own day: 'resize' its end
+ * (its bottom edge), 'create' a new event over the range swept from an empty slot (`ev` holds that slot).
+ */
+export type DragMode = 'move' | 'resize' | 'create';
+
 export interface DragState {
   ev: CalendarEvent;
   target: DropTarget | null;
+  mode: DragMode;
 }
 
 const SNAP = 15;
@@ -24,8 +31,9 @@ function sameTarget(a: DropTarget | null, b: DropTarget | null) {
  * touch after a long press (so a normal swipe still scrolls the page).
  * Drop zones are plain elements marked with `data-drop-day="YYYY-MM-DD"`, or
  * `data-drop-timeline="YYYY-MM-DD" data-start-hour data-hour-px` for the hourly grid.
+ * The same gesture resizes an event or sweeps a new one on the grid (`mode`).
  */
-export function useEventDrag(onDrop: (ev: CalendarEvent, target: DropTarget) => void) {
+export function useEventDrag(onDrop: (ev: CalendarEvent, target: DropTarget, mode: DragMode) => void) {
   const [drag, setDrag] = useState<DragState | null>(null);
   const ghostRef = useRef<HTMLDivElement>(null);
   const onDropRef = useRef(onDrop);
@@ -36,12 +44,12 @@ export function useEventDrag(onDrop: (ev: CalendarEvent, target: DropTarget) => 
   });
   useEffect(() => () => cleanupRef.current?.(), []);
 
-  const start = (ev: CalendarEvent, e: ReactPointerEvent<HTMLElement>, grabFromTop = false) => {
+  const start = (ev: CalendarEvent, e: ReactPointerEvent<HTMLElement>, { grabFromTop = false, mode = 'move' }: { grabFromTop?: boolean; mode?: DragMode } = {}) => {
     if (e.button !== 0 || cleanupRef.current) return;
     const touch = e.pointerType !== 'mouse';
     const x0 = e.clientX;
     const y0 = e.clientY;
-    const grabOffset = grabFromTop ? e.clientY - e.currentTarget.getBoundingClientRect().top : 0;
+    const grabOffset = grabFromTop && mode === 'move' ? e.clientY - e.currentTarget.getBoundingClientRect().top : 0;
     let active = false;
     let armed = false;
     let target: DropTarget | null = null;
@@ -51,15 +59,19 @@ export function useEventDrag(onDrop: (ev: CalendarEvent, target: DropTarget) => 
 
     const findTarget = (x: number, y: number): DropTarget | null => {
       const el = document.elementFromPoint(x, y);
-      const line = el?.closest<HTMLElement>('[data-drop-timeline]');
+      // Resizing or sweeping stays on the event's own day, wherever the pointer drifts sideways.
+      const line = mode === 'move' ? el?.closest<HTMLElement>('[data-drop-timeline]') : document.querySelector<HTMLElement>(`[data-drop-timeline="${ev.date}"]`);
       if (line) {
         const rect = line.getBoundingClientRect();
         const startHour = Number(line.dataset.startHour);
         const hourPx = Number(line.dataset.hourPx);
         const raw = startHour * 60 + ((y - grabOffset - rect.top) / hourPx) * 60;
-        const minutes = Math.max(0, Math.min(24 * 60 - SNAP, Math.round(raw / SNAP) * SNAP));
+        // A new event's slot is the one under the pointer; a moved start or a dragged end, the nearest mark.
+        const snapped = (mode === 'create' ? Math.floor(raw / SNAP) : Math.round(raw / SNAP)) * SNAP;
+        const minutes = Math.max(0, Math.min(24 * 60 - (mode === 'resize' ? 0 : SNAP), snapped));
         return { day: line.dataset.dropTimeline!, minutes };
       }
+      if (mode !== 'move') return null;
       const day = el?.closest<HTMLElement>('[data-drop-day]');
       return day ? { day: day.dataset.dropDay! } : null;
     };
@@ -90,7 +102,7 @@ export function useEventDrag(onDrop: (ev: CalendarEvent, target: DropTarget) => 
       const t = findTarget(pos.x, pos.y);
       if (!sameTarget(t, target)) {
         target = t;
-        setDrag({ ev, target: t });
+        setDrag({ ev, target: t, mode });
       }
     };
 
@@ -99,7 +111,7 @@ export function useEventDrag(onDrop: (ev: CalendarEvent, target: DropTarget) => 
       document.body.style.userSelect = 'none';
       window.getSelection()?.removeAllRanges();
       if (touch) navigator.vibrate?.(8);
-      setDrag({ ev, target: null });
+      setDrag({ ev, target: null, mode });
       requestAnimationFrame(() => {
         placeGhost();
         update();
@@ -137,7 +149,7 @@ export function useEventDrag(onDrop: (ev: CalendarEvent, target: DropTarget) => 
       // The click that follows a drag must not open or select anything.
       window.addEventListener('click', swallowClick, true);
       setTimeout(() => window.removeEventListener('click', swallowClick, true), 0);
-      if (t) onDropRef.current(ev, t);
+      if (t) onDropRef.current(ev, t, mode);
     };
 
     const onKey = (k: KeyboardEvent) => k.key === 'Escape' && cleanup();

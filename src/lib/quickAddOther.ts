@@ -132,8 +132,17 @@ export interface Parsed {
   start: string | null;
   end: string | null;
   weekly?: boolean;
+  yearly?: boolean;
   important?: boolean;
 }
+
+/** « every year »: a birthday, repeated each year (the event form offers « Chaque année »). Accents stripped. */
+const YEARLY: Record<Exclude<Lang, 'fr'>, RegExp> = {
+  en: /\s(?:every\syear|each\syear|yearly|annually)(?=\s)/,
+  es: /\s(?:cada\sano|todos\slos\sanos)(?=\s)/,
+  de: /\s(?:jedes\sjahr|jahrlich)(?=\s)/,
+  it: /\s(?:ogni\sanno|tutti\sgli\sanni)(?=\s)/,
+};
 
 export function parseQuickAddIn(lang: Exclude<Lang, 'fr'>, input: string, base = new Date()): Parsed {
   const w = WORDS[lang];
@@ -218,6 +227,7 @@ export function parseQuickAddIn(lang: Exclude<Lang, 'fr'>, input: string, base =
 
   let important = false;
   if (cut(new RegExp(`\\s(?:\\(?(?:${alt(w.flags)})\\)?|!+)(?=\\s)`))) important = true;
+  const yearly = !!cut(YEARLY[lang]);
 
   const every = cut(new RegExp(`\\s(?:${alt(w.every)})\\s${DAY}s?(?=\\s)`)) ?? (lang === 'de' ? cut(/\s(sonntags|montags|dienstags|mittwochs|donnerstags|freitags|samstags)(?=\s)/) : null);
   if (every) {
@@ -274,6 +284,7 @@ export function parseQuickAddIn(lang: Exclude<Lang, 'fr'>, input: string, base =
     start,
     end,
     ...(weekly && { weekly }),
+    ...(yearly && { yearly }),
     ...(important && { important }),
   };
 }

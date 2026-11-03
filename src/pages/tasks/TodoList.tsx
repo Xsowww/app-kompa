@@ -578,6 +578,12 @@ export default function TodoList({ limit, grouped }: { limit?: number; grouped?:
         </div>
       )}
       {lateMenu && <ContextMenu x={lateMenu.x} y={lateMenu.y} items={postponeItems(lateItems, true)} onClose={() => setLateMenu(null)} label={t('Tout reporter')} />}
+      {/* The home preview: the tasks it leaves out are counted, one tap from Tâches. */}
+      {preview && open.length > openShown.length && (
+        <Link to="/taches" className="mt-1 self-start rounded px-1.5 text-[12px] font-medium text-stone-500 hover:text-ink hover:underline pointer-coarse:py-2">
+          {tn(open.length - openShown.length, '+{n} autre dans Tâches', '+{n} autres dans Tâches')}
+        </Link>
+      )}
     </div>
   );
 }

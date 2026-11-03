@@ -65,7 +65,8 @@ describe('global search', () => {
     const events = { a1: [{ id: 'ge', groupId: 'a1', title: 'Repas bio', date: inDays(3) }] } as never;
     const hits = search('bio', 8, { groups, notes, events });
     expect(hits.find(h => h.id === 'gn')).toMatchObject({ type: 'note partagée', where: 'Projet bio', to: '/groupes?g=g1&onglet=notes&note=gn' });
-    expect(hits.find(h => h.id === 'ge')).toMatchObject({ type: 'événement partagé', to: '/agendas?g=a1' });
+    // Its day in its agenda, the event glowing there.
+    expect(hits.find(h => h.id === 'ge')).toMatchObject({ type: 'événement partagé', to: `/agendas?g=a1&jour=${inDays(3)}&evt=ge` });
     // Kompaly's own search (which can delete or rename what it finds) stays on my things.
     expect(search('bio').some(h => h.id === 'gn' || h.id === 'ge')).toBe(false);
   });

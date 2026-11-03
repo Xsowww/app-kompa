@@ -137,8 +137,8 @@ const icsText = (t: string) => t.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').re
 // Local calendar arithmetic (toISOString gave the same day back east of UTC+12).
 const nextDay = (date: string) => toKey(addDays(fromKey(date), 1));
 
-/** .ics file that Google Agenda, Apple Calendrier or Outlook can import. */
-export function exportIcs(events: CalendarEvent[] = useCalendar.getState().events) {
+/** .ics file that Google Agenda, Apple Calendrier or Outlook can import (`name`: a shared calendar's, in the file name). */
+export function exportIcs(events: CalendarEvent[] = useCalendar.getState().events, name?: string) {
   const now = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
   const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Kompaly//FR', 'CALSCALE:GREGORIAN'];
   for (const e of events) {
@@ -152,11 +152,14 @@ export function exportIcs(events: CalendarEvent[] = useCalendar.getState().event
       lines.push(`DTSTART;VALUE=DATE:${icsDate(e.date)}`, `DTEND;VALUE=DATE:${icsDate(nextDay(e.date))}`);
     }
     lines.push(`SUMMARY:${icsText(e.title)}`, `CATEGORIES:${icsText(catOf(e.category).label)}`);
+    if (e.place) lines.push(`LOCATION:${icsText(e.place)}`);
     if (e.details) lines.push(`DESCRIPTION:${icsText(e.details)}`);
     lines.push('END:VEVENT');
   }
   lines.push('END:VCALENDAR');
-  download(t('kompaly-calendrier-{day}.ics', { day: stamp() }), lines.map(foldLine).join('\r\n'), 'text/calendar');
+  // « Famille » → « kompaly-famille-2026-11-03.ics » (letters and digits only: a file name every system takes).
+  const slug = name?.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
+  download(slug ? `kompaly-${slug}-${stamp()}.ics` : t('kompaly-calendrier-{day}.ics', { day: stamp() }), lines.map(foldLine).join('\r\n'), 'text/calendar');
 }
 
 /** The account's own tables (group content lives in separate tables and is left alone). */

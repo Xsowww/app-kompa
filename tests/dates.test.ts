@@ -22,6 +22,8 @@ describe('parseQuickAdd', () => {
     ['Rendre DM vendredi soir', { title: 'Rendre DM', date: '2026-10-16', start: null, end: null }],
     ['Exam la semaine prochaine', { title: 'Exam', date: '2026-10-19', start: null, end: null }],
     ['Sport tous les jeudis à 18h', { title: 'Sport', date: '2026-10-15', start: '18:00', end: null, weekly: true }],
+    ['Anniversaire de Léa le 12 mars tous les ans', { title: 'Anniversaire de Léa', date: '2027-03-12', start: null, end: null, yearly: true }],
+    ['Fête des voisins chaque année le 5 juin', { title: 'Fête des voisins', date: '2027-06-05', start: null, end: null, yearly: true }],
     ['Révisions 14-16', { title: 'Révisions 14-16', date: null, start: null, end: null }], // pas un 16e mois
     ['Anniversaire le 31/02', { title: 'Anniversaire le 31/02', date: null, start: null, end: null, impossible: true }],
     ['Rdv lundi 14h75', { title: 'Rdv 14h75', date: '2026-10-19', start: null, end: null }],
