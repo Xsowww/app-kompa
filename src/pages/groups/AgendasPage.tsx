@@ -1,17 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { CalendarRange, CloudOff, Link2, Settings2, Users } from 'lucide-react';
+import { CalendarRange, CloudOff, Link2, LogIn, Settings2, Users } from 'lucide-react';
 import GroupMuteButton from '../../components/GroupMuteButton';
 import { useAuth } from '../../store/auth';
 import { prefetchGroup, useGroups, watchFocus } from '../../store/groups';
 import { Modal } from '../../components/Overlays';
 import { cloudEnabled } from '../../lib/supabase';
-import { copyInviteLink, setGroupSpace } from '../../lib/groups';
+import { setGroupSpace, shareInvite } from '../../lib/groups';
 import { cx } from '../../lib/utils';
 import { GroupBadge } from './shared';
 import { EmptyState, Skeleton } from '../../components/EmptyState';
 import { KindContext } from './util';
-import { GroupForm } from './GroupsPage';
+import { GroupForm, JoinForm } from './GroupsPage';
 import GroupMembers from './GroupMembers';
 import SharedCalendar from './SharedCalendar';
 import { setViewingAgenda, useAgendaNews } from '../../store/agendaNews';
@@ -47,7 +47,7 @@ function Agendas() {
   const userId = useAuth(s => s.user?.id);
   const { groups: all, loaded, failed } = useGroups();
   const agendas = all.filter(g => g.kind === 'agenda').sort((a, b) => a.name.localeCompare(b.name, locale()));
-  const [dialog, setDialog] = useState<'create' | 'settings' | 'members' | null>(null);
+  const [dialog, setDialog] = useState<'create' | 'settings' | 'members' | 'join' | null>(null);
 
   // Which one: ?g=…, else the last one opened here, else the first.
   const wanted = params.get('g') ?? (() => {
@@ -97,8 +97,15 @@ function Agendas() {
   }, [group, navigate]);
 
   const open = (id: string) => setParams({ g: id });
-  // The « + » button: a new shared calendar, after « Nouvel événement » of the one open (when I may write in it).
-  useCreateActions([{ label: t('Nouvel agenda partagé'), icon: <CalendarRange />, onClick: () => setDialog('create') }], 1);
+  // The « + » button: a new shared calendar, or one joined with the link received (pasted here, not only opened),
+  // after « Nouvel événement » of the one open (when I may write in it).
+  useCreateActions(
+    [
+      { label: t('Nouvel agenda partagé'), icon: <CalendarRange />, onClick: () => setDialog('create') },
+      { label: t('Rejoindre avec un lien'), icon: <LogIn />, onClick: () => setDialog('join') },
+    ],
+    1,
+  );
 
   return (
     <div className="flex h-full flex-col">
@@ -122,7 +129,7 @@ function Agendas() {
                 <GroupBadge group={g} size={26} />
                 <span className="max-w-[160px] truncate">{g.name}</span>
                 {g.id !== active?.id && (news[g.id] ?? 0) > 0 && (
-                  <span className="rounded-full bg-red-500 px-1.5 text-[11px] font-semibold leading-[18px] text-white tabular" aria-label={tn(news[g.id], '{n} nouveauté', '{n} nouveautés')}>
+                  <span className="rounded-full bg-brand-solid px-1.5 text-[11px] font-semibold leading-[18px] text-on-brand tabular" aria-label={tn(news[g.id], '{n} nouveauté', '{n} nouveautés')}>
                     {news[g.id]}
                   </span>
                 )}
@@ -167,7 +174,7 @@ function Agendas() {
               <Users size={14} /> <span className="max-sm:sr-only">{t('Membres')}</span>
             </button>
             {token && (
-              <button className="btn-secondary h-8 px-2.5 pointer-coarse:h-9 sm:px-3" onClick={() => void copyInviteLink(token)} title={t('Copier le lien d’invitation')}>
+              <button className="btn-secondary h-8 px-2.5 pointer-coarse:h-9 sm:px-3" onClick={() => void shareInvite(active, token)} title={t('Inviter quelqu’un')}>
                 <Link2 size={14} /> <span className="max-sm:sr-only">{t('Inviter')}</span>
               </button>
             )}
@@ -194,6 +201,9 @@ function Agendas() {
             }}
           />
         )}
+      </Modal>
+      <Modal open={dialog === 'join'} onClose={() => setDialog(null)}>
+        {dialog === 'join' && <JoinForm onDone={() => setDialog(null)} />}
       </Modal>
       <Modal open={dialog === 'members' && !!active} onClose={() => setDialog(null)} width={560}>
         {dialog === 'members' && active && (

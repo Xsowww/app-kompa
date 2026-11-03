@@ -1,9 +1,33 @@
+import { Search } from 'lucide-react';
 import { GROUP_COLORS, type Group } from '../../lib/groups';
 import { groupColor } from './util';
 import { cx } from '../../lib/utils';
 import { t } from '../../i18n';
 import { useGroups } from '../../store/groups';
 import { EmptyState, LoadErrorLine } from '../../components/EmptyState';
+import { SelectField } from '../../components/Pickers';
+
+/** Above a group's notes or files: how many, a search, and the order. */
+export function ListTools<T extends string>({ count, query, onQuery, placeholder, sort, onSort, sorts }: {
+  count: string;
+  query: string;
+  onQuery: (q: string) => void;
+  placeholder: string;
+  sort: T;
+  onSort: (s: T) => void;
+  sorts: { value: T; label: string }[];
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pb-3">
+      <p className="eyebrow mr-auto">{count}</p>
+      <div className="relative min-w-0 flex-1 basis-40 sm:max-w-[260px]">
+        <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" aria-hidden />
+        <input type="search" value={query} onChange={e => onQuery(e.target.value)} placeholder={placeholder} aria-label={placeholder} className="field h-9 w-full pl-8 text-[13px]" />
+      </div>
+      <SelectField<T> className="h-9 w-48 shrink-0 text-[13px]" label={t('Trier')} value={sort} onChange={onSort} options={sorts} />
+    </div>
+  );
+}
 
 /**
  * A tab whose content couldn't be read (no connection…): said plainly, with « Réessayer », instead of loading forever.
@@ -34,13 +58,18 @@ function hash(s: string) {
   return Math.abs(h);
 }
 
-/** Rond avec l'initiale d'un membre, couleur stable selon son identifiant. */
-export function MemberDot({ userId, name, size = 24, className }: { userId: string; name: string; size?: number; className?: string }) {
+/**
+ * Rond d'un membre : la photo de son profil, sinon son initiale sur la couleur de son profil (ou une couleur stable
+ * selon son identifiant, quand la base ne les donne pas encore).
+ */
+export function MemberDot({ userId, name, size = 24, className, photo, color }: { userId: string; name: string; size?: number; className?: string; photo?: string | null; color?: string | null }) {
+  if (photo)
+    return <img src={photo} alt="" title={name} width={size} height={size} className={cx('shrink-0 rounded-full object-cover ring-2 ring-surface', className)} style={{ width: size, height: size }} />;
   return (
     <span
       title={name}
       className={cx('flex shrink-0 items-center justify-center rounded-full font-semibold text-white ring-2 ring-surface', className)}
-      style={{ width: size, height: size, background: GROUP_COLORS[hash(userId) % GROUP_COLORS.length], fontSize: Math.round(size * 0.44) }}
+      style={{ width: size, height: size, background: color ?? GROUP_COLORS[hash(userId) % GROUP_COLORS.length], fontSize: Math.round(size * 0.44) }}
     >
       {name.charAt(0).toUpperCase()}
     </span>

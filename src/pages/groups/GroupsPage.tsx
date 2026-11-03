@@ -1,6 +1,6 @@
 import { useContext, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, CalendarClock, CloudOff, Copy, ImagePlus, LogIn, NotebookText, Paperclip, Plus, Settings2, Users } from 'lucide-react';
+import { ArrowLeft, CalendarClock, CheckCheck, CloudOff, Copy, ImagePlus, LogIn, NotebookText, Paperclip, Plus, Send, Settings2, Users } from 'lucide-react';
 import { imageToAvatar } from '../../lib/backup';
 import { useAuth } from '../../store/auth';
 import { prefetchGroup, useGroups, watchFocus } from '../../store/groups';
@@ -9,14 +9,16 @@ import { toast } from '../../store/ui';
 import GroupMuteButton from '../../components/GroupMuteButton';
 import { Modal } from '../../components/Overlays';
 import { FieldError } from '../../components/Field';
+import { SelectField } from '../../components/Pickers';
 import { cloudEnabled } from '../../lib/supabase';
-import { GROUP_COLORS, copyCode, createGroup, groupError, joinGroup, updateGroup, type Group } from '../../lib/groups';
+import { GROUP_COLORS, copyCode, createGroup, groupError, joinAgenda, joinGroup, shareInvite, updateGroup, type Group, type GroupRole } from '../../lib/groups';
+import { parseInvite } from '../../lib/groupInvite';
 import { cx } from '../../lib/utils';
 import { ColorPicker, GroupBadge } from './shared';
-import { KindContext, groupColor, useGroupWords, useRights } from './util';
+import { KindContext, groupColor, groupWordsNow, useGroupWords, useRights } from './util';
 import GroupNotes from './GroupNotes';
 import GroupEvents from './GroupEvents';
-import GroupMembers from './GroupMembers';
+import GroupMembers, { GroupActions } from './GroupMembers';
 import GroupFiles from './GroupFiles';
 import ShareActions from './GroupShare';
 import { useCreateActions, useNarrow } from '../../store/create';
@@ -34,12 +36,16 @@ const TABS: { id: Tab; label: string; icon: typeof Users }[] = [
 ];
 
 
-export function GroupForm({ group, onDone }: { group?: Group; onDone: (g?: Group) => void }) {
+/** Creates a group (or shared calendar), or its ⚙ settings: name, photo, colour, the rights of newcomers, and below,
+ *  its code / link, leaving and deleting it (`onLeft`: it is gone from the list). */
+export function GroupForm({ group, onDone, onLeft }: { group?: Group; onDone: (g?: Group) => void; onLeft?: () => void }) {
   const w = useGroupWords();
   const kind = useContext(KindContext);
   const [name, setName] = useState(group?.name ?? '');
   const [color, setColor] = useState<string>(group?.color ?? GROUP_COLORS[0]);
   const [photo, setPhoto] = useState<string | null>(group?.photo ?? null);
+  const [defaultRole, setDefaultRole] = useState<GroupRole>(group?.defaultRole ?? 'editeur');
+  const [defaultCanInvite, setDefaultCanInvite] = useState(group?.defaultCanInvite ?? true);
   const [busy, setBusy] = useState(false);
   // The name is required: said under it when emptied and left, or at the submit (the focus goes back to it).
   const [nameError, setNameError] = useState('');
@@ -62,7 +68,11 @@ export function GroupForm({ group, onDone }: { group?: Group; onDone: (g?: Group
     try {
       if (group) {
         await updateGroup(group.id, { name: name.trim(), color, ...(photo !== group.photo && { photo }) });
+        // Apart: a server without them yet (said in a message) keeps the name and the photo saved.
+        if (defaultRole !== group.defaultRole || defaultCanInvite !== group.defaultCanInvite)
+          await updateGroup(group.id, { defaultRole, defaultCanInvite }).catch(err => toast(groupError(err), 'error'));
         await useGroups.getState().loadGroups();
+        toast(t('Paramètres enregistrés'), 'success');
         onDone(group);
       } else {
         const g = await createGroup(name.trim(), color, kind);
@@ -112,66 +122,100 @@ export function GroupForm({ group, onDone }: { group?: Group; onDone: (g?: Group
       <div className="mt-2">
         <ColorPicker value={color} onChange={setColor} />
       </div>
+      {group && (
+        <>
+          <p className="eyebrow mt-5">{t('Nouveaux membres')}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
+            <SelectField<GroupRole>
+              className="h-9 w-36 text-[13px]"
+              label={t('Rôle des nouveaux membres')}
+              value={defaultRole}
+              onChange={setDefaultRole}
+              options={[
+                { value: 'editeur', label: t('Éditeur'), hint: t('Ajoute et modifie') },
+                { value: 'lecteur', label: t('Lecteur'), hint: t('Voit tout, ne modifie rien') },
+              ]}
+            />
+            <label className="check-hit flex items-center gap-1.5 text-[13px] text-stone-600">
+              <input type="checkbox" className="h-4 w-4 shrink-0 accent-[var(--color-ink)]" checked={defaultCanInvite} onChange={e => setDefaultCanInvite(e.target.checked)} />
+              {t('Peuvent inviter')}
+            </label>
+          </div>
+          <p className="mt-1.5 text-[12px] text-stone-500">{t('Pour ceux qui rejoindront. Les droits de chacun se changent dans « Membres ».')}</p>
+        </>
+      )}
       <div className="mt-6 flex justify-end gap-2">
         <button type="button" className="btn-secondary" onClick={() => onDone()}>{t('Annuler')}</button>
         <button type="submit" className="btn-primary" disabled={busy}>{group ? t('Enregistrer||sauver') : t('Créer {the}', { the: w.the })}</button>
       </div>
+      {/* Everything about it in one place (also at the bottom of « Membres »). Its window's form (who takes over)
+          is in the React tree of this one: its submit doesn't reach « Enregistrer ». */}
+      {group && (
+        <div className="mt-6 border-t border-stone-100 pt-4" onSubmit={e => e.stopPropagation()}>
+          <GroupActions group={group} withCode onLeft={() => (onDone(), onLeft?.())} />
+        </div>
+      )}
     </form>
   );
 }
 
-function JoinForm({ onDone }: { onDone: () => void }) {
+/**
+ * « Rejoindre »: a group's code or link, a shared calendar's link, or the whole message they came in. Either kind
+ * works from either page (the window that follows opens the right one).
+ */
+export function JoinForm({ onDone }: { onDone: () => void }) {
   const w = useGroupWords();
+  const agenda = useContext(KindContext) === 'agenda';
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  // The pasted invitation link (or « Code : ABC234 ») works too: its code is taken from it.
-  // A message pasted whole (« … avec le code ZZ9Y8X sur Kompaly »): the word after « code ».
-  const clean = (code.match(/rejoindre=([A-Za-z0-9]{6})/i)?.[1] ?? code.match(/\bcode\s*[:：]?\s*([A-Za-z0-9]{6})\b/i)?.[1] ?? code).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(-6);
+  const invite = parseInvite(code);
   const inputRef = useRef<HTMLInputElement>(null);
-  const short = t('Le code contient 6 caractères.');
+  const wrong = !invite ? (agenda ? t('Colle le lien d’invitation en entier.') : t('Le code contient 6 caractères.')) : !invite.secret ? t('Ce lien est incomplet : copie-le en entier.') : '';
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    // A code too short: said under the field, the focus back in it.
-    if (clean.length !== 6) {
-      setError(short);
+    // A code too short, a link cut: said under the field, the focus back in it.
+    if (!invite?.secret) {
+      setError(wrong);
       return inputRef.current?.focus();
     }
     setBusy(true);
     setError('');
     try {
-      const id = await joinGroup(clean);
+      const id = invite.kind === 'agenda' ? await joinAgenda(invite.secret) : await joinGroup(invite.secret);
       if (!id) {
-        setError(t('{none} avec ce code : vérifie-le.', { none: w.none }));
+        setError(invite.kind === 'agenda' ? t('Ce lien d’invitation ne marche plus : demandes-en un nouveau.') : t('{none} avec ce code : vérifie-le.', { none: groupWordsNow().none }));
         setBusy(false);
         return;
       }
       const already = useGroups.getState().groups.some(g => g.id === id);
       await useGroups.getState().loadGroups();
-      showJoined({ kind: 'groupe', id, name: useGroups.getState().groups.find(g => g.id === id)?.name ?? '', already });
+      showJoined({ kind: invite.kind, id, name: useGroups.getState().groups.find(g => g.id === id)?.name ?? '', already });
       onDone();
     } catch (err) {
       setError(groupError(err));
       setBusy(false);
     }
   };
+  // A code is typed big, in capitals; a link (longer) as plain text.
+  const asCode = !agenda && code.trim().length <= 8;
   return (
     <form onSubmit={submit}>
       <h3 className="text-[15px] font-semibold">{t('Rejoindre {a}', { a: w.a })}</h3>
-      <p className="mt-1 text-[13px] text-stone-500">{t('Le code à 6 caractères reçu d’un membre.')}</p>
+      <p className="mt-1 text-[13px] text-stone-500">{agenda ? t('Colle le lien d’invitation reçu d’un membre.') : t('Le code à 6 caractères, ou le lien, reçu d’un membre.')}</p>
       <input
         ref={inputRef}
         autoFocus
         value={code}
         onChange={e => (setCode(e.target.value), setError(''))}
-        onBlur={() => code.trim() && clean.length !== 6 && setError(short)}
+        onBlur={() => code.trim() && wrong && setError(wrong)}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? 'join-code-err' : undefined}
-        placeholder="ABC234"
-        aria-label={t('Code d’invitation')}
-        autoCapitalize="characters"
+        placeholder={agenda ? `${location.host}/agendas?invitation=…` : 'ABC234'}
+        aria-label={agenda ? t('Lien d’invitation') : t('Code ou lien d’invitation')}
+        autoCapitalize={asCode ? 'characters' : 'off'}
         spellCheck={false}
-        className="field mt-4 h-11 w-full text-center font-mono text-[18px] tracking-[0.3em] uppercase"
+        className={cx('field mt-4 h-11 w-full', asCode ? 'text-center font-mono text-[18px] tracking-[0.3em] uppercase' : 'text-[14px]')}
       />
       <FieldError id="join-code-err">{error}</FieldError>
       <div className="mt-6 flex justify-end gap-2">
@@ -220,7 +264,7 @@ function Groups() {
   const [params, setParams] = useSearchParams();
   const userId = useAuth(s => s.user?.id);
   const navigate = useNavigate();
-  const { groups: all, loaded, failed } = useGroups();
+  const { groups: all, loaded, failed, myRoles } = useGroups();
   // Work groups and shared calendars share their machinery, never their screen (shared calendars: AgendasPage).
   const groups = all.filter(g => g.kind === 'groupe');
   const tabs = TABS;
@@ -247,7 +291,7 @@ function Groups() {
       ? []
       : [
           { label: t('Créer {a}', { a: w.a }), icon: <Plus />, onClick: () => setDialog('create') },
-          { label: t('Rejoindre avec un code'), icon: <LogIn />, onClick: () => setDialog('join') },
+          { label: t('Rejoindre avec un code ou un lien'), icon: <LogIn />, onClick: () => setDialog('join') },
         ],
     1,
   );
@@ -302,7 +346,7 @@ function Groups() {
               <GroupBadge group={g} size={28} />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[13px] font-medium">{g.name}</span>
-                <span className="block text-[11px] text-stone-500">{g.ownerId === userId ? (w.a === t('une équipe') ? t('Tu l’as créée') : t('Tu l’as créé')) : t('Membre')}</span>
+                <span className="block text-[11px] text-stone-500">{g.ownerId === userId ? t('Propriétaire') : myRoles[g.id] === 'lecteur' ? t('Lecteur') : myRoles[g.id] === 'editeur' ? t('Éditeur') : t('Membre')}</span>
               </span>
               {totalUnread(unread[g.id]) > 0 && g.id !== active?.id && (
                 <span className="rounded-full bg-brand-solid px-1.5 text-[11px] font-semibold leading-[18px] text-on-brand tabular" aria-label={tn(totalUnread(unread[g.id]), '{n} nouveauté', '{n} nouveautés')}>
@@ -351,6 +395,17 @@ function Groups() {
                   onNote={id => setParams({ g: active.id, note: id })}
                   onFiles={() => go(active.id, 'fichiers')}
                 />
+              )}
+              {/* News in its other tabs (the open one is seen): all read at once. */}
+              {totalUnread(unread[active.id]) > 0 && (
+                <button className="icon-btn" title={t('Tout marquer comme lu')} aria-label={t('Tout marquer comme lu')} onClick={() => useGroupActivity.getState().markAllSeen(active.id)}>
+                  <CheckCheck size={16} />
+                </button>
+              )}
+              {code && (
+                <button className="icon-btn" title={t('Inviter quelqu’un')} aria-label={t('Inviter quelqu’un')} onClick={() => void shareInvite(active, code)}>
+                  <Send size={16} />
+                </button>
               )}
               <GroupMuteButton group={active} />
               {active.ownerId === userId && (
@@ -412,6 +467,7 @@ function Groups() {
               setDialog(null);
               if (g && dialog === 'create') go(g.id);
             }}
+            onLeft={() => go(null)}
           />
         )}
       </Modal>

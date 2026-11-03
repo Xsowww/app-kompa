@@ -795,8 +795,9 @@ function NotificationsTab() {
           <Toggle label={t('Son des rappels')} checked={s.reminderSound} onChange={v => s.set({ reminderSound: v })} />
         </Row>
         {/* All of them at once; one by one, it's the bell in each group and shared calendar. */}
-        <Row label={t('Groupes')}>
-          <Toggle label={t('Groupes')} checked={s.groupNews} onChange={v => s.set({ groupNews: v })} />
+        {/* « Équipes » for a work account: the word of the account, as in the menu. */}
+        <Row label={groupWords(s.usage).Groups}>
+          <Toggle label={groupWords(s.usage).Groups} checked={s.groupNews} onChange={v => s.set({ groupNews: v })} />
         </Row>
         <Row label={t('Agendas partagés')}>
           <Toggle label={t('Agendas partagés')} checked={s.calendarNews ?? s.groupNews} onChange={v => s.set({ calendarNews: v })} />

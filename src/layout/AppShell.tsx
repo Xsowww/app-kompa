@@ -460,7 +460,7 @@ export default function AppShell() {
                   {n.to === '/enregistrer' && <RecBadge />}
                   {news(n.to) > 0 && (
                     <span
-                      className={cx('ml-auto rounded-full px-1.5 text-[11px] font-semibold leading-[18px] tabular', n.to === '/agendas' ? 'bg-red-500 text-white' : 'bg-brand-solid text-on-brand')}
+                      className="ml-auto rounded-full bg-brand-solid px-1.5 text-[11px] font-semibold leading-[18px] text-on-brand tabular"
                       aria-label={
                         n.to === '/agendas'
                           ? tn(agendaNews, '{n} nouveauté dans tes agendas partagés', '{n} nouveautés dans tes agendas partagés')
@@ -608,7 +608,7 @@ function PhoneTabBar({ news, label, extra }: { news: (to: string) => number; lab
   const panel = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
   const main = NAV.filter(n => !('more' in n));
-  const more = [...NAV.filter(n => 'more' in n).map(n => ({ ...n, aria: label(n), count: news(n.to), urgent: n.to === '/agendas' })), ...extra];
+  const more = [...NAV.filter(n => 'more' in n).map(n => ({ ...n, aria: label(n), count: news(n.to), urgent: false })), ...extra];
   const current = more.find(n => pathname === n.to || pathname.startsWith(`${n.to}/`));
   const navigate = useNavigate();
   // A finger sliding along the bar: the page follows each tab passed over; over « Plus » the panel opens, and lifting on one of its spaces goes there.
