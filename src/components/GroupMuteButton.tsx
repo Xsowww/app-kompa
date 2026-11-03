@@ -5,8 +5,12 @@ import { toast } from '../store/ui';
 import { cx } from '../lib/utils';
 import { t } from '../i18n';
 
-/** The bell of a group or shared calendar: its news as notifications, or not (server/push.mjs reads the same list). */
-export default function GroupMuteButton({ group, className }: { group: { id: string; name: string; kind: string }; className?: string }) {
+type MutedGroup = { id: string; name: string; kind: string };
+
+/** A group's or shared calendar's news as notifications, or not (server/push.mjs reads the same list): the bell's
+ *  state, its name and what it does (also a line of the « … » menu of a group on a phone). */
+// eslint-disable-next-line react-refresh/only-export-components -- the bell and its logic go together
+export function useGroupMute(group: MutedGroup) {
   const agenda = group.kind === 'agenda';
   const muted = useSettings(s => s.mutedGroups.includes(group.id));
   const allOff = useSettings(s => !(agenda ? (s.calendarNews ?? s.groupNews) : s.groupNews));
@@ -21,6 +25,12 @@ export default function GroupMuteButton({ group, className }: { group: { id: str
     toast(quiet ? t('Notifications activées pour « {name} »', { name: group.name }) : t('Notifications coupées pour « {name} »', { name: group.name }), 'success');
   };
   const label = quiet ? t('Activer les notifications de « {name} »', { name: group.name }) : t('Couper les notifications de « {name} »', { name: group.name });
+  return { quiet, toggle, label };
+}
+
+/** The bell of a group or shared calendar. */
+export default function GroupMuteButton({ group, className }: { group: MutedGroup; className?: string }) {
+  const { quiet, toggle, label } = useGroupMute(group);
   return (
     <button className={cx('icon-btn', className)} onClick={toggle} title={label} aria-label={label} aria-pressed={!quiet}>
       {quiet ? <BellOff size={16} /> : <Bell size={16} />}

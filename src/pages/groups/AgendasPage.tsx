@@ -109,11 +109,12 @@ function Agendas() {
 
   return (
     <div className="mx-auto w-full max-w-[1244px] flex h-full flex-col">
-      {/* Title, the shared calendars (scroll sideways on a phone); creating one: the « + » button */}
+      {/* Title, the shared calendars (on as many lines as they need: none hidden in a row scrolling sideways);
+          creating one: the « + » button */}
       <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 px-4 pb-3 pt-2 md:px-8">
         <h1 className="text-[24px] font-semibold tracking-[-0.02em]">{t('Agendas partagés')}</h1>
         {agendas.length > 0 && (
-          <div className="-mx-4 flex w-[calc(100%+2rem)] gap-1.5 overflow-x-auto px-4 pb-1 md:-mx-8 md:w-[calc(100%+4rem)] md:px-8" role="tablist" aria-label={t('Agendas partagés')}>
+          <div className="flex w-full min-w-0 flex-wrap gap-1.5 md:w-auto md:flex-1" role="tablist" aria-label={t('Agendas partagés')}>
             {agendas.map(g => (
               <button
                 key={g.id}
@@ -122,12 +123,12 @@ function Agendas() {
                 onClick={() => open(g.id)}
                 onPointerEnter={() => prefetchGroup(g.id)}
                 className={cx(
-                  'flex h-9 shrink-0 items-center gap-2 rounded-full border pl-1 pr-3 text-[13px] font-medium transition-colors',
+                  'flex h-9 min-w-0 max-w-full items-center gap-2 rounded-full border pl-1 pr-3 text-[13px] font-medium transition-colors',
                   g.id === active?.id ? 'border-stone-300 bg-surface text-ink shadow-card' : 'border-stone-200 text-stone-600 hover:bg-stone-100',
                 )}
               >
                 <GroupBadge group={g} size={26} />
-                <span className="max-w-[160px] truncate">{g.name}</span>
+                <span className="min-w-0 max-w-[160px] truncate" title={g.name}>{g.name}</span>
                 {g.id !== active?.id && (news[g.id] ?? 0) > 0 && (
                   <span className="rounded-full bg-brand-solid px-1.5 text-[11px] font-semibold leading-[18px] text-on-brand tabular" aria-label={tn(news[g.id], '{n} nouveauté', '{n} nouveautés')}>
                     {news[g.id]}

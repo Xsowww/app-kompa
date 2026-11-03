@@ -55,7 +55,7 @@ async function insertImages(view: EditorView, files: File[], pos?: number) {
 
 const openLink = (href: string) => window.open(href, '_blank', 'noopener,noreferrer');
 
-/** The same tools as my own notes (NoteEditor), larger buttons on a touch screen, on one row that scrolls on a phone. */
+/** The same tools as my own notes (NoteEditor), larger buttons on a touch screen, on as many rows as needed (no row scrolling sideways on a phone). */
 function Toolbar({ editor }: { editor: Editor }) {
   // The link under the cursor, followed on its own (the toolbar isn't drawn again at each key).
   const link = useEditorState({ editor, selector: ({ editor: ed }) => (ed.isActive('link') ? ((ed.getAttributes('link').href as string | undefined) ?? '') : null) });
@@ -85,8 +85,8 @@ function Toolbar({ editor }: { editor: Editor }) {
     c().extendMarkRange('link').setLink({ href: withProtocol(url) }).run();
   };
   return (
-    <div className="-mx-1 -my-1 overflow-hidden px-1 py-1 pointer-coarse:overflow-x-auto">
-      <div className="-ml-[9px] flex flex-wrap items-center gap-y-0.5 pointer-coarse:flex-nowrap">
+    <div className="-mx-1 -my-1 overflow-hidden px-1 py-1">
+      <div className="-ml-[9px] flex flex-wrap items-center gap-y-0.5">
         {group('g1', <>
           {btn(t('Titre 1'), Heading1, editor.isActive('heading', { level: 1 }), () => c().toggleHeading({ level: 1 }).run())}
           {btn(t('Titre 2'), Heading2, editor.isActive('heading', { level: 2 }), () => c().toggleHeading({ level: 2 }).run())}
