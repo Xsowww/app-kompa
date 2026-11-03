@@ -6,6 +6,18 @@
 /** The group or shared calendar a piece of news is about: its link carries it (« /groupes?g=… », « /agendas?g=… »). */
 export const groupOfUrl = url => /[?&]g=([0-9a-f-]{36})/i.exec(String(url ?? ''))?.[1] ?? null;
 
+/**
+ * Group news that must stay quiet for this person (Profil › Notifications, the bell of each group):
+ * `prefs` as read from their settings ({ news: groupNews, cal: calendarNews, muted: mutedGroups }), strings
+ * 'true'/'false' or null. calendarNews never set: shared calendars follow groupNews (one switch for both until 2026-11).
+ */
+export function quietNews(row, prefs) {
+  if (!prefs || !isGroupNews(row.key)) return false;
+  const agenda = String(row.url ?? '').startsWith('/agendas');
+  if ((agenda ? (prefs.cal ?? prefs.news) : prefs.news) === 'false') return true;
+  return Array.isArray(prefs.muted) && prefs.muted.includes(groupOfUrl(row.url));
+}
+
 /** Same kind of notification: one's own reminders together, a shared calendar's news apart, the admins' apart. */
 export const familyOf = key => {
   const prefix = String(key).split(':')[0];

@@ -14,7 +14,7 @@
 import { createECDH, hkdfSync } from 'node:crypto';
 import webpush from 'web-push';
 import { ipOf } from './copilot.mjs';
-import { familyOf, groupOfUrl, isGroupNews, mergeNotifications } from '../src/lib/notifyGroups.mjs';
+import { familyOf, isGroupNews, mergeNotifications, quietNews } from '../src/lib/notifyGroups.mjs';
 
 const SUPABASE = (() => {
   try {
@@ -111,18 +111,15 @@ export async function pushToUser(userId, payload, except = '') {
 export const pushStatus = { active: false, lastRun: null, lastError: null, lastCode: null, lastHint: null, sent: 0 };
 
 /**
- * The group news nobody wants (Profil › Notifications): all of it for those who turned it off, and that of the
- * groups and shared calendars each one muted. Returns a test: true when the row must stay quiet.
+ * The group news nobody wants (Profil › Notifications): that of all groups, or of all shared calendars, for those
+ * who turned it off, and that of each group or calendar muted by its bell. Returns a test: true when the row must stay quiet.
  */
 async function newsOff(rows) {
   const ids = [...new Set(rows.filter(r => isGroupNews(r.key)).map(r => r.user_id))];
   if (!ids.length) return () => false;
-  const list = await rest(`/rest/v1/profiles?select=id,news:settings->>groupNews,muted:settings->mutedGroups&id=in.(${ids.join(',')})`).catch(() => []);
-  const by = new Map((list ?? []).map(p => [p.id, { off: p.news === 'false', muted: new Set(Array.isArray(p.muted) ? p.muted : []) }]));
-  return r => {
-    const p = isGroupNews(r.key) && by.get(r.user_id);
-    return !!p && (p.off || p.muted.has(groupOfUrl(r.url)));
-  };
+  const list = await rest(`/rest/v1/profiles?select=id,news:settings->>groupNews,cal:settings->>calendarNews,muted:settings->mutedGroups&id=in.(${ids.join(',')})`).catch(() => []);
+  const by = new Map((list ?? []).map(p => [p.id, p]));
+  return r => quietNews(r, by.get(r.user_id));
 }
 
 /**

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { familyOf, groupByMoment, groupOfUrl, isGroupNews, mergeNotifications } from '../src/lib/notifyGroups.mjs';
+import { familyOf, groupByMoment, groupOfUrl, isGroupNews, mergeNotifications, quietNews } from '../src/lib/notifyGroups.mjs';
 
 const at = (h: number, m: number, s = 0) => new Date(2026, 9, 22, h, m, s);
 const r = (key: string, title: string, body: string, fireAt = at(9, 0)) => ({ key, title, body, url: '/taches', fireAt });
@@ -56,5 +56,30 @@ describe('groupOfUrl', () => {
     expect(groupOfUrl(`/groupes?g=${id}&onglet=fichiers`)).toBe(id);
     expect(groupOfUrl('/taches')).toBeNull();
     expect(groupOfUrl(null)).toBeNull();
+  });
+});
+
+describe('quietNews', () => {
+  const g = '3f2b8c1e-5d4a-4e7b-9c1f-2a6d8e0b4c71';
+  const agenda = { key: 'agenda:1:INSERT:2', url: `/agendas?g=${g}&jour=2026-11-05` };
+  const group = { key: `fichiers:${g}:u:1`, url: `/groupes?g=${g}&onglet=fichiers` };
+  const on = { news: null, cal: null, muted: null };
+  it('lets everything through by default, and never touches one’s own reminders', () => {
+    expect(quietNews(agenda, on)).toBe(false);
+    expect(quietNews(group, on)).toBe(false);
+    expect(quietNews({ key: 'event:1', url: '/calendrier' }, { news: 'false', cal: 'false', muted: [g] })).toBe(false);
+  });
+  it('turns off groups and shared calendars apart', () => {
+    expect(quietNews(group, { ...on, news: 'false', cal: 'true' })).toBe(true);
+    expect(quietNews(agenda, { ...on, news: 'false', cal: 'true' })).toBe(false);
+    expect(quietNews(agenda, { ...on, cal: 'false' })).toBe(true);
+    expect(quietNews(group, { ...on, cal: 'false' })).toBe(false);
+  });
+  it('keeps the old single switch for shared calendars until it is set apart', () => {
+    expect(quietNews(agenda, { ...on, news: 'false' })).toBe(true);
+  });
+  it('mutes one group or calendar by its bell', () => {
+    expect(quietNews(group, { ...on, muted: [g] })).toBe(true);
+    expect(quietNews(agenda, { ...on, muted: ['autre'] })).toBe(false);
   });
 });
