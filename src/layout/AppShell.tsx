@@ -5,7 +5,7 @@ import { EmptyState } from '../components/EmptyState';
 import { FeedbackDialog } from '../components/FeedbackDialogs';
 import { confirmLogout, useAuth } from '../store/auth';
 import { loadUserData } from '../store/session';
-import Copilot from '../copilot/Copilot';
+import Copilot, { KompalyEntry } from '../copilot/Copilot';
 import Tour from '../components/Tour';
 import { startProactive } from '../copilot/proactive';
 import { HIT_LABEL, linkToDriveFile, registerNavigate, search, type SearchHit } from '../copilot/actions';
@@ -13,7 +13,7 @@ import { useDrive } from '../store/drive';
 import { findIn, fold, folding, highlightParts } from '../lib/textFind';
 import Logo from '../components/Logo';
 import Avatar from '../components/Avatar';
-import FocusTimer from '../components/FocusTimer';
+import FocusTimer, { FocusPill } from '../components/FocusTimer';
 import { cx } from '../lib/utils';
 import { adminPendingCount, checkIsAdmin, cloudEnabled } from '../lib/supabase';
 import { prefetchGroups, useGroups } from '../store/groups';
@@ -282,8 +282,8 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
   );
 }
 
-/** Other accounts of this device in one click, or a new one (see lib/accounts). */
-function AccountSwitch({ currentId }: { currentId: string }) {
+/** Other accounts of this device in one click, or a new one (see lib/accounts). `avatar`: phones' top bar, the avatar opens it (« Profil et réglages » first). */
+function AccountSwitch({ currentId, avatar }: { currentId: string; avatar?: boolean }) {
   const navigate = useNavigate();
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const others = menu ? savedAccounts().filter(a => a.id !== currentId) : [];
@@ -307,24 +307,26 @@ function AccountSwitch({ currentId }: { currentId: string }) {
     <>
       <button
         type="button"
-        className="icon-btn"
-        title={t('Changer de compte')}
-        aria-label={t('Changer de compte')}
+        className={avatar ? 'hit inline-flex h-9 w-9 items-center justify-center rounded-full lg:hidden' : 'icon-btn'}
+        title={avatar ? t('Profil et comptes') : t('Changer de compte')}
+        aria-label={avatar ? t('Profil et comptes') : t('Changer de compte')}
         aria-haspopup="menu"
+        data-tour={avatar ? 'profil' : undefined}
         onClick={e => {
           const r = e.currentTarget.getBoundingClientRect();
-          setMenu({ x: r.left, y: r.top - 8 - 44 * (savedAccounts().filter(a => a.id !== currentId).length + 2) });
+          setMenu(avatar ? { x: r.right, y: r.bottom + 8 } : { x: r.left, y: r.top - 8 - 44 * (savedAccounts().filter(a => a.id !== currentId).length + 2) });
         }}
       >
-        <ArrowLeftRight size={15} />
+        {avatar ? <Avatar size={30} /> : <ArrowLeftRight size={15} />}
       </button>
       {menu && (
         <ContextMenu
           x={menu.x}
           y={menu.y}
-          label={t('Changer de compte')}
+          label={avatar ? t('Profil et comptes') : t('Changer de compte')}
           onClose={() => setMenu(null)}
           items={[
+            ...(avatar ? [{ label: t('Profil et réglages'), icon: <Settings2 size={15} />, onClick: () => navigate('/profil') }, { label: '', divider: true, onClick: () => {} }] : []),
             ...others.map(a => ({ label: `${a.name || a.email} · ${a.email}${asks(a)}`, icon: <UserRound size={15} />, onClick: () => open(a) })),
             ...(others.length ? [{ label: '', divider: true, onClick: () => {} }] : []),
             { label: t('Ajouter un compte'), icon: <UserPlus size={15} />, onClick: () => void useAuth.getState().addAccount() },
@@ -496,6 +498,7 @@ export default function AppShell() {
           )}
         </nav>
         {/* Computers; phones and tablets have it at the top of Profil (pages/profile), the corner is the « + » button's. */}
+        <KompalyEntry />
         <button
           type="button"
           onClick={() => openNews()}
@@ -530,10 +533,15 @@ export default function AppShell() {
           <div className="hidden flex-1 lg:block">
             <GlobalSearch />
           </div>
+          {/* Phones: a focus session running, and Kompaly when his character is hidden. */}
+          <span className="ml-auto flex items-center gap-1 lg:hidden">
+            <FocusPill />
+            <KompalyEntry phone />
+          </span>
           <button
             ref={searchBtn}
             type="button"
-            className="icon-btn ml-auto lg:hidden"
+            className="icon-btn lg:hidden"
             title={t('Rechercher')}
             aria-label={t('Rechercher')}
             aria-expanded={searchOpen}
@@ -547,9 +555,7 @@ export default function AppShell() {
             <Trash2 size={18} strokeWidth={1.9} />
             {trashCount > 0 && <span className="tabular absolute -right-0.5 -top-0.5 min-w-[16px] rounded-full bg-stone-500 px-1 text-center text-[10px] font-semibold leading-4 text-white" aria-hidden>{trashCount > 99 ? '99+' : trashCount}</span>}
           </NavLink>
-          <NavLink to="/profil" className="hit inline-flex h-9 w-9 items-center justify-center rounded-full lg:hidden" title={t('Profil et réglages')} aria-label={t('Profil et réglages')}>
-            <Avatar size={30} />
-          </NavLink>
+          <AccountSwitch currentId={user.id} avatar />
         </header>
         <ServiceBanner inline />
         {searchOpen && (
