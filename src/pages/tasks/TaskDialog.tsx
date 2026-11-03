@@ -1,16 +1,18 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { Trash2 } from 'lucide-react';
-import { DateField, TimeField } from '../../components/Pickers';
+import { DateField, SelectField, TimeField } from '../../components/Pickers';
 import { Modal } from '../../components/Overlays';
 import Field from '../../components/Field';
 import ReminderPicker from '../../components/ReminderPicker';
 import { followMoments, taskReminders } from '../../lib/reminders';
 import { useTodos, type Todo } from '../../store/todos';
+import { getSettings } from '../../store/settings';
+import { TASK_REPEATS, type TaskRepeat } from '../../lib/taskRepeat';
 import { toast } from '../../store/ui';
 import { t } from '../../i18n';
 
 /**
- * « Modifier la tâche » : its title, due day, optional time and reminders. Opened from the pencil, or from
+ * « Modifier la tâche » : its title, due day, optional time, repeat and reminders. Opened from the pencil, or from
  * the bell of a task that has reminders (`remind`: about them, the title not focused).
  * No `todo`: « Nouvelle tâche », from the « + » button (pages/tasks/TasksPage).
  */
@@ -19,6 +21,7 @@ export default function TaskDialog({ todo, onClose, remind, onDelete }: { todo?:
   const [due, setDue] = useState(todo?.due ?? '');
   const [time, setTime] = useState(todo?.time ?? '');
   const [reminders, setReminders] = useState<number[]>(todo?.reminders ?? []);
+  const [repeat, setRepeat] = useState<TaskRepeat | ''>(todo?.repeat ?? '');
 
   // The title is required: said when it is emptied and left, or at the submit (the focus goes back to it).
   const [titleError, setTitleError] = useState('');
@@ -31,7 +34,7 @@ export default function TaskDialog({ todo, onClose, remind, onDelete }: { todo?:
     }
     const { add, update } = useTodos.getState();
     const id = todo?.id ?? add(title, due || undefined, time || undefined).id;
-    update(id, { title: title.trim(), due: due || undefined, time: due && time ? time : undefined, reminders: due ? reminders : todo?.reminders });
+    update(id, { title: title.trim(), due: due || undefined, time: due && time ? time : undefined, reminders: due ? reminders : todo?.reminders, repeat: (due && repeat) || undefined });
     toast(remind && due && reminders.length ? t('Rappel enregistré') : t('Tâche enregistrée'), 'success');
     onClose();
   };
@@ -61,8 +64,8 @@ export default function TaskDialog({ todo, onClose, remind, onDelete }: { todo?:
               onChange={v => {
                 // « La veille à 9h » follows the task to its new day.
                 if (due && v) setReminders(r => followMoments(r, { date: due, time: time || undefined }, { date: v, time: time || undefined }, r));
-                // A first due day: the usual reminders of a task (the day before at 18:00, that day at 9:00), shown here to change.
-                else if (!due && v && !reminders.length) setReminders(taskReminders(v, time || undefined));
+                // A first due day: the usual reminders of a task (Profil › Notifications), shown here to change.
+                else if (!due && v && !reminders.length) setReminders(taskReminders(v, time || undefined, new Date(), getSettings().defaultTaskReminders));
                 setDue(v);
               }}
               label={t('Échéance')}
@@ -85,6 +88,18 @@ export default function TaskDialog({ todo, onClose, remind, onDelete }: { todo?:
               className="w-full"
             />
           </div>
+        </div>
+        {/* Ticked, a repeating task comes back with its next due day (store/todos). */}
+        <div className="mt-4">
+          <span className="mb-1.5 block text-[12px] font-medium text-stone-600">{t('Répéter')}</span>
+          <SelectField<TaskRepeat | ''>
+            className="w-full"
+            label={t('Répéter')}
+            value={due ? repeat : ''}
+            disabled={!due}
+            options={[{ value: '', label: t('Ne se répète pas') }, ...TASK_REPEATS.map(r => ({ value: r.key, label: r.label }))]}
+            onChange={setRepeat}
+          />
         </div>
         <ReminderPicker value={reminders} onChange={setReminders} timed={!!time} date={due || undefined} time={time || undefined} disabled={due ? undefined : t('Choisis d’abord une échéance.')} />
         <div className="mt-6 flex flex-wrap items-center justify-end gap-2">

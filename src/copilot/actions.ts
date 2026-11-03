@@ -635,9 +635,9 @@ export function trashItems(refs: string[]) {
 
 const deletedLabel = (iso?: string) => (iso ? fmt(new Date(iso), t("d MMM 'à' HH:mm")) : '');
 
-const TRASH_LABEL = { note: t('note'), noteFolder: t('dossier de notes'), event: t('événement') };
+const TRASH_LABEL = { note: t('note'), noteFolder: t('dossier de notes'), event: t('événement'), task: t('tâche') };
 
-/** Everything in the trash (Notes, Drive and Calendar), newest first. */
+/** Everything in the trash (Notes, Drive, Calendar and Tasks), newest first. */
 export function listTrash() {
   return collectTrash().map(e => ({
     id: e.id,

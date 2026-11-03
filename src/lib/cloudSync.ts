@@ -13,6 +13,7 @@ import { folderColorKey, useDrive, type DriveItem } from '../store/drive';
 import { useSettings, DEFAULT_SETTINGS, type Settings } from '../store/settings';
 import { useUi } from '../store/ui';
 import { useTodos, type Todo } from '../store/todos';
+import { isTaskRepeat } from './taskRepeat';
 import { useFocusLog, type FocusSession } from '../store/focusLog';
 import { t } from '../i18n';
 import { userStorage, SYNC_CURSOR } from './userStorage';
@@ -137,8 +138,10 @@ const todoToRow = (t: Todo): Row => ({
   due: t.due ?? null,
   due_time: t.time ?? null,
   reminders: t.reminders ?? null,
+  repeat: t.repeat ?? null,
   created_at: t.createdAt,
   done_at: t.doneAt ?? null,
+  deleted_at: t.deletedAt ?? null,
 });
 const rowToTodo = (r: Row): Todo => ({
   id: r.id as string,
@@ -147,9 +150,20 @@ const rowToTodo = (r: Row): Todo => ({
   due: (r.due as string) ?? undefined,
   time: (r.due_time as string) ?? undefined,
   reminders: cleanReminders(r.reminders),
+  repeat: isTaskRepeat(r.repeat) ? r.repeat : undefined,
   createdAt: r.created_at as string,
   doneAt: (r.done_at as string) ?? undefined,
+  deletedAt: (r.deleted_at as string) ?? undefined,
 });
+
+/** A server without the « repeat » column yet (migration 2026-11-03 not applied): each task keeps the repeat known here. */
+const todosKeepingRepeat = (local: Todo[]) => {
+  const known = new Map(local.filter(x => x.repeat).map(x => [x.id, x.repeat]));
+  return (r: Row): Todo => {
+    const x = rowToTodo(r);
+    return 'repeat' in r || !known.has(x.id) ? x : { ...x, repeat: known.get(x.id) };
+  };
+};
 
 const focusToRow = (f: FocusSession): Row => ({ id: f.id, subject: f.subject, minutes: f.minutes, started_at: f.startedAt });
 const rowToFocus = (r: Row): FocusSession => ({ id: r.id as string, subject: (r.subject as string) ?? '', minutes: Number(r.minutes), startedAt: r.started_at as string });
@@ -165,7 +179,7 @@ const unstamped = (rows: Row[]) => rows.map(({ updated_at: _u, ...r }) => r);
 const missingStamp = (e: { code?: string; message?: string } | null) => e?.code === 'PGRST204' && !!e.message?.includes('updated_at');
 const missingColumn = (e: { code?: string; message?: string } | null, col: string) => e?.code === 'PGRST204' && !!e.message?.includes(col);
 // Columns added by later migrations: a server without them yet gets the rows without them (kept on this device).
-const OPTIONAL: Partial<Record<Table, string[]>> = { events: ['important', 'reminders', 'series'], todos: ['due_time', 'reminders'], note_folders: ['color'] };
+const OPTIONAL: Partial<Record<Table, string[]>> = { events: ['important', 'reminders', 'series'], todos: ['due_time', 'reminders', 'repeat', 'deleted_at'], note_folders: ['color'] };
 const absent = new Map<Table, Set<string>>();
 const withoutAbsent = (table: Table, rows: Row[]) => {
   const cols = absent.get(table);
@@ -288,6 +302,18 @@ let warnedCategories = false;
 
 async function upsertRows(table: Table, rows: Row[]) {
   if (noStamp.has(table)) rows = unstamped(rows);
+  // A task in the trash, on a server without « deleted_at » yet: deleted there, as before the trash (gone everywhere).
+  const trashedTasks = table === 'todos' ? rows.filter(isTrashed).map(r => r.id as string) : [];
+  const deleteTrashedTasks = async () => {
+    if (!trashedTasks.length || !absent.get('todos')?.has('deleted_at')) return;
+    const { error: e } = await supabase!.from('todos').delete().in('id', trashedTasks);
+    if (e && !permanent(e)) throw e;
+  };
+  if (absent.get('todos')?.has('deleted_at')) rows = rows.filter(r => !trashedTasks.includes(r.id as string));
+  if (!rows.length) {
+    await deleteTrashedTasks();
+    return 0;
+  }
   rows = withoutAbsent(table, rows);
   let { error } = await supabase!.from(table).upsert(rows);
   if (STAMPED.has(table) && missingStamp(error)) {
@@ -296,14 +322,17 @@ async function upsertRows(table: Table, rows: Row[]) {
     ({ error } = await supabase!.from(table).upsert(rows));
   }
   // Server without a recent column yet (« important », reminders…): the row is kept, without it online.
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 4; i++) {
     const col = OPTIONAL[table]?.find(c => missingColumn(error, c));
     if (!col) break;
     absent.set(table, new Set([...(absent.get(table) ?? []), col]));
     rows = withoutAbsent(table, rows);
     ({ error } = await supabase!.from(table).upsert(rows));
   }
-  if (!error) return 0;
+  if (!error) {
+    await deleteTrashedTasks();
+    return 0;
+  }
   if (!permanent(error)) throw error;
   let dropped = 0;
   for (const r of rows) {
@@ -539,7 +568,12 @@ function apply({ events, folders, notes, items, profile, todos, focus }: Awaited
     });
     useDrive.setState({ items: i.filter(r => !isTrashed(r)).map(rowToItem), trash: i.filter(isTrashed).map(rowToItem) });
     // Tables added later: an older database without them keeps the local copy.
-    if (!todos.error) useTodos.setState({ todos: (todos.data ?? []).map(rowToTodo) });
+    if (!todos.error) {
+      const s = useTodos.getState();
+      const toTodo = todosKeepingRepeat([...s.todos, ...s.trash]);
+      const rows = todos.data ?? [];
+      useTodos.setState({ todos: rows.filter(r => !isTrashed(r)).map(toTodo), trash: rows.filter(isTrashed).map(toTodo) });
+    }
     if (!focus.error) useFocusLog.setState({ sessions: (focus.data ?? []).map(rowToFocus) });
     applySettings(profile);
   } finally {
@@ -605,7 +639,11 @@ function applyChanges({ profile, gone, rows }: Changes) {
       const [items, trash] = mergeRows([s.items, s.trash], rows.drive_items, deleted.drive_items, rowToItem, isTrashed);
       useDrive.setState({ items, trash });
     }
-    if (touched('todos')) useTodos.setState({ todos: mergeRows([useTodos.getState().todos], rows.todos, deleted.todos, rowToTodo, () => false)[0] });
+    if (touched('todos')) {
+      const s = useTodos.getState();
+      const [todos, trash] = mergeRows([s.todos, s.trash], rows.todos, deleted.todos, todosKeepingRepeat([...s.todos, ...s.trash]), isTrashed);
+      useTodos.setState({ todos, trash });
+    }
     if (touched('focus_sessions'))
       useFocusLog.setState({ sessions: mergeRows([useFocusLog.getState().sessions], rows.focus_sessions, deleted.focus_sessions, rowToFocus, () => false)[0] });
     applySettings(profile);
@@ -703,7 +741,9 @@ export function startSync(userId: string) {
     useDrive.subscribe((s, p) => {
       if (s.items !== p.items || s.trash !== p.trash) diff('drive_items', [...s.items, ...s.trash], [...p.items, ...p.trash], itemToRow);
     }),
-    useTodos.subscribe((s, p) => diff('todos', s.todos, p.todos, todoToRow)),
+    useTodos.subscribe((s, p) => {
+      if (s.todos !== p.todos || s.trash !== p.trash) diff('todos', [...s.todos, ...s.trash], [...p.todos, ...p.trash], todoToRow);
+    }),
     useFocusLog.subscribe((s, p) => diff('focus_sessions', s.sessions, p.sessions, focusToRow)),
     useSettings.subscribe((s, p) => {
       if (pulling) return;

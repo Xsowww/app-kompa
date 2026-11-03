@@ -135,7 +135,7 @@ function run(offer: CopilotOffer): OfferResult {
         const todo = useTodos.getState().todos.find(x => x.id === ids[0]);
         if (!todo) return { text: t('Introuvable, elle a déjà dû être supprimée.') };
         useTodos.getState().remove(todo.id);
-        return { text: t('Tâche « {title} » supprimée.', { title: todo.title }) };
+        return { text: t('« {title} » est dans la corbeille, récupérable 30 jours.', { title: todo.title }), links: [{ label: t('Corbeille'), to: '/corbeille?type=taches' }] };
       }
       const res = trashItems(ids);
       return res.done.length ? { text: t('Mis à la corbeille : {names}. Récupérable 30 jours.', { names: res.done.join(', ') }), links: [{ label: t('Corbeille'), to: '/corbeille' }] } : { text: t('Introuvable, déjà supprimé.') };

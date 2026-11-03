@@ -1,20 +1,28 @@
 import { useToday } from '../../lib/useToday';
 import { memo, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { BellRing, CalendarPlus, Check, ListTodo, Pencil, Plus, Trash2 } from 'lucide-react';
+import { addDays } from 'date-fns';
+import { BellRing, CalendarClock, CalendarPlus, Check, ChevronRight, ListTodo, Pencil, Plus, Repeat, RotateCcw, TextCursorInput, Trash2 } from 'lucide-react';
 import { EmptyState } from '../../components/EmptyState';
+import { ContextMenu, type MenuItem } from '../../components/Overlays';
 import { useTodos, type Todo } from '../../store/todos';
-import { countdownLabel, daysUntil, fmt, fmtDay, fromKey, parseQuickAdd, todayKey } from '../../lib/dates';
+import { countdownLabel, daysUntil, fmt, fmtDay, fromKey, parseQuickAdd, toKey, todayKey } from '../../lib/dates';
 import { cx } from '../../lib/utils';
 import { reminderMoment } from '../../lib/reminders';
+import { repeatIn, TASK_REPEATS, type TaskRepeat } from '../../lib/taskRepeat';
+import { isMenuKey, menuPoint } from '../../lib/a11y';
 import { isTourTodo, startTour } from '../../store/tour';
 import { useProgressive } from '../../lib/useProgressive';
-import { confirmAction, toast } from '../../store/ui';
+import { toast } from '../../store/ui';
 import TaskDialog from './TaskDialog';
 import { DatePopover } from '../../components/Pickers';
-import { t } from '../../i18n';
+import { t, tn } from '../../i18n';
 
 const OVERDUE = 'var(--cat-examen-text)';
+const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
+/** The delete key as the keyboard names it (a Mac laptop has no « Suppr »). */
+const DELETE_KEY = isMac ? '⌘⌫' : t('Suppr');
+const repeatLabel = (r: TaskRepeat) => TASK_REPEATS.find(x => x.key === r)?.label ?? '';
 
 // By day, then by hour on the same day (a task without an hour after those with one).
 const sortOpen = (a: Todo, b: Todo) =>
@@ -30,28 +38,40 @@ function dueText(due: string, inOverdueGroup?: boolean) {
   return n > 6 ? fmtDay(fromKey(due), 'd MMM') : n > 1 ? fmt(fromKey(due), 'EEE d') : countdownLabel(due);
 }
 
-/** The due day (none under the « Aujourd’hui » heading: `noDay`), and its hour as in the lists (« 18:00 »). */
-function DueLabel({ due, time, short, noDay }: { due: string; time?: string; short?: boolean; noDay?: boolean }) {
+/** The due day (none under the « Aujourd’hui » heading: `noDay`), and its hour as in the lists (« 18:00 »); ⟳ when it repeats. */
+function DueLabel({ due, time, short, noDay, repeat }: { due: string; time?: string; short?: boolean; noDay?: boolean; repeat?: TaskRepeat }) {
   const n = daysUntil(due);
   const label = [!noDay && dueText(due, short), time].filter(Boolean).join(' · ');
   return (
     // inline-block: ::first-letter only works on a block (« Mar. 20 »).
     <span className={cx('tabular inline-block shrink-0 text-[12px] first-letter:uppercase', n < 0 ? 'font-medium' : n === 0 ? 'text-ink' : 'text-stone-500')} style={n < 0 ? { color: OVERDUE } : undefined}>
+      {repeat && <Repeat size={11} className="mr-1 inline align-[-1px]" aria-hidden />}
       {label}
     </span>
   );
 }
 
+/** When a task was ticked, in the « Faites » list: « Aujourd’hui », « Hier », « Il y a 3 j », then the date. */
+function doneText(doneAt?: string) {
+  if (!doneAt) return '';
+  const key = toKey(new Date(doneAt));
+  return daysUntil(key) >= -6 ? countdownLabel(key) : fmtDay(fromKey(key), 'd MMM');
+}
+
 const coarse = () => typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches;
 
-/** Where the keyboard focus goes once a row is removed: the same button on the next (or previous) task, else the add field. */
+/**
+ * Where the keyboard focus goes once a row is removed: the same control on the next (or previous) task — its title
+ * when the key was pressed on a title (Suppr), else its bin —, else the add field.
+ */
 function focusAfterRemoval(row: HTMLElement | null, later = false) {
   const list = row?.closest('[data-todolist]');
   const rows = [...(list?.querySelectorAll('li') ?? [])];
   const i = row ? rows.indexOf(row as HTMLLIElement) : -1;
   const near = rows[i + 1] ?? rows[i - 1];
+  const onTitle = !!(document.activeElement as HTMLElement | null)?.matches?.('[data-task-title]');
   const target =
-    near?.querySelector<HTMLElement>('[data-remove]') ??
+    near?.querySelector<HTMLElement>(onTitle ? '[data-task-title]' : '[data-remove]') ??
     // No keyboard popping up on phones when the list empties.
     (coarse() ? null : list?.querySelector<HTMLElement>('[data-quickadd]'));
   const go = () => target?.focus({ preventScroll: true });
@@ -69,22 +89,46 @@ const refocusTodo = (id: string) =>
 /** A changed due date can move the task to another group (new row): find its date button again after the render. */
 const focusDueButton = (id: string) => setTimeout(() => document.querySelector<HTMLElement>(`[data-due="${id}"]`)?.focus(), 0);
 
-// A task doesn't go to the trash: said before it goes (« Annuler » stays a few seconds in the message after).
-const confirmRemove = (todo: Todo) => confirmAction(t('Supprimer définitivement «\u00a0{title}\u00a0»\u00a0?', { title: todo.title }), t('Les tâches ne vont pas à la corbeille.'), t('Supprimer'));
-
-/** Removes tasks with a way back: a single tap on the bin must not lose one for good. */
-function removeWithUndo(gone: Todo[]) {
+/** Tasks to the trash (kept 30 days, like notes and events), « Annuler » in the message: no question first. */
+function trashTodos(ids: string[]) {
+  const gone = useTodos.getState().removeMany(ids);
   if (!gone.length) return;
-  const text = gone.length === 1 ? t('Tâche «\u00a0{title}\u00a0» supprimée', { title: gone[0].title }) : t('{n} tâches supprimées', { n: gone.length });
+  const text = gone.length === 1 ? t('Tâche «\u00a0{title}\u00a0» mise à la corbeille', { title: gone[0].title }) : tn(gone.length, '{n} tâche mise à la corbeille', '{n} tâches mises à la corbeille');
   toast(text, 'info', {
     label: t('Annuler||l’action'),
     run: () => {
-      useTodos.getState().restore(gone);
+      useTodos.getState().restore(gone.map(x => x.id));
       // The toast's button goes away: the focus goes to the task that came back (once it's on screen).
       setTimeout(() => document.querySelector<HTMLElement>(`[data-todo="${gone[0].id}"]`)?.focus(), 0);
     },
   });
 }
+
+const tomorrowKey = () => toKey(addDays(new Date(), 1));
+
+/** « Reporter »: late tasks to today or tomorrow; « Annuler » gives them their days back. */
+function postponeTodos(list: Todo[], day: string) {
+  if (!list.length) return;
+  const { update } = useTodos.getState();
+  const before = list.map(x => [x.id, x.due] as const);
+  list.forEach(x => update(x.id, { due: day }));
+  const today = day === todayKey();
+  const text =
+    list.length === 1
+      ? today
+        ? t('«\u00a0{title}\u00a0» reportée à aujourd’hui', { title: list[0].title })
+        : t('«\u00a0{title}\u00a0» reportée à demain', { title: list[0].title })
+      : today
+        ? tn(list.length, '{n} tâche reportée à aujourd’hui', '{n} tâches reportées à aujourd’hui')
+        : tn(list.length, '{n} tâche reportée à demain', '{n} tâches reportées à demain');
+  toast(text, 'success', { label: t('Annuler||l’action'), run: () => before.forEach(([id, due]) => useTodos.getState().update(id, { due })) });
+}
+
+/** The two days a late task can be put off to, in a menu (a row's « Reporter », « Tout reporter »). */
+const postponeItems = (list: Todo[], all?: boolean): MenuItem[] => [
+  { label: all ? t('Tout reporter à aujourd’hui') : t('Reporter à aujourd’hui'), icon: <CalendarClock />, onClick: () => postponeTodos(list, todayKey()) },
+  { label: all ? t('Tout reporter à demain') : t('Reporter à demain'), icon: <CalendarPlus />, onClick: () => postponeTodos(list, tomorrowKey()) },
+];
 
 /** Under a ticked task: when it leaves the list. */
 const GoesIn = ({ minutes }: { minutes: number }) => (
@@ -92,18 +136,22 @@ const GoesIn = ({ minutes }: { minutes: number }) => (
 );
 
 // memo: ticking one task re-renders its row only, not the whole list.
-// `group`: the heading the row is under (« Aujourd’hui » already says the day).
-const TodoRow = memo(function TodoRow({ t: todo, editable, preview, now = 0, group }: { t: Todo; editable?: boolean; preview?: boolean; now?: number; group?: string }) {
+// `group`: the heading the row is under (« Aujourd’hui » already says the day). `history`: in « Faites » (when ticked).
+// Keyboard (Tâches): ↑/↓ from task to task, Espace ticks, Entrée opens, F2 renames, Suppr (⌘⌫) to the trash,
+// Maj+F10 or the menu key (or a right-click) the row's menu.
+const TodoRow = memo(function TodoRow({ t: todo, editable, preview, now = 0, group, history }: { t: Todo; editable?: boolean; preview?: boolean; now?: number; group?: string; history?: boolean }) {
   // A ticked task is shown green at the bottom of the list until it goes (SETTLE_MS).
   const justDone = todo.done;
   // (`now` can lag behind a tick just made: never more than the 30 minutes)
   const minutesLeft = justDone && todo.doneAt ? Math.min(SETTLE_MS / 60_000, Math.max(1, Math.ceil((Date.parse(todo.doneAt) + SETTLE_MS - now) / 60_000))) : 0;
-  const { toggle, remove, update } = useTodos.getState();
+  const { toggle, update } = useTodos.getState();
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(todo.title);
   // The date button the small calendar hangs from while it is open.
   const [dating, setDating] = useState<HTMLElement | null>(null);
   const [openDialog, setOpenDialog] = useState<'edit' | 'remind' | null>(null);
+  // The row's menu (right-click, Maj+F10) or that of its « Reporter » button.
+  const [menu, setMenu] = useState<{ x: number; y: number; postpone?: boolean } | null>(null);
   const titleRef = useRef<HTMLSpanElement>(null);
   const rowRef = useRef<HTMLLIElement>(null);
   // A new date can move the task to another group (a new row): the focus follows it there.
@@ -117,7 +165,8 @@ const TodoRow = memo(function TodoRow({ t: todo, editable, preview, now = 0, gro
   // A reminder still to come (one whose moment passed can't ring any more: no bell).
   const hasReminder = !!todo.due && !!todo.reminders?.some(m => reminderMoment(todo.due!, todo.time, m).getTime() > Date.now());
   const noDay = group === 'today';
-  const showDue = !!todo.due && !(noDay && !todo.time);
+  // Under « Aujourd’hui », no day to say: only an hour, or the ⟳ of a task that repeats.
+  const showDue = !!todo.due && !(noDay && !todo.time && !todo.repeat);
 
   // Back to the title after Enter or Escape, or the keyboard focus would fall to the top of the page.
   // Not on blur: the focus went elsewhere on purpose (another field…).
@@ -131,14 +180,82 @@ const TodoRow = memo(function TodoRow({ t: todo, editable, preview, now = 0, gro
     else setTitle(todo.title);
   };
 
+  const tour = isTourTodo(todo.title);
+  const open = () => (tour ? startTour() : setOpenDialog('edit'));
+  // Ticked from its title (Espace): the focus stays on it, wherever the task now is (« Faites », the list).
+  const tick = (fromTitle?: boolean) => {
+    toggle(todo.id);
+    if (fromTitle) setTimeout(() => document.querySelector<HTMLElement>(`[data-task-title="${CSS.escape(todo.id)}"]`)?.focus({ preventScroll: true }), 0);
+    else refocusTodo(todo.id);
+  };
+  const toTrash = (later = false) => {
+    focusAfterRemoval(rowRef.current, later);
+    trashTodos([todo.id]);
+  };
+  const late = group === 'late' && canEdit;
+
+  const onRowKey = (e: React.KeyboardEvent<HTMLLIElement>) => {
+    const el = e.target as HTMLElement;
+    // This row's own controls only (a dialog opened from it passes its keys up here too), never while typing.
+    if (preview || editing || e.defaultPrevented || !e.currentTarget.contains(el) || el.closest('input, textarea, select, [contenteditable="true"]')) return;
+    if (isMenuKey(e)) {
+      e.preventDefault();
+      return setMenu(menuPoint(e));
+    }
+    if (e.key === 'Delete' || (e.key === 'Backspace' && e.metaKey)) {
+      if (e.ctrlKey || e.altKey || e.shiftKey) return;
+      e.preventDefault();
+      return toTrash();
+    }
+    if (e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      const titles = [...(rowRef.current?.closest('[data-todolist]')?.querySelectorAll<HTMLElement>('[data-task-title]') ?? [])];
+      const i = titles.findIndex(x => rowRef.current?.contains(x));
+      return titles[i + (e.key === 'ArrowDown' ? 1 : -1)]?.focus();
+    }
+    // Espace and Entrée on the buttons keep their own meaning.
+    if (!el.matches('[data-task-title]')) return;
+    if (e.key === ' ') {
+      e.preventDefault();
+      tick(true);
+    } else if (e.key === 'Enter' && canEdit) {
+      e.preventDefault();
+      open();
+    } else if (e.key === 'F2' && canEdit) {
+      e.preventDefault();
+      setEditing(true);
+    }
+  };
+
+  const keys = !coarse(); // no keyboard names in the menu on a touch screen
+  const menuItems: MenuItem[] = !menu
+    ? []
+    : menu.postpone
+      ? [...postponeItems([todo]), { label: t('Choisir un jour…'), icon: <CalendarPlus />, onClick: () => setDating(document.querySelector<HTMLElement>(`[data-due="${CSS.escape(todo.id)}"]`)) }]
+      : [
+          ...(canEdit ? [{ label: tour ? t('Lancer') : t('Modifier'), icon: <Pencil />, shortcut: keys ? t('Entrée') : undefined, onClick: open }] : []),
+          ...(canEdit ? [{ label: t('Renommer'), icon: <TextCursorInput />, shortcut: keys ? 'F2' : undefined, onClick: () => setEditing(true) }] : []),
+          { label: todo.done ? t('Remettre à faire') : t('Marquer comme faite'), icon: todo.done ? <RotateCcw /> : <Check />, shortcut: keys ? t('Espace') : undefined, onClick: () => tick(true) },
+          ...(overdue && editable ? [{ label: '', divider: true, onClick: () => {} }, ...postponeItems([todo])] : []),
+          { label: '', divider: true, onClick: () => {} },
+          { label: t('Supprimer'), icon: <Trash2 />, shortcut: keys ? DELETE_KEY : undefined, danger: true, onClick: () => toTrash(true) },
+        ];
+
   return (
-    <li ref={rowRef} className="list-row group flex min-h-9 items-center gap-2 rounded-lg sm:gap-3 pointer-coarse:gap-4 px-1.5 pointer-coarse:pl-3.5 py-1 transition-colors hover:bg-stone-50">
+    <li
+      ref={rowRef}
+      onKeyDown={onRowKey}
+      onContextMenu={e => {
+        if (preview || editing || !e.currentTarget.contains(e.target as Node)) return;
+        e.preventDefault();
+        setMenu(menuPoint(e));
+      }}
+      className="list-row group flex min-h-9 items-center gap-2 rounded-lg sm:gap-3 pointer-coarse:gap-4 px-1.5 pointer-coarse:pl-3.5 py-1 transition-colors hover:bg-stone-50"
+    >
       <button
         data-todo={todo.id}
-        onClick={() => {
-          toggle(todo.id);
-          refocusTodo(todo.id);
-        }}
+        onClick={() => tick()}
         className={cx(
           'hit flex h-4 w-4 shrink-0 items-center justify-center rounded-[5px] border-[1.5px] transition-colors',
           justDone ? 'border-emerald-500 bg-emerald-500' : overdue ? 'border-[#d9a19a] hover:border-[#b13428] dark:border-red-300 dark:hover:border-red-600' : 'border-stone-300 hover:border-stone-500',
@@ -174,27 +291,36 @@ const TodoRow = memo(function TodoRow({ t: todo, editable, preview, now = 0, gro
       ) : (
         <span
           ref={titleRef}
+          data-task-title={todo.id}
           onDoubleClick={() => canEdit && setEditing(true)}
-          {...(canEdit && {
-            role: 'button',
-            tabIndex: 0,
-            'aria-label': t('Renommer « {title} »', { title: todo.title }),
-            onKeyDown: (e: React.KeyboardEvent) => {
-              if (e.key !== 'Enter' && e.key !== 'F2') return;
-              e.preventDefault();
-              setEditing(true);
-            },
-          })}
+          // The task's own stop for the keyboard (onRowKey): Entrée opens it, Espace ticks it, F2 renames it.
+          role="button"
+          tabIndex={0}
+          aria-label={todo.done ? t('« {title} », faite', { title: todo.title }) : todo.title}
+          aria-keyshortcuts={canEdit ? 'Enter Space F2 Delete' : 'Space Delete'}
           // As tall as the row on touch screens (36 px), the clamped text inside.
           className={cx('flex min-w-0 flex-1 items-center rounded text-[13px] pointer-coarse:-my-1 pointer-coarse:self-stretch pointer-coarse:py-1', 'text-ink')}
           title={canEdit ? t('Double-clic pour renommer') : todo.title}
         >
           <span className="min-w-0">
             <span className={cx('line-clamp-2 break-words', justDone && 'text-stone-500 line-through decoration-emerald-500/70')}>{todo.title}</span>
-            {justDone && <GoesIn minutes={minutesLeft} />}
+            {justDone && !history && <GoesIn minutes={minutesLeft} />}
           </span>
         </span>
       )}
+      {late && (
+        <button
+          type="button"
+          aria-haspopup="menu"
+          onClick={e => setMenu({ ...menuPoint(e), postpone: true })}
+          className="hit flex h-9 shrink-0 items-center gap-1 rounded-md px-1.5 text-[12px] font-medium text-stone-600 hover:bg-stone-100 hover:text-ink sm:h-6"
+          title={t('Reporter')}
+          aria-label={t('Reporter « {title} »', { title: todo.title })}
+        >
+          <CalendarClock size={13} /> <span className="max-sm:hidden">{t('Reporter')}</span>
+        </button>
+      )}
+      {menu && <ContextMenu x={menu.x} y={menu.y} items={menuItems} onClose={() => setMenu(null)} label={menu.postpone ? t('Reporter « {title} »', { title: todo.title }) : todo.title} />}
       {isTourTodo(todo.title) && !todo.done && (
         <button type="button" onClick={startTour} className="btn-primary h-7 shrink-0 px-2.5 text-[12px] pointer-coarse:h-9">
           {t('Lancer')}
@@ -232,11 +358,7 @@ const TodoRow = memo(function TodoRow({ t: todo, editable, preview, now = 0, gro
             setOpenDialog(null);
             refocusTodo(todo.id);
           }}
-          onDelete={async () => {
-            if (!(await confirmRemove(todo))) return refocusTodo(todo.id);
-            focusAfterRemoval(rowRef.current, true);
-            removeWithUndo([remove(todo.id)].filter(x => !!x));
-          }}
+          onDelete={() => toTrash(true)}
         />
       )}
       {/* The tour task has « Lancer » in that column instead (no deadline to give it). */}
@@ -254,24 +376,27 @@ const TodoRow = memo(function TodoRow({ t: todo, editable, preview, now = 0, gro
               showDue ? 'px-1 py-0.5 text-right hover:bg-stone-100' : 'icon-btn touch-show h-9 w-9 opacity-0 max-sm:hidden sm:h-6 sm:w-6 group-hover:opacity-100 focus-visible:opacity-100',
             )}
             title={todo.due ? t('Changer l’échéance') : t('Ajouter une échéance')}
-            aria-label={todo.due ? t('Changer l’échéance de «\u00a0{title}\u00a0» ({due})', { title: todo.title, due: dueText(todo.due, overdue) }) : t('Ajouter une échéance à «\u00a0{title}\u00a0»', { title: todo.title })}
+            aria-label={
+              (todo.due ? t('Changer l’échéance de «\u00a0{title}\u00a0» ({due})', { title: todo.title, due: dueText(todo.due, overdue) }) : t('Ajouter une échéance à «\u00a0{title}\u00a0»', { title: todo.title })) +
+              (todo.repeat && todo.due ? ` · ${repeatLabel(todo.repeat)}` : '')
+            }
           >
-            {showDue ? <DueLabel due={todo.due!} time={todo.time} short={overdue} noDay={noDay} /> : <CalendarPlus size={13} />}
+            {showDue ? <DueLabel due={todo.due!} time={todo.time} short={overdue} noDay={noDay} repeat={todo.repeat} /> : <CalendarPlus size={13} />}
           </button>
           {dating && <DatePopover anchor={dating} value={todo.due ?? ''} clearable label={t('Échéance de « {title} »', { title: todo.title })} onPick={pickDue} onClose={() => setDating(null)} />}
         </>
+      ) : history ? (
+        <span className="tabular shrink-0 text-[12px] text-stone-500 first-letter:uppercase">{doneText(todo.doneAt)}</span>
       ) : (
-        todo.due && !todo.done && <DueLabel due={todo.due} time={todo.time} />
+        todo.due && !todo.done && <DueLabel due={todo.due} time={todo.time} repeat={todo.repeat} />
       )}
       {!preview && <button
         data-remove
-        onClick={async e => {
-          const row = e.currentTarget.closest('li');
-          if (!(await confirmRemove(todo))) return;
-          removeWithUndo([remove(todo.id)].filter(x => !!x));
-          focusAfterRemoval(row, true);
+        onClick={e => {
+          e.currentTarget.focus(); // Safari doesn't focus a clicked button: the next row's bin must take the focus, not its title
+          toTrash(true);
         }}
-        className="icon-btn touch-show h-9 w-9 opacity-0 max-sm:hidden sm:h-6 sm:w-6 group-hover:opacity-100 focus-visible:opacity-100 hover:text-red-600" title={t('Supprimer')} aria-label={t('Supprimer « {title} »', { title: todo.title })}>
+        className="icon-btn touch-show h-9 w-9 opacity-0 max-sm:hidden sm:h-6 sm:w-6 group-hover:opacity-100 focus-visible:opacity-100 hover:text-red-600" title={t('Mettre à la corbeille')} aria-label={t('Supprimer « {title} »', { title: todo.title })}>
         <Trash2 size={13} />
       </button>}
     </li>
@@ -287,11 +412,17 @@ function QuickAdd() {
 
   const submit = () => {
     if (!title.trim()) return;
-    // « Appeler la banque demain 14h »: the day and the hour come out of the sentence, as in the calendar
-    // (not a day already past, a repeat or an « urgent » the task has no place for: then as typed).
-    const p = due ? null : parseQuickAdd(title);
-    const found = p?.title && p.date && p.date >= todayKey() && !p.weekly && !p.important && !p.impossible ? p : null;
-    add(found ? found.title : title, due || found?.date || undefined, found?.start ?? undefined);
+    // « Arroser les plantes tous les jours », « Sortir les poubelles tous les lundis »: a task that repeats (from today
+    // when no day is said). « Appeler la banque demain 14h »: the day and the hour come out of the sentence, as in the
+    // calendar (not a day already past or an « urgent » the task has no place for: then as typed).
+    const r = repeatIn(title);
+    const text = r.repeat && r.text ? r.text : title;
+    const p = due ? null : parseQuickAdd(text);
+    const found = p?.title && p.date && p.date >= todayKey() && !p.important && !p.impossible ? p : null;
+    const repeat = r.repeat && r.text ? r.repeat : found?.weekly ? 'week' : undefined;
+    const day = due || found?.date || (repeat ? todayKey() : undefined);
+    const todo = add(found ? found.title : text, day, found?.start ?? undefined);
+    if (repeat) useTodos.getState().update(todo.id, { repeat });
     setTitle('');
     setDue('');
     titleRef.current?.focus(); // ready for the next one, even from the date field that just went away
@@ -386,10 +517,13 @@ export default function TodoList({ limit, grouped }: { limit?: number; grouped?:
           { key: 'today', label: t('Aujourd’hui'), items: open.filter(x => x.due === today) },
           { key: 'soon', label: t('À venir'), items: open.filter(x => x.due && x.due > today) },
           { key: 'none', label: t('Sans échéance'), items: open.filter(x => !x.due) },
-          { key: 'done', label: t('Faites'), items: ticked },
+          { key: 'done', label: t('Cochées à l’instant'), items: ticked },
         ]
       : [{ key: 'all', label: '', items: [...openShown, ...tickedShown] }]
   ).filter(g => g.items.length);
+  // « Tout reporter » under « En retard ».
+  const [lateMenu, setLateMenu] = useState<{ x: number; y: number } | null>(null);
+  const lateItems = groups.find(g => g.key === 'late')?.items ?? [];
   // Hundreds of tasks: the first rows at once, the others right after (useProgressive).
   let left = useProgressive(groups.reduce((n, g) => n + g.items.length, 0));
   const rendered = groups.map(g => {
@@ -418,9 +552,21 @@ export default function TodoList({ limit, grouped }: { limit?: number; grouped?:
           {rendered.filter(g => g.rows.length).map(g => (
             <div key={g.key} className={cx(g.label && 'mt-3 first:mt-1')}>
               {g.label && (
-                <h2 className={cx('eyebrow mb-0.5 px-1.5', g.key === 'done' && 'text-emerald-700 dark:text-emerald-400')} style={g.key === 'late' ? { color: OVERDUE } : undefined}>
-                  {g.label}
-                </h2>
+                <div className="mb-0.5 flex items-center gap-2 px-1.5">
+                  <h2 className={cx('eyebrow', g.key === 'done' && 'text-emerald-700 dark:text-emerald-400')} style={g.key === 'late' ? { color: OVERDUE } : undefined}>
+                    {g.label}
+                  </h2>
+                  {g.key === 'late' && (
+                    <button
+                      type="button"
+                      aria-haspopup="menu"
+                      onClick={e => setLateMenu(menuPoint(e))}
+                      className="-my-1 ml-auto flex items-center gap-1 rounded-md px-1.5 py-1 text-[12px] font-medium text-stone-500 transition-colors hover:bg-stone-100 hover:text-ink pointer-coarse:py-2"
+                    >
+                      <CalendarClock size={13} aria-hidden /> {t('Tout reporter')}
+                    </button>
+                  )}
+                </div>
               )}
               <ul className="-mx-1.5">
                 {g.rows.map(x => (
@@ -431,6 +577,68 @@ export default function TodoList({ limit, grouped }: { limit?: number; grouped?:
           ))}
         </div>
       )}
+      {lateMenu && <ContextMenu x={lateMenu.x} y={lateMenu.y} items={postponeItems(lateItems, true)} onClose={() => setLateMenu(null)} label={t('Tout reporter')} />}
     </div>
+  );
+}
+
+const SHOWN_DONE = 8;
+const DONE_OPEN = 'cop-faites-ouvert';
+
+/**
+ * « Faites (N) »: the ticked tasks, the last first — to untick one, or put them all in the trash. They stay in the
+ * data anyway (« Ma semaine » and the badges count them). Folded or not: remembered on this device.
+ */
+export function DoneTasks() {
+  const todos = useTodos(s => s.todos);
+  const done = todos.filter(x => x.done).sort((a, b) => (b.doneAt ?? '').localeCompare(a.doneAt ?? ''));
+  const [open, setOpen] = useState(() => {
+    try {
+      return localStorage.getItem(DONE_OPEN) !== '0';
+    } catch {
+      return true;
+    }
+  });
+  const [all, setAll] = useState(false);
+  if (!done.length) return null;
+  const shown = all ? done : done.slice(0, SHOWN_DONE);
+  const fold = () => {
+    setOpen(!open);
+    try {
+      localStorage.setItem(DONE_OPEN, open ? '0' : '1');
+    } catch {
+      /* private mode: folded until the next visit only */
+    }
+  };
+  return (
+    <section aria-labelledby="faites-titre" className="card p-5">
+      <div className="flex items-center gap-2">
+        <h2 id="faites-titre" className="mr-auto">
+          <button type="button" onClick={fold} aria-expanded={open} aria-controls="faites-liste" className="-ml-1 flex items-center gap-1 rounded px-1 text-[13px] font-medium text-stone-600 hover:text-ink pointer-coarse:min-h-9">
+            <ChevronRight size={14} className={cx('transition-transform', open && 'rotate-90')} aria-hidden />
+            {t('Faites')} <span className="tabular text-stone-500">({done.length})</span>
+          </button>
+        </h2>
+        {open && (
+          <button type="button" onClick={() => trashTodos(done.map(x => x.id))} className="-my-1 rounded-md px-1.5 py-1 text-[12px] font-medium text-stone-500 transition-colors hover:bg-red-50 hover:text-red-600 pointer-coarse:py-2">
+            {t('Tout supprimer')}
+          </button>
+        )}
+      </div>
+      {open && (
+        <div id="faites-liste" data-todolist className="mt-2">
+          <ul className="-mx-1.5">
+            {shown.map(x => (
+              <TodoRow key={x.id} t={x} editable history />
+            ))}
+          </ul>
+          {done.length > shown.length && (
+            <button type="button" onClick={() => setAll(true)} className="mt-1 rounded px-0.5 text-[12px] font-medium text-brand-600 hover:underline pointer-coarse:min-h-9">
+              {tn(done.length - shown.length, 'Voir {n} autre', 'Voir les {n} autres')}
+            </button>
+          )}
+        </div>
+      )}
+    </section>
   );
 }
