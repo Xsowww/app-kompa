@@ -491,7 +491,8 @@ export default function AppShell() {
               end={n.end}
               className={({ isActive }) =>
                 cx(
-                  'flex h-10 items-center gap-3 rounded-[14px] border px-2.5 text-[14px] font-medium transition-colors',
+                  // rounded-lg: as every other row of the bar (Kompaly, Nouveautés, Session focus, Profil), the same shape at rest, hovered and chosen.
+                  'flex h-10 items-center gap-3 rounded-lg border px-2.5 text-[14px] font-medium transition-colors',
                   isActive ? 'border-transparent bg-ink font-semibold text-paper' : 'border-transparent text-stone-600 hover:bg-stone-100 hover:text-ink',
                 )
               }
@@ -760,7 +761,9 @@ function PhoneTabBar({ news, label, extra }: { news: (to: string) => number; lab
         <div
           ref={panel}
           id="nav-more-panel"
-          className="enter fixed bottom-[calc(max(12px,env(safe-area-inset-bottom))+4.5rem)] left-[max(12px,env(safe-area-inset-left))] right-[max(12px,env(safe-area-inset-right))] z-[45] grid grid-cols-3 gap-1.5 rounded-[22px] border border-stone-200 bg-surface p-2 shadow-pop lg:hidden"
+          // As many columns as fit (80 px at least): one row on most phones, 2 on the narrowest; on a wide screen
+          // (landscape, tablet) a compact panel at the right, above « Plus », not a wide sheet of white.
+          className="enter fixed bottom-[calc(max(12px,env(safe-area-inset-bottom))+4.5rem)] left-[max(12px,env(safe-area-inset-left))] right-[max(12px,env(safe-area-inset-right))] z-[45] grid grid-cols-[repeat(auto-fit,minmax(80px,1fr))] gap-1.5 rounded-[22px] border border-stone-200 bg-surface p-2 shadow-pop sm:left-auto sm:w-[440px] lg:hidden"
         >
           {more.map(n => (
             <NavLink

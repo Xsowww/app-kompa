@@ -134,6 +134,11 @@
 :root[data-style='liquide'] :is(.btn-primary, .btn-secondary) {
   box-shadow: inset 1px 1px 0 var(--glass-lo), 0 0 0 0.5px var(--glass-line);
 }
+/* The rows of the side bar are capsules too, at rest, hovered and chosen (a rounded square hover under a capsule
+   chosen one looked like two shapes). */
+:root[data-style='liquide'] aside.bg-surface :is(a, button).rounded-lg {
+  border-radius: 999px;
+}
 /* The page you are on, in the side bar: a drop of glass instead of the black pill. */
 :root[data-style='liquide'] aside nav a.bg-ink {
   border-radius: 999px;

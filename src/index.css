@@ -310,6 +310,12 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Phones: while the « Plus » panel is open, the « + » button behind it is hidden (its top showed between the panel
+   and the tab bar). */
+body:has(#nav-more-panel) #create-button {
+  visibility: hidden;
+}
+
 /* ── Motion ──────────────────────────────────────────────────── */
 @keyframes enter {
   from { opacity: 0; transform: translateY(4px); }
