@@ -1,13 +1,13 @@
 import { useContext, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, CalendarClock, CheckCheck, CloudOff, Copy, ImagePlus, LogIn, NotebookText, Paperclip, Plus, Send, Settings2, Users } from 'lucide-react';
+import { ArrowLeft, Bell, BellOff, CalendarClock, CheckCheck, CloudOff, Copy, ImagePlus, LogIn, MoreHorizontal, NotebookText, Paperclip, Plus, Send, Settings2, Users } from 'lucide-react';
 import { imageToAvatar } from '../../lib/backup';
 import { useAuth } from '../../store/auth';
 import { prefetchGroup, useGroups, watchFocus } from '../../store/groups';
 import { useGroupActivity, totalUnread } from '../../store/groupActivity';
 import { toast } from '../../store/ui';
-import GroupMuteButton from '../../components/GroupMuteButton';
-import { Modal } from '../../components/Overlays';
+import GroupMuteButton, { useGroupMute } from '../../components/GroupMuteButton';
+import { ContextMenu, Modal } from '../../components/Overlays';
 import { FieldError } from '../../components/Field';
 import { SelectField } from '../../components/Pickers';
 import { cloudEnabled } from '../../lib/supabase';
@@ -26,6 +26,44 @@ import { PlusHint } from '../../components/CreateButton';
 import { showJoined } from './join';
 import { EmptyState, Skeleton } from '../../components/EmptyState';
 import { t, tn, locale } from '../../i18n';
+
+/** Phones: a group's secondary actions (read all, invite, notifications, settings) under « … ». */
+function GroupMoreMenu({ group, onRead, onInvite, onSettings, settingsLabel }: { group: Group; onRead?: () => void; onInvite?: () => void; onSettings?: () => void; settingsLabel: string }) {
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const mute = useGroupMute(group);
+  return (
+    <>
+      <button
+        type="button"
+        className="icon-btn relative sm:hidden"
+        title={t('Plus d’actions')}
+        aria-label={t('Plus d’actions')}
+        aria-haspopup="menu"
+        aria-expanded={!!menu}
+        onClick={e => {
+          const r = e.currentTarget.getBoundingClientRect();
+          setMenu({ x: r.right, y: r.bottom + 6 });
+        }}
+      >
+        <MoreHorizontal size={17} />
+        {onRead && <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-brand-solid" aria-hidden />}
+      </button>
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          items={[
+            ...(onRead ? [{ label: t('Tout marquer comme lu'), icon: <CheckCheck />, onClick: onRead }] : []),
+            ...(onInvite ? [{ label: t('Inviter quelqu’un'), icon: <Send />, onClick: onInvite }] : []),
+            { label: mute.label, icon: mute.quiet ? <Bell /> : <BellOff />, onClick: mute.toggle },
+            ...(onSettings ? [{ label: settingsLabel, icon: <Settings2 />, onClick: onSettings }] : []),
+          ]}
+        />
+      )}
+    </>
+  );
+}
 
 type Tab = 'notes' | 'fichiers' | 'revisions' | 'membres';
 const TABS: { id: Tab; label: string; icon: typeof Users }[] = [
@@ -399,40 +437,47 @@ function Groups() {
               )}
               {/* News in its other tabs (the open one is seen): all read at once. */}
               {totalUnread(unread[active.id]) > 0 && (
-                <button className="icon-btn" title={t('Tout marquer comme lu')} aria-label={t('Tout marquer comme lu')} onClick={() => useGroupActivity.getState().markAllSeen(active.id)}>
+                <button className="icon-btn max-sm:hidden" title={t('Tout marquer comme lu')} aria-label={t('Tout marquer comme lu')} onClick={() => useGroupActivity.getState().markAllSeen(active.id)}>
                   <CheckCheck size={16} />
                 </button>
               )}
               {code && (
-                <button className="icon-btn" title={t('Inviter quelqu’un')} aria-label={t('Inviter quelqu’un')} onClick={() => void shareInvite(active, code)}>
+                <button className="icon-btn max-sm:hidden" title={t('Inviter quelqu’un')} aria-label={t('Inviter quelqu’un')} onClick={() => void shareInvite(active, code)}>
                   <Send size={16} />
                 </button>
               )}
-              <GroupMuteButton group={active} />
+              <GroupMuteButton group={active} className="max-sm:hidden" />
               {active.ownerId === userId && (
-                <button className="icon-btn" title={t('Paramètres {of}', { of: w.of })} aria-label={t('Paramètres {of}', { of: w.of })} onClick={() => setDialog('settings')}>
+                <button className="icon-btn max-sm:hidden" title={t('Paramètres {of}', { of: w.of })} aria-label={t('Paramètres {of}', { of: w.of })} onClick={() => setDialog('settings')}>
                   <Settings2 size={16} />
                 </button>
               )}
+              {/* Phones: the same actions in a « … » menu, the group's name keeps the room. */}
+              <GroupMoreMenu
+                group={active}
+                onRead={totalUnread(unread[active.id]) > 0 ? () => useGroupActivity.getState().markAllSeen(active.id) : undefined}
+                onInvite={code ? () => void shareInvite(active, code) : undefined}
+                onSettings={active.ownerId === userId ? () => setDialog('settings') : undefined}
+                settingsLabel={t('Paramètres {of}', { of: w.of })}
+              />
             </div>
-            <div className="flex gap-1 overflow-x-auto border-b border-stone-200" role="tablist">
+            {/* Phones: the tabs share the width (no row scrolling sideways, none hidden past the edge). */}
+            <div className="flex gap-1 border-b border-stone-200" role="tablist">
               {tabs.map(x => (
                 <button
                   key={x.id}
                   role="tab"
                   aria-selected={tab === x.id}
-                  // On a phone the row scrolls: the chosen tab is brought fully into view.
-                  ref={tab === x.id ? el => el?.scrollIntoView({ inline: 'nearest', block: 'nearest' }) : undefined}
                   onClick={() => go(active.id, x.id)}
                   className={cx(
-                    '-mb-px flex h-9 shrink-0 items-center gap-1.5 border-b-2 px-2 text-[13px] sm:px-2.5 font-medium transition-[color]',
+                    '-mb-px flex h-9 min-w-0 items-center justify-center gap-1.5 border-b-2 px-1 text-[13px] font-medium transition-[color] max-sm:flex-1 sm:shrink-0 sm:px-2.5',
                     tab === x.id ? 'text-ink' : 'border-transparent text-stone-500 hover:text-ink',
                   )}
                   style={tab === x.id ? { borderColor: groupColor(active) } : undefined}
                 >
-                  <x.icon size={15} strokeWidth={1.9} className="max-[400px]:hidden" />
-                  {x.id === 'revisions' ? w.meet.Tab : x.label}
-                  {tab !== x.id && (unread[active.id]?.[x.id as 'notes'] ?? 0) > 0 && <span className="h-1.5 w-1.5 rounded-full bg-brand-solid" aria-label={t('nouveau')} />}
+                  <x.icon size={15} strokeWidth={1.9} className="shrink-0 max-[400px]:hidden" />
+                  <span className="min-w-0 truncate">{x.id === 'revisions' ? w.meet.Tab : x.label}</span>
+                  {tab !== x.id && (unread[active.id]?.[x.id as 'notes'] ?? 0) > 0 && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-solid" aria-label={t('nouveau')} />}
                 </button>
               ))}
             </div>
