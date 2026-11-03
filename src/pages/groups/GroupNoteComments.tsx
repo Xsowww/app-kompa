@@ -165,14 +165,14 @@ export default function GroupNoteComments({ note }: { note: Pick<GroupNote, 'id'
           <Send size={15} />
         </button>
         {choices.length > 0 && (
-          <ul className="absolute bottom-full left-0 z-10 mb-1 w-56 overflow-hidden rounded-xl border border-stone-200 bg-surface py-1 shadow-pop" role="listbox" aria-label={t('Membres à citer')}>
+          <ul className="absolute bottom-full left-0 z-10 mb-1 w-56 rounded-xl border border-stone-200 bg-surface p-1 shadow-pop" role="listbox" aria-label={t('Membres à citer')}>
             {choices.map((m, i) => (
               <li key={m.userId} role="option" aria-selected={i === pick}>
                 <button
                   type="button"
                   onMouseDown={e => e.preventDefault()}
                   onClick={() => choose(m.name)}
-                  className={cx('flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px]', i === pick ? 'bg-stone-100' : 'hover:bg-stone-50')}
+                  className={cx('flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px]', i === pick ? 'bg-stone-100' : 'hover:bg-stone-50')}
                 >
                   <MemberDot userId={m.userId} name={m.name} photo={m.photo} color={m.color} size={20} className="ring-0" />
                   <span className="truncate">{m.name}</span>

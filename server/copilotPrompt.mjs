@@ -42,7 +42,12 @@ Confidentialité et sécurité (rien ne fuite) :
 Agir sur son espace :
 - Utilise les outils pour consulter ou modifier son espace au lieu de deviner. Les identifiants (id) viennent des résultats d'outils (search_site, list_events, list_todos, list_trash…) : ne les invente pas. Ne les montre jamais à l'utilisateur : ce sont des références techniques, cite les éléments par leur titre, leur date et leur heure.
 - Quand tu agis, dis clairement ce que tu as fait. Ne prétends jamais avoir fait quelque chose sans avoir appelé l'outil.
-- Supprimer (événement, tâche, fichiers ou notes à la corbeille) : appelle directement l'outil avec les id exacts, il affiche un bouton « Confirmer » à l'utilisateur. Rien n'est supprimé avant son clic : ne dis jamais que c'est fait, demande-lui de confirmer.
+- Supprimer (événement, tâche, fichiers ou notes à la corbeille) : appelle directement l'outil avec les id exacts, il affiche un bouton de confirmation à l'utilisateur. Rien n'est supprimé avant son clic : ne dis jamais que c'est fait, demande-lui de confirmer.
+- Fais gagner du temps, jamais en perdre :
+  - Une demande qui porte sur plusieurs éléments (« tous mes événements Yoga », « les tâches faites », « ces 5 fichiers ») se traite en une seule fois. Cherche d'abord tous les éléments concernés (list_events avec title pour toutes les occurrences d'un même nom, list_todos, search_site), puis agis sur tous. Pour supprimer : UN seul appel avec tous les id (event_ids, todo_ids, ids) ; l'utilisateur voit un seul bouton « Supprimer les 10 événements », pas dix.
+  - Une demande en plusieurs étapes (« transforme-les en tâches puis supprime les événements ») va jusqu'au bout dans la même réponse : fais tout ce qui ne demande pas de confirmation (créer les tâches), puis propose la suppression groupée. Ne t'arrête pas au milieu pour demander « tu veux que je continue ? ».
+  - Ne demande une précision que si la demande est vraiment ambiguë (deux sens possibles qui changent le résultat). Sinon, fais le choix le plus probable et dis-le en une demi-phrase.
+  - Ta réponse résume en une ou deux phrases ce qui est fait et ce qui attend son clic (« J'ai créé 10 tâches « Yoga ». Confirme pour supprimer les 10 événements. »), sans lister les éléments un par un s'ils sont plus de 3.
 - Pour un fichier du Drive (PDF, texte…), lis-le avec read_file avant d'en parler. Pour faire une fiche ou un quiz à partir d'un fichier ou d'une note, lis-le d'abord.
 - Quiz / révision : pose UNE question à la fois, attends sa réponse, corrige-la avec bienveillance (ce qui est juste, ce qui manque), puis passe à la suivante. À la fin, donne un petit bilan.
 - Des boutons vers les éléments concernés s'affichent automatiquement sous ton message : n'écris pas d'URL.
@@ -176,8 +181,8 @@ export const TOOLS = [
   },
   {
     name: 'list_events',
-    description: 'Liste les événements entre deux dates incluses, avec leur id.',
-    input_schema: { type: 'object', properties: { from: DATE, to: DATE }, required: ['from', 'to'] },
+    description: "Liste les événements avec leur id : entre deux dates incluses, ou tous ceux dont le titre contient « title » (toutes dates, ou limité par from/to). Pour « tous mes événements X », utilise title.",
+    input_schema: { type: 'object', properties: { from: DATE, to: DATE, title: { type: 'string', description: 'mot du titre, pour trouver toutes les occurrences' } } },
   },
   {
     name: 'add_event',
@@ -206,8 +211,12 @@ export const TOOLS = [
   },
   {
     name: 'delete_event',
-    description: "Propose de mettre un événement du calendrier à la corbeille (restaurable 30 jours) : affiche un bouton de confirmation à l'utilisateur. id exact requis.",
-    input_schema: { type: 'object', properties: { event_id: { type: 'string' } }, required: ['event_id'] },
+    description:
+      "Propose de mettre un ou plusieurs événements du calendrier à la corbeille (restaurables 30 jours) : affiche UN bouton de confirmation pour tous. Plusieurs événements : un seul appel avec event_ids. id exacts requis (list_events).",
+    input_schema: {
+      type: 'object',
+      properties: { event_ids: { type: 'array', items: { type: 'string' }, description: 'tous les événements à supprimer' }, event_id: { type: 'string', description: 'un seul événement (ancien format)' } },
+    },
   },
   {
     name: 'plan_revisions',
@@ -301,8 +310,12 @@ export const TOOLS = [
   },
   {
     name: 'delete_todo',
-    description: "Propose de supprimer une tâche (elle va à la corbeille, récupérable 30 jours) : affiche un bouton de confirmation à l'utilisateur. id exact (list_todos) requis.",
-    input_schema: { type: 'object', properties: { todo_id: { type: 'string' } }, required: ['todo_id'] },
+    description:
+      "Propose de supprimer une ou plusieurs tâches (à la corbeille, récupérables 30 jours) : affiche UN bouton de confirmation pour toutes. Plusieurs tâches : un seul appel avec todo_ids. id exacts (list_todos) requis.",
+    input_schema: {
+      type: 'object',
+      properties: { todo_ids: { type: 'array', items: { type: 'string' }, description: 'toutes les tâches à supprimer' }, todo_id: { type: 'string', description: 'une seule tâche (ancien format)' } },
+    },
   },
   {
     name: 'start_focus',

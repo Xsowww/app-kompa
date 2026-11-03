@@ -134,6 +134,11 @@
 :root[data-style='liquide'] :is(.btn-primary, .btn-secondary) {
   box-shadow: inset 1px 1px 0 var(--glass-lo), 0 0 0 0.5px var(--glass-line);
 }
+/* The rows of the side bar are capsules too, at rest, hovered and chosen (a rounded square hover under a capsule
+   chosen one looked like two shapes). */
+:root[data-style='liquide'] aside.bg-surface :is(a, button).rounded-lg {
+  border-radius: 999px;
+}
 /* The page you are on, in the side bar: a drop of glass instead of the black pill. */
 :root[data-style='liquide'] aside nav a.bg-ink {
   border-radius: 999px;
@@ -277,6 +282,25 @@
 }
 :root[data-style='relief'] .btn-primary:active {
   background-color: var(--color-brand-solid-hover);
+}
+
+/* Segmented controls (index.css › seg): Liquid Glass makes them capsules in a capsule; Relief hollows the frame out and
+   raises the chosen choice, with small shadows that stay within the frame's 3 px (the hovered one: half of them). */
+:root[data-style='liquide'] :is(.seg, .seg-item) {
+  border-radius: 999px;
+}
+:root[data-style='relief'] .seg {
+  background-color: var(--color-paper);
+  box-shadow: var(--nm-pressed);
+}
+:root[data-style='relief'] .seg-item:hover {
+  background-color: transparent;
+  box-shadow: 1px 1px 3px var(--nm-dark), -1px -1px 3px var(--nm-light);
+}
+:root[data-style='relief'] .seg-item:is([aria-pressed='true'], [aria-checked='true'], [aria-selected='true'], [data-active]) {
+  background-color: var(--color-surface);
+  color: var(--color-brand-600);
+  box-shadow: 2px 2px 4px var(--nm-dark), -2px -2px 4px var(--nm-light);
 }
 
 /* Keyboard focus on buttons whose ring the styles above replaced: an outline instead. */
