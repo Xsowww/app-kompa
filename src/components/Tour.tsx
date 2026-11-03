@@ -5,6 +5,7 @@ import { useCopilot } from '../store/copilot';
 import { trapTab, focusBeforeOverlay, focusables } from '../lib/a11y';
 import { useTour, endTour } from '../store/tour';
 import { usageWords, type Usage } from '../lib/usage';
+import { cx } from '../lib/utils';
 import { t } from '../i18n';
 
 interface Step {
@@ -92,7 +93,8 @@ const STEPS: Step[] = [
     text: (_, touch) => (touch ? t('Touche-le pour discuter\u00a0: il t’aide à t’organiser.') : t('Clique sur lui pour discuter\u00a0: il t’aide à t’organiser.')),
   },
   {
-    target: 'a[href="/profil"]',
+    // Phones: the avatar at the top opens the account menu (layout/AppShell › AccountSwitch).
+    target: 'a[href="/profil"], [data-tour="profil"]',
     title: t('Ton profil'),
     text: () => t('Thème, couleur, ton de Kompaly, notifications\u00a0: tout se règle ici.'),
   },
@@ -169,7 +171,13 @@ export default function Tour() {
     nextBtn.current?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') endTour();
-      else if (rootRef.current) trapTab(e, rootRef.current);
+      // ← → : the previous or next card (the last → ends the tour like « C’est parti »).
+      else if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && !e.altKey && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        if (e.key === 'ArrowLeft') useTour.setState({ step: Math.max(0, step - 1) });
+        else if (step >= STEPS.length - 1) endTour();
+        else useTour.setState({ step: step + 1 });
+      } else if (rootRef.current) trapTab(e, rootRef.current);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -220,7 +228,12 @@ export default function Tour() {
                 {t('Passer l’intro')}
               </button>
             )}
-            <button ref={nextBtn} type="button" onClick={next} className="btn-primary ml-auto h-8">
+            {step > 0 && (
+              <button type="button" onClick={() => useTour.setState({ step: step - 1 })} className="btn-ghost ml-auto h-8 px-2.5 text-[13px]" title={t('Précédent (←)')}>
+                {t('Précédent')}
+              </button>
+            )}
+            <button ref={nextBtn} type="button" onClick={next} className={cx('btn-primary h-8', step === 0 && 'ml-auto')} title={last ? undefined : t('Suivant (→)')}>
               {last ? t('C’est parti') : t('Suivant')}
             </button>
           </div>

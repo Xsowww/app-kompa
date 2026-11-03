@@ -25,6 +25,15 @@ export function aiPausedUntil(): number {
   }
 }
 
+/** « Réessayer » after a technical problem: the AI is asked again at once (a limit still waits its time). */
+export function resumeAfterError() {
+  try {
+    if (aiPauseReason() === 'error') sessionStorage.removeItem(PAUSE_KEY);
+  } catch {
+    /* storage unavailable: nothing was kept either */
+  }
+}
+
 export function aiPauseReason(): PauseReason {
   try {
     const r = sessionStorage.getItem(REASON_KEY);

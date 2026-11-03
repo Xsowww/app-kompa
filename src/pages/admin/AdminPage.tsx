@@ -2,9 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../store/auth';
 import { rememberAfterLogin } from '../../lib/afterLogin';
-import { RefreshCw, Search, ShieldCheck, Users, Activity, HardDrive, NotebookText, CalendarDays, FolderClosed, Loader2, LayoutDashboard, Inbox, X } from 'lucide-react';
+import { RefreshCw, Search, ShieldCheck, Users, Activity, HardDrive, NotebookText, CalendarDays, FolderClosed, Loader2, LayoutDashboard, Inbox, X, Sparkles, Mic, Gauge } from 'lucide-react';
 import { EmptyState } from '../../components/EmptyState';
-import { supabase, cloudEnabled, checkIsAdmin } from '../../lib/supabase';
+import { supabase, cloudEnabled, checkIsAdmin, accessToken } from '../../lib/supabase';
 import { CATEGORIES, type BuiltinCategory } from '../../store/calendar';
 import { formatBytes, relativeTime, cx } from '../../lib/utils';
 import { fmt, fromKey } from '../../lib/dates';
@@ -38,6 +38,30 @@ interface Stats {
   custom_categories?: { label: string; events: number; users: number }[];
   days: { day: string; signups: number; created: number }[];
   accounts: Account[];
+}
+
+/** GET /api/copilot/admin (server/copilot.mjs › aiUsage, server/cours.mjs › audioUsage): the server's own counters. */
+interface Usage {
+  ai: {
+    day: string;
+    today: { questions: number; calls: number; accounts: number };
+    month: { questions: number; calls: number };
+    budget: { calls: number; left: number } | null;
+    perAccount: number;
+    top: { id: string | null; questions: number; calls: number }[];
+  };
+  audio: { configured: boolean; today: number; month: number; accounts: number; siteMax: number | null; perAccount: number };
+}
+
+/** The server's figures, with the admin's session (it checks the role itself). null: not readable now. */
+async function fetchUsage(): Promise<Usage | null> {
+  try {
+    const token = await accessToken();
+    const res = await fetch('/api/copilot/admin', { headers: token ? { Authorization: `Bearer ${token}` } : {}, cache: 'no-store' });
+    return res.ok ? ((await res.json()) as Usage) : null;
+  } catch {
+    return null;
+  }
 }
 
 const REFRESH_MS = 20_000;
@@ -138,6 +162,7 @@ const VIEWS: { key: View; label: string; short?: string; icon: typeof Users }[] 
 export default function AdminPage() {
   const [allowed, setAllowed] = useState<boolean | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [usage, setUsage] = useState<Usage | null>(null);
   const [inbox, setInbox] = useState<InboxData | null>(null);
   const [inboxMissing, setInboxMissing] = useState(false);
   const [error, setError] = useState('');
@@ -152,8 +177,10 @@ export default function AdminPage() {
   const load = useCallback(async () => {
     if (!supabase) return;
     setLoading(true);
-    const [{ data, error: err }, box] = await Promise.all([supabase.rpc('admin_stats'), fetchInbox()]);
+    const [{ data, error: err }, box, ai] = await Promise.all([supabase.rpc('admin_stats'), fetchInbox(), fetchUsage()]);
     setLoading(false);
+    // Kept when a refresh fails (server restarting): the section says « indisponible » only when never read.
+    if (ai) setUsage(ai);
     // Échec passager : on garde la liste déjà affichée et on prévient.
     const boxFailed = !box.inbox && !box.missing;
     if (!boxFailed) {
@@ -337,6 +364,8 @@ export default function AdminPage() {
               </div>
             </section>
 
+            <AiUsage usage={usage} accounts={stats.accounts} />
+
             <section aria-labelledby="admin-trends">
               <h2 id="admin-trends" className="eyebrow mb-2">{t('30 derniers jours')}</h2>
               <div className="grid gap-3 lg:grid-cols-2">
@@ -364,6 +393,62 @@ export default function AdminPage() {
 
       </div>
     </div>
+  );
+}
+
+/** The AI and the transcription: today, this month, what is left of the day's budget, the accounts that ask the most. */
+function AiUsage({ usage, accounts }: { usage: Usage | null; accounts: Account[] }) {
+  if (!usage)
+    return (
+      <section aria-labelledby="admin-ai">
+        <h2 id="admin-ai" className="eyebrow mb-2">{t('IA et transcription')}</h2>
+        <p className="card px-4 py-3 text-[13px] text-stone-500">{t('Chiffres du serveur indisponibles pour le moment.')}</p>
+      </section>
+    );
+  const { ai, audio } = usage;
+  const who = (id: string | null) => {
+    const a = id ? accounts.find(x => x.id === id) : undefined;
+    return a ? a.name || a.email : t('Compte inconnu');
+  };
+  return (
+    <section aria-labelledby="admin-ai">
+      <h2 id="admin-ai" className="eyebrow mb-2">{t('IA et transcription')}</h2>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Kpi icon={Sparkles} label={t('Questions aujourd’hui')} value={ai.today.questions} sub={tn(ai.today.accounts, '{calls} appels · {n} compte', '{calls} appels · {n} comptes', { calls: ai.today.calls })} color="var(--color-brand-500)" />
+        <Kpi icon={Activity} label={t('Ce mois-ci')} value={ai.month.questions} sub={t('{calls} appels à l’IA', { calls: ai.month.calls })} color="#2f9e6b" />
+        <Kpi
+          icon={Gauge}
+          label={t('Budget du jour')}
+          value={ai.budget ? ai.budget.left : t('Illimité')}
+          sub={ai.budget ? t('appels restants sur {max} · {n} questions par compte', { max: ai.budget.calls, n: ai.perAccount }) : t('{n} questions par compte', { n: ai.perAccount })}
+          color={ai.budget && ai.budget.left < ai.budget.calls * 0.1 ? '#d9483b' : '#7a5ad6'}
+        />
+        <Kpi
+          icon={Mic}
+          label={t('Transcription')}
+          value={audio.configured ? t('{n} min', { n: audio.today.toLocaleString(locale()) }) : t('Désactivée')}
+          sub={audio.configured ? t('aujourd’hui · {month} min ce mois-ci{max}', { month: audio.month.toLocaleString(locale()), max: audio.siteMax ? ` · ${t('{n} min par jour au plus', { n: audio.siteMax })}` : '' }) : undefined}
+          color="#e5484d"
+        />
+      </div>
+      {ai.top.length > 0 && (
+        <div className="card mt-3 p-4">
+          <h3 className="text-[13px] font-medium text-stone-600">{t('Qui pose le plus de questions aujourd’hui')}</h3>
+          <ol className="mt-2 divide-y divide-stone-100 text-[13px]">
+            {ai.top.map((r, i) => (
+              <li key={r.id ?? i} className="flex items-baseline gap-3 py-1.5">
+                <span className="tabular w-5 shrink-0 text-stone-500">{i + 1}.</span>
+                <span className="min-w-0 flex-1 truncate">{who(r.id)}</span>
+                <span className="tabular shrink-0 text-[12px] text-stone-500">
+                  {t('{questions}/{max} questions · {calls} appels', { questions: r.questions, max: ai.perAccount, calls: r.calls })}
+                </span>
+              </li>
+            ))}
+          </ol>
+          <p className="mt-2 text-[11.5px] text-stone-500">{t('Compté par le serveur depuis minuit (heure de Paris) ; remis à zéro s’il redémarre.')}</p>
+        </div>
+      )}
+    </section>
   );
 }
 

@@ -144,7 +144,12 @@ export function v6Block(ip) {
 let quotaDay = '';
 let usage = new Map();
 let siteCalls = 0;
+// The month so far, for the admins (same shortcut: memory of this process).
+let quotaMonth = '';
+let month = { questions: 0, calls: 0 };
 const parisDay = () => new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris' }).format(new Date());
+/** Calls a day for the whole site. Default: Groq's free tier, or well under 100 $ a month of Claude Haiku (a question is 2-3 calls). AI_DAILY_BUDGET overrides. */
+const siteBudget = (provider, env) => Number(env.AI_DAILY_BUDGET) || (provider?.id === 'groq' ? 900 : provider?.id === 'anthropic' ? 1500 : Infinity);
 export function secondsToParisMidnight() {
   const [h, m, s] = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).format(new Date()).split(':').map(Number);
   return 86_400 - (h * 3600 + m * 60 + s);
@@ -163,17 +168,75 @@ export function overQuota(who, question, provider, env) {
     usage = new Map();
     siteCalls = 0;
   }
+  if (quotaMonth !== parisDay().slice(0, 7)) {
+    quotaMonth = parisDay().slice(0, 7);
+    month = { questions: 0, calls: 0 };
+  }
   const perStudent = Number(env.AI_DAILY_QUESTIONS) || 30;
-  // Default site ceiling: Groq's free tier, or well under 100 $ a month of Claude Haiku (a question is 2-3 calls). AI_DAILY_BUDGET overrides.
-  const site = Number(env.AI_DAILY_BUDGET) || (provider.id === 'groq' ? 900 : provider.id === 'anthropic' ? 1500 : Infinity);
+  const site = siteBudget(provider, env);
   const u = usage.get(who) ?? { questions: 0, calls: 0 };
   if (siteCalls >= site) return 'site_limit';
   if ((question && u.questions >= perStudent) || u.calls >= perStudent * 6) return 'daily_limit';
   if (question) u.questions++;
   u.calls++;
   siteCalls++;
+  if (question) month.questions++;
+  month.calls++;
   usage.set(who, u);
   return null;
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * The AI's use today and this month, for the admins: calls, questions, what is left of the site's daily budget, and
+ * the accounts that ask the most. Account ids only (the admin page puts the names on them): never an e-mail here,
+ * and a visitor counted by address (local mode) is not shown by it.
+ */
+export function aiUsage(provider, env) {
+  const today = quotaDay === parisDay();
+  const rows = today ? [...usage.entries()] : [];
+  const site = siteBudget(provider, env);
+  const calls = today ? siteCalls : 0;
+  return {
+    day: parisDay(),
+    today: { questions: rows.reduce((n, [, u]) => n + u.questions, 0), calls, accounts: rows.length },
+    month: quotaMonth === parisDay().slice(0, 7) ? { ...month } : { questions: 0, calls: 0 },
+    budget: Number.isFinite(site) ? { calls: site, left: Math.max(0, site - calls) } : null,
+    perAccount: Number(env.AI_DAILY_QUESTIONS) || 30,
+    top: rows
+      .sort((a, b) => b[1].questions - a[1].questions || b[1].calls - a[1].calls)
+      .slice(0, 10)
+      .map(([who, u]) => ({ id: UUID.test(who) ? who : null, questions: u.questions, calls: u.calls })),
+  };
+}
+
+/**
+ * Admins only, decided by Supabase like the admin_stats() function of schema.sql: listed in public.admins (is_admin(),
+ * run with the caller's own token, so auth.uid() is theirs) AND signed in with their phone's code (aal2).
+ * 'ok', 'mfa' (an admin who still has to type the code) or 'forbidden'.
+ */
+export async function adminCheck(req, env) {
+  const url = env.SUPABASE_URL || env.VITE_SUPABASE_URL;
+  const key = env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY;
+  const token = String(req.headers.authorization ?? '').replace(/^Bearer\s+/i, '');
+  if (!url || !key || !token || !(await authenticate(req, env))?.id) return 'forbidden';
+  let admin = false;
+  try {
+    const r = await fetch(`${url}/rest/v1/rpc/is_admin`, { method: 'POST', headers: { apikey: key, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: '{}', signal: AbortSignal.timeout(8000) });
+    admin = r.ok && (await r.json()) === true;
+  } catch {
+    return 'forbidden';
+  }
+  if (!admin) return 'forbidden';
+  // The token was just accepted by Supabase twice (Auth, then the database): its claims can be read as they are.
+  let aal = '';
+  try {
+    aal = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8')).aal ?? '';
+  } catch {
+    /* unreadable: not aal2 */
+  }
+  return aal === 'aal2' ? 'ok' : 'mfa';
 }
 
 // ── Conversation size ───────────────────────────────────────────────────────
@@ -266,6 +329,22 @@ export async function handleCopilot(req, res, env = process.env) {
   if (url === '/api/copilot/status') {
     const p = resolveProvider(env);
     send(res, 200, p ? { enabled: true, provider: p.id, label: p.label, model: p.model } : { enabled: false });
+    return true;
+  }
+  // The admins' figures (pages/admin): never in the public /api/sante.
+  if (url === '/api/copilot/admin' && req.method === 'GET') {
+    if (rateLimited(`ip:${ipOf(req, env)}`, PER_IP_PER_MIN)) {
+      send(res, 429, { error: 'rate_limited', retryAfter: 60 });
+      return true;
+    }
+    const check = await adminCheck(req, env);
+    if (check !== 'ok') {
+      send(res, 403, { error: check === 'mfa' ? 'mfa_required' : 'forbidden' });
+      return true;
+    }
+    const { audioUsage } = await import('./cours.mjs');
+    res.setHeader('Cache-Control', 'no-store');
+    send(res, 200, { ai: aiUsage(resolveProvider(env), env), audio: audioUsage(env) });
     return true;
   }
   if (req.method !== 'POST' || (url !== '/api/copilot/chat' && url !== '/api/copilot/nudge')) {

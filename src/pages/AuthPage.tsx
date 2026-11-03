@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { CheckCircle2, Eye, EyeOff, Fingerprint, Loader2 } from 'lucide-react';
+import { CheckCircle2, Fingerprint, Loader2 } from 'lucide-react';
 import { AUTH_MSG, awaitConfirmation, useAuth } from '../store/auth';
 import AccountList from '../components/AccountList';
 import { needsCredentials, reloginHint, savedAccounts, type SavedAccount } from '../lib/accounts';
@@ -15,6 +15,7 @@ import Logo from '../components/Logo';
 import FileIcon from '../components/FileIcon';
 import OAuthButtons from '../components/OAuthButtons';
 import PasswordStrength from '../components/PasswordStrength';
+import PasswordInput from '../components/PasswordInput';
 import { FieldError } from '../components/Field';
 import LanguagePicker from '../components/LanguagePicker';
 import { LEGAL_LINKS } from './legal/links';
@@ -116,7 +117,6 @@ export default function AuthPage({ mode }: { mode: Mode }) {
   const typed = (useLocation().state as { email?: string } | null)?.email;
   const [email, setEmail] = useState(askedEmail || (mode === 'forgot' || mode === 'login' ? (typed ?? '') : ''));
   const [password, setPassword] = useState('');
-  const [show, setShow] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [oldEnough, setOldEnough] = useState(false);
   const [remember, setRemember] = useState(true);
@@ -420,25 +420,20 @@ export default function AuthPage({ mode }: { mode: Mode }) {
                       </Link>
                     )}
                   </span>
-                  <span className="relative block">
-                    <input
-                      ref={el => {
-                        passwordRef.current = el;
-                        refs.current.password = el;
-                      }}
-                      {...invalid('password', mode === 'login' ? undefined : 'password-strength')}
-                      id="auth-password"
-                      className="field w-full pr-10"
-                      type={show ? 'text' : 'password'}
-                      value={password}
-                      onChange={e => (setPassword(e.target.value), edit('password', e.target.value))}
-                      autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                      autoFocus={mode === 'reset' || !!askedEmail}
-                    />
-                    <button type="button" onClick={() => setShow(s => !s)} className="hit absolute right-1 top-1/2 flex -translate-y-1/2 items-center justify-center rounded p-1.5 text-stone-500 hover:text-stone-700 pointer-coarse:h-9 pointer-coarse:w-9" title={show ? t('Masquer le mot de passe') : t('Afficher le mot de passe')} aria-label={show ? t('Masquer le mot de passe') : t('Afficher le mot de passe')}>
-                      {show ? <EyeOff size={15} /> : <Eye size={15} />}
-                    </button>
-                  </span>
+                  {/* With its eye, and a warning while Caps Lock is on. */}
+                  <PasswordInput
+                    ref={el => {
+                      passwordRef.current = el;
+                      refs.current.password = el;
+                    }}
+                    {...invalid('password', mode === 'login' ? undefined : 'password-strength')}
+                    id="auth-password"
+                    className="field w-full"
+                    value={password}
+                    onChange={e => (setPassword(e.target.value), edit('password', e.target.value))}
+                    autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                    autoFocus={mode === 'reset' || !!askedEmail}
+                  />
                   {mode !== 'login' && <PasswordStrength id="password-strength" password={password} avoid={[name, email.split('@')[0]]} ruleInError={!!errs.password} />}
                   {errAt('password')}
                 </div>

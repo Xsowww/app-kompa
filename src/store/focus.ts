@@ -20,6 +20,8 @@ interface FocusState {
   resume: () => void;
   /** Ends the session; returns the minutes of concentration counted (those done before « Arrêter »). */
   stop: () => number;
+  /** « Passer la pause »: the next session starts now, on the same subject. */
+  skipBreak: () => void;
   tick: () => void;
 }
 
@@ -71,6 +73,11 @@ export const useFocus = create<FocusState>()(
       },
 
       /** Called every second by the timer widget; switches phases when time is up (even long after, tab closed). */
+      skipBreak() {
+        const s = get();
+        if (s.phase === 'break') get().start(s.label);
+      },
+
       tick() {
         const s = get();
         if (!s.phase || s.pausedLeft !== null || Date.now() < s.endsAt) return;
@@ -110,7 +117,8 @@ export const useFocus = create<FocusState>()(
         } else {
           if (settings.focusSound) chime();
           notify(t('Fin de la pause'), t('On repart pour une session\u00a0?'));
-          useCopilot.getState().say({ text: t('Fin de la pause. On repart pour une session\u00a0?'), mood: 'alert' });
+          // One click to go again, on the same subject (offers.ts › start_focus).
+          useCopilot.getState().say({ text: t('Fin de la pause. On repart pour une session\u00a0?'), mood: 'alert', offers: [{ label: t('Relancer une session'), kind: 'start_focus', payload: { subject: s.label } }] });
           set({ phase: null, label: '' });
         }
       },
@@ -143,3 +151,15 @@ export const mmss = (ms: number) => {
   const t = Math.ceil(ms / 1000);
   return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
 };
+
+// The window's title says it too (« ⏱ 12:34 · Tâches · Kompaly »), like a recording (store/recorder): seen in the tab
+// bar and the Dock. After the recording's mark when both run (that one stays first, where the recorder looks for it).
+const FOCUS_MARK = /⏱ [\d:]+ · /g;
+const REC_MARK = /^[●⏸] [\d:]+ · /;
+/** The title with the time left (`left`, « 12:34 »), or without it (null). */
+export function focusTitle(title: string, left: string | null) {
+  const base = title.replace(FOCUS_MARK, '');
+  if (!left) return base;
+  const rec = REC_MARK.exec(base)?.[0] ?? '';
+  return `${rec}⏱ ${left} · ${base.slice(rec.length)}`;
+}

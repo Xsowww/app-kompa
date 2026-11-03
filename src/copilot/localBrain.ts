@@ -455,6 +455,10 @@ export function fromOtherLanguage(typed: string): string | null {
   return null;
 }
 
+/** « Fais-moi visiter », « revoir la visite guidée »: the guided tour (components/Tour), with or without the AI, in the site's languages. */
+export const isTourRequest = (typed: string) =>
+  /(visite guidee|fais[- ]?moi visiter|(re)?(fais|faire)([- ]moi)? (le|un) tour (de|du) (kompaly|l'?appli|l'?app|site)|guided tour|show me around|visita guiada|fuhrung durch|rundgang|visita guidata|fammi fare un giro)/.test(normalize(typed));
+
 export function localReply(raw: string): BotReply {
   const typed = raw.trim();
   let input = SUGGESTED.find(([, shown]) => shown.toLowerCase() === typed.toLowerCase())?.[0] ?? typed;

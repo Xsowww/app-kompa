@@ -29,6 +29,8 @@ export interface CopilotMessage {
   proactive?: boolean;
   /** the morning brief (it already says hello) */
   brief?: boolean;
+  /** The AI failed on this question (not a limit): « Réessayer » sends it again. */
+  retry?: string;
   at: string;
 }
 
@@ -56,8 +58,10 @@ interface CopilotState {
   pendingOffer: CopilotOffer | null;
   /** A question a button asks Kompaly for the student (« Fais une fiche de… »): the chat opens and sends it. */
   ask: string | null;
+  /** A remark said while the panel was closed and not read yet: a dot on Kompaly until it is opened. */
+  unread: boolean;
   askKompaly: (question: string | null) => void;
-  push: (role: CopilotMessage['role'], text: string, extra?: Partial<Pick<CopilotMessage, 'links' | 'offers' | 'proactive' | 'brief'>>) => void;
+  push: (role: CopilotMessage['role'], text: string, extra?: Partial<Pick<CopilotMessage, 'links' | 'offers' | 'proactive' | 'brief' | 'retry'>>) => void;
   setPose: (pose: CopilotPose) => void;
   say: (bubble: Bubble) => void;
   clearBubble: () => void;
@@ -86,6 +90,7 @@ export const useCopilot = create<CopilotState>()(
       memory: {},
       pendingOffer: null,
       ask: null,
+      unread: false,
       askKompaly: question => set({ ask: question }),
 
       push: (role, text, extra = {}) =>
@@ -95,7 +100,8 @@ export const useCopilot = create<CopilotState>()(
           pendingOffer: role === 'bot' && !(extra.proactive && !extra.offers?.length) ? (extra.offers?.[0] ?? null) : s.pendingOffer,
         })),
 
-      setPose: pose => set({ pose }),
+      // Opened: what he said meanwhile is read (it is in the conversation).
+      setPose: pose => set(pose === 'open' ? { pose, unread: false } : { pose }),
 
       /** Proactive remark: Kompaly leans out and says something; it is also kept in the conversation. */
       say(bubble) {
@@ -104,7 +110,7 @@ export const useCopilot = create<CopilotState>()(
         get().push('bot', bubble.text, { links: bubble.links, offers: bubble.offers, proactive: true, brief: bubble.brief });
         if (get().pose === 'open') return;
         clearTimeout(bubbleTimer);
-        set({ bubble, pose: 'peek' });
+        set({ bubble, pose: 'peek', unread: true });
         bubbleTimer = setTimeout(() => {
           if (get().pose !== 'open') set({ bubble: null, pose: 'hidden' });
         }, bubble.offers?.length ? 16000 : 9000);
@@ -122,7 +128,7 @@ export const useCopilot = create<CopilotState>()(
       clearHistory: () => set({ messages: [], pendingOffer: null }),
       greet: text =>
         set(s => (s.messages.some(m => !m.proactive) ? s : { messages: [{ id: uid(), role: 'bot' as const, text, at: nowIso() }, ...s.messages].slice(-MAX_MESSAGES) })),
-      reset: () => set({ messages: [], pose: 'hidden', bubble: null, thinking: false, offsetY: 0.62, memory: {}, pendingOffer: null }),
+      reset: () => set({ messages: [], pose: 'hidden', bubble: null, thinking: false, offsetY: 0.62, memory: {}, pendingOffer: null, unread: false }),
     }),
     {
       name: 'copilot',
@@ -135,7 +141,12 @@ export const useCopilot = create<CopilotState>()(
         if (version < 1) state.messages = (state.messages ?? []).map(m => ({ ...m, text: toKompa(m.text) }));
         return state;
       },
-      partialize: s => ({ messages: s.messages, offsetY: s.offsetY, memory: s.memory }),
+      partialize: s => ({ messages: s.messages, offsetY: s.offsetY, memory: s.memory, unread: s.unread }),
     },
   ),
 );
+
+/** Opens or closes the conversation, from anywhere (menu entry, Ctrl+J), even while the character is hidden. */
+export function toggleKompaly(open = useCopilot.getState().pose !== 'open') {
+  useCopilot.getState().setPose(open ? 'open' : 'hidden');
+}

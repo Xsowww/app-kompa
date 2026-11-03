@@ -25,6 +25,8 @@ export interface User {
   noPassword?: boolean;
   /** Which of the two, for such an account (signed in again with it). */
   provider?: OAuthProvider;
+  /** A new address asked for in Profil › Compte, until its link is clicked (Supabase's « new_email »). */
+  pendingEmail?: string;
 }
 
 interface StoredUser extends User {
@@ -137,6 +139,8 @@ interface AuthState {
   updateName: (name: string) => Promise<void>;
   verifyPassword: (password: string) => Promise<void>;
   changePassword: (current: string, next: string) => Promise<void>;
+  /** Online only: a link goes to the new address (and to the current one when Supabase asks for both); it changes once clicked. */
+  changeEmail: (email: string, password: string) => Promise<void>;
   /** `beforeDelete` clears what the server keeps (files, groups) once every check has passed. */
   deleteAccount: (password: string, beforeDelete?: () => Promise<void>) => Promise<void>;
   requestPasswordReset: (email: string) => Promise<void>;
@@ -186,6 +190,7 @@ function fromSupabase(u: SupabaseUser): User {
     name: first || (u.email ?? '').split('@')[0],
     createdAt: u.created_at,
     ...(!providers.includes('email') && !meta.has_password && { noPassword: true, provider: (['google', 'apple'] as const).find(p => providers.includes(p)) }),
+    ...(u.new_email && u.new_email !== u.email && { pendingEmail: u.new_email }),
   };
 }
 
@@ -381,6 +386,13 @@ export const useAuth = create<AuthState>((set, get) => ({
       if (document.visibilityState !== 'visible') return;
       void supabase!.auth.getSession().then(async ({ data: d }) => {
         if (switched(d.session?.user.id)) return;
+        // The new address confirmed in another tab (its link opens one): shown here too, and in the device's list.
+        const shown = get().user;
+        if (d.session && shown && d.session.user.email && d.session.user.email !== shown.email) {
+          const user = fromSupabase(d.session.user);
+          set({ user });
+          void rememberCurrent(user);
+        }
         if (d.session && get().mfaStep && !(await nextMfaStep())) location.reload();
         else if (d.session && !get().user) adopt();
       });
@@ -403,7 +415,11 @@ export const useAuth = create<AuthState>((set, get) => ({
         setStorageUser(null);
         set({ user: null, mfaStep: null });
       }
-      if (event === 'USER_UPDATED' && session) set({ user: fromSupabase(session.user) });
+      if (event === 'USER_UPDATED' && session) {
+        const user = fromSupabase(session.user);
+        set({ user });
+        void rememberCurrent(user); // a new e-mail address: the device's list of accounts follows
+      }
       // New tokens every hour: the saved copy must stay the latest one (an older one no longer works).
       if (event === 'TOKEN_REFRESHED' && session && remembered()) updateSession(session.user.id, { access_token: session.access_token, refresh_token: session.refresh_token });
     });
@@ -593,6 +609,19 @@ export const useAuth = create<AuthState>((set, get) => ({
     const salt = toHex(crypto.getRandomValues(new Uint8Array(16)));
     const hash = await hashPassword(next, salt);
     writeUsers(users.map(u => (u.id === get().user?.id ? { ...u, salt, hash } : u)));
+  },
+
+  async changeEmail(email, password) {
+    const user = get().user;
+    if (!supabase || !user) throw new Error(t('Indisponible en mode local.'));
+    const mail = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) throw new Error(t('Cette adresse e-mail n’est pas valide.'));
+    if (sameEmail(mail, user.email)) throw new Error(t('C’est déjà l’adresse de ton compte.'));
+    // Like deleting the account: someone at an unlocked computer can't take the account over by its address.
+    await get().verifyPassword(password);
+    // The link comes back to Profil › Compte (lib/supabase reads it, like the other e-mail links).
+    const data = await cloud(supabase.auth.updateUser({ email: mail }, { emailRedirectTo: `${location.origin}/profil?onglet=compte` }));
+    if (data.user) set({ user: fromSupabase(data.user) });
   },
 
   async deleteAccount(password, beforeDelete) {

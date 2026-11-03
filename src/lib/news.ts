@@ -11,7 +11,7 @@ export interface NewsItem {
   icon: NewsIcon;
   title: string;
   text: string;
-  /** Where « Essayer » leads. */
+  /** Where « Essayer » leads (?importer=1: the calendar opens its « Ajouter un emploi du temps » window). */
   to?: string;
 }
 
@@ -25,7 +25,7 @@ export const RELEASES: Release[] = [
   {
     id: '2026-10-25',
     items: [
-      { icon: 'link', title: t('Ton emploi du temps, à jour tout seul'), text: t('Colle le lien iCal de ton agenda (ENT, Google Agenda, Outlook…) : les événements arrivent et se mettent à jour toutes les 3 heures.'), to: '/calendrier' },
+      { icon: 'link', title: t('Ton emploi du temps, à jour tout seul'), text: t('Colle le lien iCal de ton agenda (ENT, Google Agenda, Outlook…) : les événements arrivent et se mettent à jour toutes les 3 heures.'), to: '/calendrier?importer=1' },
       { icon: 'repeat', title: t('Des événements qui se répètent'), text: t('Chaque semaine, toutes les 2 semaines, chaque jour ou chaque mois, jusqu’à la date de ton choix, sans les vacances. Aussi dans les agendas partagés.'), to: '/calendrier' },
       { icon: 'span', title: t('Des événements sur plusieurs jours'), text: t('Un séminaire, un voyage, un stage : « Finit un autre jour » dans la fenêtre de l’événement.'), to: '/calendrier' },
       { icon: 'bell', title: t('Les grands jours rappelés plus tôt'), text: t('Un grand jour ou un événement important te prévient une semaine avant et la veille à 18:00.') },
