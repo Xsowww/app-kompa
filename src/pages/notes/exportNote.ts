@@ -3,7 +3,7 @@ import { t, lang, locale } from '../../i18n';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
-const fileName = (title: string) => (title.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim() || t('Note')).slice(0, 120);
+export const fileName = (title: string) => (title.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim() || t('Note')).slice(0, 120);
 
 const PRINT_CSS = `
 @page { size: A4; margin: 20mm 18mm 22mm; }
@@ -218,4 +218,21 @@ export function downloadMarkdown(note: Note) {
   a.download = `${fileName(note.title)}.md`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+/**
+ * A note's Markdown made plain for the Word writer (lib/docx reads a small Markdown): no pictures (said apart), a link
+ * as « text (address) », boxes as ☐ / ☑, no highlight or strike marks, no code fences (the code stays as text).
+ */
+export function markdownForWord(md: string): string {
+  return md
+    .replace(/!\[[^\]]*\]\([^)\s]*\)/g, '')
+    .replace(/(?<!\\)\[((?:\\.|[^\]\\])*)\]\(([^)\s]*)\)/g, (_, text: string, url: string) => (text && text !== url ? `${text} (${url})` : url))
+    .replace(/^(\s*)- \[[xX]\] /gm, '$1- ☑ ')
+    .replace(/^(\s*)- \[ \] /gm, '$1- ☐ ')
+    .replace(/==(?=\S)(.+?)==/g, '$1')
+    .replace(/~~(?=\S)(.+?)~~/g, '$1')
+    .replace(/^\s*`{3,}.*$/gm, '')
+    .replace(/\\</g, '<')
+    .replace(/\n{3,}/g, '\n\n');
 }

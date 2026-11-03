@@ -41,6 +41,20 @@ export async function filesFromDrop(dt: DataTransfer): Promise<PendingFile[]> {
   return out;
 }
 
+/**
+ * Files pasted (Ctrl+V): a screenshot comes as « image.png » (or without a name), so it is named after the moment it
+ * was pasted (« Image collée 2026-11-03 14.32.05.png »); a file copied from the computer keeps its name.
+ */
+export function pastedFiles(files: File[], now = new Date()): PendingFile[] {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}.${pad(now.getMinutes())}.${pad(now.getSeconds())}`;
+  return files.map(file => {
+    if (file.name && !/^image\.\w+$/i.test(file.name)) return { file, dirs: [] };
+    const ext = file.name.split('.')[1] ?? file.type.split('/')[1]?.replace('jpeg', 'jpg') ?? 'png';
+    return { file: new File([file], `${t('Image collée')} ${stamp}.${ext}`, { type: file.type }), dirs: [] };
+  });
+}
+
 export function filesFromInput(list: FileList): PendingFile[] {
   return Array.from(list).map(file => {
     const parts = (file.webkitRelativePath || file.name).split('/');
