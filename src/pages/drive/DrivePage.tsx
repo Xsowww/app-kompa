@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ChevronRight, ClipboardPaste, Copy, CopyPlus, Download, Eye, FolderInput, FolderPlus, FolderUp, HardDrive, LayoutGrid,
   List, Pencil, Scissors, Star, Trash2, Upload, Clock, ArrowUpDown, ArrowUp, ArrowDown, X, MousePointer2, Search, Tag, Link2, Check, Palette,
-  MoreHorizontal, ClipboardList, BookOpenCheck, FolderOpen, WifiOff, FolderDown, ScanText, NotebookPen, Users,
+  MoreHorizontal, ChevronUp, ClipboardList, BookOpenCheck, FolderOpen, WifiOff, FolderDown, ScanText, NotebookPen, Users,
 } from 'lucide-react';
 import { EmptyState, Skeleton } from '../../components/EmptyState';
 import {
@@ -463,7 +463,8 @@ export default function DrivePage() {
   const [previewMore, setPreviewMore] = useState<{ x: number; y: number } | null>(null);
   const previewActions = (item: DriveItem) => {
     const btn = 'flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-white/75 hover:bg-white/10 hover:text-white pointer-coarse:h-9 pointer-coarse:w-9';
-    // Phones: the less frequent ones in « Plus d’actions » (the name keeps some room).
+    // Phones: the less frequent ones in « Plus d’actions » (the name keeps some room), favourite and bin too (the name
+    // was down to « Co… » at 320 px).
     const rare = [
       ...(canOpenAsNote(item) ? [{ label: t('Ouvrir comme note'), icon: <NotebookPen size={16} />, onClick: () => void openAsNote(item) }] : []),
       { label: t('Renommer'), icon: <Pencil size={16} />, shortcut: 'F2', onClick: () => void rename(item) },
@@ -480,13 +481,25 @@ export default function DrivePage() {
         <button className={cx(btn, 'sm:hidden')} onClick={e => setPreviewMore(under(e))} title={t('Plus d’actions')} aria-label={t('Plus d’actions')} aria-haspopup="menu">
           <MoreHorizontal size={16} />
         </button>
-        <button className={btn} aria-pressed={!!item.starred} onClick={() => useDrive.getState().toggleStar(item.id)} title={item.starred ? t('Retirer des favoris') : t('Ajouter aux favoris')} aria-label={t('Favori')}>
+        <button className={cx(btn, 'max-sm:hidden')} aria-pressed={!!item.starred} onClick={() => useDrive.getState().toggleStar(item.id)} title={item.starred ? t('Retirer des favoris') : t('Ajouter aux favoris')} aria-label={t('Favori')}>
           <Star size={16} className={cx(item.starred && 'fill-amber-400 text-amber-400')} />
         </button>
-        <button className={btn} onClick={() => void trashFromPreview(item)} title={`${t('Mettre à la corbeille')} (${DEL})`} aria-label={t('Mettre à la corbeille')}>
+        <button className={cx(btn, 'max-sm:hidden')} onClick={() => void trashFromPreview(item)} title={`${t('Mettre à la corbeille')} (${DEL})`} aria-label={t('Mettre à la corbeille')}>
           <Trash2 size={16} />
         </button>
-        {previewMore && <ContextMenu x={previewMore.x} y={previewMore.y} items={rare.map(a => ({ ...a, shortcut: undefined }))} onClose={() => setPreviewMore(null)} />}
+        {previewMore && (
+          <ContextMenu
+            x={previewMore.x}
+            y={previewMore.y}
+            items={[
+              ...rare.map(a => ({ ...a, shortcut: undefined })),
+              { label: item.starred ? t('Retirer des favoris') : t('Ajouter aux favoris'), icon: <Star size={16} />, onClick: () => useDrive.getState().toggleStar(item.id) },
+              { label: '', divider: true, onClick: () => {} },
+              { label: t('Mettre à la corbeille'), icon: <Trash2 size={16} />, danger: true, onClick: () => void trashFromPreview(item) },
+            ]}
+            onClose={() => setPreviewMore(null)}
+          />
+        )}
       </>
     );
   };
@@ -733,7 +746,8 @@ export default function DrivePage() {
     const one = ids.length === 1 && item;
     const targets = items.filter(i => ids.includes(i.id));
     const allFolders = targets.length > 0 && targets.every(i => i.kind === 'folder');
-    const palette: MenuItem[] = allFolders && full
+    // (The phones' selection bar has no colour button: it is in its « Plus d’actions ».)
+    const palette: MenuItem[] = allFolders
       ? [
           { label: '', divider: true, onClick: () => {} },
           {
@@ -878,8 +892,10 @@ export default function DrivePage() {
       />
 
       {/* Header */}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-3 pb-4 pt-2">
-        <h1 className="mr-3 text-[24px] font-semibold tracking-[-0.02em]">{t('Drive')}</h1>
+      {/* Phones held sideways (390 px high): tighter, so that more than one row of files shows under it. */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-3 pb-4 pt-2 [@media(max-height:499px)]:pb-2 [@media(max-height:499px)]:pt-0">
+        <h1 className="mr-1 text-[24px] font-semibold tracking-[-0.02em] sm:mr-3">{t('Drive')}</h1>
+        {/* A segmented control: each segment 2 px inside its frame, the same shape (radius 12 − 2, height 40 − 4 / 32 − 4). */}
         <div className="flex h-10 items-center rounded-lg bg-stone-100 p-0.5 text-[13px] sm:h-8 pointer-coarse:h-10">
           {([
             ['all', t('Mon Drive'), HardDrive],
@@ -897,7 +913,7 @@ export default function DrivePage() {
                 setListSort(null);
                 setSelected(new Set());
               }}
-              className={cx('hit flex h-9 min-w-10 items-center justify-center gap-1.5 rounded-md px-2.5 font-medium transition-colors sm:h-7 sm:min-w-0 pointer-coarse:h-9 pointer-coarse:min-w-11', tab === k ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
+              className={cx('hit flex h-9 min-w-10 items-center justify-center gap-1.5 rounded-[10px] px-2.5 font-medium transition-colors sm:h-7 sm:min-w-0 pointer-coarse:h-9 pointer-coarse:min-w-10', tab === k ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
             >
               <Icon size={13} />
               <span className="hidden sm:inline">{label}</span>
@@ -964,9 +980,9 @@ export default function DrivePage() {
 
       {/* Breadcrumb / selection bar. Empty at the root of the Drive: on a phone it would only leave a hole above the files.
           On a computer the row stays (with the space used), so that the selection bar showing up moves nothing. */}
-      <div className={cx('flex h-10 items-center gap-1 text-[13px]', !bar && !filtering && (!tabAll || (!breadcrumb.length && !clipboard?.ids.length)) && 'max-sm:h-0')}>
+      <div className={cx('flex h-10 items-center gap-1 text-[13px]', !bar && !filtering && (!tabAll || (!breadcrumb.length && !clipboard?.ids.length)) && 'max-sm:h-0 [@media(max-height:499px)]:h-0')}>
         {bar ? (
-          <div className="enter flex h-10 w-full items-center gap-0.5 overflow-x-auto rounded-lg bg-inverse px-1.5 text-on-inverse shadow-pop">
+          <div className="enter flex h-10 w-full min-w-0 items-center gap-0.5 overflow-hidden rounded-lg bg-inverse px-1.5 pointer-coarse:h-11 text-on-inverse shadow-pop">
             <button className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md hover:bg-on-inverse/10 sm:h-8 sm:w-8 pointer-coarse:h-9 pointer-coarse:w-9" onClick={() => setSelected(new Set())} title={t('Désélectionner (Échap)')} aria-label={t('Désélectionner (Échap)')}>
               <X size={15} />
             </button>
@@ -986,7 +1002,8 @@ export default function DrivePage() {
                 ? { icon: Download, label: t('Télécharger'), fn: () => downloadItem(single), more: true }
                 : { icon: FolderDown, label: t('Télécharger (.zip)'), fn: () => void downloadZip(items, selectedIds, single?.name ?? 'Kompaly Drive'), more: true },
               { icon: Tag, label: t('Étiquettes'), fn: () => setTagIds(selectedIds) },
-              ...(selectedFolders.length === selectedIds.length ? [{ icon: Palette, label: t('Couleur'), fn: (e: React.MouseEvent) => setColorMenu(under(e)) }] : []),
+              // Phones: in « Plus d’actions » (a 320 px wide bar couldn't hold it).
+              ...(selectedFolders.length === selectedIds.length ? [{ icon: Palette, label: t('Couleur'), fn: (e: React.MouseEvent) => setColorMenu(under(e)), phoneMore: true }] : []),
               { icon: Trash2, label: t('Corbeille||barre de sélection'), fn: () => void remove(selectedIds) },
             ].map(a => (
               <button
@@ -994,7 +1011,7 @@ export default function DrivePage() {
                 onClick={a.fn}
                 className={cx(
                   'flex h-8 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2 text-on-inverse/85 pointer-coarse:h-9 pointer-coarse:min-w-9 hover:bg-on-inverse/10 hover:text-on-inverse',
-                  'more' in a && 'max-sm:hidden',
+                  ('more' in a || 'phoneMore' in a) && 'max-sm:hidden',
                 )}
                 title={a.label}
                 aria-label={a.label}
@@ -1056,21 +1073,14 @@ export default function DrivePage() {
           </>
         ) : null}
         {!bar && (
-          <div className={cx('hidden min-w-0 shrink-0 sm:block', !(tabAll && clipboard?.ids.length) && 'ml-auto')}>
+          <div className={cx('hidden min-w-0 shrink-0 sm:block [@media(max-height:499px)]:hidden', !(tabAll && clipboard?.ids.length) && 'ml-auto')}>
             <StorageGauge inline />
           </div>
         )}
       </div>
 
       {/* Label filter */}
-      {allTags.length > 0 && (
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 pt-2">
-          <Tag size={13} className="mr-0.5 shrink-0 text-stone-400" />
-          {allTags.map(tag => (
-            <TagPill key={tag} tag={tag} size="md" active={activeTag === tag} onClick={() => { setTagFilter(activeTag === tag ? null : tag); setSelected(new Set()); }} />
-          ))}
-        </div>
-      )}
+      {allTags.length > 0 && <TagFilter tags={allTags} active={activeTag} onPick={tag => { setTagFilter(activeTag === tag ? null : tag); setSelected(new Set()); }} />}
 
       {/* Content */}
       <div
@@ -1189,7 +1199,8 @@ export default function DrivePage() {
                       <span className="flex min-w-0 items-center gap-1.5">
                         <span className="truncate font-medium">{q ? <Highlighted text={item.name} query={q} /> : item.name}</span>
                         {item.starred && <Star size={11} className="shrink-0 fill-amber-400 text-amber-400" />}
-                        {item.tags?.length ? <span className="hidden shrink-0 items-center gap-1 sm:flex">{item.tags.map(tag => <TagPill key={tag} tag={tag} />)}</span> : null}
+                        {/* The labels give way to the name: those that don't fit go to a hidden second line (never cut in half). */}
+                        {item.tags?.length ? <span className="hidden h-[18px] min-w-0 shrink-[999] flex-wrap items-center gap-1 overflow-hidden sm:flex" title={item.tags.join(', ')}>{item.tags.map(tag => <TagPill key={tag} tag={tag} />)}</span> : null}
                       </span>
                       {!snippetOf(item) && <span className="block text-[11.5px] text-stone-500 sm:hidden">{relativeTime(item.updatedAt)}</span>}
                       {snippetOf(item) && (
@@ -1310,5 +1321,75 @@ function PendingUploads({ where }: { where: string }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * The labels to filter with: one row, never scrolled sideways. Those that don't fit wait behind « +N »,
+ * which shows them all (wrapped); the one chosen always stays in view.
+ */
+function TagFilter({ tags, active, onPick }: { tags: string[]; active: string | null; onPick: (tag: string) => void }) {
+  const [all, setAll] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  const ruler = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState(tags.length);
+  useLayoutEffect(() => {
+    const el = box.current;
+    const r = ruler.current;
+    if (!el || !r) return;
+    const measure = () => {
+      const pills = [...r.children] as HTMLElement[];
+      const more = pills.pop()!.offsetWidth;
+      const gap = parseFloat(getComputedStyle(el).columnGap) || 0;
+      // The label icon (and its margin), then the pills.
+      const icon = el.firstElementChild as HTMLElement;
+      const room = el.clientWidth - icon.offsetWidth - (parseFloat(getComputedStyle(icon).marginRight) || 0);
+      const widths = pills.map(p => p.offsetWidth + gap);
+      if (widths.reduce((a, b) => a + b, 0) <= room) return setFit(tags.length);
+      let used = more + gap;
+      let n = 0;
+      while (n < widths.length && used + widths[n] <= room) used += widths[n++];
+      setFit(Math.max(1, n));
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    // The row, and the pills themselves (their font arriving changes their width).
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    ro.observe(r);
+    return () => ro.disconnect();
+  }, [tags, active]);
+  const folded = !all && fit < tags.length;
+  // The one chosen, when it would wait behind « +N »: in place of the last one shown.
+  const first = tags.slice(0, fit);
+  const shown = !folded ? tags : !active || first.includes(active) ? first : [...first.slice(0, -1), active];
+  const moreClass = 'hit inline-flex h-7 shrink-0 items-center justify-center gap-1 rounded-full border border-stone-200 bg-surface px-2.5 text-[12px] font-medium text-stone-600 transition-colors hover:border-stone-300 hover:text-ink pointer-coarse:h-9';
+  return (
+    <div ref={box} className={cx('relative flex items-center gap-1.5 pb-0.5 pt-2', all && 'flex-wrap')}>
+      <Tag size={13} className="mr-0.5 shrink-0 text-stone-400" />
+      {shown.map(tag => (
+        <TagPill key={tag} tag={tag} size="md" active={active === tag} onClick={() => onPick(tag)} />
+      ))}
+      {folded ? (
+        <button className={moreClass} onClick={() => setAll(true)} aria-expanded={false} title={t('Afficher toutes les étiquettes')} aria-label={t('Afficher toutes les étiquettes')}>
+          +{tags.length - shown.length}
+        </button>
+      ) : (
+        all && fit < tags.length && (
+          <button className={moreClass} onClick={() => setAll(false)} aria-expanded title={t('Afficher moins d’étiquettes')} aria-label={t('Afficher moins d’étiquettes')}>
+            <ChevronUp size={13} />
+          </button>
+        )
+      )}
+      {/* Each pill measured once laid out, unseen. */}
+      <div aria-hidden className="pointer-events-none invisible absolute inset-x-0 top-0 h-0 overflow-hidden">
+        <div ref={ruler} className="flex w-max gap-1.5 whitespace-nowrap">
+          {tags.map(tag => (
+            <TagPill key={tag} tag={tag} size="md" active={active === tag} onClick={() => {}} />
+          ))}
+          <span className={moreClass}>+{tags.length}</span>
+        </div>
+      </div>
+    </div>
   );
 }

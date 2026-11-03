@@ -159,7 +159,7 @@ export default function PhotoSheetDialog({ folderId, onClose }: { folderId: stri
             </ul>
           )}
           {step === 'pick' && photos.length < MAX_PHOTOS && (
-            <div className="mt-4 grid grid-cols-2 gap-2">
+            <div className="mt-4 grid grid-cols-1 gap-2 min-[420px]:grid-cols-2">
               <button type="button" className="btn-secondary h-11" onClick={() => camera.current?.click()}>
                 <Camera size={16} /> {t('Prendre une photo')}
               </button>
@@ -190,7 +190,7 @@ export default function PhotoSheetDialog({ folderId, onClose }: { folderId: stri
             <p className="text-[13px] text-stone-500">{t('Vérifie la fiche : tu peux corriger un mot mal lu.')}</p>
             <div className="flex shrink-0 rounded-lg bg-stone-100 p-0.5 text-[12.5px]" role="group" aria-label={t('Affichage')}>
               {[false, true].map(e => (
-                <button key={String(e)} type="button" aria-pressed={editing === e} onClick={() => setEditing(e)} className={cx('rounded-md px-2.5 py-1 font-medium', editing === e ? 'bg-surface text-ink shadow-sm' : 'text-stone-500')}>
+                <button key={String(e)} type="button" aria-pressed={editing === e} onClick={() => setEditing(e)} className={cx('rounded-[10px] px-2.5 py-1 font-medium', editing === e ? 'bg-surface text-ink shadow-sm' : 'text-stone-500')}>
                   {e ? t('Modifier') : t('Aperçu||d’un fichier')}
                 </button>
               ))}

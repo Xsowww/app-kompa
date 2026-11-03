@@ -15,6 +15,8 @@ import { t, tn } from '../../i18n';
 const todayKey = () => format(new Date(), 'yyyy-MM-dd');
 const shortDate = (d: string) => fmt(parseISO(d), 'd MMM');
 const longDate = (d: string) => fmt(parseISO(d), 'EEE d MMM yyyy').replace(/^./, c => c.toUpperCase());
+/** In the list to choose from: the year only when it isn't this one (the date and time stayed cut on phones). */
+const pickDate = (d: string) => (d.slice(0, 4) === String(new Date().getFullYear()) ? fmt(parseISO(d), 'EEE d MMM').replace(/^./, c => c.toUpperCase()) : longDate(d));
 
 
 /** Resolves a note's links, dropping the ones whose file or event no longer exists. */
@@ -120,7 +122,8 @@ function PickerBody({ note, onClose }: { note: Note; onClose: () => void }) {
     <button key={key} onClick={onClick} aria-pressed={linked} className={cx('flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors', linked ? 'bg-brand-50/70' : 'hover:bg-stone-50')}>
       <span className="flex w-6 shrink-0 justify-center">{icon}</span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[13px] font-medium">{title}</span>
+        {/* A long name on two lines (whole when it is opened). */}
+        <span className="line-clamp-2 break-words text-[13px] font-medium leading-snug" title={title}>{title}</span>
         <span className="block truncate text-[12px] text-stone-500">{meta}</span>
       </span>
       <span className={cx('flex h-5 w-5 shrink-0 items-center justify-center rounded-md border', linked ? 'border-brand-solid bg-brand-solid text-on-brand' : 'border-stone-300 text-transparent')}>
@@ -140,7 +143,7 @@ function PickerBody({ note, onClose }: { note: Note; onClose: () => void }) {
       </div>
       <div className="relative mt-4">
         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
-        <input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder={t('Rechercher un fichier ou un événement')} aria-label={t('Rechercher un fichier ou un événement')} className="field w-full pl-8" />
+        <input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder={t('Rechercher')} aria-label={t('Rechercher un fichier ou un événement')} className="field w-full pl-8" />
       </div>
       <div className="mt-3 flex gap-1" role="group" aria-label={t('Afficher')}>
         {(
@@ -168,7 +171,7 @@ function PickerBody({ note, onClose }: { note: Note; onClose: () => void }) {
                   <span className="h-2.5 w-2.5 rounded-full" style={{ background: catOf(e.category).color }} />,
                   e.title,
                   <>
-                    <span className={cx('inline-block first-letter:uppercase', e.date < today && 'text-stone-500')}>{longDate(e.date)}</span>
+                    <span className={cx('inline-block first-letter:uppercase', e.date < today && 'text-stone-500')}>{pickDate(e.date)}</span>
                     {e.start && ` · ${e.start}`} · {catOf(e.category).label}
                   </>,
                 ),

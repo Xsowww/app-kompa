@@ -203,6 +203,10 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
     if (!onDone) setTimeout(() => (to?.isConnected ? to : document.getElementById('contenu'))?.focus(), 0);
   };
 
+  useEffect(() => {
+    if (shown) document.getElementById(`recherche-${active}`)?.scrollIntoView({ block: 'nearest' });
+  }, [active, shown]);
+
   const go = (hit: SearchHit) => {
     rememberHit(hit);
     if (hit.run) hit.run();
@@ -256,7 +260,16 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
       <span aria-hidden className="kbd pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 sm:inline-flex">{isMac ? '⌘' : t('Ctrl')} K</span>
       {/* Not before the files' content answered this query (no « Aucun résultat » flashing while it is looked for). */}
       {shown && (
-        <div id="recherche-resultats" role="listbox" aria-label={t('Résultats de recherche')} className="enter absolute left-0 right-0 top-12 z-40 overflow-hidden rounded-[18px] border border-stone-200 bg-surface p-1 shadow-pop">
+        // Over the « + » button and Kompaly; never past the bottom of the screen (phones: nor under the tab bar): a long
+        // list scrolls inside. Computers: wider than the field, the long titles whole.
+        <div
+          id="recherche-resultats"
+          role="listbox"
+          aria-label={t('Résultats de recherche')}
+          className="enter absolute left-0 right-0 top-12 z-[55] max-h-[calc(100dvh-13rem)] overflow-y-auto overscroll-contain rounded-[18px] border border-stone-200 bg-surface p-1 shadow-pop lg:right-auto lg:max-h-[calc(100dvh-4.5rem)] lg:w-[min(460px,calc(100vw-20rem))]"
+          // Its scrollbar dragged with the mouse: the field keeps the focus (the list stays open).
+          onMouseDown={e => e.preventDefault()}
+        >
           {/* The field keeps the focus (and the list stays open) while « Effacer la recherche » is pressed. */}
           {hits.length === 0 && !empty && (
             <div onMouseDown={e => e.preventDefault()}>

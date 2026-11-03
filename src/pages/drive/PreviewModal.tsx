@@ -113,7 +113,8 @@ export default function PreviewModal({
     };
   }, []);
 
-  const side = 'absolute top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white/85 transition-colors hover:bg-black/70 hover:text-white max-sm:h-10 max-sm:w-10';
+  // Phones: in the bottom corners, not over the middle of the text (the file fills the width there).
+  const side = 'absolute top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white/85 transition-colors hover:bg-black/70 hover:text-white max-sm:top-auto max-sm:bottom-3 max-sm:h-10 max-sm:w-10 max-sm:translate-y-0';
   return (
     <div ref={rootRef} role="dialog" aria-modal="true" aria-label={t('Aperçu de {name}', { name: item.name })} className="fixed inset-0 z-[60] flex flex-col bg-[#0c0a09]/85" onMouseDown={onClose}>
       <header className="flex items-center gap-2 bg-[#0c0a09] px-3 py-3 text-white sm:gap-3 sm:px-5" onMouseDown={e => e.stopPropagation()}>
@@ -133,10 +134,10 @@ export default function PreviewModal({
         </button>
       </header>
       {notes && notes.length > 0 && (
-        <nav aria-label={t('Notes liées')} className="flex items-center gap-1.5 overflow-x-auto bg-[#0c0a09] px-3 pb-2.5 text-[12px] text-white/70 sm:px-5" onMouseDown={e => e.stopPropagation()}>
+        <nav aria-label={t('Notes liées')} className="flex flex-wrap items-center gap-1.5 bg-[#0c0a09] px-3 pb-2.5 text-[12px] text-white/70 sm:px-5" onMouseDown={e => e.stopPropagation()}>
           <span className="shrink-0 font-medium">{t('Notes liées')}</span>
           {notes.map(n => (
-            <Link key={n.id} to={`/notes?note=${n.id}`} className="flex h-7 max-w-56 shrink-0 items-center gap-1.5 rounded-full bg-white/10 px-2.5 text-white/90 hover:bg-white/20 pointer-coarse:h-9">
+            <Link key={n.id} to={`/notes?note=${n.id}`} className="flex h-7 min-w-0 max-w-56 items-center gap-1.5 rounded-full bg-white/10 px-2.5 text-white/90 hover:bg-white/20 pointer-coarse:h-9">
               <FileText size={13} className="shrink-0" aria-hidden />
               <span className="truncate">{n.title || t('Sans titre')}</span>
             </Link>
@@ -303,7 +304,7 @@ function PreviewBody({ item, getUrl, page, onClose }: { item: DriveItem; getUrl:
       </div>
     )
   ) : plain ? (
-    <pre className={`max-h-[80vh] w-[min(900px,92vw)] overflow-auto rounded-md ${OPAQUE} p-5 font-mono text-[12px] text-stone-800`}>{text || <span className="font-sans text-stone-500">{t('Ce fichier est vide.')}</span>}</pre>
+    <pre className={`max-h-[80vh] w-[min(900px,92vw)] overflow-y-auto whitespace-pre-wrap rounded-md ${OPAQUE} p-5 font-mono text-[12px] text-stone-800 [overflow-wrap:anywhere] max-sm:p-4`}>{text || <span className="font-sans text-stone-500">{t('Ce fichier est vide.')}</span>}</pre>
   ) : (
     <div className={`rounded-xl ${OPAQUE} p-10 text-center`}>
       <FileIcon category={cat} size={64} ext={item.name.split('.').pop()} />
