@@ -145,7 +145,7 @@ function PreviewDialog({ entry, onClose, onRestore, onPurge }: { entry: TrashEnt
       </div>
 
       {/* Phones: the date, then the two buttons at full width, « Restaurer » first (they were stacked right, uneven). */}
-      <div className="mt-5 flex flex-wrap items-center justify-end gap-2 max-sm:flex-col max-sm:items-stretch">
+      <div className="modal-foot mt-5 max-sm:flex-col max-sm:items-stretch">
         <p className="mr-auto whitespace-nowrap text-[12px] text-stone-500 max-sm:mb-1">{t('Supprimé le {date}', { date: deletedOnLong(entry.deletedAt) })}</p>
         <button className="btn-ghost text-red-600 hover:bg-red-50 hover:text-red-700 max-sm:order-last" onClick={onPurge}>
           {t('Supprimer définitivement')}
@@ -351,10 +351,10 @@ export default function TrashPage() {
     <div className="h-full scroll-pt-40 overflow-y-auto px-4 pb-room md:px-8">
       <div className="mx-auto max-w-[1180px]">
         {/* « Vider la corbeille » beside the title, the 30 days under both: on a phone the sentence squeezed beside the
-            button took three lines. Sticky with the filters and the selection bar: they stay at hand down a long trash.
-            The page's own background (the style's wallpaper, fixed), so it is opaque in every look. */}
-        <div className="sticky top-0 z-20 -mx-4 px-4 pb-3 pt-2 [background:var(--wallpaper,var(--color-paper))] bg-fixed md:-mx-8 md:px-8">
-          <div className="pb-3">
+            button took three lines. Kept in view with the filters and the selection bar (page-head) down a long trash;
+            on a phone the 30 days stay out of it (under it), so that it stays small. */}
+        <div className="page-head -mx-4 px-4 pb-3 md:-mx-8 md:px-8">
+          <div className="pb-2 sm:pb-3">
             <div className="flex items-center gap-3">
               <h1 ref={titleRef} tabIndex={-1} className="mr-auto text-[24px] font-semibold tracking-[-0.02em] outline-none">
                 {t('Corbeille')}
@@ -365,7 +365,7 @@ export default function TrashPage() {
                 </button>
               )}
             </div>
-            <p className="mt-0.5 text-[13px] text-stone-500">{t('Suppression définitive après {n} jours.', { n: TRASH_DAYS })}</p>
+            <p className="mt-0.5 text-[13px] text-stone-500 max-sm:hidden">{t('Suppression définitive après {n} jours.', { n: TRASH_DAYS })}</p>
           </div>
 
           {all.length > 0 && (
@@ -396,6 +396,7 @@ export default function TrashPage() {
             </div>
           )}
         </div>
+        <p className="-mt-1 mb-3 text-[12.5px] text-stone-500 sm:hidden">{t('Suppression définitive après {n} jours.', { n: TRASH_DAYS })}</p>
 
         {visible.length === 0 ? (
           all.length ? (
@@ -442,8 +443,8 @@ export default function TrashPage() {
                     <EntryIcon entry={entry} />
                     <span className="min-w-0 flex-1">
                       <span className="line-clamp-2 break-words text-[13px] font-medium md:line-clamp-1">{entry.name}</span>
-                      <span className="flex gap-3 text-[12px] text-stone-500">
-                        <span id={descId} className="min-w-0 flex-1 truncate">
+                      <span className="flex items-baseline gap-3 text-[12px] text-stone-500">
+                        <span id={descId} className="min-w-0 flex-1 md:truncate">
                           <span className={cx(entry.placeGone && 'italic')}>{entry.place}</span>
                         <span className="sr-only">
                           {' '}

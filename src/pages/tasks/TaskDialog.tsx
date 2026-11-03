@@ -102,7 +102,7 @@ export default function TaskDialog({ todo, onClose, remind, onDelete }: { todo?:
           />
         </div>
         <ReminderPicker value={reminders} onChange={setReminders} timed={!!time} date={due || undefined} time={time || undefined} disabled={due ? undefined : t('Choisis d’abord une échéance.')} />
-        <div className="mt-6 flex flex-wrap items-center justify-end gap-2 max-[359px]:gap-1.5">
+        <div className="modal-foot max-[359px]:gap-1.5">
           {onDelete && (
             // Phones: the bin alone, so that « Annuler » and « Enregistrer » stay on one line beside it.
             <button type="button" className="btn-ghost mr-auto text-red-600 hover:text-red-700 max-sm:w-10 max-sm:px-0" onClick={() => (onClose(), onDelete())} title={t('Supprimer')}>

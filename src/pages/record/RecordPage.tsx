@@ -51,9 +51,8 @@ export default function RecordPage() {
   return (
     <div className="h-full scroll-pt-40 overflow-y-auto px-4 pb-room md:px-8">
       <div className="mx-auto max-w-[1180px]">
-        {/* Stays at the top (60 px: the controls of a recording stick right under it). The page's own background,
-            the style's wallpaper fixed like the page's, so it is opaque in every look. */}
-        <div className="sticky top-0 z-20 -mx-4 mb-1 h-[60px] px-4 pt-2 [background:var(--wallpaper,var(--color-paper))] bg-fixed md:-mx-8 md:px-8">
+        {/* Kept in view (page-head, 60 px: the controls of a recording stay right under it). */}
+        <div className="page-head -mx-4 mb-1 h-[60px] px-4 md:-mx-8 md:px-8">
           <h1 className="text-[24px] font-semibold leading-8 tracking-[-0.02em]">{t('Enregistrer')}</h1>
         </div>
         {!session ? <Setup /> : session.phase === 'done' ? <Done s={session} /> : <Running s={session} />}

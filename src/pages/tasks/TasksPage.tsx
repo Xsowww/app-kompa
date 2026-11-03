@@ -79,13 +79,13 @@ function WorkTime() {
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="mr-auto text-[13px] font-medium text-stone-600">{t('Par {subject}', { subject })}</h3>
-                    <div className="flex rounded-lg bg-stone-100 p-0.5" role="group" aria-label={t('Période')}>
+                    <div className="seg text-[12px]" role="group" aria-label={t('Période')}>
                       {RANGES.map(r => (
                         <button
                           key={r.key}
                           onClick={() => setRange(r.key)}
                           aria-pressed={range === r.key}
-                          className={cx('h-7 rounded-md px-2.5 text-[12px] font-medium transition-colors pointer-coarse:h-9', range === r.key ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
+                          className="seg-item"
                         >
                           {r.label}
                         </button>
@@ -153,12 +153,13 @@ export default function TasksPage() {
   const aside = hasDone || hasSessions;
 
   return (
-    <div className="h-full scroll-pt-32 overflow-y-auto px-4 pb-room md:px-8">
+    <div className="h-full scroll-pt-36 overflow-y-auto px-4 pb-room md:px-8">
       <div className="mx-auto max-w-[1180px]">
-        {/* Stays at the top while the list scrolls: the title and the add field. Its background is the page's own
-            (the style's wallpaper, fixed like the page's), so it is opaque in every look and nothing shows through. */}
-        <div className="sticky top-0 z-20 -mx-4 px-4 pb-4 pt-2 [background:var(--wallpaper,var(--color-paper))] bg-fixed md:-mx-8 md:px-8">
-          <h1 className="pb-3 text-[24px] font-semibold tracking-[-0.02em] max-sm:pb-2 max-sm:text-[20px]">{t('Tâches')}</h1>
+        {/* Phones: the title scrolls away, the add field alone stays at the top (one line). */}
+        <h1 className="pb-2 pt-2 text-[24px] font-semibold tracking-[-0.02em] sm:hidden">{t('Tâches')}</h1>
+        {/* Stays at the top while the list scrolls (page-head: the page's own background, opaque in every look). */}
+        <div className="page-head -mx-4 px-4 pb-4 md:-mx-8 md:px-8">
+          <h1 className="pb-3 text-[24px] font-semibold tracking-[-0.02em] max-sm:hidden">{t('Tâches')}</h1>
           <div className={cx(aside && 'xl:w-[calc((100%-1.25rem)*7/12)]')}>
             <QuickAdd />
           </div>
