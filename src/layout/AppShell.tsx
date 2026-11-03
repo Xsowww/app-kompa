@@ -9,6 +9,7 @@ import Copilot, { KompalyEntry } from '../copilot/Copilot';
 import Tour from '../components/Tour';
 import { startProactive } from '../copilot/proactive';
 import { HIT_LABEL, linkToDriveFile, registerNavigate, search, type SearchHit } from '../copilot/actions';
+import { recentHits, rememberHit, searchCommands, suggestions } from '../copilot/commands';
 import { useDrive } from '../store/drive';
 import { findIn, fold, folding, highlightParts } from '../lib/textFind';
 import Logo from '../components/Logo';
@@ -65,6 +66,9 @@ const HIT_ICON: Record<SearchHit['type'], typeof FileText> = {
   tâche: ListChecks,
   'note partagée': NotebookText,
   'événement partagé': CalendarClock,
+  page: LayoutGrid,
+  réglage: Settings2,
+  action: Sparkles,
 };
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
@@ -108,6 +112,11 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
   const closing = useRef<ReturnType<typeof setTimeout>>(undefined);
   // The groups' and shared calendars' notes and events already read too (no request to the server).
   const named = q.trim() ? search(q, 8, useGroups.getState()) : [];
+  // Pages, Profil's tabs and quick actions: those whose name starts with what is typed first, the others last.
+  const commands = q.trim() ? searchCommands(q) : [];
+  const leading = commands.filter(c => fold(c.title).startsWith(fold(q.trim())));
+  // An empty field: the results chosen lately (read when the field gets the focus), then « Nouvelle tâche »…
+  const [recent, setRecent] = useState<SearchHit[]>([]);
   // Files whose content has the words (not already found by their name), after the rest.
   // With the query they answer: those of a previous one (typed fast, then Entrée) are not shown nor opened.
   const [content, setContent] = useState<{ q: string; hits: FileHit[]; more: boolean }>({ q: '', hits: [], more: false });
@@ -117,7 +126,12 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
   const [indexed, setIndexed] = useState(0);
   // Last line when there are more files than shown: the Drive's own search (names and content, everything).
   const seeAll: SearchHit | null = fresh && content.more ? { type: 'dossier', id: 'drive-search', title: t('Voir tout dans le Drive'), where: '', to: `/drive?q=${encodeURIComponent(q.trim())}` } : null;
-  const hits: (SearchHit | FileHit)[] = [...named, ...inFiles.filter(f => !named.some(h => h.type === 'fichier' && h.id === f.id)), ...(seeAll ? [seeAll] : [])];
+  const empty = !q.trim();
+  const shortcuts = empty ? suggestions() : [];
+  const hits: (SearchHit | FileHit)[] = empty
+    ? [...recent, ...shortcuts]
+    : [...leading, ...named, ...inFiles.filter(f => !named.some(h => h.type === 'fichier' && h.id === f.id)), ...commands.filter(c => !leading.includes(c)), ...(seeAll ? [seeAll] : [])];
+  const shown = open && (empty ? hits.length > 0 : hits.length > 0 || fresh);
   const startReading = () => {
     if (readingStarted) return;
     readingStarted = true;
@@ -168,7 +182,8 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       // Only the copy on screen (the desktop one is hidden below 1024 px: AppShell opens the other).
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k' && inputRef.current?.offsetParent) {
+      // (Not a Ctrl+K already used: inside a note it is the link.)
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k' && !e.defaultPrevented && inputRef.current?.offsetParent) {
         e.preventDefault();
         // Not from behind an open dialog (file preview…): its results would sit under the dimmed backdrop.
         if (document.querySelector('[aria-modal="true"]')) return;
@@ -189,7 +204,9 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
   };
 
   const go = (hit: SearchHit) => {
-    navigate(hit.to);
+    rememberHit(hit);
+    if (hit.run) hit.run();
+    else navigate(hit.to);
     setQ('');
     setOpen(false);
     leave(null);
@@ -208,7 +225,7 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
           setActive(0);
           setOpen(true);
         }}
-        onFocus={() => (clearTimeout(closing.current), setOpen(true), startReading())}
+        onFocus={() => (clearTimeout(closing.current), setRecent(recentHits()), setActive(0), setOpen(true), startReading())}
         // Closed a moment later (a click on a result lands first); not if the field got the focus back meanwhile.
         onBlur={() => (closing.current = setTimeout(() => setOpen(false), 150))}
         onKeyDown={e => {
@@ -230,7 +247,7 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
         aria-label={t('Rechercher dans tes fichiers, notes, événements et tâches')}
         role="combobox"
         aria-autocomplete="list"
-        aria-expanded={open && !!q.trim()}
+        aria-expanded={shown}
         aria-controls="recherche-resultats"
         aria-activedescendant={open && hits[active] ? `recherche-${active}` : undefined}
         // A card-like field (border + surface): the grey tint alone barely stood out from the page, light or dark.
@@ -238,10 +255,10 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
       />
       <span aria-hidden className="kbd pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 sm:inline-flex">{isMac ? '⌘' : t('Ctrl')} K</span>
       {/* Not before the files' content answered this query (no « Aucun résultat » flashing while it is looked for). */}
-      {open && q.trim() && (hits.length > 0 || fresh) && (
+      {shown && (
         <div id="recherche-resultats" role="listbox" aria-label={t('Résultats de recherche')} className="enter absolute left-0 right-0 top-12 z-40 overflow-hidden rounded-[18px] border border-stone-200 bg-surface p-1 shadow-pop">
           {/* The field keeps the focus (and the list stays open) while « Effacer la recherche » is pressed. */}
-          {hits.length === 0 && (
+          {hits.length === 0 && !empty && (
             <div onMouseDown={e => e.preventDefault()}>
               <EmptyState
                 size="sm"
@@ -254,9 +271,12 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
           )}
           {hits.map((h, i) => {
             const Icon = h === seeAll ? Search : HIT_ICON[h.type];
+            // Empty field: « Récents », then « Raccourcis ».
+            const heading = empty && (i === 0 && recent.length ? t('Récents') : i === recent.length ? t('Raccourcis') : null);
             return (
+              <Fragment key={h.type + h.id}>
+              {heading && <p role="presentation" className="px-2.5 pb-1 pt-2 text-[11.5px] font-medium text-stone-500">{heading}</p>}
               <button
-                key={h.type + h.id}
                 id={`recherche-${i}`}
                 role="option"
                 aria-selected={i === active}
@@ -268,7 +288,7 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
                 <Icon size={15} className="shrink-0 text-stone-400" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[13px] font-medium">{h.title}</span>
-                  {'snippet' in h ? (
+                  {h.snippet ? (
                     <span className="block truncate text-[12px] text-stone-500" title={h.snippet}>
                       {highlight(h.snippet, q)}
                     </span>
@@ -278,6 +298,7 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
                 </span>
                 {h !== seeAll && <span className="inline-block shrink-0 text-[11px] text-stone-500 first-letter:uppercase">{HIT_LABEL[h.type]}</span>}
               </button>
+              </Fragment>
             );
           })}
         </div>

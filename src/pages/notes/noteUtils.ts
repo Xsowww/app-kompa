@@ -56,3 +56,18 @@ export function withProtocol(url: string) {
   if (/^[^\s@/]+@[^\s@/]+\.[^\s@/]+$/.test(u)) return `mailto:${u}`;
   return `https://${u}`;
 }
+
+// ── Count and order ────────────────────────────────────────────────
+/** Words of a text, as a word processor counts them (« l’arbre », « porte-clés » and « 3,5 » are one each). */
+export const countWords = (text: string) => text.match(/[\p{L}\p{N}]+(?:['’.,-][\p{L}\p{N}]+)*/gu)?.length ?? 0;
+
+export type NoteSort = 'modified' | 'created' | 'title';
+
+/** Pinned notes first, then in the order chosen (latest change, latest made, or A → Z). */
+export function sortNotes<N extends Pick<Note, 'title' | 'pinned' | 'createdAt' | 'updatedAt'>>(list: N[], by: NoteSort, lang?: string): N[] {
+  return [...list].sort(
+    (a, b) =>
+      Number(!!b.pinned) - Number(!!a.pinned) ||
+      (by === 'title' ? a.title.localeCompare(b.title, lang, { numeric: true, sensitivity: 'base' }) : by === 'created' ? b.createdAt.localeCompare(a.createdAt) : b.updatedAt.localeCompare(a.updatedAt)),
+  );
+}

@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ChevronRight, ClipboardPaste, Copy, CopyPlus, Download, Eye, FolderInput, FolderPlus, FolderUp, HardDrive, LayoutGrid,
   List, Pencil, Scissors, Star, Trash2, Upload, Clock, ArrowUpDown, ArrowUp, ArrowDown, X, MousePointer2, Search, Tag, Link2, Check, Palette,
-  MoreHorizontal, ClipboardList, BookOpenCheck, FolderOpen, WifiOff, FolderDown, ScanText,
+  MoreHorizontal, ClipboardList, BookOpenCheck, FolderOpen, WifiOff, FolderDown, ScanText, NotebookPen,
 } from 'lucide-react';
 import { EmptyState, Skeleton } from '../../components/EmptyState';
 import {
@@ -20,6 +20,10 @@ import { FileButtons } from '../../components/UploadCard';
 import { FolderColorPicker } from '../../components/FolderColorPicker';
 import { ContextMenu, type MenuItem } from '../../components/Overlays';
 import PreviewModal from './PreviewModal';
+import FileThumb from './FileThumb';
+import { thumbKey } from './thumbs';
+import { canOpenAsNote, openFileAsNote } from '../notes/driveBridge';
+import { useNotes } from '../../store/notes';
 import StorageGauge from './StorageGauge';
 import { downloadItem, downloadZip } from './download';
 import PhotoSheetDialog from './PhotoSheetDialog';
@@ -27,7 +31,7 @@ import { usePhotoReady } from './photoReady';
 import MoveDialog from './MoveDialog';
 import ShareDialog from './ShareDialog';
 import TagDialog, { TagPill } from './TagDialog';
-import { filesFromDrop, filesFromInput, uploadPending } from './upload';
+import { filesFromDrop, filesFromInput, pastedFiles, uploadPending } from './upload';
 import { isMenuKey, keepFocus, menuPoint } from '../../lib/a11y';
 import { isTrashedDriveItem } from '../../lib/trash';
 import { StorageError } from '../../lib/blobStore';
@@ -48,6 +52,8 @@ const SORT_NAMES: Record<SortKey, string> = { name: t('nom'), date: t('modifié'
 const DRAG_MIME = 'application/x-cop-drive';
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
 const MOD = isMac ? '⌘' : `${t('Ctrl')} + `;
+/** The trash key: Suppr, or ⌘⌫ on a Mac (⌫ alone goes up to the parent folder). */
+const DEL = isMac ? '⌘⌫' : t('Suppr');
 
 const folderColor = (item: DriveItem) => (item.color ? FOLDER_COLORS[item.color]?.color : undefined);
 
@@ -415,6 +421,72 @@ export default function DrivePage() {
     else toast(alreadyThere(ids.length), 'info');
   }, []);
 
+  // ── Preview ───────────────────────────────────────────────────────────────
+  // ← → (and the arrows at its sides) go through the files of the list on screen, in its order (folders skipped).
+  const previewFiles = useMemo(() => visible.filter(i => i.kind === 'file'), [visible]);
+  const previewAt = previewItem ? previewFiles.findIndex(i => i.id === previewItem.id) : -1;
+  // In place of the one shown (Retour closes the preview, it doesn't go back through every file seen).
+  const showFile = (item: DriveItem) =>
+    setParams(
+      p => {
+        const n = new URLSearchParams(p);
+        n.set('fichier', item.id);
+        n.delete('page');
+        return n;
+      },
+      { replace: true },
+    );
+  // Put in the trash from the preview: the next file shows (or the one before, or the list).
+  const trashFromPreview = async (item: DriveItem) => {
+    const next = previewFiles[previewAt + 1] ?? previewFiles[previewAt - 1];
+    await remove([item.id]);
+    if (useDrive.getState().items.some(i => i.id === item.id)) return; // « Annuler » in the question
+    if (next && next.id !== item.id) showFile(next);
+    else closePreview();
+  };
+  const openAsNote = async (item: DriveItem) => {
+    const note = await openFileAsNote(item).catch(() => null);
+    if (!note) return toast(t('Ce fichier n’a pas pu être lu'), 'error');
+    toast(t('Note créée à partir de « {name} »', { name: item.name }), 'success');
+    navigate(`/notes?note=${note.id}`);
+  };
+  // The notes that point to the file shown (« Lier… » in a note).
+  const notes = useNotes(s => s.notes);
+  const linkedNotes = useMemo(
+    () => (previewItem ? notes.filter(n => n.links?.some(l => l.kind === 'file' && l.id === previewItem.id)).map(n => ({ id: n.id, title: n.title })) : undefined),
+    [notes, previewItem],
+  );
+  const [previewMore, setPreviewMore] = useState<{ x: number; y: number } | null>(null);
+  const previewActions = (item: DriveItem) => {
+    const btn = 'flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-white/75 hover:bg-white/10 hover:text-white pointer-coarse:h-9 pointer-coarse:w-9';
+    // Phones: the less frequent ones in « Plus d’actions » (the name keeps some room).
+    const rare = [
+      ...(canOpenAsNote(item) ? [{ label: t('Ouvrir comme note'), icon: <NotebookPen size={16} />, onClick: () => void openAsNote(item) }] : []),
+      { label: t('Renommer'), icon: <Pencil size={16} />, shortcut: 'F2', onClick: () => void rename(item) },
+      // Links only exist online.
+      ...(cloudEnabled ? [{ label: t('Partager le lien…'), icon: <Link2 size={16} />, onClick: () => setShareItem(item) }] : []),
+    ];
+    return (
+      <>
+        {rare.map(a => (
+          <button key={a.label} className={cx(btn, 'max-sm:hidden')} onClick={a.onClick} title={a.shortcut ? `${a.label} (${a.shortcut})` : a.label} aria-label={a.label}>
+            {a.icon}
+          </button>
+        ))}
+        <button className={cx(btn, 'sm:hidden')} onClick={e => setPreviewMore(under(e))} title={t('Plus d’actions')} aria-label={t('Plus d’actions')} aria-haspopup="menu">
+          <MoreHorizontal size={16} />
+        </button>
+        <button className={btn} aria-pressed={!!item.starred} onClick={() => useDrive.getState().toggleStar(item.id)} title={item.starred ? t('Retirer des favoris') : t('Ajouter aux favoris')} aria-label={t('Favori')}>
+          <Star size={16} className={cx(item.starred && 'fill-amber-400 text-amber-400')} />
+        </button>
+        <button className={btn} onClick={() => void trashFromPreview(item)} title={`${t('Mettre à la corbeille')} (${DEL})`} aria-label={t('Mettre à la corbeille')}>
+          <Trash2 size={16} />
+        </button>
+        {previewMore && <ContextMenu x={previewMore.x} y={previewMore.y} items={rare.map(a => ({ ...a, shortcut: undefined }))} onClose={() => setPreviewMore(null)} />}
+      </>
+    );
+  };
+
   /** A menu opened from a button of the selection bar: under the button, not over it (and the bar). */
   const under = (e: React.MouseEvent) => {
     const r = e.currentTarget.getBoundingClientRect();
@@ -492,22 +564,39 @@ export default function DrivePage() {
   };
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
+  // Ctrl+V: what Kompaly's « Copier » / « Couper » holds, unless the computer's clipboard holds files (a screenshot):
+  // those are imported (the paste event, below, comes right after the key and cancels this).
+  const pasteSoon = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
-      if (el.closest('input, textarea, [contenteditable="true"], [role="menu"]') || previewItem || moveIds || tagIds || shareItem || useUi.getState().dialog) return;
+      if (el.closest('input, textarea, [contenteditable="true"], [role="menu"]') || moveIds || tagIds || shareItem || useUi.getState().dialog) return;
       const mod = e.metaKey || e.ctrlKey;
       const k = e.key.toLowerCase();
+      // The preview open: F2 and Suppr act on its file (← → are the preview's own).
+      if (previewItem) {
+        if (e.key === 'F2') {
+          e.preventDefault();
+          void rename(previewItem);
+        } else if (e.key === 'Delete' || (e.key === 'Backspace' && mod)) {
+          e.preventDefault();
+          void trashFromPreview(previewItem);
+        }
+        return;
+      }
       if (mod && k === 'a') {
         e.preventDefault();
         setSelected(new Set(visible.map(i => i.id)));
       } else if (mod && k === 'c') copy(selectedIds);
       else if (mod && k === 'x') cut(selectedIds);
-      else if (mod && k === 'v' && tab === 'all') void paste(parentId);
-      else if (mod && k === 'd') {
+      else if (mod && k === 'v') {
+        clearTimeout(pasteSoon.current);
+        if (tab === 'all') pasteSoon.current = setTimeout(() => void paste(parentId), 60);
+      } else if (mod && k === 'd') {
         e.preventDefault();
         void duplicate(selectedIds);
-      } else if (e.key === 'Delete' || (e.key === 'Backspace' && (isMac || mod))) {
+        // Suppr or ⌘⌫ / Ctrl+⌫: to the trash. ⌫ alone goes up to the parent folder (below), on a Mac too.
+      } else if (e.key === 'Delete' || (e.key === 'Backspace' && mod)) {
         e.preventDefault();
         void remove(selectedIds);
       } else if (e.key === 'F2' && single) {
@@ -525,7 +614,23 @@ export default function DrivePage() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- trashFromPreview only reads what is listed here
   }, [visible, selectedIds, single, parentId, tab, current, previewItem, moveIds, tagIds, shareItem, copy, cut, paste, duplicate, remove, rename, openItem, openFolder]);
+
+  // A screenshot or files copied on the computer, pasted here (Ctrl+V): imported into the folder open.
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const el = e.target as HTMLElement;
+      if (el.closest?.('input, textarea, [contenteditable="true"]') || previewItem || moveIds || tagIds || shareItem || useUi.getState().dialog) return;
+      const files = [...(e.clipboardData?.files ?? [])];
+      if (!files.length) return;
+      e.preventDefault();
+      clearTimeout(pasteSoon.current);
+      void doUpload(pastedFiles(files), tabAll ? parentId : null);
+    };
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  });
 
   // ── Drag & drop ───────────────────────────────────────────────────────────
   const onDragStart = (e: React.DragEvent, item: DriveItem) => {
@@ -644,6 +749,7 @@ export default function DrivePage() {
       : [];
     const list: MenuItem[] = [
       ...(one ? [{ label: item.kind === 'folder' ? t('Ouvrir') : t('Aperçu||d’un fichier'), icon: <Eye size={15} />, shortcut: t('Entrée'), onClick: () => openItem(item) }] : []),
+      ...(one && canOpenAsNote(item) ? [{ label: t('Ouvrir comme note'), icon: <NotebookPen size={15} />, onClick: () => void openAsNote(item) }] : []),
       ...(one && item.kind === 'file'
         ? [{ label: t('Télécharger'), icon: <Download size={15} />, onClick: () => downloadItem(item) }]
         : [{ label: t('Télécharger (.zip)'), icon: <FolderDown size={15} />, onClick: () => void downloadZip(items, ids, one ? item.name : 'Kompaly Drive') }]),
@@ -670,11 +776,12 @@ export default function DrivePage() {
       ...(full
         ? [
             { label: '', divider: true, onClick: () => {} },
-            { label: t('Mettre à la corbeille'), icon: <Trash2 size={15} />, shortcut: t('Suppr'), danger: true, onClick: () => void remove(ids) },
+            { label: t('Mettre à la corbeille'), icon: <Trash2 size={15} />, shortcut: DEL, danger: true, onClick: () => void remove(ids) },
           ]
         : []),
     ];
     return list;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- openAsNote reads nothing that changes
   }, [menu, selectedIds, items, clipboard, tabAll, parentId, visible, newFolder, paste, openItem, copy, cut, duplicate, rename, remove, making, rec, photoReady]);
   // No keyboard shortcuts on a phone.
   const shownMenu = touchMode ? menuItems.map(i => ({ ...i, shortcut: undefined })) : menuItems;
@@ -815,9 +922,10 @@ export default function DrivePage() {
           )}
         </label>
         <div className="ml-auto flex items-center gap-1.5 pointer-coarse:gap-3 sm:ml-0">
-          {view === 'grid' && !q && (
+          {/* List view: its column headers sort on a computer; a phone hides the date column, so the button stays. */}
+          {!q && (
             <button
-              className="icon-btn"
+              className={cx('icon-btn', view === 'list' && 'sm:hidden')}
               title={t('Trier')}
               aria-label={activeSort ? (activeSort.asc ? t('Trier (actuellement par {col}, ordre croissant)', { col: SORT_NAMES[activeSort.key] }) : t('Trier (actuellement par {col}, ordre décroissant)', { col: SORT_NAMES[activeSort.key] })) : t('Trier')}
               aria-haspopup="menu"
@@ -843,9 +951,13 @@ export default function DrivePage() {
         </div>
       </div>
 
-      <StorageGauge />
+      {/* Phones: the space used above the files (on a computer it sits at the end of the row below). */}
+      <div className="sm:hidden">
+        <StorageGauge />
+      </div>
 
-      {/* Breadcrumb / selection bar. Empty at the root of the Drive: on a phone it would only leave a hole above the files. */}
+      {/* Breadcrumb / selection bar. Empty at the root of the Drive: on a phone it would only leave a hole above the files.
+          On a computer the row stays (with the space used), so that the selection bar showing up moves nothing. */}
       <div className={cx('flex h-10 items-center gap-1 text-[13px]', !bar && !filtering && (!tabAll || (!breadcrumb.length && !clipboard?.ids.length)) && 'max-sm:h-0')}>
         {bar ? (
           <div className="enter flex h-10 w-full items-center gap-0.5 overflow-x-auto rounded-lg bg-inverse px-1.5 text-on-inverse shadow-pop">
@@ -937,6 +1049,11 @@ export default function DrivePage() {
             ) : null}
           </>
         ) : null}
+        {!bar && (
+          <div className={cx('hidden min-w-0 shrink-0 sm:block', !(tabAll && clipboard?.ids.length) && 'ml-auto')}>
+            <StorageGauge inline />
+          </div>
+        )}
       </div>
 
       {/* Label filter */}
@@ -1018,7 +1135,9 @@ export default function DrivePage() {
                 >
                   {item.starred && <Star size={11} className="absolute right-2.5 top-2.5 fill-amber-400 text-amber-400" />}
                   {touchMode && selectedIds.length > 0 && <span className="absolute left-2 top-2">{tick(sel)}</span>}
-                  <FileIcon category={categoryOf(item)} size={56} ext={extOf(item)} color={folderColor(item)} />
+                  <span className="flex h-16 w-full items-center justify-center">
+                    <FileThumb key={thumbKey(item)} item={item} className="h-16 w-24" icon={<FileIcon category={categoryOf(item)} size={56} ext={extOf(item)} color={folderColor(item)} />} />
+                  </span>
                   <p className="mt-2 line-clamp-2 w-full break-words text-[12.5px] font-medium leading-tight">{item.name}</p>
                   <p className="tabular mt-0.5 text-[11px] text-stone-500">
                     {item.kind === 'folder' ? childCount(item.id) : formatBytes(item.size)}
@@ -1059,13 +1178,14 @@ export default function DrivePage() {
                 >
                   <span className="flex min-w-0 items-center gap-2.5">
                     {tick(sel)}
-                    <FileIcon category={categoryOf(item)} size={26} ext={extOf(item)} color={folderColor(item)} />
+                    <FileThumb key={thumbKey(item)} item={item} className="h-[26px] w-[26px] rounded-[5px]" icon={<FileIcon category={categoryOf(item)} size={26} ext={extOf(item)} color={folderColor(item)} />} />
                     <span className="min-w-0">
                       <span className="flex min-w-0 items-center gap-1.5">
                         <span className="truncate font-medium">{q ? <Highlighted text={item.name} query={q} /> : item.name}</span>
                         {item.starred && <Star size={11} className="shrink-0 fill-amber-400 text-amber-400" />}
                         {item.tags?.length ? <span className="hidden shrink-0 items-center gap-1 sm:flex">{item.tags.map(tag => <TagPill key={tag} tag={tag} />)}</span> : null}
                       </span>
+                      {!snippetOf(item) && <span className="block text-[11.5px] text-stone-500 sm:hidden">{relativeTime(item.updatedAt)}</span>}
                       {snippetOf(item) && (
                         <span className="mt-0.5 line-clamp-2 block text-[12px] leading-snug text-stone-500">
                           <Highlighted text={snippetOf(item)!} query={q} />
@@ -1127,7 +1247,17 @@ export default function DrivePage() {
           })}
         />
       )}
-      {previewItem && <PreviewModal item={previewItem} onClose={closePreview} page={Number(params.get('page')) || undefined} />}
+      {previewItem && (
+        <PreviewModal
+          item={previewItem}
+          onClose={closePreview}
+          page={Number(params.get('page')) || undefined}
+          actions={previewActions(previewItem)}
+          onPrev={previewAt > 0 ? () => showFile(previewFiles[previewAt - 1]) : undefined}
+          onNext={previewAt >= 0 && previewAt < previewFiles.length - 1 ? () => showFile(previewFiles[previewAt + 1]) : undefined}
+          notes={linkedNotes}
+        />
+      )}
       {tagIds && <TagDialog ids={tagIds} onClose={() => setTagIds(null)} />}
       {shareItem && <ShareDialog item={shareItem} onClose={() => setShareItem(null)} />}
       {photoSheet && <PhotoSheetDialog folderId={tabAll ? parentId : null} onClose={() => setPhotoSheet(false)} />}

@@ -315,3 +315,11 @@
 :root[data-style] [data-drop-day].bg-stone-50 {
   background-color: color-mix(in srgb, var(--color-stone-300) 40%, var(--glass-strong, var(--color-surface)));
 }
+
+/* Unchecked boxes on the dark glass: their grey edge (stone-300) all but vanished on it (Liquid Glass above all). */
+:root:is([data-style='verre'], [data-style='liquide'])[data-theme='dark'] input:is([type='checkbox'], [type='radio']):not(:checked) {
+  border-color: var(--color-stone-400);
+}
+:root:is([data-style='verre'], [data-style='liquide'])[data-theme='dark'] input:is([type='checkbox'], [type='radio']):not(:checked):hover:not(:disabled) {
+  border-color: var(--color-stone-500);
+}

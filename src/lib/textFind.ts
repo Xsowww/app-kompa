@@ -142,3 +142,31 @@ export function pageAt(starts: number[], at: number) {
   while (page < starts.length && starts[page] <= at) page++;
   return page;
 }
+
+/**
+ * A short extract of `text` around the first place where `query` is (else around its first word found), to show
+ * under a search result: a few words before, more after, cut between words. Null when nothing is found.
+ */
+export function textSnippet(text: string, query: string, before = 30, after = 90): string | null {
+  const { folded, map } = folding(text);
+  const q = fold(query.trim());
+  let hit = q ? findIn(folded, q) : { at: -1, len: 0 };
+  if (hit.at < 0) {
+    for (const w of q.split(/\s+/).filter(x => x.length > 1)) {
+      const at = folded.indexOf(w);
+      if (at >= 0) {
+        hit = { at, len: w.length };
+        break;
+      }
+    }
+  }
+  if (hit.at < 0) return null;
+  const { at, len } = original(map, hit.at, hit.len);
+  let start = Math.max(0, at - before);
+  let end = Math.min(text.length, at + len + after);
+  const sp = text.indexOf(' ', start);
+  if (start > 0 && sp >= 0 && sp < at) start = sp + 1;
+  const ep = text.lastIndexOf(' ', end);
+  if (end < text.length && ep > at + len) end = ep;
+  return `${start > 0 ? '…' : ''}${text.slice(start, end).trim()}${end < text.length ? '…' : ''}`;
+}

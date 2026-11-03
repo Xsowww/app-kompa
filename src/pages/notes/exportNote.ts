@@ -1,9 +1,10 @@
-import type { Note } from '../../store/notes';
+import type { Note, NoteFolder } from '../../store/notes';
+import { zipPaths } from '../../lib/zipPaths';
 import { t, lang, locale } from '../../i18n';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
-const fileName = (title: string) => (title.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim() || t('Note')).slice(0, 120);
+export const fileName = (title: string) => (title.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim() || t('Note')).slice(0, 120);
 
 const PRINT_CSS = `
 @page { size: A4; margin: 20mm 18mm 22mm; }
@@ -210,12 +211,59 @@ export function noteToMarkdown(note: Note): string {
   return `# ${mdText(note.title)}\n\n${block(root).replace(/\n{3,}/g, '\n\n').trim()}\n`;
 }
 
-export function downloadMarkdown(note: Note) {
-  const blob = new Blob([noteToMarkdown(note)], { type: 'text/markdown;charset=utf-8' });
+/** Saves a file made in the page (the browser's download). */
+function save(blob: Blob, name: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${fileName(note.title)}.md`;
+  a.download = name;
+  // In the page: some browsers ignore the name of a link that isn't.
+  document.body.append(a);
   a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+export function downloadMarkdown(note: Note) {
+  save(new Blob([noteToMarkdown(note)], { type: 'text/markdown;charset=utf-8' }), `${fileName(note.title)}.md`);
+}
+
+/**
+ * A note's Markdown made plain for the Word writer (lib/docx reads a small Markdown): no pictures (said apart), a link
+ * as « text (address) », boxes as ☐ / ☑, no highlight or strike marks, no code fences (the code stays as text).
+ */
+export function markdownForWord(md: string): string {
+  return md
+    .replace(/!\[[^\]]*\]\([^)\s]*\)/g, '')
+    .replace(/(?<!\\)\[((?:\\.|[^\]\\])*)\]\(([^)\s]*)\)/g, (_, text: string, url: string) => (text && text !== url ? `${text} (${url})` : url))
+    .replace(/^(\s*)- \[[xX]\] /gm, '$1- ☑ ')
+    .replace(/^(\s*)- \[ \] /gm, '$1- ☐ ')
+    .replace(/==(?=\S)(.+?)==/g, '$1')
+    .replace(/~~(?=\S)(.+?)~~/g, '$1')
+    .replace(/^\s*`{3,}.*$/gm, '')
+    .replace(/\\</g, '<')
+    .replace(/\n{3,}/g, '\n\n');
+}
+
+/**
+ * Notes and whole folders (with their sub-folders and notes) in one .zip, as Markdown or Word files. `roots`: ids of
+ * notes and folders; a note whose folder is not in `roots` goes at the top of the zip.
+ */
+export async function exportNotesZip(roots: string[], format: 'md' | 'docx', name: string, { notes, folders }: { notes: Note[]; folders: NoteFolder[] }) {
+  const { default: JSZip } = await import('jszip');
+  const entries = zipPaths(
+    [
+      ...folders.map(f => ({ id: f.id, name: f.name, kind: 'folder' as const, parentId: f.parentId })),
+      ...notes.map(n => ({ id: n.id, name: `${fileName(n.title)}.${format}`, kind: 'file' as const, parentId: n.folderId })),
+    ],
+    roots,
+  );
+  const docx = format === 'docx' ? await import('../../lib/docx') : null;
+  const zip = new JSZip();
+  for (const e of entries) {
+    const n = notes.find(x => x.id === e.id);
+    if (e.folder || !n) zip.folder(e.path);
+    else zip.file(e.path, docx ? await docx.markdownToDocx(markdownForWord(noteToMarkdown(n)), { title: n.title }) : noteToMarkdown(n));
+  }
+  save(await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' }), `${fileName(name)}.zip`);
 }

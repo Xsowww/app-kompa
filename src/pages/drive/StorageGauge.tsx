@@ -10,7 +10,8 @@ const fileBytes = (list: { kind: string; size?: number }[]) => list.reduce((s, i
 /** The number shown (« 1,5 » for « 1,5 Go »), for the singular or plural of « 1 Go libre », « 12 Ko utilisés ». */
 const amount = (bytes: number) => parseFloat(formatBytes(bytes).replace(',', '.'));
 
-export default function StorageGauge() {
+/** `inline`: at the end of the Drive's breadcrumb row (computers), on one line. */
+export default function StorageGauge({ inline = false }: { inline?: boolean }) {
   const items = useDrive(s => s.items);
   const trash = useDrive(s => s.trash);
   const inTrash = fileBytes(trash);
@@ -22,16 +23,16 @@ export default function StorageGauge() {
   // Local version: files stay in this browser, whose room has nothing to do with the online 1 GB.
   if (!cloudEnabled && !QUOTA)
     return used === 0 ? null : (
-      <div className="tabular mb-4 text-[12px] text-stone-500">
+      <div className={cx('tabular text-[12px] text-stone-500', inline ? 'truncate' : 'mb-4')}>
         <span className="font-medium text-ink">{formatBytes(used)}</span> {tn(amount(used), 'utilisé sur cet appareil', 'utilisés sur cet appareil')}
         {inTrash > 0 && <> · {t('dont {size} dans la corbeille', { size: formatBytes(inTrash) })}</>}
       </div>
     );
 
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12px] text-stone-500">
+    <div className={cx('flex items-center gap-x-3 text-[12px] text-stone-500', inline ? 'whitespace-nowrap' : 'mb-4 flex-wrap gap-y-1.5')}>
       <div
-        className="h-1.5 w-full max-w-[220px] overflow-hidden rounded-full bg-stone-200"
+        className={cx('h-1.5 overflow-hidden rounded-full bg-stone-200', inline ? 'w-20 shrink-0' : 'w-full max-w-[220px]')}
         role="meter"
         aria-label={t('Espace du Drive utilisé')}
         aria-valuemin={0}

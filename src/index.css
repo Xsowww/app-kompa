@@ -466,14 +466,15 @@ html { touch-action: manipulation; }
   transition: none !important;
 }
 
-/* Bento: page titles heavier and tighter, like the tiles' big numbers (note contents keep their own). */
-h1:not(.prose-note h1) {
+/* Bento: page titles heavier and tighter, like the tiles' big numbers. Document contents (a note, a Word file or a
+   course shown in .doc-preview) keep their own hierarchy: a « Titre 2 » there was heavier than its « Titre 1 ». */
+h1:not(:is(.prose-note, .doc-preview) h1) {
   font-weight: 800;
   letter-spacing: -0.035em;
 }
 
-/* Bento: dialog titles as heavy as page titles. */
-[role='dialog'] :is(h2, h3) {
+/* Bento: dialog titles as heavy as page titles (not the headings of a document previewed in a dialog). */
+[role='dialog'] :is(h2, h3):not(:is(.prose-note, .doc-preview) *) {
   font-weight: 800;
   letter-spacing: -0.02em;
 }

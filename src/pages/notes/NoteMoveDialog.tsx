@@ -6,8 +6,11 @@ import { cx } from '../../lib/utils';
 import { folderIconStyle } from '../../store/drive';
 import { t, locale } from '../../i18n';
 
-/** What to move: a note, or a folder (never into itself or one of its sub-folders). */
-export type NoteMoveTarget = { kind: 'note'; id: string; name: string; from: string | null } | { kind: 'folder'; id: string; name: string; from: string | null };
+/** What to move: a note, several (`name`: « 3 notes »), or a folder (never into itself or one of its sub-folders). */
+export type NoteMoveTarget =
+  | { kind: 'note'; id: string; name: string; from: string | null }
+  | { kind: 'notes'; ids: string[]; name: string; from: string | null }
+  | { kind: 'folder'; id: string; name: string; from: string | null };
 
 /** « Déplacer vers… » for notes and folders: the keyboard and touch way to do what drag & drop does. */
 export default function NoteMoveDialog({ target, onClose }: { target: NoteMoveTarget; onClose: () => void }) {
@@ -30,8 +33,13 @@ export default function NoteMoveDialog({ target, onClose }: { target: NoteMoveTa
       ));
 
   const move = () => {
-    if (target.kind === 'note') useNotes.getState().updateNote(target.id, { folderId: dest });
-    else useNotes.getState().moveFolder(target.id, dest);
+    const store = useNotes.getState();
+    if (target.kind === 'note') store.updateNote(target.id, { folderId: dest });
+    // Those already there keep their « modifiée » date.
+    else if (target.kind === 'notes') {
+      for (const id of target.ids) if (store.notes.find(n => n.id === id)?.folderId !== dest) store.updateNote(id, { folderId: dest });
+    }
+    else store.moveFolder(target.id, dest);
     onClose();
   };
 
@@ -49,7 +57,7 @@ export default function NoteMoveDialog({ target, onClose }: { target: NoteMoveTa
         <button className="btn-secondary" onClick={onClose}>
           {t('Annuler')}
         </button>
-        <button className="btn-primary" disabled={dest === target.from} onClick={move}>
+        <button className="btn-primary" disabled={target.kind !== 'notes' && dest === target.from} onClick={move}>
           {t('Déplacer ici')}
         </button>
       </div>

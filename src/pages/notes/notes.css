@@ -11,3 +11,10 @@
   outline: 2px solid var(--color-brand-500);
   outline-offset: 2px;
 }
+/* Words a search opened the note with (NoteEditor `highlight`), until the note is changed. Not the yellow of
+   « Surligner »: that one is part of the note. */
+.prose-note .search-hit {
+  background: color-mix(in srgb, var(--color-brand-500) 24%, transparent);
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--color-brand-500) 45%, transparent);
+  border-radius: 3px;
+}

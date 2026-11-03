@@ -9,6 +9,7 @@ import { useCalendar, catOf, guessCategory, customCategoryIn, customNamed, creat
 import { useTodos } from '../store/todos';
 import { useFocus, focusLeft } from '../store/focus';
 import { normalize, noteText, stripHtml, formatBytes } from '../lib/utils';
+import { textSnippet } from '../lib/textFind';
 import { toKey, todayKey, daysUntil, fromKey, fmt, fmtDay, weekStart, countdownLabel } from '../lib/dates';
 import type { CopilotLink } from '../store/copilot';
 import type { Group, GroupEvent, GroupNoteSummary } from '../lib/groups';
@@ -35,11 +36,15 @@ export const linkToNote = (id: string) => `/notes?note=${id}`;
 export const linkToDay = (date: string, eventId?: string) => `/calendrier?jour=${date}${eventId ? `&evt=${eventId}` : ''}`;
 
 export interface SearchHit {
-  type: 'dossier' | 'fichier' | 'note' | 'dossier de notes' | 'événement' | 'tâche' | 'note partagée' | 'événement partagé';
+  type: 'dossier' | 'fichier' | 'note' | 'dossier de notes' | 'événement' | 'tâche' | 'note partagée' | 'événement partagé' | 'page' | 'réglage' | 'action';
   id: string;
   title: string;
   where: string;
   to: string;
+  /** Found in the text (not the title): an extract around the words. */
+  snippet?: string;
+  /** A quick action of the search (copilot/commands): done instead of going to `to`. */
+  run?: () => void;
 }
 
 /** What a search hit is, as shown in a sentence (« Maths (dossier) »). */
@@ -52,6 +57,9 @@ export const HIT_LABEL: Record<SearchHit['type'], string> = {
   tâche: t('tâche'),
   'note partagée': t('note partagée'),
   'événement partagé': t('événement partagé'),
+  page: t('page'),
+  réglage: t('réglage'),
+  action: t('action'),
 };
 
 /** What the groups and shared calendars already read hold (store/groups), searched without asking the server. */
@@ -121,10 +129,14 @@ export function search(query: string, limit = 8, shared?: SharedContent): Search
     if (s) hits.push({ s, type: 'dossier de notes', id: f.id, title: f.name, where: folders.find(p => p.id === f.parentId)?.name ?? '', to: `/notes?dossier=${f.id}` });
   }
   for (const n of notes) {
-    const s = Math.max(score(prep(n, 'title', () => normalize(n.title)), q), score(prep(n, 'text', () => normalize(noteText(n))), q) * 0.6);
-    if (s) {
+    const inTitle = score(prep(n, 'title', () => normalize(n.title)), q);
+    const inText = score(prep(n, 'text', () => normalize(noteText(n))), q) * 0.6;
+    if (inTitle || inText) {
       const folder = folders.find(f => f.id === n.folderId);
-      hits.push({ s, type: 'note', id: n.id, title: n.title, where: folder?.name ?? '', to: linkToNote(n.id) });
+      // Found in its text: an extract around the words, and the note opens on them (marked).
+      const snippet = inText > inTitle ? (textSnippet(noteText(n), query) ?? undefined) : undefined;
+      const to = snippet ? `${linkToNote(n.id)}&q=${encodeURIComponent(query.trim())}` : linkToNote(n.id);
+      hits.push({ s: Math.max(inTitle, inText), type: 'note', id: n.id, title: n.title, where: folder?.name ?? '', to, ...(snippet && { snippet }) });
     }
   }
   // Its notes count like a note's text.
