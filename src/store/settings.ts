@@ -63,6 +63,10 @@ export interface Settings {
   // (« notifications on this device » is per device: lib/push)
   /** Reminders given to a new event that has a time (minutes before); [] = none. */
   defaultReminders: number[];
+  /** Reminders given to a new dated task without a time ([900, 0]: the day before at 18:00 and that day at 9:00); [] = none. */
+  defaultTaskReminders: number[];
+  /** Reminders put off by « Plus tard » (lib/reminderScheduler), on every device: « task:<id> » or « event:<id> » and when. */
+  reminderSnoozes: { item: string; at: string }[];
   focusSound: boolean; // end of a focus session
   reminderSound: boolean; // a small sound with a reminder shown in the app
   groupNews: boolean; // what the others do in my groups (also read by server/push.mjs)
@@ -114,6 +118,8 @@ export const DEFAULT_SETTINGS: Settings = {
   focusSessions: 0,
   focusTotalMinutes: 0,
   defaultReminders: [15],
+  defaultTaskReminders: [900, 0],
+  reminderSnoozes: [],
   focusSound: true,
   reminderSound: true,
   groupNews: true,

@@ -67,13 +67,22 @@ export function eventReminders(e: { reminders?: number[]; date?: string; start?:
 }
 
 /**
- * A new dated task's reminders: the day before at 18:00 and that day at 9:00, or an hour before a task with a time;
- * those already past are left out (a task for today, made in the afternoon, gets none rather than one in the past).
+ * A new dated task's reminders: those chosen in Profil › Notifications (the day before at 18:00 and/or that day at 9:00),
+ * or an hour before a task with a time (none when « Aucun » is chosen); those already past are left out (a task for
+ * today, made in the afternoon, gets none rather than one in the past).
  */
-export function taskReminders(due: string, time?: string, now = new Date()): number[] {
-  const all = time ? [60] : [900, 0];
+export function taskReminders(due: string, time?: string, now = new Date(), chosen: number[] = [900, 0]): number[] {
+  const all = time ? (chosen.length ? [60] : []) : chosen;
   return all.filter(min => reminderMoment(due, time, min) > now);
 }
+
+/** « Rappel par défaut des tâches » (Profil › Notifications): its four choices. */
+export const TASK_DEFAULTS: { value: string; minutes: number[]; label: string }[] = [
+  { value: 'aucun', minutes: [], label: t('Aucun') },
+  { value: 'veille', minutes: [900], label: t('La veille à 18:00') },
+  { value: 'jour', minutes: [0], label: t('Le jour même à 09:00') },
+  { value: 'les-deux', minutes: [900, 0], label: t('Les deux') },
+];
 
 /** « 45 min avant », « 3 h 30 avant », « 2 j 4 h avant ». */
 export function offsetLabel(minutes: number): string {
@@ -138,6 +147,8 @@ export interface ReminderSource {
   end?: string;
   done?: boolean;
   reminders?: number[];
+  /** Put off by « Plus tard »: when to remind again (ISO). */
+  snoozes?: string[];
 }
 
 export interface DueReminder {
@@ -177,25 +188,70 @@ export function reminderBody(src: ReminderSource, fireAt: Date): string {
   return `${line1}\n${task ? t('Tâches') : t('Agenda')}`;
 }
 
-/** The reminders still to come, from now up to `horizonDays`, soonest first. */
-export function upcomingReminders(items: ReminderSource[], now = new Date(), horizonDays = 35): DueReminder[] {
+/** Where a reminder leads: the task itself (lit up in Tâches), the event on its day. */
+export const reminderUrl = (src: Pick<ReminderSource, 'kind' | 'id' | 'date'>) =>
+  src.kind === 'task' ? `/taches?tache=${encodeURIComponent(src.id)}` : `/calendrier?jour=${src.date}&evt=${encodeURIComponent(src.id)}`;
+
+/**
+ * The reminders still to come, from now up to `horizonDays`, soonest first, with those put off by « Plus tard ».
+ * `digestDays`: the days whose morning summary (taskDigests, 8:00) is sent too — an undated-hour task's reminder of
+ * that morning would say it a second time (« la veille à 18 h », then 8:00, then 9:00): left out.
+ */
+export function upcomingReminders(items: ReminderSource[], now = new Date(), horizonDays = 35, digestDays?: ReadonlySet<string>): DueReminder[] {
   const until = now.getTime() + horizonDays * 86_400_000;
   const out: DueReminder[] = [];
+  const due = (fireAt: Date) => fireAt.getTime() > now.getTime() - 60_000 && fireAt.getTime() <= until;
   for (const src of items) {
-    if (src.done || !src.date || !src.reminders?.length) continue;
-    for (const m of src.reminders) {
+    if (src.done || !src.date) continue;
+    const make = (key: string, fireAt: Date): DueReminder => ({
+      key,
+      fireAt,
+      title: src.title.trim().slice(0, 200) || (src.kind === 'task' ? t('Tâche') : t('Événement')),
+      body: reminderBody(src, fireAt).slice(0, 300),
+      url: reminderUrl(src),
+    });
+    for (const m of src.reminders ?? []) {
       const fireAt = reminderMoment(src.date, src.time, m);
-      if (fireAt.getTime() <= now.getTime() - 60_000 || fireAt.getTime() > until) continue;
-      out.push({
-        key: `${src.kind}:${src.id}:${m}:${src.date}T${src.time ?? DAY_ANCHOR}`,
-        fireAt,
-        title: src.title.trim().slice(0, 200) || (src.kind === 'task' ? t('Tâche') : t('Événement')),
-        body: reminderBody(src, fireAt).slice(0, 300),
-        url: src.kind === 'task' ? '/taches' : `/calendrier?jour=${src.date}`,
-      });
+      if (!due(fireAt)) continue;
+      if (src.kind === 'task' && !src.time && digestDays?.has(src.date) && dayKey(fireAt) === src.date && fireAt.getHours() >= DIGEST_HOUR) continue;
+      out.push(make(`${src.kind}:${src.id}:${m}:${src.date}T${src.time ?? DAY_ANCHOR}`, fireAt));
+    }
+    for (const at of src.snoozes ?? []) {
+      const fireAt = new Date(at);
+      if (!Number.isNaN(fireAt.getTime()) && due(fireAt)) out.push(make(`${src.kind}:${src.id}:plus-tard:${fireAt.getTime()}`, fireAt));
     }
   }
   return out.sort((a, b) => a.fireAt.getTime() - b.fireAt.getTime());
+}
+
+const dayKey = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+/** The id the morning summary of the tasks has in its key (« task:matin:2026-11-03 »: sent by the server as a task's reminder). */
+const DIGEST_ID = 'matin';
+const DIGEST_HOUR = 8;
+
+/** The task or event a reminder is about (from its key); null for the morning summary and the news of the others. */
+export function reminderItem(key: string): { kind: 'task' | 'event'; id: string } | null {
+  const m = /^(task|event):([^:]+):/.exec(key);
+  return m && m[2] !== DIGEST_ID ? { kind: m[1] as 'task' | 'event', id: m[2] } : null;
+}
+
+/** The tasks and events a notification stands for; none when one of its keys isn't such a reminder. */
+export function reminderItems(keys: string[]): { kind: 'task' | 'event'; id: string }[] {
+  const items = keys.map(reminderItem);
+  if (!items.length || items.some(x => !x)) return [];
+  return [...new Map(items.map(x => [`${x!.kind}:${x!.id}`, x!])).values()];
+}
+
+/**
+ * The buttons under a notification (two at most: Chrome shows no more): « Plus tard » (10 min) and « Fait » on a
+ * reminder of a task or an event (« Voir » instead of « Fait » for several), else « Voir » and « OK ».
+ * Same rule in public/sw.js (notificationOptions), with the words this page gives it.
+ */
+export function notificationButtons(keys: string[]): { action: string; title: string }[] {
+  const items = reminderItems(keys);
+  if (!items.length) return [{ action: 'voir', title: t('Voir') }, { action: 'ok', title: t('OK') }];
+  return [{ action: 'plus-tard', title: t('Plus tard') }, items.length === 1 ? { action: 'fait', title: t('Fait||coché') } : { action: 'voir', title: t('Voir') }];
 }
 
 /**
@@ -226,13 +282,14 @@ export function followMoments(list: number[], from: { date: string; time?: strin
 export function taskDigests(todos: { id: string; title: string; done: boolean; due?: string }[], now = new Date(), days = 2): DueReminder[] {
   const out: DueReminder[] = [];
   for (let i = 0; i <= days; i++) {
-    const at = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i, 8, 0);
+    const at = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i, DIGEST_HOUR, 0);
     if (at <= now) continue;
-    const day = `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, '0')}-${String(at.getDate()).padStart(2, '0')}`;
+    const day = dayKey(at);
     const due = todos.filter(x => !x.done && x.due && x.due <= day);
     if (!due.length) continue;
     const names = due.slice(0, 3).map(x => x.title).join(', ') + (due.length > 3 ? '…' : '');
-    out.push({ key: `digest:${day}`, fireAt: at, title: tn(due.length, '{n} tâche à faire aujourd’hui', '{n} tâches à faire aujourd’hui'), body: names, url: '/taches' });
+    // A task's key (« task:… »): the server sends it too, site closed (it takes only the reminders of events and tasks).
+    out.push({ key: `task:${DIGEST_ID}:${day}`, fireAt: at, title: tn(due.length, '{n} tâche à faire aujourd’hui', '{n} tâches à faire aujourd’hui'), body: names, url: '/taches' });
   }
   return out;
 }

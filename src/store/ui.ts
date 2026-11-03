@@ -21,6 +21,8 @@ export interface ReminderAlert {
   title: string;
   body: string;
   url: string;
+  /** The reminders it stands for (several due together): « Plus tard » and « Fait » act on them. */
+  keys?: string[];
   /** When it came (ms). */
   at?: number;
 }

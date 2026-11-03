@@ -18,9 +18,13 @@ export function quietNews(row, prefs) {
   return Array.isArray(prefs.muted) && prefs.muted.includes(groupOfUrl(row.url));
 }
 
-/** Same kind of notification: one's own reminders together, a shared calendar's news apart, the admins' apart. */
+/**
+ * Same kind of notification: one's own reminders together, a shared calendar's news apart, the admins' apart,
+ * the morning summary of the tasks (« task:matin:… », src/lib/reminders) apart.
+ */
 export const familyOf = key => {
-  const prefix = String(key).split(':')[0];
+  const [prefix, id] = String(key).split(':');
+  if (prefix === 'task' && id === 'matin') return 'matin';
   return prefix === 'event' || prefix === 'task' || prefix === 'rappel-agenda' ? 'rappel' : prefix;
 };
 

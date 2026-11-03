@@ -2,8 +2,10 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { BellRing, CheckCircle2, CloudAlert, Info, WifiOff, XCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { reminderItems } from '../lib/reminders';
+import { reminderAction, SNOOZE_MINUTES } from '../lib/reminderActions';
 import { create } from 'zustand';
-import { useUi, type Toast } from '../store/ui';
+import { useUi, type ReminderAlert, type Toast } from '../store/ui';
 import { cx } from '../lib/utils';
 import { retryNow, useService } from '../lib/serviceStatus';
 import { arrowNav, focusBeforeOverlay, focusables, trapTab } from '../lib/a11y';
@@ -364,12 +366,12 @@ export function ContextMenu({ x, y, items, onClose, label, large, above }: { x: 
 
 /**
  * Reminders that came due while the app is in view (lib/reminderScheduler): a notification banner,
- * centred at the top of the screen. It stays until closed.
+ * centred at the top of the screen. It stays until closed. A reminder of my tasks or events also has
+ * « Plus tard » (10 min) and, for a single one, « Fait » (lib/reminderActions), like its system notification.
  */
 export function ReminderAlerts() {
   const alerts = useUi(s => s.alerts);
   const dismiss = useUi(s => s.dismissAlert);
-  const navigate = useNavigate();
   // Échap closes the newest card, like every other window — unless a dialog is open or a field has the focus: Échap is theirs.
   const last = alerts[alerts.length - 1]?.key;
   useEffect(() => {
@@ -409,23 +411,48 @@ export function ReminderAlerts() {
               {a.body && <p className="mt-0.5 text-[13px] leading-snug text-stone-600">{a.body.split('\n')[0]}</p>}
             </div>
           </div>
-          <div className="grid grid-cols-2 border-t border-stone-100 text-[13px] font-medium">
-            <button type="button" className="h-10 text-stone-600 transition-colors hover:bg-stone-50 hover:text-ink" onClick={() => dismiss(a.key)}>
-              {t('Fermer')}
-            </button>
-            <button
-              type="button"
-              className="h-10 border-l border-stone-100 text-brand-600 transition-colors hover:bg-brand-50"
-              onClick={() => {
-                dismiss(a.key);
-                navigate(a.url);
-              }}
-            >
-              {t('Voir')}
-            </button>
-          </div>
+          <AlertButtons alert={a} />
         </div>
       ))}
+    </div>
+  );
+}
+
+function AlertButtons({ alert: a }: { alert: ReminderAlert }) {
+  const dismiss = useUi(s => s.dismissAlert);
+  const navigate = useNavigate();
+  const keys = a.keys?.length ? a.keys : [a.key];
+  const mine = reminderItems(keys).length;
+  const act = (action: 'later' | 'done') => {
+    dismiss(a.key);
+    reminderAction(action, keys);
+  };
+  const side = 'h-10 border-l border-stone-100 transition-colors';
+  return (
+    <div className={cx('grid border-t border-stone-100 text-[13px] font-medium', mine === 1 ? 'grid-cols-4' : mine ? 'grid-cols-3' : 'grid-cols-2')}>
+      <button type="button" className="h-10 text-stone-600 transition-colors hover:bg-stone-50 hover:text-ink" onClick={() => dismiss(a.key)}>
+        {t('Fermer')}
+      </button>
+      {mine > 0 && (
+        <button type="button" className={cx(side, 'text-stone-600 hover:bg-stone-50 hover:text-ink')} title={t('Me le rappeler dans {n} min', { n: SNOOZE_MINUTES })} onClick={() => act('later')}>
+          {t('Plus tard')}
+        </button>
+      )}
+      {mine === 1 && (
+        <button type="button" className={cx(side, 'text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400')} onClick={() => act('done')}>
+          {t('Fait||coché')}
+        </button>
+      )}
+      <button
+        type="button"
+        className={cx(side, 'text-brand-600 hover:bg-brand-50')}
+        onClick={() => {
+          dismiss(a.key);
+          navigate(a.url);
+        }}
+      >
+        {t('Voir')}
+      </button>
     </div>
   );
 }
