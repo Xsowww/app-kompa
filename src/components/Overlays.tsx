@@ -342,12 +342,13 @@ export function ContextMenu({ x, y, items, onClose, label, large, above }: { x: 
   }, []);
 
   // On <body>: a card with a glass style (backdrop-filter, index.css) would otherwise be what « fixed » is measured from.
+  // Never taller than the screen (a long menu on a phone held sideways): it scrolls then, nothing is cut.
   return createPortal(
     <div
       ref={ref}
       role="menu"
       aria-label={name}
-      className={cx('enter fixed z-[65] border border-stone-200 bg-surface shadow-pop', large ? 'min-w-60 rounded-[18px] p-1.5' : 'min-w-52 rounded-[14px] p-1')}
+      className={cx('enter fixed z-[65] max-h-[calc(100dvh-16px)] overflow-y-auto overscroll-contain border border-stone-200 bg-surface shadow-pop', large ? 'min-w-60 rounded-[18px] p-1.5' : 'min-w-52 rounded-[14px] p-1')}
       style={{ left: pos.x, top: pos.y }}
       onPointerDown={e => e.stopPropagation()}
       onMouseDown={e => e.stopPropagation()}

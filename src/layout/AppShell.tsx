@@ -544,7 +544,7 @@ export default function AppShell() {
         <button
           type="button"
           onClick={() => openNews()}
-          className="my-2 flex h-10 items-center gap-3 rounded-lg px-2.5 text-left text-[14px] text-stone-500 transition-colors hover:bg-stone-100 hover:text-ink"
+          className="mb-2 flex h-10 items-center gap-3 rounded-lg px-2.5 text-left text-[14px] text-stone-500 transition-colors hover:bg-stone-100 hover:text-ink"
         >
           <Sparkles size={18} strokeWidth={1.9} aria-hidden />
           {t('Nouveautés')}
