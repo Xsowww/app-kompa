@@ -44,7 +44,9 @@ Node 22+ (voir `.nvmrc`). Un devcontainer est fourni pour GitHub Codespaces.
 | **Groupes** | `/groupes` (version en ligne) : créer un groupe ou le rejoindre avec un code à 6 caractères, notes partagées modifiables par tous (mises à jour en direct, sans écraser le travail d'un autre), révisions en commun avec « Je viens » et ajout à son calendrier, membres (prénoms uniquement). **Agendas partagés** (`/agendas`) : un calendrier commun séparé du sien, chacun y ajoute événements et périodes, « Pour qui » (tout le monde ou certains membres), notification aux autres, import des périodes d'un autre agenda. |
 | **Kompaly** | Personnage accroché au bord droit de l'écran, présent sur toutes les pages. Clic pour lui parler, glisser pour le déplacer le long du bord. Voir plus bas. |
 
-Recherche globale dans la barre du haut (Ctrl+K) : fichiers, dossiers, notes et événements.
+Recherche globale dans la barre du haut (Ctrl+K ou /) : fichiers, dossiers, notes et événements. Raccourcis de toute l'appli : ? (la liste, Profil › Raccourcis), N (le « + » de la page), G puis A, C, T, N, D, E ou P (aller à un espace), Ctrl+J (Kompaly), Ctrl+Entrée (valider une fenêtre).
+
+**Appli installée** : Kompaly s'ouvre aussi sans connexion (le service worker `public/sw.js` garde les fichiers de l'appli, jamais `/api/` ni Supabase), avec ses raccourcis (Nouvel événement, Nouvelle tâche, Nouvelle note, Enregistrer un cours), le partage depuis une autre appli (texte ou lien → nouvelle note, fichiers → Drive), le nombre de choses en retard et de nouveautés sur son icône, et « Nouvelle version disponible · Recharger » quand une mise à jour est en ligne.
 
 **Accessibilité** : tout se fait au clavier (lien « Aller au contenu », menus contextuels avec Maj+F10, fenêtres qui gardent le focus et se ferment avec Échap), libellés pour les lecteurs d'écran, annonces des notifications et des messages de Kompaly, contrastes vérifiés dans les deux thèmes, animations réduites si le système le demande.
 
@@ -66,7 +68,7 @@ Petit personnage (casque de pilote) accroché au bord droit de l'écran : il sui
 
 **Personnalité** (Profil › Kompaly) : Meilleur pote (par défaut), Coach motivant, Prof patient, Zen ou Taquin, plus un champ libre « Tes instructions pour Kompaly » (600 caractères, par ex. « Appelle-moi Capitaine, parle-moi de foot »). Le serveur assemble les règles de base (honnêteté, sécurité, outils, français, tutoiement), le style choisi et ces instructions, présentées comme des préférences qui ne peuvent pas lever les règles de base.
 
-**À la voix** : bouton micro dans la conversation (reconnaissance vocale du navigateur, en français, texte affiché pendant que tu parles, envoi automatique à la fin ; masqué si le navigateur ne la gère pas, comme Firefox). Option « Lire ses réponses à voix haute » (voix française de l'appareil), avec un bouton pour arrêter la lecture.
+**À la voix** : bouton micro dans la conversation (reconnaissance vocale du navigateur, en français, texte affiché pendant que tu parles, envoi automatique à la fin ; masqué si le navigateur ne la gère pas, comme Firefox). Ses réponses s'affichent en texte (pas de lecture à voix haute).
 
 ### Brancher une IA (gratuite ou non)
 
