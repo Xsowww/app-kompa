@@ -171,14 +171,14 @@ function Usages() {
             {t('Pour tes études, ton travail ou ta vie perso.')}
           </h2>
           {/* No sentence to explain it: the switch and the cards beside it show it. */}
-          <div className="mt-6 inline-flex rounded-xl bg-stone-100 p-1" role="group" aria-label={t('Kompaly sert pour')}>
+          <div className="seg mt-6 text-[13.5px]" role="group" aria-label={t('Kompaly sert pour')}>
             {USAGES.map(u => (
               <button
                 key={u.key}
                 type="button"
                 aria-pressed={usage === u.key}
                 onClick={() => setUsage(u.key)}
-                className={cx('h-9 rounded-lg px-3.5 text-[13.5px] font-semibold transition-colors', usage === u.key ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
+                className="seg-item h-9 px-3.5 font-semibold"
               >
                 {u.label}
               </button>

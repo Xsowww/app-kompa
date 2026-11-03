@@ -1377,9 +1377,9 @@ export default function ProfilePage() {
         {/* The title and the sections stay in sight while the page scrolls (the page's own background, solid: nothing
             shows through; the same rule as the shell's sticky page heads). Phones: one row of icons, named by the
             title of each and by the heading of the open section under it. */}
-        <div className="sticky top-0 z-20 -mx-4 px-4 pb-3 pt-2 [background:var(--wallpaper,var(--color-paper))] [background-attachment:fixed] supports-[-webkit-touch-callout:none]:[background:var(--color-paper)] md:-mx-8 md:px-8 md:pb-5">
+        <div className="page-head -mx-4 px-4 pb-3 md:-mx-8 md:px-8 md:pb-5">
           <h1 className="text-[20px] font-semibold tracking-[-0.02em] md:text-[24px]">{t('Profil et réglages')}</h1>
-          <nav aria-label={t('Sections du profil')} className="mt-2.5 flex rounded-[14px] bg-stone-100 p-[3px] md:hidden">
+          <nav aria-label={t('Sections du profil')} className="seg mt-2.5 flex md:hidden">
             {TABS.map(tb => (
               <button
                 key={tb.key}
@@ -1388,11 +1388,11 @@ export default function ProfilePage() {
                 title={tabLabel(tb.key)}
                 aria-label={tabLabel(tb.key)}
                 className={cx(
-                  // A segment of the frame: 3 px inside it, its corners 3 px rounder than the frame's (14 = 11 + 3).
-                  // Tablets in portrait: the name under the icon (room for it there).
-                  'flex h-9 min-w-0 flex-1 items-center justify-center rounded-[11px] px-1 transition-colors sm:h-12 sm:flex-col sm:gap-0.5',
-                  tab === tb.key ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink',
+                  // The shared segmented control (index.css › seg), one equal share each. Tablets in portrait: the name
+                  // under the icon (room for it there).
+                  'seg-item h-9 flex-1 shrink px-1 sm:h-12 sm:flex-col sm:gap-0.5',
                 )}
+                data-active={tab === tb.key || undefined}
               >
                 {createElement(tabIcon(tb.key), { size: 15, 'aria-hidden': true, className: cx('shrink-0', tab === tb.key && 'text-brand-600') })}
                 <span aria-hidden className="hidden max-w-full truncate text-[11px] font-medium sm:block">{tabLabel(tb.key)}</span>

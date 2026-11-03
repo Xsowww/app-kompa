@@ -49,13 +49,14 @@ export function Toggle({ checked, onChange, label }: { checked: boolean; onChang
 
 export function Segmented<T extends string | number>({ value, options, onChange, label }: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void; label?: string }) {
   return (
-    <div className="flex h-8 items-center rounded-lg bg-stone-100 p-0.5 text-[12px] pointer-coarse:h-10" role="group" aria-label={label}>
+    // The shared segmented control (index.css › seg): the chosen and the hovered choice have the frame's own shape.
+    <div className="seg text-[12px]" role="group" aria-label={label}>
       {options.map(o => (
         <button
           key={String(o.value)}
           aria-pressed={value === o.value}
           onClick={() => onChange(o.value)}
-          className={cx('hit h-7 rounded-md px-2.5 font-medium pointer-coarse:h-9 transition-colors', value === o.value ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
+          className="seg-item"
         >
           {o.label}
         </button>

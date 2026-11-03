@@ -744,7 +744,7 @@ export default function Copilot() {
         {visible && (
           <div
             className={cx(
-              'relative origin-right cursor-pointer touch-none transition-[translate] duration-300 max-sm:scale-[0.8]',
+              'relative origin-right cursor-pointer touch-none transition-[translate] duration-300 max-sm:scale-[0.8] short:scale-[0.8]',
               pose === 'hidden' && 'sm:translate-x-2',
               isOpen && 'pointer-events-none',
             )}
