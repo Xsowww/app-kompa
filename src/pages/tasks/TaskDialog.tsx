@@ -55,8 +55,8 @@ export default function TaskDialog({ todo, onClose, remind, onDelete }: { todo?:
             className="field w-full"
           />
         </Field>
-        {/* One under the other at 320 px, where « Lun. 19 oct. » was cut. */}
-        <div className="mt-4 grid grid-cols-1 gap-x-2 gap-y-4 min-[360px]:grid-cols-2">
+        {/* One under the other below 390 px, where « Lun. 19 oct. » and « Dans la journée » were cut. */}
+        <div className="mt-4 grid grid-cols-1 gap-x-2 gap-y-4 min-[390px]:grid-cols-2">
           <div>
             <span className="mb-1.5 block text-[12px] font-medium text-stone-600">{t('Échéance')}</span>
             <DateField
@@ -102,16 +102,17 @@ export default function TaskDialog({ todo, onClose, remind, onDelete }: { todo?:
           />
         </div>
         <ReminderPicker value={reminders} onChange={setReminders} timed={!!time} date={due || undefined} time={time || undefined} disabled={due ? undefined : t('Choisis d’abord une échéance.')} />
-        <div className="mt-6 flex flex-wrap items-center justify-end gap-2">
+        <div className="mt-6 flex flex-wrap items-center justify-end gap-2 max-[359px]:gap-1.5">
           {onDelete && (
-            <button type="button" className="btn-ghost mr-auto text-red-600 hover:text-red-700" onClick={() => (onClose(), onDelete())}>
-              <Trash2 size={15} /> {t('Supprimer')}
+            // Phones: the bin alone, so that « Annuler » and « Enregistrer » stay on one line beside it.
+            <button type="button" className="btn-ghost mr-auto text-red-600 hover:text-red-700 max-sm:w-10 max-sm:px-0" onClick={() => (onClose(), onDelete())} title={t('Supprimer')}>
+              <Trash2 size={15} aria-hidden /> <span className="max-sm:sr-only">{t('Supprimer')}</span>
             </button>
           )}
-          <button type="button" className="btn-secondary" onClick={onClose}>
+          <button type="button" className="btn-secondary max-sm:px-3" onClick={onClose}>
             {t('Annuler')}
           </button>
-          <button type="submit" className="btn-primary">
+          <button type="submit" className="btn-primary max-sm:px-3">
             {t('Enregistrer||sauver')}
           </button>
         </div>

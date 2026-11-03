@@ -73,7 +73,7 @@ function focusAfterRemoval(row: HTMLElement | null, later = false) {
   const target =
     near?.querySelector<HTMLElement>(onTitle ? '[data-task-title]' : '[data-remove]') ??
     // No keyboard popping up on phones when the list empties.
-    (coarse() ? null : list?.querySelector<HTMLElement>('[data-quickadd]'));
+    (coarse() ? null : document.querySelector<HTMLElement>('[data-quickadd]'));
   const go = () => target?.focus({ preventScroll: true });
   if (later) setTimeout(go, 0); // after a closing dialog has handed the focus back
   else go();
@@ -242,6 +242,10 @@ const TodoRow = memo(function TodoRow({ t: todo, editable, preview, now = 0, gro
           { label: t('Supprimer'), icon: <Trash2 />, shortcut: keys ? DELETE_KEY : undefined, danger: true, onClick: () => toTrash(true) },
         ];
 
+  // Beside the title, or under it on a phone when both don't fit on one line: « Reporter », the bell, the due day.
+  const dueButton = !todo.done && editable && !(tour && !todo.due);
+  const meta = late || (canEdit && hasReminder && !tour) || (dueButton ? showDue : history || (!!todo.due && !todo.done));
+
   return (
     <li
       ref={rowRef}
@@ -251,7 +255,7 @@ const TodoRow = memo(function TodoRow({ t: todo, editable, preview, now = 0, gro
         e.preventDefault();
         setMenu(menuPoint(e));
       }}
-      className="list-row group flex min-h-9 items-center gap-2 rounded-lg sm:gap-3 pointer-coarse:gap-4 px-1.5 pointer-coarse:pl-3.5 py-1 transition-colors hover:bg-stone-50"
+      className="list-row group flex min-h-9 items-center gap-2 rounded-lg px-1.5 py-1 transition-colors hover:bg-stone-50 sm:gap-3 pointer-coarse:gap-3 pointer-coarse:pl-3.5"
     >
       <button
         data-todo={todo.id}
@@ -261,95 +265,158 @@ const TodoRow = memo(function TodoRow({ t: todo, editable, preview, now = 0, gro
           justDone ? 'border-emerald-500 bg-emerald-500' : overdue ? 'border-[#d9a19a] hover:border-[#b13428] dark:border-red-300 dark:hover:border-red-600' : 'border-stone-300 hover:border-stone-500',
         )}
         title={todo.done ? t('Remettre à faire') : t('Marquer comme faite')}
-        data-tour-todo={isTourTodo(todo.title) || undefined}
+        data-tour-todo={tour || undefined}
         aria-label={todo.done ? t('Remettre « {title} » à faire', { title: todo.title }) : t('Cocher « {title} »', { title: todo.title })}
       >
         {todo.done && <Check size={10} strokeWidth={3} className="pop text-white" />}
       </button>
-      {preview ? (
-        <Link to={`/taches?tache=${todo.id}`} className="min-w-0 flex-1 rounded text-[13px] hover:underline pointer-coarse:-my-2 pointer-coarse:py-3" title={t('Ouvrir dans Tâches')}>
-          <span className={cx('line-clamp-2 break-words', justDone ? 'text-stone-500 line-through decoration-emerald-500/70' : 'text-ink')}>{todo.title}</span>
-          {justDone && <GoesIn minutes={minutesLeft} />}
-        </Link>
-      ) : editing ? (
-        <input
-          autoFocus
-          value={title}
-          onChange={e => setTitle(e.target.value)}
-          onBlur={() => save(false)}
-          maxLength={160}
-          onKeyDown={e => {
-            if (e.key === 'Enter') save(true);
-            if (e.key === 'Escape') {
-              setTitle(todo.title);
-              stopEditing(true);
-            }
-          }}
-          aria-label={t('Modifier la tâche')}
-          className="field h-7 min-w-0 flex-1 px-2"
-        />
-      ) : (
-        <span
-          ref={titleRef}
-          data-task-title={todo.id}
-          onDoubleClick={() => canEdit && setEditing(true)}
-          // The task's own stop for the keyboard (onRowKey): Entrée opens it, Espace ticks it, F2 renames it.
-          role="button"
-          tabIndex={0}
-          aria-label={todo.done ? t('« {title} », faite', { title: todo.title }) : todo.title}
-          aria-keyshortcuts={canEdit ? 'Enter Space F2 Delete' : 'Space Delete'}
-          // As tall as the row on touch screens (36 px), the clamped text inside.
-          className={cx('flex min-w-0 flex-1 items-center rounded text-[13px] pointer-coarse:-my-1 pointer-coarse:self-stretch pointer-coarse:py-1', 'text-ink')}
-          title={canEdit ? t('Double-clic pour renommer') : todo.title}
-        >
-          <span className="min-w-0">
-            <span className={cx('line-clamp-2 break-words', justDone && 'text-stone-500 line-through decoration-emerald-500/70')}>{todo.title}</span>
-            {justDone && !history && <GoesIn minutes={minutesLeft} />}
+      {/* The title, then its day: one line on a computer (the days in one column); on a phone the day goes under a
+          title too long to share the line with it, instead of squeezing it to « Payer l… ». */}
+      <div className="flex min-w-0 flex-1 items-center gap-x-2 gap-y-0.5 max-sm:flex-wrap sm:gap-x-3">
+        {preview ? (
+          <Link to={`/taches?tache=${todo.id}`} className="min-w-0 flex-auto rounded text-[13px] hover:underline sm:flex-1 pointer-coarse:-my-2 pointer-coarse:py-3" title={t('Ouvrir dans Tâches')}>
+            <span className={cx('line-clamp-2 break-words', justDone ? 'text-stone-500 line-through decoration-emerald-500/70' : 'text-ink')}>{todo.title}</span>
+            {justDone && <GoesIn minutes={minutesLeft} />}
+          </Link>
+        ) : editing ? (
+          <input
+            autoFocus
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            onBlur={() => save(false)}
+            maxLength={160}
+            onKeyDown={e => {
+              if (e.key === 'Enter') save(true);
+              if (e.key === 'Escape') {
+                setTitle(todo.title);
+                stopEditing(true);
+              }
+            }}
+            aria-label={t('Modifier la tâche')}
+            className="field h-7 min-w-0 flex-1 px-2"
+          />
+        ) : (
+          <span
+            ref={titleRef}
+            data-task-title={todo.id}
+            onDoubleClick={() => canEdit && setEditing(true)}
+            // The task's own stop for the keyboard (onRowKey): Entrée opens it, Espace ticks it, F2 renames it.
+            role="button"
+            tabIndex={0}
+            aria-label={todo.done ? t('« {title} », faite', { title: todo.title }) : todo.title}
+            aria-keyshortcuts={canEdit ? 'Enter Space F2 Delete' : 'Space Delete'}
+            // As tall as the row on touch screens (36 px), the clamped text inside.
+            className="flex min-w-0 flex-auto items-center rounded text-[13px] text-ink sm:flex-1 pointer-coarse:-my-1 pointer-coarse:self-stretch pointer-coarse:py-1"
+            title={canEdit ? t('Double-clic pour renommer') : todo.title}
+          >
+            <span className="min-w-0">
+              <span className={cx('line-clamp-2 break-words', justDone && 'text-stone-500 line-through decoration-emerald-500/70')}>{todo.title}</span>
+              {justDone && !history && <GoesIn minutes={minutesLeft} />}
+            </span>
           </span>
-        </span>
-      )}
-      {late && (
-        <button
-          type="button"
-          aria-haspopup="menu"
-          onClick={e => setMenu({ ...menuPoint(e), postpone: true })}
-          className="hit flex h-9 shrink-0 items-center gap-1 rounded-md px-1.5 text-[12px] font-medium text-stone-600 hover:bg-stone-100 hover:text-ink sm:h-6"
-          title={t('Reporter')}
-          aria-label={t('Reporter « {title} »', { title: todo.title })}
-        >
-          <CalendarClock size={13} /> <span className="max-sm:hidden">{t('Reporter')}</span>
-        </button>
-      )}
-      {menu && <ContextMenu x={menu.x} y={menu.y} items={menuItems} onClose={() => setMenu(null)} label={menu.postpone ? t('Reporter « {title} »', { title: todo.title }) : todo.title} />}
-      {isTourTodo(todo.title) && !todo.done && (
+        )}
+        {meta && !editing && (
+          <span className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
+            {late && (
+              <button
+                type="button"
+                aria-haspopup="menu"
+                onClick={e => setMenu({ ...menuPoint(e), postpone: true })}
+                className="hit flex h-6 shrink-0 items-center gap-1 rounded-[10px] px-1.5 text-[12px] font-medium text-stone-600 hover:bg-stone-100 hover:text-ink"
+                title={t('Reporter')}
+                aria-label={t('Reporter « {title} »', { title: todo.title })}
+              >
+                <CalendarClock size={13} /> <span className="max-sm:hidden">{t('Reporter')}</span>
+              </button>
+            )}
+            {/* The bell only when a reminder is set (it says so): to add one, the pencil opens the same dialog. */}
+            {canEdit && hasReminder && !tour && (
+              <button
+                type="button"
+                onClick={() => setOpenDialog('remind')}
+                className="hit flex h-6 shrink-0 items-center rounded-[10px] px-1 text-brand-600 hover:bg-stone-100"
+                title={t('Changer le rappel')}
+                aria-label={t('Changer le rappel de « {title} »', { title: todo.title })}
+              >
+                <BellRing size={13} />
+              </button>
+            )}
+            {dueButton ? (
+              showDue && (
+                <button
+                  data-due={todo.id}
+                  type="button"
+                  aria-haspopup="dialog"
+                  aria-expanded={!!dating}
+                  onClick={e => setDating(dating ? null : e.currentTarget)}
+                  // Same width with or without a bell or « Reporter » beside it: the days stay in one column.
+                  className="hit h-6 shrink-0 rounded-[10px] px-1 text-right hover:bg-stone-100 sm:min-w-[58px]"
+                  title={t('Changer l’échéance')}
+                  aria-label={t('Changer l’échéance de « {title} » ({due})', { title: todo.title, due: dueText(todo.due!, overdue) }) + (todo.repeat ? ` · ${repeatLabel(todo.repeat)}` : '')}
+                >
+                  <DueLabel due={todo.due!} time={todo.time} short={overdue} noDay={noDay} repeat={todo.repeat} />
+                </button>
+              )
+            ) : history ? (
+              <span className="tabular shrink-0 text-[12px] text-stone-500 first-letter:uppercase">{doneText(todo.doneAt)}</span>
+            ) : (
+              todo.due && !todo.done && <DueLabel due={todo.due} time={todo.time} repeat={todo.repeat} />
+            )}
+          </span>
+        )}
+      </div>
+      {tour && !todo.done && (
         <button type="button" onClick={startTour} className="btn-primary h-7 shrink-0 px-2.5 text-[12px] pointer-coarse:h-9">
           {t('Lancer')}
         </button>
       )}
-      {canEdit && !isTourTodo(todo.title) && (
+      {/* No due day: a small calendar to give one, on hover (with a finger, the pencil's window has the day). */}
+      {dueButton && !showDue && (
+        <button
+          data-due={todo.id}
+          type="button"
+          aria-haspopup="dialog"
+          aria-expanded={!!dating}
+          onClick={e => setDating(dating ? null : e.currentTarget)}
+          className={cx('icon-btn h-6 w-6 group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:hidden', dating ? 'opacity-100' : 'opacity-0')}
+          title={todo.due ? t('Changer l’échéance') : t('Ajouter une échéance')}
+          aria-label={
+            todo.due
+              ? t('Changer l’échéance de « {title} » ({due})', { title: todo.title, due: dueText(todo.due, overdue) })
+              : t('Ajouter une échéance à « {title} »', { title: todo.title })
+          }
+        >
+          <CalendarPlus size={13} />
+        </button>
+      )}
+      {canEdit && !tour && (
         <button
           type="button"
           onClick={() => setOpenDialog('edit')}
-          // Last on phones (the bin is hidden there): the pencils stay in one column, whatever the date beside them.
-          className="icon-btn touch-show h-9 w-9 shrink-0 opacity-0 max-sm:order-last sm:h-6 sm:w-6 group-hover:opacity-100 focus-visible:opacity-100"
+          className="icon-btn touch-show h-6 w-6 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:h-8 pointer-coarse:w-8"
           title={t('Modifier')}
-          aria-label={t('Modifier «\u00a0{title}\u00a0»', { title: todo.title })}
+          aria-label={t('Modifier « {title} »', { title: todo.title })}
         >
           <Pencil size={13} />
         </button>
       )}
-      {/* The bell only when a reminder is set (it says so): to add one, the pencil opens the same dialog. */}
-      {canEdit && hasReminder && !isTourTodo(todo.title) && (
+      {/* The bin on hover. With a finger, a task to do has only its pencil (its window has « Supprimer »). */}
+      {!preview && (
         <button
-          type="button"
-          onClick={() => setOpenDialog('remind')}
-          className="hit flex shrink-0 items-center gap-1 rounded-md px-1 py-0.5 text-[11.5px] font-medium text-brand-600 hover:bg-stone-100"
-          title={t('Changer le rappel')}
-          aria-label={t('Changer le rappel de «\u00a0{title}\u00a0»', { title: todo.title })}
+          data-remove
+          onClick={e => {
+            e.currentTarget.focus(); // Safari doesn't focus a clicked button: the next row's bin must take the focus, not its title
+            toTrash(true);
+          }}
+          className={cx('icon-btn touch-show h-6 w-6 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-red-600 max-sm:hidden pointer-coarse:h-8 pointer-coarse:w-8', canEdit && 'pointer-coarse:hidden')}
+          title={t('Mettre à la corbeille')}
+          aria-label={t('Supprimer « {title} »', { title: todo.title })}
         >
-          <BellRing size={13} />
+          <Trash2 size={13} />
         </button>
       )}
+      {menu && <ContextMenu x={menu.x} y={menu.y} items={menuItems} onClose={() => setMenu(null)} label={menu.postpone ? t('Reporter « {title} »', { title: todo.title }) : todo.title} />}
+      {dating && <DatePopover anchor={dating} value={todo.due ?? ''} clearable label={t('Échéance de « {title} »', { title: todo.title })} onPick={pickDue} onClose={() => setDating(null)} />}
       {openDialog && (
         <TaskDialog
           todo={todo}
@@ -361,49 +428,12 @@ const TodoRow = memo(function TodoRow({ t: todo, editable, preview, now = 0, gro
           onDelete={() => toTrash(true)}
         />
       )}
-      {/* The tour task has « Lancer » in that column instead (no deadline to give it). */}
-      {!todo.done && editable && !(isTourTodo(todo.title) && !todo.due) ? (
-        <>
-          <button
-            data-due={todo.id}
-            type="button"
-            aria-haspopup="dialog"
-            aria-expanded={!!dating}
-            onClick={e => setDating(dating ? null : e.currentTarget)}
-            className={cx(
-              // Same width with or without a date: the reminder bells stay in one column.
-              'hit min-w-[58px] shrink-0 rounded-md',
-              showDue ? 'px-1 py-0.5 text-right hover:bg-stone-100' : 'icon-btn touch-show h-9 w-9 opacity-0 max-sm:hidden sm:h-6 sm:w-6 group-hover:opacity-100 focus-visible:opacity-100',
-            )}
-            title={todo.due ? t('Changer l’échéance') : t('Ajouter une échéance')}
-            aria-label={
-              (todo.due ? t('Changer l’échéance de «\u00a0{title}\u00a0» ({due})', { title: todo.title, due: dueText(todo.due, overdue) }) : t('Ajouter une échéance à «\u00a0{title}\u00a0»', { title: todo.title })) +
-              (todo.repeat && todo.due ? ` · ${repeatLabel(todo.repeat)}` : '')
-            }
-          >
-            {showDue ? <DueLabel due={todo.due!} time={todo.time} short={overdue} noDay={noDay} repeat={todo.repeat} /> : <CalendarPlus size={13} />}
-          </button>
-          {dating && <DatePopover anchor={dating} value={todo.due ?? ''} clearable label={t('Échéance de « {title} »', { title: todo.title })} onPick={pickDue} onClose={() => setDating(null)} />}
-        </>
-      ) : history ? (
-        <span className="tabular shrink-0 text-[12px] text-stone-500 first-letter:uppercase">{doneText(todo.doneAt)}</span>
-      ) : (
-        todo.due && !todo.done && <DueLabel due={todo.due} time={todo.time} repeat={todo.repeat} />
-      )}
-      {!preview && <button
-        data-remove
-        onClick={e => {
-          e.currentTarget.focus(); // Safari doesn't focus a clicked button: the next row's bin must take the focus, not its title
-          toTrash(true);
-        }}
-        className="icon-btn touch-show h-9 w-9 opacity-0 max-sm:hidden sm:h-6 sm:w-6 group-hover:opacity-100 focus-visible:opacity-100 hover:text-red-600" title={t('Mettre à la corbeille')} aria-label={t('Supprimer « {title} »', { title: todo.title })}>
-        <Trash2 size={13} />
-      </button>}
     </li>
   );
 });
 
-function QuickAdd() {
+/** The add field of Tâches (in the page's sticky header): a title, a due day if wanted, « Ajouter ». */
+export function QuickAdd() {
   const add = useTodos(s => s.add);
   const [title, setTitle] = useState('');
   const [due, setDue] = useState('');
@@ -440,7 +470,7 @@ function QuickAdd() {
           placeholder={t('Ajouter une tâche…')}
           aria-label={t('Nouvelle tâche')}
           maxLength={160}
-          className="field w-full"
+          className="field w-full max-sm:px-3"
         />
       </div>
       {/* The new task's due date: a button, the small calendar under it. */}
@@ -449,7 +479,7 @@ function QuickAdd() {
         aria-haspopup="dialog"
         aria-expanded={!!dueMenu}
         onClick={e => setDueMenu(dueMenu ? null : e.currentTarget)}
-        className={cx('flex h-10 shrink-0 items-center gap-1.5 rounded-[14px] px-3 text-[12.5px] font-semibold transition-colors pointer-coarse:h-11 pointer-coarse:min-w-11', due ? 'bg-brand-50 text-brand-700 hover:bg-brand-100' : 'bg-stone-100 text-stone-600 hover:bg-stone-200 hover:text-ink')}
+        className={cx('flex h-10 shrink-0 items-center gap-1.5 rounded-[14px] px-3 text-[12.5px] font-semibold transition-colors pointer-coarse:h-11 max-sm:aspect-square max-sm:justify-center max-sm:px-0', due ? 'bg-brand-50 text-brand-700 hover:bg-brand-100' : 'bg-surface text-stone-600 ring-1 ring-inset ring-stone-200 hover:bg-stone-50 hover:text-ink')}
         title={due ? t('Changer l’échéance') : t('Ajouter une échéance')}
         aria-label={due ? t('Échéance : {day}', { day: fmtDay(fromKey(due), 'EEEE d MMMM') }) : t('Ajouter une échéance')}
       >
@@ -471,7 +501,7 @@ function QuickAdd() {
           onClose={() => setDueMenu(null)}
         />
       )}
-      <button type="button" onClick={submit} disabled={!title.trim()} className="btn h-10 shrink-0 bg-tile-blue px-4 text-white hover:brightness-110 disabled:opacity-50 pointer-coarse:h-11">
+      <button type="button" onClick={submit} disabled={!title.trim()} className="btn h-10 shrink-0 bg-tile-blue px-4 text-white hover:brightness-110 disabled:opacity-50 pointer-coarse:h-11 max-sm:aspect-square max-sm:px-0">
         <Plus size={15} strokeWidth={2.4} aria-hidden /> <span className="max-sm:sr-only">{t('Ajouter')}</span>
       </button>
     </div>
@@ -534,7 +564,6 @@ export default function TodoList({ limit, grouped }: { limit?: number; grouped?:
 
   return (
     <div className="flex flex-1 flex-col" data-todolist>
-      {!preview && <QuickAdd />}
       {open.length === 0 &&
         (ticked.length || todos.some(x => x.done) ? (
           <p className={cx('text-[13px] text-stone-500', ticked.length ? 'pt-3' : 'py-5')}>{t('Tout est coché. Profites-en.')}</p>
@@ -548,7 +577,7 @@ export default function TodoList({ limit, grouped }: { limit?: number; grouped?:
           />
         ))}
       {groups.length > 0 && (
-        <div className="mt-2">
+        <div className={cx(!grouped && 'mt-2')}>
           {rendered.filter(g => g.rows.length).map(g => (
             <div key={g.key} className={cx(g.label && 'mt-3 first:mt-1')}>
               {g.label && (
@@ -561,7 +590,7 @@ export default function TodoList({ limit, grouped }: { limit?: number; grouped?:
                       type="button"
                       aria-haspopup="menu"
                       onClick={e => setLateMenu(menuPoint(e))}
-                      className="-my-1 ml-auto flex items-center gap-1 rounded-md px-1.5 py-1 text-[12px] font-medium text-stone-500 transition-colors hover:bg-stone-100 hover:text-ink pointer-coarse:py-2"
+                      className="-my-1 ml-auto flex items-center gap-1 rounded-[10px] px-1.5 py-1 text-[12px] font-medium text-stone-500 transition-colors hover:bg-stone-100 hover:text-ink pointer-coarse:py-2"
                     >
                       <CalendarClock size={13} aria-hidden /> {t('Tout reporter')}
                     </button>
@@ -626,7 +655,7 @@ export function DoneTasks() {
           </button>
         </h2>
         {open && (
-          <button type="button" onClick={() => trashTodos(done.map(x => x.id))} className="-my-1 rounded-md px-1.5 py-1 text-[12px] font-medium text-stone-500 transition-colors hover:bg-red-50 hover:text-red-600 pointer-coarse:py-2">
+          <button type="button" onClick={() => trashTodos(done.map(x => x.id))} className="-my-1 rounded-[10px] px-1.5 py-1 text-[12px] font-medium text-stone-500 transition-colors hover:bg-red-50 hover:text-red-600 pointer-coarse:py-2">
             {t('Tout supprimer')}
           </button>
         )}
