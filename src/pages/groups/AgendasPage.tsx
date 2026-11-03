@@ -34,7 +34,7 @@ export default function AgendasPage() {
 
 function Offline() {
   return (
-    <div className="flex h-full flex-col px-4 pb-10 md:px-8">
+    <div className="mx-auto w-full max-w-[1244px] flex h-full flex-col px-4 pb-10 md:px-8">
       <h1 className="pb-4 pt-2 text-[24px] font-semibold tracking-[-0.02em]">{t('Agendas partagés')}</h1>
       <EmptyState className="flex-1 justify-center" icon={CloudOff} title={t('Disponible dans la version en ligne')} text={t('Ici, tes données restent dans ce navigateur.')} />
     </div>
@@ -101,7 +101,7 @@ function Agendas() {
   useCreateActions([{ label: t('Nouvel agenda partagé'), icon: <CalendarRange />, onClick: () => setDialog('create') }], 1);
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="mx-auto w-full max-w-[1244px] flex h-full flex-col">
       {/* Title, the shared calendars (scroll sideways on a phone); creating one: the « + » button */}
       <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 px-4 pb-3 pt-2 md:px-8">
         <h1 className="text-[24px] font-semibold tracking-[-0.02em]">{t('Agendas partagés')}</h1>

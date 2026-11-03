@@ -3,6 +3,7 @@ import { Bell, Star } from 'lucide-react';
 import { keywordRanges, type Keyword } from '../../lib/keywords';
 import { clock, type Alert, type Segment } from '../../lib/recorder/course';
 import { cx } from '../../lib/utils';
+import { scrollMotion } from '../../lib/a11y';
 import { t } from '../../i18n';
 
 /** A passage with its keywords highlighted. */
@@ -102,7 +103,7 @@ export function Alerts({ alerts, segments }: { alerts: readonly Alert[]; segment
     // The passage of that time, or the line its gap was merged into.
     const before = segments.filter(s => s.start <= time + 1).reverse();
     const el = [...before, ...segments].map(s => document.getElementById(`passage-${s.id}`)).find(Boolean);
-    el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    el?.scrollIntoView({ block: 'center', behavior: scrollMotion() });
   };
   return (
     <ul className="space-y-1.5">

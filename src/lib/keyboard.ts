@@ -1,3 +1,5 @@
+import { scrollMotion } from './a11y';
+
 const FIELD = 'input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]):not([type=button]):not([type=submit]), textarea, [contenteditable="true"]';
 
 /**
@@ -12,7 +14,7 @@ export function watchKeyboard() {
     if (!(el instanceof HTMLElement) || !el.matches(FIELD)) return;
     const r = el.getBoundingClientRect();
     if (r.top >= vv.offsetTop + 8 && r.bottom <= vv.offsetTop + vv.height - 8) return;
-    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    el.scrollIntoView({ block: 'center', behavior: scrollMotion() });
   };
   let timer = 0;
   const later = (ms: number) => () => {

@@ -1,5 +1,9 @@
 // Small keyboard / screen-reader helpers shared by dialogs, menus and lists.
 
+/** Smooth scrolling, unless less motion is asked (the system's setting, or Kompaly's own in Profil › Apparence). */
+export const scrollMotion = (): ScrollBehavior =>
+  matchMedia('(prefers-reduced-motion: reduce)').matches || document.documentElement.classList.contains('reduce-motion') ? 'auto' : 'smooth';
+
 const FOCUSABLE =
   'a[href], button:not(:disabled), input:not(:disabled):not([type="hidden"]), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"]), [contenteditable="true"]';
 

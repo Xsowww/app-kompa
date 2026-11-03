@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { BellRing, CheckCircle2, CloudAlert, Info, WifiOff, XCircle } from 'lucide-react';
+import { BellRing, CheckCircle2, CloudAlert, Info, WifiOff, X, XCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { reminderItems } from '../lib/reminders';
 import { reminderAction, SNOOZE_MINUTES } from '../lib/reminderActions';
@@ -12,14 +12,21 @@ import { arrowNav, focusBeforeOverlay, focusables, trapTab } from '../lib/a11y';
 import { locale, t } from '../i18n';
 
 function ToastRow({ t: item }: { t: Toast }) {
-  const dismiss = useUi(s => s.dismissToast);
+  const { dismissToast: dismiss, pauseToast, resumeToast } = useUi.getState();
   return (
-    <div className="pop flex max-w-[calc(100vw-32px)] items-center gap-2.5 rounded-[16px] bg-inverse px-4 py-2.5 font-medium text-[13px] text-on-inverse shadow-pop [overflow-wrap:break-word] sm:max-w-[560px]">
+    // Under the pointer or holding the focus (its buttons), it stays: it goes on counting once left.
+    <div
+      className="pop pointer-events-auto flex max-w-[calc(100vw-32px)] items-center gap-2.5 rounded-[16px] bg-inverse py-2.5 pl-4 pr-2 font-medium text-[13px] text-on-inverse shadow-pop [overflow-wrap:break-word] sm:max-w-[560px]"
+      onPointerEnter={() => pauseToast(item.id)}
+      onPointerLeave={e => !e.currentTarget.contains(document.activeElement) && resumeToast(item.id)}
+      onFocus={() => pauseToast(item.id)}
+      onBlur={e => !e.currentTarget.contains(e.relatedTarget as Node | null) && !e.currentTarget.matches(':hover') && resumeToast(item.id)}
+    >
       {item.tone === 'success' ? <CheckCircle2 size={15} className="shrink-0 text-emerald-400" aria-hidden /> : item.tone === 'error' ? <XCircle size={15} className="shrink-0 text-red-400" aria-hidden /> : <Info size={15} className="shrink-0 text-stone-400" aria-hidden />}
       <span className="min-w-0 line-clamp-2">{item.text}</span>
       {item.action && (
         <button
-          className="hit-sm pointer-events-auto -my-1 -mr-1.5 ml-1.5 shrink-0 whitespace-nowrap rounded-md px-2 py-1 font-medium text-brand-200 transition-colors hover:bg-on-inverse/10 hover:text-on-inverse dark:text-brand-700"
+          className="hit-sm -my-1 ml-1.5 shrink-0 whitespace-nowrap rounded-md px-2 py-1 font-medium text-brand-200 transition-colors hover:bg-on-inverse/10 hover:text-on-inverse dark:text-brand-700"
           onClick={() => {
             dismiss(item.id);
             item.action!.run();
@@ -35,6 +42,9 @@ function ToastRow({ t: item }: { t: Toast }) {
           {item.action.label}
         </button>
       )}
+      <button type="button" className="hit-sm -my-1 shrink-0 rounded-md p-1 text-on-inverse/60 transition-colors hover:bg-on-inverse/10 hover:text-on-inverse" onClick={() => dismiss(item.id)} title={t('Fermer')} aria-label={t('Fermer')}>
+        <X size={14} aria-hidden />
+      </button>
     </div>
   );
 }
@@ -58,12 +68,14 @@ export function ServiceBanner({ inline }: { inline?: boolean }) {
   if (state === 'ok' || (!inline && hosted)) return null;
   const down = state === 'down';
   return (
-    <div className={inline ? 'shrink-0 px-4 pb-2 md:px-8' : 'pointer-events-none fixed inset-x-4 top-[max(0.5rem,env(safe-area-inset-top))] z-[70] flex justify-center'}>
-      <div role="status" aria-live="polite" className={cx('enter pointer-events-auto flex items-center gap-2.5 rounded-2xl border-2 border-amber-400 bg-surface py-1.5 pl-3 pr-1.5 text-[13px] leading-snug text-ink', inline ? 'w-full' : 'max-w-[560px] shadow-pop')}>
+    // In the app: within the pages' centred column (layout/AppShell). Phones: one short line, the page keeps its room.
+    <div className={inline ? 'mx-auto w-full max-w-[1244px] shrink-0 px-4 pb-2 md:px-8' : 'pointer-events-none fixed inset-x-4 top-[max(0.5rem,env(safe-area-inset-top))] z-[70] flex justify-center'}>
+      <div role="status" aria-live="polite" className={cx('enter pointer-events-auto flex items-center gap-2.5 rounded-2xl border-2 border-amber-400 bg-surface py-1.5 pl-3 pr-1.5 text-[13px] leading-snug text-ink max-sm:min-h-9 max-sm:py-1', inline ? 'w-full' : 'max-w-[560px] shadow-pop')}>
         {down ? <CloudAlert size={16} className="shrink-0 text-amber-500" aria-hidden /> : <WifiOff size={16} className="shrink-0 text-amber-500" aria-hidden />}
-        <span className="min-w-0 flex-1">
+        <span className="min-w-0 flex-1 max-sm:truncate">
           <b className="font-semibold">{down ? t('Service perturbé.') : t('Hors ligne.')}</b>{' '}
-          {down ? t('Tes changements restent sur cet appareil et partiront dès que ça revient.') : t('Tes changements restent sur cet appareil et partiront au retour de la connexion.')}
+          <span className="max-sm:hidden">{down ? t('Tes changements restent sur cet appareil et partiront dès que ça revient.') : t('Tes changements restent sur cet appareil et partiront au retour de la connexion.')}</span>
+          <span className="sm:hidden">{down ? t('Tes changements partiront dès que ça revient.') : t('Tes changements partiront au retour.')}</span>
         </span>
         {down && (
           <button type="button" className="hit-sm shrink-0 rounded-lg px-2.5 py-1 font-semibold hover:bg-stone-100" onClick={() => void retryNow()}>
@@ -109,8 +121,18 @@ export function Toasts() {
 }
 
 /**
- * Modal dialog: keeps Tab inside, closes on Escape, gives the focus back to whatever had it
- * before, and takes its accessible name from its first heading.
+ * A dialog's main button: the submit button of the form holding the focus (else of its first form), else its
+ * primary-looking button. Disabled ones count (Ctrl+Entrée then does nothing, like a click would).
+ */
+function primaryButton(dialog: HTMLElement): HTMLButtonElement | null {
+  const form = document.activeElement?.closest('form') ?? dialog.querySelector('form');
+  const inForm = form && dialog.contains(form) ? form.querySelector<HTMLButtonElement>('button[type="submit"]') : null;
+  return inForm ?? dialog.querySelector<HTMLButtonElement>('button.btn-primary, button.btn-danger');
+}
+
+/**
+ * Modal dialog: keeps Tab inside, closes on Escape, submits with Ctrl+Entrée, gives the focus back to whatever had
+ * it before, and takes its accessible name from its first heading.
  */
 export function Modal({ open, onClose, children, width = 420, label }: { open: boolean; onClose: () => void; children: React.ReactNode; width?: number; label?: string }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -137,6 +159,13 @@ export function Modal({ open, onClose, children, width = 420, label }: { open: b
       if (e.key === 'Escape') {
         e.stopPropagation();
         closeRef.current();
+      } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !e.defaultPrevented && !e.isComposing) {
+        // Ctrl+Entrée (⌘↩): the dialog's main button, from any of its fields (a text area too).
+        const primary = primaryButton(el);
+        if (!primary) return;
+        e.preventDefault();
+        e.stopPropagation();
+        primary.click(); // disabled: nothing, as for a click
       } else trapTab(e, el);
     };
     document.addEventListener('keydown', onKey, true);

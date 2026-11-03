@@ -1,10 +1,97 @@
-// Kompaly's service worker: only for notifications (no offline cache, every request goes to the network).
-// Registered by src/lib/push.ts. A push comes from server/push.mjs: { title, body, url, tag, user, keys }
-// (`keys`: several reminders due together, sent as one).
-// With several accounts on the device, its last line names the account (« Compte Léa »).
+// Kompaly's service worker: the app's files kept for offline starts (installed app), what other apps share to
+// Kompaly, and the notifications. Registered at start by src/boot.tsx (src/lib/push.ts › serviceWorker).
+// A push comes from server/push.mjs: { title, body, url, tag, user, keys } (`keys`: several reminders due
+// together, sent as one). With several accounts on the device, its last line names the account (« Compte Léa »).
+
+// ── Offline: the app's own files ────────────────────────────────────────────
+// The build writes its id here (vite.config.ts › swVersion): a new version online is a new worker, with a cache of
+// its own; the former one is deleted once it takes over. Only the site's files: never /api/ (answers, accounts)
+// nor Supabase (another address: not touched at all), and only GET.
+const VERSION = 'dev';
+const APP = `kompaly-app-${VERSION}`;
+/** The page itself (every address of the app is the same page), kept under one key. */
+const SHELL = '/__kompaly/page';
 
 self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
+self.addEventListener('activate', e =>
+  e.waitUntil(
+    (async () => {
+      for (const name of await caches.keys()) if (name.startsWith('kompaly-app-') && name !== APP) await caches.delete(name);
+      await self.clients.claim();
+    })(),
+  ),
+);
+
+/** Kept when the answer is whole and ours (no error page, no redirect, no partial content). */
+async function keep(key, res) {
+  if (res.ok && res.status === 200 && res.type === 'basic') await (await caches.open(APP)).put(key, res.clone());
+  return res;
+}
+
+self.addEventListener('fetch', e => {
+  const req = e.request;
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin || url.pathname.startsWith('/api/') || url.pathname.startsWith('/__kompaly/')) return;
+  if (req.method === 'POST' && url.pathname === '/partage') return e.respondWith(receiveShare(req));
+  if (req.method !== 'GET' || req.headers.has('range')) return;
+  if (req.mode === 'navigate') {
+    // The network first (a new version shows at once); offline, the page kept from the last visit.
+    e.respondWith(
+      fetch(req)
+        .then(res => (res.headers.get('content-type')?.includes('text/html') ? keep(SHELL, res) : res))
+        .catch(async () => (await caches.match(SHELL)) ?? Response.error()),
+    );
+    return;
+  }
+  // Built files carry their content's hash in their name: one kept is the right one, no need to ask again.
+  if (url.pathname.startsWith('/assets/')) {
+    e.respondWith(caches.match(req, { ignoreSearch: true }).then(hit => hit ?? fetch(req).then(res => keep(req, res))));
+    return;
+  }
+  // The site's other files (theme.js, icons, Kompaly's pictures…): the kept copy at once, refreshed behind. Only those
+  // at the top (and Kompaly's folder): in development the sources are files too, and must never come from a cache.
+  if (/^\/(kompaly\/)?[^/]+\.(js|css|png|svg|webp|ico|woff2|webmanifest)$/.test(url.pathname) && url.pathname !== '/sw.js') {
+    const fresh = fetch(req).then(res => keep(req, res));
+    e.waitUntil(fresh.catch(() => {}));
+    e.respondWith(caches.match(req).then(hit => hit ?? fresh));
+  }
+});
+
+// The page tells what it loaded before this worker was there (its first visit, or a new version): kept too.
+self.addEventListener('message', e => {
+  if (e.data?.type !== 'kompaly-keep' || !Array.isArray(e.data.urls)) return;
+  e.waitUntil(
+    (async () => {
+      const cache = await caches.open(APP);
+      for (const u of e.data.urls.slice(0, 300)) {
+        const url = new URL(u, self.location.origin);
+        if (url.origin !== self.location.origin || url.pathname.startsWith('/api/') || (await cache.match(url.href, { ignoreSearch: true }))) continue;
+        await fetch(url.href).then(res => keep(url.href, res)).catch(() => {});
+      }
+      if (!(await cache.match(SHELL))) await fetch('/', { credentials: 'same-origin' }).then(res => keep(SHELL, res)).catch(() => {});
+    })(),
+  );
+});
+
+// ── Shared to Kompaly (manifest's share_target): kept here, read by the page /partage (src/pages/SharePage) ──
+const SHARED = 'kompaly-share';
+async function receiveShare(req) {
+  try {
+    const form = await req.formData();
+    const cache = await caches.open(SHARED);
+    const text = { title: form.get('title') || '', text: form.get('text') || '', url: form.get('url') || '' };
+    await cache.put('/__kompaly/partage/texte', new Response(JSON.stringify(text), { headers: { 'Content-Type': 'application/json' } }));
+    let i = 0;
+    for (const f of form.getAll('fichiers')) {
+      if (typeof f === 'string' || !f.size) continue;
+      const headers = { 'Content-Type': f.type || 'application/octet-stream', 'X-Name': encodeURIComponent(f.name || 'fichier') };
+      await cache.put(`/__kompaly/partage/fichier-${i++}`, new Response(f, { headers }));
+    }
+  } catch {
+    /* nothing readable: the page says nothing arrived */
+  }
+  return Response.redirect('/partage?recu=1', 303);
+}
 
 // Chrome, Edge…: a push may be shown inside an open page instead of as a system notification.
 // Safari (Mac, iPhone) and Firefox count a push without a notification against the site: there, always one.

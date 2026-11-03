@@ -1,13 +1,14 @@
 // « It's here »: the item a link or a shortcut leads to glows for a few seconds once on screen
 // (a task from « Ma semaine », an event from the home page or a search, a note…), once, softly.
 
+import { scrollMotion } from './a11y';
+
 const CLASS = 'flash-target';
 
 /** Brings the element into view and lights it up (again, if it already was). */
 export function flash(el: Element | null | undefined) {
   if (!(el instanceof HTMLElement)) return;
-  const still = matchMedia('(prefers-reduced-motion: reduce)').matches || document.documentElement.classList.contains('reduce-motion');
-  el.scrollIntoView({ block: 'center', behavior: still ? 'auto' : 'smooth' });
+  el.scrollIntoView({ block: 'center', behavior: scrollMotion() });
   el.classList.remove(CLASS);
   void el.offsetWidth; // restart the animation
   el.classList.add(CLASS);

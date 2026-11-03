@@ -1,4 +1,7 @@
 /// <reference types="vitest/config" />
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
@@ -81,10 +84,27 @@ p(guestHome()?m.landing:m.boot.concat(s?m.app:location.pathname==='/'?m.home:[])
   };
 }
 
+/**
+ * The service worker (public/sw.js) names its offline copy of the app after the build: each new version online is
+ * a new worker, which keeps its own files and deletes the former ones once it takes over.
+ */
+function swVersion(): Plugin {
+  return {
+    name: 'kompaly-sw-version',
+    apply: 'build',
+    writeBundle(options, bundle) {
+      const file = join(options.dir ?? 'dist', 'sw.js');
+      if (!existsSync(file)) return;
+      const id = createHash('sha256').update(Object.keys(bundle).sort().join('\n')).digest('hex').slice(0, 12);
+      writeFileSync(file, readFileSync(file, 'utf8').replace("const VERSION = 'dev';", `const VERSION = '${id}';`));
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => {
   const env = { ...process.env, ...loadEnv(mode, process.cwd(), '') } as Record<string, string>;
   return {
-    plugins: [tailwindcss(), react(), copilotApi(env), preloadPlugin()],
+    plugins: [tailwindcss(), react(), copilotApi(env), preloadPlugin(), swVersion()],
     // The commit being deployed (lib/freshness: an old tab on a public page reloads to the new version).
     define: { __BUILD__: JSON.stringify((process.env.RENDER_GIT_COMMIT ?? '').slice(0, 7)) },
     // Fewer, bigger files: all the icons (with React, which they need) in one instead of ~35 tiny ones,

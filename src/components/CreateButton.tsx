@@ -46,7 +46,8 @@ export default function CreateButton() {
         id="create-button"
         type="button"
         aria-label={single ? single.label : t('Créer')}
-        title={single ? single.label : t('Créer')}
+        title={single ? `${single.label} (${single.shortcut})` : t('Créer')}
+        aria-keyshortcuts={single ? 'N' : undefined}
         aria-haspopup={single ? undefined : 'menu'}
         aria-expanded={single ? undefined : open}
         // The menu closes on any press outside it: this one would reopen it at once (it closes it instead).
