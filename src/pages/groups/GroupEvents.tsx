@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { DateField, TimeField } from '../../components/Pickers';
 import ReminderPicker from '../../components/ReminderPicker';
 import { CalendarPlus, Check, Clock, Flag, MapPin, Pencil, Repeat, Trash2, Link2 } from 'lucide-react';
@@ -9,14 +9,14 @@ import { useAuth } from '../../store/auth';
 import { useGroups } from '../../store/groups';
 import { useCalendar, guessCategory, type CalendarEvent } from '../../store/calendar';
 import { confirmAction, toast } from '../../store/ui';
-import { createEvent, createEvents, deleteEvent, deleteEvents, finitionsReady, groupError, setAttendance, updateEvent, updateEvents, type Group, type GroupEvent, type NewGroupEvent } from '../../lib/groups';
+import { createEvent, createEvents, deleteEvent, deleteEvents, groupError, setAttendance, updateEvent, updateEvents, type Group, type GroupEvent, type NewGroupEvent } from '../../lib/groups';
 import { countdownLabel, fmt, fromKey, todayKey } from '../../lib/dates';
 import { dayShift, defaultUntil, repeatDays, shiftKey } from '../../lib/repeat';
 import { cx, relativeTime, uid } from '../../lib/utils';
 import { askSeriesScope, changedFields } from '../calendar/source';
 import { MemberDot, LoadFailed } from './shared';
 import { EmptyState, Skeleton } from '../../components/EmptyState';
-import { groupColor, useGroupWords, useMemberName, useMemberOf, useRights } from './util';
+import { groupColor, useFinitions, useGroupWords, useMemberName, useMemberOf, useRights } from './util';
 import { changedAfter } from './logic';
 import { useSettings } from '../../store/settings';
 import { t, tn } from '../../i18n';
@@ -41,13 +41,10 @@ function EventForm({ group, event, onDone }: { group: Group; event?: GroupEvent;
   const [weekly, setWeekly] = useState(false);
   const [until, setUntil] = useState(() => defaultUntil(event?.date ?? todayKey()));
   // Reminders of a group's meetings are sent by the server once migration 2026-11-03 is there: not offered before.
-  const [canRemind, setCanRemind] = useState(!!event?.reminders.length);
+  const canRemind = useFinitions() || !!event?.reminders.length;
   const [busy, setBusy] = useState(false);
   const badTime = !!start && !!end && end <= start;
   const repeat = weekly && !event ? repeatDays(date, 'week', until < date ? date : until) : null;
-  useEffect(() => {
-    void finitionsReady().then(ok => ok && setCanRemind(true));
-  }, []);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();

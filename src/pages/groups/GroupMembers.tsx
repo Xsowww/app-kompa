@@ -13,7 +13,7 @@ import { fmt } from '../../lib/dates';
 import { MemberDot, LoadFailed } from './shared';
 import { defaultHeir, roleLabel } from './logic';
 import { Skeleton } from '../../components/EmptyState';
-import { useGroupWords } from './util';
+import { useFinitions, useGroupWords } from './util';
 import { t, tn } from '../../i18n';
 
 /**
@@ -177,6 +177,7 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
   const [busy, setBusy] = useState(false);
   const isOwner = group.ownerId === me;
   const agenda = group.kind === 'agenda';
+  const canCrown = useFinitions(); // naming another owner: migration 2026-11-03
 
   const run = async (job: () => Promise<void>) => {
     setBusy(true);
@@ -318,9 +319,11 @@ export default function GroupMembers({ group, onLeft }: { group: Group; onLeft: 
                   <input type="checkbox" className="h-4 w-4 shrink-0 accent-[var(--color-ink)]" checked={m.canInvite} disabled={busy} onChange={e => void setRights(m, m.role, e.target.checked)} />
                   {t('Peut inviter')}
                 </label>
-                <button className="icon-btn" title={t('Nommer {name} propriétaire', { name: m.name })} aria-label={t('Nommer {name} propriétaire', { name: m.name })} disabled={busy} onClick={() => void crown(m)}>
-                  <Crown size={15} />
-                </button>
+                {canCrown && (
+                  <button className="icon-btn" title={t('Nommer {name} propriétaire', { name: m.name })} aria-label={t('Nommer {name} propriétaire', { name: m.name })} disabled={busy} onClick={() => void crown(m)}>
+                    <Crown size={15} />
+                  </button>
+                )}
                 {/* With the role: on a small phone they go to the next line together (« Peut inviter » on two lines if needed). */}
                 <button className="icon-btn hover:text-red-600" title={t('Retirer {name}', { name: m.name })} aria-label={t('Retirer {name}', { name: m.name })} disabled={busy} onClick={() => void kick(m)}>
                   <UserMinus size={15} />

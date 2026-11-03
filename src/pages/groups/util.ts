@@ -1,11 +1,11 @@
 import { useAuth } from '../../store/auth';
 import { getSettings, useSettings } from '../../store/settings';
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { AGENDA_WORDS, groupWords } from '../../lib/usage';
 import { useGroups } from '../../store/groups';
 import { toast } from '../../store/ui';
 import { sendUpload, trackUpload } from '../../store/uploads';
-import { GROUP_COLORS, MAX_GROUP_FILE, abandonFile, deleteFile, groupError, uploadFile, type Group, type GroupKind } from '../../lib/groups';
+import { GROUP_COLORS, MAX_GROUP_FILE, abandonFile, deleteFile, finitionsReady, groupError, uploadFile, type Group, type GroupKind } from '../../lib/groups';
 import { t, tn } from '../../i18n';
 
 /** Which space the group screens are in: work groups (/groupes) or shared calendars (/agendas). */
@@ -104,4 +104,20 @@ export function useRememberedSort<T extends string>(key: string, allowed: readon
     }
   };
   return [value, set];
+}
+
+/**
+ * Migration 2026-11-03 applied: what needs it (renaming a shared file, naming another owner, the rights of newcomers,
+ * reminders of a group's meetings) is only offered then; before, the screens stay as they were.
+ */
+export function useFinitions() {
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    void finitionsReady().then(ok => alive && setReady(ok));
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return ready;
 }

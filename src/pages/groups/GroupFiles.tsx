@@ -15,7 +15,7 @@ import PreviewModal from '../drive/PreviewModal';
 import { downloadItem } from '../drive/download';
 import { deleteFile, downloadFile, groupError, renameFile, type Group, type GroupFile } from '../../lib/groups';
 import { cx, formatBytes, relativeTime } from '../../lib/utils';
-import { shareFiles, useMemberName, useRememberedSort, useRights } from './util';
+import { shareFiles, useFinitions, useMemberName, useRememberedSort, useRights } from './util';
 import { useCreateActions } from '../../store/create';
 import { PlusHint } from '../../components/CreateButton';
 import { t, tn } from '../../i18n';
@@ -70,6 +70,8 @@ export default function GroupFiles({ group }: { group: Group }) {
 
   // For every member, for good: « Annuler » in the message rather than a question first. As the database: its author or the owner.
   const canDelete = (f: GroupFile) => canEdit && (f.createdBy === me || group.ownerId === me);
+  // Renaming needs migration 2026-11-03 (before it, a shared file isn't renamed).
+  const canRename = useFinitions() && canEdit;
   const remove = (f: GroupFile) =>
     removeWithUndo([f.id], t('« {name} » supprimé', { name: f.name }), async () => {
       await deleteFile(f);
@@ -90,7 +92,7 @@ export default function GroupFiles({ group }: { group: Group }) {
   // Phones: only « Télécharger » stays beside the name, the rest goes in « Plus d’actions » (4 icons cut the name short).
   const moreItems = (f: GroupFile): MenuItem[] => [
     { label: t('Copier dans mon Drive'), icon: <FolderDown size={15} />, onClick: () => void toDrive(f) },
-    ...(canEdit ? [{ label: t('Renommer'), icon: <Pencil size={15} />, onClick: () => void rename(f) }] : []),
+    ...(canRename ? [{ label: t('Renommer'), icon: <Pencil size={15} />, onClick: () => void rename(f) }] : []),
     ...(f.createdBy !== me ? [{ label: t('Signaler'), icon: <Flag size={15} />, onClick: () => setReporting(f) }] : []),
     ...(canDelete(f) ? [{ label: t('Supprimer'), icon: <Trash2 size={15} />, danger: true, onClick: () => remove(f) }] : []),
   ];
@@ -167,7 +169,7 @@ export default function GroupFiles({ group }: { group: Group }) {
                       <Flag size={15} />
                     </button>
                   )}
-                  {canEdit && (
+                  {canRename && (
                     <button className="icon-btn max-sm:hidden" title={t('Renommer')} aria-label={t('Renommer {name}', { name: f.name })} onClick={() => void rename(f)}>
                       <Pencil size={15} />
                     </button>

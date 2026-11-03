@@ -15,7 +15,7 @@ import { GROUP_COLORS, copyCode, createGroup, groupError, joinAgenda, joinGroup,
 import { parseInvite } from '../../lib/groupInvite';
 import { cx } from '../../lib/utils';
 import { ColorPicker, GroupBadge } from './shared';
-import { KindContext, groupColor, groupWordsNow, useGroupWords, useRights } from './util';
+import { KindContext, groupColor, groupWordsNow, useFinitions, useGroupWords, useRights } from './util';
 import GroupNotes from './GroupNotes';
 import GroupEvents from './GroupEvents';
 import GroupMembers, { GroupActions } from './GroupMembers';
@@ -46,6 +46,7 @@ export function GroupForm({ group, onDone, onLeft }: { group?: Group; onDone: (g
   const [photo, setPhoto] = useState<string | null>(group?.photo ?? null);
   const [defaultRole, setDefaultRole] = useState<GroupRole>(group?.defaultRole ?? 'editeur');
   const [defaultCanInvite, setDefaultCanInvite] = useState(group?.defaultCanInvite ?? true);
+  const canChooseRights = useFinitions(); // rights of newcomers: migration 2026-11-03
   const [busy, setBusy] = useState(false);
   // The name is required: said under it when emptied and left, or at the submit (the focus goes back to it).
   const [nameError, setNameError] = useState('');
@@ -122,7 +123,7 @@ export function GroupForm({ group, onDone, onLeft }: { group?: Group; onDone: (g
       <div className="mt-2">
         <ColorPicker value={color} onChange={setColor} />
       </div>
-      {group && (
+      {group && canChooseRights && (
         <>
           <p className="eyebrow mt-5">{t('Nouveaux membres')}</p>
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
