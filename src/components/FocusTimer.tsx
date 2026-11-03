@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Pause, Play, Square, Timer, X } from 'lucide-react';
-import { useFocus, focusLeft, mmss } from '../store/focus';
+import { FastForward, Pause, Play, Square, Timer, X } from 'lucide-react';
+import { useFocus, focusLeft, focusTitle, mmss } from '../store/focus';
 import { useSettings } from '../store/settings';
 import { useFocusLog } from '../store/focusLog';
 import { useCalendar } from '../store/calendar';
@@ -143,6 +143,12 @@ export default function FocusTimer() {
       <div className="mt-2 h-1 overflow-hidden rounded-full bg-surface" role="progressbar" aria-label={t('Progression de la session')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(done)}>
         <div className={cx('h-full rounded-full', focus.phase === 'focus' ? 'bg-brand-500' : 'bg-emerald-500')} style={{ width: `${done}%` }} />
       </div>
+      {/* Ready before the end of the break: the next session at once. */}
+      {focus.phase === 'break' && (
+        <button onClick={focus.skipBreak} className="mt-2 flex h-7 w-full items-center justify-center gap-1 rounded-md bg-surface text-[12px] font-medium text-emerald-700 shadow-card hover:text-ink pointer-coarse:h-9">
+          <FastForward size={12} aria-hidden /> {t('Passer la pause')}
+        </button>
+      )}
       <div className="mt-2 flex gap-1">
         <button data-focus-pause onClick={paused ? focus.resume : focus.pause} className="flex h-7 flex-1 items-center justify-center gap-1 rounded-md bg-surface pointer-coarse:h-9 text-[12px] font-medium text-stone-700 shadow-card hover:text-ink">
           {paused ? <Play size={12} /> : <Pause size={12} />} {paused ? t('Reprendre') : focus.phase === 'break' ? t('Suspendre') : t('Pause')}
@@ -157,6 +163,75 @@ export default function FocusTimer() {
           <Square size={11} />
         </button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Phones and tablets (no sidebar there): « Focus 12:34 » in the top bar while a session runs; a tap shows the
+ * timer's controls. Mounted on every screen size: it also keeps the remaining time in the window's title.
+ */
+export function FocusPill() {
+  const phase = useFocus(s => s.phase);
+  const paused = useFocus(s => s.pausedLeft !== null);
+  const [, setNow] = useState(0);
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!phase) return;
+    const show = () => {
+      const left = mmss(focusLeft(useFocus.getState()));
+      document.title = focusTitle(document.title, left);
+      setNow(Date.now());
+    };
+    show();
+    const timer = setInterval(show, 1000);
+    return () => {
+      clearInterval(timer);
+      document.title = focusTitle(document.title, null);
+    };
+  }, [phase]);
+
+  // The controls close on a press elsewhere, Échap, or when the session ends.
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => !box.current?.contains(e.target as Node) && setOpen(false);
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && (e.stopPropagation(), setOpen(false), box.current?.querySelector('button')?.focus());
+    window.addEventListener('pointerdown', onDown, true);
+    window.addEventListener('keydown', onKey, true);
+    return () => {
+      window.removeEventListener('pointerdown', onDown, true);
+      window.removeEventListener('keydown', onKey, true);
+    };
+  }, [open]);
+  if (!phase && open) setOpen(false);
+  if (!phase) return null;
+
+  const left = mmss(focusLeft(useFocus.getState()));
+  const label = phase === 'focus' ? t('Focus') : t('Pause||le temps de pause, pas le bouton');
+  return (
+    <div ref={box} className="relative lg:hidden">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        aria-expanded={open}
+        aria-controls={open ? 'focus-pill-panel' : undefined}
+        aria-label={t('{phase}, encore {time}', { phase: label, time: left })}
+        className={cx(
+          'flex h-8 items-center gap-1.5 rounded-full px-3 text-[12.5px] font-semibold',
+          phase === 'focus' ? 'bg-brand-50 text-brand-700' : 'bg-emerald-50 text-emerald-700',
+        )}
+      >
+        {paused ? <Pause size={13} aria-hidden /> : <Timer size={13} aria-hidden />}
+        <span className="max-[380px]:sr-only">{label}</span>
+        <span className="tabular font-mono">{left}</span>
+      </button>
+      {open && (
+        <div id="focus-pill-panel" className="enter absolute right-0 top-10 z-40 w-[min(260px,calc(100vw-32px))] rounded-xl bg-surface p-2 shadow-pop ring-1 ring-stone-200">
+          <FocusTimer />
+        </div>
+      )}
     </div>
   );
 }
