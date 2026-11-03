@@ -87,7 +87,7 @@ function EventView({ event: ev, onClose }: { event: CalendarEvent; onClose: () =
           )}
         {ev.details && row(t('Notes'), <span className="block whitespace-pre-line [overflow-wrap:anywhere]">{ev.details}</span>)}
       </dl>
-      <div className="mt-6 flex items-center gap-2">
+      <div className="mt-6 flex flex-wrap items-center gap-2">
         <button type="button" className="btn-ghost" onClick={() => (copyToMyCalendar(ev), onClose())} title={t('Copier dans mon agenda')}>
           <CalendarPlus size={15} /> <span className="max-sm:sr-only">{t('Copier dans mon agenda')}</span>
         </button>
@@ -497,41 +497,48 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
           </div>
         )}
 
-        <div className="mt-6 flex items-center gap-2">
+        {/* The secondary actions as icons (their names on hover): « Supprimer Dupliquer Annuler Enregistrer » cut the last
+            one off the window. Square buttons of the same height and corners as « Annuler ». Too narrow for all of them
+            (a shared calendar adds two): « Annuler Enregistrer » go whole on a row of their own, at the right. */}
+        <div className="mt-6 flex flex-wrap items-center gap-x-1 gap-y-3">
           {event && (
             <button
               type="button"
-              className="btn-ghost text-red-600 hover:bg-red-50 hover:text-red-700"
+              className="btn-ghost w-10 px-0 text-red-600 hover:bg-red-50 hover:text-red-700"
+              title={t('Supprimer')}
+              aria-label={t('Supprimer')}
               onClick={async () => {
                 if (!(await removeEvent(event, source))) return;
                 onClose();
               }}
             >
-              <Trash2 size={15} /> <span className="max-sm:sr-only">{t('Supprimer')}</span>
+              <Trash2 size={16} />
             </button>
           )}
           {event && onDuplicate && (
-            <button type="button" className="btn-ghost px-2.5" title={t('Dupliquer')} onClick={() => (onClose(), onDuplicate(event))}>
-              <Copy size={15} /> <span className="max-sm:sr-only">{t('Dupliquer')}</span>
+            <button type="button" className="btn-ghost w-10 px-0" title={t('Dupliquer')} aria-label={t('Dupliquer')} onClick={() => (onClose(), onDuplicate(event))}>
+              <Copy size={16} />
             </button>
           )}
           {event && shared && (
-            <button type="button" className="icon-btn" title={t('Copier dans mon agenda')} aria-label={t('Copier dans mon agenda')} onClick={() => (copyToMyCalendar(event), onClose())}>
+            <button type="button" className="btn-ghost w-10 px-0" title={t('Copier dans mon agenda')} aria-label={t('Copier dans mon agenda')} onClick={() => (copyToMyCalendar(event), onClose())}>
               <CalendarPlus size={15} />
             </button>
           )}
           {event && shared && !shared.byMe(event.id) && (
-            <button type="button" className="icon-btn" title={t('Signaler')} aria-label={t('Signaler « {title} »', { title: event.title })} onClick={() => setReporting(true)}>
+            <button type="button" className="btn-ghost w-10 px-0" title={t('Signaler')} aria-label={t('Signaler « {title} »', { title: event.title })} onClick={() => setReporting(true)}>
               <Flag size={15} />
             </button>
           )}
-          <button type="button" className="btn-secondary ml-auto" onClick={onClose}>
-            {t('Annuler')}
-          </button>
-          {/* Not disabled for an empty title: the submit says what is missing, under the field. */}
-          <button type="submit" className="btn-primary" disabled={!!timeMsg || impossible}>
-            {event ? t('Enregistrer||sauver') : t('Ajouter')}
-          </button>
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            <button type="button" className="btn-secondary" onClick={onClose}>
+              {t('Annuler')}
+            </button>
+            {/* Not disabled for an empty title: the submit says what is missing, under the field. */}
+            <button type="submit" className="btn-primary" disabled={!!timeMsg || impossible}>
+              {event ? t('Enregistrer||sauver') : t('Ajouter')}
+            </button>
+          </div>
         </div>
       </form>
       {event && <ReportDialog target={reporting ? { kind: 'event', id: event.id, title: event.title } : null} onClose={() => setReporting(false)} />}

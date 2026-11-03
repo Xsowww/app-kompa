@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { CalendarEvent } from '../src/store/calendar';
 
 // The stores read the address and the browser's storage when loaded.
 const memory = new Map<string, string>();
@@ -118,14 +117,11 @@ describe('partage vers Kompaly', () => {
 
 describe('pastille de l’icône', () => {
   const day = (n: number) => toKey(new Date(Date.now() + n * 86400000));
-  const ev = (over: Partial<CalendarEvent>): CalendarEvent => ({ id: Math.random().toString(36), title: 'x', date: day(-3), category: 'perso', done: false, createdAt: '', ...over });
-  it('a trip over several days counts once, done or deleted things not at all, plus the news', () => {
-    const trip = ['span-1', 'span-1', 'span-1'].map((series, i) => ev({ series, date: day(-5 + i) }));
-    const events = [...trip, ev({}), ev({ done: true }), ev({ deletedAt: 'x' }), ev({ date: day(2) })];
+  it('late tasks only (events are never late), done or deleted ones not at all, plus the news', () => {
     const todos = [{ done: false, due: day(-1) }, { done: true, due: day(-1) }, { done: false, due: day(1) }, { done: false }, { done: false, due: day(-2), deletedAt: 'x' }];
-    expect(badgeCount(events, todos, day(0), 0)).toBe(3);
-    expect(badgeCount(events, todos, day(0), 4)).toBe(7);
-    expect(badgeCount([], [], day(0), 0)).toBe(0);
+    expect(badgeCount(todos, day(0), 0)).toBe(1);
+    expect(badgeCount(todos, day(0), 4)).toBe(5);
+    expect(badgeCount([], day(0), 0)).toBe(0);
   });
 });
 

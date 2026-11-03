@@ -1,8 +1,8 @@
 import { useToday } from '../../lib/useToday';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { addDays, addMonths, endOfMonth, startOfMonth, isSameMonth } from 'date-fns';
-import { Bell, Check, Copy, ExternalLink, Flag, Link2, ListFilter, ListTodo, MapPin, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, CornerDownLeft, CalendarArrowDown, CalendarArrowUp, CalendarRange, CalendarPlus, CalendarClock } from 'lucide-react';
+import { Bell, Copy, ExternalLink, Flag, Link2, ListFilter, ListTodo, MapPin, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, CornerDownLeft, CalendarArrowDown, CalendarArrowUp, CalendarRange, CalendarPlus, CalendarClock } from 'lucide-react';
 import { EmptyState, Skeleton } from '../../components/EmptyState';
 import { catOf, allCategories, guessCategory, isDeliverable, isBigEvent, sortEvents, type CalendarEvent, type EventCategory } from '../../store/calendar';
 import { parseQuickAdd, toKey, fromKey, todayKey, validKey, fmt, fmtDay, weekStart, countdownLabel, daysUntil, toMinutes, fromMinutes, isOver } from '../../lib/dates';
@@ -18,8 +18,6 @@ import { eventTitle, periodIdeas, removeEvent, useCalendarSource } from './sourc
 import TimeGrid from './TimeGrid';
 import SeriesIcon from './SeriesIcon';
 import { firstOfSpans } from '../../lib/repeat';
-import { listLate } from '../../lib/late';
-import LateEvents from './LateEvents';
 import ImportIcsDialog, { type IcsSource } from './ImportIcsDialog';
 import { useCreateActions } from '../../store/create';
 import { isIcsFile } from '../../lib/ics';
@@ -28,7 +26,6 @@ import { exportIcs } from '../../lib/backup';
 import { flashWhenReady } from '../../lib/flash';
 import { eventReminders, followMoments, reminderLabel } from '../../lib/reminders';
 import { feedLabel, feedOf } from '../../lib/icsFeeds';
-import { scrollMotion } from '../../lib/a11y';
 import { useTodos, type Todo } from '../../store/todos';
 import TaskDialog from '../tasks/TaskDialog';
 import { TaskRow } from './TaskItem';
@@ -65,6 +62,13 @@ const subscribeTo = (mq: MediaQueryList | null) => (cb: () => void) => {
 const wideQuery = media('(min-width: 640px)');
 const subscribeWide = subscribeTo(wideQuery);
 const useWide = () => useSyncExternalStore(subscribeWide, () => wideQuery?.matches ?? true);
+// A low screen (a phone on its side): the fixed header keeps one row, its tools as icons.
+const shortQuery = media('(max-height: 500px)');
+const subscribeShort = subscribeTo(shortQuery);
+const useShort = () => useSyncExternalStore(subscribeShort, () => shortQuery?.matches ?? false);
+const coarseQuery = media('(pointer: coarse)');
+const subscribeCoarse = subscribeTo(coarseQuery);
+const useCoarse = () => useSyncExternalStore(subscribeCoarse, () => coarseQuery?.matches ?? false);
 // From a tablet the week is an hourly grid of seven columns; on a phone, the seven days one under the other.
 const gridQuery = media('(min-width: 768px)');
 const subscribeGrid = subscribeTo(gridQuery);
@@ -72,6 +76,11 @@ const useWeekGrid = () => useSyncExternalStore(subscribeGrid, () => gridQuery?.m
 
 function Dot({ color, size = 8 }: { color: string; size?: number }) {
   return <span className="inline-block shrink-0 rounded-full" style={{ background: color, width: size, height: size }} />;
+}
+
+/** An event's mark in a list: a short bar of its colour (a task has a square box instead). */
+function Bar({ color }: { color: string }) {
+  return <span className="inline-block h-2.5 w-[3px] shrink-0 rounded-full" style={{ background: color }} aria-hidden />;
 }
 
 interface EventItemProps {
@@ -84,12 +93,12 @@ interface EventItemProps {
 
 function EventItem({ ev, onEdit, dragging, onDragStart, onMenu }: EventItemProps) {
   const source = useCalendarSource();
-  const { toggleDone, shared } = source;
+  const { shared } = source;
   // A reader of a shared calendar, or a shared calendar's event shown in mine: nothing to change here.
   const agenda = fromAgenda(ev);
   const readOnly = (!!shared && !shared.canEdit) || agenda;
   // Today's events already over: lighter, what is left of the day stands out.
-  const past = !ev.done && ev.date === todayKey() && isOver(ev);
+  const past = ev.date === todayKey() && isOver(ev);
   const c = catOf(ev.category);
   const defaults = useSettings(s => s.defaultReminders);
   // A shared calendar's reminders are the ones chosen on it (no usual reminder of mine there).
@@ -115,19 +124,13 @@ function EventItem({ ev, onEdit, dragging, onDragStart, onMenu }: EventItemProps
         onContextMenu={e => (e.preventDefault(), onMenu(e))}
         onKeyDown={e => isMenuKey(e) && (e.preventDefault(), onMenu(e))}
         title={readOnly ? undefined : t('Glisse sur un autre jour pour déplacer')}
-        className={cx('flex min-w-0 flex-1 touch-manipulation items-start gap-3 rounded-[16px] bg-stone-50 py-3 pl-3 pr-2 transition-colors [-webkit-touch-callout:none] hover:bg-stone-100', (ev.done || past) && 'opacity-60', dragging && 'opacity-40')}
+        className={cx('flex min-w-0 flex-1 touch-manipulation items-start gap-3 rounded-[16px] bg-stone-50 py-3 pl-3 pr-2 transition-colors [-webkit-touch-callout:none] hover:bg-stone-100', past && 'opacity-60', dragging && 'opacity-40')}
       >
-        <span className="mt-0.5 w-[3px] self-stretch rounded-full" style={{ background: c.color, opacity: ev.done ? 0.35 : 1 }} />
-        {!shared && !agenda && <button
-          onClick={() => toggleDone(ev.id)}
-          className={cx('hit mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors', ev.done ? 'border-ink bg-ink' : 'border-stone-300 hover:border-stone-500')}
-          title={ev.done ? t('Marquer comme à faire') : t('Marquer comme fait')} aria-label={ev.done ? t('Marquer « {title} » comme à faire', { title: ev.title }) : t('Marquer « {title} » comme fait', { title: ev.title })}
-        >
-          {ev.done && <Check size={11} strokeWidth={3} className="text-paper" />}
-        </button>}
+        {/* An event: its colour bar, no box (only tasks are ticked, with their square box). */}
+        <span className="mt-0.5 w-[3px] self-stretch rounded-full" style={{ background: c.color }} />
         {/* A reader opens it too: the whole event, read-only (EventForm). */}
         <button className="min-w-0 flex-1 text-left pointer-coarse:py-2" onClick={onEdit}>
-          <p className={cx('text-[14px] font-medium leading-snug hyphens-auto [overflow-wrap:anywhere]', ev.done && 'text-stone-500 line-through')}>
+          <p className="text-[14px] font-medium leading-snug hyphens-auto [overflow-wrap:anywhere]">
             {ev.important && <Flag size={12} className="mr-1 inline-block -translate-y-px fill-amber-500 text-amber-500" aria-label={t('Important')} />}
             {ev.title}
           </p>
@@ -147,8 +150,8 @@ function EventItem({ ev, onEdit, dragging, onDragStart, onMenu }: EventItemProps
             {agenda && <ExternalLink size={11} className="ml-1.5 inline-block -translate-y-px" aria-label={t('Ouvre l’agenda partagé')} />}
             {shared && ev.people?.length ? ` · ${t('pour {names}', { names: ev.people.map(shared.nameFor).join(', ') })}` : ''}
             {shared && ` · ${t('par {name}', { name: shared.author(ev.id) })}`}
-            {isBigEvent(ev) && !ev.done && ` · ${countdownLabel(ev.date)}`}
-            {!ev.done && reminders.length > 0 && (
+            {isBigEvent(ev) && ` · ${countdownLabel(ev.date)}`}
+            {reminders.length > 0 && (
               <span className="ml-2 inline-flex items-center gap-1 whitespace-nowrap" title={t('Rappels')}>
                 <Bell size={11} aria-label={t('Rappel')} />
                 {reminderLabel(Math.min(...reminders), !!ev.start, ev.date, ev.start)}
@@ -239,12 +242,20 @@ function CalendarFilter({ categories, shown, importantOnly, tasksOnly, onToggle,
         title={t('Filtrer les événements affichés')}
       >
         <ListFilter size={15} />
-        <span className="max-sm:sr-only">{t('Filtrer')}</span>
+        <span className="max-sm:sr-only [@media(max-height:500px)]:sr-only">{t('Filtrer')}</span>
         {count > 0 && <span className="tabular rounded-full bg-ink px-1.5 text-[11px] leading-[18px] text-paper">{count}</span>}
       </button>
       {open && (
-        <div id="filtre-calendrier" role="group" aria-label={t('Filtrer les événements')} className="pop absolute right-0 top-full z-[60] mt-2 max-h-[min(70dvh,560px)] w-64 overflow-y-auto overscroll-contain rounded-xl border border-stone-200 bg-surface p-2 shadow-pop">
+        // A low screen (a phone on its side): over the page, its choices on three columns, so all fit without a scrollbar
+        // (a 64 px wide column went under the tab bar and scrolled).
+        <div
+          id="filtre-calendrier"
+          role="group"
+          aria-label={t('Filtrer les événements')}
+          className="pop absolute right-0 top-full z-[60] mt-2 max-h-[min(70dvh,560px)] w-64 overflow-y-auto overscroll-contain rounded-xl border border-stone-200 bg-surface p-2 shadow-pop [@media(max-height:500px)]:fixed [@media(max-height:500px)]:inset-x-4 [@media(max-height:500px)]:top-3 [@media(max-height:500px)]:z-[90] [@media(max-height:500px)]:mx-auto [@media(max-height:500px)]:mt-0 [@media(max-height:500px)]:max-h-[calc(100dvh-24px)] [@media(max-height:500px)]:w-auto [@media(max-height:500px)]:max-w-2xl"
+        >
           <p className="px-2 pb-1 pt-0.5 text-[12px] text-stone-500">{t('Afficher seulement :')}</p>
+          <div className="[@media(max-height:500px)]:grid [@media(max-height:500px)]:grid-cols-3 [@media(max-height:500px)]:gap-x-1">
           {onImportant && (
             <label className={row}>
               <input type="checkbox" className={box} checked={importantOnly} onChange={onImportant} />
@@ -259,7 +270,7 @@ function CalendarFilter({ categories, shown, importantOnly, tasksOnly, onToggle,
               {t('Tâches')}
             </label>
           )}
-          {(onImportant || onTasks) && <div className="my-1 h-px bg-stone-100" />}
+          {(onImportant || onTasks) && <div className="my-1 h-px bg-stone-100 [@media(max-height:500px)]:hidden" />}
           {categories.map(k => {
             const c = catOf(k);
             return (
@@ -270,6 +281,7 @@ function CalendarFilter({ categories, shown, importantOnly, tasksOnly, onToggle,
               </label>
             );
           })}
+          </div>
           {people && people.length > 1 && (
             <div role="radiogroup" aria-label={t('Pour qui')} className="mt-1 border-t border-stone-100 pt-1">
               <p className="px-2 pb-1 pt-1 text-[12px] text-stone-500">{t('Pour qui :')}</p>
@@ -319,7 +331,6 @@ function CalendarFilter({ categories, shown, importantOnly, tasksOnly, onToggle,
 export default function CalendarPage() {
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
-  const location = useLocation();
   const source = useCalendarSource();
   const { events: ownEvents, shared } = source;
   // My calendar: my shared calendars' events over it (read-only here), in each one's colour.
@@ -350,8 +361,27 @@ export default function CalendarPage() {
   const weekGrid = useWeekGrid();
   const custom = source.categories; // a shared calendar: its own (mine aren't the others')
   const usage = useSettings(s => s.usage);
+  // The fixed header's background in the glass looks: the page's own wallpaper, fixed as it is (seamless); under a
+  // finger (Safari draws no fixed background there) the page's colour, frosted.
+  const look = useSettings(s => s.style);
+  const coarse = useCoarse();
+  const glassHead = (look === 'verre' || look === 'liquide') && !coarse;
   const words = { ...(WORDS[usage] ?? WORDS.etudes), ...(shared && AGENDA_EXAMPLES) };
   const wide = useWide();
+  const short = useShort();
+  // Phones and low screens: only the date and the views stay fixed at the top (the title and the field scroll away).
+  const compactHead = !wide || short;
+  // The fixed header's height, for the week's day names that stay under it (TimeGrid).
+  const pageRef = useRef<HTMLDivElement>(null);
+  const headRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const head = headRef.current;
+    const page = pageRef.current;
+    if (!head || !page || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => page.style.setProperty('--cal-head', `${head.offsetHeight}px`));
+    ro.observe(head);
+    return () => ro.disconnect();
+  }, []);
   const [allUpcoming, setAllUpcoming] = useState(false);
   const [managing, setManaging] = useState(false);
   const [periodsOpen, setPeriodsOpen] = useState(false);
@@ -436,9 +466,7 @@ export default function CalendarPage() {
     return [
       { label: t('Modifier'), icon: <Pencil size={15} />, onClick: () => openEvent(ev) },
       { label: t('Dupliquer'), icon: <Copy size={15} />, onClick: () => setForm({ template: ev, date: ev.date }) },
-      ...(shared
-        ? [{ label: t('Copier dans mon agenda'), icon: <CalendarPlus size={15} />, onClick: () => copyToMyCalendar(ev) }]
-        : [{ label: ev.done ? t('Marquer comme à faire') : t('Marquer comme fait'), icon: <Check size={15} />, onClick: () => source.toggleDone(ev.id) }]),
+      ...(shared ? [{ label: t('Copier dans mon agenda'), icon: <CalendarPlus size={15} />, onClick: () => copyToMyCalendar(ev) }] : []),
       { label: '', divider: true, onClick: () => undefined },
       { label: t('Supprimer'), icon: <Trash2 size={15} />, danger: true, onClick: () => void removeEvent(ev, source) },
     ];
@@ -607,38 +635,27 @@ export default function CalendarPage() {
   // Same filter as the calendar (the category chips sit in this block).
   // An exam of today already over (its end, else its start, passed) is no longer « à venir », as on the home page.
   // Exams and events marked important (they count as big days too).
-  const isUpcomingExam = (e: CalendarEvent) => isBigEvent(e) && !e.done && !isOver(e);
-  // A shared calendar has no « fait »: what is past is just past, not « en retard ».
-  const isHomeworkSoon = (e: CalendarEvent) => isDeliverable(e) && !e.done && daysUntil(e.date) <= 14 && (!shared || daysUntil(e.date) >= 0);
+  const isUpcomingExam = (e: CalendarEvent) => isBigEvent(e) && !isOver(e);
+  // Events are not ticked (only tasks): what is past is just past, not « en retard ».
+  const isHomeworkSoon = (e: CalendarEvent) => isDeliverable(e) && daysUntil(e.date) <= 14 && daysUntil(e.date) >= 0;
   // « Rien à afficher » only when a hidden category holds something this block would list (not a hidden « Sport »).
-  // Anything still to come (not done, not over): after the important ones, the next things, whatever they are.
-  const isComing = (e: CalendarEvent) => !e.done && e.date >= today && !isOver(e);
+  // Anything still to come (not over): after the important ones, the next things, whatever they are.
+  const isComing = (e: CalendarEvent) => e.date >= today && !isOver(e);
   // Not the day shown below the calendar: its events are already listed there (the week shows all its days).
   const away = (e: CalendarEvent) => mode === 'week' || e.date !== selected;
   // Sorted once per change of the events (and once a minute, for « over »), not at each key typed in the quick add.
   const minute = Math.floor(Date.now() / 60_000);
-  const { upcomingHidden, upcoming, lateEvents } = useMemo(() => {
+  const { upcomingHidden, upcoming } = useMemo(() => {
     const upcomingHidden = filtering && events.some(e => !passes(e) && away(e) && (isComing(e) || isHomeworkSoon(e)));
     // An event over several days once, at its first day (not « J-3, J-4, J-5 »); none when that day is the one shown
     // (its next day, J-4, would say the wrong day).
     const pool = firstOfSpans([...visible].sort(sortEvents).filter(e => isUpcomingExam(e) || isHomeworkSoon(e) || isComing(e))).filter(away);
     // One list in date order: the important ones (marked, one per repeat) among homework to hand in and the next events.
     const upcoming = upcomingList(pool, e => (isUpcomingExam(e) ? 'big' : isHomeworkSoon(e) ? 'homework' : 'other'));
-    // « En retard »: own events of the last two weeks, from an earlier day and not ticked (classes from a timetable and homework,
-    // already listed above with « Retard », aside), a trip once (lib/late). A shared calendar has no « fait ».
-    const lateEvents = shared
-      ? []
-      : listLate(visible.filter(e => !fromAgenda(e)));
-    return { upcomingHidden, upcoming, lateEvents };
+    return { upcomingHidden, upcoming };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the helpers above only read these values
   }, [events, visible, passes, filtering, shared, today, minute, selected, mode]);
   const upcomingRows = allUpcoming ? [...upcoming.shown, ...upcoming.more].sort(sortEvents) : upcoming.shown;
-
-  // /calendrier#en-retard (the home page's « N en retard »): straight to that list, once it is drawn.
-  const late = lateEvents.length > 0;
-  useEffect(() => {
-    if (location.hash === '#en-retard' && late) flashWhenReady(() => document.getElementById('en-retard'));
-  }, [location.hash, location.key, late]);
 
   const monthDays = useMemo(() => {
     const ref = fromKey(selected);
@@ -663,121 +680,11 @@ export default function CalendarPage() {
     });
   }, [mode, monthDays, byDay]);
 
-  const monthBands = mode === 'month' && monthDays.length ? periodsBetween(periods, toKey(monthDays[0]), toKey(monthDays[monthDays.length - 1])) : [];
-
-  return (
-    <div
-      className={cx('h-full overflow-y-auto pb-room', shared ? 'shadow-room' : 'px-4 md:px-8')}
-      onDragOver={e => {
-        if (!hasFiles(e) || shared) return;
-        e.preventDefault();
-        if (!fileOver) setFileOver(true);
-      }}
-      onDragLeave={e => {
-        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFileOver(false);
-      }}
-      onDrop={e => void onFileDrop(e)}
-    >
-      <div className="mx-auto max-w-[1180px]">
-        {/* Header: the date (‹ month ›, Aujourd’hui), then the views and the tools at the right. A shared calendar
-            has no title here (its page has one): the date starts the row. Phones: two rows, the views and tools
-            under the date, the tools at the right edge. One height for all (36 px under a finger). */}
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-3 pb-4 pt-2">
-          {!shared && (
-            <h1 className="mr-3 flex items-center gap-2 text-[24px] font-semibold tracking-[-0.02em] max-sm:w-full">
-              {t('Calendrier')}
-              {/* Phones and tablets: the « En retard » list is far below the month, this takes there. */}
-              {lateEvents.length > 0 && (
-                <button
-                  onClick={() => document.getElementById('en-retard')?.scrollIntoView({ behavior: scrollMotion(), block: 'start' })}
-                  className="rounded-full bg-red-50 px-2.5 py-1 text-[12px] font-semibold tracking-normal text-urgent-text xl:hidden pointer-coarse:py-2"
-                >
-                  {tn(lateEvents.length, '{n} en retard', '{n} en retard')}
-                </button>
-              )}
-            </h1>
-          )}
-          <div className={cx('flex items-center gap-2', !shared && 'sm:ml-auto')}>
-            <div className="flex items-center gap-1">
-              <button className="icon-btn pointer-coarse:h-9 pointer-coarse:w-9" onClick={() => shift(-1)} title={mode === 'day' ? t('Jour précédent') : t('Précédent')} aria-label={mode === 'day' ? t('Jour précédent') : t('Précédent')}>
-                <ChevronLeft size={17} />
-              </button>
-              <span className="min-w-28 text-center text-[14px] font-medium first-letter:uppercase max-sm:min-w-24">
-                {mode === 'day' ? (
-                  <>
-                    {/* A phone: the short month, so « Aujourd’hui » stays on the screen. */}
-                    <span className="max-sm:hidden">{fmt(selDate, 'EEE d MMMM')}</span>
-                    <span className="sm:hidden">{fmt(selDate, 'EEE d MMM')}</span>
-                  </>
-                ) : (
-                  fmt(selDate, 'MMMM yyyy')
-                )}
-              </span>
-              <button className="icon-btn pointer-coarse:h-9 pointer-coarse:w-9" onClick={() => shift(1)} title={mode === 'day' ? t('Jour suivant') : t('Suivant')} aria-label={mode === 'day' ? t('Jour suivant') : t('Suivant')}>
-                <ChevronRight size={17} />
-              </button>
-            </div>
-            <button className="btn-secondary h-8 pointer-coarse:h-9" onClick={() => selectDay(today)}>
-              {t('Aujourd’hui')}
-            </button>
-          </div>
-          <div className={cx('flex items-center gap-2 max-sm:w-full', shared && 'ml-auto')}>
-            <div className="flex h-8 items-center rounded-lg bg-stone-100 p-0.5 text-[13px] pointer-coarse:h-9" role="group" aria-label={t('Affichage')}>
-              {MODES.map(m => (
-                <button key={m.id} onClick={() => setMode(m.id)} aria-pressed={mode === m.id} className={cx('hit h-7 rounded-md px-2 font-medium transition-colors pointer-coarse:h-8 pointer-coarse:min-w-11 sm:px-3', mode === m.id ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}>
-                  {m.label}
-                </button>
-              ))}
-            </div>
-            {/* Periods, filter and export: together, at the right edge of their row. */}
-            <div className="ml-auto flex items-center gap-2 sm:ml-0">
-              {(!readOnly || periods.length > 0) && (
-                <button className="btn-secondary hit-sm h-8 px-2.5 pointer-coarse:h-9 pointer-coarse:min-w-9" onClick={() => setPeriodsOpen(true)} title={t('Périodes : {ideas}…', { ideas: periodIdeas(usage) })} aria-label={t('Périodes')}>
-                  <CalendarRange size={15} /> <span className="max-sm:sr-only">{t('Périodes')}</span>
-                </button>
-              )}
-              <CalendarFilter
-                categories={allCategories(custom)}
-                shown={shown}
-                importantOnly={importantOnly}
-                tasksOnly={tasksOnly}
-                onToggle={k =>
-                  setShown(prev => {
-                    const n = new Set(prev);
-                    if (n.has(k)) n.delete(k);
-                    else n.add(k);
-                    return n;
-                  })
-                }
-                onImportant={shared ? undefined : () => setImportantOnly(v => !v)}
-                onTasks={shared ? undefined : () => setTasksOnly(v => !v)}
-                onReset={clearFilter}
-                onManage={readOnly ? undefined : () => setManaging(true)}
-                agendas={overlay.agendas}
-                hiddenAgendas={hiddenAgendas}
-                onAgenda={id => useSettings.getState().set({ hiddenAgendas: hiddenAgendas.includes(id) ? hiddenAgendas.filter(x => x !== id) : [...hiddenAgendas, id] })}
-                people={shared?.people}
-                forWho={forWho}
-                onForWho={setForWho}
-              />
-              {/* Mine: not on phones, where the row has no room for it (Profil › Données exports too). A shared calendar
-                  has no title on this row: its export fits there, and is the only one. Importing: the « + » button. */}
-              <button
-                className={cx('icon-btn h-8 w-8 disabled:opacity-40', shared ? 'inline-flex pointer-coarse:h-9 pointer-coarse:w-9' : 'hidden sm:inline-flex')}
-                disabled={!ownEvents.length}
-                onClick={() => (exportIcs(ownEvents, shared?.group.name), toast(shared ? t('Agenda « {name} » exporté', { name: shared.group.name }) : t('Calendrier exporté'), 'success'))}
-                title={shared ? t('Exporter cet agenda (.ics)') : t('Exporter le calendrier (.ics)')}
-                aria-label={shared ? t('Exporter cet agenda (.ics)') : t('Exporter le calendrier (.ics)')}
-              >
-                <CalendarArrowUp size={16} />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Quick add */}
-        {/* Keyboard focus: a brand ring (the shadow alone was invisible on the dark theme). */}
-        {readOnly ? (
+  // A shared calendar has no title here (its page has one).
+  const title = !shared && <h1 className="mr-3 flex items-center gap-2 text-[24px] font-semibold tracking-[-0.02em] max-sm:w-full max-sm:pb-1 max-sm:pt-2">{t('Calendrier')}</h1>;
+  // Quick add. Keyboard focus: a brand ring (the shadow alone was invisible on the dark theme).
+  const quickAdd = (
+    readOnly ? (
           <p className="card px-4 py-3 text-[13px] text-stone-500">{t('Agenda en lecture seule.')}</p>
         ) : (
         <form onSubmit={submitQuick} className="card flex flex-col px-3 transition-shadow focus-within:border-stone-300 focus-within:shadow-pop has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-focus">
@@ -828,10 +735,128 @@ export default function CalendarPage() {
             </div>
           )}
         </form>
-        )}
+        )
+  );
 
-        {/* Two columns from 1280 px: at 1024 px (with the sidebar) the calendar was left ~370 px, the month without titles. */}
-        <div className="mt-4 grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
+  const monthBands = mode === 'month' && monthDays.length ? periodsBetween(periods, toKey(monthDays[0]), toKey(monthDays[monthDays.length - 1])) : [];
+
+  return (
+    <div
+      ref={pageRef}
+      className={cx('h-full overflow-y-auto pb-room', shared ? 'shadow-room' : 'px-4 md:px-8')}
+      onDragOver={e => {
+        if (!hasFiles(e) || shared) return;
+        e.preventDefault();
+        if (!fileOver) setFileOver(true);
+      }}
+      onDragLeave={e => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFileOver(false);
+      }}
+      onDrop={e => void onFileDrop(e)}
+    >
+      <div className="mx-auto max-w-[1180px]">
+        {compactHead && title}
+        {/* Header: the date (‹ month ›, Aujourd’hui), then the views and the tools at the right. A shared calendar
+            has no title here (its page has one): the date starts the row. Phones: two rows, the views and tools
+            under the date, the tools at the right edge. One height for all (36 px under a finger).
+            Fixed at the top while the page scrolls, over a background of the page's own colour (a frosted one in the
+            glass looks, laid under it: a backdrop filter on the header itself would hold the filter's panel). */}
+        <div ref={headRef} className={cx('sticky top-0 z-30', compactHead ? 'pb-3 pt-1' : 'pb-4 pt-2')}>
+          <div
+            aria-hidden
+            className={cx(
+              'pointer-events-none absolute inset-y-0 -z-10 bg-paper [:root[data-style=liquide]_&]:bg-paper/75 [:root[data-style=liquide]_&]:backdrop-blur-xl [:root[data-style=verre]_&]:bg-paper/70 [:root[data-style=verre]_&]:backdrop-blur-xl',
+              shared ? '-inset-x-4' : '-inset-x-4 md:-inset-x-8',
+            )}
+            style={glassHead ? { background: 'var(--wallpaper, var(--color-paper))', backgroundAttachment: 'fixed', backdropFilter: 'none' } : undefined}
+          />
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
+          {!compactHead && title}
+          <div className={cx('flex items-center gap-2', !shared && 'sm:ml-auto')}>
+            <div className="flex items-center gap-1">
+              <button className="icon-btn pointer-coarse:h-9 pointer-coarse:w-9" onClick={() => shift(-1)} title={mode === 'day' ? t('Jour précédent') : t('Précédent')} aria-label={mode === 'day' ? t('Jour précédent') : t('Précédent')}>
+                <ChevronLeft size={17} />
+              </button>
+              <span className="min-w-28 text-center text-[14px] font-medium first-letter:uppercase max-sm:min-w-24">
+                {mode === 'day' ? (
+                  <>
+                    {/* A phone: the short month, so « Aujourd’hui » stays on the screen. */}
+                    <span className="max-sm:hidden">{fmt(selDate, 'EEE d MMMM')}</span>
+                    <span className="sm:hidden">{fmt(selDate, 'EEE d MMM')}</span>
+                  </>
+                ) : (
+                  fmt(selDate, 'MMMM yyyy')
+                )}
+              </span>
+              <button className="icon-btn pointer-coarse:h-9 pointer-coarse:w-9" onClick={() => shift(1)} title={mode === 'day' ? t('Jour suivant') : t('Suivant')} aria-label={mode === 'day' ? t('Jour suivant') : t('Suivant')}>
+                <ChevronRight size={17} />
+              </button>
+            </div>
+            <button className="btn-secondary h-8 pointer-coarse:h-9" onClick={() => selectDay(today)}>
+              {t('Aujourd’hui')}
+            </button>
+          </div>
+          <div className={cx('flex items-center gap-2 max-sm:w-full', shared && 'ml-auto')}>
+            {/* A capsule of capsules: the chosen view the same shape as its frame, 3 px inside it in every look. */}
+            <div className="flex h-8 items-center rounded-full bg-stone-100 p-[3px] text-[13px] pointer-coarse:h-9" role="group" aria-label={t('Affichage')}>
+              {MODES.map(m => (
+                <button key={m.id} onClick={() => setMode(m.id)} aria-pressed={mode === m.id} className={cx('hit h-full rounded-full px-2.5 font-medium transition-colors pointer-coarse:min-w-11 sm:px-3', mode === m.id ? 'bg-surface text-ink shadow-[0_1px_2px_rgb(20_22_31/0.14)]' : 'text-stone-500 hover:text-ink')}>
+                  {m.label}
+                </button>
+              ))}
+            </div>
+            {/* Periods, filter and export: together, at the right edge of their row. */}
+            <div className="ml-auto flex items-center gap-2 sm:ml-0">
+              {(!readOnly || periods.length > 0) && (
+                <button className="btn-secondary hit-sm h-8 px-2.5 pointer-coarse:h-9 pointer-coarse:min-w-9" onClick={() => setPeriodsOpen(true)} title={t('Périodes : {ideas}…', { ideas: periodIdeas(usage) })} aria-label={t('Périodes')}>
+                  <CalendarRange size={15} /> <span className={cx('max-sm:sr-only', short && 'sr-only')}>{t('Périodes')}</span>
+                </button>
+              )}
+              <CalendarFilter
+                categories={allCategories(custom)}
+                shown={shown}
+                importantOnly={importantOnly}
+                tasksOnly={tasksOnly}
+                onToggle={k =>
+                  setShown(prev => {
+                    const n = new Set(prev);
+                    if (n.has(k)) n.delete(k);
+                    else n.add(k);
+                    return n;
+                  })
+                }
+                onImportant={shared ? undefined : () => setImportantOnly(v => !v)}
+                onTasks={shared ? undefined : () => setTasksOnly(v => !v)}
+                onReset={clearFilter}
+                onManage={readOnly ? undefined : () => setManaging(true)}
+                agendas={overlay.agendas}
+                hiddenAgendas={hiddenAgendas}
+                onAgenda={id => useSettings.getState().set({ hiddenAgendas: hiddenAgendas.includes(id) ? hiddenAgendas.filter(x => x !== id) : [...hiddenAgendas, id] })}
+                people={shared?.people}
+                forWho={forWho}
+                onForWho={setForWho}
+              />
+              {/* Mine: not on phones, where the row has no room for it (Profil › Données exports too). A shared calendar
+                  has no title on this row: its export fits there, and is the only one. Importing: the « + » button. */}
+              <button
+                className={cx('icon-btn h-8 w-8 disabled:opacity-40', shared ? 'inline-flex pointer-coarse:h-9 pointer-coarse:w-9' : 'hidden sm:inline-flex')}
+                disabled={!ownEvents.length}
+                onClick={() => (exportIcs(ownEvents, shared?.group.name), toast(shared ? t('Agenda « {name} » exporté', { name: shared.group.name }) : t('Calendrier exporté'), 'success'))}
+                title={shared ? t('Exporter cet agenda (.ics)') : t('Exporter le calendrier (.ics)')}
+                aria-label={shared ? t('Exporter cet agenda (.ics)') : t('Exporter le calendrier (.ics)')}
+              >
+                <CalendarArrowUp size={16} />
+              </button>
+            </div>
+          </div>
+          </div>
+          {!compactHead && <div className="mt-3">{quickAdd}</div>}
+        </div>
+        {compactHead && quickAdd}
+
+        {/* Two columns from 1280 px: at 1024 px (with the sidebar) the calendar was left ~370 px, the month without titles.
+            The week's seven columns need all the width: its list goes under it (titles were cut to « Payer l… »). */}
+        <div className={cx('mt-4 grid grid-cols-1 items-start gap-4', mode !== 'week' && 'xl:grid-cols-[minmax(0,1fr)_300px]')}>
           <section className="card min-w-0 p-4 md:p-5">
             {weekBands.length > 0 && mode !== 'month' && (
               // Over the week grid, the bands start after the hours column, as its days do.
@@ -863,11 +888,9 @@ export default function CalendarPage() {
                   periods={periods}
                   drag={drag}
                   canChange={canChange}
-                  canTick={ev => !shared && !fromAgenda(ev)}
                   canCreate={!readOnly}
                   onDragStart={startDrag}
                   onEdit={openEvent}
-                  onToggle={ev => source.toggleDone(ev.id)}
                   onCreate={(date, start, end) => setForm({ date, start, end })}
                   onMenu={openMenu}
                   onSelectDay={selectDay}
@@ -958,7 +981,7 @@ export default function CalendarPage() {
                       {/* No silent cap: past four, the number of the others. */}
                       <span className="mt-1.5 flex h-1.5 items-center gap-[3px]">
                         {evs.slice(0, evs.length > 4 ? 3 : 4).map(e => (
-                          <span key={e.id} className="h-1.5 w-1.5 rounded-full" style={{ background: catOf(e.category).color, opacity: e.done ? 0.3 : 1 }} />
+                          <span key={e.id} className="h-1.5 w-1.5 rounded-full" style={{ background: catOf(e.category).color }} />
                         ))}
                         {evs.length > 4 && <span className="tabular text-[9.5px] font-semibold leading-none text-stone-500">+{evs.length - 3}</span>}
                       </span>
@@ -1036,9 +1059,8 @@ export default function CalendarPage() {
                                   }}
                                   title={!canChange(it.ev) ? eventTitle(it.ev, shared) : t('{title} · double-clic pour modifier', { title: eventTitle(it.ev, shared) })}
                                   className={cx('mb-0.5 hidden select-none items-center gap-1 truncate rounded px-1 text-[11px] text-stone-700 hover:bg-stone-100 @md:flex', canChange(it.ev) && 'cursor-grab', drag?.ev.id === it.ev.id && 'opacity-40')}
-                                  style={{ textDecoration: it.ev.done ? 'line-through' : undefined }}
                                 >
-                                  <Dot color={catOf(it.ev.category).color} size={6} />
+                                  <Bar color={catOf(it.ev.category).color} />
                                   <span className="truncate">{eventTitle(it.ev, shared)}</span>
                                   <SeriesIcon series={it.ev.series} size={10} className="shrink-0 text-stone-500" />
                                 </span>
@@ -1081,7 +1103,6 @@ export default function CalendarPage() {
                               'top-[calc(30px+var(--lane)*6px)] @md:top-[calc(30px+var(--lane)*20px)]',
                               before ? 'rounded-l-none' : 'rounded-l',
                               after ? 'rounded-r-none' : 'rounded-r',
-                              ev.done && 'line-through opacity-60',
                               drag && '@md:pointer-events-none',
                             )}
                             style={{
@@ -1141,11 +1162,9 @@ export default function CalendarPage() {
                   periods={periods}
                   drag={drag}
                   canChange={canChange}
-                  canTick={ev => !shared && !fromAgenda(ev)}
                   canCreate={!readOnly}
                   onDragStart={startDrag}
                   onEdit={openEvent}
-                  onToggle={ev => source.toggleDone(ev.id)}
                   onCreate={(date, start, end) => setForm({ date, start, end })}
                   onMenu={openMenu}
                   onOpenTask={setTask}
@@ -1177,8 +1196,8 @@ export default function CalendarPage() {
             )}
           </section>
 
-          <aside aria-labelledby="a-venir-titre" className="card min-w-0 self-start p-4">
-            {lateEvents.length > 0 && <LateEvents late={lateEvents} source={source} onShow={showEvent} />}
+          {/* Under the calendar (full width), its lists on two columns. */}
+          <aside aria-labelledby="a-venir-titre" className="card @container min-w-0 self-start p-4">
             <h2 id="a-venir-titre" className="mb-2 text-[13px] font-medium text-stone-600">
               {t('À venir')}
             </h2>
@@ -1193,21 +1212,20 @@ export default function CalendarPage() {
               )
             ) : (
               // One list in date order; the important ones marked (flag, the days left in bold).
-              <ul className="-mx-1.5">
+              <ul className="-mx-1.5 grid grid-cols-1 gap-x-6 @2xl:grid-cols-2">
                 {upcomingRows.map(e => {
                   const n = daysUntil(e.date);
-                  const late = e.date < today;
                   const big = isUpcomingExam(e);
                   const toHandIn = isDeliverable(e) && !shared;
                   return (
-                    <li key={e.id} className="flex items-center">
+                    <li key={e.id} className="flex min-w-0">
                       <button onClick={() => showEvent(e)} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1.5 py-1.5 text-left transition-colors hover:bg-stone-50">
-                        <span className={cx('tabular w-9 shrink-0 font-semibold', big ? 'text-[13px]' : 'text-[12px]', late || (big && n <= 3) ? 'font-extrabold text-urgent-text' : big ? 'text-ink' : 'text-stone-500')}>
-                          {late ? t('Retard') : n === 0 ? t('Auj.') : n === 1 ? t('Dem.') : t('J-{n}', { n })}
+                        <span className={cx('tabular w-9 shrink-0 font-semibold', big ? 'text-[13px]' : 'text-[12px]', big && n <= 3 ? 'font-extrabold text-urgent-text' : big ? 'text-ink' : 'text-stone-500')}>
+                          {n === 0 ? t('Auj.') : n === 1 ? t('Dem.') : t('J-{n}', { n })}
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="flex min-w-0 items-center gap-1.5 text-[13px] font-medium">
-                            {big ? <Flag size={11} className="shrink-0 fill-amber-500 text-amber-500" aria-label={t('Important')} /> : <Dot color={catOf(e.category).color} size={6} />}
+                            {big ? <Flag size={11} className="shrink-0 fill-amber-500 text-amber-500" aria-label={t('Important')} /> : <Bar color={catOf(e.category).color} />}
                             <span className={cx('truncate', big && 'font-semibold')}>{eventTitle(e, shared)}</span>
                             <SeriesIcon series={e.series} size={10} className="shrink-0 text-stone-500" />
                           </span>
@@ -1218,22 +1236,11 @@ export default function CalendarPage() {
                           </span>
                         </span>
                       </button>
-                      {/* Something to hand in: ticked here once done (it then leaves the list). */}
-                      {toHandIn && (
-                        <button
-                          onClick={() => source.toggleDone(e.id)}
-                          className="hit ml-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-[1.5px] border-stone-300 text-transparent transition-colors hover:border-emerald-500 hover:text-emerald-500"
-                          title={t('Marquer comme {done}', { done: words.markDone })}
-                          aria-label={t('Marquer « {title} » comme {done}', { title: e.title, done: words.markDone })}
-                        >
-                          <Check size={13} strokeWidth={3} />
-                        </button>
-                      )}
                     </li>
                   );
                 })}
                 {upcoming.more.length > 0 && (
-                  <li>
+                  <li className="col-span-full">
                     <button onClick={() => setAllUpcoming(v => !v)} aria-expanded={allUpcoming} className="w-full rounded-lg px-1.5 py-1 text-left text-[12px] font-medium text-stone-500 transition-colors hover:bg-stone-50 hover:text-ink pointer-coarse:py-2">
                       {allUpcoming ? t('Réduire') : tn(upcoming.more.length, 'Voir {n} autre', 'Voir {n} autres')}
                     </button>

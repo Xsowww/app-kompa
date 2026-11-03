@@ -26,7 +26,7 @@ export default function DayLine({ events, now }: { events: CalendarEvent[]; now:
     nowMin,
   );
   const pct = (m: number) => ((Math.min(Math.max(m, from), to) - from) / (to - from)) * 100;
-  const coming = timed.filter(x => !x.e.done && x.start > nowMin);
+  const coming = timed.filter(x => x.start > nowMin);
   const spots = labelSpots(coming.map(x => pct(x.start)));
   // Too little room for a name (« É… »): its dot alone, the « Aujourd’hui » list below gives it.
   const named = coming.map((x, i) => ({ x, s: spots[i] })).filter(({ s }) => s.max >= 12);
@@ -53,7 +53,7 @@ export default function DayLine({ events, now }: { events: CalendarEvent[]; now:
       <span className="absolute inset-x-0 h-1.5 rounded-full bg-white/25" style={y(22)} />
       <span className="absolute left-0 h-1.5 rounded-full bg-gradient-to-r from-white/50 to-white" style={{ ...y(22), width: `${pct(nowMin)}%` }} />
       {timed.map(({ e, start, end }) => {
-        const past = e.done || (end ?? start) <= nowMin;
+        const past = (end ?? start) <= nowMin;
         return (
           <span key={e.id}>
             {end && <span className={cx('absolute h-1.5 rounded-full', past ? 'bg-white/35' : 'bg-white/60')} style={{ ...y(22), left: `${pct(start)}%`, width: `${pct(end) - pct(start)}%` }} />}

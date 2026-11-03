@@ -400,7 +400,7 @@ export default function PeriodsDialog({ day, onClose }: { day: string; onClose: 
       <p className="mt-1 text-[13px] text-stone-500 first-letter:uppercase">{periodIdeas(usage)}…</p>
 
       {list.length > 0 && (
-        <ul className="mt-4 max-h-[38vh] space-y-1 overflow-y-auto pr-1">
+        <ul className="mt-4 space-y-1">
           {list.map(p => (
             <li key={p.id} className="flex items-center gap-3 rounded-xl px-2.5 py-2" style={{ background: periodTint(p, 10) }}>
               <span className="h-8 w-1.5 shrink-0 rounded-full" style={{ background: periodColor(p) }} aria-hidden />
