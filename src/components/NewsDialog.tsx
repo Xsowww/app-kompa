@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BellRing, CalendarRange, ChevronLeft, ChevronRight, FolderDown, Link2, Repeat, ScanText, Sparkles } from 'lucide-react';
 import { Modal } from './Overlays';
@@ -27,9 +27,11 @@ export default function NewsDialog() {
   const release = RELEASES.find(r => r.id === open);
   const [page, setPage] = useState(0);
   const navigate = useNavigate();
+  const swipe = useRef<{ x: number; y: number } | null>(null);
   if (!release) return null;
   const item = release.items[Math.min(page, release.items.length - 1)];
   const last = page >= release.items.length - 1;
+  const go = (to: number) => setPage(Math.max(0, Math.min(release.items.length - 1, to)));
   const close = () => {
     useNews.setState({ open: null });
     setPage(0);
@@ -39,49 +41,78 @@ export default function NewsDialog() {
 
   return (
     <Modal open onClose={close} width={440} label={t('Nouveautés')}>
-      <p className="flex items-center gap-1.5 text-[12px] font-medium text-stone-500">
-        <Sparkles size={13} aria-hidden /> {t('Nouveautés du {day}', { day: fmtDay(fromKey(release.id), 'd MMMM') })}
-        <span className="tabular ml-auto">
-          {page + 1} / {release.items.length}
-        </span>
-      </p>
-      <div key={page} className={cx('enter mt-3 flex h-40 items-center justify-center rounded-2xl bg-gradient-to-br', TINTS[item.icon])}>
-        {Icon ? <Icon size={56} strokeWidth={1.6} aria-hidden /> : <DroneStill className="h-28 drop-shadow-[0_6px_10px_rgba(0,0,0,0.25)]" />}
-      </div>
-      <h3 className="mt-4 text-[18px] font-semibold tracking-[-0.01em]">{item.title}</h3>
-      <p className="mt-1.5 min-h-[3.75rem] text-[14px] leading-relaxed text-stone-600">{item.text}</p>
+      {/* ← → turn the pages, and so does a finger swiping across the window. */}
+      <div
+        onKeyDown={e => {
+          if (e.altKey || e.ctrlKey || e.metaKey || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
+          e.preventDefault();
+          go(page + (e.key === 'ArrowRight' ? 1 : -1));
+        }}
+        onPointerDown={e => (swipe.current = { x: e.clientX, y: e.clientY })}
+        onPointerUp={e => {
+          const from = swipe.current;
+          swipe.current = null;
+          if (!from || e.pointerType === 'mouse') return;
+          const dx = e.clientX - from.x;
+          if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(e.clientY - from.y) * 1.5) go(page + (dx < 0 ? 1 : -1));
+        }}
+        onPointerCancel={() => (swipe.current = null)}
+        className="touch-pan-y"
+      >
+        <p className="flex items-center gap-1.5 text-[12px] font-medium text-stone-500">
+          <Sparkles size={13} aria-hidden /> {t('Nouveautés du {day}', { day: fmtDay(fromKey(release.id), 'd MMMM') })}
+          <span className="tabular ml-auto">
+            {page + 1} / {release.items.length}
+          </span>
+        </p>
+        <div key={page} className={cx('enter mt-3 flex h-40 items-center justify-center rounded-2xl bg-gradient-to-br', TINTS[item.icon])}>
+          {Icon ? <Icon size={56} strokeWidth={1.6} aria-hidden /> : <DroneStill className="h-28 drop-shadow-[0_6px_10px_rgba(0,0,0,0.25)]" />}
+        </div>
+        <h3 className="mt-4 text-[18px] font-semibold tracking-[-0.01em]">{item.title}</h3>
+        <p className="mt-1.5 min-h-[3.75rem] text-[14px] leading-relaxed text-stone-600">{item.text}</p>
 
-      <div className="mt-4 flex justify-center gap-1.5" aria-hidden>
-        {release.items.map((_, i) => (
-          <span key={i} className={cx('h-1.5 rounded-full transition-all', i === page ? 'w-5 bg-ink' : 'w-1.5 bg-stone-300')} />
-        ))}
-      </div>
+        {/* Each dot opens its page (a 24 px tap zone around the small dot). */}
+        <div className="mt-3 flex justify-center">
+          {release.items.map((it, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => go(i)}
+              aria-label={t('Page {n} sur {total} : {title}', { n: i + 1, total: release.items.length, title: it.title })}
+              aria-current={i === page ? 'step' : undefined}
+              className="group flex h-6 items-center px-[3px] pointer-coarse:h-9"
+            >
+              <span className={cx('h-1.5 rounded-full transition-all', i === page ? 'w-5 bg-ink' : 'w-1.5 bg-stone-300 group-hover:bg-stone-400')} />
+            </button>
+          ))}
+        </div>
 
-      <div className="mt-5 flex items-center gap-2">
-        {page > 0 ? (
-          <button type="button" className="btn-ghost h-10 px-2.5" onClick={() => setPage(p => p - 1)} aria-label={t('Précédent')}>
-            <ChevronLeft size={16} />
+        <div className="mt-5 flex items-center gap-2">
+          {page > 0 ? (
+            <button type="button" className="btn-ghost h-10 px-2.5" onClick={() => setPage(p => p - 1)} aria-label={t('Précédent')}>
+              <ChevronLeft size={16} />
+            </button>
+          ) : (
+            <button type="button" className="btn-ghost h-10 px-2.5 text-[13px]" onClick={close}>
+              {t('Passer')}
+            </button>
+          )}
+          {item.to && (
+            <button
+              type="button"
+              className="btn-secondary ml-auto h-10"
+              onClick={() => {
+                close();
+                navigate(item.to!);
+              }}
+            >
+              {t('Essayer')}
+            </button>
+          )}
+          <button type="button" className={cx('btn-primary h-10', !item.to && 'ml-auto')} onClick={() => (last ? close() : setPage(p => p + 1))} autoFocus>
+            {last ? t('C’est parti') : t('Suivant')} {!last && <ChevronRight size={16} />}
           </button>
-        ) : (
-          <button type="button" className="btn-ghost h-10 px-2.5 text-[13px]" onClick={close}>
-            {t('Passer')}
-          </button>
-        )}
-        {item.to && (
-          <button
-            type="button"
-            className="btn-secondary ml-auto h-10"
-            onClick={() => {
-              close();
-              navigate(item.to!);
-            }}
-          >
-            {t('Essayer')}
-          </button>
-        )}
-        <button type="button" className={cx('btn-primary h-10', !item.to && 'ml-auto')} onClick={() => (last ? close() : setPage(p => p + 1))} autoFocus>
-          {last ? t('C’est parti') : t('Suivant')} {!last && <ChevronRight size={16} />}
-        </button>
+        </div>
       </div>
     </Modal>
   );

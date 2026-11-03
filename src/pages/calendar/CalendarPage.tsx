@@ -324,7 +324,12 @@ export default function CalendarPage() {
       if (!readOnly) setFormState({ date: selected });
       setParams(p => (p.delete('ajout'), p), { replace: true });
     }
-  }, [params, setParams, readOnly, selected]);
+    // ?importer=1 (« Essayer » in Nouveautés): the window to follow a timetable by its link or a .ics file.
+    if (params.get('importer')) {
+      if (!shared) setImporting({});
+      setParams(p => (p.delete('importer'), p), { replace: true });
+    }
+  }, [params, setParams, readOnly, selected, shared]);
 
   /** A row of « À venir »: its day, and the event glowing in it. */
   const showEvent = (e: Pick<CalendarEvent, 'id' | 'date'>) => {
