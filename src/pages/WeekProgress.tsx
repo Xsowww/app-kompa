@@ -1,13 +1,14 @@
+import { Link } from 'react-router-dom';
 import { Check } from 'lucide-react';
 import { useTodos } from '../store/todos';
 import { cheer, weekItems } from '../lib/weekProgress';
 import { cx } from '../lib/utils';
-import { tn } from '../i18n';
+import { t, tn } from '../i18n';
 
 /** The ring of the week: how much of what was planned is done, filling up as things get ticked. */
 export default function WeekProgress({ from, to }: { from: string; to: string }) {
   const todos = useTodos(s => s.todos);
-  const { total, done } = weekItems(todos, from, to);
+  const { total, done, left } = weekItems(todos, from, to);
   // Nothing to do this week: nothing left either, so the ring is full (not an empty 0 %).
   const ratio = total ? done / total : 1;
   const full = done === total;
@@ -59,6 +60,12 @@ export default function WeekProgress({ from, to }: { from: string; to: string })
           </>
         )}
         <span className={cx('block text-[13px] font-semibold leading-snug', done > 0 && 'mt-2.5', full ? 'text-emerald-700 dark:text-emerald-400' : 'text-ink')}>{cheer(done, total)}</span>
+        {/* The next one to tick, one tap away (Tâches lights it up). */}
+        {left[0] && (
+          <Link to={`/taches?tache=${left[0].id}`} className="mt-1.5 block truncate text-[12.5px] text-stone-500 hover:text-ink hover:underline pointer-coarse:py-1.5">
+            {t('Ensuite : {title}', { title: left[0].title })}
+          </Link>
+        )}
       </span>
     </div>
     </div>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { firstOfSpans } from '../lib/repeat';
+import { firstOfSeries, firstOfSpans } from '../lib/repeat';
 import { useMinute, useToday } from '../lib/useToday';
 import { Link, useNavigate } from 'react-router-dom';
 import { addDays } from 'date-fns';
@@ -10,7 +10,7 @@ import { EmptyState } from '../components/EmptyState';
 import { useAuth } from '../store/auth';
 import { useNotes } from '../store/notes';
 import { useCalendar, catOf, isBigEvent, sortEvents, type CalendarEvent } from '../store/calendar';
-import { fmt, fmtDay, toKey, fromKey, weekStart, daysUntil, hasStarted } from '../lib/dates';
+import { fmt, fmtDay, toKey, fromKey, weekStart, daysUntil, hasStarted, isOver, countdownLabel } from '../lib/dates';
 import { relativeTime, noteText, cx } from '../lib/utils';
 import { hasRevisionPlan, revisionNote, revisionSessions, linkToDay, linkToNote } from '../copilot/actions';
 import { runOffer } from '../copilot/offers';
@@ -23,6 +23,8 @@ import WeekProgress from './WeekProgress';
 import DayLine from './DayLine';
 import { isLateEvent } from '../lib/late';
 import { useTodos } from '../store/todos';
+import { weekItems } from '../lib/weekProgress';
+import { agendaLink, fromAgenda, useAgendaOverlay } from './calendar/agendas';
 import { t, tn } from '../i18n';
 
 /** A bento tile: white by default, `dark` for the big day (the strongest tile of the page). */
@@ -45,20 +47,33 @@ function Widget({ title, to, linkLabel, className, dark, children }: { title: st
 function EventRow({ e, showDay, muted }: { e: CalendarEvent; showDay?: boolean; muted?: boolean }) {
   const toggleDone = useCalendar(s => s.toggleDone);
   const c = catOf(e.category);
+  // One of my shared calendars: no « fait » there, its colour instead of the box, and it opens in its agenda.
+  const agenda = fromAgenda(e) ? e.agenda : null;
+  // Today's events already over: lighter, what is left of the day stands out.
+  const past = !e.done && !showDay && isOver(e);
   return (
-    <li className="group flex items-center gap-3 rounded-lg px-1.5 py-1.5 transition-colors hover:bg-stone-50">
-      <button
-        onClick={() => toggleDone(e.id)}
-        className={cx('hit flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors', e.done ? 'border-ink bg-ink' : 'border-stone-300 hover:border-stone-500')}
-        title={e.done ? t('Marquer comme à faire') : t('Marquer comme fait')}
-        aria-label={e.done ? t('Remettre « {title} » à faire', { title: e.title }) : t('Marquer « {title} » comme fait', { title: e.title })}
-      >
-        {e.done && <Check size={10} strokeWidth={3} className="text-paper" />}
-      </button>
+    <li className={cx('group flex items-center gap-3 rounded-lg px-1.5 py-1.5 transition-colors hover:bg-stone-50', past && 'opacity-60')}>
+      {agenda ? (
+        <span className="flex h-4 w-4 shrink-0 items-center justify-center" title={agenda.name}>
+          <span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: c.color }} />
+        </span>
+      ) : (
+        <button
+          onClick={() => toggleDone(e.id)}
+          className={cx('hit flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors', e.done ? 'border-ink bg-ink' : 'border-stone-300 hover:border-stone-500')}
+          title={e.done ? t('Marquer comme à faire') : t('Marquer comme fait')}
+          aria-label={e.done ? t('Remettre « {title} » à faire', { title: e.title }) : t('Marquer « {title} » comme fait', { title: e.title })}
+        >
+          {e.done && <Check size={10} strokeWidth={3} className="text-paper" />}
+        </button>
+      )}
       <span className="h-4 w-[3px] shrink-0 rounded-full" style={{ background: c.color }} />
       {/* Taller on touch screens (36 px) without moving the row. */}
-      <Link to={linkToDay(e.date, e.id)} className="min-w-0 flex-1 pointer-coarse:-my-2 pointer-coarse:py-2">
-        <span className={cx('block truncate text-[13px]', e.done ? 'text-stone-500 line-through' : muted ? 'text-stone-600' : 'font-medium')}>{e.title}</span>
+      <Link to={fromAgenda(e) ? agendaLink(e) : linkToDay(e.date, e.id)} className="min-w-0 flex-1 pointer-coarse:-my-2 pointer-coarse:py-2">
+        <span className={cx('block truncate text-[13px]', e.done ? 'text-stone-500 line-through' : muted ? 'text-stone-600' : 'font-medium')}>
+          {e.title}
+          {agenda && <span className="font-normal text-stone-500"> · {agenda.name}</span>}
+        </span>
       </Link>
       <span className="tabular shrink-0 text-[12px] text-stone-500">
         {showDay && <span className="capitalize">{fmtDay(fromKey(e.date), daysUntil(e.date) < 7 ? 'EEE d' : 'EEE d MMM')}</span>}
@@ -88,25 +103,32 @@ export default function Dashboard() {
   const user = useAuth(s => s.user)!;
   const { notes, folders } = useNotes();
   const events = useCalendar(s => s.events);
+  // My shared calendars' events among mine for the day (read-only here: they open in their agenda).
+  const overlay = useAgendaOverlay().events;
 
   const today = useToday();
   const todos = useTodos(s => s.todos);
   const lateEvents = events.filter(e => isLateEvent(e)).length;
   const lateTodos = todos.filter(x => !x.done && x.due && x.due < today).length;
+  // The pill leads to the oldest late task (Tâches lights it up, at the top of its « En retard » group).
+  const firstLate = todos.filter(x => !x.done && x.due && x.due < today).sort((a, b) => a.due!.localeCompare(b.due!))[0];
   // To the minute: the clock, the day line and « dans 20 min » move on their own.
   const now = useMinute();
   const hour = now.getHours();
   // « Bonne nuit » is said when leaving, not to greet: late at night it is still « Bonsoir ».
   const hello = hour >= 5 && hour < 18 ? t('Bonjour') : t('Bonsoir');
 
-  const todayEvents = events.filter(e => e.date === today).sort(sortEvents);
+  const withShared = overlay.length ? [...events, ...overlay] : events;
+  const todayEvents = withShared.filter(e => e.date === today).sort(sortEvents);
   // When the day is light, show what comes next so that the card is never a dead end.
   const nextCount = todayEvents.length === 0 ? 2 : todayEvents.length < 3 ? 1 : 0;
-  const nextEvents = firstOfSpans(events.filter(e => e.date > today && !e.done).sort(sortEvents)).slice(0, nextCount);
+  const coming = firstOfSpans(withShared.filter(e => e.date > today && !e.done).sort(sortEvents));
+  const nextEvents = coming.slice(0, nextCount);
   // An exam already over today (end, else start, passed) is no longer the next one.
   const nowTime = fmt(now, 'HH:mm');
-  // The nearest big day: an exam (deadline, « grand jour ») or any event marked important.
-  const bigDays = firstOfSpans(events.filter(e => isBigEvent(e) && !e.done && (e.date > today || (e.date === today && (e.end ?? e.start ?? '24:00') > nowTime))).sort(sortEvents));
+  // The nearest big day: an exam (deadline, « grand jour ») or any event marked important; one that repeats (a weekly
+  // yoga marked important) once, its next one.
+  const bigDays = firstOfSeries(events.filter(e => isBigEvent(e) && !e.done && (e.date > today || (e.date === today && (e.end ?? e.start ?? '24:00') > nowTime))).sort(sortEvents));
   const nextExam = bigDays[0];
   // The ones after it, smaller: a big day two days later must not stay hidden behind the first.
   const laterBig = bigDays.slice(1, 3);
@@ -115,6 +137,8 @@ export default function Dashboard() {
   const notExam = !!nextExam && nextExam.category !== 'examen' && studies;
   const ws = weekStart(now);
   const weekDays = Array.from({ length: 7 }, (_, i) => toKey(addDays(ws, i)));
+  // « Ma semaine » leads to the next task to tick.
+  const nextTask = weekItems(todos, weekDays[0], weekDays[6]).left[0];
 
   // « Maintenant » : what is on now, else the next thing today (the blue tile).
   const nowEvent = todayEvents.find(e => !e.done && e.start && (e.end ?? e.start) > nowTime);
@@ -123,6 +147,8 @@ export default function Dashboard() {
   // Nothing more with a time today: the day's events without one (a birthday, an open day) are what's left.
   const allDay = todayEvents.filter(e => !e.start && !e.done);
   const minutesTo = nowEvent?.start ? Number(nowEvent.start.slice(0, 2)) * 60 + Number(nowEvent.start.slice(3)) - (now.getHours() * 60 + now.getMinutes()) : 0;
+  // Nothing more today (in the evening): the first thing of the next day that has something, in the blue tile.
+  const afterToday = !nowEvent && !allDay.length ? coming[0] : undefined;
 
   const nowPeriods = periodsOn(periods, today);
   const recentNotes = [...notes].sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned) || b.updatedAt.localeCompare(a.updatedAt)).slice(0, 4);
@@ -170,12 +196,12 @@ export default function Dashboard() {
             {(lateEvents > 0 || lateTodos > 0) && (
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {lateEvents > 0 && (
-                  <Link to="/calendrier" className="hit-sm flex h-7 items-center rounded-full bg-red-50 px-3 text-[12.5px] font-semibold text-urgent-text">
+                  <Link to="/calendrier#en-retard" className="hit-sm flex h-7 items-center rounded-full bg-red-50 px-3 text-[12.5px] font-semibold text-urgent-text">
                     {tn(lateEvents, '{n} événement en retard', '{n} événements en retard')}
                   </Link>
                 )}
                 {lateTodos > 0 && (
-                  <Link to="/taches" className="hit-sm flex h-7 items-center rounded-full bg-red-50 px-3 text-[12.5px] font-semibold text-urgent-text">
+                  <Link to={firstLate ? `/taches?tache=${firstLate.id}` : '/taches'} className="hit-sm flex h-7 items-center rounded-full bg-red-50 px-3 text-[12.5px] font-semibold text-urgent-text">
                     {tn(lateTodos, '{n} tâche en retard', '{n} tâches en retard')}
                   </Link>
                 )}
@@ -195,196 +221,209 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Bento: tiles of different sizes; on a phone the DOM order is the priority order. */}
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
-          {/* Now (blue tile): what is on or comes next, the time now, the day as a slider. */}
-          <Link to={linkToDay(today, nowEvent?.id)} className="enter flex min-h-[150px] flex-col justify-between rounded-[24px] bg-tile-blue p-6 text-white transition-[filter] hover:brightness-110 lg:col-start-1 lg:row-start-1">
-            <span className="flex items-start justify-between gap-4">
-              <span className="min-w-0">
-                <span className="block text-[13px] font-semibold text-white/90">
-                  {nowEvent && minutesTo <= 0 ? t('En ce moment') : t('Aujourd’hui')}
-                  {nowEvent && minutesTo > 0 && (
-                    <span className="whitespace-nowrap font-medium text-white/90">
-                      {' · '}
-                      {minutesTo < 60
-                        ? t('dans {n} min', { n: minutesTo })
-                        : minutesTo % 60
-                          ? t('dans {h} h {m}', { h: Math.floor(minutesTo / 60), m: String(minutesTo % 60).padStart(2, '0') })
-                          : t('dans {h} h', { h: minutesTo / 60 })}
+        {/* Bento: two columns from a tablet, each stacking its tiles at their own height (a long day on the left no
+            longer stretches the big day on the right). On a phone one column, in the order of priority (order-*). */}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:items-start lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
+          <div className="contents md:flex md:min-w-0 md:flex-col md:gap-4">
+            {/* Now (blue tile): what is on or comes next, the time now, the day as a slider. */}
+            <Link to={linkToDay(today, nowEvent?.id)} className="enter flex min-h-[150px] flex-col justify-between rounded-[24px] bg-tile-blue p-6 text-white transition-[filter] hover:brightness-110 order-1">
+              <span className="flex items-start justify-between gap-4">
+                <span className="min-w-0">
+                  <span className="block text-[13px] font-semibold text-white/90">
+                    {nowEvent && minutesTo <= 0 ? t('En ce moment') : t('Aujourd’hui')}
+                    {nowEvent && minutesTo > 0 && (
+                      <span className="whitespace-nowrap font-medium text-white/90">
+                        {' · '}
+                        {minutesTo < 60
+                          ? t('dans {n} min', { n: minutesTo })
+                          : minutesTo % 60
+                            ? t('dans {h} h {m}', { h: Math.floor(minutesTo / 60), m: String(minutesTo % 60).padStart(2, '0') })
+                            : t('dans {h} h', { h: minutesTo / 60 })}
+                      </span>
+                    )}
+                  </span>
+                  {nowEvent ? (
+                    <>
+                      <span className="mt-1.5 line-clamp-2 text-[22px] font-extrabold leading-tight tracking-[-0.03em] [overflow-wrap:anywhere] sm:text-[26px]">{nowEvent.title}</span>
+                      <span className="mt-0.5 block truncate text-[14px] text-white/95">
+                        <span className="tabular">{nowEvent.end ? `${nowEvent.start} – ${nowEvent.end}` : nowEvent.start}</span>
+                        {nowEvent.details && ` · ${nowEvent.details.split('\n')[0]}`}
+                      </span>
+                    </>
+                  ) : allDay.length ? (
+                    <span className="mt-1.5 line-clamp-2 text-[22px] font-extrabold leading-tight tracking-[-0.03em] [overflow-wrap:anywhere] sm:text-[26px]">
+                      {allDay[0].title}
+                      {allDay.length > 1 && <span className="font-semibold text-white/95"> +{allDay.length - 1}</span>}
                     </span>
+                  ) : (
+                    <>
+                      <span className="mt-1.5 block text-[22px] font-extrabold tracking-[-0.02em]">{todayEvents.length ? t('Plus rien de prévu.') : t('Rien de prévu.')}</span>
+                      {afterToday && (
+                        <span className="mt-0.5 block truncate text-[14px] text-white/95">
+                          <span className="inline-block first-letter:uppercase">{daysUntil(afterToday.date) <= 1 ? countdownLabel(afterToday.date) : fmtDay(fromKey(afterToday.date), 'EEEE d')}</span>
+                          {afterToday.start && <span className="tabular"> · {afterToday.start}</span>} · {afterToday.title}
+                        </span>
+                      )}
+                    </>
                   )}
                 </span>
-                {nowEvent ? (
-                  <>
-                    <span className="mt-1.5 line-clamp-2 text-[22px] font-extrabold leading-tight tracking-[-0.03em] [overflow-wrap:anywhere] sm:text-[26px]">{nowEvent.title}</span>
-                    <span className="mt-0.5 block truncate text-[14px] text-white/95">
-                      <span className="tabular">{nowEvent.end ? `${nowEvent.start} – ${nowEvent.end}` : nowEvent.start}</span>
-                      {nowEvent.details && ` · ${nowEvent.details.split('\n')[0]}`}
-                    </span>
-                  </>
-                ) : allDay.length ? (
-                  <span className="mt-1.5 line-clamp-2 text-[22px] font-extrabold leading-tight tracking-[-0.03em] [overflow-wrap:anywhere] sm:text-[26px]">
-                    {allDay[0].title}
-                    {allDay.length > 1 && <span className="font-semibold text-white/95"> +{allDay.length - 1}</span>}
-                  </span>
-                ) : (
-                  <span className="mt-1.5 block text-[22px] font-extrabold tracking-[-0.02em]">{todayEvents.length ? t('Plus rien de prévu.') : t('Rien de prévu.')}</span>
-                )}
+                <span className="sr-only">{t('Il est {time}', { time: nowTime })}</span>
+                <span aria-hidden className="tabular shrink-0 text-[40px] font-extrabold leading-[0.9] tracking-[-0.045em] sm:text-[56px]">{nowTime}</span>
               </span>
-              <span className="sr-only">{t('Il est {time}', { time: nowTime })}</span>
-              <span aria-hidden className="tabular shrink-0 text-[40px] font-extrabold leading-[0.9] tracking-[-0.045em] sm:text-[56px]">{nowTime}</span>
-            </span>
-            <DayLine events={todayEvents} now={now} />
-          </Link>
+              <DayLine events={todayEvents} now={now} />
+            </Link>
 
-          {/* Next exam */}
-          {/* Nothing coming: a small light card, not a tall dark one with two lines in it (the column moves up). */}
-          <Widget dark={!!nextExam} title={notExam ? t('Prochain grand jour') : words.nextBig} className={cx('lg:col-start-2 lg:row-start-1', nextExam && 'lg:row-span-2')}>
-            {nextExam ? (
-              <div className="flex flex-1 flex-col">
-                <Link to={linkToDay(nextExam.date, nextExam.id)} className="group flex flex-col gap-3">
-                  <span className="flex items-baseline gap-3">
-                    {examDays <= 1 ? (
-                      // A word, not a number (« Demain », not « 1 jour »): « j » goes below the line, so no 0.8 line height here.
-                      <span className="text-[clamp(36px,11vw,52px)] font-extrabold leading-none tracking-[-0.045em] text-urgent lg:text-[clamp(36px,3.6vw,52px)]">{examDays === 0 ? t('Aujourd’hui') : t('Demain')}</span>
-                    ) : (
-                      <span className="tabular text-[112px] font-extrabold leading-[0.8] tracking-[-0.06em] text-urgent">{examDays}</span>
-                    )}
-                    {examDays > 1 && <span className="text-[18px] font-bold">{tn(examDays, 'jour', 'jours')}</span>}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="flex min-w-0 items-center gap-1.5 text-[17px] font-bold group-hover:underline">
-                      {nextExam.important && <Flag size={14} className="shrink-0 fill-urgent text-urgent" aria-label={t('Important')} />}
-                      <span className="truncate">{nextExam.title}</span>
+            {/* Today: left out when there is nothing at all (the blue tile already says « Rien de prévu »). */}
+            {(dayList.length > 0 || nextEvents.length > 0) && (
+            <Widget title={dayList.length ? t('Aujourd’hui') : t('À venir')} to={linkToDay(dayList.length ? today : nextEvents[0].date)} linkLabel={t('Ouvrir le calendrier')} className="order-3">
+              {dayList.length > 0 && (
+                <ul className="-mx-1.5">
+                  {dayList.map(e => (
+                    <EventRow key={e.id} e={e} />
+                  ))}
+                </ul>
+              )}
+              {nextEvents.length > 0 && (
+                <div className={cx(dayList.length > 0 && 'mt-3 border-t border-stone-100 pt-3')}>
+                  <p className="eyebrow mb-0.5">{t('Ensuite')}</p>
+                  <ul className="-mx-1.5">
+                    {nextEvents.map(e => (
+                      <EventRow key={e.id} e={e} showDay muted />
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </Widget>
+            )}
+
+            {/* To-do */}
+            <Widget title={t('À faire')} to="/taches" linkLabel={t('Ouvrir toutes les tâches')} className="order-4">
+              <TodoList limit={6} />
+            </Widget>
+
+          </div>
+          <div className="contents md:flex md:min-w-0 md:flex-col md:gap-4">
+            {/* Next exam */}
+            {/* Nothing coming: a small light card, not a tall dark one with two lines in it (the column moves up). */}
+            <Widget dark={!!nextExam} title={notExam ? t('Prochain grand jour') : words.nextBig} className="order-2">
+              {nextExam ? (
+                <div className="flex flex-1 flex-col">
+                  <Link to={linkToDay(nextExam.date, nextExam.id)} className="group flex flex-col gap-3">
+                    <span className="flex items-baseline gap-3">
+                      {examDays <= 1 ? (
+                        // A word, not a number (« Demain », not « 1 jour »): « j » goes below the line, so no 0.8 line height here.
+                        <span className="text-[clamp(36px,11vw,52px)] font-extrabold leading-none tracking-[-0.045em] text-urgent lg:text-[clamp(36px,3.6vw,52px)]">{examDays === 0 ? t('Aujourd’hui') : t('Demain')}</span>
+                      ) : (
+                        <span className="tabular text-[112px] font-extrabold leading-[0.8] tracking-[-0.06em] text-urgent">{examDays}</span>
+                      )}
+                      {examDays > 1 && <span className="text-[18px] font-bold">{tn(examDays, 'jour', 'jours')}</span>}
                     </span>
-                    <span className="block text-[13px] first-letter:uppercase text-white/80">
-                      {fmtDay(fromKey(nextExam.date), 'EEEE d MMMM')}
-                      {nextExam.start && ` · ${nextExam.start}`}
+                    <span className="min-w-0">
+                      <span className="flex min-w-0 items-center gap-1.5 text-[17px] font-bold group-hover:underline">
+                        {nextExam.important && <Flag size={14} className="shrink-0 fill-urgent text-urgent" aria-label={t('Important')} />}
+                        <span className="truncate">{nextExam.title}</span>
+                      </span>
+                      <span className="block text-[13px] first-letter:uppercase text-white/80">
+                        {fmtDay(fromKey(nextExam.date), 'EEEE d MMMM')}
+                        {nextExam.start && ` · ${nextExam.start}`}
+                      </span>
                     </span>
-                  </span>
-                </Link>
-                {laterBig.length > 0 && (
-                  <div className="mt-5 border-t border-white/10 pt-4">
-                    <p className="mb-1 text-[12px] font-semibold text-white/75">{t('Ensuite')}</p>
-                    <ul className="space-y-0.5">
-                      {laterBig.map(e => {
-                        const d = daysUntil(e.date);
-                        return (
-                          <li key={e.id}>
-                            <Link to={linkToDay(e.date, e.id)} className="group flex items-center gap-2 rounded-md py-1 text-[12.5px] pointer-coarse:py-2">
-                              <span className={cx('tabular w-9 shrink-0 font-bold', d <= 3 ? 'text-[#ffa27c]' : 'text-white/75')}>{d === 0 ? t('Auj.') : t('J-{n}', { n: d })}</span>
-                              <span className="min-w-0 truncate group-hover:underline">{e.title}</span>
-                              <span className="ml-auto shrink-0 text-[12px] text-white/75">
-                                {/* The week day is enough within 7 days (the column is narrow on a 1024 px screen). */}
-                                {fmtDay(fromKey(e.date), d < 7 ? 'EEE d' : 'EEE d MMM').replace(/^./, c => c.toUpperCase())}
-                                {e.start && ` · ${e.start}`}
-                              </span>
-                            </Link>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                    {bigDays.length > 3 && (
-                      <Link to="/calendrier" className="mt-1 inline-block text-[12px] text-white/75 hover:text-white hover:underline pointer-coarse:py-2">
-                        {tn(bigDays.length - 3, '+{n} autre dans le calendrier', '+{n} autres dans le calendrier')}
-                      </Link>
-                    )}
-                  </div>
-                )}
-                <div className="mt-auto pt-4">
-                  {hasRevisionPlan(nextExam) ? (
-                    <div className="space-y-2">
-                      <p className="flex items-center gap-1.5 text-[12px] text-white/75">
-                        <Check size={13} className="text-emerald-400" /> {words.planned}
-                        {revisionSessions(nextExam)[0] && (
-                          <Link to={linkToDay(revisionSessions(nextExam)[0].date, revisionSessions(nextExam)[0].id)} className="ml-auto font-semibold text-white/90 underline-offset-2 hover:text-white hover:underline">
-                            {t('Voir les créneaux')}
-                          </Link>
-                        )}
-                      </p>
-                      {examSheet && (
-                        <Link to={linkToNote(examSheet.id)} className="btn w-full bg-white text-tile-dark hover:bg-white/90">
-                          {words === WORDS.etudes ? t('Ouvrir la fiche') : t('Ouvrir la note')}
+                  </Link>
+                  {laterBig.length > 0 && (
+                    <div className="mt-5 border-t border-white/10 pt-4">
+                      <p className="mb-1 text-[12px] font-semibold text-white/75">{t('Ensuite')}</p>
+                      <ul className="space-y-0.5">
+                        {laterBig.map(e => {
+                          const d = daysUntil(e.date);
+                          return (
+                            <li key={e.id}>
+                              <Link to={linkToDay(e.date, e.id)} className="group flex items-center gap-2 rounded-md py-1 text-[12.5px] pointer-coarse:py-2">
+                                <span className={cx('tabular w-9 shrink-0 font-bold', d <= 3 ? 'text-[#ffa27c]' : 'text-white/75')}>{d === 0 ? t('Auj.') : t('J-{n}', { n: d })}</span>
+                                <span className="min-w-0 truncate group-hover:underline">{e.title}</span>
+                                <span className="ml-auto shrink-0 text-[12px] text-white/75">
+                                  {/* The week day is enough within 7 days (the column is narrow on a 1024 px screen). */}
+                                  {fmtDay(fromKey(e.date), d < 7 ? 'EEE d' : 'EEE d MMM').replace(/^./, c => c.toUpperCase())}
+                                  {e.start && ` · ${e.start}`}
+                                </span>
+                              </Link>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                      {bigDays.length > 3 && (
+                        <Link to="/calendrier?filtre=importants" className="mt-1 inline-block text-[12px] text-white/75 hover:text-white hover:underline pointer-coarse:py-2">
+                          {tn(bigDays.length - 3, '+{n} autre dans le calendrier', '+{n} autres dans le calendrier')}
                         </Link>
                       )}
                     </div>
-                  ) : examSheet && (examDays === 0 || tooLate === nextExam.id || noTimeLeft) ? (
-                    // A sheet but no session and no time left for one: asking again would only repeat « Plus le temps… ».
-                    <Link to={linkToNote(examSheet.id)} className="btn w-full bg-white text-tile-dark hover:bg-white/90">
-                      {words === WORDS.etudes ? t('Ouvrir la fiche') : t('Ouvrir la note')}
-                    </Link>
-                  ) : hasStarted(nextExam) || notExam ? null : (
-                    <button onClick={planExam} className="btn w-full bg-white text-tile-dark hover:bg-white/90">
-                      {words.plan}
-                    </button>
                   )}
+                  <div className="mt-auto pt-4">
+                    {hasRevisionPlan(nextExam) ? (
+                      <div className="space-y-2">
+                        <p className="flex items-center gap-1.5 text-[12px] text-white/75">
+                          <Check size={13} className="text-emerald-400" /> {words.planned}
+                          {revisionSessions(nextExam)[0] && (
+                            <Link to={linkToDay(revisionSessions(nextExam)[0].date, revisionSessions(nextExam)[0].id)} className="ml-auto font-semibold text-white/90 underline-offset-2 hover:text-white hover:underline">
+                              {t('Voir les créneaux')}
+                            </Link>
+                          )}
+                        </p>
+                        {examSheet && (
+                          <Link to={linkToNote(examSheet.id)} className="btn w-full bg-white text-tile-dark hover:bg-white/90">
+                            {words === WORDS.etudes ? t('Ouvrir la fiche') : t('Ouvrir la note')}
+                          </Link>
+                        )}
+                      </div>
+                    ) : examSheet && (examDays === 0 || tooLate === nextExam.id || noTimeLeft) ? (
+                      // A sheet but no session and no time left for one: asking again would only repeat « Plus le temps… ».
+                      <Link to={linkToNote(examSheet.id)} className="btn w-full bg-white text-tile-dark hover:bg-white/90">
+                        {words === WORDS.etudes ? t('Ouvrir la fiche') : t('Ouvrir la note')}
+                      </Link>
+                    ) : hasStarted(nextExam) || notExam ? null : (
+                      <button onClick={planExam} className="btn w-full bg-white text-tile-dark hover:bg-white/90">
+                        {words.plan}
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div className="text-[13px] text-stone-500">
-                <p>{words.noBig}</p>
-                <p className="mt-1 flex items-center gap-1 text-[12px]">
-                  <Flag size={12} className="shrink-0" /> {t('Marque un événement important pour le voir ici.')}
-                </p>
-              </div>
-            )}
-          </Widget>
+              ) : (
+                <div className="text-[13px] text-stone-500">
+                  <p>{words.noBig}</p>
+                  <p className="mt-1 flex items-center gap-1 text-[12px]">
+                    <Flag size={12} className="shrink-0" /> {t('Marque un événement important pour le voir ici.')}
+                  </p>
+                </div>
+              )}
+            </Widget>
 
-          {/* Today: left out when there is nothing at all (the blue tile already says « Rien de prévu »). */}
-          {(dayList.length > 0 || nextEvents.length > 0) && (
-          <Widget title={dayList.length ? t('Aujourd’hui') : t('À venir')} className="lg:col-start-1 lg:row-start-2">
-            {dayList.length > 0 && (
-              <ul className="-mx-1.5">
-                {dayList.map(e => (
-                  <EventRow key={e.id} e={e} />
-                ))}
-              </ul>
-            )}
-            {nextEvents.length > 0 && (
-              <div className={cx(dayList.length > 0 && 'mt-3 border-t border-stone-100 pt-3')}>
-                <p className="eyebrow mb-0.5">{t('Ensuite')}</p>
+            {/* Week: a ring that fills as the week's tasks get ticked */}
+            <Widget title={t('Ma semaine')} to={nextTask ? `/taches?tache=${nextTask.id}` : '/taches'} linkLabel={nextTask ? t('Ouvrir la prochaine tâche : {title}', { title: nextTask.title }) : t('Ouvrir toutes les tâches')} className="order-5">
+              <WeekProgress from={weekDays[0]} to={weekDays[6]} />
+            </Widget>
+
+            {/* Notes */}
+            <Widget title={t('Notes récentes')} to="/notes" linkLabel={t('Ouvrir les notes')} className="order-6">
+              {recentNotes.length === 0 ? (
+                <EmptyState
+                  size="sm"
+                  icon={NotebookPen}
+                  title={t('Aucune note pour l’instant.')}
+                  preview="list"
+                />
+              ) : (
                 <ul className="-mx-1.5">
-                  {nextEvents.map(e => (
-                    <EventRow key={e.id} e={e} showDay muted />
+                  {recentNotes.map(n => (
+                    <li key={n.id}>
+                      <Link to={linkToNote(n.id)} className="flex items-baseline gap-2 rounded-lg px-1.5 py-1.5 transition-colors hover:bg-stone-50 pointer-coarse:py-2" title={`${folders.find(f => f.id === n.folderId)?.name ?? t('Notes')} · ${noteText(n).slice(0, 120) || t('Vide')}`}>
+                        <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{n.title}</span>
+                        <span className="shrink-0 text-[11px] text-stone-500">{relativeTime(n.updatedAt)}</span>
+                      </Link>
+                    </li>
                   ))}
                 </ul>
-              </div>
-            )}
-          </Widget>
-          )}
-
-          {/* To-do */}
-          <Widget title={t('À faire')} to="/taches" linkLabel={t('Ouvrir toutes les tâches')} className={cx('lg:col-start-1 lg:row-span-2', dayList.length || nextEvents.length ? 'lg:row-start-3' : 'lg:row-start-2')}>
-            <TodoList limit={6} />
-          </Widget>
-
-          {/* Week: a ring that fills as the week's tasks get ticked */}
-          <Widget title={t('Ma semaine')} className={cx('lg:col-start-2', nextExam ? 'lg:row-start-3' : 'lg:row-start-2')}>
-            <WeekProgress from={weekDays[0]} to={weekDays[6]} />
-          </Widget>
-
-          {/* Notes */}
-          <Widget title={t('Notes récentes')} to="/notes" linkLabel={t('Ouvrir les notes')} className={cx('lg:col-start-2', nextExam ? 'lg:row-start-4' : 'lg:row-start-3')}>
-            {recentNotes.length === 0 ? (
-              <EmptyState
-                size="sm"
-                icon={NotebookPen}
-                title={t('Aucune note pour l’instant.')}
-                preview="list"
-              />
-            ) : (
-              <ul className="-mx-1.5">
-                {recentNotes.map(n => (
-                  <li key={n.id}>
-                    <Link to={linkToNote(n.id)} className="flex items-baseline gap-2 rounded-lg px-1.5 py-1.5 transition-colors hover:bg-stone-50 pointer-coarse:py-2" title={`${folders.find(f => f.id === n.folderId)?.name ?? t('Notes')} · ${noteText(n).slice(0, 120) || t('Vide')}`}>
-                      <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{n.title}</span>
-                      <span className="shrink-0 text-[11px] text-stone-500">{relativeTime(n.updatedAt)}</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Widget>
+              )}
+            </Widget>
+          </div>
         </div>
       </div>
     </div>
