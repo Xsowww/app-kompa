@@ -205,6 +205,15 @@ body {
     outline: 2px solid var(--color-focus);
     outline-offset: 2px;
   }
+  /* Inside dark or coloured surfaces (the phone tab bar, the dark and blue tiles, toasts): a light ring, the accent
+     one doesn't show there. On what they hold only: their own ring, outside them, is drawn on the page. */
+  :where(.bg-tile-dark, .bg-tile-blue, .bg-inverse) * {
+    --color-focus: #ffffff;
+  }
+  /* Tailwind's reset leaves the arrow on buttons: the hand says they can be pressed, like links. */
+  :where(button:not(:disabled), [role='button']:not([aria-disabled='true']), summary) {
+    cursor: pointer;
+  }
 }
 
 /* Hover shows at once (a fade-in made a quick sweep of the mouse over the menu look laggy);

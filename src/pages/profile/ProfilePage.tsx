@@ -41,6 +41,7 @@ import { aiPausedUntil, aiPauseReason } from '../../copilot/aiPause';
 import BadgeGrid from './BadgeGrid';
 import { USAGES, WORDS, groupWords, type Usage } from '../../lib/usage';
 import { PERSONAS, personaLabel } from '../../lib/personas';
+import { scrollMotion } from '../../lib/a11y';
 import LanguagePicker from '../../components/LanguagePicker';
 import { t, tn, lang, locale } from '../../i18n';
 
@@ -106,7 +107,7 @@ function BadgesSection() {
   const [open, setOpen] = useState(location.hash === '#badges');
   const earned = badges.filter(b => b.earned).length;
   useEffect(() => {
-    if (location.hash === '#badges') document.getElementById('badges')?.scrollIntoView({ behavior: 'smooth' });
+    if (location.hash === '#badges') document.getElementById('badges')?.scrollIntoView({ behavior: scrollMotion() });
   }, [location.hash]);
   return (
     <section id="badges" className="card enter scroll-mt-4">

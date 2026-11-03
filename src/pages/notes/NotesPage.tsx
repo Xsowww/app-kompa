@@ -542,7 +542,7 @@ export default function NotesPage() {
   const mainOpen = !!active;
 
   return (
-    <div className="flex h-full gap-4 px-4 pb-4 md:px-8">
+    <div className="mx-auto w-full max-w-[1244px] flex h-full gap-4 px-4 pb-4 md:px-8">
       {/* A note open on a phone hides the list and its title: the page keeps one for screen readers. */}
       {mainOpen && <h1 className="sr-only md:hidden">{t('Notes')}</h1>}
       {/* Sidebar */}

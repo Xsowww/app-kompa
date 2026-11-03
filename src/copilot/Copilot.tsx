@@ -14,7 +14,7 @@ import { frenchSpacing, stripMarkdown } from './markdown';
 import { aiPausedUntil, aiPauseReason } from './aiPause';
 import { useDictation } from './voice';
 import { homeVisited } from './proactive';
-import { trapTab } from '../lib/a11y';
+import { scrollMotion, trapTab } from '../lib/a11y';
 import { toKey, todayKey } from '../lib/dates';
 import { t } from '../i18n';
 
@@ -263,7 +263,7 @@ export default function Copilot() {
   }, [bubble, pose, clearBubble]);
 
   useEffect(() => {
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
+    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: scrollMotion() });
   }, [messages.length, thinking, pose]);
 
   // The panel is centred on the character; slide it so that it always stays inside the window.

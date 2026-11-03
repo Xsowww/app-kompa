@@ -13,6 +13,7 @@ import { flashWhenReady } from '../../lib/flash';
 import { SubjectBars, DailyFocus, DataTable } from './FocusCharts';
 import { dailyMinutes, formatMinutes, minutesBySubject, noSubjectLabel, weekMinutes } from './focusStats';
 import { useSettings } from '../../store/settings';
+import { scrollMotion } from '../../lib/a11y';
 import { usageWords } from '../../lib/usage';
 import { t } from '../../i18n';
 
@@ -129,7 +130,7 @@ export default function TasksPage() {
   useCreateActions([{ label: t('Nouvelle tâche'), icon: <ListPlus />, onClick: () => setCreating(true) }]);
 
   useEffect(() => {
-    if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView({ behavior: 'smooth' });
+    if (location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView({ behavior: scrollMotion() });
   }, [location.hash]);
 
   const adding = new URLSearchParams(location.search).has('ajout');

@@ -27,6 +27,7 @@ import { exportIcs } from '../../lib/backup';
 import { flashWhenReady } from '../../lib/flash';
 import { eventReminders, followMoments, reminderLabel } from '../../lib/reminders';
 import { feedLabel, feedOf } from '../../lib/icsFeeds';
+import { scrollMotion } from '../../lib/a11y';
 import { t, tn } from '../../i18n';
 
 type Mode = 'week' | 'month' | 'day';
@@ -530,7 +531,7 @@ export default function CalendarPage() {
               {/* Phones and tablets: the « En retard » list is far below the month, this takes there. */}
               {lateEvents.length > 0 && (
                 <button
-                  onClick={() => document.getElementById('en-retard')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                  onClick={() => document.getElementById('en-retard')?.scrollIntoView({ behavior: scrollMotion(), block: 'start' })}
                   className="rounded-full bg-red-50 px-2.5 py-1 text-[12px] font-semibold tracking-normal text-urgent-text lg:hidden pointer-coarse:py-2"
                 >
                   {tn(lateEvents.length, '{n} en retard', '{n} en retard')}

@@ -6,7 +6,7 @@ export interface CreateAction {
   label: string;
   icon: ReactNode;
   onClick: () => void;
-  /** Shown on computers, beside the label (e.g. « Ctrl N »). */
+  /** Shown on computers, beside the label (the first action: « N », its key). */
   shortcut?: string;
 }
 
@@ -19,7 +19,12 @@ interface Entry {
 /** The actions declared by the components on screen (a page, its open tab…), in their `order`. */
 export const useCreate = create<{ entries: Entry[] }>(() => ({ entries: [] }));
 
-export const allActions = (entries: Entry[]) => [...entries].sort((a, b) => a.order - b.order).flatMap(e => e.actions);
+/** The first one is also the N key (layout/shortcuts): the menu says so. */
+export const allActions = (entries: Entry[]) =>
+  [...entries]
+    .sort((a, b) => a.order - b.order)
+    .flatMap(e => e.actions)
+    .map((a, i) => (i === 0 && !a.shortcut ? { ...a, shortcut: 'N' } : a));
 
 /**
  * Declares what the « + » button creates while this component is on screen. Each page keeps its own functions

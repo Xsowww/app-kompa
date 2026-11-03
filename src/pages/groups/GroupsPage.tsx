@@ -203,7 +203,7 @@ function Intro() {
 function OfflineNotice() {
   const w = useGroupWords();
   return (
-    <div className="flex h-full flex-col px-4 pb-10 md:px-8">
+    <div className="mx-auto w-full max-w-[1244px] flex h-full flex-col px-4 pb-10 md:px-8">
       <h1 className="pb-4 pt-2 text-[24px] font-semibold tracking-[-0.02em]">{w.Groups}</h1>
       <EmptyState className="flex-1 justify-center" icon={CloudOff} title={t('Disponible dans la version en ligne')} text={t('Ici, tes données restent dans ce navigateur.')} />
     </div>
@@ -276,7 +276,7 @@ function Groups() {
   const sorted = [...groups].sort((a, b) => a.name.localeCompare(b.name, locale()));
 
   return (
-    <div className="flex h-full gap-4 px-4 pb-4 md:px-8">
+    <div className="mx-auto w-full max-w-[1244px] flex h-full gap-4 px-4 pb-4 md:px-8">
       {/* A group open on a phone hides the list and its title: the page keeps one for screen readers. */}
       {active && <h1 className="sr-only md:hidden">{w.Groups}</h1>}
       {/* Liste des groupes */}

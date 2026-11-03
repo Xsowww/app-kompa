@@ -732,7 +732,7 @@ export default function DrivePage() {
 
   return (
     <div
-      className="flex h-full flex-col px-4 pb-4 md:px-8"
+      className="mx-auto w-full max-w-[1244px] flex h-full flex-col px-4 pb-4 md:px-8"
       onPointerDownCapture={e => {
         const touch = e.pointerType === 'touch';
         if (touch !== touchMode) setTouchMode(touch);

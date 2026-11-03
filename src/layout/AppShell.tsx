@@ -36,6 +36,10 @@ import CreateButton from '../components/CreateButton';
 import { useInvitations } from '../pages/groups/join';
 import { needsCredentials, PROVIDER_NAMES, savedAccounts, type SavedAccount } from '../lib/accounts';
 import { t, tn } from '../i18n';
+import { useGlobalShortcuts } from './shortcuts';
+import ErrorBoundary from '../components/ErrorBoundary';
+import { watchAppBadge } from '../lib/appBadge';
+import { watchBackOnline } from '../lib/backOnline';
 
 const SPACE_COLORS = { home: 'var(--color-brand-500)', drive: '#3b6fd8', calendar: '#d9483b', notes: '#d48a17' };
 
@@ -366,6 +370,8 @@ export default function AppShell() {
   const trashLabel = trashCount ? tn(trashCount, 'Corbeille, {n} élément', 'Corbeille, {n} éléments') : t('Corbeille');
 
   useEffect(() => registerNavigate(navigate), [navigate]);
+  // ?, /, N, G then a letter, Ctrl+J (layout/shortcuts).
+  useGlobalShortcuts(navigate);
   // Invitation links: joined, then a window says so (pages/groups/Joined). One opened before signing in
   // (App › RequireAuth) is joined now, without leaving the page shown after sign-in.
   const [pendingInvite] = useState(() => sessionStorage.getItem(PENDING_INVITE));
@@ -401,6 +407,20 @@ export default function AppShell() {
   useEffect(() => (cloudEnabled ? watchAgendaNews() : undefined), [user.id]);
   const agendaNews = useAgendaNews(s => totalAgendaNews(s.news));
   const news = (to: string) => (to === '/groupes' ? groupNews : to === '/agendas' ? agendaNews : 0);
+  // Installed app: what is late and the news, as a number on its icon (lib/appBadge).
+  useEffect(() => watchAppBadge(), [user.id]);
+  // Back online: « De retour en ligne · N changements envoyés » (lib/backOnline).
+  useEffect(() => watchBackOnline(), [user.id]);
+
+  // Screen readers: the new page's name, said once it opened (the content changed, the focus stayed where it was).
+  const [announced, setAnnounced] = useState('');
+  const firstPath = useRef(pathname);
+  useEffect(() => {
+    if (pathname === firstPath.current) return;
+    firstPath.current = '';
+    const id = setTimeout(() => setAnnounced(document.title.replace(/ · Kompaly$/, '')), 300);
+    return () => clearTimeout(id);
+  }, [pathname]);
 
   // Lien « Administration » : seulement pour les comptes déclarés dans public.admins.
   const [isAdmin, setIsAdmin] = useState(false);
@@ -523,7 +543,9 @@ export default function AppShell() {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center gap-3 px-4 md:px-8">
+        {/* Wide screens: the header, like every page, keeps to the same centred column (1180 px of content, the pages'
+            `max-w-[1180px]` or `max-w-[1244px]` with their padding), so the search and the bin line up with it. */}
+        <header className="mx-auto flex h-14 w-full max-w-[1244px] shrink-0 items-center gap-3 px-4 md:px-8">
           <span className="lg:hidden">
             <Logo />
           </span>
@@ -568,7 +590,13 @@ export default function AppShell() {
         )}
         {/* Pages scroll to the bottom edge (under the tab bar on phones); their scroll area ends with `pb-room`, so the « + » button and the tab bar never cover the last buttons. */}
         <main id="contenu" tabIndex={-1} className="min-h-0 flex-1 overflow-hidden outline-none">
-          <Outlet />
+          {/* A page that breaks gives way alone: the menus stay, another page opens normally. */}
+          <ErrorBoundary page resetKey={pathname}>
+            <Outlet />
+          </ErrorBoundary>
+          <p className="sr-only" aria-live="polite" aria-atomic="true">
+            {announced}
+          </p>
           <FeedbackDialog />
           <NewsDialog />
           <ReminderAlerts />
@@ -598,6 +626,9 @@ export default function AppShell() {
 
 type Extra = { to: string; label: string; aria: string; icon: typeof House; color: string; count: number; urgent?: boolean };
 
+/** A finger sliding on the tab bar opens a tab once it rests on it this long (ms), not every tab it crosses. */
+const SLIDE_REST = 120;
+
 /**
  * Phones: Accueil, Calendrier, Tâches, Notes, Drive, and « Plus » for the others (Enregistrer, Groupes, Agendas partagés,
  * Corbeille, Administration), shown in a panel just above the bar: every space is reached from the bar.
@@ -608,12 +639,27 @@ function PhoneTabBar({ news, label, extra }: { news: (to: string) => number; lab
   const panel = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
   const main = NAV.filter(n => !('more' in n));
-  const more = [...NAV.filter(n => 'more' in n).map(n => ({ ...n, aria: label(n), count: news(n.to), urgent: n.to === '/agendas' })), ...extra];
+  const more = [
+    ...NAV.filter(n => 'more' in n).map(n => {
+      const count = news(n.to);
+      return { ...n, aria: count ? `${label(n)}, ${tn(count, '{n} nouveauté', '{n} nouveautés')}` : label(n), count, urgent: n.to === '/agendas' };
+    }),
+    ...extra,
+  ];
   const current = more.find(n => pathname === n.to || pathname.startsWith(`${n.to}/`));
   const navigate = useNavigate();
-  // A finger sliding along the bar: the page follows each tab passed over; over « Plus » the panel opens, and lifting on one of its spaces goes there.
-  const slide = useRef<{ x: number; y: number; on: boolean; last: string | null; pushed: boolean } | null>(null);
+  // A finger sliding along the bar: the page follows the tab the finger rests on (a tab merely passed over is not
+  // opened); over « Plus » the panel opens, and lifting on one of its spaces goes there. The whole slide is one
+  // history step: « Retour » then goes back to where it started, not to a tab passed on the way.
+  const slide = useRef<{ x: number; y: number; on: boolean; last: string | null; pushed: boolean; wait?: ReturnType<typeof setTimeout> } | null>(null);
   const [hover, setHover] = useState<string | null>(null);
+  const slideTo = (to: string) => {
+    const s = slide.current;
+    if (s) clearTimeout(s.wait);
+    if (to === location.pathname) return;
+    navigate(to, { replace: !!s?.pushed });
+    if (s) s.pushed = true;
+  };
   const onSlideDown = (e: ReactPointerEvent) => {
     if (e.pointerType !== 'mouse') slide.current = { x: e.clientX, y: e.clientY, on: false, last: null, pushed: false };
   };
@@ -625,27 +671,28 @@ function PhoneTabBar({ news, label, extra }: { news: (to: string) => number; lab
     const key = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-tab]')?.dataset.tab ?? null;
     if (key === s.last) return;
     s.last = key;
+    clearTimeout(s.wait);
     setHover(key?.startsWith('p:') ? key.slice(2) : null);
     if (!key || key.startsWith('p:')) return;
     navigator.vibrate?.(5);
     if (key === 'more') return setOpen(true);
-    if (key === pathname) return;
-    navigate(key, { replace: s.pushed }); // one history step for the whole slide
-    s.pushed = true;
+    s.wait = setTimeout(() => slideTo(key), SLIDE_REST);
   };
   const onSlideEnd = (e: ReactPointerEvent) => {
     const s = slide.current;
-    slide.current = null;
+    if (s) clearTimeout(s.wait);
     setHover(null);
-    if (!s?.on || e.type === 'pointercancel') return;
+    if (!s?.on || e.type === 'pointercancel') return void (slide.current = null);
     // The click that ends a slide must not toggle « Plus » or open anything else.
     const swallow = (c: MouseEvent) => (c.stopPropagation(), c.preventDefault());
     window.addEventListener('click', swallow, true);
     setTimeout(() => window.removeEventListener('click', swallow, true), 0);
+    // Lifted on a space: there at once (in « Plus », or a tab left before its pause was over).
     if (hover) {
       setOpen(false);
-      navigate(hover);
-    }
+      slideTo(hover);
+    } else if (s.last && s.last !== 'more' && !s.last.startsWith('p:')) slideTo(s.last);
+    slide.current = null;
   };
   const moreNews = more.some(n => n.to !== '/corbeille' && n.count > 0);
 
@@ -732,13 +779,13 @@ function PhoneTabBar({ news, label, extra }: { news: (to: string) => number; lab
           type="button"
           aria-expanded={open}
           aria-controls={open ? 'nav-more-panel' : undefined}
-          aria-label={current ? t('Plus d’espaces (ici : {space})', { space: label(current) }) : t('Plus d’espaces')}
+          aria-label={`${current ? t('Plus d’espaces (ici : {space})', { space: label(current) }) : t('Plus d’espaces')}${!open && moreNews ? `, ${t('nouveautés')}` : ''}`}
           onClick={() => setOpen(o => !o)}
           className={tab(!!current && !open)}
         >
           <span className="relative">
             {open ? <X size={19} strokeWidth={2.2} /> : <Shown size={19} strokeWidth={current ? 2.2 : 1.9} style={{ color: current ? current.color : undefined }} />}
-            {!open && moreNews && <span className={cx('absolute -right-1 -top-0.5 h-2 w-2 rounded-full bg-red-500 ring-2', current ? 'ring-white' : 'ring-tile-dark')} aria-label={t('nouveautés')} />}
+            {!open && moreNews && <span className={cx('absolute -right-1 -top-0.5 h-2 w-2 rounded-full bg-red-500 ring-2', current ? 'ring-white' : 'ring-tile-dark')} aria-hidden />}
           </span>
           <span className="max-w-full truncate">{open ? t('Fermer') : current ? (('short' in current && typeof current.short === 'string' && current.short) || label(current)) : t('Plus')}</span>
         </button>
