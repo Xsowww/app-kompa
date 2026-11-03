@@ -6,9 +6,10 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import { create } from 'zustand';
 import { fmt, todayKey } from '../lib/dates';
-import { lang, t, tn } from '../i18n';
+import { lang, t } from '../i18n';
 import { useCopilot, type CopilotLink, type CopilotOffer } from '../store/copilot';
 import { useCalendar, CATEGORIES, CATEGORY_LABELS, guessCategory, type EventCategory } from '../store/calendar';
+import { normalize } from '../lib/utils';
 import type { Usage } from '../lib/usage';
 import { useTodos } from '../store/todos';
 import { useNotes } from '../store/notes';
@@ -34,6 +35,7 @@ import {
   searchNotes, listTodos, addTodo, completeTodo, startFocus, stopFocus, updateSettings,
 } from './actions';
 import { offerLog, pendingChanges } from './offers';
+import { deleteOffer, mergeOffers } from './offerMerge';
 import { readFileText } from './fileText';
 import type { BotReply } from './localBrain';
 import { aiPausedUntil, pauseAi } from './aiPause';
@@ -302,8 +304,14 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
       const ev = (list: typeof a.today) => list.map(e => ({ id: e.id, desc: describeEvent(e) }));
       return { ...a, today: ev(a.today), exams: ev(a.exams), lateHomework: ev(a.lateHomework), nextDeadlines: ev(a.nextDeadlines) };
     }
-    case 'list_events':
-      return eventsBetween(str(input.from), str(input.to)).map(e => ({ id: e.id, title: e.title, date: e.date, start: e.start, end: e.end, category: e.category, done: e.done }));
+    case 'list_events': {
+      // By title (« tous mes Yoga »): every occurrence, whatever the date; else the dates given.
+      const q = normalize(str(input.title));
+      const list = q
+        ? useCalendar.getState().events.filter(e => !e.deletedAt && normalize(e.title).includes(q) && (!str(input.from) || e.date >= str(input.from)) && (!str(input.to) || e.date <= str(input.to))).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 300)
+        : eventsBetween(str(input.from), str(input.to));
+      return list.map(e => ({ id: e.id, title: e.title, date: e.date, start: e.start, end: e.end, category: e.category, done: e.done }));
+    }
     case 'add_event': {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(str(input.date)) || !str(input.title)) throw new Error('title et date (YYYY-MM-DD) requis');
       const picked = str(input.category) in CATEGORIES ? (str(input.category) as EventCategory) : undefined;
@@ -321,10 +329,12 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
       return { created: describeEvent(ev), id: ev.id };
     }
     case 'delete_event': {
-      const ev = useCalendar.getState().events.find(e => e.id === str(input.event_id));
-      if (!ev) throw new Error('événement introuvable (il faut son id exact, voir list_events)');
-      offers.push({ label: t('Supprimer « {title} »', { title: ev.title }), kind: 'confirm_delete', payload: { what: 'event', ids: ev.id } });
-      return awaitingClick(describeEvent(ev));
+      // One call for several (event_ids): one button « Supprimer les N événements » (offerMerge also groups separate calls).
+      const wanted = [...ids(input.event_ids), ...(str(input.event_id) ? [str(input.event_id)] : [])];
+      const found = useCalendar.getState().events.filter(e => wanted.includes(e.id) && !e.deletedAt);
+      if (!found.length) throw new Error('événement introuvable (il faut son id exact, voir list_events)');
+      offers.push(deleteOffer('event', found.map(e => e.id), found.map(e => e.title)));
+      return { ...awaitingClick(found.map(describeEvent).join(' ; ')), ...(found.length < wanted.length && { not_found: wanted.length - found.length }) };
     }
     case 'plan_revisions': {
       const exam = findExam(str(input.exam));
@@ -366,11 +376,7 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
       });
       if (!found.length) throw new Error('aucun élément avec ces id exacts (trouve-les avec list_drive_folder ou search_site)');
       const names = found.map(itemName);
-      offers.push({
-        label: found.length === 1 ? t('Mettre « {name} » à la corbeille', { name: names[0] }) : tn(found.length, 'Mettre {n} élément à la corbeille', 'Mettre {n} éléments à la corbeille'),
-        kind: 'confirm_delete',
-        payload: { what: 'items', ids: found.map(s => s.item.id).join(',') },
-      });
+      offers.push(deleteOffer('items', found.map(s => s.item.id), names));
       return awaitingClick(names.join(', '));
     }
     case 'list_trash': {
@@ -388,10 +394,11 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
       return { created: todo.title, id: todo.id, due: todo.due };
     }
     case 'delete_todo': {
-      const todo = useTodos.getState().todos.find(x => x.id === str(input.todo_id));
-      if (!todo) throw new Error('tâche introuvable (il faut son id exact, voir list_todos)');
-      offers.push({ label: t('Supprimer « {title} »', { title: todo.title }), kind: 'confirm_delete', payload: { what: 'todo', ids: todo.id } });
-      return awaitingClick(todo.title);
+      const wanted = [...ids(input.todo_ids), ...(str(input.todo_id) ? [str(input.todo_id)] : [])];
+      const found = useTodos.getState().todos.filter(x => wanted.includes(x.id) && !x.deletedAt);
+      if (!found.length) throw new Error('tâche introuvable (il faut son id exact, voir list_todos)');
+      offers.push(deleteOffer('todo', found.map(x => x.id), found.map(x => x.title)));
+      return awaitingClick(found.map(x => x.title).join(' ; '));
     }
     case 'start_focus':
       return { started: startFocus(str(input.subject)) };
@@ -476,12 +483,12 @@ export async function claudeReply(text: string, userName: string, stop?: AbortSi
           .join('\n')
           .trim();
         const unique = links.filter((l, i) => links.findIndex(x => x.to === l.to) === i).slice(0, 4);
-        if (answer) return { text: answer, links: unique, offers };
+        if (answer) return { text: answer, links: unique, offers: mergeOffers(offers) };
         // An empty answer: say so honestly (« done » only when a tool did act), and keep a readable turn in the
         // history, or every next question would be refused for this empty message.
         const said = offers.length ? t('Tu confirmes ?') : acted ? t('C’est fait.') : t('Je n’ai pas de réponse cette fois. Tu peux reformuler ?');
         history[history.length - 1] = { role: 'assistant', content: [{ type: 'text', text: said }] };
-        return { text: said, links: unique, offers };
+        return { text: said, links: unique, offers: mergeOffers(offers) };
       }
       const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];
       for (const tu of toolUses) {
@@ -503,7 +510,7 @@ export async function claudeReply(text: string, userName: string, stop?: AbortSi
       // Stopped while the tools ran: no next call (what they did stays done).
       if (stop?.aborted) throw new CopilotApiError('aborted');
     }
-    return { text: t('J’ai fait plusieurs choses, jette un œil.'), links, offers };
+    return { text: t('J’ai fait plusieurs choses, jette un œil.'), links, offers: mergeOffers(offers) };
   } catch (e) {
     history = history.slice(0, before); // keep the conversation valid for the next try
     throw acted ? new PartlyDone(e, links.filter((l, i) => links.findIndex(x => x.to === l.to) === i).slice(0, 4)) : e;

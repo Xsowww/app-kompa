@@ -16,7 +16,9 @@ export interface CopilotOffer {
   kind:
     | 'plan_revisions' | 'revision_note' | 'mark_done' | 'open' | 'confirm_delete' | 'confirm_change'
     // Kompaly's initiatives (proactive.ts): done on the click, without the AI, except « ask » (a question sent to the AI).
-    | 'add_todo' | 'create_note' | 'add_reminder' | 'rehearse' | 'spread_todos' | 'start_focus' | 'ack' | 'ask';
+    | 'add_todo' | 'create_note' | 'add_reminder' | 'rehearse' | 'spread_todos' | 'start_focus' | 'ack' | 'ask'
+    // « Annuler » after a deletion made from the chat: back from the trash.
+    | 'undo_trash';
   payload?: Record<string, string>;
 }
 
