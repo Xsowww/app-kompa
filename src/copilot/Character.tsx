@@ -8,6 +8,8 @@ interface Props {
   blink?: boolean;
   mood?: CopilotMood;
   size?: number;
+  /** Something new to read: a red dot on the corner of his screen, which moves with him. */
+  badge?: boolean;
 }
 
 // Kompaly is a little grey drone (one 3D picture, public/kompaly/drone.webp). His face is drawn on its screen
@@ -18,6 +20,9 @@ const POSE: Record<CopilotPose, string> = {
   peek: 'translateX(30%) rotate(-7deg)',
   open: 'translateX(2%) rotate(-2deg)',
 };
+
+/** Hidden with something to read: his screen's corner out of the edge, enough to show the dot on it. */
+const BADGE_POSE = 'translateX(50%) rotate(-9deg)';
 
 /** The glowing face, in a 100 × 80 box laid on the screen. */
 function Face({ mood, x, y, blink }: { mood: CopilotMood; x: number; y: number; blink: boolean }) {
@@ -49,7 +54,7 @@ function Face({ mood, x, y, blink }: { mood: CopilotMood; x: number; y: number; 
 
 const GLOW = 'drop-shadow(0 0 2px rgba(255,255,255,.9)) drop-shadow(0 0 6px rgba(255,255,255,.45))';
 
-export default function Character({ pose, look = { x: -1, y: 0 }, blink = false, mood = 'idle', size = 112 }: Props) {
+export default function Character({ pose, look = { x: -1, y: 0 }, blink = false, mood = 'idle', size = 112, badge = false }: Props) {
   const lx = mood === 'think' ? -5 : look.x * 6;
   const ly = mood === 'think' ? -5 : look.y * 4;
   const float = mood === 'alert' ? 'cop-bounce' : mood === 'sleep' ? 'cop-hover cop-slow' : 'cop-hover';
@@ -58,7 +63,7 @@ export default function Character({ pose, look = { x: -1, y: 0 }, blink = false,
     <div className="pointer-events-none relative select-none" style={{ width: size, height: (size * 140) / 124 }} aria-hidden>
       <div
         className="absolute inset-x-0 top-[22%]"
-        style={{ pointerEvents: 'visiblePainted', transform: POSE[pose], transformOrigin: '100% 50%', transition: 'transform 480ms cubic-bezier(.34,1.45,.64,1)' }}
+        style={{ pointerEvents: 'visiblePainted', transform: badge && pose === 'hidden' ? BADGE_POSE : POSE[pose], transformOrigin: '100% 50%', transition: 'transform 480ms cubic-bezier(.34,1.45,.64,1)' }}
       >
         <div className={float}>
           <div className={mood === 'alert' ? 'cop-wiggle' : undefined} style={{ position: 'relative', width: '125%', marginLeft: '-12%' }}>
@@ -73,6 +78,7 @@ export default function Character({ pose, look = { x: -1, y: 0 }, blink = false,
               </span>
             )}
             {mood === 'alert' && <span className="absolute -top-[26%] right-[22%] text-[22px] font-black text-amber-400 [text-shadow:0_0_8px_rgb(255_190_60/0.7)]">!</span>}
+            {badge && <span className="absolute left-[27%] top-[7%] h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-red-500 ring-2 ring-paper" />}
           </div>
         </div>
       </div>

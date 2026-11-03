@@ -65,14 +65,15 @@ export default function NewsDialog() {
             {page + 1} / {release.items.length}
           </span>
         </p>
-        <div key={page} className={cx('enter mt-3 flex h-40 items-center justify-center rounded-2xl bg-gradient-to-br', TINTS[item.icon])}>
-          {Icon ? <Icon size={56} strokeWidth={1.6} aria-hidden /> : <DroneStill className="h-28 drop-shadow-[0_6px_10px_rgba(0,0,0,0.25)]" />}
+        {/* A phone held sideways: a smaller picture, the whole page fits without scrolling. */}
+        <div key={page} className={cx('enter mt-3 flex h-40 items-center justify-center rounded-2xl bg-gradient-to-br [@media(max-height:560px)]:h-20', TINTS[item.icon])}>
+          {Icon ? <Icon size={56} strokeWidth={1.6} aria-hidden className="[@media(max-height:560px)]:size-9" /> : <DroneStill className="h-28 drop-shadow-[0_6px_10px_rgba(0,0,0,0.25)] [@media(max-height:560px)]:h-16" />}
         </div>
-        <h3 className="mt-4 text-[18px] font-semibold tracking-[-0.01em]">{item.title}</h3>
-        <p className="mt-1.5 min-h-[3.75rem] text-[14px] leading-relaxed text-stone-600">{item.text}</p>
+        <h3 className="mt-4 text-[18px] font-semibold tracking-[-0.01em] [@media(max-height:560px)]:mt-3">{item.title}</h3>
+        <p className="mt-1.5 min-h-[3.75rem] text-[14px] leading-relaxed text-stone-600 [@media(max-height:560px)]:min-h-0">{item.text}</p>
 
         {/* Each dot opens its page (a 24 px tap zone around the small dot). */}
-        <div className="mt-3 flex justify-center">
+        <div className="mt-3 flex justify-center [@media(max-height:560px)]:mt-1">
           {release.items.map((it, i) => (
             <button
               key={i}
@@ -87,20 +88,21 @@ export default function NewsDialog() {
           ))}
         </div>
 
-        <div className="mt-5 flex items-center gap-2">
+        {/* 320 px: the three buttons on one line (no arrow on « Suivant »), and never wider than the window. */}
+        <div className="mt-5 flex flex-wrap items-center justify-end gap-2 [@media(max-height:560px)]:mt-2">
           {page > 0 ? (
-            <button type="button" className="btn-ghost h-10 px-2.5" onClick={() => setPage(p => p - 1)} aria-label={t('Précédent')}>
+            <button type="button" className="btn-ghost mr-auto h-10 px-2.5" onClick={() => setPage(p => p - 1)} aria-label={t('Précédent')}>
               <ChevronLeft size={16} />
             </button>
           ) : (
-            <button type="button" className="btn-ghost h-10 px-2.5 text-[13px]" onClick={close}>
+            <button type="button" className="btn-ghost mr-auto h-10 px-2 text-[13px]" onClick={close}>
               {t('Passer')}
             </button>
           )}
           {item.to && (
             <button
               type="button"
-              className="btn-secondary ml-auto h-10"
+              className="btn-secondary h-10 max-[359px]:px-3"
               onClick={() => {
                 close();
                 navigate(item.to!);
@@ -109,8 +111,8 @@ export default function NewsDialog() {
               {t('Essayer')}
             </button>
           )}
-          <button type="button" className={cx('btn-primary h-10', !item.to && 'ml-auto')} onClick={() => (last ? close() : setPage(p => p + 1))} autoFocus>
-            {last ? t('C’est parti') : t('Suivant')} {!last && <ChevronRight size={16} />}
+          <button type="button" className="btn-primary h-10 max-[359px]:px-3" onClick={() => (last ? close() : setPage(p => p + 1))} autoFocus>
+            {last ? t('C’est parti') : t('Suivant')} {!last && <ChevronRight size={16} className="max-[359px]:hidden" />}
           </button>
         </div>
       </div>

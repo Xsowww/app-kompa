@@ -546,6 +546,9 @@ export default function Copilot() {
   // A remark of the bubble used (a button, a link) or closed: read.
   const read = () => useCopilot.setState({ unread: false });
   const recall = () => [...messages].reverse().find(m => m.role === 'user')?.text ?? '';
+  // Computers: a remark not read yet brings the corner of his screen out of the edge, the red dot on it (it floated
+  // apart from him, hidden but for an arm). Phones keep his head at the edge, the dot beside it.
+  const badge = unread && !isOpen && screen.w >= 640;
 
   return (
     <div ref={rootRef} className="pointer-events-none fixed right-0 z-50" style={{ top: `${offsetY * 100}%`, transform: 'translateY(-50%)' }}>
@@ -766,7 +769,7 @@ export default function Copilot() {
             }}
           >
             <div className={cx('transition-opacity duration-300', pose === 'hidden' && 'max-sm:opacity-0')}>
-              <WatchingCharacter offsetY={offsetY} pose={pose} blink={blink} mood={mood} size={104} />
+              <WatchingCharacter offsetY={offsetY} pose={pose} blink={blink} mood={mood} size={104} badge={badge} />
             </div>
             {/* Phones at rest: his head peeks out of the edge, small and recognisable. */}
             {pose === 'hidden' && (
@@ -776,7 +779,7 @@ export default function Copilot() {
             )}
             {/* Something said while the panel was closed: a dot until it is opened (the remark is in the conversation). */}
             {unread && !isOpen && (
-              <span aria-hidden className="pointer-events-none absolute right-[30px] top-[38%] h-3 w-3 rounded-full bg-red-500 ring-2 ring-paper max-sm:right-[34px] max-sm:top-[36%]" />
+              <span aria-hidden className="pointer-events-none absolute right-[34px] top-[36%] h-3 w-3 rounded-full bg-red-500 ring-2 ring-paper sm:hidden" />
             )}
             {/* Fingers: only his head shows at the edge, too small to tap; a wider invisible pad along the edge. */}
             {!isOpen && <span aria-hidden className="pointer-events-auto absolute inset-y-1 right-0 hidden w-8 pointer-coarse:block" />}

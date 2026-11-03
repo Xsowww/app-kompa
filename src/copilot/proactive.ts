@@ -281,7 +281,6 @@ function onFilesUploaded(count: number, added: { id: string; name: string }[]) {
 export function periodicNudges(now = new Date()): Nudge[] {
   const out: Nudge[] = [];
   const events = [...useCalendar.getState().events].sort(sortEvents);
-  const today = toKey(now);
 
   // (« ça commence dans 15 min » : the reminders of the event, lib/reminderScheduler.ts)
 
@@ -305,26 +304,6 @@ export function periodicNudges(now = new Date()): Nudge[] {
     });
   }
 
-  // Late homework
-  const late = events.filter(e => isDeliverable(e) && !e.done && e.date < today);
-  if (late.length) {
-    out.push({
-      key: `late:${today}`,
-      every: DAY,
-      situation: { evenement: 'devoirs non cochés dont la date est passée', devoirs: late.map(e => e.title) },
-      fallback:
-        late.length === 1
-          ? studying()
-            ? t('« {title} » : la date est passée. Tu l’as rendu ?', { title: late[0].title })
-            : t('« {title} » : la date est passée. C’est fait ?', { title: late[0].title })
-          : studying()
-            ? t('{n} devoirs sont en retard dans ton calendrier. Tu veux faire le tri ?', { n: late.length })
-            : t('{n} choses à faire sont en retard dans ton calendrier. Tu veux faire le tri ?', { n: late.length }),
-      offers: late.length === 1 ? [{ label: studying() ? t('Oui, c’est rendu') : t('Oui, c’est fait'), kind: 'mark_done', payload: { eventId: late[0].id } }] : undefined,
-      links: late.length > 1 ? [{ label: t('Voir le calendrier'), to: '/calendrier' }] : undefined,
-    });
-  }
-
   // Homework due tomorrow
   const tomorrow = toKey(addDays(now, 1));
   const due = events.find(e => isDeliverable(e) && !e.done && e.date === tomorrow);
@@ -332,9 +311,8 @@ export function periodicNudges(now = new Date()): Nudge[] {
     out.push({
       key: `due-tomorrow:${due.id}`,
       every: DAY,
-      situation: { evenement: 'devoir à rendre demain, pas encore coché', devoir: due.title, quand: when(due) },
+      situation: { evenement: 'devoir à rendre demain', devoir: due.title, quand: when(due) },
       fallback: studying() ? t('« {title} » est à rendre demain. Il te reste beaucoup ?', { title: due.title }) : t('« {title} » est prévu demain. Il te reste beaucoup ?', { title: due.title }),
-      offers: [{ label: t('C’est déjà fait'), kind: 'mark_done', payload: { eventId: due.id } }],
     });
   }
 
@@ -618,7 +596,6 @@ function weeklyReview(): boolean {
   const to = toKey(addDays(ws, 6));
   const events = useCalendar.getState().events;
   const week = events.filter(e => e.date >= from && e.date <= to && e.category !== 'cours');
-  const done = week.filter(e => e.done).length;
   const todosDone = useTodos.getState().todos.filter(x => x.doneAt && toKey(new Date(x.doneAt)) >= from).length;
   const sessions = useFocusLog.getState().sessions.filter(s => toKey(new Date(s.startedAt)) >= from);
   const bySubject = new Map<string, number>();
@@ -631,16 +608,17 @@ function weeklyReview(): boolean {
   const next = events.filter(e => e.date >= nFrom && e.date <= nTo);
   const nextExams = next.filter(e => big(e));
   // Discreet mode: only when there is something to act on (an exam next week, something late).
-  const late = events.some(e => isDeliverable(e) && !e.done && e.date < toKey(now)) || useTodos.getState().todos.some(x => !x.done && x.due && x.due < toKey(now));
+  // Only tasks are ticked (events no longer are): late means a task.
+  const late = useTodos.getState().todos.some(x => !x.done && x.due && x.due < toKey(now));
   if (settings.chattiness === 'calme' && !nextExams.length && !late) return false;
   const hours = (m: number) => (m >= 60 ? t('{h} h {min}', { h: Math.floor(m / 60), min: String(m % 60).padStart(2, '0') }) : t('{n} min', { n: m }));
   const ticked = todosDone ? tn(todosDone, '{n} tâche cochée', '{n} tâches cochées') : '';
-  const doneOf = { done: tn(done, '{n} fait', '{n} faits'), planned: tn(week.length, 'sur {n} prévu', 'sur {n} prévus') };
+  const planned = tn(week.length, '{n} événement', '{n} événements');
   const nextCount = tn(next.length, '{n} événement', '{n} événements');
 
   const lines = [
     week.length
-      ? ticked ? t('Cette semaine : {done} {planned}, plus {ticked}.', { ...doneOf, ticked }) : t('Cette semaine : {done} {planned}.', doneOf)
+      ? ticked ? t('Cette semaine : {events} au calendrier et {ticked}.', { events: planned, ticked }) : t('Cette semaine : {events} au calendrier.', { events: planned })
       : ticked ? t('Cette semaine : rien de prévu au calendrier, mais {ticked}.', { ticked }) : t('Cette semaine : rien de prévu au calendrier.'),
     focusMin
       ? top.length
@@ -661,7 +639,6 @@ function weeklyReview(): boolean {
     situation: {
       evenement: 'bilan du dimanche soir',
       prevu_cette_semaine: week.length,
-      fait_cette_semaine: done,
       taches_cochees: todosDone,
       minutes_focus_par_matiere: Object.fromEntries(bySubject),
       semaine_prochaine: next.map(e => `${e.title} (${e.category}, ${fmt(fromKey(e.date), 'EEEE')})`).slice(0, 12),

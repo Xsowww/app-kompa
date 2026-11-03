@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { Fragment, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { CheckCircle2, Fingerprint, Loader2 } from 'lucide-react';
 import { AUTH_MSG, awaitConfirmation, useAuth } from '../store/auth';
@@ -530,17 +530,18 @@ export default function AuthPage({ mode }: { mode: Mode }) {
           </form>
           )}
         </div>
-        <p className="text-[11px] text-stone-500">
-          {cloudEnabled ? t('Tes données sont chiffrées et protégées.') : t('Tes données restent sur cet appareil.')}
-          {LEGAL_LINKS.map(l => (
-            <span key={l.to}>
-              {'\u00a0· '}
+        {/* Phones: the sentence, then the three links on their own line (never a « · » left at the end of a line). */}
+        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-stone-500">
+          <span className="max-sm:w-full">{cloudEnabled ? t('Tes données sont chiffrées et protégées.') : t('Tes données restent sur cet appareil.')}</span>
+          {LEGAL_LINKS.map((l, i) => (
+            <Fragment key={l.to}>
+              <span aria-hidden className={i === 0 ? 'max-sm:hidden' : undefined}>·</span>
               <Link to={l.to} className="hit whitespace-nowrap underline decoration-stone-300 underline-offset-2 hover:text-ink">
                 {l.label}
               </Link>
-            </span>
+            </Fragment>
           ))}
-        </p>
+        </div>
       </main>
       <aside className="hidden flex-1 border-l border-stone-200/80 bg-stone-100/60 lg:block">
         <Showcase />

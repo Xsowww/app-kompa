@@ -119,11 +119,14 @@ function HeroDemo() {
         ) : (
           <span />
         )}
-        <div className="-mr-5 flex items-end gap-1 sm:-mr-12" aria-hidden>
+        {/* Out of sight until he speaks (a stray arm at the screen's edge looked like a bug); wide screens give him the margin. */}
+        <div className="-mr-5 flex items-end gap-1 md:-mr-8 lg:mr-0 min-[1300px]:-mr-12" aria-hidden>
           <div className={cx('mb-7 w-48 rounded-2xl rounded-br-sm border border-stone-200 bg-surface px-3 py-2 text-[12.5px] leading-snug shadow-pop sm:w-56', step === 2 ? 'pop' : 'invisible')}>
             {t('Présentation dans 2\u00a0jours. On bloque une heure demain pour la préparer\u00a0?')}
           </div>
-          <Character pose={step === 2 ? 'peek' : 'hidden'} look={{ x: -0.9, y: -0.3 }} mood={step === 2 ? 'happy' : 'idle'} size={92} />
+          <div className={cx('transition-opacity duration-300', step !== 2 && 'opacity-0')}>
+            <Character pose={step === 2 ? 'peek' : 'hidden'} look={{ x: -0.9, y: -0.3 }} mood={step === 2 ? 'happy' : 'idle'} size={92} />
+          </div>
         </div>
       </div>
     </div>
@@ -246,14 +249,15 @@ export default function LandingPage() {
           <Link to="/" aria-label={t('Kompaly, accueil')} className="shrink-0">
             <Logo />
           </Link>
-          <nav aria-label={t('Sur cette page')} className="hidden items-center gap-5 text-[13.5px] text-stone-600 md:flex">
+          <nav aria-label={t('Sur cette page')} className="hidden items-center gap-5 text-[13.5px] text-stone-600 lg:flex">
             <a href="#fonctions" className="inline-flex h-9 items-center hover:text-ink">{t('Fonctions')}</a>
             <a href="#usages" className="inline-flex h-9 items-center hover:text-ink">{t('Usages')}</a>
             <a href="#confiance" className="inline-flex h-9 items-center hover:text-ink">{t('Vie privée')}</a>
             <a href="#questions" className="inline-flex h-9 items-center hover:text-ink">{t('Questions')}</a>
           </nav>
           <div className="ml-auto flex items-center gap-2">
-            <LanguagePicker className="mr-1 h-9" />
+            {/* Phones: the globe alone (its name is read out), « Se connecter » kept in the bar. */}
+            <LanguagePicker className="mr-1 h-9 max-sm:[&>span]:sr-only" />
             <Link to="/connexion" className="btn-secondary h-9">
               {t('Se connecter')}
             </Link>

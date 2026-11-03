@@ -197,21 +197,17 @@ export function analyzeCalendar() {
   const week = eventsBetween(toKey(ws), weekEnd);
   const upcoming = eventsBetween(today, toKey(addDays(new Date(), 30)));
   const exams = upcoming.filter(e => (studying() ? e.category === 'examen' : isBigEvent(e)));
-  const late = useCalendar.getState().events.filter(e => isDeliverable(e) && !e.done && e.date < today);
   const todayEvents = eventsBetween(today, today);
 
   const perDay = new Map<string, number>();
   for (const e of week) perDay.set(e.date, (perDay.get(e.date) ?? 0) + 1);
   const busiest = [...perDay.entries()].sort((a, b) => b[1] - a[1])[0];
-  const done = week.filter(e => e.done).length;
 
   return {
     today: todayEvents,
     weekCount: week.length,
-    weekDone: done,
     busiestDay: busiest ? { date: busiest[0], count: busiest[1] } : null,
     exams,
-    lateHomework: late,
     nextDeadlines: upcoming.filter(e => isDeliverable(e) && !e.done).slice(0, 5),
   };
 }
@@ -228,7 +224,7 @@ export function calendarReport(): { text: string; links: CopilotLink[] } {
       ? t('Aujourd’hui : {list}.', { list: a.today.map(e => e.title).join(', ') })
       : t('Rien de prévu aujourd’hui.'),
   );
-  lines.push(t('Cette semaine : {events}, {done}.', { events: tn(a.weekCount, '{n} événement', '{n} événements'), done: tn(a.weekDone, '{n} déjà fait', '{n} déjà faits') }));
+  lines.push(t('Cette semaine : {events} au calendrier.', { events: tn(a.weekCount, '{n} événement', '{n} événements') }));
   if (a.busiestDay && a.busiestDay.count > 1) {
     lines.push(t('Jour le plus chargé : {day} ({n} événements).', { day: fmt(fromKey(a.busiestDay.date), 'EEEE'), n: a.busiestDay.count }));
   }
@@ -238,11 +234,7 @@ export function calendarReport(): { text: string; links: CopilotLink[] } {
     const soon = a.exams.find(e => daysUntil(e.date) <= 7);
     if (soon) lines.push(studying() ? t('Conseil : révise « {title} » un peu chaque jour, dès maintenant.', { title: soon.title }) : t('Conseil : prépare « {title} » un peu chaque jour, dès maintenant.', { title: soon.title }));
   }
-  const late = a.lateHomework;
-  if (late.length) {
-    const list = late.map(e => e.title).join(', ');
-    lines.push(studying() ? tn(late.length, 'Attention, {n} devoir en retard : {list}.', 'Attention, {n} devoirs en retard : {list}.', { list }) : t('Attention, en retard : {list}.', { list }));
-  } else if (a.nextDeadlines.length) {
+  if (a.nextDeadlines.length) {
     const next = { title: a.nextDeadlines[0].title, when: inSentence(countdownLabel(a.nextDeadlines[0].date)) };
     lines.push(studying() ? t('Prochain rendu : {title} ({when}).', next) : t('À faire ensuite : {title} ({when}).', next));
   }

@@ -204,7 +204,6 @@ function change(name: string, input: Record<string, unknown>, links: CopilotLink
         date: str(input.date) || undefined,
         start: str(input.start) || undefined,
         end: str(input.end) || undefined,
-        done: typeof input.done === 'boolean' ? input.done : undefined,
         important: typeof input.important === 'boolean' ? input.important : undefined,
       });
       if (!ev) throw new Error('événement introuvable');
@@ -300,7 +299,7 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
       const a = analyzeCalendar();
       links.push({ label: t('Ouvrir le calendrier'), to: '/calendrier' });
       const ev = (list: typeof a.today) => list.map(e => ({ id: e.id, desc: describeEvent(e) }));
-      return { ...a, today: ev(a.today), exams: ev(a.exams), lateHomework: ev(a.lateHomework), nextDeadlines: ev(a.nextDeadlines) };
+      return { ...a, today: ev(a.today), exams: ev(a.exams), nextDeadlines: ev(a.nextDeadlines) };
     }
     case 'list_events':
       return eventsBetween(str(input.from), str(input.to)).map(e => ({ id: e.id, title: e.title, date: e.date, start: e.start, end: e.end, category: e.category, done: e.done }));

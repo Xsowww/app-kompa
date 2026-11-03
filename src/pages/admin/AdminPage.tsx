@@ -257,17 +257,17 @@ export default function AdminPage() {
           </button>
         </div>
 
-        <nav aria-label={t('Parties de l’administration')} className="-mx-4 mb-5 overflow-x-auto border-b border-stone-200 px-4 md:mx-0 md:px-0">
-          <div className="flex min-w-max gap-1">
+        {/* The four parts always in sight: shared out over the width on phones (short names, no icon), no row to swipe. */}
+        <nav aria-label={t('Parties de l’administration')} className="mb-5 border-b border-stone-200">
+          <div className="flex gap-1">
             {VIEWS.map(v => (
               <button
                 key={v.key}
                 type="button"
                 aria-current={view === v.key ? 'page' : undefined}
-                ref={view === v.key ? el => el?.scrollIntoView({ inline: 'nearest', block: 'nearest' }) : undefined}
                 onClick={() => show(v.key)}
                 className={cx(
-                  '-mb-px flex h-10 items-center gap-2 border-b-2 px-3 text-[13.5px] transition-colors',
+                  '-mb-px flex h-10 items-center justify-center gap-1.5 whitespace-nowrap border-b-2 px-1 text-[13px] transition-colors max-sm:flex-auto sm:gap-2 sm:px-3 sm:text-[13.5px]',
                   view === v.key ? 'border-ink font-medium text-ink' : 'border-transparent text-stone-500 hover:text-ink',
                 )}
               >
@@ -284,7 +284,8 @@ export default function AdminPage() {
                   <span
                     className={cx(
                       'tabular rounded-full px-1.5 py-px text-[11px] font-semibold',
-                      v.key === 'traiter' ? 'bg-red-50 text-red-700' : 'bg-stone-100 text-stone-600',
+                      // Phones: only what waits for an answer (the number of accounts is above their list).
+                      v.key === 'traiter' ? 'bg-red-50 text-red-700' : 'bg-stone-100 text-stone-600 max-sm:hidden',
                     )}
                   >
                     {count[v.key]}
@@ -471,17 +472,18 @@ function AccountsTable({ accounts, total, query, setQuery }: { accounts: Account
           <EmptyState icon={Users} title={t('Aucun compte ne correspond.')} />
         )
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[820px] text-[13px]">
+        // Narrower screens: fewer columns (their figures go under the address), never a table to slide sideways.
+        <div>
+          <table className="w-full text-[13px]">
             <thead>
               <tr className="border-b border-stone-100 text-left text-[12px] text-stone-500">
                 <th className="px-4 py-2 font-medium">{t('Compte')}</th>
-                <th className="px-3 py-2 font-medium">{t('Inscrit')}</th>
+                <th className="px-3 py-2 font-medium max-md:hidden">{t('Inscrit')}</th>
                 <th className="px-3 py-2 font-medium">{t('Dernière connexion')}</th>
-                <th className="px-3 py-2 font-medium">{t('Sécurité')}</th>
-                <th className="px-3 py-2 text-right font-medium">{t('Notes')}</th>
-                <th className="px-3 py-2 text-right font-medium">{t('Événements')}</th>
-                <th className="px-3 py-2 text-right font-medium">{t('Fichiers')}</th>
+                <th className="px-3 py-2 font-medium max-md:hidden">{t('Sécurité')}</th>
+                <th className="px-3 py-2 text-right font-medium max-xl:hidden">{t('Notes')}</th>
+                <th className="px-3 py-2 text-right font-medium max-xl:hidden">{t('Événements')}</th>
+                <th className="px-3 py-2 text-right font-medium max-xl:hidden">{t('Fichiers')}</th>
                 <th className="px-4 py-2 text-right font-medium">{t('Stockage')}</th>
               </tr>
             </thead>
@@ -493,18 +495,22 @@ function AccountsTable({ accounts, total, query, setQuery }: { accounts: Account
                       {a.name || '—'}
                       {a.admin && <span className="ml-1.5 rounded bg-brand-50 px-1.5 py-0.5 text-[10px] font-semibold text-brand-700">{t('Admin')}</span>}
                     </p>
-                    <p className="text-[12px] text-stone-500">{a.email}</p>
+                    <p className="text-[12px] text-stone-500 [overflow-wrap:anywhere]">{a.email}</p>
+                    <p className="text-[12px] text-stone-500 xl:hidden">
+                      {[tn(a.notes, '{n} note', '{n} notes'), tn(a.events, '{n} événement', '{n} événements'), tn(a.files, '{n} fichier', '{n} fichiers')].join(' · ')}
+                      <span className="md:hidden"> · {a.mfa ? t('2FA active') : t('Sans 2FA')}</span>
+                    </p>
                   </td>
-                  <td className="whitespace-nowrap px-3 py-2.5 text-stone-600">{fmt(new Date(a.created_at), 'd MMM yyyy')}</td>
+                  <td className="whitespace-nowrap px-3 py-2.5 text-stone-600 max-md:hidden">{fmt(new Date(a.created_at), 'd MMM yyyy')}</td>
                   <td className="whitespace-nowrap px-3 py-2.5 text-stone-600">{a.last_sign_in_at ? relativeTime(a.last_sign_in_at) : t('jamais')}</td>
-                  <td className="px-3 py-2.5">
+                  <td className="px-3 py-2.5 max-md:hidden">
                     <span className={cx('inline-flex items-center gap-1 whitespace-nowrap text-[12px]', a.mfa ? 'text-emerald-700' : 'text-stone-500')}>
                       <ShieldCheck size={13} /> {a.mfa ? t('2FA active') : t('Sans 2FA')}
                     </span>
                   </td>
-                  <td className="tabular px-3 py-2.5 text-right">{a.notes}</td>
-                  <td className="tabular px-3 py-2.5 text-right">{a.events}</td>
-                  <td className="tabular px-3 py-2.5 text-right">{a.files}</td>
+                  <td className="tabular px-3 py-2.5 text-right max-xl:hidden">{a.notes}</td>
+                  <td className="tabular px-3 py-2.5 text-right max-xl:hidden">{a.events}</td>
+                  <td className="tabular px-3 py-2.5 text-right max-xl:hidden">{a.files}</td>
                   <td className="tabular px-4 py-2.5 text-right text-stone-600">{formatBytes(a.storage)}</td>
                 </tr>
               ))}
