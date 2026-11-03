@@ -14,7 +14,7 @@
 import { createECDH, hkdfSync } from 'node:crypto';
 import webpush from 'web-push';
 import { ipOf } from './copilot.mjs';
-import { familyOf, isGroupNews, mergeNotifications } from '../src/lib/notifyGroups.mjs';
+import { familyOf, groupOfUrl, isGroupNews, mergeNotifications } from '../src/lib/notifyGroups.mjs';
 
 const SUPABASE = (() => {
   try {
@@ -110,12 +110,19 @@ export async function pushToUser(userId, payload, except = '') {
 /** lastCode: the HTTP status of the last failure (or 'réseau'), shown by /api/sante — never the message itself. */
 export const pushStatus = { active: false, lastRun: null, lastError: null, lastCode: null, lastHint: null, sent: 0 };
 
-/** The people who turned off the news of their groups and shared calendars (Profil › Notifications). */
+/**
+ * The group news nobody wants (Profil › Notifications): all of it for those who turned it off, and that of the
+ * groups and shared calendars each one muted. Returns a test: true when the row must stay quiet.
+ */
 async function newsOff(rows) {
   const ids = [...new Set(rows.filter(r => isGroupNews(r.key)).map(r => r.user_id))];
-  if (!ids.length) return new Set();
-  const list = await rest(`/rest/v1/profiles?select=id,news:settings->>groupNews&id=in.(${ids.join(',')})`).catch(() => []);
-  return new Set((list ?? []).filter(p => p.news === 'false').map(p => p.id));
+  if (!ids.length) return () => false;
+  const list = await rest(`/rest/v1/profiles?select=id,news:settings->>groupNews,muted:settings->mutedGroups&id=in.(${ids.join(',')})`).catch(() => []);
+  const by = new Map((list ?? []).map(p => [p.id, { off: p.news === 'false', muted: new Set(Array.isArray(p.muted) ? p.muted : []) }]));
+  return r => {
+    const p = isGroupNews(r.key) && by.get(r.user_id);
+    return !!p && (p.off || p.muted.has(groupOfUrl(r.url)));
+  };
 }
 
 /**
@@ -139,7 +146,7 @@ async function deliverDue() {
   const claimed = await rest('/rest/v1/rpc/claim_due_reminders', { method: 'POST', body: '{}' });
   if (!Array.isArray(claimed) || !claimed.length) return;
   const off = await newsOff(claimed);
-  const due = grouped(claimed.filter(r => !(off.has(r.user_id) && isGroupNews(r.key))));
+  const due = grouped(claimed.filter(r => !off(r)));
   if (!due.length) return;
   // The people who made the changes too: their own phone (another account on it) isn't told of what they just did.
   const users = [...new Set(due.flatMap(r => [r.user_id, r.actor].filter(Boolean)))];

@@ -15,6 +15,7 @@ import { confirmLogout, sameEmail, useAuth } from '../../store/auth';
 import { useFocusLog } from '../../store/focusLog';
 import { useSettings, ACCENTS, AVATAR_COLORS, applyAppearance, UI_STYLES, type AccentKey, type ThemeMode, type Chattiness, type UiStyle } from '../../store/settings';
 import { useCopilot } from '../../store/copilot';
+import { useGroups } from '../../store/groups';
 import { useDrive } from '../../store/drive';
 import { downloadZip } from '../drive/download';
 import { useNotes } from '../../store/notes';
@@ -701,6 +702,10 @@ function NotificationsTab() {
   const [push, setPush] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const canInstall = useInstallOffer();
+  const groups = useGroups(g => g.groups);
+  useEffect(() => {
+    if (cloudEnabled && !useGroups.getState().loaded) void useGroups.getState().loadGroups();
+  }, []);
   useEffect(() => {
     let alive = true;
     void pushActive().then(p => alive && setPush(p));
@@ -797,6 +802,17 @@ function NotificationsTab() {
         <Row label={t('Groupes et agendas partagés')}>
           <Toggle label={t('Groupes et agendas partagés')} checked={s.groupNews} onChange={v => s.set({ groupNews: v })} />
         </Row>
+        {/* One by one (the bell in each group and shared calendar does the same). */}
+        {s.groupNews &&
+          groups.map(g => (
+            <Row key={g.id} label={g.name} hint={g.kind === 'agenda' ? t('Agenda partagé') : t('Groupe')}>
+              <Toggle
+                label={t('Notifications de « {name} »', { name: g.name })}
+                checked={!s.mutedGroups.includes(g.id)}
+                onChange={v => s.set({ mutedGroups: v ? s.mutedGroups.filter(id => id !== g.id) : [...s.mutedGroups, g.id] })}
+              />
+            </Row>
+          ))}
         <Row label={t('Kompaly')} hint={t('Ses suggestions, quand tu es ailleurs.')}>
           <Toggle label={t('Kompaly')} checked={s.copilotNotify} onChange={v => s.set({ copilotNotify: v })} />
         </Row>

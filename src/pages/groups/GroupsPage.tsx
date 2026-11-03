@@ -6,6 +6,7 @@ import { useAuth } from '../../store/auth';
 import { prefetchGroup, useGroups, watchFocus } from '../../store/groups';
 import { useGroupActivity, totalUnread } from '../../store/groupActivity';
 import { toast } from '../../store/ui';
+import GroupMuteButton from '../../components/GroupMuteButton';
 import { Modal } from '../../components/Overlays';
 import { FieldError } from '../../components/Field';
 import { cloudEnabled } from '../../lib/supabase';
@@ -351,6 +352,7 @@ function Groups() {
                   onFiles={() => go(active.id, 'fichiers')}
                 />
               )}
+              <GroupMuteButton group={active} />
               {active.ownerId === userId && (
                 <button className="icon-btn" title={t('Paramètres {of}', { of: w.of })} aria-label={t('Paramètres {of}', { of: w.of })} onClick={() => setDialog('settings')}>
                   <Settings2 size={16} />

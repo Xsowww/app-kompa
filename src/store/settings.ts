@@ -66,6 +66,7 @@ export interface Settings {
   focusSound: boolean; // end of a focus session
   reminderSound: boolean; // a small sound with a reminder shown in the app
   groupNews: boolean; // what the others do in my groups and shared calendars (also read by server/push.mjs)
+  mutedGroups: string[]; // groups and shared calendars whose news stay quiet (also read by server/push.mjs)
   copilotNotify: boolean; // Kompaly's suggestions as a notification while the app is in the background
   // motivation
   badgesSeen: string[]; // badges already announced
@@ -114,6 +115,7 @@ export const DEFAULT_SETTINGS: Settings = {
   focusSound: true,
   reminderSound: true,
   groupNews: true,
+  mutedGroups: [],
   copilotNotify: true,
   badgesSeen: [],
   badgeAnnouncements: false,

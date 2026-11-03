@@ -3,6 +3,9 @@
 // doesn't know the person's language. « Réunion +2 » and the others named under it; « Léo a ajouté un
 // événement ×5 » and the five underneath.
 
+/** The group or shared calendar a piece of news is about: its link carries it (« /groupes?g=… », « /agendas?g=… »). */
+export const groupOfUrl = url => /[?&]g=([0-9a-f-]{36})/i.exec(String(url ?? ''))?.[1] ?? null;
+
 /** Same kind of notification: one's own reminders together, a shared calendar's news apart, the admins' apart. */
 export const familyOf = key => {
   const prefix = String(key).split(':')[0];

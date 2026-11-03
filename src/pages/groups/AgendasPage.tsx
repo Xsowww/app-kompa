@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CalendarRange, CloudOff, Link2, Settings2, Users } from 'lucide-react';
+import GroupMuteButton from '../../components/GroupMuteButton';
 import { useAuth } from '../../store/auth';
 import { prefetchGroup, useGroups, watchFocus } from '../../store/groups';
 import { Modal } from '../../components/Overlays';
@@ -170,6 +171,7 @@ function Agendas() {
                 <Link2 size={14} /> <span className="max-sm:sr-only">{t('Inviter')}</span>
               </button>
             )}
+            <GroupMuteButton group={active} className="pointer-coarse:h-9 pointer-coarse:w-9" />
             {active.ownerId === userId && (
               <button className="icon-btn pointer-coarse:h-9 pointer-coarse:w-9" title={t('Paramètres de l’agenda')} aria-label={t('Paramètres de l’agenda')} onClick={() => setDialog('settings')}>
                 <Settings2 size={16} />
