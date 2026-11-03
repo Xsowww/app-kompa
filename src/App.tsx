@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useState } from 'react';
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { useAuth } from './store/auth';
 import { arrivedWithLink, inRecovery, linkError } from './lib/supabase';
 import { peekAfterLogin, rememberAfterLogin } from './lib/afterLogin';
@@ -63,6 +63,8 @@ const RecordPage = lazyPage(() => import('./pages/record/RecordPage'));
 const GroupsPage = lazyPage(() => import('./pages/groups/GroupsPage'));
 const AgendasPage = lazyPage(() => import('./pages/groups/AgendasPage'));
 const TrashPage = lazyPage(() => import('./pages/trash/TrashPage'));
+// What another app shared to Kompaly (installed app, manifest's share_target): into a note and the Drive.
+const SharePage = lazy(() => import('./pages/SharePage'));
 const WelcomePage = lazy(() => import('./pages/WelcomePage'));
 // The public home page, for visitors not signed in (and search engines).
 const LandingPage = lazy(() => import('./pages/LandingPage'));
@@ -94,6 +96,7 @@ const TITLES: Record<string, string> = {
   '/groupes': t('Groupes'),
   '/agendas': t('Agendas partagés'),
   '/corbeille': t('Corbeille'),
+  '/partage': t('Partage'),
   '/profil': t('Profil'),
   '/admin': t('Administration'),
   '/connexion': t('Connexion'),
@@ -141,8 +144,11 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   const mfaStep = useAuth(s => s.mfaStep);
   const welcome = useWelcome(s => s.pending);
   const { pathname, search } = useLocation();
+  // An address the app doesn't have (the shell's « * » route below): its own page, without the app around it.
+  const unknown = useParams()['*'] !== undefined;
   // Not signed in: « / » is the public home page, the other pages of the app ask to sign in.
   if (!user) {
+    if (unknown) return <Suspense fallback={<Loading full />}><NotFoundPage /></Suspense>;
     // An invitation link opened signed out: kept for after sign-in (AppShell opens it).
     if (/[?&](rejoindre|invitation)=/.test(search)) sessionStorage.setItem(PENDING_INVITE, pathname + search);
     else if (pathname !== '/') rememberAfterLogin(pathname + search); // the page asked for, opened once signed in
@@ -287,8 +293,11 @@ export default function App() {
           <Route path="corbeille" element={<Suspense fallback={<Loading />}><TrashPage /></Suspense>} />
           <Route path="profil" element={<Suspense fallback={<Loading />}><ProfilePage /></Suspense>} />
           <Route path="admin" element={<Suspense fallback={<Loading />}><AdminPage /></Suspense>} />
+          <Route path="partage" element={<Suspense fallback={<Loading />}><SharePage /></Suspense>} />
+          <Route path="accueil" element={<Navigate to="/" replace />} />
+          {/* Signed in: « introuvable » inside the app, its menu still there. */}
+          <Route path="*" element={<Suspense fallback={<Loading />}><NotFoundPage inShell /></Suspense>} />
         </Route>
-        <Route path="*" element={<Suspense fallback={<Loading full />}><NotFoundPage /></Suspense>} />
       </Routes>
       <ServiceBanner />
       <Toasts />

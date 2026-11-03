@@ -84,9 +84,15 @@ const files = new Map();
 const CF_TOKEN = /^[a-f0-9]{32}$/i.test(process.env.CF_ANALYTICS_TOKEN ?? '') ? process.env.CF_ANALYTICS_TOKEN : '';
 const BEACON = CF_TOKEN ? `<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token":"${CF_TOKEN}","spa":true}'></script>` : '';
 /** The app's pages (src/App.tsx): any other address gets the page with a 404 status. */
-const APP_ROUTES = new Set(['/', '/connexion', '/inscription', '/mot-de-passe-oublie', '/reinitialisation', '/securite', '/bienvenue', '/mentions-legales', '/confidentialite', '/conditions', '/drive', '/calendrier', '/notes', '/taches', '/progression', '/groupes', '/agendas', '/corbeille', '/profil', '/admin', '/enregistrer']);
+const APP_ROUTES = new Set(['/', '/connexion', '/inscription', '/mot-de-passe-oublie', '/reinitialisation', '/securite', '/bienvenue', '/mentions-legales', '/confidentialite', '/conditions', '/drive', '/calendrier', '/notes', '/taches', '/progression', '/groupes', '/agendas', '/corbeille', '/profil', '/admin', '/enregistrer', '/partage', '/accueil']);
 
 async function serveStatic(req, res) {
+  // A share from another app (manifest's share_target) the service worker didn't take: the page says nothing came.
+  if (req.method === 'POST' && (req.url ?? '').split('?')[0] === '/partage') {
+    req.resume();
+    res.writeHead(303, { Location: '/partage' });
+    return res.end();
+  }
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     res.writeHead(405, { Allow: 'GET, HEAD' });
     return res.end('Méthode non autorisée');
