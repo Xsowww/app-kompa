@@ -58,3 +58,21 @@ describe('spanTooLong', () => {
     expect(spanTooLong('2026-12-01', '2027-01-01')).toBe(true);
   });
 });
+
+describe('chaque année', () => {
+  it('the same day each year; a 29 February only in leap years; ten years offered at first', async () => {
+    const { repeatDays, defaultUntil } = await import('../src/lib/repeat');
+    expect(repeatDays('2026-03-12', 'year', '2029-03-12').days).toEqual(['2026-03-12', '2027-03-12', '2028-03-12', '2029-03-12']);
+    expect(repeatDays('2028-02-29', 'year', '2033-03-01').days).toEqual(['2028-02-29', '2032-02-29']);
+    expect(defaultUntil('2026-03-12', 'year')).toBe('2036-03-12');
+    expect(defaultUntil('2026-03-12', 'week')).toBe('2026-06-12');
+  });
+});
+
+describe('Prochain grand jour : un événement qui se répète une seule fois', () => {
+  it('keeps the next occurrence of each series', async () => {
+    const { firstOfSeries } = await import('../src/lib/repeat');
+    const list = [{ id: 'y1', series: 'yoga' }, { id: 'x' }, { id: 'y2', series: 'yoga' }, { id: 's1', series: 'span-1' }, { id: 's2', series: 'span-1' }];
+    expect(firstOfSeries(list).map(e => e.id)).toEqual(['y1', 'x', 's1']);
+  });
+});
