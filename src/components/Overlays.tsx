@@ -68,14 +68,14 @@ export function ServiceBanner({ inline }: { inline?: boolean }) {
   if (state === 'ok' || (!inline && hosted)) return null;
   const down = state === 'down';
   return (
-    // In the app: within the pages' centred column (layout/AppShell). Phones: one short line, the page keeps its room.
+    // In the app: within the pages' centred column (layout/AppShell). Phones: the few words that matter, the button keeps its room (cut after « Tes … », the longer text said nothing).
     <div className={inline ? 'mx-auto w-full max-w-[1244px] shrink-0 px-4 pb-2 md:px-8' : 'pointer-events-none fixed inset-x-4 top-[max(0.5rem,env(safe-area-inset-top))] z-[70] flex justify-center'}>
       <div role="status" aria-live="polite" className={cx('enter pointer-events-auto flex items-center gap-2.5 rounded-2xl border-2 border-amber-400 bg-surface py-1.5 pl-3 pr-1.5 text-[13px] leading-snug text-ink max-sm:min-h-9 max-sm:py-1', inline ? 'w-full' : 'max-w-[560px] shadow-pop')}>
         {down ? <CloudAlert size={16} className="shrink-0 text-amber-500" aria-hidden /> : <WifiOff size={16} className="shrink-0 text-amber-500" aria-hidden />}
-        <span className="min-w-0 flex-1 max-sm:truncate">
+        <span className="min-w-0 flex-1 max-sm:line-clamp-2">
           <b className="font-semibold">{down ? t('Service perturbé.') : t('Hors ligne.')}</b>{' '}
           <span className="max-sm:hidden">{down ? t('Tes changements restent sur cet appareil et partiront dès que ça revient.') : t('Tes changements restent sur cet appareil et partiront au retour de la connexion.')}</span>
-          <span className="sm:hidden">{down ? t('Tes changements partiront dès que ça revient.') : t('Tes changements partiront au retour.')}</span>
+          <span className="sm:hidden">{t('Rien n’est perdu.')}</span>
         </span>
         {down && (
           <button type="button" className="hit-sm shrink-0 rounded-lg px-2.5 py-1 font-semibold hover:bg-stone-100" onClick={() => void retryNow()}>
@@ -187,7 +187,8 @@ export function Modal({ open, onClose, children, width = 420, label }: { open: b
         aria-label={label}
         tabIndex={-1}
         // Taller than the screen (event form on a phone): it scrolls inside instead of being cut off.
-        className="pop max-h-full w-full overflow-y-auto overscroll-contain rounded-[26px] bg-surface p-6 shadow-pop outline-none dark:ring-1 dark:ring-stone-200"
+        // Never sideways: what is too wide wraps (index.css › modal-foot for the buttons), it isn't scrolled.
+        className="pop max-h-full w-full overflow-y-auto overflow-x-hidden overscroll-contain rounded-[26px] bg-surface p-6 shadow-pop outline-none dark:ring-1 dark:ring-stone-200"
         style={{ maxWidth: width }}
         onMouseDown={e => e.stopPropagation()}
       >
@@ -237,7 +238,7 @@ function DialogBody() {
         />
       )}
       {/* Two answers: one under the other, the main one on top. */}
-      <div className={cx('mt-6 flex gap-2', dialog.otherLabel ? 'flex-col-reverse' : 'justify-end')}>
+      <div className={dialog.otherLabel ? 'mt-6 flex flex-col-reverse gap-2' : 'modal-foot'}>
         <button type="button" className="btn-secondary" onClick={() => close(null)}>
           {t('Annuler')}
         </button>
@@ -342,12 +343,13 @@ export function ContextMenu({ x, y, items, onClose, label, large, above }: { x: 
   }, []);
 
   // On <body>: a card with a glass style (backdrop-filter, index.css) would otherwise be what « fixed » is measured from.
+  // Never taller than the screen (a long menu on a phone held sideways): it scrolls then, nothing is cut.
   return createPortal(
     <div
       ref={ref}
       role="menu"
       aria-label={name}
-      className={cx('enter fixed z-[65] border border-stone-200 bg-surface shadow-pop', large ? 'min-w-60 rounded-[18px] p-1.5' : 'min-w-52 rounded-xl p-1')}
+      className={cx('enter fixed z-[65] max-h-[calc(100dvh-16px)] overflow-y-auto overscroll-contain border border-stone-200 bg-surface shadow-pop', large ? 'min-w-60 rounded-[18px] p-1.5' : 'min-w-52 rounded-[14px] p-1')}
       style={{ left: pos.x, top: pos.y }}
       onPointerDown={e => e.stopPropagation()}
       onMouseDown={e => e.stopPropagation()}
@@ -376,7 +378,7 @@ export function ContextMenu({ x, y, items, onClose, label, large, above }: { x: 
             }}
             className={cx(
               'flex w-full items-center text-left transition-colors outline-none disabled:opacity-40',
-              large ? 'h-11 gap-3 rounded-[12px] px-3 text-[14px] font-medium' : 'h-8 gap-2.5 rounded-md px-2 text-[13px] pointer-coarse:h-10',
+              large ? 'h-11 gap-3 rounded-[12px] px-3 text-[14px] font-medium' : 'h-8 gap-2.5 rounded-[10px] px-2 text-[13px] pointer-coarse:h-10',
               it.danger ? 'text-red-600 hover:bg-red-50 focus-visible:bg-red-50' : 'text-stone-700 hover:bg-stone-100 focus-visible:bg-stone-100',
               // The background alone is too faint to show the keyboard position.
               'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus',
@@ -423,7 +425,7 @@ export function ReminderAlerts() {
       {alerts.map(a => (
         <div
           key={a.key}
-          className="notif-in pointer-events-auto w-full max-w-[400px] overflow-hidden rounded-[18px] border border-stone-200/80 bg-surface shadow-pop lg:w-[360px]"
+          className="notif-in pointer-events-auto w-full max-w-[400px] rounded-[18px] border border-stone-200/80 bg-surface shadow-pop lg:w-[360px]"
         >
           <div className="flex gap-3 px-3.5 pb-3 pt-3.5">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-solid text-on-brand" aria-hidden>
@@ -456,25 +458,27 @@ function AlertButtons({ alert: a }: { alert: ReminderAlert }) {
     dismiss(a.key);
     reminderAction(action, keys);
   };
-  const side = 'h-10 border-l border-stone-100 transition-colors';
+  // Buttons of their own (rounded, 10 px inside the card's 18 px corners): their hover is their shape, not a cell
+  // of the card cut by its corners.
+  const b = 'min-h-9 rounded-[10px] px-1 py-1 leading-tight transition-colors pointer-coarse:min-h-10';
   return (
-    <div className={cx('grid border-t border-stone-100 text-[13px] font-medium', mine === 1 ? 'grid-cols-4' : mine ? 'grid-cols-3' : 'grid-cols-2')}>
-      <button type="button" className="h-10 text-stone-600 transition-colors hover:bg-stone-50 hover:text-ink" onClick={() => dismiss(a.key)}>
+    <div className={cx('grid gap-1.5 px-2.5 pb-2.5 text-[13px] font-medium', mine === 1 ? 'grid-cols-4' : mine ? 'grid-cols-3' : 'grid-cols-2')}>
+      <button type="button" className={cx(b, 'bg-stone-100 text-stone-600 hover:bg-stone-200 hover:text-ink')} onClick={() => dismiss(a.key)}>
         {t('Fermer')}
       </button>
       {mine > 0 && (
-        <button type="button" className={cx(side, 'text-stone-600 hover:bg-stone-50 hover:text-ink')} title={t('Me le rappeler dans {n} min', { n: SNOOZE_MINUTES })} onClick={() => act('later')}>
+        <button type="button" className={cx(b, 'bg-stone-100 text-stone-600 hover:bg-stone-200 hover:text-ink')} title={t('Me le rappeler dans {n} min', { n: SNOOZE_MINUTES })} onClick={() => act('later')}>
           {t('Plus tard')}
         </button>
       )}
       {mine === 1 && (
-        <button type="button" className={cx(side, 'text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400')} onClick={() => act('done')}>
+        <button type="button" className={cx(b, 'bg-emerald-50 text-emerald-700 hover:bg-emerald-200/60 dark:text-emerald-400')} onClick={() => act('done')}>
           {t('Fait||coché')}
         </button>
       )}
       <button
         type="button"
-        className={cx(side, 'text-brand-600 hover:bg-brand-50')}
+        className={cx(b, 'bg-brand-solid text-on-brand hover:bg-brand-solid-hover')}
         onClick={() => {
           dismiss(a.key);
           navigate(a.url);
