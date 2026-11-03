@@ -347,7 +347,7 @@ export function ContextMenu({ x, y, items, onClose, label, large, above }: { x: 
       ref={ref}
       role="menu"
       aria-label={name}
-      className={cx('enter fixed z-[65] border border-stone-200 bg-surface shadow-pop', large ? 'min-w-60 rounded-[18px] p-1.5' : 'min-w-52 rounded-xl p-1')}
+      className={cx('enter fixed z-[65] border border-stone-200 bg-surface shadow-pop', large ? 'min-w-60 rounded-[18px] p-1.5' : 'min-w-52 rounded-[14px] p-1')}
       style={{ left: pos.x, top: pos.y }}
       onPointerDown={e => e.stopPropagation()}
       onMouseDown={e => e.stopPropagation()}
@@ -376,7 +376,7 @@ export function ContextMenu({ x, y, items, onClose, label, large, above }: { x: 
             }}
             className={cx(
               'flex w-full items-center text-left transition-colors outline-none disabled:opacity-40',
-              large ? 'h-11 gap-3 rounded-[12px] px-3 text-[14px] font-medium' : 'h-8 gap-2.5 rounded-md px-2 text-[13px] pointer-coarse:h-10',
+              large ? 'h-11 gap-3 rounded-[12px] px-3 text-[14px] font-medium' : 'h-8 gap-2.5 rounded-[10px] px-2 text-[13px] pointer-coarse:h-10',
               it.danger ? 'text-red-600 hover:bg-red-50 focus-visible:bg-red-50' : 'text-stone-700 hover:bg-stone-100 focus-visible:bg-stone-100',
               // The background alone is too faint to show the keyboard position.
               'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus',
@@ -423,7 +423,7 @@ export function ReminderAlerts() {
       {alerts.map(a => (
         <div
           key={a.key}
-          className="notif-in pointer-events-auto w-full max-w-[400px] overflow-hidden rounded-[18px] border border-stone-200/80 bg-surface shadow-pop lg:w-[360px]"
+          className="notif-in pointer-events-auto w-full max-w-[400px] rounded-[18px] border border-stone-200/80 bg-surface shadow-pop lg:w-[360px]"
         >
           <div className="flex gap-3 px-3.5 pb-3 pt-3.5">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-solid text-on-brand" aria-hidden>
@@ -456,25 +456,27 @@ function AlertButtons({ alert: a }: { alert: ReminderAlert }) {
     dismiss(a.key);
     reminderAction(action, keys);
   };
-  const side = 'h-10 border-l border-stone-100 transition-colors';
+  // Buttons of their own (rounded, 10 px inside the card's 18 px corners): their hover is their shape, not a cell
+  // of the card cut by its corners.
+  const b = 'min-h-9 rounded-[10px] px-1 py-1 leading-tight transition-colors pointer-coarse:min-h-10';
   return (
-    <div className={cx('grid border-t border-stone-100 text-[13px] font-medium', mine === 1 ? 'grid-cols-4' : mine ? 'grid-cols-3' : 'grid-cols-2')}>
-      <button type="button" className="h-10 text-stone-600 transition-colors hover:bg-stone-50 hover:text-ink" onClick={() => dismiss(a.key)}>
+    <div className={cx('grid gap-1.5 px-2.5 pb-2.5 text-[13px] font-medium', mine === 1 ? 'grid-cols-4' : mine ? 'grid-cols-3' : 'grid-cols-2')}>
+      <button type="button" className={cx(b, 'bg-stone-100 text-stone-600 hover:bg-stone-200 hover:text-ink')} onClick={() => dismiss(a.key)}>
         {t('Fermer')}
       </button>
       {mine > 0 && (
-        <button type="button" className={cx(side, 'text-stone-600 hover:bg-stone-50 hover:text-ink')} title={t('Me le rappeler dans {n} min', { n: SNOOZE_MINUTES })} onClick={() => act('later')}>
+        <button type="button" className={cx(b, 'bg-stone-100 text-stone-600 hover:bg-stone-200 hover:text-ink')} title={t('Me le rappeler dans {n} min', { n: SNOOZE_MINUTES })} onClick={() => act('later')}>
           {t('Plus tard')}
         </button>
       )}
       {mine === 1 && (
-        <button type="button" className={cx(side, 'text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400')} onClick={() => act('done')}>
+        <button type="button" className={cx(b, 'bg-emerald-50 text-emerald-700 hover:bg-emerald-200/60 dark:text-emerald-400')} onClick={() => act('done')}>
           {t('Fait||coché')}
         </button>
       )}
       <button
         type="button"
-        className={cx(side, 'text-brand-600 hover:bg-brand-50')}
+        className={cx(b, 'bg-brand-solid text-on-brand hover:bg-brand-solid-hover')}
         onClick={() => {
           dismiss(a.key);
           navigate(a.url);
