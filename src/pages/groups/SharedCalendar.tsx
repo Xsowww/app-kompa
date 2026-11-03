@@ -17,7 +17,7 @@ import { useSettings } from '../../store/settings';
 const categoryIn = (custom: CustomCategory[]) => (c: string | null | undefined): EventCategory =>
   c && (c in CATEGORIES || custom.some(x => x.id === c)) ? (c as EventCategory) : 'perso';
 
-/** A shared calendar's event as the Calendar page shows it (its place, from the former list, joins the notes). */
+/** A shared calendar's event as the Calendar page shows it. */
 const toCalendar = (e: GroupEvent, category: ReturnType<typeof categoryIn>): CalendarEvent => ({
   id: e.id,
   title: e.title,
@@ -25,7 +25,8 @@ const toCalendar = (e: GroupEvent, category: ReturnType<typeof categoryIn>): Cal
   start: e.start ?? undefined,
   end: e.end ?? undefined,
   category: category(e.category),
-  details: [e.place, e.details].filter(Boolean).join('\n') || undefined,
+  details: e.details ?? undefined,
+  place: e.place ?? undefined,
   done: false,
   createdAt: e.createdAt,
   ...(e.people.length && { people: e.people }),
@@ -39,8 +40,8 @@ const toRow = (p: Partial<CalendarEvent>, category: ReturnType<typeof categoryIn
   ...('start' in p && { start: p.start ?? null }),
   ...('end' in p && { end: p.end ?? null }),
   ...(p.category !== undefined && { category: category(p.category) }),
-  // The notes now hold the place too: it isn't kept twice.
-  ...('details' in p && { details: p.details ?? null, place: null }),
+  ...('details' in p && { details: p.details ?? null }),
+  ...('place' in p && { place: p.place ?? null }),
   ...('people' in p && { people: p.people ?? [] }),
   ...('reminders' in p && { reminders: p.reminders ?? [] }),
 });
@@ -147,7 +148,7 @@ export default function SharedCalendar({ group }: { group: Group }) {
       categories: group.categories,
       categoryScope,
       add: e => {
-        const row = { title: e.title, date: e.date, start: e.start ?? null, end: e.end ?? null, place: null, category: category(e.category), details: e.details ?? null, people: e.people ?? [], reminders: e.reminders ?? [] };
+        const row = { title: e.title, date: e.date, start: e.start ?? null, end: e.end ?? null, place: e.place ?? null, category: category(e.category), details: e.details ?? null, people: e.people ?? [], reminders: e.reminders ?? [] };
         // Not added (no connection…): nothing typed is lost, « Réessayer » sends the very same event again.
         const send = () =>
           void createEvent(group.id, row)
@@ -156,7 +157,7 @@ export default function SharedCalendar({ group }: { group: Group }) {
         send();
       },
       addMany: list => {
-        const rows = list.map(e => ({ title: e.title, date: e.date, start: e.start ?? null, end: e.end ?? null, place: null, category: category(e.category), details: e.details ?? null, people: e.people ?? [], reminders: e.reminders ?? [], series: e.series ?? null }));
+        const rows = list.map(e => ({ title: e.title, date: e.date, start: e.start ?? null, end: e.end ?? null, place: e.place ?? null, category: category(e.category), details: e.details ?? null, people: e.people ?? [], reminders: e.reminders ?? [], series: e.series ?? null }));
         const send = () =>
           void createEvents(group.id, rows)
             .then(reload)

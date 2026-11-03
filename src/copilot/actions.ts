@@ -129,7 +129,8 @@ export function search(query: string, limit = 8, shared?: SharedContent): Search
   }
   // Its notes count like a note's text.
   for (const e of useCalendar.getState().events) {
-    const s = Math.max(score(prep(e, 'title', () => normalize(e.title)), q), e.details ? score(prep(e, 'details', () => normalize(e.details!)), q) * 0.6 : 0);
+    const more = [e.place, e.details].filter(Boolean).join(' ');
+    const s = Math.max(score(prep(e, 'title', () => normalize(e.title)), q), more ? score(prep(e, 'more', () => normalize(more)), q) * 0.6 : 0);
     if (s) pushEvent(e.series, e.date, { s, type: 'événement', id: e.id, title: e.title, where: fmtDay(fromKey(e.date), 'EEEE d MMMM'), to: linkToDay(e.date, e.id) });
   }
   // Tasks still to do (a ticked one leaves the list: nothing to open there).
@@ -146,7 +147,8 @@ export function search(query: string, limit = 8, shared?: SharedContent): Search
     for (const e of shared?.events[g.id] ?? []) {
       const more = [e.place, e.details].filter(Boolean).join(' ');
       const s = Math.max(score(prep(e, 'title', () => normalize(e.title)), q), more ? score(prep(e, 'more', () => normalize(more)), q) * 0.6 : 0);
-      const to = g.kind === 'agenda' ? `/agendas?g=${g.id}` : `/groupes?g=${g.id}&onglet=revisions`;
+      // A shared calendar's event: its day, the event glowing there (not today's page of the agenda).
+      const to = g.kind === 'agenda' ? `/agendas?g=${g.id}&jour=${e.date}&evt=${e.id}` : `/groupes?g=${g.id}&onglet=revisions`;
       if (s) pushEvent(e.series && `${g.id}:${e.series}`, e.date, { s: s * 0.9, type: 'événement partagé', id: e.id, title: e.title, where: `${g.name} · ${fmtDay(fromKey(e.date), 'EEEE d MMMM')}`, to });
     }
   }
