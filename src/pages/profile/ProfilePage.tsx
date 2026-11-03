@@ -1,19 +1,25 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { Fragment, useEffect, useRef, useState, type FormEvent } from 'react';
 import { SelectField, TimeField } from '../../components/Pickers';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   User, Palette, Sparkles, GraduationCap, Bell, Database, ShieldCheck, Camera, Check, Download, Upload, CalendarArrowUp, LogOut, Trash2, ChevronRight,
-  HardDrive, Smartphone, Keyboard, Briefcase, House, UserPlus, MessageSquareText, FolderDown,
+  HardDrive, Smartphone, Keyboard, Briefcase, House, UserPlus, MessageSquareText, FolderDown, Compass, Mail,
 } from 'lucide-react';
+import { startTour } from '../../store/tour';
+import { GESTURES, IS_MAC, MARKDOWN, SHORTCUTS, keyChips } from './shortcuts';
 import { openFeedback } from '../../lib/feedback';
 import { openNews } from '../../lib/news';
 import AccountList from '../../components/AccountList';
 import PasswordStrength from '../../components/PasswordStrength';
 import Field, { FieldError } from '../../components/Field';
-import { needsCredentials, savedAccounts, STALE_DAYS } from '../../lib/accounts';
-import { confirmLogout, sameEmail, useAuth } from '../../store/auth';
+import { needsCredentials, PROVIDER_NAMES, savedAccounts, STALE_DAYS } from '../../lib/accounts';
+import PasswordInput from '../../components/PasswordInput';
+import { LEGAL_LINKS } from '../legal/links';
+import { CONTACT } from '../../lib/feedback';
+import { latestRelease } from '../../lib/news';
+import { AUTH_MSG, confirmLogout, sameEmail, useAuth } from '../../store/auth';
 import { useFocusLog } from '../../store/focusLog';
-import { useSettings, ACCENTS, AVATAR_COLORS, applyAppearance, UI_STYLES, type AccentKey, type ThemeMode, type Chattiness, type UiStyle } from '../../store/settings';
+import { useSettings, ACCENTS, AVATAR_COLORS, applyAppearance, resolveDark, UI_STYLES, type AccentKey, type ThemeMode, type Chattiness, type UiStyle } from '../../store/settings';
 import { useCopilot } from '../../store/copilot';
 import { useDrive } from '../../store/drive';
 import { downloadZip } from '../drive/download';
@@ -28,9 +34,8 @@ import { devicePushChanged } from '../../lib/reminderScheduler';
 import { TIMED_OPTIONS } from '../../lib/reminders';
 import { install, installed, macSafari, useInstallOffer } from '../../lib/install';
 import { formatBytes, noteText, cx } from '../../lib/utils';
-import { fmt, todayKey } from '../../lib/dates';
+import { fmt, fromKey, todayKey } from '../../lib/dates';
 import Avatar from '../../components/Avatar';
-import Character from '../../copilot/Character';
 import { Section, Row, Toggle, Segmented, Stepper } from './controls';
 import PasskeySection from './PasskeySection';
 import { cloudEnabled, remembered } from '../../lib/supabase';
@@ -43,6 +48,9 @@ import { USAGES, WORDS, groupWords, type Usage } from '../../lib/usage';
 import { PERSONAS, personaLabel } from '../../lib/personas';
 import LanguagePicker from '../../components/LanguagePicker';
 import { t, tn, lang, locale } from '../../i18n';
+
+/** The commit this version was built from (vite.config › define), '' in development. */
+declare const __BUILD__: string;
 
 /** Singular or plural of words that come from elsewhere (tn() takes fixed texts), by the language's rule like tn(). */
 const plural = (n: number, one: string, many: string) => ((lang === 'fr' ? Math.abs(n) < 2 : Math.abs(n) === 1) ? one : many);
@@ -150,6 +158,23 @@ function ProfileTab() {
   const [nameError, setNameError] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // The three fields below change meaning with the use (« Établissement » → « Entreprise »): emptied, but
+  // « Annuler » brings the use and what they held back.
+  const changeUsage = (usage: Usage) => {
+    if (usage === settings.usage) return;
+    const before = { usage: settings.usage, year: settings.year, school: settings.school, program: settings.program };
+    settings.set({ usage, year: '', school: '', program: '' });
+    applyUsage(usage);
+    if (before.year || before.school || before.program)
+      toast(t('{fields} vidés pour « {usage} »', { fields: [words.school, words.program, words.level].join(', '), usage: USAGES.find(u => u.key === usage)?.label ?? '' }), 'info', {
+        label: t('Annuler'),
+        run: () => {
+          useSettings.getState().set(before);
+          applyUsage(before.usage);
+        },
+      });
+  };
+
   const pickPhoto = async (f?: File) => {
     if (!f) return;
     try {
@@ -179,6 +204,16 @@ function ProfileTab() {
       >
         <Sparkles size={18} strokeWidth={1.9} className="text-stone-500" aria-hidden />
         <span className="flex-1">{t('Nouveautés')}</span>
+        <ChevronRight size={16} className="text-stone-400" aria-hidden />
+      </button>
+      {/* Also asked to Kompaly (« fais-moi visiter »). It starts on the home page. */}
+      <button
+        type="button"
+        onClick={startTour}
+        className="card flex h-12 w-full items-center gap-3 px-4 text-left text-[14px] font-medium text-stone-700 transition-colors hover:bg-stone-50"
+      >
+        <Compass size={18} strokeWidth={1.9} className="text-stone-500" aria-hidden />
+        <span className="flex-1">{t('Revoir la visite guidée')}</span>
         <ChevronRight size={16} className="text-stone-400" aria-hidden />
       </button>
       <Section label={t('Profil')}>
@@ -255,7 +290,7 @@ function ProfileTab() {
           </div>
         </Row>
         <Row label={t('Kompaly sert pour')}>
-          <SelectField<Usage> className="w-56" label={t('Kompaly sert pour')} value={settings.usage} options={USAGES.map(u => ({ value: u.key, label: u.label }))} onChange={usage => { if (usage === settings.usage) return; settings.set({ usage, year: '', school: '', program: '' }); applyUsage(usage); }} />
+          <SelectField<Usage> className="w-56" label={t('Kompaly sert pour')} value={settings.usage} options={USAGES.map(u => ({ value: u.key, label: u.label }))} onChange={changeUsage} />
         </Row>
         <Row label={words.school}>
           <input className="field w-56" aria-label={words.school} value={settings.school} placeholder={words.schoolHint} onChange={e => settings.set({ school: e.target.value })} />
@@ -294,30 +329,46 @@ function ProfileTab() {
 
 const STYLE_LABELS: Record<UiStyle, string> = { classique: t('Classique'), verre: t('Verre'), liquide: t('Liquid Glass'), relief: t('Relief') };
 
-/** A small picture of each style: its page, a card and a button (drawn, not the real thing). */
-function StylePreview({ look }: { look: UiStyle }) {
-  const page: Record<UiStyle, string> = {
-    classique: '#eceef3',
-    verre: 'radial-gradient(60% 70% at 10% 10%, #b7c4ff, transparent 70%), radial-gradient(60% 70% at 95% 90%, #ffd6b0, transparent 70%), radial-gradient(50% 60% at 90% 5%, #ffc6dc, transparent 70%), #e7eaf6',
-    liquide: 'radial-gradient(70% 60% at 10% 0%, #ffffff, transparent 70%), #e6e8ec',
-    relief: '#e4e9f2',
+/** A small picture of each style: its page, a card and a button (drawn, not the real thing), in the theme on screen. */
+function StylePreview({ look, dark }: { look: UiStyle; dark: boolean }) {
+  // The colours of index.css / themes.css: light, then dark.
+  const page: Record<UiStyle, [string, string]> = {
+    classique: ['#eceef3', '#0c0d12'],
+    verre: [
+      'radial-gradient(60% 70% at 10% 10%, #b7c4ff, transparent 70%), radial-gradient(60% 70% at 95% 90%, #ffd6b0, transparent 70%), radial-gradient(50% 60% at 90% 5%, #ffc6dc, transparent 70%), #e7eaf6',
+      'radial-gradient(60% 70% at 10% 10%, #283a96, transparent 70%), radial-gradient(60% 70% at 95% 90%, #174f5c, transparent 70%), radial-gradient(50% 60% at 90% 5%, #5b2775, transparent 70%), #0b0d18',
+    ],
+    liquide: ['radial-gradient(70% 60% at 10% 0%, #ffffff, transparent 70%), #e6e8ec', 'radial-gradient(70% 60% at 10% 0%, #2c2e36, transparent 70%), #111215'],
+    relief: ['#e4e9f2', '#1e2126'],
   };
-  const card: Record<UiStyle, React.CSSProperties> = {
-    classique: { background: '#ffffff', borderRadius: 10 },
-    verre: { background: 'rgb(255 255 255 / 0.55)', borderRadius: 10, boxShadow: 'inset 0 0 0 1px rgb(255 255 255 / 0.8), 0 6px 14px -8px rgb(40 52 110 / 0.4)', backdropFilter: 'blur(6px)' },
-    liquide: { background: 'linear-gradient(140deg, rgb(255 255 255 / 0.85), rgb(255 255 255 / 0.35) 45%, rgb(255 255 255 / 0.55))', borderRadius: 12, boxShadow: 'inset 1px 1px 0 #fff, 0 0 0 0.5px rgb(20 22 31 / 0.08), 0 6px 14px -8px rgb(20 22 31 / 0.35)' },
-    relief: { background: '#e4e9f2', borderRadius: 10, boxShadow: '4px 4px 9px #bdc6d6, -4px -4px 9px #ffffff' },
+  const card: Record<UiStyle, [React.CSSProperties, React.CSSProperties]> = {
+    classique: [{ background: '#ffffff', borderRadius: 10 }, { background: '#171922', borderRadius: 10 }],
+    verre: [
+      { background: 'rgb(255 255 255 / 0.55)', borderRadius: 10, boxShadow: 'inset 0 0 0 1px rgb(255 255 255 / 0.8), 0 6px 14px -8px rgb(40 52 110 / 0.4)', backdropFilter: 'blur(6px)' },
+      { background: 'rgb(26 30 50 / 0.55)', borderRadius: 10, boxShadow: 'inset 0 0 0 1px rgb(255 255 255 / 0.12), 0 6px 14px -8px rgb(0 0 0 / 0.6)', backdropFilter: 'blur(6px)' },
+    ],
+    liquide: [
+      { background: 'linear-gradient(140deg, rgb(255 255 255 / 0.85), rgb(255 255 255 / 0.35) 45%, rgb(255 255 255 / 0.55))', borderRadius: 12, boxShadow: 'inset 1px 1px 0 #fff, 0 0 0 0.5px rgb(20 22 31 / 0.08), 0 6px 14px -8px rgb(20 22 31 / 0.35)' },
+      { background: 'linear-gradient(140deg, rgb(255 255 255 / 0.14), rgb(255 255 255 / 0.04) 45%, rgb(255 255 255 / 0.08))', borderRadius: 12, boxShadow: 'inset 1px 1px 0 rgb(255 255 255 / 0.22), 0 0 0 0.5px rgb(0 0 0 / 0.4), 0 6px 14px -8px rgb(0 0 0 / 0.7)' },
+    ],
+    relief: [
+      { background: '#e4e9f2', borderRadius: 10, boxShadow: '4px 4px 9px #bdc6d6, -4px -4px 9px #ffffff' },
+      { background: '#252930', borderRadius: 10, boxShadow: '4px 4px 9px #0e1013, -3px -3px 8px #30353d' },
+    ],
   };
+  const ink = dark ? '#eceef3' : '#14161f';
   const button: Record<UiStyle, React.CSSProperties> = {
-    classique: { background: '#14161f', borderRadius: 5 },
-    verre: { background: '#14161f', borderRadius: 5 },
-    liquide: { background: '#14161f', borderRadius: 999 },
-    relief: { background: '#e4e9f2', borderRadius: 5, boxShadow: '2px 2px 4px #bdc6d6, -2px -2px 4px #ffffff' },
+    classique: { background: ink, borderRadius: 5 },
+    verre: { background: ink, borderRadius: 5 },
+    liquide: { background: ink, borderRadius: 999 },
+    relief: dark ? { background: '#252930', borderRadius: 5, boxShadow: '2px 2px 4px #0e1013, -2px -2px 4px #30353d' } : { background: '#e4e9f2', borderRadius: 5, boxShadow: '2px 2px 4px #bdc6d6, -2px -2px 4px #ffffff' },
   };
+  const line = look === 'relief' ? (dark ? '#6b7385' : '#9aa3b8') : dark ? 'rgb(236 238 243 / 0.55)' : 'rgb(20 22 31 / 0.55)';
+  const i = dark ? 1 : 0;
   return (
-    <span aria-hidden className="relative block h-16 overflow-hidden rounded-[11px]" style={{ background: page[look] }}>
-      <span className="absolute inset-x-2.5 top-2.5 bottom-2.5 flex flex-col justify-between p-2" style={card[look]}>
-        <span className="block h-1.5 w-2/3 rounded-full" style={{ background: look === 'relief' ? '#9aa3b8' : 'rgb(20 22 31 / 0.55)' }} />
+    <span aria-hidden className="relative block h-16 overflow-hidden rounded-[11px]" style={{ background: page[look][i] }}>
+      <span className="absolute inset-x-2.5 top-2.5 bottom-2.5 flex flex-col justify-between p-2" style={card[look][i]}>
+        <span className="block h-1.5 w-2/3 rounded-full" style={{ background: line }} />
         <span className="block h-3 w-8" style={button[look]} />
       </span>
     </span>
@@ -326,6 +377,7 @@ function StylePreview({ look }: { look: UiStyle }) {
 
 function AppearanceTab() {
   const settings = useSettings();
+  const dark = resolveDark(settings.theme);
   const setAccent = (accent: AccentKey) => {
     settings.set({ accent });
     applyAppearance({ ...settings, accent });
@@ -363,7 +415,7 @@ function AppearanceTab() {
               aria-pressed={(settings.style ?? 'classique') === k}
               className={cx('rounded-[16px] p-1.5 text-left ring-1 transition-colors', (settings.style ?? 'classique') === k ? 'ring-2 ring-brand-500' : 'ring-stone-200 hover:ring-stone-300')}
             >
-              <StylePreview look={k} />
+              <StylePreview look={k} dark={dark} />
               <span className="mt-1.5 flex items-center gap-1.5 px-1 text-[13px] font-semibold">
                 {(settings.style ?? 'classique') === k && <Check size={13} strokeWidth={3} className="text-brand-600" aria-hidden />}
                 {STYLE_LABELS[k]}
@@ -392,16 +444,11 @@ function AppearanceTab() {
           ))}
         </div>
       </Row>
-      {/* Preview only: no real button (no Tab stop), nothing announced. */}
+      {/* Preview only: no real button (no Tab stop), nothing announced. No Kompaly: the real one is beside it. */}
       <div className="flex items-center gap-4 overflow-hidden bg-stone-50/70 px-5 py-4" aria-hidden>
         <span className="btn-primary pointer-events-none">{t('Bouton')}</span>
         <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-solid text-[13px] font-semibold text-on-brand">{new Date().getDate()}</span>
         <span className="rounded-md bg-brand-50 px-2 py-1 text-[12px] font-medium text-brand-700">{t('Sélection')}</span>
-        <div className="relative ml-auto h-16 w-24 overflow-hidden">
-          <div className="absolute -right-1 top-[-14px]">
-            <Character pose="peek" mood="happy" size={80} />
-          </div>
-        </div>
       </div>
       <Row label={t('Réduire les animations')}>
         <Toggle
@@ -464,7 +511,7 @@ function CopilotTab() {
             )}
           </p>
         </div>
-        <Row label={t('Afficher Kompaly')}>
+        <Row label={t('Afficher Kompaly')} hint={t('Caché, il reste là : « Kompaly » dans le menu (en haut sur téléphone) ou {key} + J.', { key: IS_MAC ? '⌘' : t('Ctrl') })}>
           <Toggle label={t('Afficher Kompaly')} checked={s.copilotVisible} onChange={v => s.set({ copilotVisible: v })} />
         </Row>
         <Row label={t('Initiatives')} hint={s.usage === 'etudes' ? t('Propose des révisions, rappelle les rendus.') : s.usage === 'perso' ? t('Propose du temps de préparation, rappelle les grands jours.') : t('Propose du temps de préparation, rappelle les échéances.')}>
@@ -599,95 +646,79 @@ function StudiesTab() {
 
 // ── Keyboard shortcuts ──────────────────────────────────────────────────────
 
-const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
+function Keys({ spec }: { spec: string }) {
+  return (
+    <dd className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+      {keyChips(spec).map((steps, i) => (
+        <span key={i} className="flex items-center gap-1">
+          {i > 0 && <span className="text-[11px] text-stone-500">{t('ou')}</span>}
+          {steps.map((k, j) => (
+            <span key={j} className="flex items-center gap-1">
+              {j > 0 && <span className="text-[11px] text-stone-500">{t('puis')}</span>}
+              <kbd className="kbd">{k}</kbd>
+            </span>
+          ))}
+        </span>
+      ))}
+    </dd>
+  );
+}
 
-const SHORTCUTS: { group: string; keys: [string, string][] }[] = [
-  {
-    group: t('Partout'),
-    keys: [
-      ['Ctrl + K', t('Rechercher')],
-      [t('↑ ↓ · Entrée'), t('Choisir un résultat')],
-      [t('Échap'), t('Fermer, désélectionner')],
-      [t('Maj + F10'), t('Menu contextuel')],
-    ],
-  },
-  {
-    group: t('Drive'),
-    keys: [
-      [t('Entrée'), t('Ouvrir')],
-      [t('Espace'), t('Sélectionner')],
-      ['Ctrl + A', t('Tout sélectionner')],
-      ['Ctrl + C · Ctrl + X · Ctrl + V', t('Copier, couper, coller')],
-      ['Ctrl + D', t('Dupliquer')],
-      ['F2', t('Renommer')],
-      [t('Suppr'), t('Mettre à la corbeille')],
-      [t('Retour arrière'), t('Dossier parent')],
-    ],
-  },
-  {
-    group: t('Calendrier'),
-    keys: [
-      ['← →', t('Jour précédent, suivant')],
-      ['↑ ↓', t('Semaine précédente, suivante')],
-      [t('Échap'), t('Annuler un déplacement')],
-    ],
-  },
-  {
-    group: t('Tâches'),
-    keys: [[`${t('Entrée')} · F2`, t('Renommer')]],
-  },
-  {
-    group: t('Notes'),
-    keys: [
-      ['Ctrl + B · Ctrl + I · Ctrl + U', t('Gras, italique, souligné')],
-      ['Ctrl + Z', t('Annuler la frappe')],
-      [t('Entrée'), t('Du titre au texte')],
-      ['↑ ↓', t('Élément précédent, suivant')],
-      ['F2', t('Renommer')],
-      [t('Suppr'), t('Mettre à la corbeille')],
-    ],
-  },
-  {
-    group: t('Corbeille'),
-    keys: [
-      [t('Entrée'), t('Aperçu||d’un fichier')],
-      ['↑ ↓', t('Élément précédent, suivant')],
-      ['Ctrl + A', t('Tout sélectionner')],
-      [t('Suppr'), t('Supprimer définitivement')],
-    ],
-  },
-  {
-    group: t('Souris'),
-    keys: [
-      [t('Double-clic'), t('Ouvrir un fichier ou un dossier')],
-      [t('Clic droit'), t('Plus d’options')],
-      [t('Ctrl + clic'), t('Sélectionner plusieurs éléments')],
-      [t('Glisser'), t('Ranger dans un dossier, déplacer un événement')],
-      [t('Alt + glisser'), t('Copier au lieu de déplacer (Drive)')],
-    ],
-  },
-];
-
-// Mac: ⌘ and ⌥; elsewhere the key's name in the language (« Strg » in German).
-const keyLabel = (k: string) => (IS_MAC ? k.replace(/Ctrl \+ /g, '⌘ ').replace(/Alt \+ /g, '⌥ ') : k.replace(/\bCtrl\b/g, t('Ctrl')));
+function ShortcutList({ groups, gestures }: { groups: { group: string; keys: [string, string][] }[]; gestures?: boolean }) {
+  return groups.map(g => (
+    <div key={g.group} className="px-5 py-3">
+      <h3 className="eyebrow mb-1">{g.group}</h3>
+      <dl className="grid gap-x-8 sm:grid-cols-2">
+        {g.keys.map(([k, d]) =>
+          // A gesture is a sentence: the gesture, and what it does under it.
+          gestures ? (
+            <div key={k + d} className="py-1.5 text-[13px]">
+              <dt className="font-medium text-stone-700">{k}</dt>
+              <dd className="text-stone-500">{d}</dd>
+            </div>
+          ) : (
+            <div key={k + d} className="flex items-center justify-between gap-3 py-1.5 text-[13px]">
+              <dt className="text-stone-600">{d}</dt>
+              <Keys spec={k} />
+            </div>
+          ),
+        )}
+      </dl>
+    </div>
+  ));
+}
 
 function ShortcutsTab() {
+  // A phone or a tablet without a mouse: the gestures first, the keys (a keyboard plugged in) on demand.
+  const [touch] = useState(() => matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches);
+  const [keys, setKeys] = useState(!touch);
   return (
     <div className="space-y-5">
-      <Section title={t('Raccourcis clavier')}>
-        {SHORTCUTS.map(g => (
-          <div key={g.group} className="px-5 py-3">
-            <h3 className="eyebrow mb-1">{g.group}</h3>
-            <dl className="grid gap-x-8 sm:grid-cols-2">
-              {g.keys.map(([k, d]) => (
-                <div key={k + d} className="flex items-center justify-between gap-3 py-1.5 text-[13px]">
-                  <dt className="text-stone-600">{d}</dt>
-                  <dd className="kbd shrink-0">{keyLabel(k)}</dd>
-                </div>
-              ))}
-            </dl>
+      {touch && (
+        <Section title={t('Gestes')}>
+          <ShortcutList groups={GESTURES} gestures />
+        </Section>
+      )}
+      <Section title={t('Raccourcis clavier')} description={touch ? t('Avec un clavier branché.') : undefined}>
+        {keys ? (
+          <ShortcutList groups={SHORTCUTS} />
+        ) : (
+          <div className="px-5 py-3">
+            <button type="button" className="btn-secondary h-9" onClick={() => setKeys(true)} aria-expanded={false}>
+              <Keyboard size={14} aria-hidden /> {t('Voir les raccourcis clavier')}
+            </button>
           </div>
-        ))}
+        )}
+      </Section>
+      <Section title={t('Mise en forme en tapant')} description={t('Dans une note, au début d’une ligne ou autour d’un mot.')}>
+        <dl className="grid gap-x-8 px-5 py-3 sm:grid-cols-2">
+          {MARKDOWN.map(([k, d]) => (
+            <div key={k} className="flex items-center justify-between gap-3 py-1.5 text-[13px]">
+              <dt className="text-stone-600">{d}</dt>
+              <dd className="shrink-0 font-mono text-[12px] text-stone-700">{k}</dd>
+            </div>
+          ))}
+        </dl>
       </Section>
     </div>
   );
@@ -791,16 +822,20 @@ function NotificationsTab() {
         </Row>
       </Section>
       <Section title={t('Autres notifications')}>
-        <Row label={t('Son des rappels')}>
+        <Row label={t('Son des rappels')} hint={t('Un petit son avec chaque rappel, quand Kompaly est ouvert.')}>
           <Toggle label={t('Son des rappels')} checked={s.reminderSound} onChange={v => s.set({ reminderSound: v })} />
         </Row>
-        {/* All of them at once; one by one, it's the bell in each group and shared calendar. */}
-        <Row label={t('Groupes')}>
-          <Toggle label={t('Groupes')} checked={s.groupNews} onChange={v => s.set({ groupNews: v })} />
-        </Row>
-        <Row label={t('Agendas partagés')}>
-          <Toggle label={t('Agendas partagés')} checked={s.calendarNews ?? s.groupNews} onChange={v => s.set({ calendarNews: v })} />
-        </Row>
+        {/* All of them at once; one by one, it's the bell in each group and shared calendar. Local mode: nothing is shared. */}
+        {cloudEnabled && (
+          <Row label={groupWords(s.usage).Groups} hint={t('Ce que les autres ajoutent ou changent dans tes {groups}.', { groups: groupWords(s.usage).groups })}>
+            <Toggle label={groupWords(s.usage).Groups} checked={s.groupNews} onChange={v => s.set({ groupNews: v })} />
+          </Row>
+        )}
+        {cloudEnabled && (
+          <Row label={t('Agendas partagés')} hint={t('Les événements ajoutés, changés ou supprimés par les autres.')}>
+            <Toggle label={t('Agendas partagés')} checked={s.calendarNews ?? s.groupNews} onChange={v => s.set({ calendarNews: v })} />
+          </Row>
+        )}
         <Row label={t('Kompaly')} hint={t('Ses suggestions, quand tu es ailleurs.')}>
           <Toggle label={t('Kompaly')} checked={s.copilotNotify} onChange={v => s.set({ copilotNotify: v })} />
         </Row>
@@ -935,6 +970,109 @@ function DataTab() {
 
 // ── Account ─────────────────────────────────────────────────────────────────
 
+const VALID_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * The account's address (online only). A new one is used once the link sent to it is clicked (Supabase also
+ * sends one to the current address when the project asks for both): store/auth › changeEmail.
+ */
+function EmailSection() {
+  const user = useAuth(s => s.user)!;
+  const location = useLocation();
+  const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [err, setErr] = useState<{ email?: string; password?: string }>({});
+  const [busy, setBusy] = useState(false);
+  const asked = `cop-email-change:${user.id}`;
+
+  // Back from the first of the two links: what is left to do. Back from the last one: done.
+  useEffect(() => {
+    if (/message=confirmation/i.test(location.hash)) {
+      toast(t('Lien confirmé. Clique aussi sur celui reçu à ton autre adresse pour finir.'), 'success');
+      history.replaceState(null, '', location.pathname + location.search);
+    }
+  }, [location]);
+  useEffect(() => {
+    try {
+      if (!sameEmail(localStorage.getItem(asked) ?? '', user.email)) return;
+      localStorage.removeItem(asked);
+      toast(t('Adresse e-mail changée : {email}', { email: user.email }), 'success');
+    } catch {
+      /* storage blocked: nothing to say */
+    }
+  }, [asked, user.email]);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    const found = {
+      email: !VALID_EMAIL.test(email.trim()) ? t('Cette adresse e-mail n’est pas valide.') : sameEmail(email, user.email) ? t('C’est déjà l’adresse de ton compte.') : undefined,
+      password: password ? undefined : t('Entre ton mot de passe.'),
+    };
+    setErr(found);
+    if (found.email || found.password) return;
+    setBusy(true);
+    try {
+      await useAuth.getState().changeEmail(email, password);
+      try {
+        localStorage.setItem(asked, email.trim().toLowerCase());
+      } catch {
+        /* storage blocked: no « changée » message later, the address still changes */
+      }
+      toast(t('Presque fini : clique sur le lien envoyé à {email}. Si un e-mail arrive aussi à ton adresse actuelle, clique sur son lien aussi.', { email: email.trim() }), 'success');
+      setOpen(false);
+      setEmail('');
+      setPassword('');
+    } catch (error) {
+      const msg = (error as Error).message;
+      if (msg === AUTH_MSG.wrongPassword) setErr({ password: msg });
+      else if (msg === AUTH_MSG.accountExists || msg === t('Cette adresse e-mail n’est pas valide.') || msg === t('C’est déjà l’adresse de ton compte.')) setErr({ email: msg });
+      else toast(msg, 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Section title={t('Adresse e-mail')}>
+      <Row
+        label={user.email}
+        hint={
+          user.pendingEmail
+            ? t('En attente : {email}. Clique sur le lien reçu pour confirmer.', { email: user.pendingEmail })
+            : user.noPassword
+              ? t('Ton compte s’ouvre avec {provider} : choisis d’abord un mot de passe ci-dessous pour changer d’adresse.', { provider: user.provider ? PROVIDER_NAMES[user.provider] : 'Google' })
+              : undefined
+        }
+      >
+        {!user.noPassword && !open && (
+          <button className="btn-secondary h-8" onClick={() => setOpen(true)}>
+            <Mail size={14} aria-hidden /> {t('Changer d’adresse')}
+          </button>
+        )}
+      </Row>
+      {open && (
+        <form onSubmit={submit} noValidate className="grid items-start gap-4 px-5 py-4 sm:grid-cols-2 sm:gap-x-3">
+          <Field label={t('Nouvelle adresse e-mail')} error={err.email}>
+            <input type="email" className="field w-full" value={email} onChange={e => (setEmail(e.target.value), setErr(x => ({ ...x, email: undefined })))} autoComplete="email" autoFocus />
+          </Field>
+          <Field label={t('Mot de passe actuel')} error={err.password}>
+            <PasswordInput className="field w-full" value={password} onChange={e => (setPassword(e.target.value), setErr(x => ({ ...x, password: undefined })))} autoComplete="current-password" />
+          </Field>
+          <div className="mt-2 flex gap-2 sm:col-span-2">
+            <button className="btn-primary h-8" disabled={busy}>
+              {t('Envoyer le lien de confirmation')}
+            </button>
+            <button type="button" className="btn-ghost h-8" onClick={() => (setOpen(false), setErr({}))}>
+              {t('Annuler')}
+            </button>
+          </div>
+        </form>
+      )}
+    </Section>
+  );
+}
+
 function AccountTab() {
   const navigate = useNavigate();
   const { changePassword, deleteAccount, logout } = useAuth.getState();
@@ -1012,6 +1150,17 @@ function AccountTab() {
     navigate('/connexion');
   };
 
+  const forgot = async () => {
+    const email = useAuth.getState().user?.email ?? '';
+    if (!(await confirmAction(t('Recevoir un lien pour changer de mot de passe ?'), t('Il part à {email}.', { email }), t('Envoyer'), false))) return;
+    try {
+      await useAuth.getState().requestPasswordReset(email);
+      toast(t('Lien envoyé à {email} : ouvre-le pour choisir un nouveau mot de passe.', { email }), 'success');
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    }
+  };
+
   return (
     <div className="space-y-5">
       {cloudEnabled && (
@@ -1075,18 +1224,28 @@ function AccountTab() {
 
       {cloudEnabled && <PasskeySection />}
 
+      {cloudEnabled && <EmailSection />}
+
       <Section title={t('Mot de passe')}>
         <form onSubmit={onChange} noValidate className="grid items-start gap-4 px-5 py-4 sm:grid-cols-3 sm:gap-x-3">
           {!noPassword && (
-            <Field label={t('Mot de passe actuel')} error={pwErr.current}>
-              <input type="password" className="field w-full" {...pwProps('current', setCurrent)} autoComplete="current-password" />
-            </Field>
+            <div>
+              <Field label={t('Mot de passe actuel')} error={pwErr.current}>
+                <PasswordInput className="field w-full" {...pwProps('current', setCurrent)} autoComplete="current-password" />
+              </Field>
+              {/* Online: a link to choose a new one, sent to the account's address (the sign-in page's « Oublié ? »). */}
+              {cloudEnabled && (
+                <button type="button" className="hit mt-1.5 text-[12px] text-stone-500 underline decoration-stone-300 underline-offset-2 hover:text-ink" onClick={() => void forgot()}>
+                  {t('Mot de passe oublié ?')}
+                </button>
+              )}
+            </div>
           )}
           <Field label={t('Nouveau mot de passe')} error={pwErr.next} hint={next && <PasswordStrength password={next} />}>
-            <input type="password" className="field w-full" {...pwProps('next', setNext)} autoComplete="new-password" />
+            <PasswordInput className="field w-full" {...pwProps('next', setNext)} autoComplete="new-password" />
           </Field>
           <Field label={t('Confirmer')} error={pwErr.confirm}>
-            <input type="password" className="field w-full" aria-label={t('Confirmer le nouveau mot de passe')} {...pwProps('confirm', setConfirmPw)} autoComplete="new-password" />
+            <PasswordInput className="field w-full" aria-label={t('Confirmer le nouveau mot de passe')} {...pwProps('confirm', setConfirmPw)} autoComplete="new-password" />
           </Field>
           {/* 16 px of the grid + 8: 24 px before the main button. */}
           <div className="mt-2 sm:col-span-3">
@@ -1239,6 +1398,25 @@ export default function ProfilePage() {
             {tab === 'compte' && <AccountTab />}
           </div>
         </div>
+        {/* What a visitor finds at the foot of the home page, reachable once signed in too. */}
+        <footer className="mt-10 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 pb-2 text-[12px] text-stone-500 md:ml-[13.5rem]">
+          {LEGAL_LINKS.map(l => (
+            <Fragment key={l.to}>
+              <Link to={l.to} className="hit underline-offset-2 hover:text-ink hover:underline">
+                {l.label}
+              </Link>
+              <span aria-hidden>·</span>
+            </Fragment>
+          ))}
+          <a href={`mailto:${CONTACT}`} className="hit underline-offset-2 hover:text-ink hover:underline">
+            {t('Nous contacter')}
+          </a>
+          <span aria-hidden>·</span>
+          <span className="tabular">
+            {t('Version du {date}', { date: fmt(fromKey(latestRelease.id), 'd MMMM yyyy') })}
+            {__BUILD__ && ` (${__BUILD__})`}
+          </span>
+        </footer>
       </div>
     </div>
   );
