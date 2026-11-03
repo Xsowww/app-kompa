@@ -12,6 +12,7 @@ export const setGroupSpace = (kind: GroupKind) => void (space = kind);
 const words = () => (space === 'agenda' ? AGENDA_WORDS : groupWords(getSettings().usage));
 import { QUOTA, StorageError, quotaLabel } from './blobStore';
 import { abandonUpload, storageUpload } from './storageUpload';
+import { inviteLink, inviteText } from './groupInvite';
 import { t } from '../i18n';
 
 // Groupes de travail : uniquement en ligne. Appels directs à Supabase (tables group_* et
@@ -31,6 +32,9 @@ export interface Group {
   kind: GroupKind;
   /** Shared calendars: their own categories, for every member (migration 2026-10-27). */
   categories: CustomCategory[];
+  /** Rights given to whoever joins (owner's choice, migration 2026-11-03; before it: editor who may invite). */
+  defaultRole: GroupRole;
+  defaultCanInvite: boolean;
 }
 export type GroupKind = 'groupe' | 'agenda';
 
@@ -41,6 +45,9 @@ export interface GroupMember {
   isOwner: boolean;
   role: GroupRole;
   canInvite: boolean;
+  /** Their profile's picture (small data URL) or colour (migration 2026-11-03; before it: none, a colour from their id). */
+  photo?: string | null;
+  color?: string | null;
 }
 
 /** Lecteur : lit tout, dit s'il vient. Éditeur : ajoute, modifie, supprime. Le propriétaire a tout. */
@@ -92,6 +99,9 @@ export interface GroupEvent {
   reminders: number[];
   /** Shared calendars: same id on every occurrence of an event that repeats or lasts several days (migration 2026-10-31). */
   series: string | null;
+  /** Who last changed what the members see, and when (set by the database, migration 2026-11-03; before it: null). */
+  updatedBy: string | null;
+  updatedAt: string | null;
 }
 
 export interface Attendance {
@@ -121,6 +131,8 @@ const toGroup = (r: Row): Group => ({
   ownerId: s(r.owner_id),
   createdAt: String(r.created_at),
   kind: r.kind === 'agenda' ? 'agenda' : 'groupe',
+  defaultRole: r.default_role === 'lecteur' ? 'lecteur' : 'editeur',
+  defaultCanInvite: r.default_can_invite !== false,
 });
 
 export const toNote = (r: Row): GroupNote => ({
@@ -149,6 +161,8 @@ export const toEvent = (r: Row): GroupEvent => ({
   people: Array.isArray(r.people) ? r.people.map(String) : [],
   reminders: Array.isArray(r.reminders) ? r.reminders.map(Number).filter(n => Number.isInteger(n) && n >= 0) : [],
   series: s(r.series),
+  updatedBy: s(r.updated_by),
+  updatedAt: s(r.updated_at),
 });
 
 function db(): SupabaseClient {
@@ -173,7 +187,11 @@ export function groupError(e: unknown): string {
   const msg = String((e as { message?: string })?.message ?? e ?? '');
   if (/too many attempts/i.test(msg)) return t('Trop de codes essayés. Réessaie dans un quart d’heure.');
   if (/group full/i.test(msg)) return t('Plus de place : 50 membres au maximum dans {group}.', { group: w.this });
-  if (/too many groups/i.test(msg)) return t('Tu fais déjà partie de 30 {groups}, c’est le maximum.', { groups: w.groups });
+  // The 30 count groups and shared calendars together (create_group, join_group, join_agenda).
+  if (/too many groups/i.test(msg)) return t('Tu fais déjà partie de 30 {groups} et agendas partagés en tout, c’est le maximum.', { groups: groupWords(getSettings().usage).groups });
+  if (/too many comments/i.test(msg)) return t('Trop de commentaires d’un coup. Réessaie dans une minute.');
+  if (/group_notes_content_check/.test(msg)) return t('Note trop lourde pour être partagée (ses images comptent) : retire une image ou coupe-la en deux notes.');
+  if (/not a member/i.test(msg)) return t('Cette personne ne fait plus partie de {group}.', { group: w.this });
   if (/too large|exceeded the maximum|payload too large|413/i.test(msg)) return t('Fichier trop lourd : 50 Mo au maximum.');
   if (/photo/i.test(msg) && /column|schema cache/i.test(msg)) return t('Les photos de groupe ne sont pas encore disponibles.');
   if (/group_periods|42P01|PGRST205/.test(msg)) return t('Les périodes ne sont pas encore disponibles ici.');
@@ -224,7 +242,8 @@ export async function fetchGroups(): Promise<Group[]> {
   // Jamais « * » : le code d'invitation n'est pas lisible dans la table (voir group_invite_code).
   // Newest columns first; a server without a recent migration (no « categories », 2026-10-27; no « photo », 2026-10-19;
   // no « kind », 2026-10-18) answers 42703 (no such column) or 42501 (column not readable yet) and the next, older list is tried.
-  for (const cols of ['id, name, color, photo, owner_id, created_at, kind, categories', 'id, name, color, photo, owner_id, created_at, kind', 'id, name, color, owner_id, created_at, kind', 'id, name, color, owner_id, created_at']) {
+  // (« default_role, default_can_invite »: 2026-11-03.)
+  for (const cols of ['id, name, color, photo, owner_id, created_at, kind, categories, default_role, default_can_invite', 'id, name, color, photo, owner_id, created_at, kind, categories', 'id, name, color, photo, owner_id, created_at, kind', 'id, name, color, owner_id, created_at, kind', 'id, name, color, owner_id, created_at']) {
     const res = await db().from('groups').select(cols).order('created_at');
     if (res.error?.code === '42703' || res.error?.code === '42501') continue;
     return (check(res) as unknown as Row[]).map(toGroup);
@@ -237,15 +256,26 @@ export async function createGroup(name: string, color: string | null, kind: Grou
   return toGroup(row as Row);
 }
 
-/** A shared calendar's invitation link (its secret token; joined after signing in). A group is joined by its code
- *  only: no link is offered for it (an old /groupes?rejoindre=CODE still works, pages/groups/join). */
-export async function copyInviteLink(token: string) {
-  const link = `${location.origin}/agendas?invitation=${token}`;
+/**
+ * Invites someone: a group by its link (/groupes?rejoindre=CODE) and code, a shared calendar by its link (its secret
+ * token), joined after signing in. On a phone, the system's share sheet (Messages, WhatsApp…); else, or when it is
+ * refused, the ready-to-send message is copied.
+ */
+export async function shareInvite(g: Pick<Group, 'kind' | 'name'>, secret: string) {
+  const text = inviteText(g, secret, location.origin);
+  if (typeof navigator.share === 'function' && matchMedia('(pointer: coarse)').matches) {
+    try {
+      await navigator.share({ title: g.name, text });
+      return;
+    } catch (e) {
+      if ((e as Error)?.name === 'AbortError') return; // closed by the person
+    }
+  }
   try {
-    await navigator.clipboard.writeText(link);
-    toast(t('Lien d’invitation copié'), 'success');
+    await navigator.clipboard.writeText(text);
+    toast(t('Invitation copiée : colle-la dans un message.'), 'success');
   } catch {
-    toast(t('Lien d’invitation : {link}', { link }));
+    toast(t('Lien d’invitation : {link}', { link: inviteLink(g.kind, secret, location.origin) }));
   }
 }
 
@@ -271,15 +301,38 @@ export async function joinGroup(code: string): Promise<string | null> {
   return id ? String(id) : null;
 }
 
-export async function updateGroup(id: string, patch: { name?: string; color?: string | null; photo?: string | null }) {
-  changed(await db().from('groups').update(patch).eq('id', id).select('id'), t('Seul le propriétaire peut modifier {group}.', { group: words().this }));
+export async function updateGroup(id: string, patch: { name?: string; color?: string | null; photo?: string | null; defaultRole?: GroupRole; defaultCanInvite?: boolean }) {
+  const { defaultRole, defaultCanInvite, ...row } = patch;
+  const res = await db()
+    .from('groups')
+    .update({ ...row, ...(defaultRole !== undefined && { default_role: defaultRole }), ...(defaultCanInvite !== undefined && { default_can_invite: defaultCanInvite }) })
+    .eq('id', id)
+    .select('id');
+  // Rights of newcomers need migration 2026-11-03 (no such column, or not allowed to change it yet).
+  if ((defaultRole !== undefined || defaultCanInvite !== undefined) && /default_(role|can_invite)/.test(`${res.error?.message}`)) throw new Refused(t('Le rôle des nouveaux membres n’est pas encore disponible.'));
+  changed(res, t('Seul le propriétaire peut modifier {group}.', { group: words().this }));
 }
+
+/** Groups I left or deleted myself: their disappearance from the list isn't news (store/groups says the others). */
+export const goneByMe = new Set<string>();
 
 export async function deleteGroup(id: string) {
   // Le groupe d'abord : s'il reste (coupure, refus), ses fichiers restent aussi. Ensuite celui qui l'a supprimé
   // garde le droit d'effacer ses fichiers (table deleted_groups, migration 2026-10-18e).
+  goneByMe.add(id);
   changed(await db().from('groups').delete().eq('id', id).select('id'), t('Seul le propriétaire peut supprimer {group}.', { group: words().this }));
   await purgeFiles(id);
+}
+
+/**
+ * Makes another member the owner (the former one stays, as an editor who may invite). False on a server without
+ * migration 2026-11-03: nothing changed (leaving then hands it to the oldest member, as before).
+ */
+export async function transferGroup(groupId: string, userId: string): Promise<boolean> {
+  const res = await db().rpc('transfer_group', { p_group: groupId, p_member: userId });
+  if (res.error?.code === 'PGRST202') return false;
+  check(res);
+  return true;
 }
 
 /** Le code d'invitation, ou null si l'on n'a pas le droit d'inviter. */
@@ -306,7 +359,17 @@ export async function fetchMembers(groupId: string): Promise<GroupMember[]> {
     isOwner: r.is_owner === true,
     role: r.role === 'lecteur' ? 'lecteur' : 'editeur',
     canInvite: r.can_invite === true,
+    photo: typeof r.avatar_image === 'string' && /^data:image\/(jpeg|png|webp);base64,/.test(r.avatar_image) ? r.avatar_image : null,
+    color: typeof r.avatar_color === 'string' && /^#[0-9a-f]{6}$/i.test(r.avatar_color) ? r.avatar_color : null,
   }));
+}
+
+/** My role in each of my groups (the list beside them, the rights before their members are read). */
+export async function fetchMyRoles(): Promise<Record<string, GroupRole>> {
+  const me = await sessionUserId();
+  const res = await db().from('group_members').select('group_id, role').eq('user_id', me);
+  if (res.error) return {}; // a server without roles (2026-10-13c): « Membre », as before
+  return Object.fromEntries((res.data as Row[]).map(r => [String(r.group_id), r.role === 'lecteur' ? 'lecteur' : 'editeur']));
 }
 
 /** Retirer un membre (propriétaire seulement). */
@@ -320,6 +383,7 @@ export async function removeMember(groupId: string, userId: string) {
 /** Quitter le groupe avec le compte réellement connecté (`last` : le groupe disparaîtra avec ses fichiers). */
 export async function leaveGroup(groupId: string, last = false) {
   const me = await sessionUserId();
+  goneByMe.add(groupId);
   changed(await db().from('group_members').delete().eq('group_id', groupId).eq('user_id', me).select('user_id'), t('Tu ne fais plus partie de {group}.', { group: words().this }));
   if (last) await purgeFiles(groupId);
 }
@@ -361,6 +425,54 @@ export async function saveNote(id: string, patch: { title?: string; content?: st
 
 export async function deleteNote(id: string) {
   changed(await db().from('group_notes').delete().eq('id', id).select('id'), t('Cette note n’existe plus ou tu n’y as plus accès.'));
+}
+
+// ── Commentaires des notes partagées, avec @mention (migration 2026-11-03) ────────
+export interface NoteComment {
+  id: string;
+  noteId: string;
+  body: string;
+  /** The members named with « @ » (they get a notification). */
+  mentions: string[];
+  createdBy: string | null;
+  createdAt: string;
+}
+
+const COMMENT_COLS = 'id, note_id, body, mentions, created_by, created_at';
+export const toComment = (r: Row): NoteComment => ({
+  id: String(r.id),
+  noteId: String(r.note_id),
+  body: String(r.body ?? ''),
+  mentions: Array.isArray(r.mentions) ? r.mentions.map(String) : [],
+  createdBy: s(r.created_by),
+  createdAt: String(r.created_at),
+});
+
+/** A note's comments, oldest first; null on a server without them yet (the section isn't shown). */
+export async function fetchComments(noteId: string): Promise<NoteComment[] | null> {
+  const res = await db().from('group_note_comments').select(COMMENT_COLS).eq('note_id', noteId).order('created_at');
+  if (res.error && /group_note_comments|42P01|PGRST205/.test(`${res.error.code} ${res.error.message}`)) return null;
+  return (check(res) as Row[]).map(toComment);
+}
+
+export async function addComment(note: Pick<GroupNote, 'id' | 'groupId'>, body: string, mentions: string[]): Promise<NoteComment> {
+  const row = check(await db().from('group_note_comments').insert({ note_id: note.id, group_id: note.groupId, body: body.trim().slice(0, 2000), mentions: mentions.slice(0, 20) }).select(COMMENT_COLS).single());
+  return toComment(row as Row);
+}
+
+export async function deleteComment(id: string) {
+  changed(await db().from('group_note_comments').delete().eq('id', id).select('id'), t('Seul son auteur ou le propriétaire peut supprimer ce commentaire.'));
+}
+
+let finitions: Promise<boolean> | null = null;
+/** Migration 2026-11-03 applied (reminders of a group's meetings…): asked once per visit (again after a network failure). */
+export function finitionsReady(): Promise<boolean> {
+  finitions ??= (async () => {
+    const { error } = await db().from('group_events').select('updated_at').limit(1);
+    if (error && error.code !== '42703') finitions = null;
+    return !error;
+  })().catch(() => ((finitions = null), false));
+  return finitions;
 }
 
 // ── Révisions en commun ───────────────────────────────────────────────────
@@ -563,6 +675,13 @@ export async function downloadFile(f: GroupFile): Promise<Blob> {
   const { data, error } = await db().storage.from(FILES).download(filePath(f));
   if (error || !data) throw error ?? new Error('introuvable');
   return data;
+}
+
+/** A new name (editors and the owner; migration 2026-11-03, else « pas encore disponible »). */
+export async function renameFile(f: GroupFile, name: string) {
+  const res = await db().from('group_files').update({ name: name.trim().slice(0, 255) }).eq('id', f.id).select('id');
+  if (res.error?.code === '42501') throw new Refused(t('Renommer un fichier partagé n’est pas encore disponible.'));
+  changed(res, t('Tu ne peux pas renommer ce fichier.'));
 }
 
 export async function deleteFile(f: GroupFile) {

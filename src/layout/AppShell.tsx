@@ -503,7 +503,7 @@ export default function AppShell() {
                   {n.to === '/enregistrer' && <RecBadge />}
                   {news(n.to) > 0 && (
                     <span
-                      className={cx('ml-auto rounded-full px-1.5 text-[11px] font-semibold leading-[18px] tabular', n.to === '/agendas' ? 'bg-red-500 text-white' : 'bg-brand-solid text-on-brand')}
+                      className="ml-auto rounded-full bg-brand-solid px-1.5 text-[11px] font-semibold leading-[18px] text-on-brand tabular"
                       aria-label={
                         n.to === '/agendas'
                           ? tn(agendaNews, '{n} nouveauté dans tes agendas partagés', '{n} nouveautés dans tes agendas partagés')
@@ -669,7 +669,7 @@ function PhoneTabBar({ news, label, extra }: { news: (to: string) => number; lab
   const more = [
     ...NAV.filter(n => 'more' in n).map(n => {
       const count = news(n.to);
-      return { ...n, aria: count ? `${label(n)}, ${tn(count, '{n} nouveauté', '{n} nouveautés')}` : label(n), count, urgent: n.to === '/agendas' };
+      return { ...n, aria: count ? `${label(n)}, ${tn(count, '{n} nouveauté', '{n} nouveautés')}` : label(n), count, urgent: false };
     }),
     ...extra,
   ];

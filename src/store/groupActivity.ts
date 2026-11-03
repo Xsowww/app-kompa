@@ -5,6 +5,7 @@ import { fetchGroups, sessionUserId, type Group } from '../lib/groups';
 import { canNotify, notify } from '../lib/notify';
 import { pushActive } from '../lib/push';
 import { getSettings, useSettings } from './settings';
+import { useGroups } from './groups';
 import { toast } from './ui';
 import { goTo } from '../copilot/actions';
 import { groupWords } from '../lib/usage';
@@ -19,10 +20,11 @@ import { t, tn } from '../i18n';
 export type ActivityTab = 'notes' | 'fichiers' | 'revisions';
 type Counts = Partial<Record<ActivityTab, number>>;
 
-const TABLES: { table: string; tab: ActivityTab; at: string; by: string; count?: (n: number) => string }[] = [
+const TABLES: { table: string; tab: ActivityTab; at: string; by: string; count?: (n: number) => string; before?: { at: string; by: string } }[] = [
   { table: 'group_notes', tab: 'notes', at: 'updated_at', by: 'updated_by', count: n => tn(n, '{n} note', '{n} notes') },
   { table: 'group_files', tab: 'fichiers', at: 'created_at', by: 'created_by', count: n => tn(n, '{n} fichier', '{n} fichiers') },
-  { table: 'group_events', tab: 'revisions', at: 'created_at', by: 'created_by' },
+  // A meeting changed by another member counts too (migration 2026-11-03; before it, only the new ones).
+  { table: 'group_events', tab: 'revisions', at: 'updated_at', by: 'updated_by', before: { at: 'created_at', by: 'created_by' } },
 ];
 const POLL_MS = 30_000;
 /** Realtime connected: the count only runs every 10 polls (5 min), as a safety net. */
@@ -38,6 +40,8 @@ interface ActivityState {
   stop: () => void;
   /** L'étudiant regarde cet onglet : plus rien de nouveau dedans. */
   markSeen: (groupId: string, tab: string) => void;
+  /** « Tout marquer comme lu » : tous les onglets du groupe. */
+  markAllSeen: (groupId: string) => void;
 }
 
 const key = (gid: string, tab: string) => `${gid}:${tab}`;
@@ -107,7 +111,11 @@ export const useGroupActivity = create<ActivityState>((set, get) => ({
     // Sa propre liste : celle du store est vidée et rechargée par la page Groupes à chaque visite.
     let groups: Group[];
     try {
-      groups = (await fetchGroups()).filter(g => g.kind === 'groupe'); // shared calendars notify by push
+      const all = await fetchGroups();
+      groups = all.filter(g => g.kind === 'groupe'); // shared calendars notify by push
+      // Removed from one, or one deleted, while elsewhere in the app: the list read again says it (store/groups).
+      const known = useGroups.getState();
+      if (known.loaded && !known.failed && known.groups.some(g => !all.some(x => x.id === g.id))) void known.loadGroups();
     } catch {
       return; // réseau coupé : on garde l'affichage actuel
     }
@@ -122,20 +130,35 @@ export const useGroupActivity = create<ActivityState>((set, get) => ({
     if (Object.keys(missing).length) useSettings.getState().set({ groupsSeen: { ...getSettings().groupsSeen, ...missing } });
 
     const unread: Record<string, Counts> = {};
-    const results = await Promise.all(
-      TABLES.map(async t => {
-        const oldest = groups.map(g => seenAt(g.id, t.tab)).sort()[0];
-        if (!oldest) return true;
-        const floor = new Date(Date.now() - MAX_AGE_MS).toISOString();
-        const since = oldest > floor ? oldest : floor;
-        const { data, error } = await supabase!.from(t.table).select(`group_id, ${t.at}`).gt(t.at, since).neq(t.by, me);
-        for (const r of (data ?? []) as unknown as Record<string, string>[]) {
-          if (r[t.at] <= (seenAt(r.group_id, t.tab) ?? now)) continue;
-          unread[r.group_id] = { ...unread[r.group_id], [t.tab]: (unread[r.group_id]?.[t.tab] ?? 0) + 1 };
-        }
-        return !error;
+    const add = (gid: string, tab: ActivityTab, at: string) => {
+      if (at <= (seenAt(gid, tab) ?? now)) return;
+      unread[gid] = { ...unread[gid], [tab]: (unread[gid]?.[tab] ?? 0) + 1 };
+    };
+    const floor = new Date(Date.now() - MAX_AGE_MS).toISOString();
+    const sinceFor = (tab: ActivityTab) => {
+      const oldest = groups.map(g => seenAt(g.id, tab)).sort()[0];
+      return oldest && (oldest > floor ? oldest : floor);
+    };
+    const results = await Promise.all([
+      ...TABLES.map(async t => {
+        const since = sinceFor(t.tab);
+        if (!since) return true;
+        const read = (at: string, by: string) => supabase!.from(t.table).select(`group_id, ${at}`).gt(at, since).neq(by, me);
+        let { at } = t;
+        let res = await read(t.at, t.by);
+        if (res.error?.code === '42703' && t.before) res = await read((at = t.before.at), t.before.by);
+        for (const r of (res.data ?? []) as unknown as Record<string, string>[]) add(r.group_id, t.tab, r[at]);
+        return !res.error;
       }),
-    );
+      // Meetings cancelled by another member: no row left to count, the server's notifications say them.
+      (async () => {
+        const since = sinceFor('revisions');
+        if (!since) return true;
+        const { data, error } = await supabase!.rpc('my_group_cancellations', { p_since: since });
+        for (const r of (Array.isArray(data) ? data : []) as { group_id: string; at: string }[]) if (names[r.group_id]) add(r.group_id, 'revisions', new Date(r.at).toISOString());
+        return !error || error.code === 'PGRST202'; // without migration 2026-11-03: none
+      })(),
+    ]);
     if (results.includes(false)) return; // réseau coupé : on garde l'affichage actuel
 
     // Ce que l'étudiant regarde en ce moment est vu, pas nouveau.
@@ -195,5 +218,11 @@ export const useGroupActivity = create<ActivityState>((set, get) => ({
     if (!TABLES.some(t => t.tab === tab)) return;
     useSettings.getState().set({ groupsSeen: { ...getSettings().groupsSeen, [key(gid, tab)]: new Date().toISOString() } });
     if (get().unread[gid]?.[tab as ActivityTab]) set(s => ({ unread: { ...s.unread, [gid]: { ...s.unread[gid], [tab]: 0 } } }));
+  },
+
+  markAllSeen(gid) {
+    const at = new Date().toISOString();
+    useSettings.getState().set({ groupsSeen: { ...getSettings().groupsSeen, ...Object.fromEntries(TABLES.map(t => [key(gid, t.tab), at])) } });
+    set(s => ({ unread: { ...s.unread, [gid]: {} } }));
   },
 }));

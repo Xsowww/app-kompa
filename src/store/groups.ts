@@ -4,14 +4,18 @@ import { supabase } from '../lib/supabase';
 import { addDays } from 'date-fns';
 import { toKey, todayKey } from '../lib/dates';
 import * as api from '../lib/groups';
-import type { Attendance, Group, GroupEvent, GroupFile, GroupMember, GroupNoteSummary } from '../lib/groups';
+import type { Attendance, Group, GroupEvent, GroupFile, GroupMember, GroupNoteSummary, GroupRole } from '../lib/groups';
 import type { Period } from '../lib/periods';
+import { toast } from './ui';
+import { t } from '../i18n';
 
 // Groupes de travail (en ligne seulement). Rien n'est gardé dans le navigateur : tout est relu
 // depuis Supabase à l'ouverture, en direct (Realtime) et quand l'onglet reprend la main.
 
 interface GroupsState {
   groups: Group[];
+  /** My role in each (read with the list): the side list says it, and the rights are known before the members are read. */
+  myRoles: Record<string, GroupRole>;
   loaded: boolean;
   failed: boolean;
   activeId: string | null;
@@ -102,6 +106,7 @@ export const useGroups = create<GroupsState>((set, get) => {
 
   return {
     groups: [],
+    myRoles: {},
     loaded: false,
     failed: false,
     activeId: null,
@@ -116,8 +121,13 @@ export const useGroups = create<GroupsState>((set, get) => {
 
     async loadGroups() {
       try {
-        const groups = await api.fetchGroups();
-        set({ groups, loaded: true, failed: false });
+        const [groups, myRoles] = await Promise.all([api.fetchGroups(), api.fetchMyRoles().catch(() => get().myRoles)]);
+        // (What was shown when the answer came: two reads at once say it once.)
+        const before = get().loaded && !get().failed ? get().groups : null;
+        set({ groups, myRoles, loaded: true, failed: false });
+        // Removed by the owner, or deleted by them (not by me): said once, wherever I am in the app.
+        for (const g of before ?? [])
+          if (!groups.some(x => x.id === g.id) && !api.goneByMe.delete(g.id)) toast(t('Tu ne fais plus partie de « {name} »', { name: g.name }), 'info');
         void api.purgeDeletedGroups().catch(() => undefined);
       } catch {
         set({ loaded: true, failed: true });
@@ -187,7 +197,7 @@ export const useGroups = create<GroupsState>((set, get) => {
 
     reset() {
       subscribe(null);
-      set({ groups: [], loaded: false, failed: false, activeId: null, members: {}, notes: {}, events: {}, periods: {}, attendance: {}, files: {}, codes: {}, loadFailed: {} });
+      set({ groups: [], myRoles: {}, loaded: false, failed: false, activeId: null, members: {}, notes: {}, events: {}, periods: {}, attendance: {}, files: {}, codes: {}, loadFailed: {} });
     },
   };
 });

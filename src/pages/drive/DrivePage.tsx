@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ChevronRight, ClipboardPaste, Copy, CopyPlus, Download, Eye, FolderInput, FolderPlus, FolderUp, HardDrive, LayoutGrid,
   List, Pencil, Scissors, Star, Trash2, Upload, Clock, ArrowUpDown, ArrowUp, ArrowDown, X, MousePointer2, Search, Tag, Link2, Check, Palette,
-  MoreHorizontal, ClipboardList, BookOpenCheck, FolderOpen, WifiOff, FolderDown, ScanText, NotebookPen,
+  MoreHorizontal, ClipboardList, BookOpenCheck, FolderOpen, WifiOff, FolderDown, ScanText, NotebookPen, Users,
 } from 'lucide-react';
 import { EmptyState, Skeleton } from '../../components/EmptyState';
 import {
@@ -30,6 +30,9 @@ import PhotoSheetDialog from './PhotoSheetDialog';
 import { usePhotoReady } from './photoReady';
 import MoveDialog from './MoveDialog';
 import ShareDialog from './ShareDialog';
+import ShareToGroupDialog from '../groups/ShareToGroup';
+import { useGroups } from '../../store/groups';
+import { groupWordsNow } from '../groups/util';
 import TagDialog, { TagPill } from './TagDialog';
 import { filesFromDrop, filesFromInput, pastedFiles, uploadPending } from './upload';
 import { isMenuKey, keepFocus, menuPoint } from '../../lib/a11y';
@@ -130,6 +133,7 @@ export default function DrivePage() {
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [tagIds, setTagIds] = useState<string[] | null>(null);
   const [shareItem, setShareItem] = useState<DriveItem | null>(null);
+  const [groupShare, setGroupShare] = useState<DriveItem[] | null>(null);
   // Item holding the list's single Tab stop (arrows move it).
   const [focusId, setFocusId] = useState<string | null>(null);
   // Last pointer was a finger: a tap adds to the selection instead of replacing it.
@@ -764,6 +768,8 @@ export default function DrivePage() {
       ...(full ? [{ label: t('Étiquettes…'), icon: <Tag size={15} />, onClick: () => setTagIds(ids) }] : []),
       // Links only exist online: no dead-end entry in the local version.
       ...(one && item.kind === 'file' && cloudEnabled ? [{ label: t('Partager le lien…'), icon: <Link2 size={15} />, onClick: () => setShareItem(item) }] : []),
+      // A copy of the files in a group (as « Partager dans un groupe… » of a note), for whoever is in one.
+      ...(cloudEnabled && targets.some(i => i.kind === 'file') && useGroups.getState().groups.some(g => g.kind === 'groupe') ? [{ label: t('Partager dans {a}…', { a: groupWordsNow().a }), icon: <Users size={15} />, onClick: () => setGroupShare(targets.filter(i => i.kind === 'file')) }] : []),
       // A course (Word, PDF, text): Kompaly makes its revision sheet or a practice exam, saved next to it.
       ...(one && canMakeFrom(item)
         ? [
@@ -1260,6 +1266,7 @@ export default function DrivePage() {
       )}
       {tagIds && <TagDialog ids={tagIds} onClose={() => setTagIds(null)} />}
       {shareItem && <ShareDialog item={shareItem} onClose={() => setShareItem(null)} />}
+      <ShareToGroupDialog items={groupShare} onClose={() => setGroupShare(null)} />
       {photoSheet && <PhotoSheetDialog folderId={tabAll ? parentId : null} onClose={() => setPhotoSheet(false)} />}
       {moveIds && (
         <MoveDialog

@@ -6,6 +6,8 @@ import { useGroups } from '../../store/groups';
 import { toast, useUi } from '../../store/ui';
 import { READ_ONLY_AGENDA, Refused, createEvent, createEvents, deleteEvent, deleteEvents, deletePeriod, groupError, refusedRights, savePeriods, setAgendaCategories, updateEvent, updateEvents, type Group, type GroupEvent, type NewGroupEvent } from '../../lib/groups';
 import { useMemberName, useRights } from './util';
+import { changedAfter } from './logic';
+import { relativeTime } from '../../lib/utils';
 import { LoadFailed } from './shared';
 import { useAuth } from '../../store/auth';
 import { sortPeriods } from '../../lib/periods';
@@ -142,6 +144,10 @@ export default function SharedCalendar({ group }: { group: Group }) {
         people: [...(members ?? [])].sort((a, b) => Number(b.userId === me) - Number(a.userId === me) || a.name.localeCompare(b.name)).map(m => ({ id: m.userId, name: m.userId === me ? t('Moi') : m.name })),
         nameOf: id => nameOf(id, t('toi')),
         nameFor: id => nameOf(id, t('toi||après pour')),
+        changed: id => {
+          const e = list.find(x => x.id === id);
+          return e && changedAfter(e) ? t('Modifié par {name} · {when}', { name: nameOf(e.updatedBy), when: relativeTime(e.updatedAt!) }) : null;
+        },
         unread: raw ? undefined : failed ? 'failed' : 'loading',
       },
       events: list.map(e => toCalendar(e, category)),

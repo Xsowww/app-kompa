@@ -1,44 +1,81 @@
 import { useState, type FormEvent } from 'react';
 import { DateField, TimeField } from '../../components/Pickers';
-import { CalendarPlus, Check, Clock, Flag, MapPin, Trash2, Link2 } from 'lucide-react';
+import ReminderPicker from '../../components/ReminderPicker';
+import { CalendarPlus, Check, Clock, Flag, MapPin, Pencil, Repeat, Trash2, Link2 } from 'lucide-react';
 import { useCreateActions } from '../../store/create';
 import { PlusHint } from '../../components/CreateButton';
 import { ReportDialog } from '../../components/FeedbackDialogs';
 import { useAuth } from '../../store/auth';
 import { useGroups } from '../../store/groups';
-import { useCalendar, guessCategory } from '../../store/calendar';
+import { useCalendar, guessCategory, type CalendarEvent } from '../../store/calendar';
 import { confirmAction, toast } from '../../store/ui';
-import { createEvent, deleteEvent, groupError, setAttendance, type Group, type GroupEvent } from '../../lib/groups';
+import { createEvent, createEvents, deleteEvent, deleteEvents, groupError, setAttendance, updateEvent, updateEvents, type Group, type GroupEvent, type NewGroupEvent } from '../../lib/groups';
 import { countdownLabel, fmt, fromKey, todayKey } from '../../lib/dates';
-import { cx } from '../../lib/utils';
+import { dayShift, defaultUntil, repeatDays, shiftKey } from '../../lib/repeat';
+import { cx, relativeTime, uid } from '../../lib/utils';
+import { askSeriesScope, changedFields } from '../calendar/source';
 import { MemberDot, LoadFailed } from './shared';
 import { EmptyState, Skeleton } from '../../components/EmptyState';
-import { groupColor, useGroupWords, useMemberName, useRights } from './util';
+import { groupColor, useFinitions, useGroupWords, useMemberName, useMemberOf, useRights } from './util';
+import { changedAfter } from './logic';
 import { useSettings } from '../../store/settings';
 import { t, tn } from '../../i18n';
 
 const isUrl = (s: string) => /^https?:\/\/\S+$/i.test(s.trim());
 const PLACE_EXAMPLE = { etudes: t('BU, salle B204… ou https://…'), travail: t('Salle de réunion… ou https://…'), perso: t('Chez Léa… ou https://…') };
 
-function EventForm({ group, onDone }: { group: Group; onDone: () => void }) {
+/** A meeting as the calendar's helpers see it (« celui-ci et les suivants »). */
+const asCalendar = (e: GroupEvent): CalendarEvent => ({ id: e.id, title: e.title, date: e.date, category: 'perso', done: false, createdAt: e.createdAt, ...(e.series && { series: e.series }) });
+
+/** Proposes a meeting, or changes one (`event`): when, where, its agenda, every week, reminders for every member. */
+function EventForm({ group, event, onDone }: { group: Group; event?: GroupEvent; onDone: () => void }) {
   const w = useGroupWords();
   const usage = useSettings(s => s.usage);
-  const [title, setTitle] = useState('');
-  const [date, setDate] = useState(todayKey());
-  const [start, setStart] = useState('');
-  const [end, setEnd] = useState('');
-  const [place, setPlace] = useState('');
+  const [title, setTitle] = useState(event?.title ?? '');
+  const [date, setDate] = useState(event?.date ?? todayKey());
+  const [start, setStart] = useState(event?.start ?? '');
+  const [end, setEnd] = useState(event?.end ?? '');
+  const [place, setPlace] = useState(event?.place ?? '');
+  const [details, setDetails] = useState(event?.details ?? '');
+  const [reminders, setReminders] = useState<number[]>(event?.reminders ?? []);
+  const [weekly, setWeekly] = useState(false);
+  const [until, setUntil] = useState(() => defaultUntil(event?.date ?? todayKey()));
+  // Reminders of a group's meetings are sent by the server once migration 2026-11-03 is there: not offered before.
+  const canRemind = useFinitions() || !!event?.reminders.length;
   const [busy, setBusy] = useState(false);
   const badTime = !!start && !!end && end <= start;
+  const repeat = weekly && !event ? repeatDays(date, 'week', until < date ? date : until) : null;
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !date || badTime) return;
+    const row: NewGroupEvent = { title: title.trim(), date, start: start || null, end: end || null, place: place.trim() || null, details: details.trim() || null, reminders: reminders.slice(0, 5) };
     setBusy(true);
     try {
-      await createEvent(group.id, { title: title.trim(), date, start: start || null, end: end || null, place: place.trim() || null });
+      if (!event) {
+        if (repeat && repeat.days.length > 1) {
+          const series = `rev-${uid()}`;
+          await createEvents(group.id, repeat.days.map(d => ({ ...row, date: d, series })));
+        } else await createEvent(group.id, row);
+        toast(t('{proposed} dans {group}', { proposed: w.meet.proposed, group: w.this }), 'success');
+      } else {
+        // Only what was changed here: what another member changed meanwhile isn't undone.
+        const patch = changedFields(row, event);
+        if (Object.keys(patch).length) {
+          const all = (useGroups.getState().events[group.id] ?? []).map(asCalendar);
+          const scope = await askSeriesScope(asCalendar(event), 'edit', all);
+          if (!scope) return setBusy(false);
+          const next = scope === 'next' ? (useGroups.getState().events[group.id] ?? []).filter(x => x.series === event.series && x.date > event.date) : [];
+          const shift = patch.date ? dayShift(event.date, patch.date) : 0;
+          const { date: _d, ...rest } = patch;
+          if (!next.length) await updateEvent(event.id, patch);
+          else if (!shift) await updateEvents([event.id, ...next.map(x => x.id)], patch);
+          // A new day moves each of the next ones by as many days.
+          else await Promise.all([updateEvent(event.id, patch), ...next.map(x => updateEvent(x.id, { ...rest, date: shiftKey(x.date, shift) }))]);
+          toast(t('Enregistré : {title}', { title: row.title }), 'success');
+        }
+      }
       await useGroups.getState().refresh(group.id, ['events']);
-      toast(t('{proposed} dans {group}', { proposed: w.meet.proposed, group: w.this }), 'success');
       onDone();
     } catch (err) {
       toast(groupError(err), 'error');
@@ -48,8 +85,8 @@ function EventForm({ group, onDone }: { group: Group; onDone: () => void }) {
 
   return (
     <form onSubmit={submit} className="card enter mb-4 p-4">
-      <p className="text-[14px] font-semibold">{t('Proposer {a}', { a: w.meet.a })}</p>
-      <input autoFocus value={title} maxLength={200} onChange={e => setTitle(e.target.value)} placeholder={w.meet.placeholder} className="field mt-3 w-full" />
+      <p className="text-[14px] font-semibold">{event ? t('Modifier « {title} »', { title: event.title }) : t('Proposer {a}', { a: w.meet.a })}</p>
+      <input autoFocus value={title} maxLength={200} onChange={e => setTitle(e.target.value)} placeholder={w.meet.placeholder} aria-label={t('Titre')} className="field mt-3 w-full" />
       <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-[1.4fr_1fr_1fr]">
         <div className="col-span-2 sm:col-span-1">
           <span className="eyebrow">{t('Date')}</span>
@@ -68,19 +105,44 @@ function EventForm({ group, onDone }: { group: Group; onDone: () => void }) {
         <span className="eyebrow">{t('Lieu ou lien de visio')}</span>
         <input value={place} maxLength={300} onChange={e => setPlace(e.target.value)} placeholder={PLACE_EXAMPLE[usage] ?? PLACE_EXAMPLE.etudes} className="field mt-1 w-full" />
       </label>
+      <label className="mt-2 block">
+        <span className="eyebrow">{t('Ordre du jour')}</span>
+        <textarea value={details} maxLength={2000} rows={2} onChange={e => setDetails(e.target.value)} placeholder={t('Ce qu’on fera, ce qu’il faut apporter…')} className="field mt-1 h-auto w-full resize-none py-2" />
+      </label>
       {badTime && <p className="mt-2 text-[12px] text-red-600">{t('L’heure de fin doit être après l’heure de début.')}</p>}
+      {!event && (
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+          <label className="check-hit flex items-center gap-1.5 text-[13px] text-stone-700">
+            <input type="checkbox" className="h-4 w-4 shrink-0 accent-[var(--color-ink)]" checked={weekly} onChange={e => setWeekly(e.target.checked)} />
+            {t('Chaque semaine')}
+          </label>
+          {weekly && (
+            <>
+              <DateField value={until} min={date} onChange={setUntil} label={t('Jusqu’au')} className="h-9 w-44" />
+              {repeat && <span className="text-[12px] text-stone-500">{tn(repeat.days.length, '{n} fois||une fois', '{n} fois')}</span>}
+            </>
+          )}
+        </div>
+      )}
+      {canRemind && (
+        <>
+          <ReminderPicker value={reminders} onChange={v => setReminders(v.slice(0, 5))} timed={!!start} date={date || undefined} time={start || undefined} />
+          {reminders.length > 0 && <p className="mt-1.5 text-[12px] text-stone-500">{t('Envoyé à chaque membre {of}.', { of: w.of })}</p>}
+        </>
+      )}
       <div className="mt-4 flex justify-end gap-2">
         <button type="button" className="btn-secondary" onClick={onDone}>{t('Annuler')}</button>
-        <button type="submit" className="btn-primary" disabled={!title.trim() || !date || badTime || busy}>{t('Proposer')}</button>
+        <button type="submit" className="btn-primary" disabled={!title.trim() || !date || badTime || busy}>{event ? t('Enregistrer||sauver') : t('Proposer')}</button>
       </div>
     </form>
   );
 }
 
-function EventCard({ group, ev }: { group: Group; ev: GroupEvent }) {
+function EventCard({ group, ev, onEdit }: { group: Group; ev: GroupEvent; onEdit: () => void }) {
   const w = useGroupWords();
   const me = useAuth(s => s.user?.id ?? '');
   const nameOf = useMemberName(group.id);
+  const memberOf = useMemberOf(group.id);
   const attendance = useGroups(s => s.attendance[group.id]);
   const inCalendar = useCalendar(s => s.events.some(e => e.externalId === `groupe:${ev.id}`));
   const { canEdit } = useRights(group);
@@ -89,8 +151,8 @@ function EventCard({ group, ev }: { group: Group; ev: GroupEvent }) {
   // Soi-même en dernier : « Hugo, Inès et toi viennent ».
   const coming = (attendance ?? []).filter(a => a.eventId === ev.id).map(a => a.userId).sort((a, b) => Number(a === me) - Number(b === me));
   const iCome = coming.includes(me);
-  // Comme la base : l'auteur (s'il est encore éditeur) ou le propriétaire.
-  const canDelete = canEdit && (ev.createdBy === me || group.ownerId === me);
+  // Comme la base : l'auteur (s'il est encore éditeur) ou le propriétaire modifie et supprime.
+  const canChange = canEdit && (ev.createdBy === me || group.ownerId === me);
 
   const toggle = async () => {
     setBusy(true);
@@ -113,16 +175,23 @@ function EventCard({ group, ev }: { group: Group; ev: GroupEvent }) {
       end: ev.end ?? undefined,
       // Studies: a revision session (homework colour); work and personal: a meeting / get-together.
       category: useSettings.getState().usage !== 'etudes' || c === 'cours' ? 'cours' : 'devoir',
-      details: [t('{meet} {of} « {name} »', { meet: w.meet.One, of: w.of, name: group.name }), ev.place].filter(Boolean).join('\n'),
+      details: [t('{meet} {of} « {name} »', { meet: w.meet.One, of: w.of, name: group.name }), ev.place, ev.details].filter(Boolean).join('\n'),
       externalId: `groupe:${ev.id}`,
     });
     toast(t('Ajouté à ton calendrier'), 'success');
   };
 
   const remove = async () => {
-    if (!(await confirmAction(t('Supprimer « {title} » ?', { title: ev.title }), t('{The} disparaît pour tous les membres {of}.', { The: w.meet.The, of: w.of }), t('Supprimer {the}', { the: w.meet.the })))) return;
+    // Repeated: this one, or with the next ones (asked); else asked plainly. The members are told by the server.
+    const all = (useGroups.getState().events[group.id] ?? []).map(asCalendar);
+    const scope = await askSeriesScope(asCalendar(ev), 'delete', all);
+    if (!scope) return;
+    if (scope === 'one' && !all.some(x => x.series && x.series === ev.series && x.date > ev.date)) {
+      if (!(await confirmAction(t('Supprimer «\u00a0{title}\u00a0»\u00a0?', { title: ev.title }), t('{The} disparaît pour tous les membres {of}.', { The: w.meet.The, of: w.of }), t('Supprimer {the}', { the: w.meet.the })))) return;
+    }
     try {
-      await deleteEvent(ev.id);
+      if (scope === 'next') await deleteEvents([ev.id, ...all.filter(x => x.series === ev.series && x.date > ev.date).map(x => x.id)]);
+      else await deleteEvent(ev.id);
       await useGroups.getState().refresh(group.id, ['events']);
       toast(t('Supprimé {of}', { of: w.of }), 'success');
     } catch (e) {
@@ -139,6 +208,9 @@ function EventCard({ group, ev }: { group: Group; ev: GroupEvent }) {
         : coming.length <= 3
           ? tn(coming.length, '{names} vient', '{names} viennent', { names: names.join(', ').replace(/, ([^,]*)$/, ` ${t('et')} $1`) })
           : t('{names} et {n} autres viennent', { names: names.slice(0, 2).join(', '), n: coming.length - 2 });
+  // « Révision » and « réunion » are feminine, « rendez-vous » masculine.
+  const feminine = [t('une révision'), t('une réunion')].includes(w.meet.a);
+  const proposed = feminine ? t('Proposée par {name}', { name: nameOf(ev.createdBy) }) : t('Proposé par {name}', { name: nameOf(ev.createdBy) });
 
   return (
     <div className="card group flex flex-wrap items-start gap-3 p-4 sm:flex-nowrap sm:items-center">
@@ -156,6 +228,11 @@ function EventCard({ group, ev }: { group: Group; ev: GroupEvent }) {
             <Clock size={12} /> {fmt(fromKey(ev.date), 'EEEE')}
             {ev.start ? ` · ${ev.start}${ev.end ? `–${ev.end}` : ''}` : ''}
           </span>
+          {ev.series && (
+            <span className="flex items-center gap-1" title={t('Chaque semaine')}>
+              <Repeat size={12} aria-hidden /> {t('Chaque semaine')}
+            </span>
+          )}
           {ev.place &&
             (isUrl(ev.place) ? (
               <a href={ev.place.trim()} target="_blank" rel="noreferrer noopener" className="hit flex min-w-0 items-center gap-1 text-ink underline decoration-stone-300 underline-offset-2">
@@ -167,17 +244,21 @@ function EventCard({ group, ev }: { group: Group; ev: GroupEvent }) {
               </span>
             ))}
         </p>
+        {ev.details && <p className="mt-1 line-clamp-3 whitespace-pre-line text-[12.5px] text-stone-600 [overflow-wrap:anywhere]">{ev.details}</p>}
         <div className="mt-2 flex items-center gap-2">
           {coming.length > 0 && (
             <span className="flex -space-x-1.5">
               {coming.slice(0, 5).map(id => (
-                <MemberDot key={id} userId={id} name={nameOf(id, t('Toi'))} size={20} />
+                <MemberDot key={id} userId={id} name={nameOf(id, t('Toi'))} photo={memberOf(id)?.photo} color={memberOf(id)?.color} size={20} />
               ))}
             </span>
           )}
           <span className="truncate text-[12px] text-stone-500">{who.charAt(0).toUpperCase() + who.slice(1)}</span>
         </div>
-        <p className="mt-1 text-[11px] text-stone-500">{[t('une révision'), t('une réunion')].includes(w.meet.a) ? t('Proposée par {name}', { name: nameOf(ev.createdBy) }) : t('Proposé par {name}', { name: nameOf(ev.createdBy) })}</p>
+        <p className="mt-1 text-[11px] text-stone-500">
+          {proposed}
+          {changedAfter(ev) && ` · ${(feminine ? t('modifiée par {name} {when}', { name: nameOf(ev.updatedBy), when: relativeTime(ev.updatedAt!) }) : t('modifié par {name} {when}', { name: nameOf(ev.updatedBy), when: relativeTime(ev.updatedAt!) }))}`}
+        </p>
       </div>
       <div className="flex shrink-0 basis-full items-center gap-1.5 pl-[68px] sm:basis-auto sm:pl-0">
         <button
@@ -198,7 +279,12 @@ function EventCard({ group, ev }: { group: Group; ev: GroupEvent }) {
           </button>
         )}
         <ReportDialog target={reporting ? { kind: 'event', id: ev.id, title: ev.title } : null} onClose={() => setReporting(false)} />
-        {canDelete && (
+        {canChange && (
+          <button className="icon-btn" title={t('Modifier')} aria-label={t('Modifier « {title} »', { title: ev.title })} onClick={onEdit}>
+            <Pencil size={15} />
+          </button>
+        )}
+        {canChange && (
           <button className="icon-btn hover:text-red-600" title={t('Supprimer {the}', { the: w.meet.the })} aria-label={t('Supprimer {the}', { the: w.meet.the })} onClick={() => void remove()}>
             <Trash2 size={15} />
           </button>
@@ -213,9 +299,10 @@ export default function GroupEvents({ group }: { group: Group }) {
   const events = useGroups(s => s.events[group.id]);
   const failed = useGroups(s => s.loadFailed[`${group.id}:events`]);
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
   const { canEdit } = useRights(group);
   // The « + » button (the sharing lines follow it, GroupShare).
-  useCreateActions(canEdit ? [{ label: t('Proposer {a}', { a: w.meet.a }), icon: <CalendarPlus />, onClick: () => setAdding(true) }] : []);
+  useCreateActions(canEdit ? [{ label: t('Proposer {a}', { a: w.meet.a }), icon: <CalendarPlus />, onClick: () => (setEditing(null), setAdding(true)) }] : []);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -233,7 +320,13 @@ export default function GroupEvents({ group }: { group: Group }) {
           />
         )}
         <div className="flex flex-col gap-2">
-          {events?.map(ev => <EventCard key={ev.id} group={group} ev={ev} />)}
+          {events?.map(ev =>
+            editing === ev.id ? (
+              <EventForm key={ev.id} group={group} event={ev} onDone={() => setEditing(null)} />
+            ) : (
+              <EventCard key={ev.id} group={group} ev={ev} onEdit={() => (setAdding(false), setEditing(ev.id))} />
+            ),
+          )}
         </div>
       </div>
     </div>

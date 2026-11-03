@@ -8,7 +8,7 @@ import type { Group } from '../../lib/groups';
 import { useSettings } from '../../store/settings';
 import { PERIOD_IDEAS, sortPeriods, type Period } from '../../lib/periods';
 import type { Usage } from '../../lib/usage';
-import { askChoice, confirmAction } from '../../store/ui';
+import { askChoice } from '../../store/ui';
 import { useGroups } from '../../store/groups';
 import { t, tn } from '../../i18n';
 import { isSpan } from '../../lib/repeat';
@@ -30,6 +30,8 @@ export interface CalendarSource {
     nameOf: (userId: string) => string;
     /** The same after « pour » (« für dich », « per te »: another word than « toi » in some languages). */
     nameFor: (userId: string) => string;
+    /** « Modifié par Léa · hier » when someone changed it after it was added (null: never changed). */
+    changed: (eventId: string) => string | null;
     /** Its events not read yet (the lists show their shape), or not read at all (said above the calendar): never « Rien de prévu ». */
     unread?: 'loading' | 'failed';
   } | null;
@@ -95,15 +97,6 @@ export function eventTitle(ev: Pick<CalendarEvent, 'title' | 'people'>, shared: 
   return `${who.charAt(0).toUpperCase()}${who.slice(1)} · ${ev.title}`;
 }
 
-/**
- * Asked before an event goes on a shared calendar (it goes for every member, without « Annuler »).
- * Mine goes to the trash with « Annuler » in its message: no question first.
- */
-export function confirmRemoveEvent(ev: Pick<CalendarEvent, 'title'>, shared: CalendarSource['shared']): Promise<boolean> {
-  if (!shared) return Promise.resolve(true);
-  return confirmAction(t('Supprimer « {title} » ?', { title: ev.title }), t('L’événement disparaît pour tous les membres de « {name} ».', { name: shared.group.name }), t('Supprimer'));
-}
-
 /** Where periods can be imported from: my own calendar (« perso »), my other shared calendars. */
 export const PERSO = 'perso';
 export function useImportSources(): { id: string; name: string }[] {
@@ -134,15 +127,14 @@ export async function askSeriesScope(ev: Pick<CalendarEvent, 'id' | 'series' | '
 }
 
 /**
- * Deletes an event, or with its next ones when it is part of a series (« Annuler » in the toast brings them back).
- * A shared calendar's single event is asked first (it goes for every member).
+ * Deletes an event, or with its next ones when it is part of a series. No question for a single one: « Annuler » in
+ * the toast brings it back (a shared calendar's waits for it before leaving the server, pages/groups/SharedCalendar).
  */
 export async function removeEvent(ev: CalendarEvent, source: CalendarSource): Promise<boolean> {
   const scope = await askSeriesScope(ev, 'delete', source.events);
   if (!scope) return false;
   if (scope === 'next') source.removeMany([ev.id, ...nextInSeries(ev, source.events).map(e => e.id)]);
-  else if (!source.shared || nextInSeries(ev, source.events).length || (await confirmRemoveEvent(ev, source.shared))) source.remove(ev.id);
-  else return false;
+  else source.remove(ev.id);
   return true;
 }
 
