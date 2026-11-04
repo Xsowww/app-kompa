@@ -55,7 +55,7 @@ export default function AdminInbox({ inbox, missing, reload }: { inbox: Inbox | 
 
   return (
     <div>
-      <div className="mb-3 flex h-8 w-fit items-center rounded-lg bg-stone-100 p-0.5 text-[12px] pointer-coarse:h-10" role="group" aria-label={t('Afficher')}>
+      <div className="seg mb-3 text-[12px]" role="group" aria-label={t('Afficher')}>
         {[
           [false, t('À traiter ({n})', { n: openReports + openFeedback })],
           [true, t('Déjà traités')],
@@ -64,7 +64,7 @@ export default function AdminInbox({ inbox, missing, reload }: { inbox: Inbox | 
             key={String(v)}
             aria-pressed={history === v}
             onClick={() => setHistory(v as boolean)}
-            className={cx('h-7 rounded-md px-3 font-medium transition-colors pointer-coarse:h-9', history === v ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
+            className="seg-item px-3"
           >
             {label as string}
           </button>

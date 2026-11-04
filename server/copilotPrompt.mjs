@@ -176,7 +176,7 @@ export const TOOLS = [
   // ── Calendar ───────────────────────────────────────────────────────────────
   {
     name: 'analyze_calendar',
-    description: 'Analyse le calendrier : aujourd’hui, charge de la semaine, examens à venir (compte à rebours), devoirs en retard et prochains rendus.',
+    description: 'Analyse le calendrier : aujourd’hui, charge de la semaine, examens à venir (compte à rebours) et prochains rendus.',
     input_schema: { type: 'object', properties: {} },
   },
   {
@@ -202,10 +202,10 @@ export const TOOLS = [
   },
   {
     name: 'update_event',
-    description: 'Modifie un événement existant (déplacer, renommer, marquer comme fait). Seuls les champs fournis changent.',
+    description: 'Modifie un événement existant (déplacer, renommer, marquer important). Seuls les champs fournis changent. Un événement ne se coche pas : seules les tâches se cochent (complete_todo).',
     input_schema: {
       type: 'object',
-      properties: { event_id: { type: 'string' }, title: { type: 'string' }, date: DATE, start: TIME, end: TIME, done: { type: 'boolean' }, important: { type: 'boolean' } },
+      properties: { event_id: { type: 'string' }, title: { type: 'string' }, date: DATE, start: TIME, end: TIME, important: { type: 'boolean' } },
       required: ['event_id'],
     },
   },

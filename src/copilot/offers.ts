@@ -71,12 +71,9 @@ function run(offer: CopilotOffer): OfferResult {
         links: [{ label: openNoteLabel(), to: linkToNote(note.id) }],
       };
     }
-    case 'mark_done': {
-      const ev = useCalendar.getState().events.find(e => e.id === p.eventId);
-      if (!ev) return { text: t('Introuvable, il a dû être supprimé.') };
-      if (!ev.done) useCalendar.getState().toggleDone(ev.id);
-      return { text: t('« {title} » coché. Un de moins !', { title: ev.title }) };
-    }
+    case 'mark_done':
+      // Events are no longer ticked (only tasks): an offer left in an older conversation only says OK.
+      return { text: t('Parfait.') };
     case 'open':
       goTo(p.to ?? '/');
       return { text: t('C’est ouvert.') };

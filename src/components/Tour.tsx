@@ -86,8 +86,8 @@ const STEPS: Step[] = [
       touch ? t('Retrouve n’importe quel fichier, note ou événement.') : t('Retrouve n’importe quel fichier, note ou événement. Raccourci\u00a0: {key} + K.', { key: isMac ? '⌘' : t('Ctrl') }),
   },
   {
-    // His head, not the whole box: hidden at the edge, it is mostly empty.
-    target: '[aria-controls="copilot-panel"] svg rect',
+    // His screen (the face drawn over the drone's picture), not the whole box: at the edge, it is mostly empty.
+    target: 'div[role=button][aria-controls="copilot-panel"] img + svg',
     enter: () => useCopilot.getState().pose === 'hidden' && useCopilot.getState().setPose('peek'),
     title: t('Kompaly, ton ami'),
     text: (_, touch) => (touch ? t('Touche-le pour discuter\u00a0: il t’aide à t’organiser.') : t('Clique sur lui pour discuter\u00a0: il t’aide à t’organiser.')),

@@ -119,11 +119,14 @@ function HeroDemo() {
         ) : (
           <span />
         )}
-        <div className="-mr-5 flex items-end gap-1 sm:-mr-12" aria-hidden>
+        {/* Out of sight until he speaks (a stray arm at the screen's edge looked like a bug); wide screens give him the margin. */}
+        <div className="-mr-5 flex items-end gap-1 md:-mr-8 lg:mr-0 min-[1300px]:-mr-12" aria-hidden>
           <div className={cx('mb-7 w-48 rounded-2xl rounded-br-sm border border-stone-200 bg-surface px-3 py-2 text-[12.5px] leading-snug shadow-pop sm:w-56', step === 2 ? 'pop' : 'invisible')}>
             {t('Présentation dans 2\u00a0jours. On bloque une heure demain pour la préparer\u00a0?')}
           </div>
-          <Character pose={step === 2 ? 'peek' : 'hidden'} look={{ x: -0.9, y: -0.3 }} mood={step === 2 ? 'happy' : 'idle'} size={92} />
+          <div className={cx('transition-opacity duration-300', step !== 2 && 'opacity-0')}>
+            <Character pose={step === 2 ? 'peek' : 'hidden'} look={{ x: -0.9, y: -0.3 }} mood={step === 2 ? 'happy' : 'idle'} size={92} />
+          </div>
         </div>
       </div>
     </div>
@@ -168,14 +171,14 @@ function Usages() {
             {t('Pour tes études, ton travail ou ta vie perso.')}
           </h2>
           {/* No sentence to explain it: the switch and the cards beside it show it. */}
-          <div className="mt-6 inline-flex rounded-xl bg-stone-100 p-1" role="group" aria-label={t('Kompaly sert pour')}>
+          <div className="seg mt-6 text-[13.5px] max-sm:flex max-sm:text-[12.5px]" role="group" aria-label={t('Kompaly sert pour')}>
             {USAGES.map(u => (
               <button
                 key={u.key}
                 type="button"
                 aria-pressed={usage === u.key}
                 onClick={() => setUsage(u.key)}
-                className={cx('h-9 rounded-lg px-3.5 text-[13.5px] font-semibold transition-colors', usage === u.key ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
+                className="seg-item h-9 px-3.5 font-semibold max-sm:min-w-0 max-sm:flex-auto max-sm:shrink max-sm:px-1.5"
               >
                 {u.label}
               </button>
@@ -242,19 +245,20 @@ export default function LandingPage() {
     // The page scrolls itself: the app keeps <body> fixed (overflow hidden), so the wheel and the finger did nothing here.
     <div className="h-full overflow-y-auto overflow-x-clip scroll-pt-16 bg-paper text-ink">
       <header className="sticky top-0 z-30 border-b border-transparent bg-paper/85 backdrop-blur supports-[backdrop-filter]:bg-paper/70">
-        <div className="mx-auto flex h-16 max-w-[1120px] items-center gap-6 px-5 md:px-8">
+        <div className="mx-auto flex h-16 max-w-[1120px] items-center gap-3 px-5 sm:gap-6 md:px-8">
           <Link to="/" aria-label={t('Kompaly, accueil')} className="shrink-0">
             <Logo />
           </Link>
-          <nav aria-label={t('Sur cette page')} className="hidden items-center gap-5 text-[13.5px] text-stone-600 md:flex">
+          <nav aria-label={t('Sur cette page')} className="hidden items-center gap-5 text-[13.5px] text-stone-600 lg:flex">
             <a href="#fonctions" className="inline-flex h-9 items-center hover:text-ink">{t('Fonctions')}</a>
             <a href="#usages" className="inline-flex h-9 items-center hover:text-ink">{t('Usages')}</a>
             <a href="#confiance" className="inline-flex h-9 items-center hover:text-ink">{t('Vie privée')}</a>
             <a href="#questions" className="inline-flex h-9 items-center hover:text-ink">{t('Questions')}</a>
           </nav>
           <div className="ml-auto flex items-center gap-2">
-            <LanguagePicker className="mr-1 h-9" />
-            <Link to="/connexion" className="btn-secondary h-9">
+            {/* Phones: the globe alone (its name is read out), « Se connecter » kept in the bar. */}
+            <LanguagePicker className="h-9 sm:mr-1 max-sm:[&>span]:sr-only" />
+            <Link to="/connexion" className="btn-secondary h-9 max-sm:px-3">
               {t('Se connecter')}
             </Link>
             <Link to="/inscription" className="btn-primary hidden h-9 sm:inline-flex">

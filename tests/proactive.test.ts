@@ -26,13 +26,17 @@ beforeEach(() => {
 
 describe('periodic remarks', () => {
   it('a remark already made today does not hold back the next ones', () => {
-    useCalendar.setState({ events: [ev('exam', 'Partiel de droit', day(4), 'examen'), ev('dm', 'Rendre DM', day(-1), 'devoir')] });
-    expect(nextNudge(noon())?.key).toBe('exam-soon:exam');
-    // The exam remark was made (and the bubble closed): the late homework comes next.
+    useCalendar.setState({ events: [ev('exam', 'Partiel de droit', day(4), 'examen'), ev('dm', 'Rendre DM', day(1), 'devoir')] });
+    const afternoon = noon();
+    afternoon.setHours(15);
+    expect(nextNudge(afternoon)?.key).toBe('exam-soon:exam');
+    // The exam remark was made (and the bubble closed): the homework due tomorrow comes next.
     useCopilot.setState({ memory: { 'exam-soon:exam': Date.now() } });
-    const next = nextNudge(noon());
-    expect(next?.key).toBe(`late:${day(0)}`);
+    const next = nextNudge(afternoon);
+    expect(next?.key).toBe('due-tomorrow:dm');
     expect(next?.fallback).toContain('Rendre DM');
+    // Events are no longer ticked: no « c’est fait » offer.
+    expect(next?.offers).toBeUndefined();
   });
 
   it('the evening before a deadline still comes after the « due tomorrow » reminder', () => {

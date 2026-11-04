@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState, type FormEvent } from 'react';
+import { Fragment, createElement, useEffect, useRef, useState, type FormEvent } from 'react';
 import { SelectField, TimeField } from '../../components/Pickers';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -226,7 +226,8 @@ function ProfileTab() {
             </button>
             <input ref={fileRef} type="file" accept="image/*" hidden onChange={e => { void pickPhoto(e.target.files?.[0]); e.target.value = ''; }} />
           </div>
-          <div className="min-w-0 flex-1">
+          {/* Phones: under the photo, the whole width (beside it, the colours went on three rows). */}
+          <div className="min-w-0 flex-1 max-sm:basis-full">
             <p className="break-words text-[18px] font-semibold tracking-tight">{user.name}</p>
             {/* Phones: the date on its own line, so a long e-mail never leaves « · » at the start of a line. */}
             <p className="text-[13px] text-stone-500 [overflow-wrap:anywhere]">
@@ -490,27 +491,21 @@ function CopilotTab() {
   return (
     <div className="space-y-5">
       <Section label={t('Kompaly')}>
-        <div className="flex items-center gap-3 px-5 py-4">
-          <span className={cx('h-2 w-2 shrink-0 rounded-full', !aiEnabled ? 'bg-stone-400' : paused ? 'bg-amber-500' : 'bg-emerald-500')} />
-          <p className="text-[13px]">
+        {/* The state on the first line, what it means under it (two lines, never a sentence wrapped into the other). */}
+        <div className="flex items-start gap-3 px-5 py-4">
+          <span className={cx('mt-[5px] h-2 w-2 shrink-0 rounded-full', !aiEnabled ? 'bg-stone-400' : paused ? 'bg-amber-500' : 'bg-emerald-500')} />
+          <div className="min-w-0 text-[13px]">
+            <p className="font-medium">{paused ? t('Mode simple pour l’instant.') : aiEnabled ? t('Mode intelligent activé.') : t('Mode simple.')}</p>
             {paused ? (
-              <>
-                <span className="font-medium">{t('Mode simple pour l’instant.')}</span>{' '}
-                <span className="text-stone-500">
-                  {aiPauseReason() === 'error' ? t('L’IA ne répond pas, retour dans') : aiPauseReason() === 'mine' ? t('Tes questions du jour sont utilisées, retour dans') : t('L’IA gratuite a atteint sa limite, retour dans')} <span className="tabular">{clock}</span>.
-                </span>
-              </>
+              <p className="text-[12px] text-stone-500">
+                {aiPauseReason() === 'error' ? t('L’IA ne répond pas, retour dans') : aiPauseReason() === 'mine' ? t('Tes questions du jour sont utilisées, retour dans') : t('L’IA gratuite a atteint sa limite, retour dans')} <span className="tabular">{clock}</span>.
+              </p>
             ) : aiEnabled ? (
-              <>
-                <span className="font-medium">{t('Mode intelligent activé.')}</span>{' '}
-                {provider && <span className="text-stone-500">{t('IA\u00a0: {provider}', { provider })}</span>}
-              </>
+              provider && <p className="text-[12px] text-stone-500">{t('IA\u00a0: {provider}', { provider })}</p>
             ) : (
-              <>
-                <span className="font-medium">{t('Mode simple.')}</span> <span className="text-stone-500">{t('Il comprend les commandes courantes.')}</span>
-              </>
+              <p className="text-[12px] text-stone-500">{t('Il comprend les commandes courantes.')}</p>
             )}
-          </p>
+          </div>
         </div>
         <Row label={t('Afficher Kompaly')} hint={t('Caché, il reste là : « Kompaly » dans le menu (en haut sur téléphone) ou {key} + J.', { key: IS_MAC ? '⌘' : t('Ctrl') })}>
           <Toggle label={t('Afficher Kompaly')} checked={s.copilotVisible} onChange={v => s.set({ copilotVisible: v })} />
@@ -649,7 +644,7 @@ function StudiesTab() {
 
 function Keys({ spec }: { spec: string }) {
   return (
-    <dd className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+    <dd className="flex max-w-[62%] flex-wrap items-center justify-end gap-1">
       {keyChips(spec).map((steps, i) => (
         <span key={i} className="flex items-center gap-1">
           {i > 0 && <span className="text-[11px] text-stone-500">{t('ou')}</span>}
@@ -667,9 +662,10 @@ function Keys({ spec }: { spec: string }) {
 
 function ShortcutList({ groups, gestures }: { groups: { group: string; keys: [string, string][] }[]; gestures?: boolean }) {
   return groups.map(g => (
-    <div key={g.group} className="px-5 py-3">
+    <div key={g.group} className="@container px-5 py-3">
       <h3 className="eyebrow mb-1">{g.group}</h3>
-      <dl className="grid gap-x-8 sm:grid-cols-2">
+      {/* Two columns only where each one has room (not beside the tabs on a 1024 px screen: « Rechercher (pages, réglages… » on 5 lines). */}
+      <dl className="grid gap-x-8 @2xl:grid-cols-2">
         {g.keys.map(([k, d]) =>
           // A gesture is a sentence: the gesture, and what it does under it.
           gestures ? (
@@ -679,7 +675,7 @@ function ShortcutList({ groups, gestures }: { groups: { group: string; keys: [st
             </div>
           ) : (
             <div key={k + d} className="flex items-center justify-between gap-3 py-1.5 text-[13px]">
-              <dt className="text-stone-600">{d}</dt>
+              <dt className="min-w-0 text-stone-600">{d}</dt>
               <Keys spec={k} />
             </div>
           ),
@@ -712,14 +708,16 @@ function ShortcutsTab() {
         )}
       </Section>
       <Section title={t('Mise en forme en tapant')} description={t('Dans une note, au début d’une ligne ou autour d’un mot.')}>
-        <dl className="grid gap-x-8 px-5 py-3 sm:grid-cols-2">
-          {MARKDOWN.map(([k, d]) => (
-            <div key={k} className="flex items-center justify-between gap-3 py-1.5 text-[13px]">
-              <dt className="text-stone-600">{d}</dt>
-              <dd className="shrink-0 font-mono text-[12px] text-stone-700">{k}</dd>
-            </div>
-          ))}
-        </dl>
+        <div className="@container px-5 py-3">
+          <dl className="grid gap-x-8 @2xl:grid-cols-2">
+            {MARKDOWN.map(([k, d]) => (
+              <div key={k} className="flex items-center justify-between gap-3 py-1.5 text-[13px]">
+                <dt className="min-w-0 text-stone-600">{d}</dt>
+                <dd className="shrink-0 font-mono text-[12px] text-stone-700">{k}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
       </Section>
     </div>
   );
@@ -1369,36 +1367,58 @@ export default function ProfilePage() {
   const [params, setParams] = useSearchParams();
   const tab = (TABS.find(x => x.key === params.get('onglet'))?.key ?? 'profil') as TabKey;
   const usage = useSettings(s => s.usage);
+  // The « Études » tab is « Travail » or « Organisation » for other usages, its icon too.
+  const tabLabel = (key: TabKey) => (key === 'etudes' ? (WORDS[usage] ?? WORDS.etudes).profileTab : TABS.find(x => x.key === key)!.label);
+  const tabIcon = (key: TabKey) => (key === 'etudes' ? (USAGE_ICONS[usage] ?? GraduationCap) : TABS.find(x => x.key === key)!.icon);
 
   return (
     <div className="h-full overflow-y-auto px-4 pb-room md:px-8">
       <div className="mx-auto max-w-[1180px]">
-        <div className="pb-5 pt-2">
-          <h1 className="text-[24px] font-semibold tracking-[-0.02em]">{t('Profil et réglages')}</h1>
+        {/* The title and the sections stay in sight while the page scrolls (the page's own background, solid: nothing
+            shows through; the same rule as the shell's sticky page heads). Phones: one row of icons, named by the
+            title of each and by the heading of the open section under it. */}
+        <div className="page-head -mx-4 px-4 pb-3 md:-mx-8 md:px-8 md:pb-5">
+          <h1 className="text-[20px] font-semibold tracking-[-0.02em] md:text-[24px]">{t('Profil et réglages')}</h1>
+          <nav aria-label={t('Sections du profil')} className="seg mt-2.5 flex md:hidden">
+            {TABS.map(tb => (
+              <button
+                key={tb.key}
+                aria-current={tab === tb.key ? 'page' : undefined}
+                onClick={() => setParams(tb.key === 'profil' ? {} : { onglet: tb.key })}
+                title={tabLabel(tb.key)}
+                aria-label={tabLabel(tb.key)}
+                className={cx(
+                  // The shared segmented control (index.css › seg), one equal share each. Tablets in portrait: the name
+                  // under the icon (room for it there).
+                  'seg-item h-9 flex-1 shrink px-1 sm:h-12 sm:flex-col sm:gap-0.5',
+                )}
+                data-active={tab === tb.key || undefined}
+              >
+                {createElement(tabIcon(tb.key), { size: 15, 'aria-hidden': true, className: cx('shrink-0', tab === tb.key && 'text-brand-600') })}
+                <span aria-hidden className="hidden max-w-full truncate text-[11px] font-medium sm:block">{tabLabel(tb.key)}</span>
+              </button>
+            ))}
+          </nav>
         </div>
         <div className="flex flex-col gap-6 md:flex-row">
-          <nav aria-label={t('Sections du profil')} className="grid shrink-0 grid-cols-4 gap-1.5 max-[379px]:grid-cols-3 md:flex md:w-48 md:flex-col md:gap-0.5">
+          <nav aria-label={t('Sections du profil')} className="hidden shrink-0 md:sticky md:top-16 md:flex md:w-48 md:flex-col md:gap-0.5 md:self-start">
             {TABS.map(tb => (
               <button
                 key={tb.key}
                 aria-current={tab === tb.key ? 'page' : undefined}
                 onClick={() => setParams(tb.key === 'profil' ? {} : { onglet: tb.key })}
                 className={cx(
-                  // Phone: every section visible at once (a grid of 4, of 3 under 360 px where « Notifications » was cut), no hidden tabs to swipe to.
-                  'flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[11.5px] font-medium transition-colors md:h-8 md:shrink-0 md:flex-row md:justify-start md:gap-2.5 md:rounded-md md:px-2.5 md:py-0 md:text-[13px] md:pointer-coarse:h-9',
-                  tab === tb.key ? 'bg-ink font-semibold text-paper md:bg-surface md:text-ink md:shadow-card md:ring-1 md:ring-stone-200' : 'bg-surface text-stone-600 hover:bg-stone-100 hover:text-ink md:bg-transparent',
+                  'flex h-8 min-w-0 shrink-0 items-center gap-2.5 rounded-md px-2.5 text-[13px] font-medium transition-colors pointer-coarse:h-9',
+                  tab === tb.key ? 'bg-surface font-semibold text-ink shadow-card ring-1 ring-stone-200' : 'text-stone-600 hover:bg-stone-100 hover:text-ink',
                 )}
               >
-                {(() => {
-                  // The « Études » tab is « Travail » or « Organisation » for other usages: its icon follows.
-                  const Icon = tb.key === 'etudes' ? USAGE_ICONS[usage] ?? tb.icon : tb.icon;
-                  return <Icon size={15} className={cx('shrink-0', tab === tb.key && 'md:text-brand-600')} />;
-                })()}
-                <span className="max-w-full truncate">{tb.key === 'etudes' ? (WORDS[usage] ?? WORDS.etudes).profileTab : tb.label}</span>
+                {createElement(tabIcon(tb.key), { size: 15, 'aria-hidden': true, className: cx('shrink-0', tab === tb.key && 'text-brand-600') })}
+                <span className="max-w-full truncate">{tabLabel(tb.key)}</span>
               </button>
             ))}
           </nav>
           <div className="min-w-0 flex-1">
+            <h2 className="mb-3 text-[15px] font-semibold sm:hidden">{tabLabel(tab)}</h2>
             {tab === 'profil' && <ProfileTab />}
             {tab === 'apparence' && <AppearanceTab />}
             {tab === 'copilot' && <CopilotTab />}

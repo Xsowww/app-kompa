@@ -17,14 +17,18 @@ export function Section({ title, label, description, children, danger }: { title
   );
 }
 
+/**
+ * The label and its control side by side, the control on the right (a switch stays there on phones, like in the
+ * phone's own settings); a control too wide for the line goes under the label instead of squeezing it.
+ */
 export function Row({ label, hint, children }: { label: string; hint?: React.ReactNode; children?: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center">
-      <div className="min-w-0 flex-1">
-        <p className="text-[13px] font-medium">{label}</p>
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-3 px-5 py-4">
+      <div className="min-w-0 flex-[1_1_11rem]">
+        <p className="text-[13px] font-medium [overflow-wrap:anywhere]">{label}</p>
         {hint && <p className="mt-0.5 text-[12px] leading-relaxed text-stone-500">{hint}</p>}
       </div>
-      {children && <div className="flex shrink-0 items-center gap-2">{children}</div>}
+      {children && <div className="flex max-w-full shrink-0 flex-wrap items-center gap-2">{children}</div>}
     </div>
   );
 }
@@ -45,13 +49,14 @@ export function Toggle({ checked, onChange, label }: { checked: boolean; onChang
 
 export function Segmented<T extends string | number>({ value, options, onChange, label }: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void; label?: string }) {
   return (
-    <div className="flex h-8 items-center rounded-lg bg-stone-100 p-0.5 text-[12px] pointer-coarse:h-10" role="group" aria-label={label}>
+    // The shared segmented control (index.css › seg): the chosen and the hovered choice have the frame's own shape.
+    <div className="seg text-[12px]" role="group" aria-label={label}>
       {options.map(o => (
         <button
           key={String(o.value)}
           aria-pressed={value === o.value}
           onClick={() => onChange(o.value)}
-          className={cx('hit h-7 rounded-md px-2.5 font-medium pointer-coarse:h-9 transition-colors', value === o.value ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
+          className="seg-item"
         >
           {o.label}
         </button>
