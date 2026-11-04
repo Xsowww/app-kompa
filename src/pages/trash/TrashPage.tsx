@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Eye, FileText, Folder, ListFilter, ListTodo, MoreHorizontal, RotateCcw, Trash2, X } from 'lucide-react';
+import { Eye, FileText, Folder, ListFilter, MoreHorizontal, RotateCcw, Trash2, X } from 'lucide-react';
 import { EmptyState } from '../../components/EmptyState';
 import { parseISO } from 'date-fns';
 import { categoryOf, FOLDER_COLORS, folderIconStyle, type DriveItem } from '../../store/drive';
@@ -38,14 +38,19 @@ function EntryIcon({ entry, size = 28 }: { entry: TrashEntry; size?: number }) {
     return <FileIcon category={categoryOf(it)} size={size} ext={it.kind === 'file' ? it.name.split('.').pop() : undefined} color={folderColor(it)} />;
   }
   const box = 'flex shrink-0 items-center justify-center rounded-md bg-stone-100 text-stone-500';
-  if (entry.kind === 'event') {
+  // As in the calendar: an event is a solid coloured bar, a task its square tick box.
+  if (entry.kind === 'event' || entry.kind === 'task') {
     return (
       <span className={box} style={{ width: size, height: size }} aria-hidden>
-        <span className="h-2.5 w-2.5 rounded-full" style={{ background: catOf(entry.event.category).color }} />
+        {entry.kind === 'event' ? (
+          <span className="w-1 rounded-full" style={{ height: Math.round(size * 0.55), background: catOf(entry.event.category).color }} />
+        ) : (
+          <span className="rounded-[4px] border-[1.5px] border-stone-400" style={{ width: Math.round(size * 0.46), height: Math.round(size * 0.46) }} />
+        )}
       </span>
     );
   }
-  const Icon = entry.kind === 'noteFolder' ? Folder : entry.kind === 'task' ? ListTodo : FileText;
+  const Icon = entry.kind === 'noteFolder' ? Folder : FileText;
   return (
     <span className={box} style={{ width: size, height: size }} aria-hidden>
       {/* A coloured notes folder keeps its colour here, like in the notes. */}
@@ -72,7 +77,7 @@ function PreviewDialog({ entry, onClose, onRestore, onPurge }: { entry: TrashEnt
       <div className="flex items-start gap-3">
         <EntryIcon entry={entry} size={34} />
         <div className="min-w-0 flex-1">
-          <h2 className="truncate text-[16px] font-semibold tracking-[-0.01em]">{entry.name}</h2>
+          <h2 className="line-clamp-2 break-words text-[16px] font-semibold tracking-[-0.01em]">{entry.name}</h2>
           <p className="mt-0.5 truncate text-[12px] text-stone-500">
             {kindLabel(entry)} · {entry.kind === 'event' ? t('Calendrier') : entry.kind === 'task' ? t('Tâches') : entry.place}
           </p>
@@ -139,9 +144,10 @@ function PreviewDialog({ entry, onClose, onRestore, onPurge }: { entry: TrashEnt
         ) : null}
       </div>
 
-      <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
-        <p className="mr-auto whitespace-nowrap text-[12px] text-stone-500">{t('Supprimé le {date}', { date: deletedOnLong(entry.deletedAt) })}</p>
-        <button className="btn-ghost text-red-600 hover:bg-red-50 hover:text-red-700" onClick={onPurge}>
+      {/* Phones: the date, then the two buttons at full width, « Restaurer » first (they were stacked right, uneven). */}
+      <div className="modal-foot mt-5 max-sm:flex-col max-sm:items-stretch">
+        <p className="mr-auto whitespace-nowrap text-[12px] text-stone-500 max-sm:mb-1">{t('Supprimé le {date}', { date: deletedOnLong(entry.deletedAt) })}</p>
+        <button className="btn-ghost text-red-600 hover:bg-red-50 hover:text-red-700 max-sm:order-last" onClick={onPurge}>
           {t('Supprimer définitivement')}
         </button>
         <button className="btn-primary" onClick={onRestore}>
@@ -332,7 +338,7 @@ export default function TrashPage() {
       onClick={() => setFilter(key)}
       aria-pressed={filter === key}
       className={cx(
-        'flex h-7 items-center gap-1.5 rounded-full border px-3 text-[12px] font-medium transition-colors pointer-coarse:h-9',
+        'flex h-7 items-center gap-1.5 rounded-full border px-2 text-[12px] font-medium transition-colors sm:px-3 pointer-coarse:h-9',
         filter === key ? 'border-stone-300 bg-surface text-ink shadow-card' : 'border-transparent text-stone-500 hover:bg-stone-100 hover:text-ink',
       )}
     >
@@ -342,50 +348,55 @@ export default function TrashPage() {
   );
 
   return (
-    <div className="h-full overflow-y-auto px-4 pb-room md:px-8">
+    <div className="h-full scroll-pt-40 overflow-y-auto px-4 pb-room md:px-8">
       <div className="mx-auto max-w-[1180px]">
-        <div className="flex flex-wrap items-start gap-3 pb-4 pt-2">
-          <div className="min-w-0 flex-1">
-            <h1 ref={titleRef} tabIndex={-1} className="text-[24px] font-semibold tracking-[-0.02em] outline-none">
-              {t('Corbeille')}
-            </h1>
-            {/* Balanced lines: on a phone, beside « Vider la corbeille », « jours. » no longer wraps alone. */}
-            <p className="mt-0.5 text-balance text-[13px] text-stone-500">{t('Suppression définitive après {n} jours.', { n: TRASH_DAYS })}</p>
+        {/* « Vider la corbeille » beside the title, the 30 days under both: on a phone the sentence squeezed beside the
+            button took three lines. Kept in view with the filters and the selection bar (page-head) down a long trash;
+            on a phone the 30 days stay out of it (under it), so that it stays small. */}
+        <div className="page-head -mx-4 px-4 pb-3 md:-mx-8 md:px-8">
+          <div className="pb-2 sm:pb-3">
+            <div className="flex items-center gap-3">
+              <h1 ref={titleRef} tabIndex={-1} className="mr-auto text-[24px] font-semibold tracking-[-0.02em] outline-none">
+                {t('Corbeille')}
+              </h1>
+              {all.length > 0 && (
+                <button className="btn-ghost h-8 text-[12px] text-red-600 hover:bg-red-50 hover:text-red-700" onClick={() => void emptyAll()}>
+                  <Trash2 size={14} /> {t('Vider la corbeille')}
+                </button>
+              )}
+            </div>
+            <p className="mt-0.5 text-[13px] text-stone-500 max-sm:hidden">{t('Suppression définitive après {n} jours.', { n: TRASH_DAYS })}</p>
           </div>
+
           {all.length > 0 && (
-            <button className="btn-ghost mt-1 h-8 text-[12px] text-red-600 hover:bg-red-50 hover:text-red-700" onClick={() => void emptyAll()}>
-              <Trash2 size={14} /> {t('Vider la corbeille')}
-            </button>
+            <div role="group" aria-label={t('Filtrer')} className="-mx-1 flex flex-wrap items-center gap-0.5 sm:gap-1">
+              {chip(null, t('Tout'), 0)}
+              {TRASH_TYPES.filter(type => counts[type.key] > 0 || filter === type.key).map(type => chip(type.key, type.label, counts[type.key]))}
+            </div>
+          )}
+
+          {selectedIds.length > 0 && (
+            <div className="enter mt-2 flex h-10 items-center gap-0.5 rounded-lg bg-inverse px-1.5 text-[13px] text-on-inverse shadow-pop">
+              <button className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md hover:bg-on-inverse/10 sm:h-8 sm:w-8" onClick={() => setSelected(new Set())} title={t('Désélectionner (Échap)')} aria-label={t('Désélectionner')}>
+                <X size={15} />
+              </button>
+              {/* On a phone the count stands alone, so both buttons fit (the count is in the bar already). */}
+              <span className="mr-2 whitespace-nowrap px-1 font-medium" aria-live="polite">
+                {selectedIds.length}
+                <span className="max-sm:sr-only"> {tn(selectedIds.length, 'sélectionné', 'sélectionnés')}</span>
+              </span>
+              <span className="mr-1 h-4 w-px shrink-0 bg-on-inverse/20" />
+              <button className="flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-on-inverse/85 hover:bg-on-inverse/10 hover:text-on-inverse sm:h-8" onClick={() => restore(selectedIds)}>
+                <RotateCcw size={14} /> {t('Restaurer')}<span className="max-sm:hidden"> ({selectedIds.length})</span>
+              </button>
+              <button className="flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-on-inverse/85 hover:bg-on-inverse/10 hover:text-on-inverse sm:h-8" onClick={() => void purge(selectedIds)}>
+                <Trash2 size={14} /> <span className="sm:hidden">{t('Supprimer')}</span>
+                <span className="hidden sm:inline">{t('Supprimer définitivement ({n})', { n: selectedIds.length })}</span>
+              </button>
+            </div>
           )}
         </div>
-
-        {all.length > 0 && (
-          <div role="group" aria-label={t('Filtrer')} className="-mx-1 mb-3 flex flex-wrap items-center gap-1">
-            {chip(null, t('Tout'), 0)}
-            {TRASH_TYPES.map(type => chip(type.key, type.label, counts[type.key]))}
-          </div>
-        )}
-
-        {selectedIds.length > 0 && (
-          <div className="enter mb-2 flex h-10 items-center gap-0.5 overflow-x-auto rounded-lg bg-inverse px-1.5 text-[13px] text-on-inverse shadow-pop">
-            <button className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md hover:bg-on-inverse/10 sm:h-8 sm:w-8" onClick={() => setSelected(new Set())} title={t('Désélectionner (Échap)')} aria-label={t('Désélectionner')}>
-              <X size={15} />
-            </button>
-            {/* On a phone the count stands alone, so both buttons fit (the count is in the bar already). */}
-            <span className="mr-2 whitespace-nowrap px-1 font-medium" aria-live="polite">
-              {selectedIds.length}
-              <span className="max-sm:sr-only"> {tn(selectedIds.length, 'sélectionné', 'sélectionnés')}</span>
-            </span>
-            <span className="mr-1 h-4 w-px shrink-0 bg-on-inverse/20" />
-            <button className="flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-on-inverse/85 hover:bg-on-inverse/10 hover:text-on-inverse sm:h-8" onClick={() => restore(selectedIds)}>
-              <RotateCcw size={14} /> {t('Restaurer')}<span className="max-sm:hidden"> ({selectedIds.length})</span>
-            </button>
-            <button className="flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-on-inverse/85 hover:bg-on-inverse/10 hover:text-on-inverse sm:h-8" onClick={() => void purge(selectedIds)}>
-              <Trash2 size={14} /> <span className="sm:hidden">{t('Supprimer')}</span>
-              <span className="hidden sm:inline">{t('Supprimer définitivement ({n})', { n: selectedIds.length })}</span>
-            </button>
-          </div>
-        )}
+        <p className="-mt-1 mb-3 text-[12.5px] text-stone-500 sm:hidden">{t('Suppression définitive après {n} jours.', { n: TRASH_DAYS })}</p>
 
         {visible.length === 0 ? (
           all.length ? (
@@ -431,12 +442,17 @@ export default function TrashPage() {
                   >
                     <EntryIcon entry={entry} />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[13px] font-medium">{entry.name}</span>
-                      <span id={descId} className="block truncate text-[12px] text-stone-500">
-                        <span className={cx(entry.placeGone && 'italic')}>{entry.place}</span>
+                      <span className="line-clamp-2 break-words text-[13px] font-medium md:line-clamp-1">{entry.name}</span>
+                      <span className="flex items-baseline gap-3 text-[12px] text-stone-500">
+                        <span id={descId} className="min-w-0 flex-1 md:truncate">
+                          <span className={cx(entry.placeGone && 'italic')}>{entry.place}</span>
                         <span className="sr-only">
                           {' '}
-                          · {t('supprimé le {date}', { date: deletedOn(entry.deletedAt) })} · {left <= 0 ? t('effacé aujourd’hui') : tn(left, 'effacé dans {n} jour', 'effacé dans {n} jours')}
+                            · {t('supprimé le {date}', { date: deletedOn(entry.deletedAt) })} · {left <= 0 ? t('effacé aujourd’hui') : tn(left, 'effacé dans {n} jour', 'effacé dans {n} jours')}
+                          </span>
+                        </span>
+                        <span className={cx('tabular shrink-0 md:hidden', left <= 3 && 'font-medium text-red-600')} aria-hidden>
+                          {leftShort(left)}
                         </span>
                       </span>
                     </span>
@@ -444,7 +460,7 @@ export default function TrashPage() {
                       {t('Supprimé le {date}', { date: deletedOn(entry.deletedAt) })}
                     </span>
                     <span
-                      className={cx('tabular w-[64px] shrink-0 text-right text-[12px]', left <= 3 ? 'font-medium text-red-600' : 'text-stone-500')}
+                      className={cx('tabular hidden w-[64px] shrink-0 text-right text-[12px] md:block', left <= 3 ? 'font-medium text-red-600' : 'text-stone-500')}
                       title={left <= 0 ? t('Supprimé définitivement aujourd’hui') : tn(left, 'Supprimé définitivement dans {n} jour', 'Supprimé définitivement dans {n} jours')}
                       aria-hidden
                     >

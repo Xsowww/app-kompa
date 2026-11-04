@@ -24,7 +24,7 @@ import {
   type Past,
   type Session,
 } from '../../store/recorder';
-import { canShareComputer, canUseMic, type SourceKind } from '../../lib/recorder/capture';
+import { canShareComputer, canUseMic, onPhone, type SourceKind } from '../../lib/recorder/capture';
 import { serverState } from '../../lib/recorder/api';
 import { clock, courseMarkdown, duration } from '../../lib/recorder/course';
 import { keywordsFor, normalize } from '../../lib/keywords';
@@ -49,9 +49,12 @@ function useTick(on: boolean) {
 export default function RecordPage() {
   const session = useRecorder(s => s.session);
   return (
-    <div className="h-full overflow-y-auto px-4 pb-room md:px-8">
+    <div className="h-full scroll-pt-40 overflow-y-auto px-4 pb-room md:px-8">
       <div className="mx-auto max-w-[1180px]">
-        <h1 className="pb-6 pt-2 text-[24px] font-semibold tracking-[-0.02em]">{t('Enregistrer')}</h1>
+        {/* Kept in view (page-head, 60 px: the controls of a recording stay right under it). */}
+        <div className="page-head -mx-4 mb-1 h-[60px] px-4 md:-mx-8 md:px-8">
+          <h1 className="text-[24px] font-semibold leading-8 tracking-[-0.02em]">{t('Enregistrer')}</h1>
+        </div>
         {!session ? <Setup /> : session.phase === 'done' ? <Done s={session} /> : <Running s={session} />}
         {(!session || session.phase === 'done') && <History />}
       </div>
@@ -109,6 +112,7 @@ function Setup() {
     { key: 'micro', icon: Mic, label: t('Micro'), ok: canUseMic(), off: '' },
     { key: 'onglet', icon: MonitorSpeaker, label: t('Son de l’ordinateur'), ok: canShareComputer(), off: computerOff },
   ] as const;
+  const onlyMic = onPhone() && canUseMic() && !canShareComputer();
 
   return (
     // Under the title, at its left edge (centred, it sat 200 px right of it on a computer).
@@ -125,7 +129,8 @@ function Setup() {
       />
       <datalist id="cours-titres">{titles.map(x => <option key={x} value={x} />)}</datalist>
 
-      <div>
+      {/* Phones and tablets only have the micro: no choice to show, nor why the other one can't be chosen. */}
+      {!onlyMic && <div>
         <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label={t('Source du son')}>
           {sources.map(o => (
             <button
@@ -146,7 +151,7 @@ function Setup() {
         </div>
         {source === 'onglet' && <p className="mt-2 text-[12.5px] text-stone-500">{t('Dans la fenêtre qui s’ouvre : « Écran entier », active le son, puis « Partager ».')}</p>}
         {!canShareComputer() && <p className="mt-2 text-[12.5px] text-stone-500">{computerOff}</p>}
-      </div>
+      </div>}
 
       <div className="flex flex-wrap items-center gap-2 text-[13.5px]">
         <FolderOpen size={17} className="shrink-0 text-stone-500" aria-hidden />
@@ -282,7 +287,8 @@ function Running({ s }: { s: Session }) {
   return (
     <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,8fr)_minmax(0,4fr)]">
       <section className="card p-5 sm:p-6" aria-label={t('Transcription')}>
-        <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-stone-100 pb-4">
+        {/* The state and the buttons stay in sight down a long transcript, under the page's title. */}
+        <div className="sticky top-[60px] z-10 -mx-5 -mt-3 mb-4 flex rounded-t-[18px] flex-wrap items-center gap-x-3 gap-y-2 border-b border-stone-100 px-5 pb-4 pt-3 [background:var(--dialog-bg,var(--color-surface))] sm:-mx-6 sm:px-6">
           <span className="flex items-center gap-2 text-[13px] font-semibold">
             <span className={cx('h-2.5 w-2.5 rounded-full', recording ? 'animate-pulse bg-red-500' : paused ? 'bg-amber-400' : 'bg-stone-400')} aria-hidden />
             {finishing ? t('Terminé') : paused ? t('En pause') : live.hearing || elsewhere ? t('Enregistrement') : t('Écoute arrêtée')}
@@ -298,11 +304,13 @@ function Running({ s }: { s: Session }) {
                 <Bell size={15} /> <span className="tabular text-[12.5px]">{s.keywords.length}</span>
               </button>
               {live.hearing && (
-                <button type="button" className="btn-secondary h-9 px-3" disabled={busy} onClick={paused ? () => void resume() : pauseRecording}>
-                  {paused ? <Play size={14} className="fill-current" /> : <Pause size={14} className="fill-current" />} {paused ? t('Reprendre') : t('Pause||l’enregistrement')}
+                <button type="button" className="btn-secondary h-9 px-3" disabled={busy} onClick={paused ? () => void resume() : pauseRecording} title={paused ? t('Reprendre') : t('Pause||l’enregistrement')}>
+                  {paused ? <Play size={14} className="fill-current" aria-hidden /> : <Pause size={14} className="fill-current" aria-hidden />}{' '}
+                  <span className="max-sm:sr-only">{paused ? t('Reprendre') : t('Pause||l’enregistrement')}</span>
                 </button>
               )}
-              <button type="button" className="btn-secondary h-9 flex-1 sm:flex-none" onClick={star} disabled={!recording} title={t('Marque ce qui vient d’être dit (touche M)')}>
+              {/* Phones: two lines, not four — the small buttons and « Terminer » first, « Moment important » wide under them. */}
+              <button type="button" className="btn-secondary h-9 flex-1 max-sm:order-last max-sm:basis-full sm:flex-none" onClick={star} disabled={!recording} title={t('Marque ce qui vient d’être dit (touche M)')}>
                 <Star size={15} className="fill-amber-400 text-amber-500" /> {t('Moment important')}
               </button>
               <button type="button" className="btn-primary h-9 flex-1 sm:flex-none" onClick={() => void finish()}>
@@ -347,7 +355,7 @@ function Running({ s }: { s: Session }) {
           empty={recording ? t('J’écoute…') : t('Rien d’écrit pour l’instant.')}
         />
       </section>
-      <aside className="card p-5 sm:p-6 lg:sticky lg:top-2" aria-label={t('Moments signalés')}>
+      <aside className="card p-5 sm:p-6 lg:sticky lg:top-[64px]" aria-label={t('Moments signalés')}>
         <h2 className="mb-3 flex items-center gap-2 text-[15px] font-semibold">
           {t('Alertes')} {s.alerts.length > 0 && <span className="rounded-full bg-amber-100 px-1.5 text-[11.5px] font-semibold text-amber-900">{s.alerts.length}</span>}
         </h2>
@@ -427,7 +435,7 @@ function Done({ s }: { s: Session }) {
       <section className="card p-5 sm:p-7" aria-label={w.docDone}>
         <div className="doc-preview max-w-none break-words text-[14.5px] leading-relaxed [&_blockquote]:border-l-2 [&_blockquote]:border-stone-300 [&_blockquote]:pl-3 [&_blockquote]:text-stone-600 [&_h1]:text-[24px] [&_h1]:font-bold [&_h2]:mt-6 [&_h2]:text-[18px] [&_h2]:font-semibold [&_h3]:mt-4 [&_h3]:text-[15px] [&_h3]:font-semibold [&_li]:my-1 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:my-2 [&_ul]:list-disc [&_ul]:pl-6" dangerouslySetInnerHTML={{ __html: html }} />
       </section>
-      <aside className="card order-first space-y-4 p-5 sm:p-6 lg:sticky lg:top-2 lg:order-none" aria-label={t('Documents créés')}>
+      <aside className="card order-first space-y-4 p-5 sm:p-6 lg:sticky lg:top-[64px] lg:order-none" aria-label={t('Documents créés')}>
         <div>
           <p className="flex items-center gap-2 text-[16px] font-semibold">
             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-white"><Check size={14} strokeWidth={3} /></span>
@@ -496,19 +504,20 @@ function History() {
       <h2 id="cours-passes" className="mb-3 text-[16px] font-semibold">{w.history}</h2>
       <ul className="space-y-2.5">
         {history.map(h => (
-          <li key={h.id} className="card flex flex-col gap-3 p-4 lg:flex-row lg:items-center">
-            <div className="min-w-0 lg:w-[34%]">
-              <p className="truncate text-[14.5px] font-semibold">{h.title}</p>
+          // Phones and tablets: the bin beside the title (alone on a last line, it added a row to every card).
+          <li key={h.id} className="card grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 p-4 lg:grid-cols-[minmax(0,34%)_minmax(0,1fr)_auto]">
+            <div className="min-w-0">
+              <p className="line-clamp-2 break-words text-[14.5px] font-semibold lg:line-clamp-1" title={h.title}>{h.title}</p>
               <p className="text-[12.5px] text-stone-500">
                 {new Date(h.date).toLocaleDateString(locale(), { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })} · {duration(h.seconds)}
               </p>
             </div>
-            <div className="min-w-0 flex-1">
+            <div className="col-span-2 min-w-0 lg:col-span-1">
               <Files files={h.files} pastId={h.id} making={making} compact canMake={h.points.length > 0} />
             </div>
             <button
               type="button"
-              className="icon-btn self-end hover:text-red-600 lg:self-center"
+              className="icon-btn col-start-2 row-start-1 self-start hover:text-red-600 lg:col-start-3 lg:self-center"
               title={t('Retirer de la liste')}
               aria-label={t('Retirer « {title} » de la liste', { title: h.title })}
               onClick={async () => {

@@ -6,7 +6,7 @@ import { useFocusLog } from '../../store/focusLog';
 import { toKey, fmt, fromKey } from '../../lib/dates';
 import { cx } from '../../lib/utils';
 import FocusTimer from '../../components/FocusTimer';
-import TodoList, { DoneTasks } from './TodoList';
+import TodoList, { DoneTasks, QuickAdd } from './TodoList';
 import { useTodos } from '../../store/todos';
 import TaskDialog from './TaskDialog';
 import { useCreateActions } from '../../store/create';
@@ -43,7 +43,7 @@ function WorkTime() {
   const month = daily.reduce((a, d) => a + d.minutes, 0);
 
   return (
-    <section id="travail" aria-labelledby="travail-titre" className="scroll-mt-4">
+    <section id="travail" aria-labelledby="travail-titre" className={cx('min-w-0 scroll-mt-32', sessions.length === 0 && 'lg:hidden')}>
       {/* Below lg the sidebar (and its timer) is hidden: phones and tablets start a session here. */}
       <div className="mb-3 lg:hidden">
         <FocusTimer />
@@ -79,13 +79,13 @@ function WorkTime() {
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="mr-auto text-[13px] font-medium text-stone-600">{t('Par {subject}', { subject })}</h3>
-                    <div className="flex rounded-lg bg-stone-100 p-0.5" role="group" aria-label={t('Période')}>
+                    <div className="seg text-[12px]" role="group" aria-label={t('Période')}>
                       {RANGES.map(r => (
                         <button
                           key={r.key}
                           onClick={() => setRange(r.key)}
                           aria-pressed={range === r.key}
-                          className={cx('h-7 rounded-md px-2.5 text-[12px] font-medium transition-colors pointer-coarse:h-9', range === r.key ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
+                          className="seg-item"
                         >
                           {r.label}
                         </button>
@@ -153,16 +153,25 @@ export default function TasksPage() {
   const aside = hasDone || hasSessions;
 
   return (
-    <div className="h-full overflow-y-auto px-4 pb-room md:px-8">
+    <div className="h-full scroll-pt-36 overflow-y-auto px-4 pb-room md:px-8">
       <div className="mx-auto max-w-[1180px]">
-        <h1 className="pb-7 pt-2 text-[24px] font-semibold tracking-[-0.02em]">{t('Tâches')}</h1>
+        {/* Phones: the title scrolls away, the add field alone stays at the top (one line). */}
+        <h1 className="pb-2 pt-2 text-[24px] font-semibold tracking-[-0.02em] sm:hidden">{t('Tâches')}</h1>
+        {/* Stays at the top while the list scrolls (page-head: the page's own background, opaque in every look). */}
+        <div className="page-head -mx-4 px-4 pb-4 md:-mx-8 md:px-8">
+          <h1 className="pb-3 text-[24px] font-semibold tracking-[-0.02em] max-sm:hidden">{t('Tâches')}</h1>
+          <div className={cx(aside && 'xl:w-[calc((100%-1.25rem)*7/12)]')}>
+            <QuickAdd />
+          </div>
+        </div>
 
-        {/* Two columns from md (an iPad held upright has the room). */}
-        <div className={cx('grid grid-cols-1 items-start gap-5 md:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]', !aside && 'lg:grid-cols-1')}>
-          <section id="taches" aria-label={t('Liste des tâches')} className="card flex min-h-[240px] flex-col p-5">
+        {/* The list beside the work time and « Faites » from xl only: below, side by side, the three were squeezed
+            (« Ajouter une tâc », titles cut in two). There the list takes the width, the other two side by side under it. */}
+        <div className={cx('grid grid-cols-1 items-start gap-5', aside && 'xl:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]')}>
+          <section id="taches" aria-label={t('Liste des tâches')} className="card flex min-h-[240px] flex-col p-4 sm:p-5">
             <TodoList grouped />
           </section>
-          <div className={cx('min-w-0 space-y-5', !aside && 'lg:hidden')}>
+          <div className={cx('grid min-w-0 grid-cols-1 items-start gap-5 xl:grid-cols-1', hasDone && hasSessions && 'md:grid-cols-2', !aside && 'lg:hidden')}>
             <WorkTime />
             <DoneTasks />
           </div>
