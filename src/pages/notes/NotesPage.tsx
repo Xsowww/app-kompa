@@ -741,11 +741,11 @@ export default function NotesPage() {
   return (
     <div className="mx-auto w-full max-w-[1244px] flex h-full gap-4 px-4 pb-4 md:px-8">
       {/* A note open on a phone hides the list and its title: the page keeps one for screen readers. */}
-      {mainOpen && <h1 className="sr-only [@media(min-width:768px)_and_(min-height:500px)]:hidden">{t('Notes')}</h1>}
+      {mainOpen && <h1 className="sr-only [@media(min-width:768px)_and_(min-height:501px),(min-width:1024px)]:hidden">{t('Notes')}</h1>}
       {/* Sidebar */}
       {/* Fingers (tablets): a little wider, the search's 16 px text (no zoom on iPhone) whole in its field. */}
-      <aside className={cx('w-full shrink-0 flex-col [@media(min-width:768px)_and_(min-height:500px)]:flex [@media(min-width:768px)_and_(min-height:500px)]:w-[268px] [@media(min-width:768px)_and_(min-height:500px)]:pointer-coarse:w-[300px]', mainOpen ? 'hidden' : 'flex')} onKeyDown={listKeys} onPointerDownCapture={e => (pointer.current = e.pointerType)}>
-        <div className="flex items-center gap-1.5 pb-4 pt-2">
+      <aside className={cx('w-full shrink-0 flex-col [@media(min-width:768px)_and_(min-height:501px),(min-width:1024px)]:flex [@media(min-width:768px)_and_(min-height:501px),(min-width:1024px)]:w-[268px] [@media(min-width:768px)_and_(min-height:501px),(min-width:1024px)]:pointer-coarse:w-[300px]', mainOpen ? 'hidden' : 'flex')} onKeyDown={listKeys} onPointerDownCapture={e => (pointer.current = e.pointerType)}>
+        <div className="page-head mb-2 flex items-center gap-1.5 short:mb-0 short:py-1">
           <h1 className="text-[24px] font-semibold tracking-[-0.02em]">{t('Notes')}</h1>
         </div>
         {selectedIds.length > 0 ? (
@@ -830,21 +830,21 @@ export default function NotesPage() {
       </aside>
 
       {/* Editor */}
-      <section className={cx('card @container min-w-0 flex-1 flex-col overflow-hidden [@media(min-width:768px)_and_(min-height:500px)]:mt-2', mainOpen ? 'flex' : 'hidden [@media(min-width:768px)_and_(min-height:500px)]:flex')} onScrollCapture={onTextScroll}>
+      <section className={cx('card @container min-w-0 flex-1 flex-col overflow-hidden [@media(min-width:768px)_and_(min-height:501px),(min-width:1024px)]:mt-2', mainOpen ? 'flex' : 'hidden [@media(min-width:768px)_and_(min-height:501px),(min-width:1024px)]:flex')} onScrollCapture={onTextScroll}>
         {active ? (
           <>
             {/* A narrow editor (phones, tablets, a laptop with the menu and the list): the actions sit above the title, which gets
                 the whole width (it was 173 px wide at 768, and cut in two lines at 1024). */}
-            <div className={cx('flex flex-wrap items-start gap-1 px-4 pt-6 md:px-12 @max-2xl:pt-4', folded && '[@media(max-width:767px),(max-height:499px)]:flex-nowrap [@media(max-width:767px),(max-height:499px)]:items-center [@media(max-width:767px),(max-height:499px)]:pb-1 [@media(max-width:767px),(max-height:499px)]:pt-1.5')}>
-              <button className="icon-btn mt-1 [@media(min-width:768px)_and_(min-height:500px)]:hidden" onClick={() => openNote(null)} title={t('Retour')} aria-label={t('Retour')}>
+            <div className={cx('flex flex-wrap items-start gap-1 px-4 pt-6 md:px-12 @max-2xl:pt-4', folded && '[@media(max-width:767px),(max-height:500px)_and_(max-width:1023px)]:flex-nowrap [@media(max-width:767px),(max-height:500px)_and_(max-width:1023px)]:items-center [@media(max-width:767px),(max-height:500px)_and_(max-width:1023px)]:pb-1 [@media(max-width:767px),(max-height:500px)_and_(max-width:1023px)]:pt-1.5')}>
+              <button className="icon-btn mt-1 [@media(min-width:768px)_and_(min-height:501px),(min-width:1024px)]:hidden" onClick={() => openNote(null)} title={t('Retour')} aria-label={t('Retour')}>
                 <ArrowLeft size={17} />
               </button>
               {folded && (
-                <button className="mt-1 min-w-0 flex-1 truncate text-left text-[15px] font-semibold [@media(min-width:768px)_and_(min-height:500px)]:hidden" onClick={() => (setScrolledDown(false), setTyping(false))} aria-label={t('Afficher l’en-tête de la note')}>
+                <button className="mt-1 min-w-0 flex-1 truncate text-left text-[15px] font-semibold [@media(min-width:768px)_and_(min-height:501px),(min-width:1024px)]:hidden" onClick={() => (setScrolledDown(false), setTyping(false))} aria-label={t('Afficher l’en-tête de la note')}>
                   {active.title}
                 </button>
               )}
-              <div className={cx('order-last w-full min-w-0 @2xl:order-none @2xl:w-auto @2xl:flex-1', folded && '[@media(max-width:767px),(max-height:499px)]:hidden')}>
+              <div className={cx('order-last w-full min-w-0 @2xl:order-none @2xl:w-auto @2xl:flex-1', folded && '[@media(max-width:767px),(max-height:500px)_and_(max-width:1023px)]:hidden')}>
                 <NoteTitle key={active.id} note={active} />
                 {/* A long folder name ends with « … », the time stays whole. */}
                 <p className="mt-1 flex min-w-0 text-[12px] text-stone-500">
@@ -1010,7 +1010,7 @@ function NoteTitle({ note }: { note: Note }) {
 }
 
 /** Phones, upright or sideways: the list and the note open take turns on the screen. */
-const ONE_PANE = '(max-width: 767px), (max-height: 499px)';
+const ONE_PANE = '(max-width: 767px), (max-height: 500px) and (max-width: 1023px)';
 const onePane = typeof window !== 'undefined' ? window.matchMedia(ONE_PANE) : null;
 const onOnePane = (f: () => void) => {
   onePane?.addEventListener('change', f);

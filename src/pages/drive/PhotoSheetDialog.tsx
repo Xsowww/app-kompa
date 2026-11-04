@@ -8,7 +8,6 @@ import { useDrive } from '../../store/drive';
 import { saveBlob } from './download';
 import { confirmAction, toast } from '../../store/ui';
 import { CoursError, readPhotoSheet } from '../../lib/recorder/api';
-import { cx } from '../../lib/utils';
 import { t } from '../../i18n';
 
 const MAX_PHOTOS = 4;
@@ -175,7 +174,7 @@ export default function PhotoSheetDialog({ folderId, onClose }: { folderId: stri
               <Loader2 size={15} className="animate-spin" /> {t('Lecture des photos… (jusqu’à une minute)')}
             </p>
           )}
-          <div className="mt-6 flex justify-end gap-2">
+          <div className="modal-foot">
             <button type="button" className="btn-secondary" onClick={step === 'reading' ? stopReading : onClose}>
               {t('Annuler')}
             </button>
@@ -188,9 +187,9 @@ export default function PhotoSheetDialog({ folderId, onClose }: { folderId: stri
         <>
           <div className="mt-2 flex items-center justify-between gap-2">
             <p className="text-[13px] text-stone-500">{t('Vérifie la fiche : tu peux corriger un mot mal lu.')}</p>
-            <div className="flex shrink-0 rounded-lg bg-stone-100 p-0.5 text-[12.5px]" role="group" aria-label={t('Affichage')}>
+            <div className="seg shrink-0 text-[12.5px]" role="group" aria-label={t('Affichage')}>
               {[false, true].map(e => (
-                <button key={String(e)} type="button" aria-pressed={editing === e} onClick={() => setEditing(e)} className={cx('rounded-[10px] px-2.5 py-1 font-medium', editing === e ? 'bg-surface text-ink shadow-sm' : 'text-stone-500')}>
+                <button key={String(e)} type="button" aria-pressed={editing === e} onClick={() => setEditing(e)} className="seg-item">
                   {e ? t('Modifier') : t('Aperçu||d’un fichier')}
                 </button>
               ))}
@@ -201,7 +200,7 @@ export default function PhotoSheetDialog({ folderId, onClose }: { folderId: stri
           ) : (
             <div className="doc-preview mt-3 max-h-[52vh] overflow-y-auto rounded-xl break-words border border-stone-200 p-4 text-[14px] leading-relaxed [&_blockquote]:border-l-2 [&_blockquote]:border-stone-300 [&_blockquote]:pl-3 [&_blockquote]:text-stone-600 [&_h1]:text-[20px] [&_h1]:font-bold [&_h2]:mt-5 [&_h2]:text-[16px] [&_h2]:font-semibold [&_h3]:mt-4 [&_h3]:font-semibold [&_li]:my-1 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:my-2 [&_ul]:list-disc [&_ul]:pl-6" dangerouslySetInnerHTML={{ __html: html }} />
           )}
-          <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
+          <div className="modal-foot mt-5">
             <button type="button" className="btn-ghost mr-auto" onClick={() => void otherPhotos()} disabled={saving}>
               {t('Autres photos')}
             </button>

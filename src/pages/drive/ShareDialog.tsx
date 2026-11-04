@@ -4,7 +4,6 @@ import { Modal } from '../../components/Overlays';
 import { supabase, cloudEnabled } from '../../lib/supabase';
 import { blobKey } from '../../lib/userStorage';
 import { toast } from '../../store/ui';
-import { cx } from '../../lib/utils';
 import type { DriveItem } from '../../store/drive';
 import { t } from '../../i18n';
 
@@ -69,14 +68,14 @@ export default function ShareDialog({ item, onClose }: { item: DriveItem; onClos
         <>
           <p className="mt-4 text-[13px] text-stone-600">{t('Toute personne qui a le lien pourra télécharger ce fichier, sans compte.')}</p>
           <p className="eyebrow mt-4">{t('Le lien expire dans')}</p>
-          <div className="mt-1.5 flex h-9 w-fit items-center rounded-lg bg-stone-100 p-0.5 text-[13px] pointer-coarse:h-10">
+          <div className="seg mt-1.5 text-[13px]">
             {DURATIONS.map(d => (
               <button
                 key={d.days}
                 type="button"
                 aria-pressed={days === d.days}
                 onClick={() => setDays(d.days)}
-                className={cx('hit h-8 rounded-[10px] px-3 font-medium transition-colors pointer-coarse:h-9', days === d.days ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
+                className="seg-item"
               >
                 {d.label}
               </button>
@@ -98,7 +97,7 @@ export default function ShareDialog({ item, onClose }: { item: DriveItem; onClos
         </>
       )}
 
-      <div className="mt-6 flex justify-end gap-2">
+      <div className="modal-foot">
         <button className="btn-secondary" onClick={onClose}>
           {t('Fermer')}
         </button>

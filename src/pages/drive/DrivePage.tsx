@@ -892,11 +892,10 @@ export default function DrivePage() {
       />
 
       {/* Header */}
-      {/* Phones held sideways (390 px high): tighter, so that more than one row of files shows under it. */}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-3 pb-4 pt-2 [@media(max-height:499px)]:pb-2 [@media(max-height:499px)]:pt-0">
+      {/* The essentials (title, tabs, search, sort, view) in the shared page head; tighter on phones held sideways. */}
+      <div className="page-head mb-2 flex flex-wrap items-center gap-x-2 gap-y-3 short:mb-0 short:py-1">
         <h1 className="mr-1 text-[24px] font-semibold tracking-[-0.02em] sm:mr-3">{t('Drive')}</h1>
-        {/* A segmented control: each segment 2 px inside its frame, the same shape (radius 12 − 2, height 40 − 4 / 32 − 4). */}
-        <div className="flex h-10 items-center rounded-lg bg-stone-100 p-0.5 text-[13px] sm:h-8 pointer-coarse:h-10">
+        <div className="seg text-[13px]">
           {([
             ['all', t('Mon Drive'), HardDrive],
             ['starred', t('Favoris'), Star],
@@ -913,7 +912,7 @@ export default function DrivePage() {
                 setListSort(null);
                 setSelected(new Set());
               }}
-              className={cx('hit flex h-9 min-w-10 items-center justify-center gap-1.5 rounded-[10px] px-2.5 font-medium transition-colors sm:h-7 sm:min-w-0 pointer-coarse:h-9 pointer-coarse:min-w-10', tab === k ? 'bg-surface text-ink shadow-card' : 'text-stone-500 hover:text-ink')}
+              className="seg-item min-w-10 sm:min-w-0"
             >
               <Icon size={13} />
               <span className="hidden sm:inline">{label}</span>
@@ -980,7 +979,7 @@ export default function DrivePage() {
 
       {/* Breadcrumb / selection bar. Empty at the root of the Drive: on a phone it would only leave a hole above the files.
           On a computer the row stays (with the space used), so that the selection bar showing up moves nothing. */}
-      <div className={cx('flex h-10 items-center gap-1 text-[13px]', !bar && !filtering && (!tabAll || (!breadcrumb.length && !clipboard?.ids.length)) && 'max-sm:h-0 [@media(max-height:499px)]:h-0')}>
+      <div className={cx('flex h-10 items-center gap-1 text-[13px]', !bar && !filtering && (!tabAll || (!breadcrumb.length && !clipboard?.ids.length)) && 'max-sm:h-0 short:h-0')}>
         {bar ? (
           <div className="enter flex h-10 w-full min-w-0 items-center gap-0.5 overflow-hidden rounded-lg bg-inverse px-1.5 pointer-coarse:h-11 text-on-inverse shadow-pop">
             <button className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md hover:bg-on-inverse/10 sm:h-8 sm:w-8 pointer-coarse:h-9 pointer-coarse:w-9" onClick={() => setSelected(new Set())} title={t('Désélectionner (Échap)')} aria-label={t('Désélectionner (Échap)')}>
@@ -1073,7 +1072,7 @@ export default function DrivePage() {
           </>
         ) : null}
         {!bar && (
-          <div className={cx('hidden min-w-0 shrink-0 sm:block [@media(max-height:499px)]:hidden', !(tabAll && clipboard?.ids.length) && 'ml-auto')}>
+          <div className={cx('hidden min-w-0 shrink-0 sm:block short:hidden', !(tabAll && clipboard?.ids.length) && 'ml-auto')}>
             <StorageGauge inline />
           </div>
         )}
@@ -1197,7 +1196,7 @@ export default function DrivePage() {
                     <FileThumb key={thumbKey(item)} item={item} className="h-[26px] w-[26px] rounded-[5px]" icon={<FileIcon category={categoryOf(item)} size={26} ext={extOf(item)} color={folderColor(item)} />} />
                     <span className="min-w-0">
                       <span className="flex min-w-0 items-center gap-1.5">
-                        <span className="truncate font-medium">{q ? <Highlighted text={item.name} query={q} /> : item.name}</span>
+                        <span className="max-w-full shrink-0 truncate font-medium">{q ? <Highlighted text={item.name} query={q} /> : item.name}</span>
                         {item.starred && <Star size={11} className="shrink-0 fill-amber-400 text-amber-400" />}
                         {/* The labels give way to the name: those that don't fit go to a hidden second line (never cut in half). */}
                         {item.tags?.length ? <span className="hidden h-[18px] min-w-0 shrink-[999] flex-wrap items-center gap-1 overflow-hidden sm:flex" title={item.tags.join(', ')}>{item.tags.map(tag => <TagPill key={tag} tag={tag} />)}</span> : null}

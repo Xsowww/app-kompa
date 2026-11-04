@@ -86,7 +86,7 @@ export default function MoveDialog({ ids, onClose, onMove, title = t('Déplacer 
         </button>
         {renderLevel(null, 1)}
       </div>
-      <div className="mt-6 flex justify-end gap-2">
+      <div className="modal-foot">
         <button className="btn-secondary" onClick={onClose}>
           {t('Annuler')}
         </button>

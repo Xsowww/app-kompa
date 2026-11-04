@@ -192,7 +192,7 @@ function PickerBody({ note, onClose }: { note: Note; onClose: () => void }) {
           </section>
         )}
       </div>
-      <div className="mt-4 flex justify-end">
+      <div className="modal-foot mt-4">
         <button className="btn-primary" onClick={onClose}>
           {t('Terminé')}
         </button>

@@ -174,7 +174,8 @@ export default function PdfView({ url, title, page: target }: { url: string; tit
   }, [total, pageWidth]);
 
   if (failed)
-    return <p className="rounded-md bg-surface px-6 py-10 text-center text-[13px] text-stone-600 shadow-2xl">{t('Impossible d’afficher ce PDF. Télécharge-le pour l’ouvrir.')}</p>;
+    // Opaque (bg-paper under the surface colour): a translucent glass card let the list behind show through it.
+    return <p className="rounded-md bg-paper px-6 py-10 text-center text-[13px] text-stone-600 shadow-2xl [background-image:linear-gradient(var(--color-surface),var(--color-surface))]">{t('Impossible d’afficher ce PDF. Télécharge-le pour l’ouvrir.')}</p>;
 
   return (
     <div className="relative">

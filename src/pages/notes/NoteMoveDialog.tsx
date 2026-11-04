@@ -53,7 +53,7 @@ export default function NoteMoveDialog({ target, onClose }: { target: NoteMoveTa
         </Choice>
         {level(null, 1)}
       </div>
-      <div className="mt-5 flex justify-end gap-2">
+      <div className="modal-foot mt-5">
         <button className="btn-secondary" onClick={onClose}>
           {t('Annuler')}
         </button>
