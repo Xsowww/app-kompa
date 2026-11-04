@@ -24,13 +24,24 @@ function TaskBox({ todo, size = 14 }: { todo: Todo; size?: number }) {
 }
 
 /** A task in a small space (the « Journée » row, a month cell): its box and its title, lighter than an event. */
-export function TaskChip({ todo, onOpen, className }: { todo: Todo; onOpen: (todo: Todo) => void; className?: string }) {
+export function TaskChip({ todo, onOpen, className, wrap }: { todo: Todo; onOpen: (todo: Todo) => void; className?: string; /** Two lines of title (a week's narrow column). */ wrap?: boolean }) {
   return (
-    <span className={cx('flex h-6 min-w-0 max-w-full items-center gap-1.5 rounded-md border border-dashed border-stone-300 px-1.5 text-[12px] text-stone-600 pointer-coarse:h-9', todo.done && 'opacity-60', className)}>
-      <TaskBox todo={todo} size={13} />
-      <button type="button" onClick={() => onOpen(todo)} className={cx('min-w-0 flex-1 truncate text-left', todo.done && 'line-through')} title={t('Tâche · {title}', { title: todo.title })}>
-        {todo.time && <span className="tabular mr-1 text-stone-500">{todo.time}</span>}
-        {todo.title}
+    <span
+      className={cx(
+        'flex min-w-0 max-w-full rounded-md border border-dashed border-stone-300 text-stone-600',
+        wrap ? 'min-h-6 items-start gap-1 px-1 py-[3px] text-[11.5px] leading-4 pointer-coarse:min-h-9 pointer-coarse:items-center' : 'h-6 items-center gap-1.5 px-1.5 text-[12px] pointer-coarse:h-9',
+        todo.done && 'opacity-60',
+        className,
+      )}
+    >
+      <span className={cx('flex shrink-0', wrap && 'mt-px pointer-coarse:mt-0')}>
+        <TaskBox todo={todo} size={13} />
+      </span>
+      <button type="button" onClick={() => onOpen(todo)} className={cx('min-w-0 flex-1 text-left', !wrap && 'truncate', todo.done && 'line-through')} title={t('Tâche · {title}', { title: todo.title })}>
+        <span className={cx(wrap && 'line-clamp-2 hyphens-auto [overflow-wrap:break-word]')}>
+          {todo.time && <span className="tabular text-stone-500">{todo.time} </span>}
+          {todo.title}
+        </span>
       </button>
     </span>
   );

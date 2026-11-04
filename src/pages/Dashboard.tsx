@@ -21,7 +21,6 @@ import { WORDS } from '../lib/usage';
 import { periodColor, periodText, periodTint, periodUntil, periodsOn } from '../lib/periods';
 import WeekProgress from './WeekProgress';
 import DayLine from './DayLine';
-import { listLate } from '../lib/late';
 import { useTodos } from '../store/todos';
 import { weekItems } from '../lib/weekProgress';
 import { agendaLink, fromAgenda, useAgendaOverlay } from './calendar/agendas';
@@ -45,32 +44,18 @@ function Widget({ title, to, linkLabel, className, dark, children }: { title: st
 }
 
 function EventRow({ e, showDay, muted }: { e: CalendarEvent; showDay?: boolean; muted?: boolean }) {
-  const toggleDone = useCalendar(s => s.toggleDone);
   const c = catOf(e.category);
-  // One of my shared calendars: no « fait » there, its colour instead of the box, and it opens in its agenda.
+  // One of my shared calendars: it opens in its agenda, its name after the title.
   const agenda = fromAgenda(e) ? e.agenda : null;
   // Today's events already over: lighter, what is left of the day stands out.
-  const past = !e.done && !showDay && isOver(e);
+  const past = !showDay && isOver(e);
+  // An event: its colour bar and its time, no box (only tasks are ticked, in « À faire »).
   return (
     <li className={cx('group flex items-center gap-3 rounded-lg px-1.5 py-1.5 transition-colors hover:bg-stone-50', past && 'opacity-60')}>
-      {agenda ? (
-        <span className="flex h-4 w-4 shrink-0 items-center justify-center" title={agenda.name}>
-          <span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: c.color }} />
-        </span>
-      ) : (
-        <button
-          onClick={() => toggleDone(e.id)}
-          className={cx('hit flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors', e.done ? 'border-ink bg-ink' : 'border-stone-300 hover:border-stone-500')}
-          title={e.done ? t('Marquer comme à faire') : t('Marquer comme fait')}
-          aria-label={e.done ? t('Remettre « {title} » à faire', { title: e.title }) : t('Marquer « {title} » comme fait', { title: e.title })}
-        >
-          {e.done && <Check size={10} strokeWidth={3} className="text-paper" />}
-        </button>
-      )}
       <span className="h-4 w-[3px] shrink-0 rounded-full" style={{ background: c.color }} />
       {/* Taller on touch screens (36 px) without moving the row. */}
       <Link to={fromAgenda(e) ? agendaLink(e) : linkToDay(e.date, e.id)} className="min-w-0 flex-1 pointer-coarse:-my-2 pointer-coarse:py-2">
-        <span className={cx('block truncate text-[13px]', e.done ? 'text-stone-500 line-through' : muted ? 'text-stone-600' : 'font-medium')}>
+        <span className={cx('block truncate text-[13px]', muted ? 'text-stone-600' : 'font-medium')}>
           {e.title}
           {agenda && <span className="font-normal text-stone-500"> · {agenda.name}</span>}
         </span>
@@ -108,7 +93,6 @@ export default function Dashboard() {
 
   const today = useToday();
   const todos = useTodos(s => s.todos);
-  const lateEvents = listLate(events).length;
   const lateTodos = todos.filter(x => !x.done && x.due && x.due < today).length;
   // The pill leads to the oldest late task (Tâches lights it up, at the top of its « En retard » group).
   const firstLate = todos.filter(x => !x.done && x.due && x.due < today).sort((a, b) => a.due!.localeCompare(b.due!))[0];
@@ -122,13 +106,13 @@ export default function Dashboard() {
   const todayEvents = withShared.filter(e => e.date === today).sort(sortEvents);
   // When the day is light, show what comes next so that the card is never a dead end.
   const nextCount = todayEvents.length === 0 ? 2 : todayEvents.length < 3 ? 1 : 0;
-  const coming = firstOfSpans(withShared.filter(e => e.date > today && !e.done).sort(sortEvents));
+  const coming = firstOfSpans(withShared.filter(e => e.date > today).sort(sortEvents));
   const nextEvents = coming.slice(0, nextCount);
   // An exam already over today (end, else start, passed) is no longer the next one.
   const nowTime = fmt(now, 'HH:mm');
   // The nearest big day: an exam (deadline, « grand jour ») or any event marked important; one that repeats (a weekly
   // yoga marked important) once, its next one.
-  const bigDays = firstOfSeries(events.filter(e => isBigEvent(e) && !e.done && (e.date > today || (e.date === today && (e.end ?? e.start ?? '24:00') > nowTime))).sort(sortEvents));
+  const bigDays = firstOfSeries(events.filter(e => isBigEvent(e) && (e.date > today || (e.date === today && (e.end ?? e.start ?? '24:00') > nowTime))).sort(sortEvents));
   const nextExam = bigDays[0];
   // The ones after it, smaller: a big day two days later must not stay hidden behind the first.
   const laterBig = bigDays.slice(1, 3);
@@ -141,11 +125,11 @@ export default function Dashboard() {
   const nextTask = weekItems(todos, weekDays[0], weekDays[6]).left[0];
 
   // « Maintenant » : what is on now, else the next thing today (the blue tile).
-  const nowEvent = todayEvents.find(e => !e.done && e.start && (e.end ?? e.start) > nowTime);
-  // The « Aujourd’hui » widget lists the whole day, the event of the blue tile too (it is where it is ticked).
+  const nowEvent = todayEvents.find(e => e.start && (e.end ?? e.start) > nowTime);
+  // The « Aujourd’hui » widget lists the whole day, the event of the blue tile too.
   const dayList = todayEvents;
   // Nothing more with a time today: the day's events without one (a birthday, an open day) are what's left.
-  const allDay = todayEvents.filter(e => !e.start && !e.done);
+  const allDay = todayEvents.filter(e => !e.start);
   const minutesTo = nowEvent?.start ? Number(nowEvent.start.slice(0, 2)) * 60 + Number(nowEvent.start.slice(3)) - (now.getHours() * 60 + now.getMinutes()) : 0;
   // Nothing more today (in the evening): the first thing of the next day that has something, in the blue tile.
   const afterToday = !nowEvent && !allDay.length ? coming[0] : undefined;
@@ -193,18 +177,12 @@ export default function Dashboard() {
             <h1 className="mt-0.5 text-[32px] font-extrabold tracking-[-0.035em]">
               {t('{hello}, {name}', { hello, name: user.name })}
             </h1>
-            {(lateEvents > 0 || lateTodos > 0) && (
+            {/* Only tasks are late (events are not ticked). */}
+            {lateTodos > 0 && (
               <div className="mt-2 flex flex-wrap gap-1.5">
-                {lateEvents > 0 && (
-                  <Link to="/calendrier#en-retard" className="hit-sm flex h-7 items-center rounded-full bg-red-50 px-3 text-[12.5px] font-semibold text-urgent-text">
-                    {tn(lateEvents, '{n} événement en retard', '{n} événements en retard')}
-                  </Link>
-                )}
-                {lateTodos > 0 && (
-                  <Link to={firstLate ? `/taches?tache=${firstLate.id}` : '/taches'} className="hit-sm flex h-7 items-center rounded-full bg-red-50 px-3 text-[12.5px] font-semibold text-urgent-text">
-                    {tn(lateTodos, '{n} tâche en retard', '{n} tâches en retard')}
-                  </Link>
-                )}
+                <Link to={firstLate ? `/taches?tache=${firstLate.id}` : '/taches'} className="hit-sm flex h-7 items-center rounded-full bg-red-50 px-3 text-[12.5px] font-semibold text-urgent-text">
+                  {tn(lateTodos, '{n} tâche en retard', '{n} tâches en retard')}
+                </Link>
               </div>
             )}
             {nowPeriods.length > 0 && (
@@ -357,6 +335,8 @@ export default function Dashboard() {
                       )}
                     </div>
                   )}
+                  {/* Nothing to offer (already started, or not an exam): no empty band at the bottom of the card. */}
+                  {(hasRevisionPlan(nextExam) || (examSheet && (examDays === 0 || tooLate === nextExam.id || noTimeLeft)) || !(hasStarted(nextExam) || notExam)) && (
                   <div className="mt-auto pt-4">
                     {hasRevisionPlan(nextExam) ? (
                       <div className="space-y-2">
@@ -385,6 +365,7 @@ export default function Dashboard() {
                       </button>
                     )}
                   </div>
+                  )}
                 </div>
               ) : (
                 <div className="text-[13px] text-stone-500">

@@ -112,7 +112,7 @@ export default function ImportPeriods({ onDone }: { onDone: () => void }) {
       ) : list.length === 0 ? (
         <p className="mt-2 text-[13px] text-stone-500">{t('Aucune période dans « {name} ».', { name: fromName })}</p>
       ) : (
-        <ul className="mt-2 max-h-[30vh] space-y-1 overflow-y-auto pr-1">
+        <ul className="mt-2 space-y-1">
           {list.map(p => {
             const dup = there(p);
             return (

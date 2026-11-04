@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
-import { Check, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { catOf, type CalendarEvent } from '../../store/calendar';
 import type { Todo } from '../../store/todos';
 import { fmt, fromKey, fromMinutes, toMinutes } from '../../lib/dates';
@@ -33,14 +33,11 @@ interface Props {
   todos: Todo[];
   periods: Period[];
   drag: DragState | null;
-  /** Can be moved, resized, ticked (not on a read-only calendar, nor an event of a shared calendar shown in mine). */
+  /** Can be moved and resized (not on a read-only calendar, nor an event of a shared calendar shown in mine). */
   canChange: (ev: CalendarEvent) => boolean;
-  /** Ticked here (my own calendar: a shared one has no « fait »). */
-  canTick: (ev: CalendarEvent) => boolean;
   canCreate: boolean;
   onDragStart: (ev: CalendarEvent, e: ReactPointerEvent<HTMLElement>, opts?: { grabFromTop?: boolean; mode?: DragMode }) => void;
   onEdit: (ev: CalendarEvent) => void;
-  onToggle: (ev: CalendarEvent) => void;
   onCreate: (day: string, start: string, end: string) => void;
   onMenu?: (ev: CalendarEvent, e: ReactMouseEvent<HTMLElement>) => void;
   onSelectDay?: (day: string) => void;
@@ -50,9 +47,9 @@ interface Props {
 /**
  * The hourly grid: one day (day view) or a week (seven columns), a « Journée » row above for what has no time
  * (the tasks of the day too), and the hours below. Click an empty slot to add (sweep several to choose the
- * length), drag an event to another time or day, its bottom edge to change its end, tick it from its block.
+ * length), drag an event to another time or day, its bottom edge to change its end (events are not ticked: only tasks).
  */
-export default function TimeGrid({ days, today, selected, events, todos, periods, drag, canChange, canTick, canCreate, onDragStart, onEdit, onToggle, onCreate, onMenu, onSelectDay, onOpenTask }: Props) {
+export default function TimeGrid({ days, today, selected, events, todos, periods, drag, canChange, canCreate, onDragStart, onEdit, onCreate, onMenu, onSelectDay, onOpenTask }: Props) {
   const { shared } = useCalendarSource();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [now, setNow] = useState(nowMinutes);
@@ -89,7 +86,8 @@ export default function TimeGrid({ days, today, selected, events, todos, periods
     const el = scrollRef.current;
     if (!el) return;
     const focus = showsToday ? nowMinutes() - 90 : firstStart !== null ? firstStart - 30 : 8 * 60;
-    el.scrollTop = Math.max(0, ((focus - firstHour * 60) / 60) * HOUR_PX);
+    // On an hour line: its label sits just under it, whole (not half cut at the top of the grid).
+    el.scrollTop = Math.max(0, Math.floor(focus / 60 - firstHour) * HOUR_PX);
     // Only when the day (the week) changes, not on every edit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [days[0], days.length]);
@@ -113,19 +111,29 @@ export default function TimeGrid({ days, today, selected, events, todos, periods
         onPointerDown={movable ? e => onDragStart(ev, e) : undefined}
         onClick={() => onEdit(ev)}
         onContextMenu={onMenu && (e => onMenu(ev, e))}
-        className={cx('flex h-6 max-w-full shrink-0 touch-manipulation select-none items-center gap-1.5 truncate rounded-md px-2 text-[12px] font-medium [-webkit-touch-callout:none] pointer-coarse:h-9', ev.done && 'line-through opacity-60', dragged?.id === ev.id && 'opacity-40')}
-        style={{ background: c.soft, color: c.text }}
+        className={cx(
+          'flex max-w-full shrink-0 touch-manipulation select-none gap-1.5 rounded-md text-left font-medium [-webkit-touch-callout:none]',
+          // A week's narrow column: two lines of title (« Anniversaire de Léa », not « Annivers… »).
+          week ? 'min-h-6 items-start py-1 pl-2 pr-1 text-[11.5px] leading-4 pointer-coarse:min-h-9 pointer-coarse:items-center' : 'h-6 items-center truncate pl-2.5 pr-2 text-[12px] pointer-coarse:h-9',
+          dragged?.id === ev.id && 'opacity-40',
+        )}
+        // An event: a solid chip with its colour bar, as the blocks of the hours (a task: a dashed outline and a square box).
+        style={{ background: c.soft, color: c.text, boxShadow: `inset 3px 0 0 ${c.color}` }}
         title={eventTitle(ev, shared)}
       >
-        <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: c.color }} />
-        <span className="truncate">{eventTitle(ev, shared)}</span>
+        <span className={week ? 'line-clamp-2 min-w-0 hyphens-auto [overflow-wrap:break-word]' : 'truncate'}>{eventTitle(ev, shared)}</span>
         <SeriesIcon series={ev.series} size={11} className="shrink-0" />
       </button>
     );
   };
 
+  // The day names stay under the page's fixed header while the page scrolls (--cal-head, CalendarPage), on the
+  // card's own colour over the page's (opaque in the glass looks too).
   const header = week && (
-    <div className="grid border-b border-stone-200 [scrollbar-gutter:stable] overflow-y-hidden" style={{ gridTemplateColumns: cols }}>
+    <div
+      className="sticky z-10 grid overflow-y-hidden border-b border-stone-200 [scrollbar-gutter:stable]"
+      style={{ gridTemplateColumns: cols, top: 'var(--cal-head, 0px)', background: 'linear-gradient(var(--color-surface), var(--color-surface)), var(--color-paper)' }}
+    >
       <span />
       {days.map(d => {
         const isSel = d === selected;
@@ -137,11 +145,11 @@ export default function TimeGrid({ days, today, selected, events, todos, periods
             onClick={() => onSelectDay?.(d)}
             aria-pressed={isSel}
             aria-label={`${fmt(fromKey(d), 'EEEE d MMMM')}${d === today ? t(', aujourd’hui') : ''}`}
-            className={cx('flex flex-col items-center border-l border-stone-200 py-1.5 transition-colors', isSel ? 'bg-stone-100' : 'hover:bg-stone-50')}
+            className={cx('flex flex-col items-center justify-center border-l border-stone-200 py-1.5 transition-colors short:flex-row short:gap-1.5 short:py-1', isSel ? 'bg-stone-100' : 'hover:bg-stone-50')}
             style={tint.length ? { backgroundImage: periodsFill(tint, isSel ? 26 : 13) } : undefined}
           >
             <span className="text-[11px] font-medium capitalize text-stone-500">{fmt(fromKey(d), 'EEE')}</span>
-            <span className={cx('tabular mt-0.5 flex h-7 w-7 items-center justify-center rounded-full text-[14px] font-semibold', isSel ? 'bg-tile-blue text-white' : d === today && 'text-brand-600')}>{fmt(fromKey(d), 'd')}</span>
+            <span className={cx('tabular mt-0.5 flex h-7 w-7 short:mt-0 items-center justify-center rounded-full text-[14px] font-semibold', isSel ? 'bg-tile-blue text-white' : d === today && 'text-brand-600')}>{fmt(fromKey(d), 'd')}</span>
           </button>
         );
       })}
@@ -175,7 +183,7 @@ export default function TimeGrid({ days, today, selected, events, todos, periods
             data-event={ev.id}
             onClick={() => onEdit(ev)}
             onContextMenu={onMenu && (e => onMenu(ev, e))}
-            className={cx('relative z-10 mt-1 flex h-6 min-w-0 items-center gap-1.5 truncate px-2 text-left text-[12px] font-medium pointer-coarse:h-8', before ? 'ml-0 rounded-l-none' : 'ml-1 rounded-l-md', after ? 'mr-0 rounded-r-none' : 'mr-1 rounded-r-md', ev.done && 'line-through opacity-60', drag && 'pointer-events-none')}
+            className={cx('relative z-10 mt-1 flex h-6 min-w-0 items-center gap-1.5 truncate px-2 text-left text-[12px] font-medium pointer-coarse:h-8', before ? 'ml-0 rounded-l-none' : 'ml-1 rounded-l-md', after ? 'mr-0 rounded-r-none' : 'mr-1 rounded-r-md', drag && 'pointer-events-none')}
             style={{ gridColumn: `${from + 2} / ${to + 3}`, gridRow: lane + 1, background: c.soft, color: c.text, boxShadow: `inset 3px 0 0 ${c.color}` }}
             title={eventTitle(ev, shared)}
           >
@@ -189,7 +197,7 @@ export default function TimeGrid({ days, today, selected, events, todos, periods
         const cap = week && !allDayOpen && items.length > ALL_DAY_SHOWN + 1 ? ALL_DAY_SHOWN : items.length;
         return (
           <div key={d} data-drop-day={d} className={cx('relative z-10 flex min-w-0 gap-1 p-1', week ? 'flex-col' : 'flex-wrap items-start')} style={{ gridColumn: i + 2, gridRow: lanes + 1 }}>
-            {items.slice(0, cap).map(it => ('ev' in it ? chip(it.ev) : <TaskChip key={it.todo.id} todo={it.todo} onOpen={onOpenTask} />))}
+            {items.slice(0, cap).map(it => ('ev' in it ? chip(it.ev) : <TaskChip key={it.todo.id} todo={it.todo} onOpen={onOpenTask} wrap={week} />))}
             {cap < items.length && (
               <button type="button" onClick={() => setAllDayOpen(true)} className="h-6 rounded-md px-1.5 text-left text-[11.5px] font-medium text-stone-500 hover:bg-stone-100 hover:text-ink pointer-coarse:h-8">
                 {tn(items.length - cap, '+{n} autre', '+{n} autres')}
@@ -207,7 +215,9 @@ export default function TimeGrid({ days, today, selected, events, todos, periods
   );
 
   return (
-    <div className="overflow-hidden rounded-lg border border-stone-200">
+    // Clipped to its corners without being a scrolling box (overflow-clip): the day names can stay at the top.
+    // Its own layer (isolate): the now line and the blocks pass under the page's fixed header, not over it.
+    <div className="isolate overflow-clip rounded-lg border border-stone-200">
       {header}
       {allDayRow}
 
@@ -219,13 +229,15 @@ export default function TimeGrid({ days, today, selected, events, todos, periods
         tabIndex={0}
         role="region"
         aria-label={week ? t('Heures de la semaine') : t('Heures de la journée')}
-        className="relative max-h-[max(360px,calc(100dvh-420px))] overflow-y-auto overscroll-contain outline-none [scrollbar-gutter:stable] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus"
+        // A whole number of hours tall (where the browser can round): no hour label cut at the bottom either.
+        className="relative max-h-[max(364px,calc(100dvh-420px))] overflow-y-auto overscroll-contain outline-none [scrollbar-gutter:stable] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus supports-[height:round(down,1px,1px)]:max-h-[round(down,max(364px,calc(100dvh-420px)),52px)]"
       >
         <div className="relative grid" style={{ gridTemplateColumns: cols, height: hours.length * HOUR_PX }}>
           <div className="relative select-none">
             {hours.map(h => (
-              <span key={h} className="tabular absolute right-2 -translate-y-1/2 text-[11px] text-stone-500" style={{ top: y(h * 60) }}>
-                {h === firstHour ? '' : t('{n} h||heure', { n: h })}
+              // Just under its line (not across it): whole at the top and bottom edges of the scrolled hours.
+              <span key={h} className="tabular absolute right-2 text-[11px] leading-none text-stone-500" style={{ top: y(h * 60) + 4 }}>
+                {t('{n} h||heure', { n: h })}
               </span>
             ))}
           </div>
@@ -290,12 +302,15 @@ export default function TimeGrid({ days, today, selected, events, todos, periods
                   // One line of title when two wouldn't leave room for the hour (a 1 h block is 50 px).
                   const oneLine = height < 66;
                   const movable = canChange(ev);
-                  const tick = canTick(ev);
+                  // Overlapping events: each one reaches the right edge, the next one drawn over it a little further right
+                  // (side by side, a narrow week column left « Ré d.. 0… »: now the earlier one reads whole above the later
+                  // one, and the later one keeps two thirds of the width).
+                  const left = (col / n) * 70;
                   return (
                     <div
                       key={ev.id}
-                      className={cx('group/ev absolute', ev.done && 'opacity-55', dragged?.id === ev.id && drag?.mode === 'move' && 'opacity-35', resizing?.ev.id === ev.id && 'z-10 shadow-pop')}
-                      style={{ top: y(start) + 1, height, left: `calc(${(col / n) * 100}% + 2px)`, width: `calc(${100 / n}% - 4px)` }}
+                      className={cx('group/ev absolute', dragged?.id === ev.id && drag?.mode === 'move' && 'opacity-35', resizing?.ev.id === ev.id && 'z-10 shadow-pop', col > 0 && 'rounded-md shadow-[0_0_0_1.5px_var(--color-surface)]')}
+                      style={{ top: y(start) + 1, height, left: `calc(${left}% + 2px)`, width: `calc(${100 - left}% - 4px)`, zIndex: resizing?.ev.id === ev.id ? undefined : col || undefined }}
                       onMouseMove={e => e.stopPropagation()}
                       onMouseEnter={() => setHover(null)}
                     >
@@ -313,22 +328,31 @@ export default function TimeGrid({ days, today, selected, events, todos, periods
                           'flex h-full w-full touch-manipulation select-none flex-col overflow-hidden rounded-md border-l-[3px] text-left transition-[opacity,box-shadow] [-webkit-touch-callout:none] hover:shadow-card hover:ring-1 hover:ring-stone-900/5',
                           week ? 'px-1.5' : 'px-2',
                           compact ? 'justify-center py-0' : 'py-1',
-                          // Room for the box (a week's narrow column keeps it for the title, the box shows on hover).
-                          tick && (week ? 'pointer-coarse:pr-5' : 'pr-5'),
                         )}
                         style={{ background: c.soft, borderColor: c.color }}
                       >
                         {compact ? (
                           <span className="truncate text-[12px] leading-tight">
-                            <span className={cx('font-medium text-ink', ev.done && 'line-through')}>{eventTitle(ev, shared)}</span>
+                            <span className="font-medium text-ink">{eventTitle(ev, shared)}</span>
                             <SeriesIcon series={ev.series} size={10} className="ml-1 inline-block -translate-y-px text-stone-500" />
                             <span className="tabular ml-1.5" style={{ color: c.text }}>
                               {ev.start}
                             </span>
                           </span>
+                        ) : week && oneLine ? (
+                          // A week's narrow column, about an hour: the time first, then the title on two lines
+                          // (« 20:00 Soirée anniversaire »), not one line cut to « Soirée an… ».
+                          <span className="line-clamp-2 text-[12px] leading-[15px] hyphens-auto [overflow-wrap:break-word]">
+                            {/* A real space: « 11:00Banque » was one word, cut anywhere (« Ban|que »). */}
+                            <span className="tabular text-[11px]" style={{ color: c.text }}>
+                              {ev.start}
+                            </span>{' '}
+                            <SeriesIcon series={ev.series} size={10} className="mr-1 inline-block -translate-y-px text-stone-500" />
+                            <span className="font-medium text-ink">{eventTitle(ev, shared)}</span>
+                          </span>
                         ) : (
                           <>
-                            <span className={cx('shrink-0 text-[12.5px] font-medium leading-snug text-ink', oneLine ? 'truncate' : 'line-clamp-2', ev.done && 'line-through')}>
+                            <span className={cx('shrink-0 text-[12.5px] font-medium leading-snug text-ink', oneLine ? 'truncate' : week && height >= 90 ? 'line-clamp-3 hyphens-auto [overflow-wrap:break-word]' : 'line-clamp-2')}>
                               <SeriesIcon series={ev.series} size={11} className="mr-1 inline-block -translate-y-px text-stone-500" />
                               {eventTitle(ev, shared)}
                             </span>
@@ -340,25 +364,6 @@ export default function TimeGrid({ days, today, selected, events, todos, periods
                           </>
                         )}
                       </button>
-                      {/* Ticked from its block (shown on hover with a mouse, always under a finger or once done). */}
-                      {tick && (
-                        <button
-                          type="button"
-                          onPointerDown={e => e.stopPropagation()}
-                          onClick={e => {
-                            e.stopPropagation();
-                            onToggle(ev);
-                          }}
-                          className={cx(
-                            'absolute right-1 top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full border-[1.5px] transition-[opacity,colors] pointer-coarse:opacity-100',
-                            ev.done ? 'border-ink bg-ink opacity-100' : 'border-stone-400 bg-surface opacity-0 hover:border-stone-600 focus-visible:opacity-100 group-hover/ev:opacity-100',
-                          )}
-                          title={ev.done ? t('Marquer comme à faire') : t('Marquer comme fait')}
-                          aria-label={ev.done ? t('Marquer « {title} » comme à faire', { title: ev.title }) : t('Marquer « {title} » comme fait', { title: ev.title })}
-                        >
-                          {ev.done && <Check size={9} strokeWidth={3.5} className="text-paper" />}
-                        </button>
-                      )}
                       {/* Its bottom edge: drag it to change the end (by 15 minutes). */}
                       {movable && (
                         <span
