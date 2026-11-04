@@ -245,7 +245,7 @@ export default function LandingPage() {
     // The page scrolls itself: the app keeps <body> fixed (overflow hidden), so the wheel and the finger did nothing here.
     <div className="h-full overflow-y-auto overflow-x-clip scroll-pt-16 bg-paper text-ink">
       <header className="sticky top-0 z-30 border-b border-transparent bg-paper/85 backdrop-blur supports-[backdrop-filter]:bg-paper/70">
-        <div className="mx-auto flex h-16 max-w-[1120px] items-center gap-6 px-5 md:px-8">
+        <div className="mx-auto flex h-16 max-w-[1120px] items-center gap-3 px-5 sm:gap-6 md:px-8">
           <Link to="/" aria-label={t('Kompaly, accueil')} className="shrink-0">
             <Logo />
           </Link>
@@ -257,8 +257,8 @@ export default function LandingPage() {
           </nav>
           <div className="ml-auto flex items-center gap-2">
             {/* Phones: the globe alone (its name is read out), « Se connecter » kept in the bar. */}
-            <LanguagePicker className="mr-1 h-9 max-sm:[&>span]:sr-only" />
-            <Link to="/connexion" className="btn-secondary h-9">
+            <LanguagePicker className="h-9 sm:mr-1 max-sm:[&>span]:sr-only" />
+            <Link to="/connexion" className="btn-secondary h-9 max-sm:px-3">
               {t('Se connecter')}
             </Link>
             <Link to="/inscription" className="btn-primary hidden h-9 sm:inline-flex">
