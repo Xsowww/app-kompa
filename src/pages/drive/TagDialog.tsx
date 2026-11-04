@@ -124,7 +124,7 @@ export default function TagDialog({ ids, onClose }: { ids: string[]; onClose: ()
         </div>
       )}
 
-      <div className="mt-6 flex justify-end">
+      <div className="modal-foot">
         <button className="btn-primary" onClick={onClose}>
           {t('Terminé')}
         </button>

@@ -1,4 +1,4 @@
-import { lazy, memo, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { lazy, memo, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from 'react';
 import { flashWhenReady } from '../../lib/flash';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -29,7 +29,7 @@ import { StorageError } from '../../lib/blobStore';
 import { isTrashedNote } from '../../lib/trash';
 import NoteMoveDialog, { type NoteMoveTarget } from './NoteMoveDialog';
 import { takeContentBuffer, takeTitleBuffer } from './titleBuffer';
-import { useCreateActions, useNarrow } from '../../store/create';
+import { useCreateActions } from '../../store/create';
 import type { Editor } from '@tiptap/react';
 import { t, tn, locale } from '../../i18n';
 
@@ -273,7 +273,9 @@ export default function NotesPage() {
 
   // The « + » button: a note (in the folder chosen, like before), one from a template (its menu over the button), a folder.
   // Not over a note open on a phone (it fills the screen): back to the list for it.
-  const narrow = useNarrow();
+  // One pane (the list, or the note open) on phones, and on phones held sideways (390 px high: two panes left
+  // room for two lines of each).
+  const narrow = useOnePane();
   useCreateActions(active && narrow ? [] : [
     { label: t('Nouvelle note'), icon: <FilePlus2 />, onClick: () => newNote() },
     {
@@ -660,7 +662,7 @@ export default function NotesPage() {
               const style = folderIconStyle(f.color);
               return <Icon size={15} className={cx('shrink-0', !style && 'text-stone-500')} style={style} />;
             })()}
-            <span className="flex-1 truncate">{f.name}</span>
+            <span className="flex-1 truncate" title={f.name}>{f.name}</span>
           </div>
           {/* Shown on hover, and always on touch screens (no hover there). */}
           <button
@@ -710,7 +712,7 @@ export default function NotesPage() {
   const folded = scrolledDown || typing;
   const onTextScroll = (e: React.UIEvent) => {
     const el = e.target as HTMLElement;
-    if (!el.hasAttribute('data-note-scroll') || !matchMedia('(max-width: 767px)').matches) return;
+    if (!el.hasAttribute('data-note-scroll') || !matchMedia(ONE_PANE).matches) return;
     const y = el.scrollTop;
     if (y > lastY.current + 6 && y > 48) setScrolledDown(true);
     else if (y < lastY.current - 6 || y < 8) setScrolledDown(false);
@@ -719,7 +721,7 @@ export default function NotesPage() {
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv || !activeId) return;
-    const check = () => setTyping(matchMedia('(max-width: 767px)').matches && !!document.activeElement?.closest('.prose-note') && vv.height < window.innerHeight * 0.8);
+    const check = () => setTyping(matchMedia(ONE_PANE).matches && !!document.activeElement?.closest('.prose-note') && vv.height < window.innerHeight * 0.8);
     vv.addEventListener('resize', check);
     document.addEventListener('focusin', check);
     document.addEventListener('focusout', check);
@@ -739,10 +741,11 @@ export default function NotesPage() {
   return (
     <div className="mx-auto w-full max-w-[1244px] flex h-full gap-4 px-4 pb-4 md:px-8">
       {/* A note open on a phone hides the list and its title: the page keeps one for screen readers. */}
-      {mainOpen && <h1 className="sr-only md:hidden">{t('Notes')}</h1>}
+      {mainOpen && <h1 className="sr-only [@media(min-width:768px)_and_(min-height:501px),(min-width:1024px)]:hidden">{t('Notes')}</h1>}
       {/* Sidebar */}
-      <aside className={cx('w-full shrink-0 flex-col md:flex md:w-[268px]', mainOpen ? 'hidden' : 'flex')} onKeyDown={listKeys} onPointerDownCapture={e => (pointer.current = e.pointerType)}>
-        <div className="flex items-center gap-1.5 pb-4 pt-2">
+      {/* Fingers (tablets): a little wider, the search's 16 px text (no zoom on iPhone) whole in its field. */}
+      <aside className={cx('w-full shrink-0 flex-col [@media(min-width:768px)_and_(min-height:501px),(min-width:1024px)]:flex [@media(min-width:768px)_and_(min-height:501px),(min-width:1024px)]:w-[268px] [@media(min-width:768px)_and_(min-height:501px),(min-width:1024px)]:pointer-coarse:w-[300px]', mainOpen ? 'hidden' : 'flex')} onKeyDown={listKeys} onPointerDownCapture={e => (pointer.current = e.pointerType)}>
+        <div className="page-head mb-2 flex items-center gap-1.5 short:mb-0 short:py-1">
           <h1 className="text-[24px] font-semibold tracking-[-0.02em]">{t('Notes')}</h1>
         </div>
         {selectedIds.length > 0 ? (
@@ -755,8 +758,10 @@ export default function NotesPage() {
                   <button className={barBtn} onClick={clearSelection} title={t('Désélectionner (Échap)')} aria-label={t('Désélectionner (Échap)')}>
                     <X size={15} />
                   </button>
-                  <span className="mr-auto truncate px-1 text-[13px] font-medium" role="status">
-                    {tn(selectedIds.length, '{n} sélectionnée', '{n} sélectionnées')}
+                  {/* The narrowest phones: the number alone (four buttons beside it), the words for screen readers. */}
+                  <span className="tabular mr-auto truncate px-1 text-[13px] font-medium" role="status">
+                    <span aria-hidden className="min-[360px]:hidden">{selectedIds.length}</span>
+                    <span className="max-[359px]:sr-only">{tn(selectedIds.length, '{n} sélectionnée', '{n} sélectionnées')}</span>
                   </span>
                   <button className={barBtn} onClick={() => setMoving({ kind: 'notes', ids: selectedIds, name, from: null })} title={t('Déplacer vers…')} aria-label={t('Déplacer vers…')}>
                     <FolderInput size={15} />
@@ -825,34 +830,35 @@ export default function NotesPage() {
       </aside>
 
       {/* Editor */}
-      <section className={cx('card min-w-0 flex-1 flex-col overflow-hidden md:mt-2', mainOpen ? 'flex' : 'hidden md:flex')} onScrollCapture={onTextScroll}>
+      <section className={cx('card @container min-w-0 flex-1 flex-col overflow-hidden [@media(min-width:768px)_and_(min-height:501px),(min-width:1024px)]:mt-2', mainOpen ? 'flex' : 'hidden [@media(min-width:768px)_and_(min-height:501px),(min-width:1024px)]:flex')} onScrollCapture={onTextScroll}>
         {active ? (
           <>
-            {/* Under lg the actions sit above the title, which gets the whole width (it was 173 px wide at 768). */}
-            <div className={cx('flex flex-wrap items-start gap-1 px-4 pt-6 md:px-12 max-lg:pt-4', folded && 'max-md:flex-nowrap max-md:items-center max-md:pb-1 max-md:pt-1.5')}>
-              <button className="icon-btn mt-1 md:hidden" onClick={() => openNote(null)} title={t('Retour')} aria-label={t('Retour')}>
+            {/* A narrow editor (phones, tablets, a laptop with the menu and the list): the actions sit above the title, which gets
+                the whole width (it was 173 px wide at 768, and cut in two lines at 1024). */}
+            <div className={cx('flex flex-wrap items-start gap-1 px-4 pt-6 md:px-12 @max-2xl:pt-4', folded && '[@media(max-width:767px),(max-height:500px)_and_(max-width:1023px)]:flex-nowrap [@media(max-width:767px),(max-height:500px)_and_(max-width:1023px)]:items-center [@media(max-width:767px),(max-height:500px)_and_(max-width:1023px)]:pb-1 [@media(max-width:767px),(max-height:500px)_and_(max-width:1023px)]:pt-1.5')}>
+              <button className="icon-btn mt-1 [@media(min-width:768px)_and_(min-height:501px),(min-width:1024px)]:hidden" onClick={() => openNote(null)} title={t('Retour')} aria-label={t('Retour')}>
                 <ArrowLeft size={17} />
               </button>
               {folded && (
-                <button className="mt-1 min-w-0 flex-1 truncate text-left text-[15px] font-semibold md:hidden" onClick={() => (setScrolledDown(false), setTyping(false))} aria-label={t('Afficher l’en-tête de la note')}>
+                <button className="mt-1 min-w-0 flex-1 truncate text-left text-[15px] font-semibold [@media(min-width:768px)_and_(min-height:501px),(min-width:1024px)]:hidden" onClick={() => (setScrolledDown(false), setTyping(false))} aria-label={t('Afficher l’en-tête de la note')}>
                   {active.title}
                 </button>
               )}
-              <div className={cx('order-last w-full min-w-0 lg:order-none lg:w-auto lg:flex-1', folded && 'max-md:hidden')}>
+              <div className={cx('order-last w-full min-w-0 @2xl:order-none @2xl:w-auto @2xl:flex-1', folded && '[@media(max-width:767px),(max-height:500px)_and_(max-width:1023px)]:hidden')}>
                 <NoteTitle key={active.id} note={active} />
                 {/* A long folder name ends with « … », the time stays whole. */}
                 <p className="mt-1 flex min-w-0 text-[12px] text-stone-500">
-                  <span className="truncate">{folders.find(f => f.id === active.folderId)?.name ?? t('Sans dossier')}</span>
+                  <span className="min-w-12 truncate">{folders.find(f => f.id === active.folderId)?.name ?? t('Sans dossier')}</span>
                   <span className="shrink-0 whitespace-nowrap">&nbsp;· {t('modifiée {time}', { time: relativeTime(active.updatedAt) })}</span>
-                  {/* Discreet: how long the note is (characters on wider screens). */}
-                  <span className="shrink-0 whitespace-nowrap">
+                  {/* Discreet: how long the note is (characters in a wide editor; nothing on the smallest phones). */}
+                  <span className="shrink-0 whitespace-nowrap @max-[22rem]:hidden">
                     &nbsp;· {tn(words, '{n} mot', '{n} mots')}
-                    <span className="max-sm:hidden">&nbsp;· {tn([...activeText].length, '{n} caractère', '{n} caractères')}</span>
+                    <span className="@max-xl:hidden">&nbsp;· {tn([...activeText].length, '{n} caractère', '{n} caractères')}</span>
                   </span>
                 </p>
                 <LinkChips note={active} />
               </div>
-              <button className="btn-ghost mt-0.5 ml-auto h-8 px-2.5 lg:ml-0 pointer-coarse:min-w-9" title={t('Lier à des fichiers du Drive ou des événements')} onClick={() => setLinking(true)}>
+              <button className="btn-ghost mt-0.5 ml-auto h-8 px-2.5 @2xl:ml-0 pointer-coarse:min-w-9" title={t('Lier à des fichiers du Drive ou des événements')} onClick={() => setLinking(true)}>
                 <Paperclip size={15} /> <span className="hidden sm:inline">{t('Lier…')}</span>
               </button>
               <button className="icon-btn mt-0.5" title={active.pinned ? t('Désépingler') : t('Épingler')} aria-label={active.pinned ? t('Désépingler') : t('Épingler')} onClick={() => store.updateNote(active.id, { pinned: !active.pinned })}>
@@ -1001,4 +1007,15 @@ function NoteTitle({ note }: { note: Note }) {
       className="block w-full resize-none overflow-hidden bg-transparent hyphens-auto pointer-coarse:py-1 text-[22px] font-semibold md:text-[26px] leading-[1.25] tracking-[-0.02em] outline-none placeholder:text-stone-500"
     />
   );
+}
+
+/** Phones, upright or sideways: the list and the note open take turns on the screen. */
+const ONE_PANE = '(max-width: 767px), (max-height: 500px) and (max-width: 1023px)';
+const onePane = typeof window !== 'undefined' ? window.matchMedia(ONE_PANE) : null;
+const onOnePane = (f: () => void) => {
+  onePane?.addEventListener('change', f);
+  return () => onePane?.removeEventListener('change', f);
+};
+function useOnePane() {
+  return useSyncExternalStore(onOnePane, () => onePane?.matches ?? false);
 }

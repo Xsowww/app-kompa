@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useEditor, useEditorState, EditorContent, Extension, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
@@ -10,7 +11,7 @@ import TiptapImage from '@tiptap/extension-image';
 import { Decoration, DecorationSet, type EditorView } from '@tiptap/pm/view';
 import { NodeSelection, Plugin, PluginKey } from '@tiptap/pm/state';
 import {
-  Bold, Italic, Underline, Strikethrough, Highlighter, Heading1, Heading2, List, ListOrdered, ListChecks, Quote, Code2, Link2, Link2Off, ExternalLink, Minus, Undo2, Redo2, ImagePlus,
+  Bold, Italic, Underline, Strikethrough, Highlighter, Heading1, Heading2, List, ListOrdered, ListChecks, Quote, Code2, Link2, Link2Off, ExternalLink, Minus, Undo2, Redo2, ImagePlus, MoreHorizontal,
 } from 'lucide-react';
 import { useNotes, type Note } from '../../store/notes';
 import { askText, toast } from '../../store/ui';
@@ -77,96 +78,282 @@ const SearchHits = Extension.create({
   },
 });
 
+interface Tool {
+  key: string;
+  label: string;
+  Icon: typeof Bold;
+  active?: boolean;
+  disabled?: boolean;
+  run: () => void;
+  /** Shown in the tooltip and the « … » panel (computers). */
+  shortcut?: string;
+  /** Its name in the « … » panel, when the tooltip's is long. */
+  short?: string;
+  /** The tools that stay in the row first when it is narrow (lowest first); the others go in « … ». */
+  rank: number;
+}
+
+/** Room taken by the row: each group has its separator (padding), its buttons and the gaps between them. */
+interface Metrics { room: number; size: number; gap: number; pad: number }
+
 function Toolbar({ editor }: { editor: Editor }) {
-  // The toolbar isn't re-rendered at each keystroke: the link and the undo history are followed on their own.
+  // The toolbar isn't re-rendered at each keystroke: only when what it shows changes (a style on or off, the link, the history).
   const state = useEditorState({
     editor,
     selector: ({ editor: ed }) => ({
       link: ed.isActive('link') ? ((ed.getAttributes('link').href as string | undefined) ?? '') : null,
       undo: ed.can().undo(),
       redo: ed.can().redo(),
+      h1: ed.isActive('heading', { level: 1 }),
+      h2: ed.isActive('heading', { level: 2 }),
+      bold: ed.isActive('bold'),
+      italic: ed.isActive('italic'),
+      underline: ed.isActive('underline'),
+      strike: ed.isActive('strike'),
+      highlight: ed.isActive('highlight'),
+      bullet: ed.isActive('bulletList'),
+      ordered: ed.isActive('orderedList'),
+      tasks: ed.isActive('taskList'),
+      quote: ed.isActive('blockquote'),
+      code: ed.isActive('codeBlock'),
     }),
   });
   const link = state.link;
+  const c = () => editor.chain().focus();
+  // (Kept in a state, not a ref: the tools are made during the render.)
+  const [imageInput, setImageInput] = useState<HTMLInputElement | null>(null);
+
+  const groups: Tool[][] = [
+    [
+      { key: 'h1', label: t('Titre 1'), Icon: Heading1, active: state.h1, run: () => c().toggleHeading({ level: 1 }).run(), shortcut: keys('mod', 'alt', '1'), rank: 5 },
+      { key: 'h2', label: t('Titre 2'), Icon: Heading2, active: state.h2, run: () => c().toggleHeading({ level: 2 }).run(), shortcut: keys('mod', 'alt', '2'), rank: 10 },
+    ],
+    [
+      { key: 'bold', label: t('Gras'), Icon: Bold, active: state.bold, run: () => c().toggleBold().run(), shortcut: keys('mod', 'B'), rank: 1 },
+      { key: 'italic', label: t('Italique'), Icon: Italic, active: state.italic, run: () => c().toggleItalic().run(), shortcut: keys('mod', 'I'), rank: 2 },
+      { key: 'underline', label: t('Souligné'), Icon: Underline, active: state.underline, run: () => c().toggleUnderline().run(), shortcut: keys('mod', 'U'), rank: 8 },
+      { key: 'strike', label: t('Barré'), Icon: Strikethrough, active: state.strike, run: () => c().toggleStrike().run(), shortcut: keys('mod', 'shift', 'S'), rank: 13 },
+      { key: 'highlight', label: t('Surligner'), Icon: Highlighter, active: state.highlight, run: () => c().toggleHighlight().run(), shortcut: keys('mod', 'shift', 'H'), rank: 11 },
+    ],
+    [
+      { key: 'bullet', label: t('Liste à puces'), Icon: List, active: state.bullet, run: () => c().toggleBulletList().run(), shortcut: keys('mod', 'shift', '8'), rank: 3 },
+      { key: 'ordered', label: t('Liste numérotée'), Icon: ListOrdered, active: state.ordered, run: () => c().toggleOrderedList().run(), shortcut: keys('mod', 'shift', '7'), rank: 9 },
+      { key: 'tasks', label: t('Cases à cocher'), Icon: ListChecks, active: state.tasks, run: () => c().toggleTaskList().run(), shortcut: keys('mod', 'shift', '9'), rank: 4 },
+    ],
+    [
+      { key: 'quote', label: t('Citation'), Icon: Quote, active: state.quote, run: () => c().toggleBlockquote().run(), shortcut: keys('mod', 'shift', 'B'), rank: 15 },
+      { key: 'code', label: t('Bloc de code'), Icon: Code2, active: state.code, run: () => c().toggleCodeBlock().run(), shortcut: keys('mod', 'alt', 'C'), rank: 16 },
+      { key: 'link', label: link !== null ? t('Modifier le lien') : t('Lien'), Icon: Link2, active: link !== null, run: () => void editLink(editor), shortcut: keys('mod', 'K'), rank: 12 },
+      ...(link !== null
+        ? [
+            { key: 'open-link', label: t('Ouvrir le lien'), Icon: ExternalLink, run: () => openLink(withProtocol(link)), shortcut: keys('mod', t('clic')), rank: 12.1 },
+            { key: 'unlink', label: t('Retirer le lien'), Icon: Link2Off, run: () => c().extendMarkRange('link').unsetLink().run(), rank: 12.2 },
+          ]
+        : []),
+      { key: 'rule', label: t('Séparateur'), Icon: Minus, run: () => c().setHorizontalRule().run(), rank: 17 },
+      { key: 'image', label: t('Image (ou colle-la dans la note)'), Icon: ImagePlus, run: () => imageInput?.click(), short: t('Image||outil de la note'), rank: 14 },
+    ],
+    [
+      { key: 'undo', label: t('Annuler la frappe'), Icon: Undo2, run: () => c().undo().run(), shortcut: keys('mod', 'Z'), disabled: !state.undo, short: t('Annuler||la frappe'), rank: 6 },
+      { key: 'redo', label: t('Rétablir'), Icon: Redo2, run: () => c().redo().run(), shortcut: keys('mod', 'shift', 'Z'), disabled: !state.redo, rank: 7 },
+    ],
+  ];
+
+  // One row, never scrolled nor wrapped: what doesn't fit goes in « … » (the least used first). Measured from the
+  // buttons themselves (their size changes under a finger).
+  const row = useRef<HTMLDivElement>(null);
+  const [m, setM] = useState<Metrics | null>(null);
+  useLayoutEffect(() => {
+    const el = row.current;
+    if (!el) return;
+    const measure = () => {
+      const g = el.querySelector<HTMLElement>('[data-tool-group]');
+      const b = el.querySelector<HTMLElement>('[data-tool]');
+      if (!g || !b) return;
+      const cs = getComputedStyle(g);
+      const next = { room: el.clientWidth, size: b.offsetWidth, gap: parseFloat(cs.columnGap) || 0, pad: parseFloat(cs.paddingLeft) || 0 };
+      setM(o => (o && o.room === next.room && o.size === next.size && o.gap === next.gap && o.pad === next.pad ? o : next));
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const all = groups.flat();
+  const shown = new Set(all.map(x => x.key));
+  if (m) {
+    const width = (keep: Set<string>, more: boolean) => {
+      let w = 0;
+      for (const g of groups) {
+        const n = g.filter(x => keep.has(x.key)).length;
+        if (n) w += m.pad + n * m.size + (n - 1) * m.gap;
+      }
+      return w + (more ? m.pad + m.size : 0);
+    };
+    if (width(shown, false) > m.room + 0.5) {
+      shown.clear();
+      for (const x of [...all].sort((a, b) => a.rank - b.rank)) {
+        shown.add(x.key);
+        if (width(shown, true) > m.room + 0.5) {
+          shown.delete(x.key);
+          break;
+        }
+      }
+    }
+  }
+  const hidden = all.filter(x => !shown.has(x.key));
+
   const btnClass = 'flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors disabled:opacity-35 pointer-coarse:h-9 pointer-coarse:w-9';
-  /** `shortcut`: shown in the tooltip (computers). */
-  const btn = (label: string, Icon: typeof Bold, active: boolean, run: () => void, shortcut?: string, disabled = false) => (
+  const btn = (x: Tool) => (
     <button
-      key={label}
+      key={x.key}
+      data-tool
       type="button"
-      title={shortcut ? `${label} (${shortcut})` : label}
-      aria-label={label}
-      aria-pressed={active || undefined}
-      disabled={disabled}
+      title={x.shortcut ? `${x.label} (${x.shortcut})` : x.label}
+      aria-label={x.label}
+      aria-pressed={x.active || undefined}
+      disabled={x.disabled}
       onMouseDown={e => e.preventDefault()}
-      onClick={run}
-      className={cx(btnClass, active ? 'bg-stone-200/70 text-ink' : 'text-stone-500 hover:bg-stone-100 hover:text-ink disabled:hover:bg-transparent')}
+      onClick={x.run}
+      className={cx(btnClass, x.active ? 'bg-stone-200/70 text-ink' : 'text-stone-500 hover:bg-stone-100 hover:text-ink disabled:hover:bg-transparent')}
     >
-      <Icon size={15} />
+      <x.Icon size={15} />
     </button>
   );
-  const c = () => editor.chain().focus();
-  // Groups wrap as a whole; the separator is drawn before each group and hidden at the start of a line
-  // (the row is shifted left under a clipping box), so no line starts with a lone separator.
-  const group = (k: string, children: React.ReactNode) => (
-    <div key={k} className="relative flex shrink-0 items-center gap-0.5 pl-[9px] before:absolute before:left-1 before:top-1/2 before:h-4 before:w-px before:-translate-y-1/2 before:bg-stone-200">
-      {children}
-    </div>
-  );
+  // Groups wrap as a whole; the separator is drawn before each group and hidden at the start of the row
+  // (the row is shifted left under a clipping box), so the row doesn't start with a lone separator.
+  const groupClass = 'relative flex shrink-0 items-center gap-0.5 pl-[9px] before:absolute before:left-1 before:top-1/2 before:h-4 before:w-px before:-translate-y-1/2 before:bg-stone-200';
 
   return (
-    // Fingers: one row that scrolls sideways (two rows took a third of a phone's screen above the text).
-    <div className="-mx-1 -my-1 overflow-hidden px-1 py-1 pointer-coarse:overflow-x-auto pointer-coarse:[scrollbar-width:none]">
-      <div className="-ml-[9px] flex flex-wrap items-center gap-y-0.5 pointer-coarse:flex-nowrap">
-        {group('g1', <>
-          {btn(t('Titre 1'), Heading1, editor.isActive('heading', { level: 1 }), () => c().toggleHeading({ level: 1 }).run(), keys('mod', 'alt', '1'))}
-          {btn(t('Titre 2'), Heading2, editor.isActive('heading', { level: 2 }), () => c().toggleHeading({ level: 2 }).run(), keys('mod', 'alt', '2'))}
-        </>)}
-        {group('g2', <>
-          {btn(t('Gras'), Bold, editor.isActive('bold'), () => c().toggleBold().run(), keys('mod', 'B'))}
-          {btn(t('Italique'), Italic, editor.isActive('italic'), () => c().toggleItalic().run(), keys('mod', 'I'))}
-          {btn(t('Souligné'), Underline, editor.isActive('underline'), () => c().toggleUnderline().run(), keys('mod', 'U'))}
-          {btn(t('Barré'), Strikethrough, editor.isActive('strike'), () => c().toggleStrike().run(), keys('mod', 'shift', 'S'))}
-          {btn(t('Surligner'), Highlighter, editor.isActive('highlight'), () => c().toggleHighlight().run(), keys('mod', 'shift', 'H'))}
-        </>)}
-        {group('g3', <>
-          {btn(t('Liste à puces'), List, editor.isActive('bulletList'), () => c().toggleBulletList().run(), keys('mod', 'shift', '8'))}
-          {btn(t('Liste numérotée'), ListOrdered, editor.isActive('orderedList'), () => c().toggleOrderedList().run(), keys('mod', 'shift', '7'))}
-          {btn(t('Cases à cocher'), ListChecks, editor.isActive('taskList'), () => c().toggleTaskList().run(), keys('mod', 'shift', '9'))}
-        </>)}
-        {group('g4', <>
-          {btn(t('Citation'), Quote, editor.isActive('blockquote'), () => c().toggleBlockquote().run(), keys('mod', 'shift', 'B'))}
-          {btn(t('Bloc de code'), Code2, editor.isActive('codeBlock'), () => c().toggleCodeBlock().run(), keys('mod', 'alt', 'C'))}
-          {btn(link !== null ? t('Modifier le lien') : t('Lien'), Link2, link !== null, () => void editLink(editor), keys('mod', 'K'))}
-          {link !== null && btn(t('Ouvrir le lien'), ExternalLink, false, () => openLink(withProtocol(link)), keys('mod', t('clic')))}
-          {link !== null && btn(t('Retirer le lien'), Link2Off, false, () => c().extendMarkRange('link').unsetLink().run())}
-          {btn(t('Séparateur'), Minus, false, () => c().setHorizontalRule().run())}
-          <label
-        key="image"
-        title={t('Image (ou colle-la dans la note)')}
-        onMouseDown={e => e.preventDefault()}
-        className={cx(btnClass, 'cursor-pointer text-stone-500 hover:bg-stone-100 hover:text-ink')}
-      >
-        <ImagePlus size={15} />
-        <input
-          type="file"
-          accept="image/*"
-          multiple
-          hidden
-          onChange={e => {
-            const files = imageFiles(e.target.files);
-            e.target.value = '';
-            if (files.length) void insertImages(editor.view, files);
-          }}
-        />
-      </label>
-        </>)}
-        {group('g5', <>
-          {btn(t('Annuler la frappe'), Undo2, false, () => c().undo().run(), keys('mod', 'Z'), !state.undo)}
-          {btn(t('Rétablir'), Redo2, false, () => c().redo().run(), keys('mod', 'shift', 'Z'), !state.redo)}
-        </>)}
+    <div className="-mx-1 -my-1 overflow-hidden px-1 py-1">
+      <div ref={row} className="-ml-[9px] flex items-center">
+        {groups.map((g, i) => {
+          const visible = g.filter(x => shown.has(x.key));
+          return visible.length ? (
+            <div key={i} data-tool-group className={groupClass}>
+              {visible.map(btn)}
+            </div>
+          ) : null;
+        })}
+        {hidden.length > 0 && (
+          <div className={groupClass}>
+            <MoreTools tools={hidden} btnClass={btnClass} />
+          </div>
+        )}
       </div>
+      <input
+        ref={setImageInput}
+        type="file"
+        accept="image/*"
+        multiple
+        hidden
+        onChange={e => {
+          const files = imageFiles(e.target.files);
+          e.target.value = '';
+          if (files.length) void insertImages(editor.view, files);
+        }}
+      />
     </div>
+  );
+}
+
+/**
+ * The tools that don't fit in the row: a small panel under « … », each with its name. It doesn't take the focus from
+ * the text (a phone's keyboard stays open), except when opened from the keyboard.
+ */
+function MoreTools({ tools, btnClass }: { tools: Tool[]; btnClass: string }) {
+  const [at, setAt] = useState<{ top: number; right: number; left?: number } | null>(null);
+  const opener = useRef<HTMLButtonElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  const fine = typeof matchMedia !== 'undefined' && matchMedia('(pointer: fine)').matches;
+  useEffect(() => {
+    if (!at) return;
+    const close = (e: Event) => {
+      const n = e.target as Node | null;
+      if (e.type === 'pointerdown' && n && (panel.current?.contains(n) || opener.current?.contains(n))) return;
+      setAt(null);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.stopPropagation();
+      setAt(null);
+      if (panel.current?.contains(document.activeElement)) opener.current?.focus();
+    };
+    addEventListener('pointerdown', close, true);
+    addEventListener('resize', close);
+    addEventListener('keydown', onKey, true);
+    return () => {
+      removeEventListener('pointerdown', close, true);
+      removeEventListener('resize', close);
+      removeEventListener('keydown', onKey, true);
+    };
+  }, [at]);
+  const toggle = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (at) return setAt(null);
+    const r = e.currentTarget.getBoundingClientRect();
+    // Phones: from margin to margin (two columns of names, none cut).
+    const narrow = window.innerWidth < 480;
+    setAt({ top: r.bottom + 6, right: narrow ? 8 : Math.max(8, window.innerWidth - r.right - 4), left: narrow ? 8 : undefined });
+    // From the keyboard: in the panel at once.
+    if (e.detail === 0) requestAnimationFrame(() => panel.current?.querySelector<HTMLElement>('button:not(:disabled)')?.focus());
+  };
+  const anyActive = tools.some(x => x.active);
+  return (
+    <>
+      <button
+        ref={opener}
+        type="button"
+        title={t('Plus d’outils')}
+        aria-label={t('Plus d’outils')}
+        aria-expanded={!!at}
+        aria-haspopup="true"
+        onMouseDown={e => e.preventDefault()}
+        onClick={toggle}
+        // A style of the text that sits in the panel shows here too.
+        className={cx(btnClass, at || anyActive ? 'bg-stone-200/70 text-ink' : 'text-stone-500 hover:bg-stone-100 hover:text-ink')}
+      >
+        <MoreHorizontal size={15} />
+      </button>
+      {at &&
+        createPortal(
+          <div
+            ref={panel}
+            role="group"
+            aria-label={t('Plus d’outils')}
+            className={cx(
+              'enter fixed z-[65] grid max-w-[calc(100vw-16px)] gap-0.5 overflow-y-auto rounded-xl border border-stone-200 bg-surface p-1 shadow-pop',
+              tools.length > 5 ? 'grid-cols-2' : 'grid-cols-1',
+            )}
+            style={{ top: at.top, right: at.right, left: at.left, maxHeight: `calc(100dvh - ${Math.round(at.top) + 8}px)` }}
+            onMouseDown={e => e.preventDefault()}
+          >
+            {tools.map(x => (
+              <button
+                key={x.key}
+                type="button"
+                aria-pressed={x.active || undefined}
+                disabled={x.disabled}
+                title={x.shortcut && fine ? `${x.label} (${x.shortcut})` : x.label}
+                onClick={() => {
+                  setAt(null);
+                  x.run();
+                }}
+                className={cx(
+                  'flex h-8 min-w-0 items-center gap-2.5 rounded-md px-2 text-left text-[13px] transition-colors outline-none disabled:opacity-35 pointer-coarse:h-10',
+                  'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus',
+                  x.active ? 'bg-stone-200/70 text-ink' : 'text-stone-700 hover:bg-stone-100 disabled:hover:bg-transparent',
+                )}
+              >
+                <x.Icon size={15} className="shrink-0 text-stone-500" aria-hidden />
+                <span className="min-w-0 flex-1 truncate">{x.short ?? x.label}</span>
+              </button>
+            ))}
+          </div>,
+          document.body,
+        )}
+    </>
   );
 }
 
