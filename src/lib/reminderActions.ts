@@ -4,7 +4,6 @@
 
 import { reminderItems } from './reminders';
 import { useTodos } from '../store/todos';
-import { useCalendar } from '../store/calendar';
 import { useSettings } from '../store/settings';
 import { toast } from '../store/ui';
 import { t } from '../i18n';
@@ -13,7 +12,8 @@ import { t } from '../i18n';
 export const SNOOZE_MINUTES = 10;
 
 /**
- * « Plus tard » or « Fait » on a reminder (its keys): on the tasks and events it is about. The same tap can arrive
+ * « Plus tard » or « Fait » on a reminder (its keys): « Plus tard » on the tasks and events it is about, « Fait » on
+ * its tasks only (events aren't ticked). The same tap can arrive
  * twice (two tabs, the service worker's message and the address): « Fait » ticks only what isn't, a second
  * « Plus tard » replaces the first.
  */
@@ -31,19 +31,15 @@ export function reminderAction(action: 'later' | 'done', keys: string[]) {
     return;
   }
   const todos = useTodos.getState();
-  const cal = useCalendar.getState();
   const tasks = items.flatMap(x => (x.kind === 'task' ? todos.todos.filter(y => y.id === x.id && !y.done) : []));
-  const events = items.flatMap(x => (x.kind === 'event' ? cal.events.filter(y => y.id === x.id && !y.done) : []));
   // (a repeating task ticked here makes its next one, as in Tâches: store/todos › toggle)
   tasks.forEach(x => todos.toggle(x.id));
-  events.forEach(x => cal.toggleDone(x.id));
-  const titles = [...tasks, ...events].map(x => x.title);
+  const titles = tasks.map(x => x.title);
   if (!titles.length) return;
   toast(titles.length === 1 ? t('« {title} » est fait', { title: titles[0] }) : t('{n} éléments faits', { n: titles.length }), 'success', {
     label: t('Annuler||l’action'),
     run: () => {
       tasks.forEach(x => useTodos.getState().todos.find(y => y.id === x.id)?.done && useTodos.getState().toggle(x.id));
-      events.forEach(x => useCalendar.getState().events.find(y => y.id === x.id)?.done && useCalendar.getState().toggleDone(x.id));
     },
   });
 }

@@ -453,7 +453,10 @@ function AlertButtons({ alert: a }: { alert: ReminderAlert }) {
   const dismiss = useUi(s => s.dismissAlert);
   const navigate = useNavigate();
   const keys = a.keys?.length ? a.keys : [a.key];
-  const mine = reminderItems(keys).length;
+  const items = reminderItems(keys);
+  const mine = items.length;
+  // « Fait » only for a single task: events aren't ticked.
+  const tickable = mine === 1 && items[0].kind === 'task';
   const act = (action: 'later' | 'done') => {
     dismiss(a.key);
     reminderAction(action, keys);
@@ -462,7 +465,7 @@ function AlertButtons({ alert: a }: { alert: ReminderAlert }) {
   // of the card cut by its corners.
   const b = 'min-h-9 rounded-[10px] px-1 py-1 leading-tight transition-colors pointer-coarse:min-h-10';
   return (
-    <div className={cx('grid gap-1.5 px-2.5 pb-2.5 text-[13px] font-medium', mine === 1 ? 'grid-cols-4' : mine ? 'grid-cols-3' : 'grid-cols-2')}>
+    <div className={cx('grid gap-1.5 px-2.5 pb-2.5 text-[13px] font-medium', tickable ? 'grid-cols-4' : mine ? 'grid-cols-3' : 'grid-cols-2')}>
       <button type="button" className={cx(b, 'bg-stone-100 text-stone-600 hover:bg-stone-200 hover:text-ink')} onClick={() => dismiss(a.key)}>
         {t('Fermer')}
       </button>
@@ -471,7 +474,7 @@ function AlertButtons({ alert: a }: { alert: ReminderAlert }) {
           {t('Plus tard')}
         </button>
       )}
-      {mine === 1 && (
+      {tickable && (
         <button type="button" className={cx(b, 'bg-emerald-50 text-emerald-700 hover:bg-emerald-200/60 dark:text-emerald-400')} onClick={() => act('done')}>
           {t('Fait||coché')}
         </button>

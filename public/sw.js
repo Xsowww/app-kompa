@@ -184,7 +184,7 @@ function notificationOptions(data, words = {}) {
     // Computers and Android (Chrome, Edge): two buttons under the notification; elsewhere a tap opens it.
     // A reminder of mine: « Plus tard » (10 min) and « Fait » (« Voir » for several); the others: « Voir » and « OK ».
     actions: mine
-      ? [{ action: 'plus-tard', title: words.later || 'Plus tard' }, new Set(keys.map(k => k.split(':').slice(0, 2).join(':'))).size === 1 ? { action: 'fait', title: words.done || 'Fait' } : voir]
+      ? [{ action: 'plus-tard', title: words.later || 'Plus tard' }, new Set(keys.map(k => k.split(':').slice(0, 2).join(':'))).size === 1 && keys[0].startsWith('task:') ? { action: 'fait', title: words.done || 'Fait' } : voir] // « Fait »: a task only
       : [voir, { action: 'ok', title: words.ok || 'OK' }],
   };
 }
