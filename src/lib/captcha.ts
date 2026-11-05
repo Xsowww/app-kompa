@@ -48,7 +48,7 @@ const FAILED = t('La vérification anti-robot n’a pas abouti. Vérifie ta conn
  */
 function windowFor(onCancel: () => void) {
   const overlay = document.createElement('div');
-  overlay.className = 'fixed inset-0 z-[80] grid place-items-center bg-black/45 p-4 opacity-0 pointer-events-none transition-opacity duration-200';
+  overlay.className = 'fixed inset-0 z-[80] grid place-items-center bg-black/55 p-4 opacity-0 pointer-events-none';
   overlay.setAttribute('role', 'dialog');
   overlay.setAttribute('aria-modal', 'true');
   overlay.setAttribute('aria-labelledby', 'captcha-title');
@@ -66,6 +66,9 @@ function windowFor(onCancel: () => void) {
   cancel.textContent = t('Annuler');
   cancel.addEventListener('click', onCancel);
   overlay.addEventListener('keydown', e => e.key === 'Escape' && onCancel());
+  // Leaving the page (back button, another page of the app, tab closed): the window goes with it.
+  window.addEventListener('popstate', onCancel);
+  window.addEventListener('pagehide', onCancel);
   document.body.appendChild(overlay);
   return {
     box: overlay.querySelector<HTMLElement>('[data-box]')!,
@@ -73,11 +76,19 @@ function windowFor(onCancel: () => void) {
       overlay.classList.remove('opacity-0', 'pointer-events-none');
       cancel.focus();
     },
-    remove: () => overlay.remove(),
+    remove: () => {
+      window.removeEventListener('popstate', onCancel);
+      window.removeEventListener('pagehide', onCancel);
+      overlay.remove();
+    },
   };
 }
 
-function solve(): Promise<string> {
+/**
+ * A token from Cloudflare. `silent` (made in advance while the form is filled in): if Cloudflare wants a click, give
+ * up quietly — the window only ever opens after the person pressed the button.
+ */
+function solve(silent = false): Promise<string> {
   return load().then(
     ts =>
       new Promise<string>((resolve, reject) => {
@@ -99,7 +110,7 @@ function solve(): Promise<string> {
           appearance: 'interaction-only', // invisible for nearly everyone; the window opens only for a click
           theme: document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light',
           language: lang,
-          'before-interactive-callback': win.show,
+          'before-interactive-callback': silent ? () => done(() => reject(new Error(FAILED))) : win.show,
           callback: (token: string) => done(() => resolve(token)),
           'error-callback': () => done(() => reject(new Error(FAILED))),
           'expired-callback': () => done(() => reject(new Error(FAILED))),
@@ -117,7 +128,7 @@ let ready: { token: Promise<string>; at: number } | null = null;
 /** Starts the check in the background (sign-in page): the click on « Se connecter » doesn't wait. */
 export function prefetchCaptcha() {
   if (!captchaEnabled || (ready && Date.now() - ready.at < 4 * 60_000)) return;
-  const token = solve();
+  const token = solve(true);
   token.catch(() => {
     if (ready?.token === token) ready = null;
   });

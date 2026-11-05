@@ -145,9 +145,17 @@ export default function AuthPage({ mode }: { mode: Mode }) {
   // Reset link of an account with a phone paired: the new password also needs its code.
   const [code, setCode] = useState('');
   const [needsCode, setNeedsCode] = useState(false);
-  // The anti-robot check runs while the form is being filled in.
+  // The anti-robot check starts, silently, once the person begins to fill in the form (not on arrival: the page shows
+  // at once, and Cloudflare's script isn't fetched for someone who just looks). A click it wants waits for the submit.
   useEffect(() => {
-    if (mode !== 'reset') prefetchCaptcha();
+    if (mode === 'reset') return;
+    const start = () => prefetchCaptcha();
+    document.addEventListener('focusin', start, { once: true });
+    document.addEventListener('pointerdown', start, { once: true });
+    return () => {
+      document.removeEventListener('focusin', start);
+      document.removeEventListener('pointerdown', start);
+    };
   }, [mode]);
   useEffect(() => {
     if (mode === 'reset' && cloudEnabled) void useAuth.getState().resetNeedsCode().then(setNeedsCode);
