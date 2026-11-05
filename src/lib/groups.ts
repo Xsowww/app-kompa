@@ -12,7 +12,7 @@ export const setGroupSpace = (kind: GroupKind) => void (space = kind);
 const words = () => (space === 'agenda' ? AGENDA_WORDS : groupWords(getSettings().usage));
 import { QUOTA, StorageError, quotaLabel } from './blobStore';
 import { abandonUpload, storageUpload } from './storageUpload';
-import { inviteLink, inviteText } from './groupInvite';
+import { useInvite } from '../store/invite';
 import { t } from '../i18n';
 
 // Groupes de travail : uniquement en ligne. Appels directs à Supabase (tables group_* et
@@ -261,22 +261,9 @@ export async function createGroup(name: string, color: string | null, kind: Grou
  * token), joined after signing in. On a phone, the system's share sheet (Messages, WhatsApp…); else, or when it is
  * refused, the ready-to-send message is copied.
  */
+/** « Inviter »: the window with the link to copy or send (pages/groups/InviteDialog), not a toast cut short. */
 export async function shareInvite(g: Pick<Group, 'kind' | 'name'>, secret: string) {
-  const text = inviteText(g, secret, location.origin);
-  if (typeof navigator.share === 'function' && matchMedia('(pointer: coarse)').matches) {
-    try {
-      await navigator.share({ title: g.name, text });
-      return;
-    } catch (e) {
-      if ((e as Error)?.name === 'AbortError') return; // closed by the person
-    }
-  }
-  try {
-    await navigator.clipboard.writeText(text);
-    toast(t('Invitation copiée : colle-la dans un message.'), 'success');
-  } catch {
-    toast(t('Lien d’invitation : {link}', { link: inviteLink(g.kind, secret, location.origin) }));
-  }
+  useInvite.setState({ invite: { kind: g.kind, name: g.name, secret } });
 }
 
 /** A shared calendar's link token (null: not allowed to invite). Never in the groups table's readable columns. */
@@ -645,7 +632,7 @@ export async function uploadFile(groupId: string, blob: Blob, name: string, onPr
   // asking first gives a clear message instead of a « not allowed »).
   if (QUOTA) {
     const used = await db().rpc('storage_used');
-    if (!used.error && Number(used.data) + blob.size > QUOTA) throw new StorageError(t('Plus de place : ton espace en ligne ({quota}) est plein. Vide la corbeille de ton Drive ou supprime des fichiers.', { quota: quotaLabel() }));
+    if (!used.error && Number(used.data) + blob.size > QUOTA) throw new StorageError(t('Plus de place : ton espace en ligne ({quota}) est plein. Vide la corbeille ou supprime des fichiers.', { quota: quotaLabel() }));
   }
   const path = filePath({ groupId, id });
   const mime = blob.type || 'application/octet-stream';

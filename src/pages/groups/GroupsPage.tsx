@@ -22,6 +22,7 @@ import GroupMembers, { GroupActions } from './GroupMembers';
 import GroupFiles from './GroupFiles';
 import ShareActions from './GroupShare';
 import { useCreateActions, useNarrow } from '../../store/create';
+import SpaceHint from './SpaceHint';
 import { PlusHint } from '../../components/CreateButton';
 import { showJoined } from './join';
 import { EmptyState, Skeleton } from '../../components/EmptyState';
@@ -287,7 +288,8 @@ function OfflineNotice() {
   const w = useGroupWords();
   return (
     <div className="mx-auto w-full max-w-[1244px] flex h-full flex-col px-4 pb-10 md:px-8">
-      <h1 className="pb-4 pt-2 text-[24px] font-semibold tracking-[-0.02em]">{w.Groups}</h1>
+      <h1 className="pb-2 pt-2 text-[24px] font-semibold tracking-[-0.02em]">{w.Groups}</h1>
+      <SpaceHint here="groupes" className="pb-2" />
       <EmptyState className="flex-1 justify-center" icon={CloudOff} title={t('Disponible dans la version en ligne')} text={t('Ici, tes données restent dans ce navigateur.')} />
     </div>
   );
@@ -367,6 +369,8 @@ function Groups() {
         <div className="flex items-center gap-1.5 pb-4 pt-2">
           <h1 className="text-[24px] font-semibold tracking-[-0.02em]">{w.Groups}</h1>
         </div>
+        {/* What a group is, beside the shared calendars (phones: over the list; computers: in the panel beside it). */}
+        <SpaceHint here="groupes" className="-mt-2 pb-3 md:hidden" />
         <div className="shadow-room min-h-0 flex-1 overflow-y-auto pb-room">
           {!loaded && <Skeleton shape="people" className="p-1" />}
           {loaded && failed && (
@@ -442,8 +446,8 @@ function Groups() {
                 </button>
               )}
               {code && (
-                <button className="icon-btn max-sm:hidden" title={t('Inviter quelqu’un')} aria-label={t('Inviter quelqu’un')} onClick={() => void shareInvite(active, code)}>
-                  <Send size={16} />
+                <button className="btn-secondary h-8 px-3 max-sm:hidden" title={t('Inviter quelqu’un')} onClick={() => void shareInvite(active, code)}>
+                  <Send size={14} aria-hidden /> {t('Inviter')}
                 </button>
               )}
               <GroupMuteButton group={active} className="max-sm:hidden" />
@@ -491,6 +495,7 @@ function Groups() {
         ) : loaded && groups.length === 0 && !failed ? (
           <div className="card flex-1 overflow-y-auto pb-room">
             <Intro />
+            <SpaceHint here="groupes" className="mx-auto -mt-6 max-w-[440px] px-6 pb-8 text-center md:-mt-10" />
           </div>
         ) : (
           // Still loading, or not read (said in the list): no « Choisis… » yet.
@@ -499,6 +504,7 @@ function Groups() {
               <>
                 <Users size={28} strokeWidth={1.5} className="text-stone-300" />
                 <p className="mt-3 text-[14px] font-medium">{t('Choisis {a}', { a: w.a })}</p>
+                <SpaceHint here="groupes" className="mt-2 max-w-[440px]" />
               </>
             )}
           </div>

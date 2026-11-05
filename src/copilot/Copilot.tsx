@@ -31,6 +31,10 @@ const RECORD_QUESTION = { etudes: t('Comment enregistrer un cours ?'), travail: 
 const suggestions = (usage: keyof typeof RECORD_QUESTION, planOffered = false) =>
   [t('Analyse ma semaine'), ...(planOffered ? [] : [usage === 'etudes' ? t('Planifie mes révisions') : t('Bloque du temps pour préparer')]), RECORD_QUESTION[usage]];
 const NARROW = '(max-width: 1023px)';
+/** The same hello as the home page's title (« Bonjour » until 18 h, then « Bonsoir »): one greeting, the right one. */
+const dayHello = (h = new Date().getHours()) => (h >= 5 && h < 18 ? t('Bonjour') : t('Bonsoir'));
+/** From this width the page leaves room for him at the right of its content (sidebar 268 px + content 1244 px + margins). */
+const ROOMY = 1590;
 /** The bubble moved off the cards (Tailwind's -translate-y-[85%] is the same `translate` property: kept in it). */
 const shifted = (x: number, y: number) => (x || y ? `${x}px calc(-85% + ${y}px)` : undefined);
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
@@ -148,8 +152,8 @@ export default function Copilot() {
     !useCopilot.getState().messages.some(m => m.brief && toKey(new Date(m.at)) === todayKey()) &&
     greet(
       studying
-        ? t('Salut {name} ! Je peux retrouver tes fichiers, organiser tes révisions, créer des notes… Dis-moi.', { name: user?.name ?? '' })
-        : t('Salut {name} ! Je peux retrouver tes fichiers, organiser ton agenda, créer des notes… Dis-moi.', { name: user?.name ?? '' }),
+        ? t('{hello} {name} ! Je peux retrouver tes fichiers, organiser tes révisions, créer des notes… Dis-moi.', { hello: dayHello(), name: user?.name ?? '' })
+        : t('{hello} {name} ! Je peux retrouver tes fichiers, organiser ton agenda, créer des notes… Dis-moi.', { hello: dayHello(), name: user?.name ?? '' }),
     );
 
   const [blink, setBlink] = useState(false);
@@ -549,6 +553,12 @@ export default function Copilot() {
   // Computers: a remark not read yet brings the corner of his screen out of the edge, the red dot on it (it floated
   // apart from him, hidden but for an arm). Phones keep his head at the edge, the dot beside it.
   const badge = unread && !isOpen && screen.w >= 640;
+  // At rest, he is whole or not there, never cut by the edge of the screen: whole on wide screens, where the page
+  // leaves him room beside its content (leaning out, or out entirely); elsewhere he comes out to say something, and
+  // « Kompaly » opens him (phones and tablets: in the top bar; computers: the sidebar's « Demander à Kompaly », Ctrl+J).
+  // Something unread still shows the corner of his screen with its dot (computers and tablets).
+  const shownPose = pose === 'hidden' && screen.w >= ROOMY && !asleep ? (screen.w >= ROOMY + 90 ? 'open' : 'peek') : pose;
+  const away = pose === 'hidden' && !badge && screen.w < ROOMY;
 
   return (
     <div ref={rootRef} className="pointer-events-none fixed right-0 z-50" style={{ top: `${offsetY * 100}%`, transform: 'translateY(-50%)' }}>
@@ -747,9 +757,11 @@ export default function Copilot() {
               'relative origin-right cursor-pointer touch-none transition-[translate] duration-300 max-sm:scale-[0.8] short:scale-[0.8]',
               pose === 'hidden' && 'sm:translate-x-2',
               isOpen && 'pointer-events-none',
+              // At rest where there is no room for him: not there (see away).
+              away && 'pointer-events-none',
             )}
             style={{ clipPath: 'inset(-80px 0 -80px -80px)', translate: isOpen && screen.w < 640 ? `0 ${perch}px` : undefined }}
-            aria-hidden={isOpen || undefined}
+            aria-hidden={isOpen || away || undefined}
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
@@ -758,7 +770,7 @@ export default function Copilot() {
             title={t('Parler à Kompaly')}
             ref={charRef}
             role="button"
-            tabIndex={isOpen ? -1 : 0}
+            tabIndex={isOpen || away ? -1 : 0}
             aria-label={unread ? t('Parler à Kompaly (nouveau message)') : t('Parler à Kompaly')}
             aria-expanded={isOpen}
             aria-controls="copilot-panel"
@@ -768,21 +780,11 @@ export default function Copilot() {
               open();
             }}
           >
-            <div className={cx('transition-opacity duration-300', pose === 'hidden' && 'max-sm:opacity-0')}>
-              <WatchingCharacter offsetY={offsetY} pose={pose} blink={blink} mood={mood} size={104} badge={badge} />
+            <div className={cx('transition-opacity duration-300', away && 'opacity-0')}>
+              <WatchingCharacter offsetY={offsetY} pose={shownPose} blink={blink} mood={mood} size={104} badge={badge} />
             </div>
-            {/* Phones at rest: his head peeks out of the edge, small and recognisable. */}
-            {pose === 'hidden' && (
-              <span aria-hidden className="cop-hover pointer-events-auto absolute right-0 top-1/2 -mt-[22px] translate-x-[22%] sm:hidden">
-                <CopilotAvatar size={52} />
-              </span>
-            )}
-            {/* Something said while the panel was closed: a dot until it is opened (the remark is in the conversation). */}
-            {unread && !isOpen && (
-              <span aria-hidden className="pointer-events-none absolute right-[34px] top-[36%] h-3 w-3 rounded-full bg-red-500 ring-2 ring-paper sm:hidden" />
-            )}
-            {/* Fingers: only his head shows at the edge, too small to tap; a wider invisible pad along the edge. */}
-            {!isOpen && <span aria-hidden className="pointer-events-auto absolute inset-y-1 right-0 hidden w-8 pointer-coarse:block" />}
+            {/* Tablets (fingers): hidden at the edge, too small to tap; a wider invisible pad along the edge. */}
+            {!isOpen && !away && <span aria-hidden className="pointer-events-auto absolute inset-y-1 right-0 hidden w-8 pointer-coarse:block" />}
           </div>
         )}
       </div>
@@ -792,19 +794,29 @@ export default function Copilot() {
 
 /**
  * « Kompaly » in the menu: the conversation from anywhere, even with the character hidden (Profil › Kompaly).
- * `phone`: a small head in the top bar, only when the character is hidden (the bar has little room).
+ * `phone`: phones and tablets, his head and his name in the top bar (the way to open him there; the dot when he said
+ * something while closed).
  */
 export function KompalyEntry({ phone }: { phone?: boolean }) {
-  const visible = useSettings(s => s.copilotVisible);
   const open = useCopilot(s => s.pose === 'open');
   const unread = useCopilot(s => s.unread);
-  if (phone && visible) return null;
-  const label = unread ? t('Kompaly (nouveau message)') : t('Kompaly');
+  const label = unread ? t('Demander à Kompaly (nouveau message)') : t('Demander à Kompaly');
   if (phone)
     return (
-      <button type="button" onClick={() => toggleKompaly()} aria-expanded={open} aria-controls="copilot-panel" className="icon-btn relative lg:hidden" title={t('Kompaly')} aria-label={label}>
-        <CopilotAvatar size={24} />
-        {unread && <span aria-hidden className="absolute right-0.5 top-1 h-2 w-2 rounded-full bg-red-500 ring-2 ring-paper" />}
+      <button
+        type="button"
+        onClick={() => toggleKompaly()}
+        aria-expanded={open}
+        aria-controls="copilot-panel"
+        className="hit relative inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-stone-200 bg-surface pl-1 pr-1 text-[13px] font-semibold text-ink shadow-card transition-colors hover:bg-stone-50 min-[360px]:pr-3 lg:hidden"
+        title={t('Demander à Kompaly')}
+        aria-label={label}
+      >
+        <CopilotAvatar size={26} />
+        <span className="max-[359px]:hidden" aria-hidden>
+          {t('Kompaly')}
+        </span>
+        {unread && <span aria-hidden className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-paper" />}
       </button>
     );
   return (
@@ -815,16 +827,15 @@ export function KompalyEntry({ phone }: { phone?: boolean }) {
       aria-controls="copilot-panel"
       aria-label={label}
       aria-keyshortcuts={isMac ? 'Meta+J' : 'Control+J'}
-      className="mb-1 flex h-10 items-center gap-3 rounded-lg px-2.5 text-left text-[14px] text-stone-500 transition-colors hover:bg-stone-100 hover:text-ink"
+      title={`${t('Demander à Kompaly')} (${isMac ? '⌘' : t('Ctrl')} J)`}
+      // The way to talk to him on a computer: a tinted row, his head whole, above « Nouveautés ».
+      className="mb-2 flex h-11 items-center gap-2.5 rounded-lg bg-brand-50 px-2 text-left text-[14px] font-semibold text-ink transition-colors hover:bg-brand-100"
     >
-      <span className="relative flex w-[18px] justify-center">
-        <CopilotAvatar size={20} />
+      <span className="relative flex w-[22px] justify-center">
+        <CopilotAvatar size={26} />
         {unread && <span aria-hidden className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-red-500 ring-2 ring-surface" />}
       </span>
-      {t('Kompaly')}
-      <span aria-hidden className="kbd ml-auto">
-        {isMac ? '⌘' : t('Ctrl')} J
-      </span>
+      <span className="min-w-0 truncate">{t('Demander à Kompaly')}</span>
     </button>
   );
 }

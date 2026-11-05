@@ -117,7 +117,7 @@ export default function PhotoSheetDialog({ folderId, onClose }: { folderId: stri
     try {
       const [item] = await useDrive.getState().uploadFiles([await pdf()], folderId);
       if (item) {
-        toast(t('Fiche enregistrée dans le Drive : {name}', { name: item.name }), 'success');
+        toast(t('Fiche enregistrée dans tes fichiers : {name}', { name: item.name }), 'success');
         onClose();
       }
     } catch (e) {
@@ -208,7 +208,7 @@ export default function PhotoSheetDialog({ folderId, onClose }: { folderId: stri
               <FileDown size={15} /> <span className="max-sm:sr-only">{t('Télécharger')}</span>
             </button>
             <button type="button" className="btn-primary" onClick={() => void save()} disabled={saving || !md.trim()}>
-              {saving ? <Loader2 size={15} className="animate-spin" /> : null} {t('Enregistrer dans le Drive')}
+              {saving ? <Loader2 size={15} className="animate-spin" /> : null} {t('Enregistrer dans mes fichiers')}
             </button>
           </div>
         </>

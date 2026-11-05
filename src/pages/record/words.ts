@@ -30,7 +30,7 @@ const PRO = {
 export const REC_WORDS: Record<Usage, RecWords> = {
   etudes: {
     name: t('Nom du cours'), fallback: t('Cours'),
-    doc: t('Le cours'), ofDoc: t('du cours'), docDone: t('Le cours rédigé'), where: t('Où ranger le cours ?'), finish: t('Le cours sera rédigé et rangé dans ton Drive.'),
+    doc: t('Le cours'), ofDoc: t('du cours'), docDone: t('Le cours rédigé'), where: t('Où ranger le cours ?'), finish: t('Le cours sera rédigé et rangé dans tes fichiers.'),
     history: t('Cours enregistrés'), keywordHint: t('Ex. ton prénom, « exposé »'),
     short: { fiche: t('Fiche de révision'), examen: t('Examen') },
     long: { fiche: t('Fiche de révision'), examen: t('Examen d’entraînement') },
@@ -42,13 +42,13 @@ export const REC_WORDS: Record<Usage, RecWords> = {
   travail: {
     name: t('Nom de la réunion'), fallback: t('Réunion'),
     doc: t('Le compte rendu'), ofDoc: t('du compte rendu'), docDone: t('Le compte rendu rédigé'), where: t('Où ranger le compte rendu ?'),
-    finish: t('Le compte rendu sera rédigé et rangé dans ton Drive.'),
+    finish: t('Le compte rendu sera rédigé et rangé dans tes fichiers.'),
     history: t('Réunions enregistrées'), keywordHint: t('Ex. ton prénom, « budget »'),
     ...PRO,
   },
   perso: {
     name: t('Titre de l’enregistrement'), fallback: t('Enregistrement'),
-    doc: t('Le document'), ofDoc: t('du document'), docDone: t('Le document rédigé'), where: t('Où ranger le document ?'), finish: t('Le document sera rédigé et rangé dans ton Drive.'),
+    doc: t('Le document'), ofDoc: t('du document'), docDone: t('Le document rédigé'), where: t('Où ranger le document ?'), finish: t('Le document sera rédigé et rangé dans tes fichiers.'),
     history: t('Enregistrements passés'), keywordHint: t('Ex. ton prénom, « billet »'),
     ...PRO,
   },

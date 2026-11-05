@@ -235,7 +235,7 @@ function moreCommands(input: string, q: string): BotReply | null {
   if (g) {
     const hit = search(g(1)).find(h => h.type === 'fichier' || h.type === 'dossier');
     const it = hit && setStar(hit.id, true);
-    return it ? { text: t('« {name} » ajouté aux favoris.', { name: it.name }) } : { text: t('Je ne trouve pas « {name} » dans le Drive.', { name: g(1) }) };
+    return it ? { text: t('« {name} » ajouté aux favoris.', { name: it.name }) } : { text: t('Je ne trouve pas « {name} » dans tes fichiers.', { name: g(1) }) };
   }
   g = grab(/dossier\s+(.+?)\s+en\s+(bleu|rouge|orange|jaune|vert|violet|rose|gris)$/d);
   if (g) {
@@ -345,7 +345,7 @@ function recordingHelp(): BotReply {
     text: [
       t('Ouvre **Enregistrer**, choisis « Micro » ou « Son de l’ordinateur » (visio, vidéo : Chrome ou Edge sur ordinateur), puis « Démarrer ».'),
       t('- Le texte s’écrit en direct. La cloche : je te préviens quand un mot-clé est prononcé.'),
-      t('- « Terminer » range {doc} dans le Drive, avec {sheet} et {exam} si tu les as cochés.', { doc: w.doc, sheet: w.sheet, exam: w.exam }),
+      t('- « Terminer » range {doc} dans tes fichiers, avec {sheet} et {exam} si tu les as cochés.', { doc: w.doc, sheet: w.sheet, exam: w.exam }),
       t('Demande l’accord des personnes que tu enregistres.'),
     ].join('\n'),
     links: [{ label: t('Enregistrer'), to: '/enregistrer' }],
@@ -362,11 +362,11 @@ function sheetFromDocument(input: string, q: string): BotReply {
   const file = named ? search(unquote(named)).find(h => h.type === 'fichier' && /\.(docx|pdf|txt|md)$/i.test(h.title)) : undefined;
   return {
     text:
-      t('Dans le Drive, fais un clic droit sur {file}, puis « {action} » (sur téléphone : sélectionne-le, puis « Plus d’actions »). Le nouveau document se range à côté.', {
+      t('Dans Fichiers, fais un clic droit sur {file}, puis « {action} » (sur téléphone : sélectionne-le, puis « Plus d’actions »). Le nouveau document se range à côté.', {
         file: file ? t('« {title} »', { title: file.title }) : t('le document (Word, PDF ou texte)'),
         action: label,
       }),
-    links: [file ? { label: hitLabel(file.type, file.title), to: file.to } : { label: t('Ouvrir le Drive'), to: '/drive' }],
+    links: [file ? { label: hitLabel(file.type, file.title), to: file.to } : { label: t('Ouvrir mes fichiers'), to: '/drive' }],
   };
 }
 
@@ -630,7 +630,7 @@ export function localReply(raw: string): BotReply {
       return { text: t('Dossier de notes « {name} » créé.', { name: f.name }), links: [{ label: t('Voir mes notes'), to: `/notes?dossier=${f.id}` }] };
     }
     const f = createDriveFolder(name, parent);
-    return { text: t('Dossier « {name} » créé dans le Drive.', { name: f.name }), links: [{ label: t('Ouvrir le dossier'), to: linkToDriveFolder(f.id) }] };
+    return { text: t('Dossier « {name} » créé dans tes fichiers.', { name: f.name }), links: [{ label: t('Ouvrir le dossier'), to: linkToDriveFolder(f.id) }] };
   }
 
   // ── Add an event ──────────────────────────────────────────────────────────
@@ -744,7 +744,7 @@ export function localReply(raw: string): BotReply {
   }
 
   // ── Navigation ────────────────────────────────────────────────────────────
-  if (/(ouvre|va|aller|emmene|montre).*(drive|fichiers)/.test(q)) return { text: t('On y va.'), links: [{ label: t('Drive'), to: '/drive' }] };
+  if (/(ouvre|va|aller|emmene|montre).*(drive|fichiers)/.test(q)) return { text: t('On y va.'), links: [{ label: t('Fichiers'), to: '/drive' }] };
   if (/(ouvre|va|aller|emmene|montre).*agendas? partages?/.test(q)) return { text: t('Tes agendas partagés, c’est par ici.'), links: [{ label: t('Agendas partagés'), to: '/agendas' }] };
   if (/(ouvre|va|aller|emmene|montre).*(calendrier|agenda|planning)/.test(q)) return { text: t('Direction le calendrier.'), links: [{ label: t('Calendrier'), to: '/calendrier' }] };
   if (/(ouvre|va|aller|emmene|montre).*notes/.test(q)) return { text: t('Tes notes t’attendent.'), links: [{ label: t('Notes'), to: '/notes' }] };
@@ -762,7 +762,7 @@ export function localReply(raw: string): BotReply {
     return {
       text: [
         t('Petit bilan 📊'),
-        t('📁 Drive : {folders}, {files} ({size})', { folders: tn(o.drive.folders, '{n} dossier', '{n} dossiers'), files: tn(o.drive.files, '{n} fichier', '{n} fichiers'), size: o.drive.totalSize }),
+        t('📁 Fichiers : {folders}, {files} ({size})', { folders: tn(o.drive.folders, '{n} dossier', '{n} dossiers'), files: tn(o.drive.files, '{n} fichier', '{n} fichiers'), size: o.drive.totalSize }),
         t('📝 Notes : {notes}', { notes: tn(o.notes.count, '{n} note', '{n} notes') }),
         o.calendar.exams.length
           ? t('📅 Cette semaine : {events}, {n} {big} à venir', { events: tn(o.calendar.weekCount, '{n} événement', '{n} événements'), n: o.calendar.exams.length, big: o.calendar.exams.length > 1 ? words().bigMany : words().bigOne })

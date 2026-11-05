@@ -33,10 +33,10 @@ export default function SharePage() {
     void receiving.then(({ note, files }) => {
       receiving = null;
       if (!alive) return;
-      const filesText = tn(files, '{n} fichier ajouté au Drive', '{n} fichiers ajoutés au Drive');
+      const filesText = tn(files, '{n} fichier ajouté à tes fichiers', '{n} fichiers ajoutés à tes fichiers');
       if (note) {
         navigate(linkToNote(note), { replace: true });
-        toast(files ? `${t('Note créée avec ce qui a été partagé')} · ${filesText}` : t('Note créée avec ce qui a été partagé'), 'success', files ? { label: t('Voir le Drive'), run: () => navigate('/drive') } : undefined);
+        toast(files ? `${t('Note créée avec ce qui a été partagé')} · ${filesText}` : t('Note créée avec ce qui a été partagé'), 'success', files ? { label: t('Voir mes fichiers'), run: () => navigate('/drive') } : undefined);
       } else if (files) {
         navigate('/drive', { replace: true });
         toast(filesText, 'success');

@@ -234,6 +234,12 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
 
       {!source ? (
         <>
+          {/* Where the link is: the first thing asked by those who never did it. */}
+          <ol className="mt-2 list-decimal space-y-1 rounded-xl bg-stone-50 py-2.5 pl-8 pr-3 text-[12.5px] leading-snug text-stone-600" aria-label={t('Où trouver le lien')}>
+            <li>{t('Google Agenda (sur ordinateur) : Paramètres › ton agenda › « Adresse secrète au format iCal ».')}</li>
+            <li>{t('Pronote ou ton ENT : Emploi du temps › bouton iCal ou « S’abonner », puis copie le lien.')}</li>
+            <li>{t('Outlook : Paramètres › Calendrier › Calendriers partagés › Publier. Colle le lien ici, ou choisis un fichier .ics.')}</li>
+          </ol>
           <Feeds
             onAdded={d => {
               onImported(d);

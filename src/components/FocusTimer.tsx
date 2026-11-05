@@ -149,7 +149,8 @@ export default function FocusTimer() {
           <FastForward size={12} aria-hidden /> {t('Passer la pause')}
         </button>
       )}
-      <div className="mt-2 flex gap-1">
+      {/* data-fab-avoid: the « + » button steps aside rather than cover them (components/CreateButton). */}
+      <div className="mt-2 flex gap-1" data-fab-avoid>
         <button data-focus-pause onClick={paused ? focus.resume : focus.pause} className="flex h-7 flex-1 items-center justify-center gap-1 rounded-md bg-surface pointer-coarse:h-9 text-[12px] font-medium text-stone-700 shadow-card hover:text-ink">
           {paused ? <Play size={12} /> : <Pause size={12} />} {paused ? t('Reprendre') : focus.phase === 'break' ? t('Suspendre') : t('Pause')}
         </button>

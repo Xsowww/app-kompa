@@ -22,30 +22,19 @@ const BASE: Record<Usage, SpaceKey[]> = {
 };
 
 /**
- * What each answer of « Ce que tu veux faire » (settings › needs) brings forward, the most useful space first.
- * Older and newer keys of the questionnaire alike; an unknown key (« ia »…) changes nothing.
+ * What each answer of « Ce que tu veux faire » (settings › needs, pages/WelcomePage) brings forward, the most useful
+ * space first. « ia » (and any unknown key) changes nothing: Kompaly is in the top bar.
  */
 const NEED_SPACES: Record<string, SpaceKey[]> = {
   agenda: ['calendrier', 'taches'],
-  oublier: ['calendrier', 'taches'],
-  rappels: ['calendrier', 'taches'],
-  taches: ['taches'],
-  notes: ['notes'],
   reviser: ['notes', 'taches', 'enregistrer'],
-  revisions: ['notes', 'taches', 'enregistrer'],
-  focus: ['taches'],
-  concentrer: ['taches'],
-  fichiers: ['drive'],
-  ranger: ['drive'],
   enregistrer: ['enregistrer'],
-  equipe: ['groupes'],
-  plusieurs: ['groupes'],
-  groupes: ['groupes'],
-  partager: ['agendas'],
-  partage: ['agendas'],
-  agendas: ['agendas'],
   'agenda-partage': ['agendas'],
-  agendaPartage: ['agendas'],
+  equipe: ['groupes'],
+  notes: ['notes'],
+  fichiers: ['drive'],
+  taches: ['taches'],
+  focus: ['taches'],
 };
 
 const isSpace = (k: unknown): k is SpaceKey => typeof k === 'string' && (SPACE_KEYS as string[]).includes(k);

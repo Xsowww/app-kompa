@@ -16,6 +16,7 @@ import GroupMembers from './GroupMembers';
 import SharedCalendar from './SharedCalendar';
 import { setViewingAgenda, useAgendaNews } from '../../store/agendaNews';
 import { useCreateActions } from '../../store/create';
+import SpaceHint from './SpaceHint';
 import { PlusHint } from '../../components/CreateButton';
 import { t, tn, locale } from '../../i18n';
 
@@ -35,7 +36,8 @@ export default function AgendasPage() {
 function Offline() {
   return (
     <div className="mx-auto w-full max-w-[1244px] flex h-full flex-col px-4 pb-10 md:px-8">
-      <h1 className="pb-4 pt-2 text-[24px] font-semibold tracking-[-0.02em]">{t('Agendas partagés')}</h1>
+      <h1 className="pb-2 pt-2 text-[24px] font-semibold tracking-[-0.02em]">{t('Agendas partagés')}</h1>
+      <SpaceHint here="agendas" className="pb-2" />
       <EmptyState className="flex-1 justify-center" icon={CloudOff} title={t('Disponible dans la version en ligne')} text={t('Ici, tes données restent dans ce navigateur.')} />
     </div>
   );
@@ -113,6 +115,8 @@ function Agendas() {
           creating one: the « + » button */}
       <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 px-4 pb-3 pt-2 md:px-8">
         <h1 className="text-[24px] font-semibold tracking-[-0.02em]">{t('Agendas partagés')}</h1>
+        {/* What it is, beside the groups (they were mixed up), with the way to the other one. */}
+        <SpaceHint here="agendas" className="order-last w-full" />
         {agendas.length > 0 && (
           <div className="flex w-full min-w-0 flex-wrap gap-1.5 md:w-auto md:flex-1" role="tablist" aria-label={t('Agendas partagés')}>
             {agendas.map(g => (
@@ -170,13 +174,13 @@ function Agendas() {
               {members ? tn(members.length, '{n} membre', '{n} membres') : ' '}
               {active.ownerId === userId ? ` · ${t('tu l’as créé')}` : ''}
             </p>
-            {/* Phones: icons only, the row stays on one line */}
+            {/* Phones: « Membres » as an icon, the row stays on one line; « Inviter » always named (it was not found). */}
             <button className="btn-secondary h-8 px-2.5 pointer-coarse:h-9 sm:px-3" onClick={() => setDialog('members')} title={t('Membres')}>
               <Users size={14} /> <span className="max-sm:sr-only">{t('Membres')}</span>
             </button>
             {token && (
               <button className="btn-secondary h-8 px-2.5 pointer-coarse:h-9 sm:px-3" onClick={() => void shareInvite(active, token)} title={t('Inviter quelqu’un')}>
-                <Link2 size={14} /> <span className="max-sm:sr-only">{t('Inviter')}</span>
+                <Link2 size={14} /> <span>{t('Inviter')}</span>
               </button>
             )}
             <GroupMuteButton group={active} className="pointer-coarse:h-9 pointer-coarse:w-9" />

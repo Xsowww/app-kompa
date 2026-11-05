@@ -58,6 +58,8 @@ export interface Settings {
   navOrder?: SpaceKey[] | null;
   // Kompaly
   copilotVisible: boolean;
+  /** Kompaly said who he is and where to find him, on the first opening of the app (copilot/proactive). */
+  kompalyIntroduced?: boolean;
   proactive: boolean;
   chattiness: Chattiness;
   revisionSessions: number;

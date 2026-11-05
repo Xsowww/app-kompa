@@ -473,9 +473,9 @@ export default function NotesPage() {
       const { file, images } = await saveNoteToDrive(fresh);
       if (!file) return;
       store.updateNote(fresh.id, { links: [...(fresh.links ?? []), { kind: 'file', id: file.id }] });
-      toast(images ? t('Enregistré dans le Drive, sans les images') : t('Enregistré dans le Drive'), 'success', { label: t('Voir'), run: () => navigate(fileHref(file)) });
+      toast(images ? t('Enregistré dans tes fichiers, sans les images') : t('Enregistré dans tes fichiers'), 'success', { label: t('Voir'), run: () => navigate(fileHref(file)) });
     } catch (e) {
-      toast(e instanceof StorageError ? e.message : t('L’enregistrement dans le Drive a échoué. Réessaie.'), 'error');
+      toast(e instanceof StorageError ? e.message : t('L’enregistrement dans tes fichiers a échoué. Réessaie.'), 'error');
     }
   };
 
@@ -510,7 +510,7 @@ export default function NotesPage() {
   const exportItems = (n: Note): MenuItem[] => [
     { label: t('Exporter en PDF'), icon: <Printer size={15} />, onClick: () => exportPdf(n) },
     { label: t('Exporter en Markdown'), icon: <FileDown size={15} />, onClick: () => exportMd(n) },
-    { label: t('Enregistrer dans le Drive (.docx)'), icon: <HardDriveUpload size={15} />, onClick: () => void saveToDrive(n) },
+    { label: t('Enregistrer dans mes fichiers (.docx)'), icon: <HardDriveUpload size={15} />, onClick: () => void saveToDrive(n) },
   ];
 
   // Keyboard shortcuts shown in the menus, not on touch screens.
@@ -858,7 +858,7 @@ export default function NotesPage() {
                 </p>
                 <LinkChips note={active} />
               </div>
-              <button className="btn-ghost mt-0.5 ml-auto h-8 px-2.5 @2xl:ml-0 pointer-coarse:min-w-9" title={t('Lier à des fichiers du Drive ou des événements')} onClick={() => setLinking(true)}>
+              <button className="btn-ghost mt-0.5 ml-auto h-8 px-2.5 @2xl:ml-0 pointer-coarse:min-w-9" title={t('Lier à des fichiers ou des événements')} onClick={() => setLinking(true)}>
                 <Paperclip size={15} /> <span className="hidden sm:inline">{t('Lier…')}</span>
               </button>
               <button className="icon-btn mt-0.5" title={active.pinned ? t('Désépingler') : t('Épingler')} aria-label={active.pinned ? t('Désépingler') : t('Épingler')} onClick={() => store.updateNote(active.id, { pinned: !active.pinned })}>

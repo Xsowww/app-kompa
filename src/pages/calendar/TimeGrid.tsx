@@ -225,6 +225,8 @@ export default function TimeGrid({ days, today, selected, events, todos, periods
       {/* Reachable from the keyboard: arrows then scroll the hours. */}
       <div
         ref={scrollRef}
+        // Hours and events fill it: the « + » button may sit over its corner (components/CreateButton).
+        data-fab-ignore
         data-autoscroll
         tabIndex={0}
         role="region"

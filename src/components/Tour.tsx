@@ -41,37 +41,37 @@ const STEPS: Step[] = [
     text: () => t('Il crée ce qui va dans la page ouverte : un événement, une tâche, une note, un dossier…'),
   },
   {
-    target: nav('/calendrier'),
+    // Phones: a space may be under « Plus » (the order follows the person's answers, lib/navOrder).
+    target: `${nav('/calendrier')}, #nav-more`,
     title: t('Le calendrier'),
     text: u =>
       // The same example as the calendar's own field and the presentation page.
       t('Écris simplement «\u00a0{example}\u00a0»\u00a0: Kompaly le range tout seul.', { example: usageWords(u).quickExample }),
   },
   {
-    target: nav('/taches'),
+    target: `${nav('/taches')}, #nav-more`,
     title: t('Les tâches'),
     text: () => t('Ta liste de choses à faire. Coche-les quand c’est fait.'),
   },
   {
-    target: nav('/notes'),
+    target: `${nav('/notes')}, #nav-more`,
     title: t('Les notes'),
     text: () => t('Prends tes notes et range-les en dossiers.'),
   },
   {
-    target: nav('/drive'),
-    title: t('Le Drive'),
+    target: `${nav('/drive')}, #nav-more`,
+    title: t('Les fichiers'),
     text: (_, touch) =>
       touch ? t('Ajoute tes fichiers avec le bouton +. La recherche fouille même le texte de tes PDF.') : t('Glisse tes fichiers dans la page. La recherche fouille même le texte de tes PDF.'),
   },
   {
-    // Phones: under « Plus » in the tab bar.
     target: `${nav('/enregistrer')}, #nav-more`,
     title: t('Enregistrer'),
     text: (u, touch) => {
       const w = usageWords(u).recording;
       return touch
-        ? t('Dans «\u00a0Plus\u00a0», enregistre {a}\u00a0: Kompaly écrit tout, te prévient des mots-clés et range {doc} dans ton Drive.', { a: w.a, doc: w.doc })
-        : t('Enregistre {a} au micro ou avec le son de l’ordinateur\u00a0: Kompaly écrit tout, te prévient des mots-clés et range {doc} dans ton Drive.', { a: w.a, doc: w.doc });
+        ? t('Enregistre {a}\u00a0: Kompaly écrit tout, te prévient des mots-clés et range {doc} dans tes fichiers.', { a: w.a, doc: w.doc })
+        : t('Enregistre {a} au micro ou avec le son de l’ordinateur\u00a0: Kompaly écrit tout, te prévient des mots-clés et range {doc} dans tes fichiers.', { a: w.a, doc: w.doc });
     },
   },
   {
@@ -86,11 +86,11 @@ const STEPS: Step[] = [
       touch ? t('Retrouve n’importe quel fichier, note ou événement.') : t('Retrouve n’importe quel fichier, note ou événement. Raccourci\u00a0: {key} + K.', { key: isMac ? '⌘' : t('Ctrl') }),
   },
   {
-    // His screen (the face drawn over the drone's picture), not the whole box: at the edge, it is mostly empty.
-    target: 'div[role=button][aria-controls="copilot-panel"] img + svg',
+    // « Kompaly » in the phone's top bar, « Demander à Kompaly » in the computer's sidebar (he leans out too).
+    target: 'header button[aria-controls="copilot-panel"], aside button[aria-controls="copilot-panel"]',
     enter: () => useCopilot.getState().pose === 'hidden' && useCopilot.getState().setPose('peek'),
-    title: t('Kompaly, ton ami'),
-    text: (_, touch) => (touch ? t('Touche-le pour discuter\u00a0: il t’aide à t’organiser.') : t('Clique sur lui pour discuter\u00a0: il t’aide à t’organiser.')),
+    title: t('Kompaly, ton assistant'),
+    text: (_, touch) => (touch ? t('Touche «\u00a0Kompaly\u00a0» pour lui parler\u00a0: il t’aide à t’organiser.') : t('Clique ici, ou sur lui au bord de l’écran, pour lui parler\u00a0: il t’aide à t’organiser.')),
   },
   {
     // Phones: the avatar at the top opens the account menu (layout/AppShell › AccountSwitch).

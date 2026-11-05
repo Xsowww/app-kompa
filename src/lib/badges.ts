@@ -240,11 +240,11 @@ export function computeBadges(d: BadgeData, seen: string[] = []): Badge[] {
       current: notes.length, target: 25, earnedAt: nth(notes, 25)?.createdAt,
     },
     {
-      id: 'fichier-1', title: t('Premier fichier'), description: t('Importer un premier fichier dans le Drive.'), icon: FileUp, family: 'contenu',
+      id: 'fichier-1', title: t('Premier fichier'), description: t('Importer un premier fichier.'), icon: FileUp, family: 'contenu',
       current: files.length, target: 1, earnedAt: nth(files, 1)?.createdAt,
     },
     {
-      id: 'fichiers-50', title: t('Archiviste'), description: t('50 fichiers dans ton Drive.'), icon: Archive, family: 'contenu',
+      id: 'fichiers-50', title: t('Archiviste'), description: t('50 fichiers importés.'), icon: Archive, family: 'contenu',
       current: files.length, target: 50, earnedAt: nth(files, 50)?.createdAt,
     },
   ];

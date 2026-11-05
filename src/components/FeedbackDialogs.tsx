@@ -81,7 +81,7 @@ function FeedbackForm({ initial }: { initial: FeedbackKind }) {
         onChange={e => (setText(e.target.value), e.target.value.trim() && setError(''))}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? 'feedback-text-err' : undefined}
-        placeholder={bug ? t('J’ai ajouté un fichier dans le Drive, il n’apparaît pas…') : t('J’aimerais pouvoir…')}
+        placeholder={bug ? t('J’ai ajouté un fichier, il n’apparaît pas dans mes fichiers…') : t('J’aimerais pouvoir…')}
       />
       <FieldError id="feedback-text-err">{error}</FieldError>
       <p className="mt-1.5 text-[11.5px] text-stone-500">{t('On joint la page ouverte et le type d’appareil, rien d’autre.')}</p>
