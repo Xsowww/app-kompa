@@ -67,6 +67,7 @@ const TrashPage = lazyPage(() => import('./pages/trash/TrashPage'));
 // What another app shared to Kompaly (installed app, manifest's share_target): into a note and the Drive.
 const SharePage = lazy(() => import('./pages/SharePage'));
 const WelcomePage = lazy(() => import('./pages/WelcomePage'));
+const ConfirmPage = lazy(() => import('./pages/ConfirmPage'));
 // The public home page, for visitors not signed in (and search engines).
 const LandingPage = lazy(() => import('./pages/LandingPage'));
 
@@ -321,6 +322,8 @@ export default function App() {
         <Route path="/inscription" element={<GuestOnly><AuthPage key="register" mode="register" /></GuestOnly>} />
         <Route path="/mot-de-passe-oublie" element={<GuestOnly><AuthPage key="forgot" mode="forgot" /></GuestOnly>} />
         <Route path="/reinitialisation" element={<ResetOnly><AuthPage key="reset" mode="reset" /></ResetOnly>} />
+        {/* The links of our e-mails (lib/emailLink): signed in or not, the code in the address decides. */}
+        <Route path="/confirmer" element={<Suspense fallback={<Loading full />}><ConfirmPage /></Suspense>} />
         <Route path="/securite" element={<Suspense fallback={<Loading full />}><MfaPage /></Suspense>} />
         <Route path="/bienvenue" element={<WelcomeOnly><Suspense fallback={<Loading full />}><WelcomePage /></Suspense></WelcomeOnly>} />
         <Route path="/mentions-legales" element={<Suspense fallback={<Loading full />}><LegalPage doc="mentions" /></Suspense>} />

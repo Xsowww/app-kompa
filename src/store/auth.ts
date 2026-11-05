@@ -6,6 +6,7 @@ const sync = () => import('../lib/cloudSync');
 import { supabase, checkPassword, remembered, authStorageKey, revokeSession, OAUTH_KEY, arrivedWithLink, type OAuthProvider } from '../lib/supabase';
 import { captchaToken } from '../lib/captcha';
 import { forgetAfterLogin } from '../lib/afterLogin';
+import type { EmailLinkType } from '../lib/emailLink';
 import { rememberAccount, updateSession, forgetAccount, lockAccount, savedAccount, savedAccounts, needsCredentials, unkeptCopyKeys } from '../lib/accounts';
 import { confirmAction } from './ui';
 import type { AuthError, PasskeyListItem, User as SupabaseUser } from '@supabase/supabase-js';
@@ -120,6 +121,8 @@ interface AuthState {
   /** Returns null when the account must first be confirmed by e-mail (cloud mode). */
   register: (name: string, email: string, password: string) => Promise<User | null>;
   login: (email: string, password: string) => Promise<User>;
+  /** Opens the account from an e-mail link of ours (kompaly.com/confirmer): the link's code is checked here. */
+  confirmLink: (tokenHash: string, type: EmailLinkType) => Promise<User | null>;
   /** Leaves for Google or Apple, which come back to /connexion signed in. */
   loginWith: (provider: OAuthProvider) => Promise<void>;
   /** Face ID, fingerprint or the device's code (a passkey). Null when the person closed the prompt. */
@@ -531,6 +534,19 @@ export const useAuth = create<AuthState>((set, get) => ({
     startSession(user);
     set({ user });
     void rememberCurrent(user);
+    return user;
+  },
+
+  async confirmLink(tokenHash, type) {
+    if (!supabase) throw new Error(t('Ce lien ne fonctionne qu’avec la version en ligne de Kompaly.'));
+    ownSignIn = true; // our own sign-in: not « another tab » (which would reload this page)
+    const data = await cloud(supabase.auth.verifyOtp({ token_hash: tokenHash, type })).finally(() => setTimeout(() => (ownSignIn = false), 1500));
+    if (!data.user || !data.session) return null; // first half of an e-mail change: the other address confirms too
+    const user = fromSupabase(data.user);
+    const mfaStep = await nextMfaStep();
+    if (!mfaStep) setStorageUser(user.id);
+    awaitConfirmation(false); // the sign-up tab waiting for this e-mail is done
+    set({ user, mfaStep });
     return user;
   },
 

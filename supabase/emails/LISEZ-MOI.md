@@ -15,8 +15,9 @@ Six modèles aux couleurs de Kompaly, en français :
 modèles tant que le projet utilise son service d’envoi par défaut. Configure d’abord Authentication ›
 SMTP Settings (Resend, Brevo, Gmail…), puis installe les modèles.
 
-Le logo est l’icône du site (`{{ .SiteURL }}/icon-192.png`) : règle d’abord **Site URL** dans
-Authentication › URL Configuration sur `https://kompa-app.onrender.com`.
+Le logo est l’icône du site (`{{ .SiteURL }}/icon-192.png`) et **les liens des e-mails pointent vers
+`{{ .SiteURL }}/confirmer`** (plus d’adresse en `supabase.co` : la page de Kompaly vérifie le lien elle-même).
+Règle donc d’abord **Site URL** dans Authentication › URL Configuration sur `https://kompaly.com`.
 
 ## Option 1 : en une commande
 
