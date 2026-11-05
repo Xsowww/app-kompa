@@ -17,6 +17,7 @@ import { useSettings } from '../../store/settings';
 import { scrollMotion } from '../../lib/a11y';
 import { usageWords } from '../../lib/usage';
 import { t } from '../../i18n';
+import './tasksPro.css';
 
 type Range = '7' | '30' | 'all';
 const RANGES: { key: Range; label: string }[] = [
@@ -153,7 +154,7 @@ export default function TasksPage() {
   const aside = hasDone || hasSessions;
 
   return (
-    <div className="h-full scroll-pt-36 overflow-y-auto px-4 pb-room md:px-8">
+    <div className="tasks-page h-full scroll-pt-36 overflow-y-auto px-4 pb-room md:px-8">
       <div className="mx-auto max-w-[1180px]">
         {/* Phones: the title scrolls away, the add field alone stays at the top (one line). */}
         <h1 className="pb-2 pt-2 text-[24px] font-semibold tracking-[-0.02em] sm:hidden">{t('Tâches')}</h1>

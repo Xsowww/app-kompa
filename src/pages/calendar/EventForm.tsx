@@ -5,7 +5,9 @@ import SeriesIcon from './SeriesIcon';
 import { Modal } from '../../components/Overlays';
 import { ReportDialog } from '../../components/FeedbackDialogs';
 import { useNotes } from '../../store/notes';
-import { catOf, allCategories, guessCategory, isBigEvent, nextInSeries, type CalendarEvent, type EventCategory } from '../../store/calendar';
+import { allCategories, guessCategory, isBigEvent, nextInSeries, type CalendarEvent, type EventCategory } from '../../store/calendar';
+// The colours of the categories, vivid in the Affichage Pro.
+import { catOf } from './proColors';
 import { askSeriesScope, changedFields, removeEvent, useCalendarSource } from './source';
 import PeoplePicker from './PeoplePicker';
 import { useSettings } from '../../store/settings';

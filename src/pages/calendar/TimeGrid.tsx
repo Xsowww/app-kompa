@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { Plus } from 'lucide-react';
-import { catOf, type CalendarEvent } from '../../store/calendar';
+import type { CalendarEvent } from '../../store/calendar';
+// The colours of the categories, vivid in the Affichage Pro.
+import { catOf } from './proColors';
 import type { Todo } from '../../store/todos';
 import { fmt, fromKey, fromMinutes, toMinutes } from '../../lib/dates';
 import { cx } from '../../lib/utils';
