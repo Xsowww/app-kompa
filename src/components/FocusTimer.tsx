@@ -7,6 +7,7 @@ import { useCalendar } from '../store/calendar';
 import { startBadgeWatcher } from '../lib/badges';
 import { subjectSuggestions } from '../pages/tasks/focusStats';
 import { cx } from '../lib/utils';
+import FocusIsland from './FocusIsland';
 import { toast } from '../store/ui';
 import { t, tn } from '../i18n';
 
@@ -171,8 +172,10 @@ export default function FocusTimer() {
 /**
  * Phones and tablets (no sidebar there): « Focus 12:34 » in the top bar while a session runs; a tap shows the
  * timer's controls. Mounted on every screen size: it also keeps the remaining time in the window's title.
+ * Affichage Pro: the iPhone-style island at the top of the screen instead, on every screen size (FocusIsland).
  */
 export function FocusPill() {
+  const pro = useSettings(s => s.pro);
   const phase = useFocus(s => s.phase);
   const paused = useFocus(s => s.pausedLeft !== null);
   const [, setNow] = useState(0);
@@ -207,6 +210,8 @@ export function FocusPill() {
     };
   }, [open]);
   if (!phase && open) setOpen(false);
+  // Before `!phase`: the island plays its way out when the session ends.
+  if (pro) return <FocusIsland />;
   if (!phase) return null;
 
   const left = mmss(focusLeft(useFocus.getState()));

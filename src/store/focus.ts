@@ -22,6 +22,8 @@ interface FocusState {
   stop: () => number;
   /** « Passer la pause »: the next session starts now, on the same subject. */
   skipBreak: () => void;
+  /** « +5 min » (the island of the Affichage Pro): a longer block, paused or not; the planned length grows with it. */
+  extend: (minutes: number) => void;
   tick: () => void;
 }
 
@@ -76,6 +78,13 @@ export const useFocus = create<FocusState>()(
       skipBreak() {
         const s = get();
         if (s.phase === 'break') get().start(s.label);
+      },
+      extend(minutes) {
+        const s = get();
+        if (!s.phase) return;
+        const ms = minutes * 60_000;
+        const planned = s.minutes || (s.phase === 'focus' ? getSettings().focusMinutes : getSettings().breakMinutes);
+        set(s.pausedLeft !== null ? { pausedLeft: s.pausedLeft + ms, minutes: planned + minutes } : { endsAt: s.endsAt + ms, minutes: planned + minutes });
       },
 
       tick() {
