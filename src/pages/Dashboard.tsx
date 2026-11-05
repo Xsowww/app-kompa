@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { firstOfSeries, firstOfSpans } from '../lib/repeat';
 import { useMinute, useToday } from '../lib/useToday';
 import { Link, useNavigate } from 'react-router-dom';
@@ -71,10 +71,11 @@ function EventRow({ e, showDay, muted }: { e: CalendarEvent; showDay?: boolean; 
   );
 }
 
+// « Affichage Pro » (Profil › Apparence): its own home page, loaded only when it is on.
+const DashboardPro = lazy(() => import('./DashboardPro'));
+
 export default function Dashboard() {
-  const words = WORDS[useSettings(st => st.usage)] ?? WORDS.etudes;
-  const revisionTime = useSettings(st => st.revisionTime) || '18:00';
-  const periods = useSettings(st => st.periods);
+  const pro = useSettings(st => st.pro);
   const navigate = useNavigate();
   // The « + » button: each one where it is made (the calendar's field, the tasks' field, a new note).
   useCreateActions([
@@ -87,6 +88,20 @@ export default function Dashboard() {
       onClick: () => (startTitleBuffer(), navigate('/notes?nouvelle=1')),
     },
   ]);
+  return pro ? (
+    <Suspense fallback={null}>
+      <DashboardPro />
+    </Suspense>
+  ) : (
+    <DashboardClassic />
+  );
+}
+
+function DashboardClassic() {
+  const words = WORDS[useSettings(st => st.usage)] ?? WORDS.etudes;
+  const revisionTime = useSettings(st => st.revisionTime) || '18:00';
+  const periods = useSettings(st => st.periods);
+  const navigate = useNavigate();
   const user = useAuth(s => s.user)!;
   const { notes, folders } = useNotes();
   const events = useCalendar(s => s.events);
