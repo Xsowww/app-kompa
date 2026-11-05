@@ -121,7 +121,7 @@ function PageTitle() {
   useEffect(() => {
     const page = TITLES[pathname.replace(/(.)\/+$/, '$1').toLowerCase()]; // « /taches/ » and « /Taches » too
     // A visitor on « / » sees the public home page: the full name, as in index.html (search results).
-    document.title = guest && pathname === '/' ? t('Kompaly · Agenda, notes, fichiers et tâches au même endroit') : page ? `${page} · Kompaly` : t('Page introuvable · Kompaly');
+    document.title = guest && pathname === '/' ? t('Kompaly · Agenda, notes et fichiers au même endroit, avec une IA') : page ? `${page} · Kompaly` : t('Page introuvable · Kompaly');
     // Search engines: only the public pages (home, sign-in, sign-up, legal) belong in their results.
     let robots = document.querySelector<HTMLMetaElement>('meta[name="robots"]');
     if (!robots) {

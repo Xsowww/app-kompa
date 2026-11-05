@@ -34,7 +34,7 @@ function Showcase() {
       <div className="max-w-[440px]">
         <p className="eyebrow">{t('Études, travail, vie perso')}</p>
         <h2 className="mt-2 text-[32px] font-extrabold leading-[1.05] tracking-[-0.035em]">
-          {t('Ton agenda, tes notes et tes fichiers, enfin au même endroit.')}
+          {t('Ton agenda, tes notes et tes fichiers au même endroit, avec une IA qui range pour toi.')}
         </h2>
       </div>
 
@@ -78,18 +78,20 @@ function Showcase() {
         <div className="card col-span-3 flex items-center gap-2.5 p-3">
           <FileIcon category="pdf" size={30} />
           <div className="min-w-0">
-            <p className="truncate text-[12px] font-medium">{t('Devis — Rénovation cuisine.pdf')}</p>
+            <p className="truncate text-[12px] font-medium">{t('Planning des partiels.pdf')}</p>
             <p className="text-[11px] text-stone-500">{t('Modifié hier')}</p>
           </div>
         </div>
       </div>
 
-      {/* Kompaly peeking from the edge, under the preview (never over it) */}
-      <div className="-mr-14 mt-6 flex items-center justify-end gap-1">
+      {/* Kompaly beside his bubble, under the preview (never over it), whole inside the panel. */}
+      <div className="mt-6 flex max-w-[460px] items-center justify-end gap-3">
         <div className="pop mb-6 w-48 rounded-2xl rounded-br-sm border border-stone-200 bg-surface px-3 py-2 text-[12.5px] leading-snug shadow-pop" style={{ animationDelay: '600ms' }}>
           {t('Psst. Ta présentation est dans 4\u00a0jours, on bloque du temps pour la préparer\u00a0?')}
         </div>
-        <Character pose="peek" look={{ x: -0.9, y: -0.2 }} mood="happy" size={104} />
+        <div className="shrink-0">
+          <Character pose="open" look={{ x: -0.9, y: -0.2 }} mood="happy" size={92} />
+        </div>
       </div>
     </div>
   );
@@ -397,7 +399,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
                   <Link to="/conditions" target="_blank" className="underline decoration-stone-300 underline-offset-2 hover:text-ink">
                     {t('conditions')}
                   </Link>{' '}
-                  {t('et confirmes avoir 15\u00a0ans ou plus.')}
+                  {t('et confirmes avoir 15\u00a0ans ou plus, ou l’accord d’un parent.')}
                 </p>
               </OAuthButtons>
             )}
