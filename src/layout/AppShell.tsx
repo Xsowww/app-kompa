@@ -396,6 +396,18 @@ export default function AppShell() {
   const trashLabel = trashCount ? tn(trashCount, 'Corbeille, {n} élément', 'Corbeille, {n} éléments') : t('Corbeille');
 
   useEffect(() => registerNavigate(navigate), [navigate]);
+  // A page's fixed head (index.css › page-head) knows when its page has scrolled under it: Verre and Liquid Glass then
+  // tint it (clear over the wallpaper at the top, frosted once something passes under).
+  useEffect(() => {
+    const onScroll = (e: Event) => {
+      const area = e.target;
+      if (!(area instanceof HTMLElement)) return;
+      const head = area.querySelector('.page-head');
+      if (head) head.toggleAttribute('data-stuck', area.scrollTop > 4);
+    };
+    document.addEventListener('scroll', onScroll, { capture: true, passive: true });
+    return () => document.removeEventListener('scroll', onScroll, { capture: true });
+  }, []);
   // ?, /, N, G then a letter, Ctrl+J (layout/shortcuts).
   useGlobalShortcuts(navigate);
   // Invitation links: joined, then a window says so (pages/groups/Joined). One opened before signing in

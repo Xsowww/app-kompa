@@ -17,6 +17,7 @@
     radial-gradient(50% 55% at 88% 96%, #ffd6b0 0%, transparent 70%),
     radial-gradient(45% 50% at 10% 98%, #b4ecdc 0%, transparent 70%),
     #e7eaf6;
+  --head-tint: rgb(231 234 246 / 0.86); /* the page-head once something scrolls under it (index.css) */
   --color-surface: rgb(255 255 255 / 0.56);
   --glass-strong: rgb(255 255 255 / 0.86);
   --dialog-bg: #f6f7fc;
@@ -37,6 +38,7 @@
     radial-gradient(50% 55% at 88% 96%, #174f5c 0%, transparent 70%),
     radial-gradient(45% 50% at 10% 98%, #3a2468 0%, transparent 70%),
     #0b0d18;
+  --head-tint: rgb(11 13 24 / 0.86); /* the page-head once something scrolls under it (index.css) */
   --color-surface: rgb(26 30 50 / 0.55);
   --glass-strong: rgb(22 25 42 / 0.9);
   --dialog-bg: #171a2c;
@@ -76,6 +78,7 @@
     radial-gradient(60% 50% at 12% 0%, #ffffff 0%, transparent 70%),
     radial-gradient(55% 45% at 100% 100%, #dfe2e8 0%, transparent 70%),
     #eceef2;
+  --head-tint: rgb(236 238 242 / 0.86); /* the page-head once something scrolls under it (index.css) */
   --color-surface: rgb(255 255 255 / 0.5);
   --glass-strong: rgb(250 251 253 / 0.86);
   --dialog-bg: #f8f9fb;
@@ -94,6 +97,7 @@
     radial-gradient(60% 50% at 12% 0%, #24262d 0%, transparent 70%),
     radial-gradient(55% 45% at 100% 100%, #17181c 0%, transparent 70%),
     #111215;
+  --head-tint: rgb(17 18 21 / 0.86); /* the page-head once something scrolls under it (index.css) */
   --color-surface: rgb(255 255 255 / 0.06);
   --glass-strong: rgb(32 34 40 / 0.9);
   --dialog-bg: #202228;

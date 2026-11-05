@@ -270,9 +270,9 @@ const TodoRow = memo(function TodoRow({ t: todo, editable, preview, now = 0, gro
       >
         {todo.done && <Check size={10} strokeWidth={3} className="pop text-white" />}
       </button>
-      {/* The title, then its day: one line on a computer (the days in one column); on a phone the day goes under a
-          title too long to share the line with it, instead of squeezing it to « Payer l… ». */}
-      <div className="flex min-w-0 flex-1 items-center gap-x-2 gap-y-0.5 max-sm:flex-wrap sm:gap-x-3">
+      {/* The title, then its day: one line on a computer (the days in one column); on a phone the day always goes
+          under the title, at its left (beside a short title and under a long one, the rows looked unaligned). */}
+      <div className="flex min-w-0 flex-1 items-center gap-x-2 gap-y-0.5 max-sm:flex-col max-sm:items-stretch sm:gap-x-3">
         {preview ? (
           <Link to={`/taches?tache=${todo.id}`} className="min-w-0 flex-auto rounded text-[13px] hover:underline sm:flex-1 pointer-coarse:-my-2 pointer-coarse:py-3" title={t('Ouvrir dans Tâches')}>
             <span className={cx('line-clamp-2 break-words', justDone ? 'text-stone-500 line-through decoration-emerald-500/70' : 'text-ink')}>{todo.title}</span>
@@ -316,7 +316,7 @@ const TodoRow = memo(function TodoRow({ t: todo, editable, preview, now = 0, gro
           </span>
         )}
         {meta && !editing && (
-          <span className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
+          <span className="ml-auto flex shrink-0 items-center gap-2 max-sm:-ml-1 max-sm:mr-auto sm:gap-3">
             {late && (
               <button
                 type="button"

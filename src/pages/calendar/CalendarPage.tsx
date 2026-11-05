@@ -812,7 +812,7 @@ export default function CalendarPage() {
               {/* Google Agenda, Pronote, an ENT… (also in the « + » menu): in sight, it was not found there. */}
               {!shared && (
                 <button className="btn-secondary hit-sm h-8 px-2.5 pointer-coarse:h-9 pointer-coarse:min-w-9" onClick={() => setImporting({})} title={t('Importer un {timetable} (Google Agenda, Pronote, ENT, fichier .ics)', { timetable: words.timetable })} aria-label={t('Importer un {timetable}', { timetable: words.timetable })}>
-                  <CalendarArrowDown size={15} /> <span className={cx(short && 'sr-only')}>{t('Importer')}</span>
+                  <CalendarArrowDown size={15} /> <span className={cx('max-sm:sr-only', short && 'sr-only')}>{t('Importer')}</span>
                 </button>
               )}
               {(!readOnly || periods.length > 0) && (
