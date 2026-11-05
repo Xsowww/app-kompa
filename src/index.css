@@ -641,10 +641,12 @@ body {
     border-radius: 5px;
     background: var(--color-surface) center / 75% no-repeat;
     cursor: pointer;
-    transition: background-color 0.15s, border-color 0.15s, box-shadow 0.15s;
+    /* No fade on the fill: a box just ticked looked pale (half-filled) for a moment, and in captures. */
+    transition: border-color 0.15s, box-shadow 0.15s;
   }
   input[type='radio'] { border-radius: 9999px; }
-  :is(input[type='checkbox'], input[type='radio']):hover:not(:disabled) { border-color: var(--color-stone-500); }
+  /* Not on a ticked box: its grey edge (kept by a finger on phones) made the filled box look washed out. */
+  :is(input[type='checkbox'], input[type='radio']):hover:not(:disabled):not(:checked) { border-color: var(--color-stone-500); }
   input[type='checkbox']:checked {
     background-color: var(--color-ink);
     border-color: var(--color-ink);

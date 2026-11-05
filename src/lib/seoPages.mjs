@@ -7,8 +7,8 @@ export const PUBLIC_PAGES = ['/', '/inscription', '/connexion', '/mentions-legal
 /** @param {(fr: string) => string} t */
 export const pageHeads = t => ({
   '/': {
-    title: t('Kompaly · Agenda, notes, fichiers et tâches au même endroit'),
-    description: t('Kompaly réunit ton agenda, tes tâches, tes notes et tes fichiers dans une seule appli gratuite, pour les études, le travail ou la vie perso.'),
+    title: t('Kompaly · Agenda, notes et fichiers au même endroit, avec une IA'),
+    description: t('Kompaly réunit ton agenda, tes notes, tes tâches et tes fichiers dans une appli gratuite, avec une IA qui range pour toi : pour les études, le travail ou la famille.'),
   },
   '/inscription': {
     title: `${t('Inscription')} · Kompaly`,

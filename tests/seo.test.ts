@@ -9,7 +9,7 @@ describe('what search engines read', () => {
   it('gives each public page in each language its own title, description and addresses', () => {
     const en = withHead(html, '/', 'en');
     expect(en).toContain('<html lang="en"');
-    expect(en).toContain('<title>Kompaly · Calendar, notes, files and tasks in one place</title>');
+    expect(en).toContain('<title>Kompaly · Calendar, notes and files in one place, with an AI</title>');
     expect(en).toContain('content="Kompaly brings your calendar');
     expect(en).toContain('<link rel="canonical" href="https://kompaly.com/?lang=en" />');
     expect(en).toContain('hreflang="x-default" href="https://kompaly.com/"');
