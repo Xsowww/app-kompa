@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutGrid, Mic, House, FolderClosed, CalendarDays, CalendarRange, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn, ListChecks, Users, Trash2, ArrowLeftRight, UserRound, UserPlus, LogOut, Sparkles, X } from 'lucide-react';
+import { LayoutGrid, House, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn, ListChecks, Trash2, ArrowLeftRight, UserRound, UserPlus, LogOut, Sparkles, X } from 'lucide-react';
 import { EmptyState } from '../components/EmptyState';
 import { FeedbackDialog } from '../components/FeedbackDialogs';
 import { confirmLogout, useAuth } from '../store/auth';
@@ -27,10 +27,13 @@ import { useUi } from '../store/ui';
 import { useGroupActivity, totalUnread } from '../store/groupActivity';
 import { useTrashCount } from '../lib/trash';
 import { useSettings } from '../store/settings';
-import { WORDS, groupWords } from '../lib/usage';
+import { groupWords } from '../lib/usage';
+import { PHONE_TABS, type SpaceKey } from '../lib/navOrder';
+import { HOME, SPACES, useNavOrder, useSpaceLabel } from './spaces';
 import { ContextMenu, ReminderAlerts, ServiceBanner } from '../components/Overlays';
 import { PENDING_INVITE } from '../App';
 import { JoinedDialog } from '../pages/groups/Joined';
+import { InviteDialog } from '../pages/groups/InviteDialog';
 import RecPill, { RecBadge } from '../pages/record/RecPill';
 import UploadCard from '../components/UploadCard';
 import CreateButton from '../components/CreateButton';
@@ -42,20 +45,7 @@ import ErrorBoundary from '../components/ErrorBoundary';
 import { watchAppBadge } from '../lib/appBadge';
 import { watchBackOnline } from '../lib/backOnline';
 
-const SPACE_COLORS = { home: 'var(--color-brand-500)', drive: '#3b6fd8', calendar: '#d9483b', notes: '#d48a17' };
-
-const NAV = [
-  { to: '/', label: t('Accueil'), icon: House, end: true, color: SPACE_COLORS.home },
-  { to: '/calendrier', label: t('Calendrier'), icon: CalendarDays, color: SPACE_COLORS.calendar },
-  { to: '/taches', label: t('Tâches'), icon: ListChecks, color: '#2f9e6b' },
-  { to: '/notes', label: t('Notes'), icon: NotebookText, color: SPACE_COLORS.notes },
-  { to: '/drive', label: t('Drive'), icon: FolderClosed, color: SPACE_COLORS.drive },
-  // Phones: `more` = in the tab bar's « Plus » (5 spaces + Plus fit a narrow screen).
-  { to: '/enregistrer', label: t('Enregistrer'), icon: Mic, color: '#e5484d', more: true },
-  // `section`: a small title above this entry in the sidebar (what is shared with others comes after).
-  { to: '/groupes', label: t('Groupes'), icon: Users, color: '#1f8a8a', section: t('Espaces partagés'), more: true },
-  { to: '/agendas', label: t('Agendas partagés'), short: t('Agendas||court'), icon: CalendarRange, color: '#7a5ad6', more: true },
-];
+const SHARED: SpaceKey[] = ['groupes', 'agendas'];
 
 const HIT_ICON: Record<SearchHit['type'], typeof FileText> = {
   dossier: Folder,
@@ -125,7 +115,7 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
   const [reading, setReading] = useState(false);
   const [indexed, setIndexed] = useState(0);
   // Last line when there are more files than shown: the Drive's own search (names and content, everything).
-  const seeAll: SearchHit | null = fresh && content.more ? { type: 'dossier', id: 'drive-search', title: t('Voir tout dans le Drive'), where: '', to: `/drive?q=${encodeURIComponent(q.trim())}` } : null;
+  const seeAll: SearchHit | null = fresh && content.more ? { type: 'dossier', id: 'drive-search', title: t('Voir tout dans tes fichiers'), where: '', to: `/drive?q=${encodeURIComponent(q.trim())}` } : null;
   const empty = !q.trim();
   const shortcuts = empty ? suggestions() : [];
   const hits: (SearchHit | FileHit)[] = empty
@@ -378,8 +368,8 @@ function AccountSwitch({ currentId, avatar }: { currentId: string; avatar?: bool
 
 export default function AppShell() {
   const usage = useSettings(st => st.usage);
-  const groupsLabel = (WORDS[usage] ?? WORDS.etudes).groups;
-  const label = (n: { to: string; label: string }) => (n.to === '/groupes' ? groupsLabel : n.label);
+  const label = useSpaceLabel();
+  const order = useNavOrder();
   const navigate = useNavigate();
   const user = useAuth(s => s.user)!;
   const trashCount = useTrashCount();
@@ -496,9 +486,13 @@ export default function AppShell() {
           <Logo />
         </div>
         <nav aria-label={t('Navigation principale')} className="flex flex-1 flex-col gap-1">
-          {NAV.map(n => (
+          {[HOME, ...order.map(k => SPACES[k])].map((n, i) => {
+            // « Espaces partagés » over the shared spaces when they come last, together.
+            const rest = order.slice(i - 1);
+            const sharedFromHere = i > 1 && SHARED.includes(order[i - 1]) && !SHARED.includes(order[i - 2]) && rest.every(k => SHARED.includes(k));
+            return (
             <Fragment key={n.to}>
-            {'section' in n && <p className="mb-1 mt-5 px-2.5 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-stone-500">{n.section}</p>}
+            {sharedFromHere && <p className="mb-1 mt-5 px-2.5 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-stone-500">{t('Espaces partagés')}</p>}
             <NavLink
               to={n.to}
               end={n.end}
@@ -531,7 +525,8 @@ export default function AppShell() {
               )}
             </NavLink>
             </Fragment>
-          ))}
+            );
+          })}
           {isAdmin && (
             <NavLink
               to="/admin"
@@ -642,6 +637,7 @@ export default function AppShell() {
           <NewsDialog />
           <ReminderAlerts />
           <JoinedDialog />
+          <InviteDialog />
           <RecPill />
           <UploadCard />
           {/* Bottom right, after the page in the Tab order: what this space creates (store/create). */}
@@ -651,6 +647,7 @@ export default function AppShell() {
 
       {/* Bottom nav (mobile): every space, the last ones under « Plus ». */}
       <PhoneTabBar
+        order={order}
         news={news}
         label={label}
         extra={[
@@ -671,17 +668,17 @@ type Extra = { to: string; label: string; aria: string; icon: typeof House; colo
 const SLIDE_REST = 120;
 
 /**
- * Phones: Accueil, Calendrier, Tâches, Notes, Drive, and « Plus » for the others (Enregistrer, Groupes, Agendas partagés,
- * Corbeille, Administration), shown in a panel just above the bar: every space is reached from the bar.
+ * Phones: Accueil and the first spaces of the person's order (lib/navOrder), and « Plus » for the others (then Corbeille,
+ * Administration), shown in a panel just above the bar: every space is reached from the bar.
  */
-function PhoneTabBar({ news, label, extra }: { news: (to: string) => number; label: (n: { to: string; label: string }) => string; extra: Extra[] }) {
+function PhoneTabBar({ order, news, label, extra }: { order: SpaceKey[]; news: (to: string) => number; label: (n: { to: string; label: string }) => string; extra: Extra[] }) {
   const { pathname } = useLocation();
   const [open, setOpen] = useState(false);
   const panel = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
-  const main = NAV.filter(n => !('more' in n));
+  const main = [HOME, ...order.slice(0, PHONE_TABS).map(k => SPACES[k])];
   const more = [
-    ...NAV.filter(n => 'more' in n).map(n => {
+    ...order.slice(PHONE_TABS).map(k => SPACES[k]).map(n => {
       const count = news(n.to);
       return { ...n, aria: count ? `${label(n)}, ${tn(count, '{n} nouveauté', '{n} nouveautés')}` : label(n), count, urgent: false };
     }),
@@ -810,7 +807,7 @@ function PhoneTabBar({ news, label, extra }: { news: (to: string) => number; lab
             {({ isActive }) => (
               <>
                 <n.icon size={19} strokeWidth={isActive ? 2.2 : 1.9} style={{ color: isActive ? n.color : undefined }} />
-                <span className="max-w-full truncate">{label(n)}</span>
+                <span className="max-w-full truncate">{(n as { short?: string }).short || label(n)}</span>
               </>
             )}
           </NavLink>
@@ -831,7 +828,7 @@ function PhoneTabBar({ news, label, extra }: { news: (to: string) => number; lab
             {open ? <X size={19} strokeWidth={2.2} /> : <Shown size={19} strokeWidth={current ? 2.2 : 1.9} style={{ color: current ? current.color : undefined }} />}
             {!open && moreNews && <span className={cx('absolute -right-1 -top-0.5 h-2 w-2 rounded-full bg-red-500 ring-2', current ? 'ring-white' : 'ring-tile-dark')} aria-hidden />}
           </span>
-          <span className="max-w-full truncate">{open ? t('Fermer') : current ? (('short' in current && typeof current.short === 'string' && current.short) || label(current)) : t('Plus')}</span>
+          <span className="max-w-full truncate">{open ? t('Fermer') : current ? ((current as { short?: string }).short || label(current)) : t('Plus')}</span>
         </button>
       </nav>
     </>

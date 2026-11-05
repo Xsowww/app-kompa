@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { scrollMotion } from '../../lib/a11y';
 import { DateField, TimeField } from '../../components/Pickers';
 import ReminderPicker from '../../components/ReminderPicker';
 import { CalendarPlus, Check, Clock, Flag, MapPin, Pencil, Repeat, Trash2, Link2 } from 'lucide-react';
@@ -302,13 +303,25 @@ export default function GroupEvents({ group }: { group: Group }) {
   const [editing, setEditing] = useState<string | null>(null);
   const { canEdit } = useRights(group);
   // The « + » button (the sharing lines follow it, GroupShare).
-  useCreateActions(canEdit ? [{ label: t('Proposer {a}', { a: w.meet.a }), icon: <CalendarPlus />, onClick: () => (setEditing(null), setAdding(true)) }] : []);
+  // Already open (scrolled out of sight, a second press): brought back in view with its title field, never « nothing ».
+  const formRef = useRef<HTMLDivElement>(null);
+  const [asked, setAsked] = useState(0);
+  useEffect(() => {
+    if (!asked) return;
+    formRef.current?.scrollIntoView({ block: 'nearest', behavior: scrollMotion() });
+    formRef.current?.querySelector<HTMLInputElement>('input')?.focus({ preventScroll: true });
+  }, [asked]);
+  useCreateActions(canEdit ? [{ label: t('Proposer {a}', { a: w.meet.a }), icon: <CalendarPlus />, onClick: () => (setEditing(null), setAdding(true), setAsked(n => n + 1)) }] : []);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <p className="eyebrow pb-3">{t('{Tab} à venir', { Tab: w.meet.Tab })}</p>
       <div className="shadow-room min-h-0 flex-1 overflow-y-auto pb-room">
-        {adding && canEdit && <EventForm group={group} onDone={() => setAdding(false)} />}
+        {adding && canEdit && (
+          <div ref={formRef} className="scroll-mt-2">
+            <EventForm group={group} onDone={() => setAdding(false)} />
+          </div>
+        )}
         {!events && (failed ? <LoadFailed groupId={group.id} part="events" className="card" /> : <Skeleton shape="slots" className="card p-4" />)}
         {events && events.length === 0 && !adding && (
           <EmptyState

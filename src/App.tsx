@@ -88,7 +88,7 @@ function prefetchPages() {
 
 const TITLES: Record<string, string> = {
   '/': t('Accueil'),
-  '/drive': t('Drive'),
+  '/drive': t('Fichiers'),
   '/calendrier': t('Calendrier'),
   '/notes': t('Notes'),
   '/taches': t('Tâches'),

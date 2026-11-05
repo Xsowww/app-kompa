@@ -64,7 +64,7 @@ function kindLabel(e: TrashEntry) {
   if (e.kind === 'noteFolder') return t('Dossier de notes');
   if (e.kind === 'event') return t('Événement');
   if (e.kind === 'task') return t('Tâche');
-  return e.item.kind === 'folder' ? t('Dossier du Drive') : t('Fichier du Drive');
+  return e.item.kind === 'folder' ? t('Dossier (Fichiers)') : t('Fichier (Fichiers)');
 }
 
 /** Read-only look at a deleted thing, with Restore / Delete for good. */

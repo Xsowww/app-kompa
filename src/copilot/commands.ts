@@ -33,7 +33,7 @@ function commands(): Command[] {
     page('calendrier', t('Calendrier'), '/calendrier', t('agenda')),
     page('taches', t('Tâches'), '/taches'),
     page('notes', t('Notes'), '/notes'),
-    page('drive', t('Drive'), '/drive', t('fichiers')),
+    page('drive', t('Fichiers'), '/drive', t('fichiers')),
     page('enregistrer', t('Enregistrer'), '/enregistrer'),
     page('groupes', words.groups, '/groupes'),
     page('agendas', t('Agendas partagés'), '/agendas'),

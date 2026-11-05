@@ -89,7 +89,7 @@ function Setup() {
   const name = title.trim() || w.fallback;
   const known = remembered[normalize(title)];
   const target = picked ? { id: picked.id, own: false } : known !== undefined ? { id: known, own: false } : { id: null, own: true };
-  const where = [...pathOf(items, target.id).map(i => i.name), ...(target.own ? [name] : [])].join(' / ') || t('Mon Drive');
+  const where = [...pathOf(items, target.id).map(i => i.name), ...(target.own ? [name] : [])].join(' / ') || t('Mes fichiers');
   const titles = useMemo(() => [...new Set(history.map(h => h.title))].slice(0, 30), [history]);
 
   const start = async () => {
@@ -439,7 +439,7 @@ function Done({ s }: { s: Session }) {
         <div>
           <p className="flex items-center gap-2 text-[16px] font-semibold">
             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-white"><Check size={14} strokeWidth={3} /></span>
-            {t('C’est rangé dans ton Drive')}
+            {t('C’est rangé dans tes fichiers')}
           </p>
           <p className="mt-1 text-[12.5px] text-stone-500">
             {passages
@@ -475,7 +475,7 @@ function Files({ files, pastId, making, compact, canMake }: { files: Past['files
         {busy ? <Loader2 size={15} className="animate-spin" /> : icon} {busy ? t('Création…') : (compact ? w.create : w.createLong)[kind]}
       </button>
     ) : (
-      <p className="text-[12.5px] text-stone-500">{t('Le document n’est plus dans le Drive.')}</p>
+      <p className="text-[12.5px] text-stone-500">{t('Le document n’est plus dans tes fichiers.')}</p>
     );
   };
   return (
@@ -521,7 +521,7 @@ function History() {
               title={t('Retirer de la liste')}
               aria-label={t('Retirer « {title} » de la liste', { title: h.title })}
               onClick={async () => {
-                if (await confirmAction(t('Retirer « {title} » de la liste ?', { title: h.title }), t('Les documents restent dans ton Drive.'), t('Retirer')))
+                if (await confirmAction(t('Retirer « {title} » de la liste ?', { title: h.title }), t('Les documents restent dans tes fichiers.'), t('Retirer')))
                   useRecorder.setState(st => ({ history: st.history.filter(x => x.id !== h.id) }));
               }}
             >

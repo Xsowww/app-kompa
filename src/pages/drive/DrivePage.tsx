@@ -894,10 +894,10 @@ export default function DrivePage() {
       {/* Header */}
       {/* The essentials (title, tabs, search, sort, view) in the shared page head; tighter on phones held sideways. */}
       <div className="page-head mb-2 flex flex-wrap items-center gap-x-2 gap-y-3 short:mb-0 short:py-1">
-        <h1 className="mr-1 text-[24px] font-semibold tracking-[-0.02em] sm:mr-3">{t('Drive')}</h1>
+        <h1 className="mr-1 text-[24px] font-semibold tracking-[-0.02em] sm:mr-3">{t('Fichiers')}</h1>
         <div className="seg text-[13px]">
           {([
-            ['all', t('Mon Drive'), HardDrive],
+            ['all', t('Mes fichiers'), HardDrive],
             ['starred', t('Favoris'), Star],
             ['recent', t('Récents'), Clock],
           ] as const).map(([k, label, Icon]) => (
@@ -933,7 +933,7 @@ export default function DrivePage() {
             }}
             onKeyDown={e => e.key === 'Escape' && setQuery('')}
             placeholder={t('Rechercher (noms et contenu)')}
-            aria-label={t('Rechercher dans le Drive')}
+            aria-label={t('Rechercher dans mes fichiers')}
             className="field h-8 w-full text-ellipsis pl-8 pr-7 sm:w-52 xl:w-72"
           />
           {query && (
@@ -1045,7 +1045,7 @@ export default function DrivePage() {
                 {...folderDropProps(null, 'crumb-root')}
                 className={cx('rounded-md px-1.5 py-1 font-medium text-stone-500 transition-colors hover:bg-stone-100 pointer-coarse:py-3', dropTarget === 'crumb-root' && 'bg-brand-50 text-brand-700')}
               >
-                {t('Mon Drive')}
+                {t('Mes fichiers')}
               </button>
             )}
             {breadcrumb.map(b => (
@@ -1209,7 +1209,7 @@ export default function DrivePage() {
                       )}
                     </span>
                   </span>
-                  {!tabAll && <span className="hidden truncate text-[12px] text-stone-500 md:block">{[t('Mon Drive'), ...pathOf(items, item.parentId).map(p => p.name)].join(' / ')}</span>}
+                  {!tabAll && <span className="hidden truncate text-[12px] text-stone-500 md:block">{[t('Mes fichiers'), ...pathOf(items, item.parentId).map(p => p.name)].join(' / ')}</span>}
                   <span className="hidden text-[12px] text-stone-500 sm:block">{relativeTime(item.updatedAt)}</span>
                   <span className="tabular text-[12px] text-stone-500">{item.kind === 'folder' ? (folderSize(items, item.id) ? formatBytes(folderSize(items, item.id)) : '') : formatBytes(item.size)}</span>
                 </div>
@@ -1221,7 +1221,7 @@ export default function DrivePage() {
 
         {dropTarget === 'here' && (
           <div className="pointer-events-none sticky bottom-4 mx-auto mt-4 w-fit rounded-lg bg-inverse px-3.5 py-2 text-[13px] font-medium text-on-inverse shadow-pop">
-            {t('Déposer dans « {name} »', { name: current?.name ?? t('Mon Drive') })}
+            {t('Déposer dans « {name} »', { name: current?.name ?? t('Mes fichiers') })}
           </div>
         )}
       </div>

@@ -20,6 +20,7 @@ import { useSettings } from '../store/settings';
 import { WORDS } from '../lib/usage';
 import { periodColor, periodText, periodTint, periodUntil, periodsOn } from '../lib/periods';
 import WeekProgress from './WeekProgress';
+import HomeShortcuts from './HomeShortcuts';
 import DayLine from './DayLine';
 import { useTodos } from '../store/todos';
 import { weekItems } from '../lib/weekProgress';
@@ -61,7 +62,8 @@ function EventRow({ e, showDay, muted }: { e: CalendarEvent; showDay?: boolean; 
         </span>
       </Link>
       <span className="tabular shrink-0 text-[12px] text-stone-500">
-        {showDay && <span className="capitalize">{fmtDay(fromKey(e.date), daysUntil(e.date) < 7 ? 'EEE d' : 'EEE d MMM')}</span>}
+        {/* « Ven. 6 nov. » as everywhere else (only the first letter up). */}
+        {showDay && <span className="inline-block first-letter:uppercase">{fmtDay(fromKey(e.date), daysUntil(e.date) < 7 ? 'EEE d' : 'EEE d MMM')}</span>}
         {showDay && e.start && ' · '}
         {e.start ?? ''}
       </span>
@@ -171,7 +173,7 @@ export default function Dashboard() {
   return (
     <div className="h-full overflow-y-auto px-4 pb-room md:px-8">
       <div className="mx-auto max-w-[1180px]">
-        <div className="flex flex-wrap items-end gap-2 pb-7 pt-2">
+        <div className="flex flex-wrap items-end gap-2 pb-4 pt-2">
           <div className="mr-auto">
             <p className="eyebrow first-letter:uppercase">{fmt(now, 'EEEE d MMMM')}</p>
             <h1 className="mt-0.5 text-[32px] font-extrabold tracking-[-0.035em]">
@@ -198,6 +200,9 @@ export default function Dashboard() {
             )}
           </div>
         </div>
+
+        {/* What the questionnaire says the person came for (Enregistrer un cours, Session focus…), and the badges. */}
+        <HomeShortcuts />
 
         {/* Bento: two columns from a tablet, each stacking its tiles at their own height (a long day on the left no
             longer stretches the big day on the right). On a phone one column, in the order of priority (order-*). */}
@@ -238,7 +243,12 @@ export default function Dashboard() {
                       <span className="mt-1.5 block text-[22px] font-extrabold tracking-[-0.02em]">{todayEvents.length ? t('Plus rien de prévu.') : t('Rien de prévu.')}</span>
                       {afterToday && (
                         <span className="mt-0.5 block truncate text-[14px] text-white/95">
-                          <span className="inline-block first-letter:uppercase">{daysUntil(afterToday.date) <= 1 ? countdownLabel(afterToday.date) : fmtDay(fromKey(afterToday.date), 'EEEE d')}</span>
+                          {/* Further than tomorrow: « Prochain : lundi », « Prochain : lundi 7 décembre » (the month, and the year when it isn't this one). */}
+                          <span className="inline-block first-letter:uppercase">
+                            {daysUntil(afterToday.date) <= 1
+                              ? countdownLabel(afterToday.date)
+                              : t('Prochain : {day}', { day: fmtDay(fromKey(afterToday.date), daysUntil(afterToday.date) < 7 ? 'EEEE' : 'EEEE d MMMM') })}
+                          </span>
                           {afterToday.start && <span className="tabular"> · {afterToday.start}</span>} · {afterToday.title}
                         </span>
                       )}

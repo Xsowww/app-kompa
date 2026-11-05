@@ -32,8 +32,10 @@ export const datePattern = (pattern: string, language: Lang = lang) => PATTERNS[
 /** date-fns in the site's language; in French « 1er novembre », not « 1 novembre » (the day token right before a month name). */
 export const fmt = (d: Date, pattern: string) =>
   format(d, lang === 'fr' ? (d.getDate() === 1 ? pattern.replace(/(^|[^d'])d(?=\s+M)/, "$1d'er'") : pattern) : datePattern(pattern), { locale: DATE_LOCALE });
-/** Like fmt, with the year when it isn't this one (a deadline next year doesn't look close). */
-export const fmtDay = (d: Date, pattern: string) => fmt(d, d.getFullYear() === new Date().getFullYear() ? pattern : `${pattern} yyyy`);
+/** Like fmt, with the year when it isn't this one (a deadline next year doesn't look close), and then the month too
+ *  (« lundi 7 janv. 2027 », never « lundi 7 2027 »). */
+export const fmtDay = (d: Date, pattern: string) =>
+  fmt(d, d.getFullYear() === new Date().getFullYear() ? pattern : /M/.test(pattern) ? `${pattern} yyyy` : `${pattern} MMM yyyy`);
 export const daysUntil = (key: string) => differenceInCalendarDays(fromKey(key), new Date());
 
 export function countdownLabel(key: string): string {

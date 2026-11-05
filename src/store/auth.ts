@@ -646,7 +646,7 @@ export const useAuth = create<AuthState>((set, get) => ({
           error.code === 'PGRST202' || error.message.includes('delete_my_account')
             ? t('La suppression du compte est momentanément indisponible. Réessaie plus tard ou écris-nous.')
             : beforeDelete
-              ? t('Tes fichiers du Drive sont déjà effacés, mais pas ton compte : réessaie dans un instant.')
+              ? t('Tes fichiers sont déjà effacés, mais pas ton compte : réessaie dans un instant.')
               : t('La suppression a échoué : réessaie plus tard.'),
         );
       }

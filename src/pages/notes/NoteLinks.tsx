@@ -55,7 +55,7 @@ export function LinkChips({ note, readOnly }: { note: Note; readOnly?: boolean }
           <span key={r.link.kind + r.link.id} className={chip}>
             <button
               className="flex min-w-0 items-center gap-1.5 self-stretch"
-              title={isFile ? t('Ouvrir {name} dans le Drive', { name: title }) : `${title} · ${longDate(r.event.date)}`}
+              title={isFile ? t('Ouvrir {name} dans tes fichiers', { name: title }) : `${title} · ${longDate(r.event.date)}`}
               onClick={() => navigate(isFile ? fileHref(r.file) : eventHref(r.event))}
             >
               {isFile ? (
@@ -115,7 +115,7 @@ function PickerBody({ note, onClose }: { note: Note; onClose: () => void }) {
   const toggle = (kind: NoteLink['kind'], id: string) =>
     useNotes.getState().updateNote(note.id, { links: has(kind, id) ? links.filter(l => !(l.kind === kind && l.id === id)) : [...links, { kind, id }] });
 
-  const folderName = (id: string | null) => (id ? items.find(i => i.id === id)?.name : null) ?? t('Mon Drive');
+  const folderName = (id: string | null) => (id ? items.find(i => i.id === id)?.name : null) ?? t('Mes fichiers');
   const today = todayKey();
 
   const row = (key: string, linked: boolean, onClick: () => void, icon: React.ReactNode, title: string, meta: React.ReactNode) => (
@@ -183,11 +183,11 @@ function PickerBody({ note, onClose }: { note: Note; onClose: () => void }) {
         )}
         {showFiles && (
           <section>
-            <p className="eyebrow px-2.5 pb-1 pt-2">{t('Fichiers du Drive')}</p>
+            <p className="eyebrow px-2.5 pb-1 pt-2">{t('Mes fichiers')}</p>
             {files.length ? (
               files.map(f => row('f' + f.id, has('file', f.id), () => toggle('file', f.id), <FileIcon category={categoryOf(f)} size={24} />, f.name, folderName(f.parentId)))
             ) : (
-              <p className="px-2.5 py-2 text-[13px] text-stone-500">{q ? t('Aucun fichier trouvé') : t('Aucun fichier dans le Drive')}</p>
+              <p className="px-2.5 py-2 text-[13px] text-stone-500">{q ? t('Aucun fichier trouvé') : t('Aucun fichier pour l’instant')}</p>
             )}
           </section>
         )}

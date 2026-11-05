@@ -20,7 +20,7 @@ export const SHORTCUTS: { group: string; keys: [string, string][] }[] = [
       ['G, C', t('Aller au calendrier')],
       ['G, T', t('Aller aux tâches')],
       ['G, N', t('Aller aux notes')],
-      ['G, D', t('Aller au Drive')],
+      ['G, D', t('Aller à Fichiers')],
       ['G, E', t('Aller à Enregistrer')],
       ['G, P', t('Aller au profil')],
       ['Ctrl+J', t('Ouvrir ou fermer Kompaly')],
@@ -84,7 +84,7 @@ export const SHORTCUTS: { group: string; keys: [string, string][] }[] = [
     ],
   },
   {
-    group: t('Drive'),
+    group: t('Fichiers'),
     keys: [
       ['Entrée', t('Ouvrir')],
       ['Espace', t('Sélectionner')],
@@ -118,7 +118,7 @@ export const SHORTCUTS: { group: string; keys: [string, string][] }[] = [
       ['Ctrl+clic', t('Sélectionner plusieurs éléments')],
       ['Maj+clic', t('Sélectionner une suite d’éléments')],
       ['Glisser', t('Ranger dans un dossier, déplacer un événement')],
-      ['Alt+glisser', t('Copier au lieu de déplacer (Drive)')],
+      ['Alt+glisser', t('Copier au lieu de déplacer (Fichiers)')],
     ],
   },
 ];
@@ -155,7 +155,7 @@ export const GESTURES: { group: string; keys: [string, string][] }[] = [
     ],
   },
   {
-    group: t('Notes et Drive'),
+    group: t('Notes et fichiers'),
     keys: [[t('Appui long, puis toucher les autres'), t('Sélectionner plusieurs éléments')]],
   },
   {

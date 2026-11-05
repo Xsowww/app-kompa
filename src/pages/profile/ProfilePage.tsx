@@ -38,6 +38,7 @@ import { fmt, fromKey, todayKey } from '../../lib/dates';
 import Avatar from '../../components/Avatar';
 import { Section, Row, Toggle, Segmented, Stepper } from './controls';
 import PasskeySection from './PasskeySection';
+import NavOrderSection from './NavOrderSection';
 import { cloudEnabled, remembered } from '../../lib/supabase';
 import { getStorageUser } from '../../lib/userStorage';
 import { currentStreak, useBadges } from '../../lib/badges';
@@ -393,6 +394,7 @@ function AppearanceTab() {
     applyAppearance({ ...settings, style });
   };
   return (
+    <div className="space-y-5">
     <Section label={t('Apparence')}>
       <Row label={t('Thème')}>
         <Segmented
@@ -463,6 +465,8 @@ function AppearanceTab() {
         />
       </Row>
     </Section>
+    <NavOrderSection />
+    </div>
   );
 }
 
@@ -897,7 +901,7 @@ function DataTab() {
   return (
     <div className="space-y-5">
       <Section title={t('Sauvegarde')} description={cloudEnabled ? undefined : t('Tes données sont enregistrées sur cet appareil.')}>
-        <Row label={t('Exporter mes données')} hint={t('Sans les fichiers du Drive.')}>
+        <Row label={t('Exporter mes données')} hint={t('Sans tes fichiers (documents, PDF, photos…).')}>
           <button
             className="btn-secondary h-8"
             onClick={() => {
@@ -908,7 +912,7 @@ function DataTab() {
             <Download size={14} /> {t('Exporter')}
           </button>
         </Row>
-        <Row label={t('Fichiers du Drive')} hint={t('Tous tes fichiers et dossiers dans un .zip.')}>
+        <Row label={t('Mes fichiers')} hint={t('Tous tes fichiers et dossiers dans un .zip.')}>
           <button
             className="btn-secondary h-8"
             disabled={!driveCount}
@@ -956,7 +960,7 @@ function DataTab() {
       )}
 
       <Section title={t('Zone sensible')} danger>
-        <Row label={t('Effacer toutes mes données')} hint={t('Drive, notes, événements, tâches et conversation, corbeilles comprises. Ton compte, tes réglages et tes {groups} restent.', { groups: groupWords(useSettings.getState().usage).groups })}>
+        <Row label={t('Effacer toutes mes données')} hint={t('Fichiers, notes, événements, tâches et conversation, corbeilles comprises. Ton compte, tes réglages et tes {groups} restent.', { groups: groupWords(useSettings.getState().usage).groups })}>
           <button
             className="btn-danger h-8"
             onClick={async () => {

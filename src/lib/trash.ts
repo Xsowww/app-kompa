@@ -24,7 +24,7 @@ export type TrashEntry = { id: string; type: TrashType; name: string; deletedAt:
 
 export const TRASH_TYPES: { key: TrashType; label: string }[] = [
   { key: 'notes', label: t('Notes') },
-  { key: 'drive', label: t('Drive') },
+  { key: 'drive', label: t('Fichiers') },
   { key: 'calendar', label: t('Calendrier') },
   { key: 'tasks', label: t('Tâches') },
 ];
@@ -77,9 +77,9 @@ function notesPlace(folders: NoteFolder[], parentId: string | null) {
 }
 
 function drivePlace(items: DriveItem[], parentId: string | null) {
-  if (!parentId) return { place: t('Drive'), placeGone: false };
+  if (!parentId) return { place: t('Fichiers'), placeGone: false };
   const path = pathOf(items, parentId);
-  return path.length ? { place: [t('Drive'), ...path.map(p => p.name)].join(' › '), placeGone: false } : { place: t('Drive · dossier supprimé'), placeGone: true };
+  return path.length ? { place: [t('Fichiers'), ...path.map(p => p.name)].join(' › '), placeGone: false } : { place: t('Fichiers · dossier supprimé'), placeGone: true };
 }
 
 /** Top-level deleted things of every space, newest first. */

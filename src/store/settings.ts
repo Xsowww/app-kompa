@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { userStorage } from '../lib/userStorage';
 import type { Usage } from '../lib/usage';
+import type { SpaceKey } from '../lib/navOrder';
 import type { CustomCategory } from './calendar';
 import type { Period } from '../lib/periods';
 import type { IcsFeed } from '../lib/icsFeeds';
@@ -44,8 +45,13 @@ export interface Settings {
   theme: ThemeMode;
   style: UiStyle;
   language: Language;
+  /** The spaces of the navigation in the order chosen (Profil › Apparence) or given by the questionnaire (lib/navOrder);
+   *  null: derived from `usage` and `needs`. */
+  navOrder?: SpaceKey[] | null;
   // Kompaly
   copilotVisible: boolean;
+  /** Kompaly said who he is and where to find him, on the first opening of the app (copilot/proactive). */
+  kompalyIntroduced?: boolean;
   proactive: boolean;
   chattiness: Chattiness;
   revisionSessions: number;
@@ -105,6 +111,7 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: 'auto', // follows the device until the student picks one
   style: 'classique',
   language: 'fr',
+  navOrder: null,
   copilotVisible: true,
   proactive: true,
   chattiness: 'calme',

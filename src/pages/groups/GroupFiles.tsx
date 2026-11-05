@@ -62,7 +62,7 @@ export default function GroupFiles({ group }: { group: Group }) {
       const blob = await downloadFile(f);
       const [item] = await useDrive.getState().uploadFiles([new File([blob], f.name, { type: f.mime ?? blob.type })], null);
       // Cancelled on the upload card: nothing to say.
-      if (item) toast(t('« {name} » copié dans ton Drive', { name: f.name }), 'success');
+      if (item) toast(t('« {name} » copié dans tes fichiers', { name: f.name }), 'success');
     } catch (e) {
       toast(groupError(e), 'error');
     }
@@ -91,7 +91,7 @@ export default function GroupFiles({ group }: { group: Group }) {
 
   // Phones: only « Télécharger » stays beside the name, the rest goes in « Plus d’actions » (4 icons cut the name short).
   const moreItems = (f: GroupFile): MenuItem[] => [
-    { label: t('Copier dans mon Drive'), icon: <FolderDown size={15} />, onClick: () => void toDrive(f) },
+    { label: t('Copier dans mes fichiers'), icon: <FolderDown size={15} />, onClick: () => void toDrive(f) },
     ...(canRename ? [{ label: t('Renommer'), icon: <Pencil size={15} />, onClick: () => void rename(f) }] : []),
     ...(f.createdBy !== me ? [{ label: t('Signaler'), icon: <Flag size={15} />, onClick: () => setReporting(f) }] : []),
     ...(canDelete(f) ? [{ label: t('Supprimer'), icon: <Trash2 size={15} />, danger: true, onClick: () => remove(f) }] : []),
@@ -161,7 +161,7 @@ export default function GroupFiles({ group }: { group: Group }) {
                   <button className="icon-btn" title={t('Télécharger')} aria-label={t('Télécharger {name}', { name: f.name })} onClick={() => downloadItem(f, getUrl)}>
                     <Download size={15} />
                   </button>
-                  <button className="icon-btn max-sm:hidden" title={t('Copier dans mon Drive')} aria-label={t('Copier {name} dans mon Drive', { name: f.name })} onClick={() => void toDrive(f)}>
+                  <button className="icon-btn max-sm:hidden" title={t('Copier dans mes fichiers')} aria-label={t('Copier {name} dans mes fichiers', { name: f.name })} onClick={() => void toDrive(f)}>
                     <FolderDown size={15} />
                   </button>
                   {f.createdBy !== me && (

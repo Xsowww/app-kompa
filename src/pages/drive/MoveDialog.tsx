@@ -81,7 +81,7 @@ export default function MoveDialog({ ids, onClose, onMove, title = t('Déplacer 
           aria-pressed={target === null}
           onClick={() => setTarget(null)}
         >
-          <HardDrive size={16} /> {t('Mon Drive')}
+          <HardDrive size={16} /> {t('Mes fichiers')}
           {here === null && currentTag}
         </button>
         {renderLevel(null, 1)}

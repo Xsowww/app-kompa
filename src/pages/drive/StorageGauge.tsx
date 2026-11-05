@@ -34,7 +34,7 @@ export default function StorageGauge({ inline = false }: { inline?: boolean }) {
       <div
         className={cx('h-1.5 overflow-hidden rounded-full bg-stone-200', inline ? 'w-20 shrink-0' : 'w-full max-w-[220px]')}
         role="meter"
-        aria-label={t('Espace du Drive utilisé')}
+        aria-label={t('Espace de stockage utilisé')}
         aria-valuemin={0}
         aria-valuemax={SPACE}
         aria-valuenow={used}

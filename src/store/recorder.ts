@@ -682,7 +682,7 @@ async function saveDocuments() {
   const when = new Date(s.startedAt);
   const name = baseName(s.title, when);
   const folderId = await folderFor(s);
-  live({ step: t('Enregistrement dans le Drive…'), progress: null });
+  live({ step: t('Enregistrement dans tes fichiers…'), progress: null });
   const md = courseMarkdown({ title: s.title, date: when.toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }), seconds: elapsed(s), parts: s.parts, alerts: s.alerts, missing: s.segments.filter(x => x.origin === 'manquant').length });
   const cours = s.files.cours ?? (await upload(name, md, s.title, folderId)).id;
   patch(x => ({ files: { ...x.files, cours } }));
@@ -712,8 +712,8 @@ async function saveDocuments() {
   }));
   patch(() => ({ phase: 'done', ...(failed.length && { failed }) }));
   live({ step: null, progress: null });
-  notify(t('{doc} est prêt', { doc: words().docDone }), t('« {title} » est rangé dans ton Drive.', { title: done.title }));
-  if (failed.length) toast(t('Impossible de créer : {docs}. Tu pourras le faire depuis le Drive : clic droit sur le document.', { docs: failed.map(f => words().inText[f]).join(` ${t('et')} `) }), 'error');
+  notify(t('{doc} est prêt', { doc: words().docDone }), t('« {title} » est rangé dans tes fichiers.', { title: done.title }));
+  if (failed.length) toast(t('Impossible de créer : {docs}. Tu pourras le faire depuis Fichiers : clic droit sur le document.', { docs: failed.map(f => words().inText[f]).join(` ${t('et')} `) }), 'error');
 }
 
 /** The essentials of the class: the AI's points per part (or, when it couldn't write the parts, asked now). */
@@ -758,7 +758,7 @@ export async function makeLater(pastId: string, kind: Make) {
     useRecorder.setState(st => ({ history: st.history.map(h => (h.id === pastId ? { ...h, files: { ...h.files, [kind]: id } } : h)) }));
     const s = session();
     if (s?.id === pastId) patch(x => ({ files: { ...x.files, [kind]: id }, failed: x.failed?.filter(f => f !== kind) }));
-    toast(t('« {doc} » est dans ton Drive', { doc: words().long[kind] }), 'success', { label: t('Ouvrir'), run: () => openInDrive(id) });
+    toast(t('« {doc} » est dans tes fichiers', { doc: words().long[kind] }), 'success', { label: t('Ouvrir'), run: () => openInDrive(id) });
   } catch (e) {
     toast(errorText(e), 'error');
   } finally {
@@ -769,7 +769,7 @@ export async function makeLater(pastId: string, kind: Make) {
 /** Opens a file of the Drive (its preview). */
 export function openInDrive(id: string) {
   const item = useDrive.getState().items.find(i => i.id === id);
-  if (!item) return toast(t('Ce fichier n’est plus dans le Drive.'), 'error');
+  if (!item) return toast(t('Ce fichier n’est plus dans tes fichiers.'), 'error');
   const q = new URLSearchParams({ ...(item.parentId && { dossier: item.parentId }), fichier: id });
   window.history.pushState(null, '', `/drive?${q}`);
   dispatchEvent(new PopStateEvent('popstate'));

@@ -779,7 +779,8 @@ export default function CalendarPage() {
               {t('Aujourd’hui')}
             </button>
           </div>
-          <div className={cx('flex items-center gap-2 max-sm:w-full', shared && 'ml-auto')}>
+          {/* The smallest phones: the tools go under the views rather than past the edge. */}
+          <div className={cx('flex flex-wrap items-center gap-2 max-sm:w-full', shared && 'ml-auto')}>
             {/* The shared segmented control (index.css › seg): the chosen view the same shape as its frame, in every look. */}
             <div className="seg text-[13px]" role="group" aria-label={t('Affichage')}>
               {MODES.map(m => (
@@ -790,6 +791,12 @@ export default function CalendarPage() {
             </div>
             {/* Periods, filter and export: together, at the right edge of their row. */}
             <div className="ml-auto flex items-center gap-2 sm:ml-0">
+              {/* Google Agenda, Pronote, an ENT… (also in the « + » menu): in sight, it was not found there. */}
+              {!shared && (
+                <button className="btn-secondary hit-sm h-8 px-2.5 pointer-coarse:h-9 pointer-coarse:min-w-9" onClick={() => setImporting({})} title={t('Importer un {timetable} (Google Agenda, Pronote, ENT, fichier .ics)', { timetable: words.timetable })} aria-label={t('Importer un {timetable}', { timetable: words.timetable })}>
+                  <CalendarArrowDown size={15} /> <span className={cx(short && 'sr-only')}>{t('Importer')}</span>
+                </button>
+              )}
               {(!readOnly || periods.length > 0) && (
                 <button className="btn-secondary hit-sm h-8 px-2.5 pointer-coarse:h-9 pointer-coarse:min-w-9" onClick={() => setPeriodsOpen(true)} title={t('Périodes : {ideas}…', { ideas: periodIdeas(usage) })} aria-label={t('Périodes')}>
                   <CalendarRange size={15} /> <span className={cx('max-sm:sr-only', short && 'sr-only')}>{t('Périodes')}</span>
@@ -979,7 +986,8 @@ export default function CalendarPage() {
                     <span key={d}>{d}</span>
                   ))}
                 </div>
-                <div className="flex flex-col overflow-hidden rounded-lg border border-stone-200 bg-stone-200 [gap:1px]">
+                {/* data-fab-ignore: days and events fill the grid, the « + » button may sit over its corner (components/CreateButton). */}
+                <div data-fab-ignore className="flex flex-col overflow-hidden rounded-lg border border-stone-200 bg-stone-200 [gap:1px]">
                   {monthRows.map((row, r) => (
                     <div key={row.keys[0]} className="relative grid grid-cols-7 [gap:1px]" style={{ '--lanes': row.lanes } as React.CSSProperties}>
                       {row.days.map((d, c) => {

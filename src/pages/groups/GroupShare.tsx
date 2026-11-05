@@ -82,7 +82,7 @@ function DrivePicker({ group, onDone, onClose }: { group: Group; onDone: () => v
     () =>
       items
         .filter(i => i.kind === 'file')
-        .map(i => ({ item: i, where: pathOf(items, i.parentId).map(p => p.name).join(' / ') || t('Mon Drive') }))
+        .map(i => ({ item: i, where: pathOf(items, i.parentId).map(p => p.name).join(' / ') || t('Mes fichiers') }))
         .filter(({ item, where }) => !nq || normalize(item.name).includes(nq) || normalize(where).includes(nq))
         .sort((a, b) => b.item.updatedAt.localeCompare(a.item.updatedAt))
         .slice(0, 200),
@@ -104,14 +104,14 @@ function DrivePicker({ group, onDone, onClose }: { group: Group; onDone: () => v
   };
   return (
     <div>
-      <h3 className="text-[15px] font-semibold">{t('Partager depuis mon Drive')}</h3>
+      <h3 className="text-[15px] font-semibold">{t('Partager depuis mes fichiers')}</h3>
       <p className="mt-1 text-[13px] text-stone-500">{t('Une copie est ajoutée à « {name} » ; tes fichiers restent privés.', { name: group.name })}</p>
       <div className="relative mt-4">
         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
-        <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder={t('Rechercher un fichier ou un dossier')} aria-label={t('Rechercher dans mon Drive')} className="field w-full pl-8" />
+        <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder={t('Rechercher un fichier ou un dossier')} aria-label={t('Rechercher dans mes fichiers')} className="field w-full pl-8" />
       </div>
-      <div className="mt-2 max-h-[320px] overflow-y-auto" role="group" aria-label={t('Fichiers de mon Drive')}>
-        {files.length === 0 && <p className="p-6 text-center text-[13px] text-stone-500">{items.some(i => i.kind === 'file') ? t('Aucun fichier trouvé') : t('Ton Drive est vide.')}</p>}
+      <div className="mt-2 max-h-[320px] overflow-y-auto" role="group" aria-label={t('Mes fichiers')}>
+        {files.length === 0 && <p className="p-6 text-center text-[13px] text-stone-500">{items.some(i => i.kind === 'file') ? t('Aucun fichier trouvé') : t('Tu n’as encore aucun fichier.')}</p>}
         {files.map(({ item, where }) => {
           const tooBig = (item.size ?? 0) > MAX_GROUP_FILE;
           const on = picked.has(item.id);
@@ -152,7 +152,7 @@ export default function ShareActions({ group, onNote, onFiles, device }: { group
   useCreateActions(
     [
       { label: t('Partager une de mes notes'), icon: <FileText />, onClick: () => setDialog('note') },
-      { label: t('Partager depuis mon Drive'), icon: <HardDrive />, onClick: () => setDialog('drive') },
+      { label: t('Partager depuis mes fichiers'), icon: <HardDrive />, onClick: () => setDialog('drive') },
       ...(device ? [{ label: t('Ajouter un fichier'), icon: <Monitor />, onClick: () => input.current?.click() }] : []),
     ],
     1,

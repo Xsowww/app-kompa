@@ -47,6 +47,8 @@ interface Nudge {
   mood?: Bubble['mood'];
   urgent?: boolean; // bypass the global gap
   kind?: NudgeKind; // 'brief' and 'review' are longer, several lines
+  /** It says hello: the conversation's own welcome line is not added above it (copilot/Copilot › hello). */
+  hello?: boolean;
 }
 
 /** Remarks made today (the memory keeps the last time of each). */
@@ -82,7 +84,7 @@ async function nudge(n: Nudge) {
       const ai = await aiNudge({ ...n.situation, actions_proposees: n.offers?.map(o => o.label) ?? [] }, useAuth.getState().user?.name ?? '', n.kind);
       if (ai) text = ai;
     }
-    useCopilot.getState().say({ text, offers: n.offers, links: n.links, mood: n.mood ?? (n.offers ? 'alert' : 'happy'), brief: n.kind === 'brief' || undefined });
+    useCopilot.getState().say({ text, offers: n.offers, links: n.links, mood: n.mood ?? (n.offers ? 'alert' : 'happy'), brief: n.kind === 'brief' || n.hello || undefined });
     // Out of the app (another tab): only a suggestion to act on, never a greeting, a bravo or a summary.
     if (getSettings().copilotNotify && n.offers?.length && !n.kind) notify('Kompaly', text.length > 160 ? `${text.slice(0, 159)}…` : text);
   } finally {
@@ -251,14 +253,14 @@ function onFilesUploaded(count: number, added: { id: string; name: string }[]) {
       key: `pdf:${pdf.id}`,
       every: 365 * DAY,
       urgent: true,
-      situation: { evenement: "l'utilisateur vient d'ajouter un PDF dans son Drive : propose d'en faire une fiche ou un quiz (ou un résumé hors études)", fichier: pdf.name },
-      fallback: studying() ? t('« {name} » est dans ton Drive. Je t’en fais une fiche ou un quiz ?', { name: pdf.name }) : t('« {name} » est dans ton Drive. Je t’en fais un résumé ?', { name: pdf.name }),
+      situation: { evenement: "l'utilisateur vient d'ajouter un PDF dans ses fichiers (l'espace « Fichiers ») : propose d'en faire une fiche ou un quiz (ou un résumé hors études)", fichier: pdf.name },
+      fallback: studying() ? t('« {name} » est dans tes fichiers. Je t’en fais une fiche ou un quiz ?', { name: pdf.name }) : t('« {name} » est dans tes fichiers. Je t’en fais un résumé ?', { name: pdf.name }),
       offers: studying()
         ? [
-            ...ask(t('Faire une fiche'), t('Lis le fichier « {name} » de mon Drive et fais-en une fiche de révision claire dans mes notes.', { name: pdf.name })),
-            ...ask(t('Faire un quiz'), t('Lis le fichier « {name} » de mon Drive et crée une note avec un quiz de 10 questions pour le réviser.', { name: pdf.name })),
+            ...ask(t('Faire une fiche'), t('Lis mon fichier « {name} » et fais-en une fiche de révision claire dans mes notes.', { name: pdf.name })),
+            ...ask(t('Faire un quiz'), t('Lis mon fichier « {name} » et crée une note avec un quiz de 10 questions pour le réviser.', { name: pdf.name })),
           ]
-        : ask(t('Faire un résumé'), t('Lis le fichier « {name} » de mon Drive et fais-en un résumé en points clés dans mes notes.', { name: pdf.name })),
+        : ask(t('Faire un résumé'), t('Lis mon fichier « {name} » et fais-en un résumé en points clés dans mes notes.', { name: pdf.name })),
     });
     return;
   }
@@ -266,8 +268,8 @@ function onFilesUploaded(count: number, added: { id: string; name: string }[]) {
     void nudge({
       key: 'first-upload',
       every: 365 * DAY,
-      situation: { evenement: "premier import de fichiers dans le Drive de l'étudiant", nombre: count },
-      fallback: t('Premiers fichiers dans ton Drive. Demande-moi pour les retrouver.'),
+      situation: { evenement: "premier import de fichiers dans l'espace « Fichiers » de l'étudiant", nombre: count },
+      fallback: t('Tes premiers fichiers sont rangés. Demande-moi pour les retrouver.'),
     });
   }
 }
@@ -406,7 +408,7 @@ function otherNudges(now: Date, events: CalendarEvent[]): Nudge[] {
       fallback: t('« {title} » {when}. Je te fais une liste de choses à emporter ?', { title: trip.title, when: inDays(daysUntil(trip.date)) }),
       offers: [
         { label: t('Faire la liste à emporter'), kind: 'create_note', payload: { title: t('À emporter — {title}', { title: trip.title }), content: t('Papiers :\n- Pièce d’identité\n- Billets et réservations\n- Carte bancaire\n\nAffaires :\n- Chargeur de téléphone\n- Vêtements\n- Trousse de toilette\n- Médicaments\n\nAvant de partir :\n- Vérifier l’horaire de départ\n- ') } },
-        ...ask(t('Vérifier mes billets'), t('Est-ce que j’ai mes billets ou mes réservations pour « {title} » dans mon Drive ?', { title: trip.title })),
+        ...ask(t('Vérifier mes billets'), t('Est-ce que j’ai mes billets ou mes réservations pour « {title} » dans mes fichiers ?', { title: trip.title })),
       ],
     });
   }
@@ -468,9 +470,9 @@ function otherNudges(now: Date, events: CalendarEvent[]): Nudge[] {
     out.push({
       key: 'tidy-drive',
       every: 30 * DAY,
-      situation: { evenement: 'beaucoup de fichiers en vrac à la racine du Drive : propose de les ranger', nombre: loose.length },
-      fallback: t('{n} fichiers sont en vrac à la racine de ton Drive. Je les range dans des dossiers ?', { n: loose.length }),
-      offers: ask(t('Ranger mon Drive'), t('Range les fichiers à la racine de mon Drive dans des dossiers par thème (crée les dossiers qu’il faut).')),
+      situation: { evenement: 'beaucoup de fichiers en vrac hors de tout dossier (espace « Fichiers ») : propose de les ranger', nombre: loose.length },
+      fallback: t('{n} fichiers sont en vrac, hors de tout dossier. Je les range dans des dossiers ?', { n: loose.length }),
+      offers: ask(t('Ranger mes fichiers'), t('Range mes fichiers en vrac (hors de tout dossier) dans des dossiers par thème (crée les dossiers qu’il faut).')),
     });
   }
 
@@ -657,10 +659,29 @@ const inDays = (d: number) => (d <= 0 ? t('c’est aujourd’hui') : d === 1 ? t
 function greet() {
   if (sessionStorage.getItem('cop:greeted')) return;
   sessionStorage.setItem('cop:greeted', '1');
-  if (morningBrief() || weeklyReview()) return;
-  // Discreet mode: no plain hello, the dashboard already says it.
-  if (getSettings().chattiness === 'calme') return;
+  const settings = getSettings();
   const name = useAuth.getState().user?.name ?? '';
+  // The very first opening of the app (per account): who he is and where to find him, once.
+  if (!settings.kompalyIntroduced && settings.copilotVisible) {
+    settings.set({ kompalyIntroduced: true });
+    const computer = typeof matchMedia !== 'undefined' && matchMedia('(min-width: 1024px)').matches;
+    // As the home page's title says it (« Bonjour » until 18 h, then « Bonsoir »).
+    const hour = new Date().getHours();
+    const hello = hour >= 5 && hour < 18 ? t('Bonjour') : t('Bonsoir');
+    useCopilot.getState().say({
+      text: computer
+        ? t('{hello} {name} ! Je suis Kompaly, ton assistant. Demande-moi d’ajouter un rendez-vous, de retrouver un fichier ou de t’organiser : clique sur « Demander à Kompaly » dans la barre de gauche (Ctrl+J).', { hello, name })
+        : t('{hello} {name} ! Je suis Kompaly, ton assistant. Demande-moi d’ajouter un rendez-vous, de retrouver un fichier ou de t’organiser : touche « Kompaly » en haut de l’écran.', { hello, name }),
+      mood: 'happy',
+      brief: true,
+    });
+    return;
+  }
+  if (morningBrief() || weeklyReview()) return;
+  // Already talking today (the conversation opened before this): no second hello.
+  if (useCopilot.getState().messages.some(m => m.role === 'bot' && toKey(new Date(m.at)) === todayKey())) return;
+  // Discreet mode: no plain hello, the dashboard already says it.
+  if (settings.chattiness === 'calme') return;
   const events = useCalendar.getState().events;
   const today = events.filter(e => e.date === todayKey()).sort(sortEvents);
   const nextExam = events.filter(e => big(e) && !e.done && e.date >= todayKey()).sort(sortEvents)[0];
@@ -681,6 +702,7 @@ function greet() {
     },
     fallback,
     mood: 'happy',
+    hello: true,
   });
 }
 
@@ -724,9 +746,9 @@ export function startProactive() {
           key: `rec:${done.id}`,
           every: 365 * DAY,
           urgent: true,
-          situation: { evenement: 'un enregistrement vient d’être rangé dans le Drive : propose d’ajouter les dates et tâches qui y sont mentionnées', titre: done.title },
+          situation: { evenement: 'un enregistrement vient d’être rangé dans ses fichiers (l’espace « Fichiers ») : propose d’ajouter les dates et tâches qui y sont mentionnées', titre: done.title },
           fallback: t('« {title} » est rangé. J’ajoute à ton agenda les dates et les tâches qui y sont mentionnées ?', { title: done.title }),
-          offers: ask(t('Ajouter dates et tâches'), t('Lis le document de l’enregistrement « {title} » dans mon Drive et ajoute à mon agenda et à mes tâches ce qui y est prévu (dates, choses à faire).', { title: done.title })),
+          offers: ask(t('Ajouter dates et tâches'), t('Lis le document de l’enregistrement « {title} » dans mes fichiers et ajoute à mon agenda et à mes tâches ce qui y est prévu (dates, choses à faire).', { title: done.title })),
         });
       }),
     ),

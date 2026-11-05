@@ -113,7 +113,7 @@ export function search(query: string, limit = 8, shared?: SharedContent): Search
   for (const it of items) {
     const s = score(prep(it, 'name', () => normalize(it.name)), q);
     if (!s) continue;
-    const where = [t('Drive'), ...pathOf(items, it.parentId).map(p => p.name)].join(' › ');
+    const where = [t('Fichiers'), ...pathOf(items, it.parentId).map(p => p.name)].join(' › ');
     hits.push({
       s: s + (it.kind === 'folder' ? 0.2 : 0),
       type: it.kind === 'folder' ? 'dossier' : 'fichier',
@@ -301,8 +301,8 @@ export function listDriveFolder(folderName?: string) {
   const folder = folderName ? findDriveFolderByName(folderName) : undefined;
   if (folderName && !folder) return null;
   return {
-    folder: folder?.name ?? t('Drive (racine)'),
-    path: folder ? [t('Drive'), ...pathOf(items, folder.id).map(p => p.name)].join(' › ') : t('Drive'),
+    folder: folder?.name ?? t('Mes fichiers (racine)'),
+    path: folder ? [t('Fichiers'), ...pathOf(items, folder.id).map(p => p.name)].join(' › ') : t('Fichiers'),
     link: linkToDriveFolder(folder?.id ?? null),
     content: childrenOf(items, folder?.id ?? null).map(i => ({
       id: i.id,
@@ -594,10 +594,10 @@ export function moveItem(ref: string, folder?: string): { moved: SiteItem; to: s
   if (!s) return { error: t('élément introuvable') };
   if (s.space === 'drive') {
     const target = folder ? findDriveFolderByName(folder) : undefined;
-    if (folder && !target) return { error: t('dossier de destination introuvable dans le Drive') };
+    if (folder && !target) return { error: t('dossier de destination introuvable dans tes fichiers') };
     const n = useDrive.getState().move([s.item.id], target?.id ?? null);
     if (!n && s.item.parentId !== (target?.id ?? null)) return { error: t('impossible de déplacer un dossier dans lui-même') };
-    return { moved: findItem(s.item.id)!, to: target?.name ?? t('Drive (racine)') };
+    return { moved: findItem(s.item.id)!, to: target?.name ?? t('Mes fichiers (racine)') };
   }
   const target = folder ? findNoteFolderByName(folder) : undefined;
   if (folder && !target) return { error: t('dossier de notes introuvable') };
@@ -651,7 +651,7 @@ export function listTrash() {
   return collectTrash().map(e => ({
     id: e.id,
     name: e.name,
-    type: e.kind === 'drive' ? (e.item.kind === 'folder' ? t('dossier du Drive') : t('fichier du Drive')) : TRASH_LABEL[e.kind],
+    type: e.kind === 'drive' ? (e.item.kind === 'folder' ? t('dossier (Fichiers)') : t('fichier (Fichiers)')) : TRASH_LABEL[e.kind],
     from: e.place,
     deleted: deletedLabel(e.deletedAt),
   }));
