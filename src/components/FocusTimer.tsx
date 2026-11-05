@@ -230,7 +230,7 @@ export function FocusPill() {
         )}
       >
         {paused ? <Pause size={13} aria-hidden /> : <Timer size={13} aria-hidden />}
-        <span className="max-[380px]:sr-only">{label}</span>
+        <span className="max-[440px]:sr-only">{label}</span>
         <span className="tabular font-mono">{left}</span>
       </button>
       {open && (

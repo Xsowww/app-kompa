@@ -797,7 +797,7 @@ export default function Copilot() {
  * `phone`: phones and tablets, his head and his name in the top bar (the way to open him there; the dot when he said
  * something while closed).
  */
-export function KompalyEntry({ phone }: { phone?: boolean }) {
+export function KompalyEntry({ phone, compact }: { phone?: boolean; compact?: boolean }) {
   const open = useCopilot(s => s.pose === 'open');
   const unread = useCopilot(s => s.unread);
   const label = unread ? t('Demander à Kompaly (nouveau message)') : t('Demander à Kompaly');
@@ -808,12 +808,12 @@ export function KompalyEntry({ phone }: { phone?: boolean }) {
         onClick={() => toggleKompaly()}
         aria-expanded={open}
         aria-controls="copilot-panel"
-        className="hit relative inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-stone-200 bg-surface pl-1 pr-1 text-[13px] font-semibold text-ink shadow-card transition-colors hover:bg-stone-50 min-[360px]:pr-3 lg:hidden"
+        className={cx('hit relative inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-stone-200 bg-surface pl-1 pr-1 text-[13px] font-semibold text-ink shadow-card transition-colors hover:bg-stone-50 lg:hidden', compact ? 'min-[400px]:pr-3' : 'min-[360px]:pr-3')}
         title={t('Demander à Kompaly')}
         aria-label={label}
       >
         <CopilotAvatar size={26} />
-        <span className="max-[359px]:hidden" aria-hidden>
+        <span className={compact ? 'max-[399px]:hidden' : 'max-[359px]:hidden'} aria-hidden>
           {t('Kompaly')}
         </span>
         {unread && <span aria-hidden className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-paper" />}

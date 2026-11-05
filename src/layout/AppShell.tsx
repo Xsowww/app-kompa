@@ -12,7 +12,8 @@ import { HIT_LABEL, linkToDriveFile, registerNavigate, search, type SearchHit } 
 import { recentHits, rememberHit, searchCommands, suggestions } from '../copilot/commands';
 import { useDrive } from '../store/drive';
 import { findIn, fold, folding, highlightParts } from '../lib/textFind';
-import Logo from '../components/Logo';
+import Logo, { LogoMark } from '../components/Logo';
+import { useFocus } from '../store/focus';
 import Avatar from '../components/Avatar';
 import FocusTimer, { FocusPill } from '../components/FocusTimer';
 import { cx } from '../lib/utils';
@@ -373,6 +374,11 @@ export default function AppShell() {
   const navigate = useNavigate();
   const user = useAuth(s => s.user)!;
   const trashCount = useTrashCount();
+  // A phone with a focus session running (its pill in the bar, outside Pro where it is the island): the bar keeps to the
+  // screen, the logo's mark only and Kompaly's button without its word on the narrowest phones.
+  const focusing = useFocus(s => !!s.phase);
+  const proOn = useSettings(s => s.pro);
+  const tight = focusing && !proOn;
   const [searchOpen, setSearchOpen] = useState(false);
   const searchBtn = useRef<HTMLButtonElement>(null);
   // Another page: the search field opened on a phone closes.
@@ -616,16 +622,14 @@ export default function AppShell() {
         {/* Wide screens: the header, like every page, keeps to the same centred column (1180 px of content, the pages'
             `max-w-[1180px]` or `max-w-[1244px]` with their padding), so the search and the bin line up with it. */}
         <header className="mx-auto flex h-14 w-full max-w-[1244px] shrink-0 items-center gap-3 px-4 short:h-12 md:px-8">
-          <span className="lg:hidden">
-            <Logo />
-          </span>
+          <span className="lg:hidden">{tight ? <LogoMark /> : <Logo />}</span>
           <div className="hidden flex-1 lg:block">
             <GlobalSearch />
           </div>
           {/* Phones: a focus session running, and Kompaly when his character is hidden. */}
           <span className="ml-auto flex items-center gap-1 lg:hidden">
             <FocusPill />
-            <KompalyEntry phone />
+            <KompalyEntry phone compact={tight} />
           </span>
           <button
             ref={searchBtn}
