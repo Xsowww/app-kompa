@@ -7,10 +7,12 @@ import { startFocus } from '../copilot/actions';
 import { toast } from '../store/ui';
 import { groupWords, usageWords } from '../lib/usage';
 import { shortcutKeys, type ShortcutKey as Key } from '../lib/homeShortcuts';
+import { cx } from '../lib/utils';
 import { t } from '../i18n';
 
 const chip =
-  'hit-sm inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-stone-200 bg-surface px-3.5 text-[13px] font-semibold text-ink shadow-card transition-colors hover:bg-stone-50 pointer-coarse:h-10';
+  // Phones: two columns of small tiles (a long name on two lines); larger screens: pills on one line.
+  'hit-sm flex min-h-11 w-full items-center gap-2 rounded-2xl border border-stone-200 bg-surface px-3 py-1.5 text-left text-[12.5px] font-semibold leading-tight text-ink shadow-card transition-colors hover:bg-stone-50 [&_svg]:shrink-0 sm:inline-flex sm:min-h-9 sm:w-auto sm:whitespace-nowrap sm:rounded-full sm:px-3.5 sm:py-0 sm:text-[13px] sm:leading-normal pointer-coarse:sm:min-h-10';
 
 /**
  * Home page: one row of shortcuts to what the questionnaire says the person came for (Enregistrer un cours, Session
@@ -56,11 +58,11 @@ export default function HomeShortcuts() {
   });
 
   return (
-    // Phones: one line that scrolls sideways (never the page); wider screens: wraps.
-    <nav aria-label={t('Raccourcis')} className="-mx-4 mb-5 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:overflow-visible md:px-0">
-      <ul className="flex gap-2 md:flex-wrap">
-        {items.map(i => (
-          <li key={i.key} className="shrink-0">
+    // None cut at the edge. Phones: three shortcuts and the badges, in two columns; larger screens: one row of pills.
+    <nav aria-label={t('Raccourcis')} className="mb-5">
+      <ul className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+        {items.map((i, n) => (
+          <li key={i.key} className={cx('min-w-0 max-w-full', n === 3 && 'max-sm:hidden')}>
             {i.run ? (
               <button type="button" className={chip} onClick={i.run}>
                 {i.node}
@@ -74,7 +76,7 @@ export default function HomeShortcuts() {
             )}
           </li>
         ))}
-        <li className="shrink-0">
+        <li className="min-w-0 max-w-full">
           <Link to="/profil#badges" className={chip} aria-label={t('Mes badges : {n} sur {total}', { n: earned, total: badges.length })}>
             <Award {...icon} className="text-[#d48a17]" />
             {t('Mes badges')}
