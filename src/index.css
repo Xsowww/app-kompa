@@ -381,19 +381,14 @@ body {
       background: var(--color-paper);
     }
   }
-  /* Verre and Liquid Glass on a phone or tablet: that plain colour was a dark rectangle on their wallpaper (and a fixed
-     background is not sure there): a clear, frosted bar instead, the wallpaper itself at rest, what scrolls under blurred. */
-  @media (pointer: coarse) {
-    :root:is([data-style='verre'], [data-style='liquide']) .page-head {
-      background: transparent;
-      -webkit-backdrop-filter: blur(22px) saturate(160%);
-      backdrop-filter: blur(22px) saturate(160%);
-      transition: background-color 0.2s;
-    }
-    /* Something under it (layout/AppShell sets data-stuck): the wallpaper's own colour, veiled, so it stays readable. */
-    :root:is([data-style='verre'], [data-style='liquide']) .page-head[data-stuck] {
-      background-color: var(--head-tint);
-    }
+  /* A wallpaper (Verre, Liquid Glass): the bar draws the very piece of it that lies behind (layout/AppShell sets
+     --wp-size and --wp-pos from where the bar is): opaque, and the same pixels as around it, no band, on every device. */
+  :root:is([data-style='verre'], [data-style='liquide']) .page-head {
+    background: var(--wallpaper);
+    background-size: var(--wp-size, 100vw 100vh);
+    background-position: var(--wp-pos, 0 0);
+    background-repeat: no-repeat;
+    background-attachment: scroll;
   }
 
   /* A dialog's buttons (components/Overlays › Modal): on one line when they fit, else they wrap (the main one stays

@@ -396,17 +396,34 @@ export default function AppShell() {
   const trashLabel = trashCount ? tn(trashCount, 'Corbeille, {n} élément', 'Corbeille, {n} éléments') : t('Corbeille');
 
   useEffect(() => registerNavigate(navigate), [navigate]);
-  // A page's fixed head (index.css › page-head) knows when its page has scrolled under it: Verre and Liquid Glass then
-  // tint it (clear over the wallpaper at the top, frosted once something passes under).
+  // A page's fixed head (index.css › page-head) draws the piece of the wallpaper behind it (Verre, Liquid Glass): where
+  // it is against the page, kept up to date as its page scrolls, changes or the window is resized.
   useEffect(() => {
-    const onScroll = (e: Event) => {
-      const area = e.target;
-      if (!(area instanceof HTMLElement)) return;
-      const head = area.querySelector('.page-head');
-      if (head) head.toggleAttribute('data-stuck', area.scrollTop > 4);
+    let frame = 0;
+    const place = () => {
+      frame = 0;
+      const page = document.body.getBoundingClientRect();
+      document.querySelectorAll<HTMLElement>('.page-head').forEach(head => {
+        const r = head.getBoundingClientRect();
+        head.style.setProperty('--wp-size', `${page.width}px ${page.height}px`);
+        head.style.setProperty('--wp-pos', `${page.left - r.left}px ${page.top - r.top}px`);
+      });
     };
-    document.addEventListener('scroll', onScroll, { capture: true, passive: true });
-    return () => document.removeEventListener('scroll', onScroll, { capture: true });
+    const later = () => {
+      if (!frame) frame = requestAnimationFrame(place);
+    };
+    const main = document.getElementById('contenu');
+    const seen = new MutationObserver(later);
+    if (main) seen.observe(main, { childList: true, subtree: true });
+    document.addEventListener('scroll', later, { capture: true, passive: true });
+    window.addEventListener('resize', later);
+    later();
+    return () => {
+      cancelAnimationFrame(frame);
+      seen.disconnect();
+      document.removeEventListener('scroll', later, { capture: true });
+      window.removeEventListener('resize', later);
+    };
   }, []);
   // ?, /, N, G then a letter, Ctrl+J (layout/shortcuts).
   useGlobalShortcuts(navigate);
