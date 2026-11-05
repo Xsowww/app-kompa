@@ -390,8 +390,7 @@ export default function AppShell() {
   // A phone with a focus session running (its pill in the bar, outside Pro where it is the island): the bar keeps to the
   // screen, the logo's mark only and Kompaly's button without its word on the narrowest phones.
   const focusing = useFocus(s => !!s.phase);
-  const proOn = useSettings(s => s.pro);
-  const tight = focusing && !proOn;
+  const tight = focusing && !pro;
   const [searchOpen, setSearchOpen] = useState(false);
   const searchBtn = useRef<HTMLButtonElement>(null);
   // Another page: the search field opened on a phone closes.
