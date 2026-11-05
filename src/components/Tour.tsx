@@ -23,6 +23,8 @@ const NEXT: Record<Usage, string> = { etudes: t('ton prochain examen'), travail:
 
 // The same t() texts as the labels in AppShell, so the targets are found in every language.
 const nav = (path: string) => `nav[aria-label="${t('Navigation principale')}"] a[href="${path}"]`;
+// Affichage Pro on a computer: the spaces not in the pill, Profil… are under its « Plus » (layout/ProNav).
+const PRO_MORE = '.pro-rail [aria-controls="pro-more"]';
 
 const STEPS: Step[] = [
   {
@@ -42,30 +44,30 @@ const STEPS: Step[] = [
   },
   {
     // Phones: a space may be under « Plus » (the order follows the person's answers, lib/navOrder).
-    target: `${nav('/calendrier')}, #nav-more`,
+    target: `${nav('/calendrier')}, #nav-more, ${PRO_MORE}`,
     title: t('Le calendrier'),
     text: u =>
       // The same example as the calendar's own field and the presentation page.
       t('Écris simplement «\u00a0{example}\u00a0»\u00a0: Kompaly le range tout seul.', { example: usageWords(u).quickExample }),
   },
   {
-    target: `${nav('/taches')}, #nav-more`,
+    target: `${nav('/taches')}, #nav-more, ${PRO_MORE}`,
     title: t('Les tâches'),
     text: () => t('Ta liste de choses à faire. Coche-les quand c’est fait.'),
   },
   {
-    target: `${nav('/notes')}, #nav-more`,
+    target: `${nav('/notes')}, #nav-more, ${PRO_MORE}`,
     title: t('Les notes'),
     text: () => t('Prends tes notes et range-les en dossiers.'),
   },
   {
-    target: `${nav('/drive')}, #nav-more`,
+    target: `${nav('/drive')}, #nav-more, ${PRO_MORE}`,
     title: t('Les fichiers'),
     text: (_, touch) =>
       touch ? t('Ajoute tes fichiers avec le bouton +. La recherche fouille même le texte de tes PDF.') : t('Glisse tes fichiers dans la page. La recherche fouille même le texte de tes PDF.'),
   },
   {
-    target: `${nav('/enregistrer')}, #nav-more`,
+    target: `${nav('/enregistrer')}, #nav-more, ${PRO_MORE}`,
     title: t('Enregistrer'),
     text: (u, touch) => {
       const w = usageWords(u).recording;
@@ -75,7 +77,7 @@ const STEPS: Step[] = [
     },
   },
   {
-    target: `${nav('/groupes')}, #nav-more`,
+    target: `${nav('/groupes')}, #nav-more, ${PRO_MORE}`,
     title: u => (u === 'perso' ? t('À plusieurs') : t('Le travail à plusieurs')),
     text: u => (u === 'travail' ? t('Crée une équipe ou un agenda partagé, puis invite avec un code.') : t('Crée un groupe ou un agenda partagé, puis invite avec un code.')),
   },
@@ -87,7 +89,7 @@ const STEPS: Step[] = [
   },
   {
     // « Kompaly » in the phone's top bar, « Demander à Kompaly » in the computer's sidebar (he leans out too).
-    target: 'header button[aria-controls="copilot-panel"], aside button[aria-controls="copilot-panel"]',
+    target: 'header button[aria-controls="copilot-panel"], aside button[aria-controls="copilot-panel"], .pro-rail button[aria-controls="copilot-panel"]',
     enter: () => useCopilot.getState().pose === 'hidden' && useCopilot.getState().setPose('peek'),
     title: t('Kompaly, ton assistant'),
     text: (_, touch) => (touch ? t('Touche «\u00a0Kompaly\u00a0» pour lui parler\u00a0: il t’aide à t’organiser.') : t('Clique ici, ou sur lui au bord de l’écran, pour lui parler\u00a0: il t’aide à t’organiser.')),

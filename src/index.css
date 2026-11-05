@@ -502,8 +502,17 @@ body:has(#nav-more-panel) #create-button {
 .cop-slow { animation-duration: 4.5s; }
 .cop-dot { opacity: 0; animation: cop-dot 1.5s infinite; }
 
+/* Affichage Pro: another space's cards come in one after the other, out of a blur (layout/proMotion sets --pro-i). */
+@keyframes pro-in {
+  from { opacity: 0; filter: blur(12px); transform: translateY(16px) scale(0.985); }
+}
+.pro-in {
+  animation: pro-in 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  animation-delay: calc(var(--pro-i, 0) * 45ms);
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .enter, .pop, .cop-bounce, .cop-talk, .cop-wiggle, .cop-z, .cop-hover { animation: none; }
+  .enter, .pop, .cop-bounce, .cop-talk, .cop-wiggle, .cop-z, .cop-hover, .pro-in, .pro-dot-rec { animation: none; }
   .cop-dot { animation: none; opacity: 1; }
   *,
   *::before,
