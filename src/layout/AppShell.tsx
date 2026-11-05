@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutGrid, House, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn, ListChecks, Trash2, ArrowLeftRight, UserRound, UserPlus, LogOut, Sparkles, X } from 'lucide-react';
+import { LayoutGrid, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn, ListChecks, Trash2, ArrowLeftRight, UserRound, UserPlus, LogOut, Sparkles, X } from 'lucide-react';
 import { EmptyState } from '../components/EmptyState';
 import { FeedbackDialog } from '../components/FeedbackDialogs';
 import { confirmLogout, useAuth } from '../store/auth';
@@ -45,6 +45,8 @@ import { useGlobalShortcuts } from './shortcuts';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { watchAppBadge } from '../lib/appBadge';
 import { watchBackOnline } from '../lib/backOnline';
+import { Bubble, ProRail, type Extra } from './ProNav';
+import { useBubble, useProEntrance } from './proMotion';
 
 const SHARED: SpaceKey[] = ['groupes', 'agendas'];
 
@@ -96,6 +98,8 @@ const highlight = (text: string, q: string) =>
 /** `onDone(cancelled)`: closed with Échap (true) or a result chosen (false). */
 function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (cancelled: boolean) => void }) {
   const navigate = useNavigate();
+  // Affichage Pro: a capsule at the top right of a computer's page; its results open leftwards, under it.
+  const pro = useSettings(s => s.pro);
   const [q, setQ] = useState('');
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
@@ -246,9 +250,12 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
         aria-controls="recherche-resultats"
         aria-activedescendant={open && hits[active] ? `recherche-${active}` : undefined}
         // A card-like field (border + surface): the grey tint alone barely stood out from the page, light or dark.
-        className="h-10 w-full rounded-[14px] border border-transparent bg-surface pl-9 pr-14 text-[13.5px] text-ink outline-none transition placeholder:text-stone-500 hover:border-stone-200 focus:border-focus focus:ring-1 focus:ring-focus"
+        className={cx(
+          'h-10 w-full border border-transparent bg-surface pl-9 pr-14 text-[13.5px] text-ink outline-none transition placeholder:text-stone-500 hover:border-stone-200 focus:border-focus focus:ring-1 focus:ring-focus',
+          pro ? 'rounded-full' : 'rounded-[14px]',
+        )}
       />
-      <span aria-hidden className="kbd pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 sm:inline-flex">{isMac ? '⌘' : t('Ctrl')} K</span>
+      <span aria-hidden className={cx('kbd pointer-events-none absolute top-1/2 hidden -translate-y-1/2 sm:inline-flex', pro ? 'right-3 rounded-full' : 'right-2')}>{isMac ? '⌘' : t('Ctrl')} K</span>
       {/* Not before the files' content answered this query (no « Aucun résultat » flashing while it is looked for). */}
       {shown && (
         // Over the « + » button and Kompaly; never past the bottom of the screen (phones: nor under the tab bar): a long
@@ -257,7 +264,10 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
           id="recherche-resultats"
           role="listbox"
           aria-label={t('Résultats de recherche')}
-          className="enter absolute left-0 right-0 top-12 z-[55] max-h-[calc(100dvh-13rem)] overflow-y-auto overscroll-contain rounded-[18px] border border-stone-200 bg-surface p-1 shadow-pop lg:right-auto lg:max-h-[calc(100dvh-4.5rem)] lg:w-[min(460px,calc(100vw-20rem))]"
+          className={cx(
+            'enter absolute left-0 right-0 top-12 z-[55] max-h-[calc(100dvh-13rem)] overflow-y-auto overscroll-contain rounded-[18px] border border-stone-200 bg-surface p-1 shadow-pop lg:max-h-[calc(100dvh-4.5rem)]',
+            pro ? 'rounded-[22px] lg:left-auto lg:w-[min(460px,calc(100vw-8rem))]' : 'lg:right-auto lg:w-[min(460px,calc(100vw-20rem))]',
+          )}
           // Its scrollbar dragged with the mouse: the field keeps the focus (the list stays open).
           onMouseDown={e => e.preventDefault()}
         >
@@ -312,7 +322,7 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
 }
 
 /** Other accounts of this device in one click, or a new one (see lib/accounts). `avatar`: phones' top bar, the avatar opens it (« Profil et réglages » first). */
-function AccountSwitch({ currentId, avatar }: { currentId: string; avatar?: boolean }) {
+function AccountSwitch({ currentId, avatar, pro }: { currentId: string; avatar?: boolean; pro?: boolean }) {
   const navigate = useNavigate();
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const others = menu ? savedAccounts().filter(a => a.id !== currentId) : [];
@@ -336,7 +346,8 @@ function AccountSwitch({ currentId, avatar }: { currentId: string; avatar?: bool
     <>
       <button
         type="button"
-        className={avatar ? 'hit inline-flex h-9 w-9 items-center justify-center rounded-full lg:hidden' : 'icon-btn'}
+        // Affichage Pro: also on a computer (no side bar there), at the end of the top right cluster.
+        className={avatar ? cx('hit inline-flex h-9 w-9 items-center justify-center rounded-full', pro ? 'pro-avatar' : 'lg:hidden') : 'icon-btn'}
         title={avatar ? t('Profil et comptes') : t('Changer de compte')}
         aria-label={avatar ? t('Profil et comptes') : t('Changer de compte')}
         aria-haspopup="menu"
@@ -369,6 +380,8 @@ function AccountSwitch({ currentId, avatar }: { currentId: string; avatar?: bool
 
 export default function AppShell() {
   const usage = useSettings(st => st.usage);
+  // Affichage Pro (Profil › Apparence): the floating pill of icons instead of the side bar, the top right cluster.
+  const pro = useSettings(st => st.pro);
   const label = useSpaceLabel();
   const order = useNavOrder();
   const navigate = useNavigate();
@@ -439,6 +452,8 @@ export default function AppShell() {
       window.removeEventListener('resize', later);
     };
   }, []);
+  // Affichage Pro: another space's cards come in one after the other (layout/proMotion).
+  useProEntrance(pro, pathname);
   // ?, /, N, G then a letter, Ctrl+J (layout/shortcuts).
   useGlobalShortcuts(navigate);
   // Invitation links: joined, then a window says so (pages/groups/Joined). One opened before signing in
@@ -517,13 +532,26 @@ export default function AppShell() {
     };
   }, [isAdmin]);
   const adminLabel = adminPending ? tn(adminPending, 'Administration, {n} élément à traiter', 'Administration, {n} éléments à traiter') : t('Administration');
+  // What « Plus » holds besides the spaces (phones; Affichage Pro on a computer too).
+  const extra: Extra[] = [
+    ...(isAdmin ? [{ to: '/admin', label: t('Administration'), aria: adminLabel, icon: ChartNoAxesColumn, color: '#5e6470', count: adminPending, urgent: true }] : []),
+    { to: '/corbeille', label: t('Corbeille'), aria: trashLabel, icon: Trash2, color: '#78716c', count: trashCount },
+  ];
+  // A space with news, as its icon says it (the pill and the phone's bar show only a number).
+  const newsLabel = (to: string) =>
+    to === '/agendas'
+      ? tn(agendaNews, '{n} nouveauté dans tes agendas partagés', '{n} nouveautés dans tes agendas partagés')
+      : tn(groupNews, '{n} nouveauté dans tes {groups}', '{n} nouveautés dans tes {groups}', { groups: groupWords(usage).groups });
 
   return (
     <div className="flex h-full">
       <a href="#contenu" className="skip-link" onClick={e => { e.preventDefault(); document.getElementById('contenu')?.focus(); }}>
         {t('Aller au contenu')}
       </a>
-      {/* Sidebar (desktop) */}
+      {/* Sidebar (desktop); Affichage Pro: a floating pill of icons (layout/ProNav). */}
+      {pro ? (
+        <ProRail order={order} news={news} newsLabel={newsLabel} label={label} extra={extra} />
+      ) : (
       <aside aria-label={t('Barre latérale')} className="m-3 mr-0 hidden w-[244px] shrink-0 flex-col rounded-[24px] bg-surface px-3 pb-3 pt-4 lg:flex">
         <div className="mb-6 px-2">
           <Logo />
@@ -617,13 +645,15 @@ export default function AppShell() {
         <AccountSwitch currentId={user.id} />
         </div>
       </aside>
+      )}
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className={cx('flex min-w-0 flex-1 flex-col', pro && 'pro-column')}>
         {/* Wide screens: the header, like every page, keeps to the same centred column (1180 px of content, the pages'
             `max-w-[1180px]` or `max-w-[1244px]` with their padding), so the search and the bin line up with it. */}
         <header className="mx-auto flex h-14 w-full max-w-[1244px] shrink-0 items-center gap-3 px-4 short:h-12 md:px-8">
           <span className="lg:hidden">{tight ? <LogoMark /> : <Logo />}</span>
-          <div className="hidden flex-1 lg:block">
+          {/* Affichage Pro: at the right, beside the avatar (the page's title has the left). */}
+          <div className={pro ? 'pro-search hidden lg:block' : 'hidden flex-1 lg:block'}>
             <GlobalSearch />
           </div>
           {/* Phones: a focus session running, and Kompaly when his character is hidden. */}
@@ -643,12 +673,14 @@ export default function AppShell() {
           >
             <Search size={18} strokeWidth={1.9} />
           </button>
-          {/* Computers: a small bin at the top right (phones: in « Plus »). */}
+          {/* Computers: a small bin at the top right (phones and Affichage Pro: in « Plus »). */}
+          {!pro && (
           <NavLink to="/corbeille" className={({ isActive }) => cx('icon-btn relative ml-auto hidden lg:inline-flex', isActive && 'bg-stone-100 text-ink')} title={t('Corbeille')} aria-label={trashLabel}>
             <Trash2 size={18} strokeWidth={1.9} />
             {trashCount > 0 && <span className="tabular absolute -right-0.5 -top-0.5 min-w-[16px] rounded-full bg-stone-500 px-1 text-center text-[10px] font-semibold leading-4 text-white" aria-hidden>{trashCount > 99 ? '99+' : trashCount}</span>}
           </NavLink>
-          <AccountSwitch currentId={user.id} avatar />
+          )}
+          <AccountSwitch currentId={user.id} avatar pro={pro} />
         </header>
         <ServiceBanner inline />
         {searchOpen && (
@@ -691,10 +723,8 @@ export default function AppShell() {
         order={order}
         news={news}
         label={label}
-        extra={[
-          ...(isAdmin ? [{ to: '/admin', label: t('Administration'), aria: adminLabel, icon: ChartNoAxesColumn, color: '#5e6470', count: adminPending, urgent: true }] : []),
-          { to: '/corbeille', label: t('Corbeille'), aria: trashLabel, icon: Trash2, color: '#78716c', count: trashCount },
-        ]}
+        extra={extra}
+        pro={pro}
       />
 
       <Copilot />
@@ -703,8 +733,6 @@ export default function AppShell() {
   );
 }
 
-type Extra = { to: string; label: string; aria: string; icon: typeof House; color: string; count: number; urgent?: boolean };
-
 /** A finger sliding on the tab bar opens a tab once it rests on it this long (ms), not every tab it crosses. */
 const SLIDE_REST = 120;
 
@@ -712,11 +740,12 @@ const SLIDE_REST = 120;
  * Phones: Accueil and the first spaces of the person's order (lib/navOrder), and « Plus » for the others (then Corbeille,
  * Administration), shown in a panel just above the bar: every space is reached from the bar.
  */
-function PhoneTabBar({ order, news, label, extra }: { order: SpaceKey[]; news: (to: string) => number; label: (n: { to: string; label: string }) => string; extra: Extra[] }) {
+function PhoneTabBar({ order, news, label, extra, pro }: { order: SpaceKey[]; news: (to: string) => number; label: (n: { to: string; label: string }) => string; extra: Extra[]; pro: boolean }) {
   const { pathname } = useLocation();
   const [open, setOpen] = useState(false);
   const panel = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
+  const bar = useRef<HTMLElement>(null);
   const main = [HOME, ...order.slice(0, PHONE_TABS).map(k => SPACES[k])];
   const more = [
     ...order.slice(PHONE_TABS).map(k => SPACES[k]).map(n => {
@@ -803,9 +832,13 @@ function PhoneTabBar({ order, news, label, extra }: { order: SpaceKey[]; news: (
   }, [open]);
 
   // Sideways (short): the icon beside its name, on one line, a lower bar.
+  // Affichage Pro: icons only, round, the white bubble sliding under the chosen one (index.css › pro-tab).
   const tab = (active: boolean) =>
-    cx('flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-[17px] py-1.5 text-[10px] font-semibold tracking-[-0.01em] transition-colors max-[339px]:text-[9px] short:flex-row short:justify-center short:gap-1.5 short:py-2 short:text-[12px] [&_svg]:shrink-0', active ? 'bg-white text-[#14161f]' : 'text-white/60 hover:text-white');
+    pro
+      ? cx('pro-tab', active ? 'text-[#14161f]' : 'text-white/65 hover:text-white')
+      : cx('flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-[17px] py-1.5 text-[10px] font-semibold tracking-[-0.01em] transition-colors max-[339px]:text-[9px] short:flex-row short:justify-center short:gap-1.5 short:py-2 short:text-[12px] [&_svg]:shrink-0', active ? 'bg-white text-[#14161f]' : 'text-white/60 hover:text-white');
   const Shown = current?.icon ?? LayoutGrid;
+  const bubble = useBubble(bar, '[aria-current="page"], [data-here]', [pathname, open, pro, order.join()]);
 
   return (
     <>
@@ -837,18 +870,24 @@ function PhoneTabBar({ order, news, label, extra }: { order: SpaceKey[]; news: (
           ))}
         </div>
       )}
-      <nav aria-label={t('Navigation principale')} className="fixed bottom-[max(12px,env(safe-area-inset-bottom))] left-[max(12px,env(safe-area-inset-left))] right-[max(12px,env(safe-area-inset-right))] z-30 flex touch-none select-none rounded-[22px] bg-tile-dark p-1 shadow-pop ring-1 ring-white/10 lg:hidden"
+      <nav ref={bar} aria-label={t('Navigation principale')} className={cx(pro ? 'pro-tabbar' : 'left-[max(12px,env(safe-area-inset-left))] right-[max(12px,env(safe-area-inset-right))] rounded-[22px] p-1', 'fixed bottom-[max(12px,env(safe-area-inset-bottom))] z-30 flex touch-none select-none bg-tile-dark shadow-pop ring-1 ring-white/10 lg:hidden')}
         onPointerDown={onSlideDown}
         onPointerMove={onSlideMove}
         onPointerUp={onSlideEnd}
         onPointerCancel={onSlideEnd}
       >
+        {pro && <Bubble at={bubble} />}
         {main.map(n => (
-          <NavLink key={n.to} to={n.to} end={n.end} data-tab={n.to} draggable={false} className={({ isActive }) => tab(isActive)}>
+          <NavLink key={n.to} to={n.to} end={n.end} data-tab={n.to} draggable={false} className={({ isActive }) => tab(isActive)} aria-label={pro && news(n.to) ? `${label(n)}, ${tn(news(n.to), '{n} nouveauté', '{n} nouveautés')}` : undefined}>
             {({ isActive }) => (
               <>
-                <n.icon size={19} strokeWidth={isActive ? 2.2 : 1.9} style={{ color: isActive ? n.color : undefined }} />
-                <span className="max-w-full truncate">{(n as { short?: string }).short || label(n)}</span>
+                <n.icon size={pro ? 21 : 19} strokeWidth={isActive ? 2.2 : 1.9} style={{ color: isActive ? n.color : undefined }} />
+                <span className={pro ? 'sr-only' : 'max-w-full truncate'}>{(n as { short?: string }).short || label(n)}</span>
+                {pro && news(n.to) > 0 && (
+                  <span aria-hidden className="pro-count tabular">
+                    {news(n.to) > 9 ? '9+' : news(n.to)}
+                  </span>
+                )}
               </>
             )}
           </NavLink>
@@ -863,13 +902,15 @@ function PhoneTabBar({ order, news, label, extra }: { order: SpaceKey[]; news: (
           aria-controls={open ? 'nav-more-panel' : undefined}
           aria-label={`${current ? t('Plus d’espaces (ici : {space})', { space: label(current) }) : t('Plus d’espaces')}${!open && moreNews ? `, ${t('nouveautés')}` : ''}`}
           onClick={() => setOpen(o => !o)}
-          className={tab(!!current && !open)}
+          // Affichage Pro: the bubble under it when the page is one of its spaces (open too: the X on it).
+          data-here={pro && current ? '' : undefined}
+          className={tab(pro ? !!current : !!current && !open)}
         >
           <span className="relative">
-            {open ? <X size={19} strokeWidth={2.2} /> : <Shown size={19} strokeWidth={current ? 2.2 : 1.9} style={{ color: current ? current.color : undefined }} />}
+            {open ? <X size={pro ? 21 : 19} strokeWidth={2.2} /> : <Shown size={pro ? 21 : 19} strokeWidth={current ? 2.2 : 1.9} style={{ color: current ? current.color : undefined }} />}
             {!open && moreNews && <span className={cx('absolute -right-1 -top-0.5 h-2 w-2 rounded-full bg-red-500 ring-2', current ? 'ring-white' : 'ring-tile-dark')} aria-hidden />}
           </span>
-          <span className="max-w-full truncate">{open ? t('Fermer') : current ? ((current as { short?: string }).short || label(current)) : t('Plus')}</span>
+          <span className={pro ? 'sr-only' : 'max-w-full truncate'}>{open ? t('Fermer') : current ? ((current as { short?: string }).short || label(current)) : t('Plus')}</span>
         </button>
       </nav>
     </>

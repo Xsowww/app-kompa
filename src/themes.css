@@ -397,3 +397,393 @@
     radial-gradient(70% 60% at 50% 95%, #a8243a, transparent 70%), #1a0c0a;
   --wp-ratio: none;
 }
+
+/* ── Affichage Pro: the shell (layout/ProNav, AppShell) ── */
+/* Computers: the floating pill of icons at the left, vertically centred; the page takes the side bar's width. */
+.pro-rail,
+.pro-more {
+  display: none;
+}
+@media (width >= 64rem) {
+  .pro-column {
+    padding-left: calc(max(20px, env(safe-area-inset-left)) + 64px);
+  }
+  .pro-search {
+    margin-left: auto;
+    width: min(300px, 34vw);
+  }
+  .pro-rail {
+    position: fixed;
+    z-index: 40;
+    left: max(20px, env(safe-area-inset-left));
+    top: 50%;
+    translate: 0 -50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 6px;
+    border-radius: 999px;
+    background: rgb(16 18 26 / 0.55);
+    -webkit-backdrop-filter: blur(22px) saturate(170%);
+    backdrop-filter: blur(22px) saturate(170%);
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.12), inset 0 1px 0 rgb(255 255 255 / 0.1), 0 20px 40px -14px rgb(0 0 0 / 0.7);
+  }
+  /* « Plus »: a glass panel beside the pill, growing from its foot. Always there (hidden): the focus timer keeps running in it. */
+  .pro-more {
+    position: fixed;
+    z-index: 41;
+    left: calc(max(20px, env(safe-area-inset-left)) + 72px);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 292px;
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 8px;
+    border-radius: 28px;
+    background: rgb(20 22 32 / 0.8);
+    -webkit-backdrop-filter: blur(28px) saturate(170%);
+    backdrop-filter: blur(28px) saturate(170%);
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.13), inset 0 1px 0 rgb(255 255 255 / 0.1), 0 28px 60px -18px rgb(0 0 0 / 0.75);
+    transform-origin: left bottom;
+  }
+  /* Closed: not displayed (the guided tour and the keyboard never find it), its timer still running. It springs open
+     from « Plus » and fades back into it. */
+  .pro-more:not([data-open]) {
+    display: none;
+    opacity: 0;
+    transform: translateX(-10px) scale(0.94);
+  }
+  .pro-more {
+    transition: opacity 0.18s ease-in, transform 0.22s ease-in, display 0.22s allow-discrete;
+  }
+  .pro-more[data-open] {
+    transition: opacity 0.22s ease-out, transform 0.45s cubic-bezier(0.3, 1.3, 0.4, 1), display 0.45s allow-discrete;
+  }
+  @starting-style {
+    .pro-more[data-open] {
+      opacity: 0;
+      transform: translateX(-10px) scale(0.94);
+    }
+  }
+}
+/* Its buttons: round, light icons; the page you are on in its colour on the white bubble. */
+.pro-rail > :not(.pro-bubble) {
+  position: relative;
+  z-index: 1;
+}
+.pro-rail-btn {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  color: rgb(255 255 255 / 0.7);
+  transition: color 0.25s, background-color 0.25s;
+}
+.pro-rail-btn:hover,
+.pro-rail-btn[aria-expanded='true'] {
+  color: #fff;
+  background-color: rgb(255 255 255 / 0.1);
+}
+.pro-rail-btn:is([aria-current='page'], [data-here]) {
+  color: var(--c, #14161f);
+  background-color: transparent;
+}
+.pro-rail-btn:is([aria-current='page'], [data-here]) svg {
+  stroke-width: 2.2;
+}
+.pro-rail-btn:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+@media (max-height: 640px) {
+  .pro-rail-btn { width: 42px; height: 42px; }
+}
+@media (max-height: 540px) {
+  .pro-rail { gap: 2px; padding: 4px; }
+  .pro-rail-btn { width: 36px; height: 36px; }
+}
+.pro-rail-sep {
+  width: 24px;
+  height: 1px;
+  margin: 3px 0;
+  background: rgb(255 255 255 / 0.16);
+}
+/* The name of an icon, beside it, on hover (a mouse) and on keyboard focus. */
+.pro-tip {
+  position: absolute;
+  left: calc(100% + 14px);
+  top: 50%;
+  translate: 0 -50%;
+  padding: 6px 11px;
+  border-radius: 10px;
+  background: rgb(20 22 30 / 0.94);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.12), 0 10px 24px -10px rgb(0 0 0 / 0.7);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #fff;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s, translate 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+@media (hover: hover) {
+  .pro-rail-btn:hover .pro-tip { opacity: 1; translate: 4px -50%; }
+}
+.pro-rail-btn:focus-visible .pro-tip { opacity: 1; translate: 4px -50%; }
+.pro-rail-btn[aria-expanded='true'] .pro-tip { opacity: 0; }
+/* The white bubble under the chosen icon (computers and phones), sliding with a spring. */
+.pro-bubble {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.94);
+  box-shadow: 0 6px 18px -6px rgb(0 0 0 / 0.55), inset 0 -1px 0 rgb(0 0 0 / 0.08);
+  pointer-events: none;
+}
+.pro-bubble-moves {
+  transition: transform 0.45s cubic-bezier(0.3, 1.3, 0.4, 1), width 0.3s, height 0.3s;
+}
+/* News on an icon: a red number (iPhone-like); a class being recorded, a new message: a dot. */
+.pro-count {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #ff3b30;
+  box-shadow: 0 0 0 2px rgb(16 18 26);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 17px;
+  text-align: center;
+  color: #fff;
+}
+.pro-dot {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: #ff3b30;
+  box-shadow: 0 0 0 2px rgb(16 18 26);
+}
+.pro-dot-rec {
+  animation: pro-rec 1.6s ease-in-out infinite;
+}
+@keyframes pro-rec {
+  50% { box-shadow: 0 0 0 2px rgb(16 18 26), 0 0 0 5px rgb(255 59 48 / 0.35); }
+}
+/* The rows of « Plus »: a coloured tile (one colour = one space everywhere), the name, a count. */
+.pro-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 6px 8px;
+  border-radius: 18px;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  color: var(--color-ink);
+  transition: background-color 0.2s;
+}
+.pro-row:hover {
+  background-color: rgb(255 255 255 / 0.08);
+}
+.pro-row[aria-current='page'] {
+  background-color: rgb(255 255 255 / 0.13);
+}
+.pro-row-me {
+  padding-block: 8px;
+}
+.pro-tile {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  color: #fff;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--c) 78%, white), var(--c));
+  box-shadow: 0 6px 14px -6px var(--c), inset 0 1px 0 rgb(255 255 255 / 0.25);
+}
+.pro-more-sep {
+  flex: none;
+  height: 1px;
+  margin: 4px 10px;
+  background: rgb(255 255 255 / 0.1);
+}
+.pro-pill-count {
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.12);
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 22px;
+  text-align: center;
+  color: var(--color-stone-600);
+}
+.pro-pill-urgent {
+  background: #ff3b30;
+  color: #fff;
+}
+.pro-more-focus {
+  padding: 6px 2px 0;
+}
+.pro-more-focus > :last-child {
+  margin-bottom: 0;
+}
+/* « Session focus » (components/FocusTimer) in the panel: a row like the others, its card and buttons as round. */
+.pro-more-focus [data-focus-start] {
+  height: 44px;
+  gap: 12px;
+  border-radius: 18px;
+  padding-inline: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-ink);
+  border-color: rgb(255 255 255 / 0.18);
+}
+.pro-more-focus .rounded-lg {
+  border-radius: 20px;
+}
+.pro-more-focus .rounded-md {
+  border-radius: 999px;
+}
+/* Phones and tablets: the tab bar is a glass capsule of icons only, centred, the bubble under the chosen one. */
+.pro-tabbar {
+  left: 50%;
+  translate: -50% 0;
+  gap: 2px;
+  padding: 6px;
+  border-radius: 999px;
+}
+:root[data-pro][data-style][data-theme] nav.pro-tabbar {
+  background-color: rgb(16 18 26 / 0.55);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.12), inset 0 1px 0 rgb(255 255 255 / 0.1), 0 20px 40px -14px rgb(0 0 0 / 0.7);
+}
+.pro-tab {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 54px;
+  height: 50px;
+  border-radius: 999px;
+  transition: color 0.25s;
+}
+.pro-tab:focus-visible {
+  outline-offset: -2px;
+}
+@media (max-width: 359px) {
+  .pro-tab { width: 46px; height: 46px; }
+}
+@media (max-height: 500px) and (width < 64rem) {
+  .pro-tab { width: 58px; height: 40px; }
+  .pro-tabbar { padding: 4px; }
+}
+/* Its « Plus » panel: rounder, and centred over the capsule where it is narrower than the screen. */
+:root[data-pro] #nav-more-panel {
+  border-radius: 28px;
+}
+/* Each space's icon on a tile of its own colour, as in the computer's « Plus ». */
+:root[data-pro] #nav-more-panel a > svg {
+  box-sizing: content-box;
+  padding: 7px;
+  border-radius: 12px;
+  background: color-mix(in srgb, currentColor 20%, transparent);
+}
+:root[data-pro] #nav-more-panel a {
+  border-radius: 20px;
+}
+@media (width >= 40rem) {
+  :root[data-pro] #nav-more-panel {
+    left: 50%;
+    right: auto;
+    translate: -50% 0;
+  }
+}
+
+/* ── Affichage Pro: one designed world on the wallpaper ── */
+/* Capsules: buttons and one-line fields are fully round (as on an iPhone). */
+:root[data-pro][data-style][data-theme] :is(.btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-danger, .icon-btn, input.field, select.field, button.field) {
+  border-radius: 999px;
+}
+/* The main button in the accent, glowing a little; the others light glass. */
+:root[data-pro][data-style][data-theme] .btn-primary {
+  background-color: var(--color-brand-solid);
+  color: var(--color-on-brand);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.2), 0 8px 22px -8px var(--color-brand-500);
+}
+:root[data-pro][data-style][data-theme] .btn-primary:hover {
+  background-color: color-mix(in srgb, var(--color-brand-solid) 84%, white);
+}
+:root[data-pro][data-style][data-theme] .btn-secondary {
+  background-color: rgb(255 255 255 / 0.08);
+  --tw-ring-color: rgb(255 255 255 / 0.14);
+}
+:root[data-pro][data-style][data-theme] .btn-secondary:hover {
+  background-color: rgb(255 255 255 / 0.15);
+}
+:root[data-pro][data-style][data-theme] :is(.btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-danger) {
+  transition: background-color 0.2s, color 0.2s, box-shadow 0.2s, transform 0.2s;
+}
+:root[data-pro][data-style][data-theme] :is(.btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-danger):active {
+  transform: scale(0.96);
+}
+/* Segmented controls: a capsule, the chosen choice white (dark text). */
+:root[data-pro][data-style][data-theme] .seg {
+  border-radius: 999px;
+  background-color: rgb(255 255 255 / 0.08);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1);
+}
+:root[data-pro][data-style][data-theme] .seg-item {
+  border-radius: 999px;
+}
+:root[data-pro][data-style][data-theme] .seg-item:is([aria-pressed='true'], [aria-checked='true'], [aria-selected='true'], [data-active]) {
+  background-color: rgb(255 255 255 / 0.92);
+  color: #14161f;
+  box-shadow: 0 4px 12px -6px rgb(0 0 0 / 0.5);
+}
+/* Switches turned on: green, as on an iPhone. */
+:root[data-pro][data-style][data-theme] [role='switch'][aria-checked='true'] {
+  background-color: #30d158;
+}
+/* Cards: a light edge that brightens under the mouse; those you open (and those marked .pro-lift) rise a little. */
+:root[data-pro][data-style][data-theme] .card {
+  transition: transform 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2), box-shadow 0.3s, background-color 0.2s, opacity 0.2s;
+}
+@media (hover: hover) {
+  :root[data-pro][data-style][data-theme] .card:hover {
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.24), inset 0 1px 0 var(--glass-shine), var(--shadow-card);
+  }
+  :root[data-pro][data-style][data-theme] :is(a.card, button.card, .card[role='button'], .pro-lift):hover {
+    transform: translateY(-3px);
+  }
+}
+/* Dialogs and menus: rounder, a light edge, the page behind dimmed and softly blurred. */
+:root[data-pro][data-style][data-theme] [aria-modal='true'].shadow-pop {
+  border-radius: 30px;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.13), inset 0 1px 0 rgb(255 255 255 / 0.1), 0 30px 80px -20px rgb(0 0 0 / 0.85);
+}
+:root[data-pro] .fixed.inset-0:has(> [aria-modal='true'].shadow-pop) {
+  background-color: rgb(4 5 10 / 0.55);
+  -webkit-backdrop-filter: blur(10px) saturate(120%);
+  backdrop-filter: blur(10px) saturate(120%);
+}
+:root[data-pro][data-style][data-theme] [role='menu'].shadow-pop {
+  border-radius: 20px;
+}
