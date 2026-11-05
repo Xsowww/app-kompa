@@ -19,7 +19,7 @@ import { CONTACT } from '../../lib/feedback';
 import { latestRelease } from '../../lib/news';
 import { AUTH_MSG, confirmLogout, sameEmail, useAuth } from '../../store/auth';
 import { useFocusLog } from '../../store/focusLog';
-import { useSettings, ACCENTS, AVATAR_COLORS, applyAppearance, resolveDark, UI_STYLES, type AccentKey, type ThemeMode, type Chattiness, type UiStyle } from '../../store/settings';
+import { useSettings, ACCENTS, AVATAR_COLORS, applyAppearance, resolveDark, UI_STYLES, PRO_WALLS, type AccentKey, type ThemeMode, type Chattiness, type UiStyle, type ProWall } from '../../store/settings';
 import { useCopilot } from '../../store/copilot';
 import { useDrive } from '../../store/drive';
 import { downloadZip } from '../drive/download';
@@ -378,6 +378,58 @@ function StylePreview({ look, dark }: { look: UiStyle; dark: boolean }) {
   );
 }
 
+const PRO_WALL_LABELS: Record<ProWall, string> = { montagne: t('Montagne'), nuit: t('Nuit'), aurore: t('Aurore'), maree: t('Marée'), braise: t('Braise') };
+// The thumbnails: the same pictures and colours as themes.css › data-pro.
+const PRO_WALL_PREVIEW: Record<ProWall, string> = {
+  montagne: "url('/pro/montagne.webp') center / cover",
+  nuit: "url('/pro/nuit.webp') center / cover",
+  aurore: 'radial-gradient(60% 55% at 18% 22%, #1f7a6a, transparent 70%), radial-gradient(55% 60% at 85% 30%, #5b3fa8, transparent 70%), radial-gradient(70% 60% at 50% 95%, #2a5fa8, transparent 70%), #0d1020',
+  maree: 'radial-gradient(60% 55% at 18% 22%, #1f5fd1, transparent 70%), radial-gradient(55% 60% at 85% 30%, #2bb3d9, transparent 70%), radial-gradient(70% 60% at 50% 95%, #1b3a8a, transparent 70%), #0a1022',
+  braise: 'radial-gradient(60% 55% at 18% 22%, #d9542b, transparent 70%), radial-gradient(55% 60% at 85% 30%, #b8452a, transparent 70%), radial-gradient(70% 60% at 50% 95%, #a8243a, transparent 70%), #1a0c0a',
+};
+
+/** « Affichage Pro »: one switch, then its wallpaper. Over the theme and the style (kept, they come back when it is off). */
+function ProSection() {
+  const settings = useSettings();
+  const setPro = (pro: boolean) => {
+    settings.set({ pro });
+    applyAppearance({ ...settings, pro });
+  };
+  const setWall = (proWall: ProWall) => {
+    settings.set({ proWall });
+    applyAppearance({ ...settings, proWall });
+  };
+  return (
+    <Section label={t('Affichage Pro')}>
+      <Row label={t('Affichage Pro')} hint={t('Un fond d’écran, des couleurs vives pour voir d’un coup d’œil ce qui compte, la barre d’icônes flottante et le minuteur dans l’encoche. Toujours sombre.')}>
+        <Toggle label={t('Affichage Pro')} checked={!!settings.pro} onChange={setPro} />
+      </Row>
+      {settings.pro && (
+        <div className="px-5 py-4">
+          <p className="text-[13.5px] font-medium" id="pro-wall-label">{t('Fond d’écran')}</p>
+          <div role="group" aria-labelledby="pro-wall-label" className="mt-2.5 grid grid-cols-3 gap-2.5 sm:grid-cols-5">
+            {PRO_WALLS.map(k => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setWall(k)}
+                aria-pressed={settings.proWall === k}
+                className={cx('rounded-[16px] p-1.5 text-left ring-1 transition-colors', settings.proWall === k ? 'ring-2 ring-brand-500' : 'ring-stone-200 hover:ring-stone-300')}
+              >
+                <span aria-hidden className="block aspect-[4/3] rounded-[11px]" style={{ background: PRO_WALL_PREVIEW[k] }} />
+                <span className="mt-1.5 flex items-center gap-1.5 px-1 text-[13px] font-semibold">
+                  {settings.proWall === k && <Check size={13} strokeWidth={3} className="text-brand-600" aria-hidden />}
+                  {PRO_WALL_LABELS[k]}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </Section>
+  );
+}
+
 function AppearanceTab() {
   const settings = useSettings();
   const dark = resolveDark(settings.theme);
@@ -395,7 +447,9 @@ function AppearanceTab() {
   };
   return (
     <div className="space-y-5">
+    <ProSection />
     <Section label={t('Apparence')}>
+      {settings.pro && <p className="px-5 py-3 text-[12.5px] text-stone-500">{t('L’affichage Pro est actif : le thème et le style ci-dessous reviendront quand tu le couperas.')}</p>}
       <Row label={t('Thème')}>
         <Segmented
           label={t('Thème')}

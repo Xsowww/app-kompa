@@ -99,7 +99,7 @@ async function loadAccount(userId: string | null) {
   setStorageUser(userId);
   if (!userId) {
     // Logged out: last theme used on this device, otherwise the system's.
-    applyAppearance({ ...useSettings.getState(), theme: storedTheme() ?? 'auto', style: storedStyle() ?? 'classique' }, false);
+    applyAppearance({ ...useSettings.getState(), theme: storedTheme() ?? 'auto', style: storedStyle() ?? 'classique', pro: false }, false);
     return;
   }
   await Promise.all([

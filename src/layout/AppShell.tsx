@@ -403,10 +403,17 @@ export default function AppShell() {
     const place = () => {
       frame = 0;
       const page = document.body.getBoundingClientRect();
+      // A picture (Affichage Pro) is drawn « cover », centred: the same size and offset here.
+      const ratio = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--wp-ratio'));
+      let [w, h, x, y] = [page.width, page.height, page.left, page.top];
+      if (ratio > 0) {
+        [w, h] = page.width / page.height > ratio ? [page.width, page.width / ratio] : [page.height * ratio, page.height];
+        [x, y] = [page.left + (page.width - w) / 2, page.top + (page.height - h) / 2];
+      }
       document.querySelectorAll<HTMLElement>('.page-head').forEach(head => {
         const r = head.getBoundingClientRect();
-        head.style.setProperty('--wp-size', `${page.width}px ${page.height}px`);
-        head.style.setProperty('--wp-pos', `${page.left - r.left}px ${page.top - r.top}px`);
+        head.style.setProperty('--wp-size', `${w}px ${h}px`);
+        head.style.setProperty('--wp-pos', `${x - r.left}px ${y - r.top}px`);
       });
     };
     const later = () => {
@@ -415,6 +422,7 @@ export default function AppShell() {
     const main = document.getElementById('contenu');
     const seen = new MutationObserver(later);
     if (main) seen.observe(main, { childList: true, subtree: true });
+    seen.observe(document.documentElement, { attributes: true, attributeFilter: ['data-pro', 'data-style'] });
     document.addEventListener('scroll', later, { capture: true, passive: true });
     window.addEventListener('resize', later);
     later();

@@ -15,6 +15,9 @@ export type ThemeMode = 'clair' | 'sombre' | 'auto';
 /** The look of the cards and buttons (index.css, data-style on <html>): bento, frosted glass, Liquid Glass, soft relief. */
 export type UiStyle = 'classique' | 'verre' | 'liquide' | 'relief';
 export const UI_STYLES: UiStyle[] = ['classique', 'verre', 'liquide', 'relief'];
+/** The wallpapers of the « Affichage Pro » (themes.css › data-pro): two painted landscapes, three colour fields. */
+export type ProWall = 'montagne' | 'nuit' | 'aurore' | 'maree' | 'braise';
+export const PRO_WALLS: ProWall[] = ['montagne', 'nuit', 'aurore', 'maree', 'braise'];
 export type Language = Lang;
 /** Kompaly's personality presets (the server turns them into instructions). */
 export type PersonaKey = 'pote' | 'coach' | 'prof' | 'zen' | 'taquin';
@@ -52,6 +55,10 @@ export interface Settings {
   reduceMotion: boolean;
   theme: ThemeMode;
   style: UiStyle;
+  /** « Affichage Pro » (Profil › Apparence): a dark world on a wallpaper, the floating icon bar, the dashboard of
+   *  coloured tiles, the focus timer in the notch. Over the theme and style, which come back when it is turned off. */
+  pro: boolean;
+  proWall: ProWall;
   language: Language;
   /** The spaces of the navigation in the order chosen (Profil › Apparence) or given by the questionnaire (lib/navOrder);
    *  null: derived from `usage` and `needs`. */
@@ -122,6 +129,8 @@ export const DEFAULT_SETTINGS: Settings = {
   reduceMotion: false,
   theme: 'auto', // follows the device until the student picks one
   style: 'classique',
+  pro: false,
+  proWall: 'montagne',
   language: 'fr',
   navOrder: null,
   copilotVisible: true,
@@ -188,6 +197,7 @@ const DARK_ACCENT_OVERRIDES: Partial<Record<AccentKey, Record<'50' | '100' | '20
 /** Plain localStorage key read by the inline script in index.html (avoids a white flash). */
 export const THEME_KEY = 'cop-theme';
 export const STYLE_KEY = 'cop-style';
+export const PRO_KEY = 'cop-pro';
 
 /** Theme last used on this device, or null (logged-out pages then follow the system). */
 export function storedTheme(): ThemeMode | null {
@@ -217,7 +227,7 @@ const PAPER: Record<UiStyle, [string, string]> = {
   relief: ['#e4e9f2', '#1e2126'],
 };
 
-type Appearance = Pick<Settings, 'accent' | 'reduceMotion' | 'theme'> & { style?: UiStyle };
+type Appearance = Pick<Settings, 'accent' | 'reduceMotion' | 'theme'> & { style?: UiStyle; pro?: boolean; proWall?: ProWall };
 const darkQuery = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 let lastAppearance: Appearance | null = null;
 darkQuery?.addEventListener('change', () => {
@@ -228,19 +238,27 @@ export const resolveDark = (theme: ThemeMode) => theme === 'sombre' || (theme ==
 
 /** Push the theme, accent colour and motion preference into CSS. */
 export function applyAppearance(s: Appearance, remember = true) {
-  lastAppearance = { accent: s.accent, reduceMotion: s.reduceMotion, theme: s.theme, style: s.style };
+  lastAppearance = { accent: s.accent, reduceMotion: s.reduceMotion, theme: s.theme, style: s.style, pro: s.pro, proWall: s.proWall };
   const root = document.documentElement;
-  const dark = resolveDark(s.theme);
+  // Pro: always dark, on the glass of Verre (its cards, menus, fields), with its own wallpaper and layout (data-pro).
+  const pro = !!s.pro;
+  const dark = pro || resolveDark(s.theme);
   if (dark) root.dataset.theme = 'dark';
   else delete root.dataset.theme;
-  const style = s.style && UI_STYLES.includes(s.style) ? s.style : 'classique';
+  const own = s.style && UI_STYLES.includes(s.style) ? s.style : 'classique';
+  const style = pro ? 'verre' : own;
   if (style === 'classique') delete root.dataset.style;
   else root.dataset.style = style;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', PAPER[style][dark ? 1 : 0]);
+  const wall = s.proWall && PRO_WALLS.includes(s.proWall) ? s.proWall : 'montagne';
+  if (pro) root.dataset.pro = wall;
+  else delete root.dataset.pro;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', pro ? '#0c0d12' : PAPER[style][dark ? 1 : 0]);
   if (remember) {
     try {
       localStorage.setItem(THEME_KEY, s.theme);
-      localStorage.setItem(STYLE_KEY, style);
+      localStorage.setItem(STYLE_KEY, own);
+      if (pro) localStorage.setItem(PRO_KEY, wall);
+      else localStorage.removeItem(PRO_KEY);
     } catch {
       /* private browsing: the theme just won't be applied before the app starts */
     }

@@ -351,3 +351,49 @@
 :root:is([data-style='verre'], [data-style='liquide'])[data-theme='dark'] input:is([type='checkbox'], [type='radio']):not(:checked):hover:not(:disabled) {
   border-color: var(--color-stone-500);
 }
+
+/* ===== Affichage Pro (Profil › Apparence): a dark world on a wallpaper, over the glass of Verre ===== */
+/* data-pro on <html> holds the wallpaper (store/settings applyAppearance; public/theme.js before the first paint); with it
+   data-style='verre' and data-theme='dark', so every card, menu and field of Verre sombre is there, and the rules below
+   only add what the Pro look changes (written with [data-style][data-theme] to outweigh Verre sombre's own values). --wp-ratio: a picture's width / height (the page-head draws it « cover » too). */
+:root[data-pro][data-style][data-theme] {
+  --wallpaper: linear-gradient(180deg, rgb(8 9 14 / 0.28), rgb(8 9 14 / 0.6)), url('/pro/montagne.webp') center / cover no-repeat, #15131c;
+  --wp-ratio: 1.6;
+  --color-surface: rgb(18 20 30 / 0.52);
+  --glass-strong: rgb(20 22 32 / 0.92);
+  --dialog-bg: #161824;
+  --glass-edge: rgb(255 255 255 / 0.14);
+  --glass-shine: rgb(255 255 255 / 0.12);
+  --color-tile-dark: rgb(12 13 20 / 0.62);
+  --shadow-card: 0 1px 0 rgb(255 255 255 / 0.08) inset, 0 18px 40px -18px rgb(0 0 0 / 0.6);
+  /* Colours that say what is what at a glance (spaces, rings, states): the same everywhere in Pro. */
+  --pro-etudes: #5b8cff;
+  --pro-travail: #f5a524;
+  --pro-perso: #ff5c8a;
+  --pro-tasks: #ff375f;
+  --pro-focus: #30d158;
+  --pro-meet: #40c8e0;
+  --pro-timer: #ffb547;
+  --pro-urgent: #ff6b5e;
+}
+:root[data-pro='nuit'][data-style][data-theme] {
+  --wallpaper: linear-gradient(180deg, rgb(6 8 18 / 0.2), rgb(6 8 18 / 0.55)), url('/pro/nuit.webp') center / cover no-repeat, #080d1f;
+}
+:root[data-pro='aurore'][data-style][data-theme] {
+  --wallpaper:
+    radial-gradient(60% 55% at 18% 22%, #1f7a6a, transparent 70%), radial-gradient(55% 60% at 85% 30%, #5b3fa8, transparent 70%),
+    radial-gradient(70% 60% at 50% 95%, #2a5fa8, transparent 70%), #0d1020;
+  --wp-ratio: none;
+}
+:root[data-pro='maree'][data-style][data-theme] {
+  --wallpaper:
+    radial-gradient(60% 55% at 18% 22%, #1f5fd1, transparent 70%), radial-gradient(55% 60% at 85% 30%, #2bb3d9, transparent 70%),
+    radial-gradient(70% 60% at 50% 95%, #1b3a8a, transparent 70%), #0a1022;
+  --wp-ratio: none;
+}
+:root[data-pro='braise'][data-style][data-theme] {
+  --wallpaper:
+    radial-gradient(60% 55% at 18% 22%, #d9542b, transparent 70%), radial-gradient(55% 60% at 85% 30%, #b8452a, transparent 70%),
+    radial-gradient(70% 60% at 50% 95%, #a8243a, transparent 70%), #1a0c0a;
+  --wp-ratio: none;
+}

@@ -268,7 +268,7 @@ function Loading({ full }: { full?: boolean }) {
 const loadAccount = () =>
   useAuth.getState().user
     ? import('./store/session').then(m => m.loadUserData())
-    : applyAppearance({ ...useSettings.getState(), theme: storedTheme() ?? 'auto', style: storedStyle() ?? 'classique' }, false);
+    : applyAppearance({ ...useSettings.getState(), theme: storedTheme() ?? 'auto', style: storedStyle() ?? 'classique', pro: false }, false);
 
 /** « d’Admin », not « de Admin »: the French sentence differs (each language translates both the same way). */
 const elides = (n: string) => /^[aeiouyàâäéèêëîïôöûüùh]/i.test(n);

@@ -8,5 +8,13 @@ try {
   var st = localStorage.getItem('cop-style');
   var paper = { verre: ['#e7eaf6', '#0b0d18'], liquide: ['#eceef2', '#111215'], relief: ['#e4e9f2', '#1e2126'] }[st] || ['#eceef3', '#0c0d12'];
   if (st === 'verre' || st === 'liquide' || st === 'relief') document.documentElement.dataset.style = st;
+  // « Affichage Pro »: always dark, on Verre's glass, with its wallpaper (same as applyAppearance).
+  var pro = localStorage.getItem('cop-pro');
+  if (pro) {
+    document.documentElement.dataset.theme = 'dark';
+    document.documentElement.dataset.style = 'verre';
+    document.documentElement.dataset.pro = pro;
+    paper = ['#0c0d12', '#0c0d12'];
+  }
   document.querySelector('meta[name="theme-color"]').setAttribute('content', paper[dark ? 1 : 0]);
 } catch (e) {}
