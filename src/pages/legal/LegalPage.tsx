@@ -1,4 +1,5 @@
-import { Link, NavLink } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import Logo from '../../components/Logo';
 import { LEGAL_LINKS } from './links';
 import { lang, locale, t } from '../../i18n';
@@ -7,7 +8,7 @@ import { lang, locale, t } from '../../i18n';
 
 export type LegalDoc = 'mentions' | 'confidentialite' | 'conditions';
 
-const UPDATED = new Date(2026, 9, 26).toLocaleDateString(locale(), { day: 'numeric', month: 'long', year: 'numeric' });
+const UPDATED = new Date(2026, 10, 5).toLocaleDateString(locale(), { day: 'numeric', month: 'long', year: 'numeric' });
 const CONTACT = 'contact@kompaly.com';
 
 type Section = { title: string; body: string[] };
@@ -77,8 +78,8 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
       {
         title: t('Kompaly et l’intelligence artificielle'),
         body: [
-          t('Quand tu poses une question à Kompaly en mode intelligent, ton message et les éléments nécessaires pour y répondre (par exemple le texte d’un fichier que tu lui demandes de lire) sont envoyés au fournisseur d’IA : Groq, Inc. (États-Unis). Groq ne conserve ni tes messages ni les réponses (option « zéro conservation » activée).'),
-          t('Ce transfert hors de l’Union européenne est encadré par les clauses contractuelles types de la Commission européenne, prévues dans le contrat de traitement des données de Groq. Le mode simple de Kompaly fonctionne sans rien envoyer.'),
+          t('Quand tu poses une question à Kompaly en mode intelligent, ton message et les éléments nécessaires pour y répondre (par exemple le texte d’un fichier que tu lui demandes de lire) sont envoyés au fournisseur d’IA : Anthropic, PBC (États-Unis), avec son modèle Claude. Anthropic ne se sert pas de ces échanges pour entraîner ses modèles et les efface automatiquement au bout de 30 jours au plus.'),
+          t('Ce transfert hors de l’Union européenne est encadré par les clauses contractuelles types de la Commission européenne, prévues dans le contrat de traitement des données d’Anthropic. Le mode simple de Kompaly fonctionne sans rien envoyer à une IA.'),
           t('N’envoie pas à Kompaly d’informations sensibles (santé, données d’autres personnes…).'),
         ],
       },
@@ -88,7 +89,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
           t('Quand tu enregistres un cours, une réunion ou autre chose, le son (de ton micro, ou de l’ordinateur quand tu partages un onglet ou ton écran) est découpé en morceaux d’une vingtaine de secondes, envoyés un par un à Groq pour être écrits en texte (avec le titre, tes mots-clés et la fin du passage précédent, pour mieux reconnaître les mots), puis effacés : ni Kompaly ni Groq ne gardent le son. Les moments où personne ne parle ne sont pas envoyés.'),
           t('Avec le micro, le navigateur peut aussi écrire les mots en direct avec sa propre reconnaissance vocale (celle de Google dans Chrome, d’Apple dans Safari), selon les règles de ce navigateur.'),
           t('Le texte est ensuite rédigé (cours, compte rendu, fiche de révision, résumé, examen ou questions) par le fournisseur d’IA indiqué plus haut, et les documents sont rangés dans ton Drive. C’est le même fournisseur qui fait une fiche ou un examen à partir d’un document de ton Drive quand tu le demandes (clic droit sur le fichier) : le texte du document lui est alors envoyé. Pendant l’enregistrement, la transcription est gardée sur ton appareil pour ne rien perdre si la page se ferme.'),
-          t('Quand tu fais une fiche depuis une photo, les photos (réduites) sont envoyées à Google (API Gemini, États-Unis) pour être lues ; Kompaly ne les garde pas, seule la fiche en PDF est rangée dans ton Drive. Évite de photographier des informations sensibles (papiers d’identité, santé).'),
+          t('Quand tu fais une fiche depuis une photo, les photos (réduites) sont envoyées à Google (API Gemini, États-Unis) pour être lues ; Kompaly ne les garde pas, seule la fiche en PDF est rangée dans ton Drive. Cette fonction sert à tes cours et à tes notes : inutile d’y photographier des papiers d’identité ou des documents médicaux.'),
           t('Si tu actives « Alertes aussi sur mon téléphone », le mot-clé entendu et la phrase où il a été dit sont envoyés à tes autres appareils par notification (voir « Qui y a accès »).'),
           t('Enregistrer quelqu’un demande son accord : demande-le au professeur, à tes collègues ou aux personnes présentes avant de commencer.'),
         ],
@@ -97,8 +98,9 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
         title: t('Qui y a accès'),
         body: [
           t('Personne d’autre que toi pour ton espace personnel. Les membres d’un groupe voient ce qui est partagé dans ce groupe.'),
+          t('Tes données sont chiffrées pendant leur transfert (HTTPS) et sur les disques des serveurs qui les hébergent, dans l’Union européenne.'),
           t('L’administrateur du site (l’éditeur) voit la liste des comptes pour faire fonctionner le service : prénom, e-mail, dates d’inscription et de dernière connexion, double authentification activée ou non, nombre de notes, d’événements et de fichiers, espace utilisé, noms des catégories que tu crées (sans tes événements). Il lit aussi les messages « Avis ou bug » et les signalements, avec la copie du contenu signalé. Jamais le reste du contenu de tes notes, fichiers ou événements.'),
-          t('Nos sous-traitants techniques les traitent uniquement pour faire fonctionner le service : Render (hébergement du site, serveurs à Francfort, Allemagne), Supabase (comptes, données et fichiers, serveurs en Irlande), Resend (envoi des e-mails : confirmation, mot de passe oublié, bienvenue et conseils ; reçoit ton adresse e-mail et ton prénom, serveurs en Irlande), Cloudflare (vérification anti-robot Turnstile à l’inscription et à la connexion : reçoit ton adresse IP et des informations sur ton navigateur le temps de la vérification, sans pistage publicitaire ; et mesure d’audience anonyme ; contrat de traitement et clauses contractuelles types), Groq (fournisseur d’IA indiqué plus haut, et transcription du son des enregistrements, sans conservation) et Google (lecture des photos pour les fiches).'),
+          t('Nos sous-traitants techniques les traitent uniquement pour faire fonctionner le service : Render (hébergement du site, serveurs à Francfort, Allemagne), Supabase (comptes, données et fichiers, serveurs en Irlande), Resend (envoi des e-mails : confirmation, mot de passe oublié, bienvenue et conseils ; reçoit ton adresse e-mail et ton prénom, serveurs en Irlande), Cloudflare (vérification anti-robot Turnstile à l’inscription et à la connexion : reçoit ton adresse IP et des informations sur ton navigateur le temps de la vérification, sans pistage publicitaire ; et mesure d’audience anonyme ; contrat de traitement et clauses contractuelles types), Anthropic (fournisseur de l’IA indiqué plus haut), Groq (transcription du son des enregistrements, sans conservation) et Google (lecture des photos pour les fiches).'),
           t('Plusieurs de ces prestataires sont des sociétés établies hors de l’Union européenne (États-Unis, Singapour). Même quand leurs serveurs sont en Europe, leurs contrats de traitement des données prévoient les clauses contractuelles types de la Commission européenne ou le cadre de protection des données UE–États-Unis (Data Privacy Framework).'),
           t('Si tu te connectes avec Google ou Apple, ce service sait que tu utilises Kompaly, selon sa propre politique de confidentialité.'),
           t('Les notifications passent par le service de notifications de ton navigateur ou de ton téléphone (Google pour Chrome et Android, Apple pour Safari et iPhone, Mozilla pour Firefox, Microsoft pour Edge) : le message est chiffré de bout en bout, ce service ne peut pas le lire, il le transmet seulement à ton appareil.'),
@@ -114,7 +116,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
       {
         title: t('Stockage sur ton appareil'),
         body: [
-          t('Kompaly garde une copie de tes données dans ton navigateur pour fonctionner vite et hors ligne, et pour rester connecté. Il s’agit uniquement de stockage nécessaire au service : aucun cookie publicitaire ni de mesure d’audience, donc pas de bandeau de consentement.'),
+          t('Kompaly garde une copie de tes données dans ton navigateur pour fonctionner vite et hors ligne, et pour rester connecté. Il s’agit uniquement de stockage nécessaire au service : aucun cookie, ni publicitaire ni de mesure d’audience, donc pas de bandeau de consentement.'),
           t('Pour savoir combien de personnes utilisent Kompaly et si les pages s’affichent vite, nous comptons les visites avec Cloudflare Web Analytics : la page vue, le site d’où tu viens, ton pays, le type d’appareil et de navigateur, le temps d’affichage. Sans cookie, sans rien enregistrer sur ton appareil et sans identifiant : une visite ne peut pas être reliée à toi ni à tes visites suivantes, et rien n’est utilisé pour de la publicité.'),
           t('Pour que la recherche trouve les mots à l’intérieur de tes PDF, Word et PowerPoint, Kompaly lit leur texte dans ton navigateur et le garde sur ton appareil. Ce texte n’est envoyé à personne ; il est effacé à la déconnexion, avec la copie de tes données, quand « Rester connecté » n’est pas cochée.'),
           t('Avec « Rester connecté » (case de la page de connexion), ton compte reste proposé sur la page de connexion de cet appareil (prénom, e-mail et session) pour l’ouvrir en un clic, même après une déconnexion ; au bout de 14 jours sans l’ouvrir, le mot de passe est redemandé. « Retirer de cet appareil » (la croix à côté du compte) l’efface et ferme sa session. Sans cette case, la déconnexion efface la copie et la session.'),
@@ -193,13 +195,19 @@ const frenchSpaces = (text: string) =>
 
 export default function LegalPage({ doc }: { doc: LegalDoc }) {
   const { title, sections } = DOCS[doc];
+  const navigate = useNavigate();
+  // Back where the reader came from (sign-up, the app, the home page); straight to the home page when opened directly.
+  const back = () => ((window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/'));
   return (
     <div className="h-full overflow-y-auto bg-paper px-6 py-6 sm:px-10">
-      <header>
+      <header className="flex items-center justify-between gap-3">
         {/* inline-flex: around a block child, the focus outline of an inline link was drawn on an empty box. */}
         <Link to="/" aria-label={t('Accueil')} className="inline-flex rounded-md pointer-coarse:py-1">
           <Logo />
         </Link>
+        <button type="button" onClick={back} className="btn-secondary h-9 px-3">
+          <ArrowLeft size={15} /> {t('Retour')}
+        </button>
       </header>
       <main>
       <article className="mx-auto max-w-[680px] py-10">
