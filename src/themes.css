@@ -49,7 +49,9 @@
   --color-tile-dark: rgb(0 0 0 / 0.5);
   --shadow-card: 0 12px 36px -16px rgb(0 0 0 / 0.6);
 }
-:root[data-style='verre'] :is(.card, aside.bg-surface, .shadow-pop.bg-surface, .card.shadow-pop, #nav-more-panel, #copilot-panel, .bg-tile-blue, .bg-tile-dark) {
+/* The blur only on what floats over the page (menus, panels, the phone's tab bar): cards and tiles sit on the plain
+   wallpaper, where it showed nothing, and Safari on iPhone drew black squares for the many scrolling cards that had it. */
+:root[data-style='verre'] :is(.shadow-pop.bg-surface, .card.shadow-pop, #nav-more-panel, #copilot-panel, nav.bg-tile-dark) {
   -webkit-backdrop-filter: blur(24px) saturate(170%);
   backdrop-filter: blur(24px) saturate(170%);
 }
@@ -105,7 +107,9 @@
   --color-stone-500: #a9afc1; /* ≥ 4.5:1 on the lighter glass cards */
   --shadow-card: 0 14px 34px -16px rgb(0 0 0 / 0.7);
 }
-:root[data-style='liquide'] :is(.card, aside.bg-surface, .shadow-pop.bg-surface, .card.shadow-pop, #nav-more-panel, #copilot-panel, .bg-tile-blue, .bg-tile-dark) {
+/* The blur only on what floats over the page (menus, panels, the phone's tab bar): cards and tiles sit on the plain
+   wallpaper, where it showed nothing, and Safari on iPhone drew black squares for the many scrolling cards that had it. */
+:root[data-style='liquide'] :is(.shadow-pop.bg-surface, .card.shadow-pop, #nav-more-panel, #copilot-panel, nav.bg-tile-dark) {
   -webkit-backdrop-filter: blur(14px) saturate(180%);
   backdrop-filter: blur(14px) saturate(180%);
 }
