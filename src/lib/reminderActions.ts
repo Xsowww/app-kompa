@@ -2,14 +2,14 @@
 // of a system notification (public/sw.js → lib/reminderScheduler). What « Plus tard » puts off is kept in the settings
 // (reminderSnoozes, on every device), so the scheduler plans it again with the rest — the server's push included.
 
-import { reminderItems } from './reminders';
+import { reminderItems, SNOOZE_MINUTES } from './reminders';
 import { useTodos } from '../store/todos';
 import { useSettings } from '../store/settings';
 import { toast } from '../store/ui';
 import { t } from '../i18n';
 
-/** « Plus tard »: reminded again this many minutes later. */
-export const SNOOZE_MINUTES = 10;
+// « Plus tard »: lib/reminders (the card shows it before this file is loaded).
+export { SNOOZE_MINUTES };
 
 /**
  * « Plus tard » or « Fait » on a reminder (its keys): « Plus tard » on the tasks and events it is about, « Fait » on

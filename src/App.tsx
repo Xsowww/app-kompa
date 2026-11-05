@@ -1,9 +1,10 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useState } from 'react';
-import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from './store/auth';
 import { arrivedWithLink, inRecovery, linkError } from './lib/supabase';
 import { peekAfterLogin, rememberAfterLogin } from './lib/afterLogin';
-import { loadUserData, useWelcome } from './store/session';
+import { useWelcome } from './store/welcome';
+import { applyAppearance, storedStyle, storedTheme, useSettings } from './store/settings';
 import { toast } from './store/ui';
 import AuthPage from './pages/AuthPage';
 import { DialogHost, ServiceBanner, Toasts } from './components/Overlays';
@@ -139,10 +140,38 @@ function PageTitle() {
 
 export const PENDING_INVITE = 'cop-invite';
 
+/**
+ * Goes to `to`, with the loading screen meanwhile (never an empty page). Unlike <Navigate>, it goes again when another
+ * navigation lands here before it (a sign-in page sending to « / » while the account needed the questionnaire left
+ * a blank « / » for good: the page change runs as a transition, still waiting for the questionnaire's code).
+ */
+function Redirect({ to }: { to: string }) {
+  const navigate = useNavigate();
+  const { key } = useLocation();
+  useEffect(() => {
+    void navigate(to, { replace: true });
+  }, [navigate, to, key]);
+  return <Loading full />;
+}
+
+/** The questionnaire couldn't be checked (new device, offline): the app opens and offers it, once per visit. */
+let offeredProfile = false;
+function FinishProfile() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (offeredProfile) return;
+    offeredProfile = true;
+    toast(t('Termine ton profil : quelques questions pour adapter Kompaly.'), 'info', { label: t('Terminer'), run: () => void navigate('/bienvenue') }, { duration: 0 });
+  }, [navigate]);
+  return null;
+}
+
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const user = useAuth(s => s.user);
   const mfaStep = useAuth(s => s.mfaStep);
   const welcome = useWelcome(s => s.pending);
+  const unsure = useWelcome(s => s.unsure);
+  const checking = useWelcome(s => s.checking);
   const { pathname, search } = useLocation();
   // An address the app doesn't have (the shell's « * » route below): its own page, without the app around it.
   const unknown = useParams()['*'] !== undefined;
@@ -154,24 +183,32 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
     else if (pathname !== '/') rememberAfterLogin(pathname + search); // the page asked for, opened once signed in
     return pathname === '/' ? <Suspense fallback={<Loading full />}><LandingPage /></Suspense> : <Navigate to="/connexion" replace />;
   }
-  if (mfaStep) return <Navigate to="/securite" replace />;
-  return welcome ? <Navigate to="/bienvenue" replace /> : children;
+  if (mfaStep) return <Redirect to="/securite" />;
+  // The account is being loaded: not the app empty, then a jump to the questionnaire.
+  if (checking) return <Loading full />;
+  if (welcome) return <Redirect to="/bienvenue" />;
+  return (
+    <>
+      {unsure && <FinishProfile />}
+      {children}
+    </>
+  );
 }
 
 /** The welcome questionnaire: only for a signed-in account that hasn't answered it yet. */
 function WelcomeOnly({ children }: { children: React.ReactNode }) {
   const user = useAuth(s => s.user);
   const mfaStep = useAuth(s => s.mfaStep);
-  const welcome = useWelcome(s => s.pending);
-  if (!user) return <Navigate to="/connexion" replace />;
-  if (mfaStep) return <Navigate to="/securite" replace />;
-  return welcome ? children : <Navigate to="/" replace />;
+  const welcome = useWelcome(s => s.pending || s.unsure);
+  if (!user) return <Redirect to="/connexion" />;
+  if (mfaStep) return <Redirect to="/securite" />;
+  return welcome ? children : <Redirect to="/" />;
 }
 
 function GuestOnly({ children }: { children: React.ReactNode }) {
   const user = useAuth(s => s.user);
   const mfaStep = useAuth(s => s.mfaStep);
-  return user ? <Navigate to={mfaStep ? '/securite' : peekAfterLogin()} replace /> : children;
+  return user ? <Redirect to={mfaStep ? '/securite' : peekAfterLogin()} /> : children;
 }
 
 /** The new-password page only after a reset e-mail (or to say its link expired). */
@@ -223,6 +260,15 @@ function Loading({ full }: { full?: boolean }) {
   );
 }
 
+/**
+ * The signed-in account's data (store/session, with every store: downloaded only then); signed out, only the theme
+ * last used on this device. The sign-in and sign-up pages thus open without the app's code.
+ */
+const loadAccount = () =>
+  useAuth.getState().user
+    ? import('./store/session').then(m => m.loadUserData())
+    : applyAppearance({ ...useSettings.getState(), theme: storedTheme() ?? 'auto', style: storedStyle() ?? 'classique' }, false);
+
 /** « d’Admin », not « de Admin »: the French sentence differs (each language translates both the same way). */
 const elides = (n: string) => /^[aeiouyàâäéèêëîïôöûüùh]/i.test(n);
 
@@ -233,7 +279,7 @@ export default function App() {
     void useAuth
       .getState()
       .init()
-      .then(loadUserData)
+      .then(loadAccount)
       .finally(() => {
         setReady(true);
         if (sessionStorage.getItem('cop-own-switch')) {
