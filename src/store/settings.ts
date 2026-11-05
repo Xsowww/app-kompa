@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { userStorage } from '../lib/userStorage';
 import type { Usage } from '../lib/usage';
+import type { SpaceKey } from '../lib/navOrder';
 import type { CustomCategory } from './calendar';
 import type { Period } from '../lib/periods';
 import type { IcsFeed } from '../lib/icsFeeds';
@@ -33,6 +34,14 @@ export interface Settings {
   // profile
   usage: Usage; // what the account is for (welcome questionnaire): changes words and starter content
   needs: string[]; // what the person said they need most (welcome questionnaire), given to the AI
+  /** Everything « Kompaly, c'est pour… » got (welcome questionnaire); `usage` is the first of them. */
+  usages: Usage[];
+  /** The welcome questionnaire answered (or skipped) on any device: with the profile's « onboarded », it never comes back. */
+  welcomeDone: boolean;
+  /** The questionnaire left half-way (question shown, answers so far): picked up there on any device. */
+  welcomeDraft: { step: number; answers: Record<string, unknown> } | null;
+  /** « Face ID ou empreinte ? » already offered to this account (once, whatever the device). */
+  passkeyOffered: boolean;
   avatarColor: string;
   avatarImage: string | null; // small data URL
   school: string;
@@ -44,6 +53,9 @@ export interface Settings {
   theme: ThemeMode;
   style: UiStyle;
   language: Language;
+  /** The spaces of the navigation in the order chosen (Profil › Apparence) or given by the questionnaire (lib/navOrder);
+   *  null: derived from `usage` and `needs`. */
+  navOrder?: SpaceKey[] | null;
   // Kompaly
   copilotVisible: boolean;
   proactive: boolean;
@@ -95,6 +107,10 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   usage: 'etudes',
   needs: [],
+  usages: [],
+  welcomeDone: false,
+  welcomeDraft: null,
+  passkeyOffered: false,
   avatarColor: AVATAR_COLORS[0],
   avatarImage: null,
   school: '',
@@ -105,6 +121,7 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: 'auto', // follows the device until the student picks one
   style: 'classique',
   language: 'fr',
+  navOrder: null,
   copilotVisible: true,
   proactive: true,
   chattiness: 'calme',

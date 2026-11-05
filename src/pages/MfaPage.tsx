@@ -2,8 +2,8 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2, ShieldCheck, Smartphone } from 'lucide-react';
 import { AUTH_MSG, useAuth, type MfaEnrollment } from '../store/auth';
-import { loadUserData, useWelcome } from '../store/session';
-import { takeAfterLogin } from '../lib/afterLogin';
+import { loadUserData } from '../store/session';
+import { afterSignIn } from '../store/welcome';
 import { offerPasskey } from '../lib/passkeyOffer';
 import { CONTACT } from '../lib/feedback';
 import Logo from '../components/Logo';
@@ -74,7 +74,7 @@ export default function MfaPage() {
       // Signed in with the password and the code: Face ID offered here too (once, as after a sign-in without two-factor).
       if (user) void offerPasskey(user.id);
       // Straight to the right page: going through « / » first left a blank screen when the questionnaire was due.
-      navigate(useWelcome.getState().pending ? '/bienvenue' : takeAfterLogin(), { replace: true });
+      navigate(afterSignIn(), { replace: true });
     } catch (err) {
       submitting.current = false;
       const msg = (err as Error).message;

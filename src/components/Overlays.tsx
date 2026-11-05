@@ -2,8 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { BellRing, CheckCircle2, CloudAlert, Info, WifiOff, X, XCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { reminderItems } from '../lib/reminders';
-import { reminderAction, SNOOZE_MINUTES } from '../lib/reminderActions';
+import { reminderItems, SNOOZE_MINUTES } from '../lib/reminders';
 import { create } from 'zustand';
 import { useUi, type ReminderAlert, type Toast } from '../store/ui';
 import { cx } from '../lib/utils';
@@ -459,7 +458,8 @@ function AlertButtons({ alert: a }: { alert: ReminderAlert }) {
   const tickable = mine === 1 && items[0].kind === 'task';
   const act = (action: 'later' | 'done') => {
     dismiss(a.key);
-    reminderAction(action, keys);
+    // Already there once signed in (the tasks' store): not downloaded with the sign-in pages.
+    void import('../lib/reminderActions').then(m => m.reminderAction(action, keys));
   };
   // Buttons of their own (rounded, 10 px inside the card's 18 px corners): their hover is their shape, not a cell
   // of the card cut by its corners.

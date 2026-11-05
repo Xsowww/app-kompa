@@ -6,6 +6,9 @@
 
 import { t, tn } from '../i18n';
 
+/** « Plus tard » on a reminder: reminded again this many minutes later (lib/reminderActions). */
+export const SNOOZE_MINUTES = 10;
+
 export interface ReminderOption {
   minutes: number;
   label: string;

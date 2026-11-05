@@ -1,12 +1,13 @@
 import { Fragment, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { CheckCircle2, Fingerprint, Loader2 } from 'lucide-react';
+import { CheckCircle2, Fingerprint, Loader2, MailCheck } from 'lucide-react';
 import { AUTH_MSG, awaitConfirmation, useAuth } from '../store/auth';
 import AccountList from '../components/AccountList';
 import { needsCredentials, reloginHint, savedAccounts, type SavedAccount } from '../lib/accounts';
-import { takeAfterLogin } from '../lib/afterLogin';
 import { toast } from '../store/ui';
-import { loadUserData, markLocalWelcome } from '../store/session';
+import { afterSignIn, markLocalWelcome } from '../store/welcome';
+// The account's load and every store: downloaded once signed in, not with the page.
+const loadUserData = () => import('../store/session').then(m => m.loadUserData());
 import { cloudEnabled, endRecovery, inRecovery, linkError, oauthError, passkeysAvailable, setRememberMe } from '../lib/supabase';
 import { prefetchCaptcha } from '../lib/captcha';
 import { offerPasskey } from '../lib/passkeyOffer';
@@ -20,6 +21,50 @@ import { FieldError } from '../components/Field';
 import LanguagePicker from '../components/LanguagePicker';
 import { LEGAL_LINKS } from './legal/links';
 import { t, tn } from '../i18n';
+
+/** After « Créer mon compte »: where the link went, how to get it again, and the way back to fix the address. */
+function CheckInbox({ email, busy, wait, info, error, onResend, onChange }: { email: string; busy: boolean; wait: number; info: string; error: string; onResend: () => void; onChange: () => void }) {
+  const heading = useRef<HTMLHeadingElement>(null);
+  // Screen readers and the keyboard start here (the button pressed is gone with the form).
+  useEffect(() => heading.current?.focus({ preventScroll: true }), []);
+  return (
+    <div className="enter w-full max-w-[340px]">
+      <MailCheck size={36} className="text-brand-600" aria-hidden />
+      <h1 ref={heading} tabIndex={-1} className="mt-4 text-[28px] font-extrabold leading-tight tracking-[-0.035em] outline-none">
+        {t('Vérifie ta boîte mail')}
+      </h1>
+      <p className="mt-2 text-[14px] leading-relaxed text-stone-600">
+        {t('On a envoyé un lien à')} <strong className="font-semibold text-ink [overflow-wrap:anywhere]">{email}</strong>. {t('Clique dessus pour activer ton compte : tu arriveras directement dans Kompaly.')}
+      </p>
+      <p className="mt-3 rounded-lg bg-stone-100 px-3 py-2 text-[12.5px] leading-snug text-stone-600">
+        {t('Rien reçu d’ici 2 minutes ? Regarde dans les spams ou l’onglet Promotions : le mail vient de Kompaly.')}
+      </p>
+      {error && (
+        <p role="alert" className="mt-3 text-[13px] text-red-600">
+          {error}
+        </p>
+      )}
+      {info && (
+        <p role="status" className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-[13px] text-emerald-800">
+          {info}
+        </p>
+      )}
+      <button type="button" className="btn-primary mt-6 w-full" disabled={busy || wait > 0} onClick={onResend}>
+        {busy && <Loader2 size={15} className="animate-spin" />}
+        {wait > 0 ? t('Renvoyer le mail ({n} s)', { n: wait }) : t('Renvoyer le mail')}
+      </button>
+      <button type="button" className="btn-secondary mt-2.5 w-full" disabled={busy} onClick={onChange}>
+        {t('Changer d’adresse')}
+      </button>
+      <p className="mt-6 text-center text-[13px] text-stone-500">
+        {t('Déjà cliqué sur le lien ?')}{' '}
+        <Link to="/connexion" className="hit font-medium text-ink underline decoration-stone-300 underline-offset-4 hover:decoration-ink">
+          {t('Se connecter')}
+        </Link>
+      </p>
+    </div>
+  );
+}
 
 function Showcase() {
   const days = [
@@ -107,6 +152,9 @@ const COPY: Record<Mode, { title: string; subtitle?: string; submit: string }> =
   reset: { title: t('Nouveau mot de passe'), submit: t('Enregistrer||sauver') },
 };
 
+/** Seconds before « Renvoyer le mail » works again (Supabase refuses more than one e-mail a minute anyway). */
+const RESEND_WAIT = 60;
+
 export default function AuthPage({ mode }: { mode: Mode }) {
   const navigate = useNavigate();
   const confirmedElsewhere = useAuth(s => s.confirmedElsewhere);
@@ -129,6 +177,15 @@ export default function AuthPage({ mode }: { mode: Mode }) {
   const [hasSaved, setHasSaved] = useState(() => savedAccounts().length > 0);
   // Not for an error back from Google or Apple: no e-mail was sent.
   const [canResend, setCanResend] = useState(mode === 'login' && !!linkError && !oauthError);
+  // Sign-up waiting for the e-mail's link: the form gives way to « Vérifie ta boîte mail » (the address it went to).
+  const [sentTo, setSentTo] = useState('');
+  // « Renvoyer le mail » waits a minute between two sends (time left, in seconds).
+  const [wait, setWait] = useState(0);
+  useEffect(() => {
+    if (!wait) return;
+    const id = setTimeout(() => setWait(w => Math.max(0, w - 1)), 1000);
+    return () => clearTimeout(id);
+  }, [wait]);
   // Face ID asked but nothing came (no key on this device, or the prompt closed).
   const [passkeyHint, setPasskeyHint] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -202,7 +259,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
       if (!(await useAuth.getState().loginWithPasskey())) return setPasskeyHint(true); // prompt closed, or no key here
       if (useAuth.getState().mfaStep) return navigate('/securite');
       await loadUserData();
-      navigate(takeAfterLogin());
+      navigate(afterSignIn(), { replace: true });
     } catch (err) {
       fail(null, (err as Error).message);
     } finally {
@@ -239,9 +296,10 @@ export default function AuthPage({ mode }: { mode: Mode }) {
         setRememberMe(true); // a new account stays signed in on the device it was created on
         const user = await register(name, email, password);
         if (!user) {
-          setInfo(t('Presque fini ! Ouvre l’e-mail envoyé à {email} sur cet appareil et clique sur le lien.', { email: email.trim() }));
+          // The form gives way to « Vérifie ta boîte mail »: nobody wonders whether it worked.
           awaitConfirmation(true);
-          setCanResend(true);
+          setSentTo(email.trim());
+          setWait(RESEND_WAIT);
           setPassword('');
           return;
         }
@@ -255,7 +313,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
         await loadUserData();
         if (cloudEnabled) void offerPasskey(user.id);
       }
-      navigate(takeAfterLogin());
+      navigate(afterSignIn(), { replace: true });
     } catch (err) {
       const message = (err as Error).message;
       // The button was disabled while waiting, so the focus fell out of the form: back to the field at fault.
@@ -282,11 +340,21 @@ export default function AuthPage({ mode }: { mode: Mode }) {
       await resendConfirmation(email);
       setInfo(t('E-mail renvoyé. Ouvre-le sur cet appareil et clique sur le lien.'));
       awaitConfirmation(true);
+      setWait(RESEND_WAIT);
     } catch (err) {
       setError((err as Error).message);
     } finally {
       setBusy(false);
     }
+  }
+
+  /** « Changer d’adresse »: back to the form, its fields as they were (but the password), in the e-mail field. */
+  function changeAddress() {
+    awaitConfirmation(false);
+    setSentTo('');
+    setInfo('');
+    setError('');
+    setTimeout(() => refs.current.email?.focus(), 0);
   }
 
   // `also`: what the field is already described by (the strength line under a new password).
@@ -351,6 +419,8 @@ export default function AuthPage({ mode }: { mode: Mode }) {
                 {t('Continuer ici')}
               </button>
             </div>
+          ) : sentTo ? (
+            <CheckInbox email={sentTo} busy={busy} wait={wait} info={info} error={error} onResend={() => void resend()} onChange={changeAddress} />
           ) : (
           <form onSubmit={onSubmit} noValidate className="enter w-full max-w-[340px]">
             <h1 className="text-[30px] font-extrabold tracking-[-0.035em]">{adding ? t('Ajouter un compte') : copy.title}</h1>
