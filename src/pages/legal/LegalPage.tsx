@@ -57,7 +57,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
           t('Connexion avec Google ou Apple, si tu l’utilises : ce service nous transmet ton nom, ton adresse e-mail (Apple peut te proposer une adresse masquée), un identifiant propre à ton compte chez lui et, pour Google, l’adresse de ta photo de profil. Kompaly n’utilise que ton prénom et ton e-mail ; il n’a accès à rien d’autre de ce compte (ni e-mails, ni fichiers, ni agenda).'),
           t('L’utilisation par Kompaly des informations reçues des API de Google respecte la Google API Services User Data Policy, y compris ses exigences d’utilisation limitée (Limited Use).'),
           t('Face ID ou empreinte, si tu l’actives : la vérification se fait sur ton appareil. Kompaly ne reçoit ni ton visage ni ton empreinte, seulement une clé publique (qui prouve que c’est bien ton appareil), son nom (« iPhone », « Mac »…) et ses dates d’ajout et de dernière utilisation.'),
-          t('Contenus : fichiers du Drive, notes, événements, tâches, sessions de concentration, groupes et agendas partagés et ce que tu y partages, enregistrements (le texte écrit à partir du son, tes mots-clés et les documents créés), réglages (thème, profil d’études ou de travail facultatif).'),
+          t('Contenus : fichiers, notes, événements, tâches, sessions de concentration, groupes et agendas partagés et ce que tu y partages, enregistrements (le texte écrit à partir du son, tes mots-clés et les documents créés), réglages (thème, profil d’études ou de travail facultatif).'),
           t('Emplois du temps suivis par lien : le lien (.ics) est gardé avec tes réglages, et le serveur de Kompaly le lit pour toi toutes les 3 heures environ ; ses événements sont rangés dans ton calendrier.'),
           t('Technique : journaux d’erreurs du serveur (page concernée et message d’erreur, sans le contenu de tes documents) pour corriger les bugs.'),
           t('Messages « Avis ou bug » : ton message, la page ouverte et le type d’appareil (navigateur, système, taille d’écran).'),
@@ -88,8 +88,8 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
         body: [
           t('Quand tu enregistres un cours, une réunion ou autre chose, le son (de ton micro, ou de l’ordinateur quand tu partages un onglet ou ton écran) est découpé en morceaux d’une vingtaine de secondes, envoyés un par un à Groq pour être écrits en texte (avec le titre, tes mots-clés et la fin du passage précédent, pour mieux reconnaître les mots), puis effacés : ni Kompaly ni Groq ne gardent le son. Les moments où personne ne parle ne sont pas envoyés.'),
           t('Avec le micro, le navigateur peut aussi écrire les mots en direct avec sa propre reconnaissance vocale (celle de Google dans Chrome, d’Apple dans Safari), selon les règles de ce navigateur.'),
-          t('Le texte est ensuite rédigé (cours, compte rendu, fiche de révision, résumé, examen ou questions) par le fournisseur d’IA indiqué plus haut, et les documents sont rangés dans ton Drive. C’est le même fournisseur qui fait une fiche ou un examen à partir d’un document de ton Drive quand tu le demandes (clic droit sur le fichier) : le texte du document lui est alors envoyé. Pendant l’enregistrement, la transcription est gardée sur ton appareil pour ne rien perdre si la page se ferme.'),
-          t('Quand tu fais une fiche depuis une photo, les photos (réduites) sont envoyées à Google (API Gemini, États-Unis) pour être lues ; Kompaly ne les garde pas, seule la fiche en PDF est rangée dans ton Drive. Cette fonction sert à tes cours et à tes notes : inutile d’y photographier des papiers d’identité ou des documents médicaux.'),
+          t('Le texte est ensuite rédigé (cours, compte rendu, fiche de révision, résumé, examen ou questions) par le fournisseur d’IA indiqué plus haut, et les documents sont rangés dans tes Fichiers. C’est le même fournisseur qui fait une fiche ou un examen à partir d’un document de tes Fichiers quand tu le demandes (clic droit sur le fichier) : le texte du document lui est alors envoyé. Pendant l’enregistrement, la transcription est gardée sur ton appareil pour ne rien perdre si la page se ferme.'),
+          t('Quand tu fais une fiche depuis une photo, les photos (réduites) sont envoyées à Google (API Gemini, États-Unis) pour être lues ; Kompaly ne les garde pas, seule la fiche en PDF est rangée dans tes Fichiers. Cette fonction sert à tes cours et à tes notes : inutile d’y photographier des papiers d’identité ou des documents médicaux.'),
           t('Si tu actives « Alertes aussi sur mon téléphone », le mot-clé entendu et la phrase où il a été dit sont envoyés à tes autres appareils par notification (voir « Qui y a accès »).'),
           t('Enregistrer quelqu’un demande son accord : demande-le au professeur, à tes collègues ou aux personnes présentes avant de commencer.'),
         ],
@@ -138,7 +138,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
       {
         title: t('Le service'),
         body: [
-          t('Kompaly est un espace pour s’organiser (études, travail ou vie perso) : Drive, calendrier, notes, tâches, groupes et agendas partagés, enregistrement de cours ou de réunions, et l’ami Kompaly qui t’accompagne. Il est proposé gratuitement, en l’état, et peut évoluer.'),
+          t('Kompaly est un espace pour s’organiser (études, travail ou vie perso) : fichiers, calendrier, notes, tâches, groupes et agendas partagés, enregistrement de cours ou de réunions, et l’ami Kompaly qui t’accompagne. Il est proposé gratuitement, en l’état, et peut évoluer.'),
           t('En créant un compte, tu acceptes ces conditions et la politique de confidentialité.'),
         ],
       },
@@ -162,7 +162,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
         ],
       },
       {
-        title: t('L’ami Kompaly'),
+        title: t('L’assistant Kompaly'),
         body: [
           t('Kompaly est une intelligence artificielle : il peut se tromper. Vérifie ce qu’il te dit, surtout pour tes cours, tes dates importantes et tes échéances. Il te demande toujours de confirmer avant de supprimer quelque chose.'),
           t('Les documents écrits à partir d’un enregistrement ou d’un fichier (cours, compte rendu, fiche, résumé, examen) sont rédigés par l’IA à partir d’une transcription automatique : relis-les avant de t’en servir.'),
