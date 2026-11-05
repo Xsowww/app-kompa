@@ -2,6 +2,7 @@ import { addDays, format, isValid, parseISO, startOfWeek, differenceInCalendarDa
 import { fr } from 'date-fns/locale/fr';
 import { dateLocale, lang, t, type Lang } from '../i18n';
 import { parseQuickAddIn } from './quickAddOther';
+import type { Repeat } from './repeat';
 
 // Read once: the app (and this file) loads after loadLang().
 const DATE_LOCALE = lang === 'fr' ? fr : (dateLocale ?? fr);
@@ -63,9 +64,13 @@ export interface ParsedQuickAdd {
   date: string | null;
   start: string | null;
   end: string | null;
-  /** « tous les mardis », « chaque lundi »: the event form offers « Chaque semaine » (lib/repeat). */
+  /** « Congés du 22 au 26 décembre »: the last day of an event over several days (`date` is the first). */
+  endDate?: string;
+  /** « tous les mardis », « toutes les semaines », « tous les jours »…: the repeat the event form offers (lib/repeat). */
+  every?: Repeat;
+  /** « tous les mardis », « chaque lundi », « toutes les semaines » (every === 'week'). */
   weekly?: boolean;
-  /** « tous les ans », « chaque année » (a birthday): the event form offers « Chaque année ». */
+  /** « tous les ans », « chaque année » (a birthday; every === 'year'). */
   yearly?: boolean;
   /** « important », « urgent » or « ! » in the sentence: the event is flagged important. */
   important?: boolean;
@@ -95,10 +100,10 @@ export function parseQuickAdd(input: string, base = new Date(), language = lang)
   }
   let text = ` ${input} `;
   let date: Date | null = null;
+  let endDate: Date | null = null;
   let start: string | null = null;
   let end: string | null = null;
-  let weekly = false;
-  let yearly = false;
+  let every: Repeat | undefined;
   let impossible = false; // « le 30 février »: no date, rather than « le 30 » of this month
   // Same length as `text` (accents stripped, no trim) so match indices map back.
   // The typographic apostrophe of phone keyboards (« aujourd’hui ») counts as a plain one.
@@ -112,11 +117,6 @@ export function parseQuickAdd(input: string, base = new Date(), language = lang)
     const m = find(re);
     if (m) remove(m);
     return m;
-  };
-  /** Same year, or next year when the date is more than a month ago. */
-  const ahead = (d: Date | null, yearGiven: boolean) => {
-    if (d && !yearGiven && differenceInCalendarDays(d, base) < -30) d.setFullYear(d.getFullYear() + 1);
-    return d;
   };
   /** That day this year, else the next year it exists and isn't more than a month ago (« 29/02 » → the next leap year). */
   const upcoming = (y: number, month: number, day: number, yearGiven: boolean) => {
@@ -178,6 +178,8 @@ export function parseQuickAdd(input: string, base = new Date(), language = lang)
     if (end && Number(end.slice(0, 2)) < 12) end = later(end);
     if (pm[1] || pm[2]) remove(pm);
   }
+  // « 10h du matin »: the hour as it is, the words out of the title (« ce matin » / « demain matin » are days, below).
+  if (start) cut(/\sdu\smatin(?=\s)/);
 
   // The length typed: the end, on the same day.
   if (start && !end && length > 0 && toMinutes(start) + length < 24 * 60) end = fromMinutes(toMinutes(start) + length);
@@ -188,14 +190,18 @@ export function parseQuickAdd(input: string, base = new Date(), language = lang)
   if (flag) important = true;
 
   // « Anniversaire de Léa le 12 mars tous les ans »: the date as said, repeated each year.
-  if (cut(/\s(?:tous\sles\sans|chaque\sannee|toutes\sles\sannees)(?=\s)/)) yearly = true;
+  if (cut(/\s(?:tous\sles\sans|chaque\sannee|toutes\sles\sannees)(?=\s)/)) every = 'year';
 
-  // Every week: the next one.
-  const every = cut(new RegExp(`\\s(?:tous\\sles|chaque)\\s(${DAY})s?${PERIOD}(?=\\s)`));
-  if (every) {
-    weekly = true;
-    date = addDays(base, (WEEKDAYS.indexOf(every[1]) - base.getDay() + 7) % 7);
-  }
+  // « tous les mardis », « chaque lundi »: every week, from the next one. « toutes les semaines » (with or without
+  // « le mercredi » further on), « tous les jours », « tous les mois », « une semaine sur deux »: the day said, else the one shown.
+  const weekday = cut(new RegExp(`\\s(?:tous\\sles|chaque)\\s(${DAY})s?${PERIOD}(?=\\s)`));
+  if (weekday) {
+    every = 'week';
+    date = addDays(base, (WEEKDAYS.indexOf(weekday[1]) - base.getDay() + 7) % 7);
+  } else if (cut(/\s(?:toutes\sles\s(?:2|deux)\ssemaines|une\ssemaine\ssur\s(?:2|deux)|tous\sles\squinze\sjours)(?=\s)/)) every = '2weeks';
+  else if (cut(/\s(?:toutes\sles\ssemaines|chaque\ssemaine|une\sfois\spar\ssemaine)(?=\s)/)) every = 'week';
+  else if (cut(/\s(?:tous\sles\sjours|chaque\sjour)(?=\s)/)) every = 'day';
+  else if (cut(/\s(?:tous\sles\smois|chaque\smois|une\sfois\spar\smois)(?=\s)/)) every = 'month';
 
   // Relative days: "dans 5 jours", "dans une semaine", "demain", "la semaine prochaine"…
   const rel = !date && cut(/\sdans\s(\d{1,3}|une|deux|trois)\s(jours?|semaines?)(?=\s)/);
@@ -212,8 +218,54 @@ export function parseQuickAdd(input: string, base = new Date(), language = lang)
   else if (cut(/\s(?:d')?(?:aujourd'hui|aujourdhui)(?=\s)|\s(?:ce soir|ce matin|cet aprem|cet apres-midi)(?=\s)/) || thisNoon) date = base;
   else if (cut(/\s(?:la\s)?semaine\sprochaine(?=\s)/)) date = addDays(weekStart(base), 7);
 
-  // dd/mm(/yyyy), with the day name that may come before: "mardi 3/11"
+  // From one day to another: « Congés du 22 au 26 décembre », « du 28 décembre au 2 janvier », « du 22/12 au 26/12 »,
+  // « du lundi 3 au mercredi 5 »: one event over several days (the calendar makes one a day, linked: lib/repeat spanDays).
   if (!date) {
+    const TO = `(?:\\s+(?:au|a|jusqu'au)\\s+|\\s*[-–—]\\s*)(?:(?:le\\s)?${DAY}\\s)?`;
+    const D = `(?:${DAY}\\s)?(\\d{1,2})(?:er)?`;
+    const M = `(${MONTH_WORDS.join('|')})\\.?`;
+    const Y = `(?:\\s(\\d{4}))?`;
+    const NUM = `(\\d{1,2})/(\\d{1,2})(?:/(\\d{2,4}))?`;
+    const year = (y?: string) => (y ? (y.length === 2 ? 2000 + Number(y) : Number(y)) : null);
+    let m: RegExpMatchArray | null;
+    let span: [number, number | null, number | null, number, number | null, number | null] | null = null; // day, month, year × 2
+    if ((m = find(new RegExp(`\\s${BEFORE}(?:du\\s|de\\s)?${D}(?:\\s${M})?${Y}${TO}(\\d{1,2})(?:er)?\\s${M}${Y}${PERIOD}(?=\\s)`))))
+      span = [Number(m[1]), m[2] ? monthIndex(m[2]) : null, year(m[3]), Number(m[4]), monthIndex(m[5]), year(m[6])];
+    else if ((m = find(new RegExp(`\\s${BEFORE}(?:du\\s|de\\s)?(?:${DAY}\\s)?${NUM}${TO}${NUM}${PERIOD}(?=\\s)`))))
+      span = [Number(m[1]), Number(m[2]) - 1, year(m[3]), Number(m[4]), Number(m[5]) - 1, year(m[6])];
+    // Without a month (« du 22 au 26 »): the next 22nd; « du » is needed, « de 14 à 16 » is a time.
+    else if ((m = find(new RegExp(`\\s${BEFORE}du\\s${D}\\s+(?:au|jusqu'au)\\s+(?:${DAY}\\s)?(\\d{1,2})(?:er)?${PERIOD}(?=\\s)(?!\\s?(?:h|heures?|:)\\d?)`))))
+      span = [Number(m[1]), null, null, Number(m[2]), null, null];
+    if (m && span) {
+      const [d1, m1, y1, d2, m2, y2] = span;
+      let from: Date | null = null;
+      let to: Date | null = null;
+      if (m2 === null) {
+        // The next d1 (this month, or the next one when it's past), the end in the same month or the next.
+        for (let k = 0; k < 3 && !from; k++) {
+          const d = realDate(base.getFullYear(), base.getMonth() + k, d1) ?? realDate(base.getFullYear() + 1, base.getMonth() + k - 12, d1);
+          if (d && differenceInCalendarDays(d, base) >= 0) from = d;
+        }
+        if (from) to = realDate(from.getFullYear(), from.getMonth() + (d2 > d1 ? 0 : 1), d2) ?? realDate(from.getFullYear() + 1, from.getMonth() + (d2 > d1 ? 0 : 1) - 12, d2);
+      } else {
+        // « du 28 au 3 janvier » starts the month before; « du 28 décembre au 2 janvier » ends the next year.
+        const month1 = m1 ?? (d1 > d2 ? m2 - 1 : m2);
+        const wrap = month1 < 0;
+        const mo = wrap ? 11 : month1;
+        from = realDate(y1 ?? (y2 !== null ? (mo > m2 ? y2 - 1 : y2) : base.getFullYear() - (wrap ? 1 : 0)), mo, d1);
+        if (from && y1 === null && y2 === null && differenceInCalendarDays(from, base) < -30) from = realDate(from.getFullYear() + 1, from.getMonth(), d1);
+        if (from) to = realDate(y2 ?? from.getFullYear() + (m2 < from.getMonth() ? 1 : 0), m2, d2);
+      }
+      if (from && to && to > from) {
+        date = from;
+        endDate = to;
+        remove(m);
+      } else if (!from || !to) impossible = true;
+    }
+  }
+
+  // dd/mm(/yyyy), with the day name that may come before: "mardi 3/11"
+  if (!date && !impossible) {
     // « 12/11 » anywhere; « 12.11 » or « 12-11 » only after « le », « du » or a day name (« exercices 5-6 », « pages 10-12 »).
     const m =
       find(new RegExp(`\\s${BEFORE}(?:(?:le\\s)?${DAY}\\s)?(?:le\\s|du\\s)?(\\d{1,2})/(\\d{1,2})(?:/(\\d{2,4}))?${PERIOD}(?=\\s)`)) ??
@@ -223,17 +275,6 @@ export function parseQuickAdd(input: string, base = new Date(), language = lang)
       date = upcoming(y, Number(m[2]) - 1, Number(m[1]), !!m[3]);
       if (date) remove(m);
       else impossible = true;
-    }
-  }
-
-  // A range « du 2 au 6 novembre »: one event can't span it, so it goes on the first day and the
-  // sentence stays as typed (the « 6 novembre » rule below would cut « 6 novembre » out of it).
-  if (!date) {
-    const m = find(new RegExp(`\\s(?:du\\s)?(\\d{1,2})(?:er)?\\s+(?:au|a|-|jusqu'au)\\s+(\\d{1,2})(?:er)?\\s(${MONTH_WORDS.join('|')})\\.?(?:\\s(\\d{4}))?(?=\\s)`));
-    if (m) {
-      const month = monthIndex(m[3]) - (Number(m[1]) > Number(m[2]) ? 1 : 0); // « du 28 au 3 novembre » starts in October
-      const y = m[4] ? Number(m[4]) : base.getFullYear();
-      date = ahead(month < 0 ? realDate(y - 1, 11, Number(m[1])) : realDate(y, month, Number(m[1])), !!m[4]);
     }
   }
 
@@ -287,8 +328,10 @@ export function parseQuickAdd(input: string, base = new Date(), language = lang)
     date: date && isValid(date) ? toKey(date) : null,
     start,
     end,
-    ...(weekly && { weekly }),
-    ...(yearly && { yearly }),
+    ...(endDate && { endDate: toKey(endDate) }),
+    ...(every && { every }),
+    ...(every === 'week' && { weekly: true }),
+    ...(every === 'year' && { yearly: true }),
     ...(important && { important }),
     ...(impossible && { impossible }),
   };

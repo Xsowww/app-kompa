@@ -29,11 +29,12 @@ const categoryContext = (usage: Usage) =>
     .join(', ')}. « perso » = vie privée uniquement.`;
 import { accessToken } from '../lib/supabase';
 import {
-  search, analyzeCalendar, eventsBetween, addEvent, createNote, createDriveFolder, listDriveFolder, readNote, overview,
+  search, analyzeCalendar, eventsBetween, addEvents, createNote, createDriveFolder, listDriveFolder, readNote, overview,
   linkToNote, linkToDriveFolder, linkToDay, describeEvent, findExam, planRevisions, hasRevisionPlan, revisionSessions, alreadyPlanned, openNoteLabel, appendToNote, updateEvent, goTo,
   findItem, linkToItem, itemName, hitLabel, itemLabel, renameItem, moveItem, setStar, setFolderColor, listTrash, restoreFromTrash,
-  searchNotes, listTodos, addTodo, completeTodo, startFocus, stopFocus, updateSettings,
+  searchNotes, listTodos, addTodo, completeTodo, startFocus, stopFocus, updateSettings, setReminders,
 } from './actions';
+import { REPEATS, type Repeat } from '../lib/repeat';
 import { offerLog, pendingChanges } from './offers';
 import { deleteOffer, mergeOffers } from './offerMerge';
 import { readFileText } from './fileText';
@@ -166,7 +167,7 @@ const awaitingClick = (what: string) => ({
 // Once a file or a note has been read, its text could carry orders (« rename this file… ») the AI might follow.
 // From then on, changes to what already exists wait for a click too, like deletions. Adding stays direct.
 const READS = new Set(['read_file', 'read_note', 'search_notes', 'search_site']);
-const CHANGES = new Set(['update_event', 'append_to_note', 'rename_item', 'move_item', 'star_file', 'set_folder_color', 'restore_from_trash', 'complete_todo', 'update_settings']);
+const CHANGES = new Set(['update_event', 'append_to_note', 'rename_item', 'move_item', 'star_file', 'set_folder_color', 'restore_from_trash', 'complete_todo', 'update_settings', 'set_reminders']);
 const hasReadContent = () => history.some(m => m.role === 'assistant' && Array.isArray(m.content) && m.content.some(b => b.type === 'tool_use' && READS.has(b.name)));
 
 /** The button for a change asked after a reading: what it does, in the student's words. */
@@ -181,6 +182,7 @@ function changeLabel(name: string, input: Record<string, unknown>): string {
   if (name === 'update_event' && ev) return t('Modifier « {title} »', { title: ev.title });
   if (name === 'append_to_note' && note) return t('Ajouter du texte à « {title} »', { title: note.title });
   if (name === 'complete_todo' && todo) return t('Cocher « {title} »', { title: todo.title });
+  if (name === 'set_reminders' && (ev || todo)) return t('Régler les rappels de « {title} »', { title: ev?.title ?? todo!.title });
   if (name === 'restore_from_trash') return t('Restaurer depuis la corbeille');
   if (name === 'update_settings') return t('Changer les réglages');
   return t('Oui, fais-le');
@@ -252,6 +254,19 @@ function change(name: string, input: Record<string, unknown>, links: CopilotLink
       if (!todo) throw new Error('tâche introuvable');
       return { todo: todo.title, done: input.done !== false };
     }
+    case 'set_reminders': {
+      const res = setReminders({
+        eventId: str(input.event_id) || undefined,
+        todoId: str(input.todo_id) || undefined,
+        minutesBefore: input.minutes_before,
+        at: input.at,
+        replace: input.replace === true,
+        series: input.series === true,
+      });
+      const ev = useCalendar.getState().events.find(e => e.id === str(input.event_id));
+      links.push(ev ? { label: t('Voir le jour'), to: linkToDay(ev.date, ev.id) } : { label: t('Voir mes tâches'), to: `/taches?tache=${encodeURIComponent(str(input.todo_id))}` });
+      return res;
+    }
     case 'update_settings': {
       const changed = updateSettings({
         accent: str(input.accent) || undefined,
@@ -316,16 +331,21 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
       const picked = str(input.category) in CATEGORIES ? (str(input.category) as EventCategory) : undefined;
       // « perso » is the AI's default when unsure: a title that clearly says more (« Point d'équipe » → Réunion) wins.
       const guessed = guessCategory(str(input.title), !!str(input.start));
-      const ev = addEvent({
+      const repeat = REPEATS.some(r => r.key === str(input.repeat)) ? (str(input.repeat) as Repeat) : undefined;
+      // Over several days (end_date) or repeated (repeat, until): one event a day or per time, linked (lib/repeat).
+      const { first: ev, count, last } = addEvents({
         title: str(input.title),
         date: str(input.date),
         start: str(input.start) || undefined,
         end: str(input.end) || undefined,
         category: !picked || (picked === 'perso' && guessed !== 'perso') ? guessed : picked,
         important: input.important === true || undefined,
+        endDate: str(input.end_date) || undefined,
+        repeat,
+        until: str(input.until) || undefined,
       });
       links.push({ label: t('Voir le jour'), to: linkToDay(ev.date, ev.id) });
-      return { created: describeEvent(ev), id: ev.id };
+      return { created: describeEvent(ev), id: ev.id, ...(count > 1 && (repeat ? { occurrences: count, last_one: last } : { last_day: last })) };
     }
     case 'delete_event': {
       // One call for several (event_ids): one button « Supprimer les N événements » (offerMerge also groups separate calls).
@@ -389,8 +409,8 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
     }
     case 'add_todo': {
       if (!str(input.title)) throw new Error('title requis');
-      const todo = addTodo(str(input.title), str(input.due) || undefined);
-      return { created: todo.title, id: todo.id, due: todo.due };
+      const todo = addTodo(str(input.title), str(input.due) || undefined, str(input.time) || undefined, str(input.repeat) || undefined);
+      return { created: todo.title, id: todo.id, due: todo.due, ...(todo.time && { time: todo.time }), ...(todo.repeat && { repeat: todo.repeat }) };
     }
     case 'delete_todo': {
       const wanted = [...ids(input.todo_ids), ...(str(input.todo_id) ? [str(input.todo_id)] : [])];
@@ -417,7 +437,7 @@ export const resetClaudeHistory = () => {
 };
 
 const PAGES: Record<string, string> = {
-  '/': 'Accueil', '/drive': 'Drive', '/calendrier': 'Calendrier', '/taches': 'Tâches', '/notes': 'Notes', '/enregistrer': 'Enregistrer',
+  '/': 'Accueil', '/drive': 'Fichiers', '/calendrier': 'Calendrier', '/taches': 'Tâches', '/notes': 'Notes', '/enregistrer': 'Enregistrer',
   '/groupes': 'Groupes', '/agendas': 'Agendas partagés', '/corbeille': 'Corbeille', '/profil': 'Profil et réglages',
 };
 

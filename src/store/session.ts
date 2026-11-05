@@ -2,7 +2,7 @@ import { useDrive } from './drive';
 import { applyUsage, useCalendar } from './calendar';
 import { useNotes } from './notes';
 import { useCopilot } from './copilot';
-import { useSettings, applyAppearance, storedStyle, storedTheme, type Settings } from './settings';
+import { useSettings, applyAppearance, storedStyle, storedTheme } from './settings';
 import { getStorageUser, setStorageUser } from '../lib/userStorage';
 import { cloudEnabled } from '../lib/supabase';
 import { hasLocalCopy, pullAll, pushLeftovers, quietly, startSync, stopSync, updateCloudProfile } from '../lib/cloudSync';
@@ -13,8 +13,9 @@ import { TOUR_TODO, isTourTodo } from './tour';
 import { useFocusLog } from './focusLog';
 import { useFocus, settleFocus } from './focus';
 import { renameToKompa } from '../lib/renameToKompa';
-import { USAGES } from '../lib/usage';
-import { create } from 'zustand';
+import { readWelcomeDraft, welcomePending, type WelcomeAnswers } from '../lib/welcome';
+import { navFromAnswers } from '../lib/navOrder';
+import { useWelcome, welcomeKey } from './welcome';
 import { useRecorder, useRecLive, stopHearing } from './recorder';
 import { useGroups } from './groups';
 import { lang, t } from '../i18n';
@@ -33,20 +34,8 @@ if (typeof window !== 'undefined')
     quietly(() => void store?.persist.rehydrate());
   });
 
-/** True while a brand-new account still has to answer the welcome questionnaire. */
-export const useWelcome = create<{ pending: boolean }>(() => ({ pending: false }));
+export { afterSignIn, markLocalWelcome, useWelcome } from './welcome';
 
-// Local mode has no profile row: a flag per account says the questionnaire is still to answer,
-// so a reload in the middle of it doesn't skip it.
-const welcomeKey = (userId: string) => `cop:${userId}:welcome`;
-export function markLocalWelcome(userId: string) {
-  try {
-    localStorage.setItem(welcomeKey(userId), '1');
-  } catch {
-    /* private mode: the questionnaire still shows now, only a reload skips it */
-  }
-  useWelcome.setState({ pending: true });
-}
 function localWelcomePending(userId: string) {
   try {
     return localStorage.getItem(welcomeKey(userId)) === '1';
@@ -55,43 +44,19 @@ function localWelcomePending(userId: string) {
   }
 }
 
-/** Questionnaire in progress (question shown and answers so far), so a reload picks it up where it was. */
-export interface WelcomeDraft {
-  step: number;
-  answers: WelcomeAnswers;
+/** The questionnaire as the account's settings tell it (synced), with the profile's `onboarded` when it was read. */
+function settleWelcome(onboarded: boolean | undefined, unknownMeans: 'done' | 'unsure') {
+  const pending = welcomePending(onboarded, useSettings.getState());
+  useWelcome.setState({ pending: pending === true, unsure: pending === null && unknownMeans === 'unsure' });
 }
-const draftKey = (userId: string) => `cop:${userId}:welcome-draft`;
-export function saveWelcomeDraft(userId: string, draft: WelcomeDraft) {
-  try {
-    sessionStorage.setItem(draftKey(userId), JSON.stringify(draft));
-  } catch {
-    /* private mode: a reload starts the questionnaire again */
-  }
+
+/** Questionnaire in progress (question shown and answers so far), kept in the account: picked up there on any device. */
+export function saveWelcomeDraft(draft: { step: number; answers: WelcomeAnswers }) {
+  const { pending, unsure } = useWelcome.getState();
+  if (pending || unsure) useSettings.getState().set({ welcomeDraft: { step: draft.step, answers: { ...draft.answers } } });
 }
-/** The saved draft merged over `defaults`, or null when there is none (or it is unreadable). */
-export function loadWelcomeDraft(userId: string, defaults: WelcomeAnswers, steps: number): WelcomeDraft | null {
-  try {
-    const raw = JSON.parse(sessionStorage.getItem(draftKey(userId)) ?? 'null') as Partial<WelcomeDraft> | null;
-    if (!raw || typeof raw !== 'object') return null;
-    const step = Number.isInteger(raw.step) ? Math.min(Math.max(raw.step as number, 0), steps - 1) : 0;
-    const answers = { ...defaults };
-    for (const k of Object.keys(defaults) as (keyof WelcomeAnswers)[]) {
-      const v = raw.answers?.[k];
-      if (typeof v === typeof defaults[k] && Array.isArray(v) === Array.isArray(defaults[k])) Object.assign(answers, { [k]: v });
-    }
-    if (!USAGES.some(u => u.key === answers.usage)) answers.usage = defaults.usage;
-    return { step, answers };
-  } catch {
-    return null;
-  }
-}
-function clearWelcomeDraft(userId: string) {
-  try {
-    sessionStorage.removeItem(draftKey(userId));
-  } catch {
-    /* nothing saved */
-  }
-}
+/** The draft saved in the account, checked (null when there is none). */
+export const loadWelcomeDraft = () => readWelcomeDraft(useSettings.getState().welcomeDraft);
 
 let loading: Promise<void> = Promise.resolve();
 
@@ -107,7 +72,15 @@ export function loadUserData() {
 
 async function load() {
   const userId = getStorageUser();
-  useWelcome.setState({ pending: false });
+  useWelcome.setState({ pending: false, unsure: false, checking: !!userId });
+  try {
+    await loadAccount(userId);
+  } finally {
+    if (getStorageUser() === userId) useWelcome.setState({ checking: false });
+  }
+}
+
+async function loadAccount(userId: string | null) {
   if (cloudEnabled) stopSync();
   // Detach storage while clearing memory, otherwise the reset would overwrite the saved data.
   setStorageUser(null);
@@ -146,6 +119,8 @@ async function load() {
   if (cloudEnabled && hasLocalCopy()) {
     const left = pushLeftovers(userId); // first: its queue is loaded before the sync starts
     startSync(userId);
+    // This device's copy tells (left half-way here, or synced from another device); the download confirms it.
+    settleWelcome(undefined, 'done');
     void catchUp(userId, left);
   } else if (cloudEnabled) {
     try {
@@ -153,14 +128,16 @@ async function load() {
       const profile = (await pullAll(userId))!;
       startSync(userId);
       // New account: the welcome questionnaire comes first, it seeds the account when done.
-      useWelcome.setState({ pending: !profile.onboarded });
+      settleWelcome(profile.onboarded, 'unsure');
     } catch (e) {
       console.error('[sync] chargement', e);
       startSync(userId);
+      // Not known (new device, offline): the app opens, « Termine ton profil » offers the questionnaire.
+      settleWelcome(undefined, 'unsure');
       toast(t('Impossible de charger tes données en ligne. Tu vois la dernière version enregistrée sur cet appareil.'), 'error');
     }
-  } else if (localWelcomePending(userId)) {
-    useWelcome.setState({ pending: true });
+  } else {
+    useWelcome.setState({ pending: localWelcomePending(userId) || welcomePending(undefined, useSettings.getState()) === true });
   }
   // Trash: what has been there for more than 30 days goes for good.
   useDrive.getState().purgeExpired();
@@ -185,7 +162,7 @@ async function catchUp(userId: string, left: Promise<void>) {
     await left; // never let the cloud copy overwrite unsent local changes
     const profile = await pullAll(userId, true);
     if (!profile || getStorageUser() !== userId) return;
-    useWelcome.setState({ pending: !profile.onboarded });
+    settleWelcome(profile.onboarded, 'done');
     applyUsage(useSettings.getState().usage);
     applyAppearance(useSettings.getState());
     keepLanguage();
@@ -195,30 +172,53 @@ async function catchUp(userId: string, left: Promise<void>) {
   }
 }
 
-export type WelcomeAnswers = Pick<Settings, 'usage' | 'year' | 'school' | 'program' | 'needs' | 'persona' | 'revisionTime'>;
+/** The profile's « onboarded », sent behind the page, tried again a few times (the settings already carry welcomeDone). */
+async function markOnboarded(userId: string) {
+  for (const wait of [0, 2000, 8000, 30000]) {
+    await new Promise(r => setTimeout(r, wait));
+    if (getStorageUser() !== userId) return;
+    try {
+      return await updateCloudProfile(userId, { onboarded: true });
+    } catch {
+      /* network: once more a little later */
+    }
+  }
+}
 
-/** End of the welcome questionnaire: fill the profile, adapt Kompaly, seed the account, never ask again. */
-export async function finishWelcome(answers: WelcomeAnswers) {
+/**
+ * End of the welcome questionnaire: fill the profile, adapt Kompaly, order the navigation, seed the account, never ask
+ * again. Nothing waits for the network (it made the last question spin for seconds): the settings (welcomeDone) go
+ * with the next sync, the profile's flag behind the page.
+ */
+export function finishWelcome(answers: WelcomeAnswers) {
   const settings = useSettings.getState();
+  const usages = answers.usages.length ? answers.usages : [answers.usage];
+  // The order the former answers gave (or none): not reordered by the person, so the new answers order it again.
+  const before = settings.navOrder?.length ? navFromAnswers(settings.usages.length ? settings.usages : settings.usage, settings.needs) : null;
+  const custom = !!settings.navOrder?.length && settings.navOrder.join() !== before?.join();
   settings.set({
     ...answers,
+    usage: usages[0],
+    usages,
+    welcomeDone: true,
+    welcomeDraft: null,
+    ...(custom ? {} : { navOrder: navFromAnswers(usages, answers.needs) }),
     // Someone who asked for help from the AI gets a Kompaly that speaks up more (the default is the quiet one);
     // someone who didn't keeps the quiet one (still one click away).
     chattiness: answers.needs.includes('ia') ? (settings.chattiness === 'calme' ? 'normal' : settings.chattiness) : answers.needs.length ? 'calme' : settings.chattiness,
   });
-  applyUsage(answers.usage);
+  applyUsage(usages[0]);
   const user = useAuth.getState().user;
   seedNewAccount();
-  // Saved before leaving the page: switching to the home page first let a closed tab lose it (questionnaire again).
-  if (cloudEnabled && user) {
-    // Once more after a network hiccup: otherwise the questionnaire comes back at the next sign-in.
-    await updateCloudProfile(user.id, { onboarded: true })
-      .catch(() => new Promise(r => setTimeout(r, 1500)).then(() => updateCloudProfile(user.id, { onboarded: true })))
-      .catch(() => undefined);
+  if (cloudEnabled && user) void markOnboarded(user.id);
+  if (!cloudEnabled && user) {
+    try {
+      localStorage.removeItem(welcomeKey(user.id));
+    } catch {
+      /* storage blocked: the settings say it too */
+    }
   }
-  if (!cloudEnabled && user) localStorage.removeItem(welcomeKey(user.id));
-  if (user) clearWelcomeDraft(user.id);
-  useWelcome.setState({ pending: false });
+  useWelcome.setState({ pending: false, unsure: false });
 }
 
 /** A brand-new account starts empty: only the task that launches the guided tour. */

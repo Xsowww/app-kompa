@@ -21,9 +21,9 @@ describe('parseQuickAdd', () => {
     ['Repas à midi', { title: 'Repas', date: null, start: '12:00', end: null }],
     ['Rendre DM vendredi soir', { title: 'Rendre DM', date: '2026-10-16', start: null, end: null }],
     ['Exam la semaine prochaine', { title: 'Exam', date: '2026-10-19', start: null, end: null }],
-    ['Sport tous les jeudis à 18h', { title: 'Sport', date: '2026-10-15', start: '18:00', end: null, weekly: true }],
-    ['Anniversaire de Léa le 12 mars tous les ans', { title: 'Anniversaire de Léa', date: '2027-03-12', start: null, end: null, yearly: true }],
-    ['Fête des voisins chaque année le 5 juin', { title: 'Fête des voisins', date: '2027-06-05', start: null, end: null, yearly: true }],
+    ['Sport tous les jeudis à 18h', { title: 'Sport', date: '2026-10-15', start: '18:00', end: null, every: 'week', weekly: true }],
+    ['Anniversaire de Léa le 12 mars tous les ans', { title: 'Anniversaire de Léa', date: '2027-03-12', start: null, end: null, every: 'year', yearly: true }],
+    ['Fête des voisins chaque année le 5 juin', { title: 'Fête des voisins', date: '2027-06-05', start: null, end: null, every: 'year', yearly: true }],
     ['Révisions 14-16', { title: 'Révisions 14-16', date: null, start: null, end: null }], // pas un 16e mois
     ['Anniversaire le 31/02', { title: 'Anniversaire le 31/02', date: null, start: null, end: null, impossible: true }],
     ['Rdv lundi 14h75', { title: 'Rdv 14h75', date: '2026-10-19', start: null, end: null }],
@@ -35,11 +35,11 @@ describe('parseQuickAdd', () => {
     ['Rendre DM avant vendredi', { title: 'Rendre DM', date: '2026-10-16', start: null, end: null }],
     ['Exam hier', { title: 'Exam', date: '2026-10-12', start: null, end: null }],
     ['Exam de maths le 15', { title: 'Exam de maths', date: '2026-10-15', start: null, end: null }],
-    ['Vacances du 20 au 25', { title: 'Vacances du 20 au 25', date: null, start: null, end: null }], // une plage : laissée telle quelle
+    ['Vacances du 20 au 25', { title: 'Vacances', date: '2026-10-20', start: null, end: null, endDate: '2026-10-25' }], // une plage : plusieurs jours, le prochain 20
     ['Rdv le 2 à 9h', { title: 'Rdv', date: '2026-11-02', start: '09:00', end: null }], // le 2 est passé : mois suivant
-    ['Stage du 2 au 6 novembre', { title: 'Stage du 2 au 6 novembre', date: '2026-11-02', start: null, end: null }], // plage : premier jour, phrase intacte
-    ['Vacances du 20 au 25 octobre', { title: 'Vacances du 20 au 25 octobre', date: '2026-10-20', start: null, end: null }],
-    ['Voyage du 28 au 3 novembre', { title: 'Voyage du 28 au 3 novembre', date: '2026-10-28', start: null, end: null }], // commence le mois d’avant
+    ['Stage du 2 au 6 novembre', { title: 'Stage', date: '2026-11-02', start: null, end: null, endDate: '2026-11-06' }], // plage : un événement sur plusieurs jours
+    ['Vacances du 20 au 25 octobre', { title: 'Vacances', date: '2026-10-20', start: null, end: null, endDate: '2026-10-25' }],
+    ['Voyage du 28 au 3 novembre', { title: 'Voyage', date: '2026-10-28', start: null, end: null, endDate: '2026-11-03' }], // commence le mois d’avant
   ])('%s', (input, expected) => {
     expect(parseQuickAdd(input, base)).toEqual(expected);
   });

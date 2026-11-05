@@ -34,6 +34,14 @@ export interface Settings {
   // profile
   usage: Usage; // what the account is for (welcome questionnaire): changes words and starter content
   needs: string[]; // what the person said they need most (welcome questionnaire), given to the AI
+  /** Everything « Kompaly, c'est pour… » got (welcome questionnaire); `usage` is the first of them. */
+  usages: Usage[];
+  /** The welcome questionnaire answered (or skipped) on any device: with the profile's « onboarded », it never comes back. */
+  welcomeDone: boolean;
+  /** The questionnaire left half-way (question shown, answers so far): picked up there on any device. */
+  welcomeDraft: { step: number; answers: Record<string, unknown> } | null;
+  /** « Face ID ou empreinte ? » already offered to this account (once, whatever the device). */
+  passkeyOffered: boolean;
   avatarColor: string;
   avatarImage: string | null; // small data URL
   school: string;
@@ -101,6 +109,10 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   usage: 'etudes',
   needs: [],
+  usages: [],
+  welcomeDone: false,
+  welcomeDraft: null,
+  passkeyOffered: false,
   avatarColor: AVATAR_COLORS[0],
   avatarImage: null,
   school: '',

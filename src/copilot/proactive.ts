@@ -696,6 +696,8 @@ function greet() {
     urgent: true,
     situation: {
       evenement: "l'étudiant ouvre l'application, salue-le et résume sa journée en une phrase",
+      // The greeting of the hour (« Bonsoir » only from 18:00), the same as without the AI: never a second one.
+      salutation: hello.replace(/[.!?]$/, ''),
       aujourdhui: today.map(e => `${e.title}${e.start ? ` ${e.start}` : ''}${e.done ? ' (fait)' : ''}`),
       prochain_examen: nextExam ? `${nextExam.title} dans ${daysUntil(nextExam.date)} jours` : null,
       heure: fmt(new Date(), 'HH:mm'),

@@ -448,9 +448,11 @@ export function QuickAdd() {
     const r = repeatIn(title);
     const text = r.repeat && r.text ? r.text : title;
     const p = due ? null : parseQuickAdd(text);
-    const found = p?.title && p.date && p.date >= todayKey() && !p.important && !p.impossible ? p : null;
-    const repeat = r.repeat && r.text ? r.repeat : found?.weekly ? 'week' : undefined;
-    const day = due || found?.date || (repeat ? todayKey() : undefined);
+    // An hour without a day (« Appeler la banque vers 14h ») is today's, tomorrow's once it is past.
+    const timeOnly = p?.title && !p.date && p.start && !p.important && !p.impossible ? toKey(addDays(new Date(), p.start <= fmt(new Date(), 'HH:mm') ? 1 : 0)) : null;
+    const found = p?.title && (timeOnly || (p.date && p.date >= todayKey())) && !p.important && !p.impossible ? p : null;
+    const repeat = r.repeat && r.text ? r.repeat : found?.every && found.every !== '2weeks' ? found.every : undefined;
+    const day = due || found?.date || timeOnly || (repeat ? todayKey() : undefined);
     const todo = add(found ? found.title : text, day, found?.start ?? undefined);
     if (repeat) useTodos.getState().update(todo.id, { repeat });
     setTitle('');

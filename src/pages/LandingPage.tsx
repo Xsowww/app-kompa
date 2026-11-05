@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { Bell, CornerDownLeft, Download, FileSearch, Lock, Mic, Server, ShieldCheck, Sparkles, UserRound, Users } from 'lucide-react';
+import { Bell, Briefcase, CornerDownLeft, Download, FileSearch, Flame, GraduationCap, House, Lock, Mic, Server, ShieldCheck, Sparkles, Sunrise, Timer, UserRound, Users } from 'lucide-react';
 import Logo from '../components/Logo';
 import LanguagePicker from '../components/LanguagePicker';
 import FileIcon from '../components/FileIcon';
@@ -25,8 +25,22 @@ const PHRASE = t('Dentiste mardi 17h30');
 const reducedMotion = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /**
+ * The one source of every date drawn on this page (the hero's week, Kompaly's answers): Monday to Friday of this
+ * week while its Tuesday (the dentist) is still ahead, else of the next one. `today`: its index (0 = Monday), or -1.
+ */
+function demoWeek(now = new Date()) {
+  const dow = (now.getDay() + 6) % 7;
+  const next = dow > 1;
+  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dow + (next ? 7 : 0));
+  return { day: (i: number) => new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i).getDate(), today: next ? -1 : dow };
+}
+const WEEK = demoWeek();
+
+/**
  * The one animated moment of the page: a sentence typed in the quick add becomes an event, then Kompaly speaks up.
  * Kompaly and his bubble are there from the start (with a first line), so no empty room waits under the window.
+ * A demo, not a field: no caret, nothing to type into; once added, the bar says what happened.
+ * Its week mixes work, family and studies: nobody should read it as « not for me ».
  */
 function HeroDemo() {
   // 0 → typing, 1 → added, 2 → Kompaly's question.
@@ -52,60 +66,50 @@ function HeroDemo() {
     setTyped(0);
     setStep(0);
   };
-  const days = [
-    { d: t('Lun'), n: 13, today: true },
-    { d: t('Mar'), n: 14, dot: step >= 1 ? '#2f9e6b' : undefined },
-    { d: t('Mer'), n: 15, dot: '#7a5ad6' },
-    { d: t('Jeu'), n: 16 },
-    { d: t('Ven'), n: 17, dot: '#d48a17' },
-  ];
+  const names = [t('Lun'), t('Mar'), t('Mer'), t('Jeu'), t('Ven')];
+  const dots = ['#3d6fd8', step >= 1 ? '#2f9e6b' : undefined, '#7a5ad6', undefined, '#d48a17'];
   const row = 'flex items-center gap-2 rounded-md bg-stone-50 px-2.5 py-2';
+  const event = (color: string, title: string, when: string) => (
+    <>
+      <span className="h-3.5 w-0.5 shrink-0 rounded-full" style={{ background: color }} /> <span className="min-w-0 leading-snug">{title}</span>{' '}
+      <span className="ml-auto shrink-0 tabular text-stone-500">{when}</span>
+    </>
+  );
 
   return (
     <div className="relative min-w-0" aria-label={t('Exemple : une phrase tapée devient un rendez-vous, et Kompaly propose de te prévenir')} role="img">
-      <div className="card overflow-hidden p-0 shadow-pop" aria-hidden>
-        {/* Quick add */}
+      <div className="card select-none overflow-hidden p-0 shadow-pop" aria-hidden>
+        {/* The quick add, playing by itself */}
         <div className="flex items-center gap-2 border-b border-stone-200 px-4 py-3">
-          <span className="text-stone-400">+</span>
-          <span className="min-w-0 flex-1 truncate text-[14px]">
-            {step === 0 ? (
-              <>
-                {PHRASE.slice(0, typed)}
-                <span className="ml-px inline-block h-4 w-px translate-y-0.5 animate-pulse bg-ink" />
-              </>
-            ) : (
-              <span className="text-stone-500">{t('Ajouter un événement…')}</span>
-            )}
+          {step === 0 && <span className="text-stone-400">+</span>}
+          <span className="min-w-0 flex-1 text-[14px] leading-snug">
+            {step === 0 ? PHRASE.slice(0, typed) : <span className="font-medium text-emerald-700">{t('✓ Ajouté : mardi {day}, 17:30', { day: WEEK.day(1) })}</span>}
           </span>
-          <span className={cx('flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors', step === 0 && typed === PHRASE.length ? 'bg-ink text-paper' : 'text-stone-500')}>
-            {t('Ajouter')} <CornerDownLeft size={11} />
-          </span>
+          {step === 0 ? (
+            <span className={cx('flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors', typed === PHRASE.length ? 'bg-ink text-paper' : 'text-stone-500')}>
+              {t('Ajouter')} <CornerDownLeft size={11} />
+            </span>
+          ) : (
+            <span className="shrink-0 rounded-full bg-stone-100 px-2 py-0.5 text-[10.5px] font-semibold text-stone-500">{t('Exemple')}</span>
+          )}
         </div>
 
         <div className="grid gap-4 p-4 sm:grid-cols-[minmax(0,1fr)_150px]">
           <div className="min-w-0">
             <div className="grid grid-cols-5 gap-1.5 text-center">
-              {days.map(x => (
-                <div key={x.n} className={x.today ? 'rounded-xl bg-tile-blue py-1.5 text-white' : 'py-1.5'}>
-                  <p className={x.today ? 'text-[10px] text-white/90' : 'text-[10px] text-stone-500'}>{x.d}</p>
-                  <p className="tabular text-[14px] font-semibold">{x.n}</p>
-                  <span className="mx-auto mt-1 block h-1 w-1 rounded-full transition-colors" style={{ background: x.dot ?? 'transparent' }} />
+              {names.map((d, i) => (
+                <div key={d} className={i === WEEK.today ? 'rounded-xl bg-tile-blue py-1.5 text-white' : 'py-1.5'}>
+                  <p className={i === WEEK.today ? 'text-[10px] text-white/90' : 'text-[10px] text-stone-500'}>{d}</p>
+                  <p className="tabular text-[14px] font-semibold">{WEEK.day(i)}</p>
+                  <span className="mx-auto mt-1 block h-1 w-1 rounded-full transition-colors" style={{ background: dots[i] ?? 'transparent' }} />
                 </div>
               ))}
             </div>
             <div className="mt-3 space-y-1.5 text-[12.5px]">
-              {step >= 1 && (
-                <div className={cx(row, 'pop ring-1 ring-stone-200')}>
-                  <span className="h-3.5 w-0.5 shrink-0 rounded-full bg-[#2f9e6b]" />
-                  <span className="min-w-0 truncate">{t('Dentiste')}</span> <span className="ml-auto shrink-0 tabular text-stone-500">{t('Mar.')} 17:30</span>
-                </div>
-              )}
-              <div className={row}>
-                <span className="h-3.5 w-0.5 shrink-0 rounded-full bg-[#7a5ad6]" /> <span className="min-w-0 truncate">{t('Judo de Léo')}</span> <span className="ml-auto shrink-0 tabular text-stone-500">{t('Mer.')} 14:00</span>
-              </div>
-              <div className={row}>
-                <span className="h-3.5 w-0.5 shrink-0 rounded-full bg-[#d48a17]" /> <span className="min-w-0 truncate">{t('Relancer M. Dupont')}</span> <span className="ml-auto shrink-0 tabular text-stone-500">{t('Ven.')}</span>
-              </div>
+              <div className={row}>{event('#3d6fd8', t('Réunion d’équipe'), `${t('Lun.')} 9:00`)}</div>
+              {step >= 1 && <div className={cx(row, 'pop ring-1 ring-stone-200')}>{event('#2f9e6b', t('Dentiste'), `${t('Mar.')} 17:30`)}</div>}
+              <div className={row}>{event('#7a5ad6', t('Judo de Léo'), `${t('Mer.')} 14:00`)}</div>
+              <div className={row}>{event('#d48a17', t('Relancer M. Dupont'), `${t('Ven.')} 10:00`)}</div>
             </div>
           </div>
           <div className="flex flex-col rounded-2xl bg-tile-dark p-3.5 text-white max-sm:flex-row max-sm:items-center max-sm:gap-3">
@@ -124,7 +128,7 @@ function HeroDemo() {
         <div key={step === 2 ? 'asked' : 'hello'} className="pop mb-6 min-w-0 max-w-[15rem] rounded-2xl rounded-br-sm border border-stone-200 bg-surface px-3 py-2 text-[12.5px] leading-snug shadow-pop" aria-hidden>
           {step === 2 ? (
             <>
-              {t('C’est noté, mardi à 17:30. Je te préviens 1\u00a0h avant\u00a0?')}
+              {t('C’est noté, mardi {day} à 17:30. Je te préviens 1\u00a0h avant\u00a0?', { day: WEEK.day(1) })}
               <span className="mt-1.5 flex gap-1.5">
                 <span className="rounded-full bg-ink px-2.5 py-0.5 text-[11.5px] font-semibold text-paper">{t('Oui')}</span>
                 <span className="rounded-full border border-stone-200 px-2.5 py-0.5 text-[11.5px] font-semibold">{t('La veille')}</span>
@@ -216,6 +220,40 @@ function ShareSteps() {
   );
 }
 
+/** « Concentre-toi » : the focus timer as it looks in the app, and three badges it earns (drawn, no account needed). */
+function FocusBadges() {
+  const badges = [
+    { icon: Timer, title: t('Première session'), color: 'bg-tile-blue' },
+    { icon: Flame, title: t('Semaine pleine'), color: 'bg-[#d4622a]' },
+    { icon: Sunrise, title: t('Lève-tôt'), color: 'bg-[#d48a17]' },
+  ];
+  return (
+    <div className="card space-y-4 p-5 sm:p-6" role="img" aria-label={t('Exemple : une session focus de 25 minutes en cours, et trois badges gagnés : Première session, Semaine pleine, Lève-tôt.')}>
+      <div className="rounded-2xl bg-stone-100 p-4" aria-hidden>
+        <p className="flex items-center gap-2 text-[13px] font-semibold">
+          <Timer size={15} className="text-brand-600" /> {t('Concentration')}
+          <span className="ml-auto rounded-full bg-surface px-2.5 py-0.5 text-[12px] font-medium text-stone-600">{t('Dossier Dupont')}</span>
+        </p>
+        <p className="tabular mt-3 font-mono text-[40px] font-medium leading-none tracking-[-0.02em]">18:42</p>
+        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface">
+          <div className="h-full w-[25%] rounded-full bg-brand-500" />
+        </div>
+        <p className="mt-2 text-[12px] text-stone-500">{t('{focus} min de travail, {pause} min de pause', { focus: 25, pause: 5 })}</p>
+      </div>
+      <ul className="grid grid-cols-3 gap-2" aria-hidden>
+        {badges.map(b => (
+          <li key={b.title} className="flex min-w-0 flex-col items-center gap-1.5 text-center">
+            <span className={cx('flex h-11 w-11 items-center justify-center rounded-full text-white shadow-card', b.color)}>
+              <b.icon size={20} strokeWidth={2} />
+            </span>
+            <span className="text-[12px] font-medium leading-tight [overflow-wrap:anywhere]">{b.title}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 /** Kompaly is an AI assistant: said plainly, with the mascot and a short exchange. */
 function Assistant() {
   return (
@@ -259,14 +297,14 @@ function Assistant() {
           <div className="space-y-2.5 pt-4 text-[13.5px] leading-snug" aria-hidden>
             <p className="ml-auto w-fit max-w-[85%] rounded-2xl rounded-br-sm bg-ink px-3.5 py-2 text-paper">{t('Ajoute dentiste mardi 17h30')}</p>
             <div className="w-fit max-w-[88%] rounded-2xl rounded-bl-sm bg-stone-100 px-3.5 py-2.5">
-              {t('C’est noté, mardi 10 à 17:30. Je te préviens 1 h avant ?')}
+              {t('C’est noté, mardi {day} à 17:30. Je te préviens 1 h avant ?', { day: WEEK.day(1) })}
               <span className="mt-2.5 flex flex-wrap gap-1.5">
                 <span className="rounded-full bg-tile-blue px-3 py-1 text-[12.5px] font-semibold text-white">{t('Oui, 1 h avant')}</span>
                 <span className="rounded-full border border-stone-300 bg-surface px-3 py-1 text-[12.5px] font-semibold">{t('Voir le jour')}</span>
               </span>
             </div>
             <p className="ml-auto w-fit max-w-[85%] rounded-2xl rounded-br-sm bg-ink px-3.5 py-2 text-paper">{t('Et planifie mes révisions pour le partiel')}</p>
-            <p className="w-fit max-w-[88%] rounded-2xl rounded-bl-sm bg-stone-100 px-3.5 py-2.5">{t('Je te propose 4 séances d’ici le 17, l’après-midi. Je les ajoute ?')}</p>
+            <p className="w-fit max-w-[88%] rounded-2xl rounded-bl-sm bg-stone-100 px-3.5 py-2.5">{t('Je te propose 4 séances d’ici vendredi {day}, l’après-midi. Je les ajoute ?', { day: WEEK.day(4) })}</p>
           </div>
         </div>
       </div>
@@ -412,20 +450,32 @@ const TRUST = [
 
 // One wording for the age everywhere (sign-up box, Google button, here): « 15 ans ou plus, ou l’accord d’un parent ».
 const FAQ = [
-  { q: t('C’est pour qui ?'), a: t('Pour toi, tes études ou ta famille. Pas de facturation ni d’offre entreprise pour l’instant.') },
+  { q: t('C’est pour qui ?'), a: t('Pour tes études, ton travail ou ta famille : lycée, fac, salariés, indépendants, parents, assos. Pas de facturation, ni de prise de rendez-vous clients, ni d’offre équipe pour l’instant.') },
   { q: t('Faut-il télécharger une appli ?'), a: t('Non. Kompaly marche dans le navigateur, sur ordinateur et sur téléphone. Tu peux l’ajouter à ton écran d’accueil (iPhone : Partager › Sur l’écran d’accueil ; Android : Installer l’application) : il s’ouvre alors comme une appli, et l’essentiel marche hors connexion.') },
   { q: t('Combien d’espace j’ai ?'), a: t('1 Go pour tes fichiers, et jusqu’à 50 Mo par fichier. La jauge est en haut de tes fichiers.') },
   { q: t('C’est gratuit ?'), a: t('Oui, et sans publicité. Limites : un nombre de questions par jour à Kompaly en mode intelligent et quelques heures d’enregistrement par jour.') },
   { q: t('Ça marche avec Google Agenda ou mon emploi du temps ?'), a: t('Oui. Colle le lien .ics de ton école ou de ton agenda (Google Agenda, Outlook…) : il se met à jour tout seul. Tu peux aussi importer un fichier .ics, et exporter ton calendrier en .ics.') },
+  {
+    q: t('Je viens de Notion ou d’une autre appli : je peux importer ?'),
+    a: t('Oui, en partie. Ton agenda : importe un fichier .ics ou colle son lien (Google Agenda, Outlook, Pronote, ton ENT…). Tes notes : exporte-les en Markdown (.md, comme le fait Notion), Word (.docx) ou texte (.txt), dépose-les dans Fichiers puis « Ouvrir comme note » ; ou colle simplement leur texte dans une note. Tes fichiers : glisse-les dans Fichiers. Pas encore d’import direct depuis un compte Notion.'),
+  },
+  {
+    q: t('Les PDF scannés sont-ils lus ?'),
+    a: t('Pas encore. La recherche et Kompaly lisent le texte des PDF créés sur ordinateur, des Word et des PowerPoint. Un PDF scanné n’est qu’une image : il est bien rangé et s’ouvre, mais les mots qu’il contient ne sont pas trouvés. Pour une page papier, utilise « Une fiche depuis une photo » : Kompaly la lit et en fait une fiche PDF où tout se retrouve.'),
+  },
   { q: t('Je peux répéter un événement ou une tâche ?'), a: t('Oui : chaque jour, chaque semaine, chaque mois ou chaque année.') },
   { q: t('Comment je suis prévenu ?'), a: t('Par une notification sur ton téléphone et ton ordinateur, sans appli à installer. Sur iPhone, ajoute d’abord Kompaly à l’écran d’accueil.') },
   { q: t('Qui peut voir mes notes et mes fichiers ?'), a: t('Toi seul. Dans un groupe ou un agenda partagé, les membres voient seulement ce que tu y partages.') },
+  {
+    q: t('Je peux y ranger mes papiers d’identité ?'),
+    a: t('Oui, tu peux ranger tes documents dans Fichiers : ils sont chiffrés pendant l’envoi et sur les serveurs, et toi seul y as accès. La fonction « fiche depuis une photo » n’est pas faite pour eux : elle sert à tes cours et à tes notes, et envoie la photo à une IA pour la lire.'),
+  },
   { q: t('Que devient ce que je demande à Kompaly ?'), a: t('En mode intelligent, ta question est envoyée à Anthropic (Claude), qui ne s’en sert pas pour entraîner ses modèles. Le mode simple fonctionne sans rien envoyer.') },
   { q: t('Le son de mes enregistrements est-il gardé ?'), a: t('Non. Le son est envoyé par petits morceaux pour être écrit en texte, puis effacé : seuls le texte et les documents restent. Demande l’accord des personnes que tu enregistres.') },
   { q: t('J’ai un compte perso et un compte travail.'), a: t('Ajoute les deux sur ton appareil et passe de l’un à l’autre en un clic.') },
   {
-    q: t('Et si j’ai moins de 15 ans ?'),
-    a: t('Kompaly est ouvert à 15 ans ou plus, ou avant avec l’accord d’un parent : créez le compte ensemble, c’est le parent qui coche la case. Pour supprimer le compte, le parent le fait dans Profil › Compte ou écrit à {email}.', { email: CONTACT }),
+    q: t('Moins de 15 ans, usage scolaire : comment ça marche ?'),
+    a: t('Kompaly est ouvert dès 15 ans. Avant, il faut l’accord d’un parent : créez le compte ensemble, c’est le parent qui coche « J’ai 15 ans ou plus, ou l’accord d’un parent ». Pas de publicité, pas de revente de données ; un groupe ou un agenda partagé ne se rejoint qu’avec son lien ou son code. Pour une classe, chaque élève a son compte et l’enseignant partage le code d’un groupe. Pour supprimer le compte : Profil › Compte › « Supprimer définitivement mon compte » (tout est effacé aussitôt), ou un e-mail à {email}.', { email: CONTACT }),
   },
 ];
 
@@ -462,12 +512,29 @@ export default function LandingPage() {
         {/* Hero */}
         <section className="mx-auto grid max-w-[1120px] grid-cols-[minmax(0,1fr)] items-center gap-10 px-5 pb-12 pt-8 md:px-8 md:pb-16 md:pt-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,480px)] lg:gap-14">
           <div className="min-w-0">
+            {/* The three lives first: nobody should think « this isn't for me ». */}
+            <p className="mb-3 flex items-center gap-2 text-[13px] font-semibold text-brand-600 max-[359px]:text-[12.5px]">
+              <span className="flex shrink-0 max-[359px]:hidden" aria-hidden>
+                {[GraduationCap, Briefcase, House].map((Icon, i) => (
+                  <span key={i} className="-ml-1 flex h-6 w-6 items-center justify-center rounded-full bg-brand-50 ring-2 ring-paper first:ml-0">
+                    <Icon size={13} strokeWidth={2} />
+                  </span>
+                ))}
+              </span>
+              {t('Pour tes études, ton travail ou ta famille')}
+            </p>
             <h1 className="max-w-[20ch] text-balance text-[31px] font-extrabold leading-[1.04] tracking-[-0.03em] min-[375px]:text-[34px] sm:text-[44px] lg:text-[42px] xl:text-[50px]">
               {t('Ton agenda, tes notes et tes fichiers au même endroit, avec une IA qui range pour toi.')}
             </h1>
-            <p className="mt-5 max-w-[50ch] text-[16px] leading-relaxed text-stone-600 sm:text-[16.5px]">
-              {t('Écris «\u00a0Dentiste mardi 17h30\u00a0» ou enregistre ton cours\u00a0: Kompaly le range et te prévient sur ton téléphone. Pour tes études, ton travail ou ta famille.')}
-            </p>
+            <div className="mt-5 flex items-start gap-3">
+              {/* Phones: Kompaly in the first screen (his demo comes lower there); wider screens have him beside, in the demo. */}
+              <div className="-mt-1 shrink-0 sm:hidden" aria-hidden>
+                <Character pose="open" look={{ x: 0.8, y: 0.2 }} mood="happy" size={64} />
+              </div>
+              <p className="min-w-0 max-w-[50ch] text-[16px] leading-relaxed text-stone-600 max-sm:text-[15px] sm:text-[16.5px]">
+                {t('Écris «\u00a0Dentiste mardi 17h30\u00a0» ou enregistre un cours, une réunion\u00a0: Kompaly le range et te prévient sur ton téléphone.')}
+              </p>
+            </div>
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <Link to="/inscription" className="btn-primary h-11 px-5 text-[15px]">
                 {t('Créer mon compte gratuit')}
@@ -511,7 +578,7 @@ export default function LandingPage() {
           </h2>
           <p className="mt-4 max-w-[60ch] text-[15px] leading-relaxed text-stone-600">{t('Un rendez-vous ajouté apparaît sur ton accueil, chez Kompaly et dans ton groupe si tu le partages.')}</p>
           <ul className="mt-14 space-y-20">
-            <Feature icon={Mic} title={t('Enregistre ton cours, il devient une fiche')} text={t('Le texte s’écrit pendant que tu écoutes. À la fin : le cours rédigé, une fiche de révision et un examen d’entraînement. Aussi pour tes réunions.')}>
+            <Feature icon={Mic} title={t('Enregistre un cours ou une réunion, il devient une fiche')} text={t('Le texte s’écrit pendant que tu écoutes. À la fin : le cours rédigé, une fiche de révision et un examen d’entraînement ; pour une réunion, son compte rendu.')}>
               <Shot src="/landing/enregistrer.webp" width={1200} height={909} mobile={['/landing/enregistrer-telephone.webp', 600, 1185]} alt={t('L’enregistrement d’un cours de droit civil dans Kompaly : le texte écrit en direct, les mots-clés surlignés et les moments importants à droite.')} />
             </Feature>
             <Feature
@@ -533,11 +600,18 @@ export default function LandingPage() {
               extra={
                 <p className="mt-5 text-[13.5px] leading-relaxed text-stone-500">
                   <strong className="font-semibold text-stone-700">{t('Et aussi :')}</strong>{' '}
-                  {t('notes en dossiers avec export PDF, tâches du jour, Fichiers (ton Drive), minuteur de concentration, import de ton emploi du temps, mode sombre.')}
+                  {t('notes en dossiers avec export PDF, tâches du jour, tous tes fichiers rangés au même endroit, import de ton emploi du temps, mode sombre.')}
                 </p>
               }
             >
               <Shot src="/landing/recherche.webp" width={1200} height={576} mobile={['/landing/recherche-telephone.webp', 600, 769]} alt={t('La recherche de Kompaly : « réticence dolosive » trouve le PDF du cours de droit civil qui en parle.')} />
+            </Feature>
+            <Feature
+              icon={Timer}
+              title={t('Un minuteur de concentration, et des badges')}
+              text={t('Lance une session focus : 25 minutes de travail, 5 de pause, sur une matière ou un dossier. Tes sessions, tes tâches cochées et tes séries de jours te font gagner des badges.')}
+            >
+              <FocusBadges />
             </Feature>
           </ul>
         </section>

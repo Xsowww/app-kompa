@@ -4,9 +4,9 @@ import { t } from '../i18n';
 export type Usage = 'etudes' | 'travail' | 'perso';
 
 export const USAGES: { key: Usage; label: string; hint: string }[] = [
-  { key: 'etudes', label: t('Mes études'), hint: t('Cours, partiels, révisions, exposés de groupe') },
-  { key: 'travail', label: t('Mon travail'), hint: t('Réunions, devis, échéances, projets d’équipe') },
-  { key: 'perso', label: t('Ma vie perso'), hint: t('Rendez-vous, papiers, projets, à-faire du quotidien') },
+  { key: 'etudes', label: t('Mes études'), hint: t('Cours, contrôles, examens, révisions') },
+  { key: 'travail', label: t('Mon travail'), hint: t('Réunions, échéances, projets d’équipe') },
+  { key: 'perso', label: t('Ma vie perso'), hint: t('Rendez-vous, famille, papiers, projets') },
 ];
 
 /** The few words that differ from one usage to the other. */
@@ -33,8 +33,8 @@ export const WORDS: Record<Usage, {
 }> = {
   etudes: {
     nextBig: t('Prochain examen'), noBig: t('Aucun examen à venir.'), plan: t('Planifier les révisions'), planned: t('Révisions planifiées'),
-    school: t('Établissement'), schoolHint: t('Université, école…'), program: t('Filière'), programHint: t('Droit, info, médecine…'),
-    level: t('Année'), levels: ['', t('Lycée'), t('L1'), t('L2'), t('L3'), t('M1'), t('M2'), t('BTS / BUT'), t('Prépa'), t('École'), t('Doctorat'), t('Autre')],
+    school: t('Établissement'), schoolHint: t('Lycée, université, école…'), program: t('Filière'), programHint: t('Droit, info, médecine…'),
+    level: t('Année'), levels: ['', t('Seconde'), t('Première'), t('Terminale'), t('L1'), t('L2'), t('L3'), t('M1'), t('M2'), t('Doctorat'), t('BTS / BUT'), t('Prépa'), t('Alternance'), t('École'), t('Autre')],
     groups: t('Groupes'), profileTab: t('Études'),
     quickExample: t('Partiel de maths vendredi 14h'), markDone: t('rendu'), slot: t('cours'), slots: t('cours||pluriel'),
     timetable: t('emploi du temps'), titleExample: t('Partiel de maths'), notesExample: t('salle, chapitres à réviser…'),
@@ -48,7 +48,7 @@ export const WORDS: Record<Usage, {
   travail: {
     nextBig: t('Prochaine échéance'), noBig: t('Aucune échéance à venir.'), plan: t('Bloquer du temps pour préparer'), planned: t('Préparation planifiée'),
     school: t('Entreprise'), schoolHint: t('Nom de l’entreprise'), program: t('Métier'), programHint: t('Graphiste, commercial…'),
-    level: t('Statut'), levels: ['', t('Indépendant·e / freelance'), t('Salarié·e'), t('Dirigeant·e'), t('Association'), t('Autre')],
+    level: t('Statut'), levels: ['', t('Salarié·e'), t('Indépendant·e / freelance'), t('Enseignant·e'), t('Alternance'), t('Dirigeant·e'), t('Association'), t('Autre')],
     groups: t('Équipes'), profileTab: t('Travail'),
     quickExample: t('Réunion client jeudi 10h'), markDone: t('fait'), slot: t('créneau'), slots: t('créneaux'),
     timetable: t('agenda'), titleExample: t('Réunion client'), notesExample: t('lieu, ordre du jour…'),
@@ -62,7 +62,7 @@ export const WORDS: Record<Usage, {
   perso: {
     nextBig: t('Prochain grand jour'), noBig: t('Rien d’important à venir.'), plan: t('Bloquer du temps pour préparer'), planned: t('Préparation planifiée'),
     school: t('Ville'), schoolHint: t('Lyon, Lille…'), program: t('Centres d’intérêt'), programHint: t('Cuisine, sport, voyages…'),
-    level: t('Situation'), levels: ['', t('Étudiant·e'), t('En activité'), t('En recherche'), t('Parent'), t('Retraité·e'), t('Autre')],
+    level: t('Situation'), levels: ['', t('Étudiant·e'), t('En activité'), t('En recherche'), t('Parent'), t('Retraité·e'), t('Association'), t('Autre')],
     groups: t('Groupes'), profileTab: t('Organisation||onglet du profil, court'),
     quickExample: t('Dentiste mardi 17h30'), markDone: t('fait'), slot: t('rendez-vous'), slots: t('rendez-vous||pluriel'),
     timetable: t('agenda'), titleExample: t('Dentiste'), notesExample: t('adresse, choses à apporter…'),

@@ -12,12 +12,12 @@ import { AGENDA_EXAMPLES, WORDS } from '../../lib/usage';
 import CategoriesDialog from './CategoriesDialog';
 import PeriodsDialog from './PeriodsDialog';
 import { covers, periodColor, periodUntil, periodLabel, periodsFill, weekLanes, periodRange, periodText, periodTint, periodsBetween, periodsOn, type Period } from '../../lib/periods';
-import { cx } from '../../lib/utils';
+import { cx, uid } from '../../lib/utils';
 import EventForm from './EventForm';
 import { eventTitle, periodIdeas, removeEvent, useCalendarSource } from './source';
 import TimeGrid from './TimeGrid';
 import SeriesIcon from './SeriesIcon';
-import { firstOfSpans } from '../../lib/repeat';
+import { firstOfSpans, spanDays, spanTooLong } from '../../lib/repeat';
 import ImportIcsDialog, { type IcsSource } from './ImportIcsDialog';
 import { useCreateActions } from '../../store/create';
 import { isIcsFile } from '../../lib/ics';
@@ -525,15 +525,33 @@ export default function CalendarPage() {
     if (parsed?.impossible) return;
     if (!parsed?.title) return openForm();
     // « Sport tous les mardis 18h », « Anniversaire de Léa le 12 mars tous les ans »: the form, to choose until when it repeats.
-    if (parsed.weekly || parsed.yearly) return setForm({ date: quickDate, start: parsed.start ?? undefined, end: parsed.end ?? undefined, title: quick, fromQuick: true });
+    // Over more days than an event can last: the form too, which says so.
+    if (parsed.every || (parsed.endDate && spanTooLong(quickDate, parsed.endDate)))
+      return setForm({ date: quickDate, start: parsed.start ?? undefined, end: parsed.end ?? undefined, title: quick, fromQuick: true });
     const date = quickDate;
+    // « Congés du 22 au 26 décembre »: one event over several days (one a day, linked, as the form makes it); the first
+    // day keeps the reminders, the others none.
+    if (parsed.endDate) {
+      const series = `span-${uid()}`;
+      source.addMany(
+        spanDays(date, parsed.endDate, parsed.start ?? undefined, parsed.end ?? undefined).map((p, i) => ({
+          title: parsed.title,
+          ...p,
+          category: parsedCat!,
+          important: parsed.important,
+          series,
+          ...(i > 0 && { reminders: [] }),
+        })),
+      );
+      setQuick('');
+      showSaved({ date, category: parsedCat!, important: parsed.important });
+      toast(t('Ajouté du {from} au {to}', { from: fmtDay(fromKey(date), 'EEEE d MMMM'), to: fmtDay(fromKey(parsed.endDate), 'EEEE d MMMM') }), 'success');
+      return;
+    }
     source.add({ title: parsed.title, date, start: parsed.start ?? undefined, end: parsed.end ?? undefined, category: parsedCat!, important: parsed.important });
     setQuick('');
     showSaved({ date, category: parsedCat!, important: parsed.important });
-    toast(
-      parsed.weekly ? t('Ajouté pour {day}, une seule fois (pas encore de répétition)', { day: fmt(fromKey(date), 'EEEE d MMMM') }) : t('Ajouté : {title}', { title: parsed.title }),
-      'success',
-    );
+    toast(t('Ajouté : {title}', { title: parsed.title }), 'success');
   };
 
   // Another week or month: today when it is in it, else its first day (not the same date number every month,
@@ -702,7 +720,7 @@ export default function CalendarPage() {
               <Dot color={catOf(parsedCat).color} />
               <span className="font-medium text-ink">{parsed.title}</span>
               <span>·</span>
-              <span>{fmtDay(fromKey(quickDate), 'EEEE d MMMM')}</span>
+              <span>{fmtDay(fromKey(quickDate), 'EEEE d MMMM')}{parsed.endDate && ` → ${fmtDay(fromKey(parsed.endDate), 'EEEE d MMMM')}`}</span>
               {parsed.start && (
                 <>
                   <span>·</span>
@@ -722,7 +740,7 @@ export default function CalendarPage() {
                   </span>
                 </>
               )}
-              {(parsed.weekly || parsed.yearly) && <span className="w-full text-stone-500">{t('Entrée\u00a0: choisir jusqu’à quand.')}</span>}
+              {parsed.every && <span className="w-full text-stone-500">{t('Entrée\u00a0: choisir jusqu’à quand.')}</span>}
               {parsed.impossible && <span className="w-full font-medium text-red-600 dark:text-red-400">{t('Cette date n’existe pas : corrige-la pour ajouter.')}</span>}
             </div>
           )}

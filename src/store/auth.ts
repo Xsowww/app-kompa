@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import { uid, nowIso } from '../lib/utils';
 import { dropPendingStorage, setStorageUser } from '../lib/userStorage';
-import { flushNow, stopSync, updateCloudProfile } from '../lib/cloudSync';
+// Loaded with the app (store/session): the sign-in pages don't download the sync and every store with it.
+const sync = () => import('../lib/cloudSync');
 import { supabase, checkPassword, remembered, authStorageKey, revokeSession, OAUTH_KEY, arrivedWithLink, type OAuthProvider } from '../lib/supabase';
 import { captchaToken } from '../lib/captcha';
 import { forgetAfterLogin } from '../lib/afterLogin';
@@ -313,7 +314,7 @@ function clearUnkeptCopies() {
  */
 export async function confirmLogout(): Promise<boolean> {
   if (!supabase || !useAuth.getState().user || useAuth.getState().mfaStep) return true;
-  if (await flushNow().catch(() => false)) return true;
+  if (await (await sync()).flushNow().catch(() => false)) return true;
   return confirmAction(t('Des changements ne sont pas encore envoyés'), t('Ils partiront à ta prochaine connexion sur cet appareil. Te déconnecter quand même ?'), t('Se déconnecter'));
 }
 
@@ -540,8 +541,8 @@ export const useAuth = create<AuthState>((set, get) => ({
     let sent = false;
     let ended = true;
     if (supabase) {
-      sent = await flushNow().catch(() => false);
-      stopSync();
+      sent = await (await sync()).flushNow().catch(() => false);
+      (await sync()).stopSync();
       if (user && !get().mfaStep && remembered()) {
         // « Rester connecté » : the account stays one click away on the sign-in page (until STALE_DAYS
         // unused), so its session is kept, not ended. « Retirer de cet appareil » ends it for good.
@@ -573,7 +574,7 @@ export const useAuth = create<AuthState>((set, get) => ({
     if (!user) return;
     if (supabase) {
       await cloud(supabase.auth.updateUser({ data: { name } }));
-      await updateCloudProfile(user.id, { name });
+      await (await sync()).updateCloudProfile(user.id, { name });
     } else {
       writeUsers(readUsers().map(u => (u.id === user.id ? { ...u, name } : u)));
     }
@@ -650,7 +651,7 @@ export const useAuth = create<AuthState>((set, get) => ({
               : t('La suppression a échoué : réessaie plus tard.'),
         );
       }
-      stopSync();
+      (await sync()).stopSync();
       await supabase.auth.signOut().catch(() => undefined);
     } else {
       writeUsers(readUsers().filter(u => u.id !== user.id));
@@ -668,9 +669,9 @@ export const useAuth = create<AuthState>((set, get) => ({
     if (!target) return 'credentials';
     if (supabase) {
       if (!target.session || needsCredentials(target)) return 'credentials';
-      await flushNow().catch(() => false);
+      await (await sync()).flushNow().catch(() => false);
       await rememberCurrent(current);
-      stopSync();
+      (await sync()).stopSync();
       sessionStorage.setItem(OWN_SWITCH, '1');
       ownSignIn = true;
       const { data, error } = await supabase.auth.setSession(target.session);
@@ -691,8 +692,8 @@ export const useAuth = create<AuthState>((set, get) => ({
   async addAccount(email) {
     const current = get().user;
     if (supabase) {
-      await flushNow().catch(() => false);
-      stopSync();
+      await (await sync()).flushNow().catch(() => false);
+      (await sync()).stopSync();
       if (current) await leaveSession(current);
     } else {
       void rememberCurrent(current);

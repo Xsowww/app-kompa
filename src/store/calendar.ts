@@ -156,10 +156,11 @@ const OTHER_MEETING = "reuni[oó]n|riunione|\\p{L}*besprechung|cita$|appuntament
 const OTHER_HANDIN = '\\p{L}*abgabe|entregas?$|consegna';
 const WORK_PERSO = wordRe(`m[ée]decin|dentiste|kin[ée]|ost[ée]o|docteur|pharmacie|anniversaire|mariage|bapt[eê]me|vacances|cong[ée]s?$|${OTHER_DOCTOR}|${OTHER_BIRTHDAY}`);
 // « Point avec Marc », « Appel client », « Visio » (not « Point relais », « Appel d'offres »).
-const WORK_MEETING = wordRe(`r[ée]union|meeting|call$|visio(?!n)|point$(?! relais)|appels?$(?! d['’]offres?)|entretien|rendez-vous|rdv$|revue$|s[ée]minaire|atelier|comit[ée]|formation|conf[ée]rence|webinaire|${OTHER_MEETING}`);
+// « Appeler M. Durand », « Rappeler le client », « Conseil de classe »: a call or a meeting too.
+const WORK_MEETING = wordRe(`r[ée]union|meeting|call$|visio(?!n)|point$(?! relais)|appels?$(?! d['’]offres?)|appeler|rappeler|t[ée]l[ée]phoner|entretien|rendez-vous|rdv$|revue$|s[ée]minaire|atelier|comit[ée]|conseils?$|formation|conf[ée]rence|webinaire|${OTHER_MEETING}`);
 const WORK_QUOTE = wordRe('devis|facture|relance|proposition|contrat|payer|paiement|imp[oô]ts?$|d[ée]claration|urssaf|tva$');
 const WORK_DEADLINE = wordRe(`deadline|[ée]ch[ée]ance|date limite|livraison|lancement|audits?$|${SALON}|d[ée]m[ée]nagement|rendre|rendu|remise|soutenance|pr[ée]sentation|d[ée]mo$|bouclage|cl[ôo]ture|${OTHER_HANDIN}`);
-const HOME_MEETING = wordRe(`r[ée]union|meeting|call$|visio(?!n)|point (?:d['’][ée]quipe|client|hebdo)|entretien|rendez-vous|rdv$|m[ée]decin|dentiste|kin[ée]|${OTHER_MEETING}|${OTHER_DOCTOR}`);
+const HOME_MEETING = wordRe(`r[ée]union|meeting|call$|visio(?!n)|point (?:d['’][ée]quipe|client|hebdo)|entretien|rendez-vous|rdv$|conseils? de classe|m[ée]decin|dentiste|kin[ée]|${OTHER_MEETING}|${OTHER_DOCTOR}`);
 const HOME_TODO = wordRe('devis|facture|relance|proposition|contrat|payer|imp[oô]ts?$|d[ée]claration');
 const HOME_BIG = wordRe(`deadline|[ée]ch[ée]ance|livraison|lancement|audits?$|${SALON}|anniversaire|mariage|d[ée]m[ée]nagement|${OTHER_BIRTHDAY}`);
 const STUDY_EXAM = wordRe('exam|partiel|contr[oô]le|ds$|qcm$|interro|oral(?:e|es|s)?$|soutenance|concours|\\p{L}*pr[üu]fung|\\p{L}*klausur|esam[ei]$|verifica|parcial(?:es)?$|tests?$|quiz|midterms?$|finals$');

@@ -8,9 +8,13 @@ import { useNotes, type Note, type NoteFolder } from '../store/notes';
 import { useCalendar, catOf, guessCategory, customCategoryIn, customNamed, createCategory, isDeliverable, isBigEvent, sortEvents, type CalendarEvent, type EventCategory } from '../store/calendar';
 import { useTodos } from '../store/todos';
 import { useFocus, focusLeft } from '../store/focus';
-import { normalize, noteText, stripHtml, formatBytes } from '../lib/utils';
+import { normalize, noteText, stripHtml, formatBytes, uid } from '../lib/utils';
 import { textSnippet } from '../lib/textFind';
-import { toKey, todayKey, daysUntil, fromKey, fmt, fmtDay, weekStart, countdownLabel } from '../lib/dates';
+import { toKey, todayKey, daysUntil, fromKey, fmt, fmtDay, weekStart, countdownLabel, validKey } from '../lib/dates';
+import { defaultUntil, isSpan, repeatDays, spanDays, type Repeat } from '../lib/repeat';
+import { cleanReminders, eventReminders, MAX_MINUTES, minutesBefore, reminderLabel, reminderMoment } from '../lib/reminders';
+import { isTaskRepeat } from '../lib/taskRepeat';
+import { canNotify } from '../lib/notify';
 import type { CopilotLink } from '../store/copilot';
 import type { Group, GroupEvent, GroupNoteSummary } from '../lib/groups';
 import { getSettings, useSettings, applyAppearance, ACCENTS, type Settings, type AccentKey, type ThemeMode, type Chattiness } from '../store/settings';
@@ -276,6 +280,35 @@ export function addEvent(input: { title: string; date: string; start?: string; e
     category: customCategoryIn(input.title) ?? input.category ?? guessCategory(input.title, !!input.start),
     important: input.important || undefined,
   });
+}
+
+/**
+ * An event over several days (« Congés du 22 au 26 décembre »: `endDate`) or that repeats (`repeat`, until `until`,
+ * else the usual three months): one event a day or per time, linked by a series, as the calendar's form makes them
+ * (lib/repeat). The first day of an event over several days keeps the reminders, the others none.
+ */
+export function addEvents(input: Parameters<typeof addEvent>[0] & { endDate?: string; repeat?: Repeat; until?: string }): { first: CalendarEvent; count: number; last: string } {
+  const endDate = validKey(input.endDate);
+  const spanning = !!endDate && endDate > input.date;
+  if (!spanning && !input.repeat) {
+    const first = addEvent(input);
+    return { first, count: 1, last: first.date };
+  }
+  const base = {
+    title: input.title,
+    category: customCategoryIn(input.title) ?? input.category ?? guessCategory(input.title, !!input.start),
+    important: input.important || undefined,
+  };
+  const series = spanning ? `span-${uid()}` : uid();
+  if (spanning) {
+    useCalendar.getState().addMany(spanDays(input.date, endDate!, input.start || undefined, input.end || undefined).map((p, i) => ({ ...base, ...p, series, ...(i > 0 && { reminders: [] }) })));
+  } else {
+    const until = validKey(input.until) && input.until! >= input.date ? input.until! : defaultUntil(input.date, input.repeat);
+    const days = repeatDays(input.date, input.repeat!, until).days;
+    useCalendar.getState().addMany((days.length ? days : [input.date]).map(date => ({ ...base, date, start: input.start || undefined, end: input.end || undefined, series })));
+  }
+  const made = useCalendar.getState().events.filter(e => e.series === series).sort(sortEvents);
+  return { first: made[0], count: made.length, last: made[made.length - 1].date };
 }
 
 export function overview() {
@@ -727,8 +760,73 @@ export function findTodo(ref: string) {
   return todos.find(t => t.id === ref) ?? todos.find(t => normalize(t.title) === q) ?? (q ? todos.find(t => normalize(t.title).includes(q)) : undefined);
 }
 
-export function addTodo(title: string, due?: string) {
-  return useTodos.getState().add(title, due && /^\d{4}-\d{2}-\d{2}$/.test(due) ? due : undefined);
+/** A task, with its due day and hour if given; `repeat` (day, week, month, year) makes the next one when it is ticked. */
+export function addTodo(title: string, due?: string, time?: string, repeat?: string) {
+  const day = validKey(due) ?? undefined;
+  const todo = useTodos.getState().add(title, day, day && time && /^\d{2}:\d{2}$/.test(time) ? time : undefined);
+  if (!isTaskRepeat(repeat)) return todo;
+  useTodos.getState().update(todo.id, { repeat, ...(!day && { due: todayKey() }) });
+  return useTodos.getState().todos.find(x => x.id === todo.id) ?? todo;
+}
+
+// ── Reminders ────────────────────────────────────────────────────────────────
+
+/**
+ * Sets the reminders of an event or a task (« rappelle-moi la veille », « 1 h avant », « plus de rappel »):
+ * `minutesBefore` (before its time, or before 9:00 without a time) and/or `at` (precise moments, « la veille à 18h »).
+ * Added to the ones it has, or instead of them with `replace` (empty with `replace`: none). Moments already past are
+ * left out and said. `series`: the next occurrences of a repeated event too. Throws when nothing can be done.
+ */
+export function setReminders(p: { eventId?: string; todoId?: string; minutesBefore?: unknown; at?: unknown; replace?: boolean; series?: boolean }, now = new Date()) {
+  const ev = p.eventId ? useCalendar.getState().events.find(e => e.id === p.eventId) : undefined;
+  const todo = !ev && p.todoId ? useTodos.getState().todos.find(x => x.id === p.todoId) : undefined;
+  if (!ev && !todo) throw new Error('événement ou tâche introuvable (il faut son id exact : list_events ou list_todos)');
+  const date = ev ? ev.date : todo!.due;
+  if (!date) throw new Error("cette tâche n'a pas d'échéance : un rappel a besoin d'un jour (demande-lui pour quand)");
+  const time = ev ? ev.start : todo!.time;
+  const list = (v: unknown) => (Array.isArray(v) ? v : v === undefined || v === null ? [] : [v]);
+  const wanted: number[] = [];
+  const refused: string[] = [];
+  for (const m of list(p.minutesBefore)) {
+    const n = Number(m);
+    if (Number.isInteger(n) && n >= 0 && n <= MAX_MINUTES) wanted.push(n);
+    else refused.push(`${String(m)} min (entre 0 et ${MAX_MINUTES})`);
+  }
+  for (const a of list(p.at)) {
+    const { date: d, time: h } = (a && typeof a === 'object' ? a : {}) as { date?: unknown; time?: unknown };
+    if (typeof d !== 'string' || !validKey(d) || typeof h !== 'string' || !/^\d{2}:\d{2}$/.test(h)) {
+      refused.push(`${JSON.stringify(a)} (date YYYY-MM-DD et time HH:mm)`);
+      continue;
+    }
+    const n = minutesBefore(date, time, d, h);
+    if (n < 0) refused.push(`${d} ${h} (après le moment de l'élément)`);
+    else if (n > MAX_MINUTES) refused.push(`${d} ${h} (plus de 4 semaines avant)`);
+    else wanted.push(n);
+  }
+  if (!wanted.length && !p.replace) throw new Error(refused.length ? `rappel impossible : ${refused.join(' ; ')}` : 'aucun rappel donné (minutes_before ou at)');
+  const past = wanted.filter(n => reminderMoment(date, time, n) <= now);
+  const coming = wanted.filter(n => !past.includes(n));
+  const current = ev ? eventReminders(ev, getSettings().defaultReminders ?? []) : (todo!.reminders ?? []);
+  const next = cleanReminders(p.replace ? coming : [...current, ...coming]) ?? [];
+  const label = (n: number) => reminderLabel(n, !!time, date, time);
+  let others = 0;
+  if (ev) {
+    const cal = useCalendar.getState();
+    if (p.series && ev.series && !isSpan(ev.series)) {
+      others = cal.events.filter(e => e.series === ev.series && e.date > ev.date).length;
+      cal.updateSeries(ev.id, { reminders: next });
+    } else cal.update(ev.id, { reminders: next });
+  } else useTodos.getState().update(todo!.id, { reminders: next });
+  return {
+    item: ev ? describeEvent(ev) : todo!.title,
+    rappels: next.length ? next.map(label) : 'aucun',
+    ...(others > 0 && { aussi_sur_les_suivantes: others }),
+    ...(past.length > 0 && { deja_passes_non_enregistres: past.map(label) }),
+    ...(refused.length > 0 && { refuses: refused }),
+    notifications: canNotify()
+      ? 'activées sur cet appareil'
+      : "pas activées sur cet appareil : le rappel s'affiche quand l'appli est ouverte ; pour le recevoir appli fermée, Profil › Notifications",
+  };
 }
 
 export function completeTodo(ref: string, done = true) {
