@@ -1,0 +1,113 @@
+/* Affichage Pro, Tâches (TasksPage, TodoList): round ticks like the iPhone's Rappels, the late ones lit up in red, today's
+   in amber, the days as small coloured chips, a count beside each heading. Nothing here without data-pro. */
+:root[data-pro] .tasks-page {
+  --tp-late: var(--pro-urgent, #ff6b5e);
+  --tp-today: var(--pro-timer, #ffb547);
+  --tp-done: var(--pro-focus, #30d158);
+}
+
+/* Headings: a coloured dot, then the count in a small pill of the same colour. */
+:root[data-pro] .tasks-page [data-group] {
+  --tp-c: rgb(255 255 255 / 0.6);
+}
+:root[data-pro] .tasks-page [data-group='late'] {
+  --tp-c: var(--tp-late);
+}
+:root[data-pro] .tasks-page [data-group='today'] {
+  --tp-c: var(--tp-today);
+}
+:root[data-pro] .tasks-page [data-group='done'] {
+  --tp-c: var(--tp-done);
+}
+:root[data-pro] .tasks-page [data-group] > div:first-child > h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--tp-c) !important;
+}
+:root[data-pro] .tasks-page [data-group] > div:first-child > h2::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 10px currentColor;
+}
+:root[data-pro] .tasks-page .group-count {
+  min-width: 20px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--tp-c);
+  background: color-mix(in srgb, var(--tp-c) 18%, transparent);
+}
+
+/* Round ticks. */
+:root[data-pro] .tasks-page .todo-check {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid rgb(255 255 255 / 0.32);
+}
+:root[data-pro] .tasks-page .todo-check:hover {
+  border-color: var(--tp-done);
+  background: color-mix(in srgb, var(--tp-done) 14%, transparent);
+}
+:root[data-pro] .tasks-page li[data-late] .todo-check {
+  border-color: color-mix(in srgb, var(--tp-late) 75%, transparent);
+}
+:root[data-pro] .tasks-page .todo-check:has(svg) {
+  border-color: var(--tp-done);
+  background: var(--tp-done);
+  box-shadow: 0 0 12px -2px color-mix(in srgb, var(--tp-done) 70%, transparent);
+}
+:root[data-pro] .tasks-page .todo-check svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Late tasks: a red glow from the left, the shape of the row, and a small bar. */
+:root[data-pro] .tasks-page li[data-late] {
+  position: relative;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--tp-late) 16%, transparent), transparent 70%);
+}
+:root[data-pro] .tasks-page li[data-late]::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 7px;
+  bottom: 7px;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--tp-late);
+  box-shadow: 0 0 8px var(--tp-late);
+}
+:root[data-pro] .tasks-page li[data-late] + li[data-late] {
+  margin-top: 2px;
+}
+:root[data-pro] .tasks-page li[data-late]:hover {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--tp-late) 24%, transparent), rgb(255 255 255 / 0.04) 70%);
+}
+
+/* Days as chips: late red, today amber, the others quiet. */
+:root[data-pro] .tasks-page .due-label {
+  padding: 1px 8px;
+  border-radius: 999px;
+  line-height: 18px;
+  background: rgb(255 255 255 / 0.08);
+  color: rgb(255 255 255 / 0.72);
+}
+:root[data-pro] .tasks-page .due-label[data-when='late'] {
+  color: var(--tp-late) !important;
+  background: color-mix(in srgb, var(--tp-late) 18%, transparent);
+  font-weight: 650;
+}
+:root[data-pro] .tasks-page .due-label[data-when='today'] {
+  color: var(--tp-today);
+  background: color-mix(in srgb, var(--tp-today) 18%, transparent);
+  font-weight: 650;
+}

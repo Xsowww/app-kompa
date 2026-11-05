@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { CalendarArrowDown, FileUp, Link2, Loader2, RefreshCw, X } from 'lucide-react';
 import { Modal } from '../../components/Overlays';
-import { catOf, timetableCategory, useCalendar, type EventCategory, type NewEvent } from '../../store/calendar';
+import { timetableCategory, useCalendar, type EventCategory, type NewEvent } from '../../store/calendar';
+// The colours of the categories, vivid in the Affichage Pro.
+import { catOf } from './proColors';
 import { cancelledBy, isIcsFile, parseIcs, type IcsEvent } from '../../lib/ics';
 import { fmt, fromKey, todayKey } from '../../lib/dates';
 import { confirmAction, toast } from '../../store/ui';

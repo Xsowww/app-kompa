@@ -4,7 +4,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { addDays, addMonths, endOfMonth, startOfMonth, isSameMonth } from 'date-fns';
 import { Bell, Copy, ExternalLink, Flag, Link2, ListFilter, ListTodo, MapPin, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, CornerDownLeft, CalendarArrowDown, CalendarArrowUp, CalendarRange, CalendarPlus, CalendarClock } from 'lucide-react';
 import { EmptyState, Skeleton } from '../../components/EmptyState';
-import { catOf, allCategories, guessCategory, isDeliverable, isBigEvent, sortEvents, type CalendarEvent, type EventCategory } from '../../store/calendar';
+import { allCategories, guessCategory, isDeliverable, isBigEvent, sortEvents, type CalendarEvent, type EventCategory } from '../../store/calendar';
+// The colours of the categories, vivid in the Affichage Pro.
+import { catOf } from './proColors';
 import { parseQuickAdd, toKey, fromKey, todayKey, validKey, fmt, fmtDay, weekStart, countdownLabel, daysUntil, toMinutes, fromMinutes, isOver } from '../../lib/dates';
 import { toast } from '../../store/ui';
 import { useSettings } from '../../store/settings';
@@ -117,6 +119,8 @@ function EventItem({ ev, onEdit, dragging, onDragStart, onMenu }: EventItemProps
       {/* The card alone lights up when a link leads here (lib/flash), not the time beside it. */}
       <div
         data-event={ev.id}
+        // The Affichage Pro lights an important one up (calPro.css).
+        data-important={ev.important || undefined}
         onPointerDown={readOnly ? undefined : onDragStart}
         onContextMenu={e => (e.preventDefault(), onMenu(e))}
         onKeyDown={e => isMenuKey(e) && (e.preventDefault(), onMenu(e))}
@@ -753,7 +757,7 @@ export default function CalendarPage() {
   return (
     <div
       ref={pageRef}
-      className={cx('h-full overflow-y-auto pb-room', shared ? 'shadow-room' : 'px-4 md:px-8')}
+      className={cx('cal-page h-full overflow-y-auto pb-room', shared ? 'shadow-room' : 'px-4 md:px-8')}
       onDragOver={e => {
         if (!hasFiles(e) || shared) return;
         e.preventDefault();
@@ -1227,7 +1231,7 @@ export default function CalendarPage() {
                   const big = isUpcomingExam(e);
                   const toHandIn = isDeliverable(e) && !shared;
                   return (
-                    <li key={e.id} className="flex min-w-0">
+                    <li key={e.id} data-big={big || undefined} className="flex min-w-0">
                       <button onClick={() => showEvent(e)} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1.5 py-1.5 text-left transition-colors hover:bg-stone-50">
                         <span className={cx('tabular w-9 shrink-0 font-semibold', big ? 'text-[13px]' : 'text-[12px]', big && n <= 3 ? 'font-extrabold text-urgent-text' : big ? 'text-ink' : 'text-stone-500')}>
                           {n === 0 ? t('Auj.') : n === 1 ? t('Dem.') : t('J-{n}', { n })}

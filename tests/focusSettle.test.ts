@@ -65,4 +65,24 @@ describe('focus session', () => {
     expect(useFocus.getState().phase).toBeNull();
     expect(useFocusLog.getState().sessions).toHaveLength(0);
   });
+
+  it('« +5 min » makes the block longer, running or paused, and counts it whole', () => {
+    useFocus.getState().start('Anglais');
+    useFocus.getState().extend(5);
+    expect(useFocus.getState()).toMatchObject({ minutes: 30, endsAt: Date.now() + 30 * MIN });
+    vi.setSystemTime(Date.now() + 10 * MIN);
+    useFocus.getState().pause();
+    useFocus.getState().extend(5);
+    expect(useFocus.getState()).toMatchObject({ minutes: 35, pausedLeft: 25 * MIN });
+    useFocus.getState().resume();
+    vi.setSystemTime(Date.now() + 25 * MIN);
+    useFocus.getState().tick();
+    expect(useFocus.getState().phase).toBe('break');
+    expect(useFocusLog.getState().sessions[0]).toMatchObject({ subject: 'Anglais', minutes: 35 });
+  });
+
+  it('« +5 min » does nothing without a session', () => {
+    useFocus.getState().extend(5);
+    expect(useFocus.getState()).toMatchObject({ phase: null, minutes: 0 });
+  });
 });

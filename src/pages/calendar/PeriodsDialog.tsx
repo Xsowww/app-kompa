@@ -15,7 +15,9 @@ import PeoplePicker from './PeoplePicker';
 import ImportPeriods from './ImportPeriods';
 import { useGroups } from '../../store/groups';
 import { cloudEnabled } from '../../lib/supabase';
-import { catOf, sortEvents, type CalendarEvent } from '../../store/calendar';
+import { sortEvents, type CalendarEvent } from '../../store/calendar';
+// The colours of the categories, vivid in the Affichage Pro.
+import { catOf } from './proColors';
 import { locale, t, tn } from '../../i18n';
 
 type Draft = { id?: string; title: string; start: string; end: string; color: string; people?: string[]; skip?: string[] };

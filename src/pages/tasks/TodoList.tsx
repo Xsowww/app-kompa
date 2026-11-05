@@ -6,6 +6,7 @@ import { BellRing, CalendarClock, CalendarPlus, Check, ChevronRight, ListTodo, P
 import { EmptyState } from '../../components/EmptyState';
 import { ContextMenu, type MenuItem } from '../../components/Overlays';
 import { useTodos, type Todo } from '../../store/todos';
+import { useSettings } from '../../store/settings';
 import { countdownLabel, daysUntil, fmt, fmtDay, fromKey, parseQuickAdd, toKey, todayKey } from '../../lib/dates';
 import { cx } from '../../lib/utils';
 import { reminderMoment } from '../../lib/reminders';
@@ -44,7 +45,8 @@ function DueLabel({ due, time, short, noDay, repeat }: { due: string; time?: str
   const label = [!noDay && dueText(due, short), time].filter(Boolean).join(' · ');
   return (
     // inline-block: ::first-letter only works on a block (« Mar. 20 »).
-    <span className={cx('tabular inline-block shrink-0 text-[12px] first-letter:uppercase', n < 0 ? 'font-medium' : n === 0 ? 'text-ink' : 'text-stone-500')} style={n < 0 ? { color: OVERDUE } : undefined}>
+    // data-when: the Affichage Pro draws it as a coloured chip (tasksPro.css).
+    <span data-when={n < 0 ? 'late' : n === 0 ? 'today' : 'soon'} className={cx('due-label tabular inline-block shrink-0 text-[12px] first-letter:uppercase', n < 0 ? 'font-medium' : n === 0 ? 'text-ink' : 'text-stone-500')} style={n < 0 ? { color: OVERDUE } : undefined}>
       {repeat && <Repeat size={11} className="mr-1 inline align-[-1px]" aria-hidden />}
       {label}
     </span>
@@ -255,13 +257,15 @@ const TodoRow = memo(function TodoRow({ t: todo, editable, preview, now = 0, gro
         e.preventDefault();
         setMenu(menuPoint(e));
       }}
+      // data-late: the Affichage Pro lights late tasks up (tasksPro.css).
+      data-late={overdue || undefined}
       className="list-row group flex min-h-9 items-center gap-2 rounded-lg px-1.5 py-1 transition-colors hover:bg-stone-50 sm:gap-3 pointer-coarse:gap-3 pointer-coarse:pl-3.5"
     >
       <button
         data-todo={todo.id}
         onClick={() => tick()}
         className={cx(
-          'hit flex h-4 w-4 shrink-0 items-center justify-center rounded-[5px] border-[1.5px] transition-colors',
+          'todo-check hit flex h-4 w-4 shrink-0 items-center justify-center rounded-[5px] border-[1.5px] transition-colors',
           justDone ? 'border-emerald-500 bg-emerald-500' : overdue ? 'border-[#d9a19a] hover:border-[#b13428] dark:border-red-300 dark:hover:border-red-600' : 'border-stone-300 hover:border-stone-500',
         )}
         title={todo.done ? t('Remettre à faire') : t('Marquer comme faite')}
@@ -523,6 +527,7 @@ const settling = (t: Todo, now: number) => t.done && !!t.doneAt && now - Date.pa
  */
 export default function TodoList({ limit, grouped }: { limit?: number; grouped?: boolean }) {
   const todos = useTodos(s => s.todos);
+  const pro = useSettings(s => s.pro);
   useToday(); // re-render the next day (overdue, « Aujourd'hui »)
   const preview = !!limit;
   // Ticks less than 30 minutes old stay in the list: one render when the next of them is due to leave.
@@ -581,12 +586,18 @@ export default function TodoList({ limit, grouped }: { limit?: number; grouped?:
       {groups.length > 0 && (
         <div className={cx(!grouped && 'mt-2')}>
           {rendered.filter(g => g.rows.length).map(g => (
-            <div key={g.key} className={cx(g.label && 'mt-3 first:mt-1')}>
+            <div key={g.key} data-group={g.key} className={cx(g.label && 'mt-3 first:mt-1')}>
               {g.label && (
                 <div className="mb-0.5 flex items-center gap-2 px-1.5">
                   <h2 className={cx('eyebrow', g.key === 'done' && 'text-emerald-700 dark:text-emerald-400')} style={g.key === 'late' ? { color: OVERDUE } : undefined}>
                     {g.label}
                   </h2>
+                  {/* Affichage Pro: how many, at a glance (tasksPro.css colours it). */}
+                  {pro && g.key !== 'done' && (
+                    <span className="group-count tabular" aria-hidden>
+                      {g.items.length}
+                    </span>
+                  )}
                   {g.key === 'late' && (
                     <button
                       type="button"

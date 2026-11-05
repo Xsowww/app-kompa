@@ -1,0 +1,24 @@
+/* Affichage Pro, Calendrier (CalendarPage; the categories' vivid colours come from proColors.ts): what is important
+   stands out at a glance. Nothing here without data-pro. */
+
+/* An event marked important, in the day's list: an amber edge and glow. */
+:root[data-pro] .cal-page [data-important] {
+  background: linear-gradient(100deg, color-mix(in srgb, var(--pro-timer, #ffb547) 18%, transparent), rgb(255 255 255 / 0.04) 65%);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--pro-timer, #ffb547) 45%, transparent),
+    0 10px 28px -14px color-mix(in srgb, var(--pro-timer, #ffb547) 60%, transparent);
+}
+:root[data-pro] .cal-page [data-important]:hover {
+  background: linear-gradient(100deg, color-mix(in srgb, var(--pro-timer, #ffb547) 26%, transparent), rgb(255 255 255 / 0.07) 65%);
+}
+
+/* « À venir »: the big days (exams, important ones) on a red tint, the shape of their row. */
+:root[data-pro] .cal-page li[data-big] > button {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--pro-urgent, #ff6b5e) 16%, transparent), transparent 75%);
+}
+:root[data-pro] .cal-page li[data-big] > button:hover {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--pro-urgent, #ff6b5e) 24%, transparent), rgb(255 255 255 / 0.05) 75%);
+}
+:root[data-pro] .cal-page li[data-big] + li[data-big] {
+  margin-top: 2px;
+}
