@@ -418,7 +418,11 @@ export default function DashboardPro() {
             aria-label={tasks.late.length ? tn(tasks.late.length, '{n} tâche en retard', '{n} tâches en retard') : t('Aucune tâche en retard')}
           >
             <span>{t('En retard')}</span>
-            <b className="tabular">{tasks.late.length}</b>
+            <b className="tabular">
+              {tasks.late.length}
+              {/* Said in full for the page's text too (search, tests), the chip's name being the label above. */}
+              {tasks.late.length > 0 && <span className="sr-only"> · {tn(tasks.late.length, '{n} tâche en retard', '{n} tâches en retard')}</span>}
+            </b>
           </Link>
           {nowPeriods.map(p => (
             <Link key={p.id} to="/calendrier" className="dpro-period" style={{ background: periodTint(p, 22), color: periodText(p) }}>
