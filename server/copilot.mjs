@@ -413,7 +413,7 @@ export async function handleCopilot(req, res, env = process.env) {
       send(res, 429, { error: limit, retryAfter: secondsToParisMidnight(), quota: quotaOf(who, env) });
       return true;
     }
-    const response = await chat(provider, { system: chatSystem(body), tools: TOOLS, messages, maxTokens: provider.id === 'anthropic' ? 16000 : 8000 });
+    const response = await chat(provider, { system: chatSystem(body, { provider, env }), tools: TOOLS, messages, maxTokens: provider.id === 'anthropic' ? 16000 : 8000 });
     send(res, 200, { ...response, quota: quotaOf(who, env) });
   } catch (e) {
     if (e instanceof ProviderError) send(res, { timeout: 504, rate_limited: 429, too_large: 413 }[e.code] ?? 502, { error: e.code, status: e.status, retryAfter: e.retryAfter });

@@ -27,7 +27,7 @@ import { t, tn } from '../../i18n';
 
 const NONE: number[] = [];
 /** The repeat a sentence asks for: « tous les mardis » every week, « tous les ans » every year. */
-const repeatSaid = (p: { weekly?: boolean; yearly?: boolean }): Repeat | '' => (p.weekly ? 'week' : p.yearly ? 'year' : '');
+const repeatSaid = (p: { every?: Repeat }): Repeat | '' => p.every ?? '';
 /** Periods a repeat skips at first (they can be ticked off): the holidays. */
 const HOLIDAYS = /vacance|cong[ée]|holiday|vacation|ferien|urlaub|vacacion|vacanz|feri[ea]/i;
 
@@ -138,9 +138,9 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
   const [creating, setCreating] = useState(false);
   // A new event: « Dentiste demain 16h » fills the day and the times (as the calendar's bar), unless they were set by
   // hand; saved as « Dentiste ». Editing one leaves its title as it is.
-  const touched = useRef({ day: false, start: false, end: false, important: false, repeat: false });
+  const touched = useRef({ day: false, start: false, end: false, important: false, repeat: false, endDay: false });
   const parsed = !event && (!template || retyped) && title.trim() ? parseQuickAdd(title) : null;
-  const understood = !!parsed && !parsed.impossible && !!(parsed.date || parsed.start || parsed.important || parsed.yearly);
+  const understood = !!parsed && !parsed.impossible && !!(parsed.date || parsed.start || parsed.important || parsed.every);
   // « 31/11 »: said and blocked, unless the day was chosen by hand.
   const [dayByHand, setDayByHand] = useState(false);
   const impossible = !!parsed?.impossible && !dayByHand;
@@ -157,7 +157,8 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
   const series = repeat && day ? repeatDays(day, repeat, lastDay, k => periods.some(p => skipIds.includes(p.id) && covers(p, k))) : null;
   // Over several days (a seminar, a trip): one event a day, linked (lib/repeat spanDays). Not with a repeat.
   const canSpan = !event && !repeat;
-  const [endDay, setEndDay] = useState<string | null>(null); // null: ends the same day
+  // null: ends the same day. « Congés du 22 au 26 décembre » typed in the calendar's bar: the 26th.
+  const [endDay, setEndDay] = useState<string | null>(() => (canSpan && initialTitle ? (parseQuickAdd(initialTitle).endDate ?? null) : null));
   const spanning = canSpan && !!endDay && !!day && endDay > day;
   // Longer than MAX_SPAN_DAYS: said and blocked (a day typed past the little calendar's end), never cut without a word.
   const endDayMsg = canSpan && endDay && day ? (endDay <= day ? t('Le jour de fin doit être après le jour de début.') : spanTooLong(day, endDay) ? t('{n} jours au plus.', { n: MAX_SPAN_DAYS }) : '') : '';
@@ -174,6 +175,7 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
     if (!was.end) setEnd(ok?.end ?? (ok?.start ? '' : (initialEnd ?? '')));
     if (!was.important) setImportant(!!ok?.important);
     if (canRepeat && !was.repeat) setRepeat(ok ? repeatSaid(ok) : '');
+    if (!was.endDay) setEndDay(ok?.endDate ?? null);
   };
   const effective = category ?? guessCategory(cleanTitle || title, !!start, custom);
   // My usual reminder and, for a big day, a week before and the day before when still to come (lib/reminders); a shared calendar: the chosen ones.
@@ -387,16 +389,16 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
 
         {canSpan &&
           (endDay === null ? (
-            <button type="button" className="btn-ghost mt-2 h-8 px-2 text-[12.5px]" onClick={() => setEndDay(day ? shiftKey(day, 1) : '')}>
+            <button type="button" className="btn-ghost mt-2 h-8 px-2 text-[12.5px]" onClick={() => ((touched.current.endDay = true), setEndDay(day ? shiftKey(day, 1) : ''))}>
               <Plus size={13} /> {t('Finit un autre jour')}
             </button>
           ) : (
             <div className="mt-3 grid grid-cols-1 items-end gap-2 min-[360px]:grid-cols-[minmax(0,1fr)_auto]">
               <div>
                 <span className="mb-1.5 block text-[12px] font-medium text-stone-600">{t('Jour de fin')}</span>
-                <DateField value={endDay} onChange={v => setEndDay(v)} min={day || undefined} max={day ? shiftKey(day, MAX_SPAN_DAYS - 1) : undefined} label={t('Jour de fin de l’événement')} invalid={!!endDayMsg} className="w-full" />
+                <DateField value={endDay} onChange={v => ((touched.current.endDay = true), setEndDay(v))} min={day || undefined} max={day ? shiftKey(day, MAX_SPAN_DAYS - 1) : undefined} label={t('Jour de fin de l’événement')} invalid={!!endDayMsg} className="w-full" />
               </div>
-              <button type="button" className="btn-ghost h-10 px-2.5 text-[12.5px]" onClick={() => setEndDay(null)}>
+              <button type="button" className="btn-ghost h-10 px-2.5 text-[12.5px]" onClick={() => ((touched.current.endDay = true), setEndDay(null))}>
                 {t('Finit le même jour')}
               </button>
               {endDayMsg ? (

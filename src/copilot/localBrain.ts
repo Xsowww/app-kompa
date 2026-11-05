@@ -16,6 +16,7 @@ import {
   createNote,
   createDriveFolder,
   addEvent,
+  addEvents,
   eventsBetween,
   describeEvent,
   linkToNote,
@@ -640,9 +641,16 @@ export function localReply(raw: string): BotReply {
     const parsed = parseQuickAdd(m[1]);
     if (parsed.title) {
       const date = parsed.date ?? todayKey();
-      const ev = addEvent({ title: parsed.title, date, start: parsed.start ?? undefined, end: parsed.end ?? undefined, important: parsed.important });
+      // « Ajoute congés du 22 au 26 décembre »: one event over several days; « yoga tous les mardis »: repeated (three months).
+      const { first: ev, count, last } = addEvents({ title: parsed.title, date, start: parsed.start ?? undefined, end: parsed.end ?? undefined, important: parsed.important, endDate: parsed.endDate, repeat: parsed.every });
+      const more =
+        count > 1
+          ? parsed.endDate
+            ? t('Jusqu’au {day}.', { day: fmt(fromKey(last), 'EEEE d MMMM') })
+            : t('Répété {n} fois, jusqu’au {day}.', { n: count, day: fmt(fromKey(last), 'EEEE d MMMM') })
+          : '';
       return {
-        text: `${t('Ajouté au calendrier : {event}', { event: describeEvent(ev) })}${parsed.date ? '' : `\n${t('(Pas de date trouvée : je l’ai mis aujourd’hui.)')}`}`,
+        text: `${t('Ajouté au calendrier : {event}', { event: describeEvent(ev) })}${more ? `\n${more}` : ''}${parsed.date ? '' : `\n${t('(Pas de date trouvée : je l’ai mis aujourd’hui.)')}`}`,
         links: [{ label: t('Voir le jour'), to: linkToDay(ev.date, ev.id) }],
       };
     }
