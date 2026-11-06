@@ -335,9 +335,9 @@ export default function App() {
         {/* Typed by hand by visitors looking for the price. */}
         <Route path="/prix" element={<Navigate to="/tarifs" replace />} />
         <Route path="/a-propos" element={<Suspense fallback={<Loading full />}><LegalPage key="apropos" doc="apropos" /></Suspense>} />
-        {['/contact', '/presse', '/qui-sommes-nous'].map(p => (
-          <Route key={p} path={p} element={<Navigate to="/a-propos" replace />} />
-        ))}
+        <Route path="/contact" element={<Navigate to="/a-propos" replace />} />
+        <Route path="/presse" element={<Navigate to="/a-propos" replace />} />
+        <Route path="/qui-sommes-nous" element={<Navigate to="/a-propos" replace />} />
         <Route element={<RequireAuth><Suspense fallback={<Loading full />}><AppShell /></Suspense></RequireAuth>}>
           <Route index element={<Suspense fallback={<Loading />}><Dashboard /></Suspense>} />
           <Route path="drive" element={<Suspense fallback={<Loading />}><DrivePage /></Suspense>} />
