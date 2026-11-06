@@ -224,3 +224,11 @@ export function firstOfSeries<T extends { series?: string }>(list: T[]): T[] {
   const seen = new Set<string>();
   return list.filter(e => !e.series || (!seen.has(e.series) && !!seen.add(e.series)));
 }
+
+/** « Jusqu’au » chosen: the end of the school year (30 June) when it is still to come in the next 10 months, else a year later. */
+export function defaultEnd(from: string): string {
+  const d = from ? fromKey(from) : new Date();
+  const june = new Date(d.getMonth() >= 6 ? d.getFullYear() + 1 : d.getFullYear(), 5, 30);
+  const end = june.getTime() - d.getTime() < 300 * 864e5 && june > d ? june : new Date(d.getFullYear() + 1, d.getMonth(), d.getDate());
+  return `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`;
+}

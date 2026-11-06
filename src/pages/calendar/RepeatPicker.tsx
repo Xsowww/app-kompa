@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import { Check } from 'lucide-react';
 import { DateField, SelectField } from '../../components/Pickers';
-import { REPEATS, nthLabel, nthOfMonth, ruleOf, unitWord, type Repeat, type RepeatRule, type RepeatUnit } from '../../lib/repeat';
+import { REPEATS, defaultEnd, nthLabel, nthOfMonth, ruleOf, unitWord, type Repeat, type RepeatRule, type RepeatUnit } from '../../lib/repeat';
 import { fromKey } from '../../lib/dates';
 import { cx } from '../../lib/utils';
 import { t } from '../../i18n';
@@ -134,12 +134,4 @@ export function EndChoice({ until, onChange, from }: { until: string | null; onC
       {until && <DateField value={until} onChange={v => v && onChange(v)} min={from || undefined} label={t('Dernier jour de la répétition')} className="w-full" />}
     </div>
   );
-}
-
-/** « Jusqu’au » chosen: the end of the school year (30 June) when it is still to come in the next 10 months, else a year later. */
-export function defaultEnd(from: string): string {
-  const d = from ? fromKey(from) : new Date();
-  const june = new Date(d.getMonth() >= 6 ? d.getFullYear() + 1 : d.getFullYear(), 5, 30);
-  const end = june.getTime() - d.getTime() < 300 * 864e5 && june > d ? june : new Date(d.getFullYear() + 1, d.getMonth(), d.getDate());
-  return `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`;
 }

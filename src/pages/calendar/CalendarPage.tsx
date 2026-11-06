@@ -523,21 +523,32 @@ export default function CalendarPage() {
       !(tasksOnly && !shown.size && !importantOnly) && (shown.size === 0 || shown.has(e.category)) && (!importantOnly || isBigEvent(e)) && isFor(e, forWho),
     [shown, importantOnly, tasksOnly, forWho],
   );
-  const visible = useMemo(() => events.filter(passes), [events, passes]);
+  // Sorted once per change of the events or the filter: the days and « À venir » read this list (with 4 000 events,
+  // sorting it again at each day or month shown cost ~60 ms a click).
+  const sorted = useMemo(() => events.filter(passes).sort(sortEvents), [events, passes]);
   const byDay = useMemo(() => {
     const m = new Map<string, CalendarEvent[]>();
-    for (const e of [...visible].sort(sortEvents)) m.set(e.date, [...(m.get(e.date) ?? []), e]);
+    for (const e of sorted) {
+      const list = m.get(e.date);
+      if (list) list.push(e);
+      else m.set(e.date, [e]);
+    }
     return m;
-  }, [visible]);
+  }, [sorted]);
 
   const selDate = fromKey(selected);
   const today = useToday();
-  const week = Array.from({ length: 7 }, (_, i) => addDays(weekStart(selDate), i));
+  // The week shown, its keys and its events: the same arrays while it stays (the hourly grid keeps its layout
+  // instead of placing every event again at each key typed in the quick add).
+  const monday = toKey(weekStart(selDate));
+  const week = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(fromKey(monday), i)), [monday]);
   const dayEvents = byDay.get(selected) ?? [];
   const dayTasks = tasksOn(todos, selected);
   // Periods (« En entreprise »…): a band over the week, a tint on their days.
   const { periods } = source;
-  const weekKeys = week.map(toKey);
+  const weekKeys = useMemo(() => week.map(toKey), [week]);
+  const weekEvents = useMemo(() => weekKeys.flatMap(k => byDay.get(k) ?? []), [weekKeys, byDay]);
+  const dayKeys = useMemo(() => [selected], [selected]);
   const weekBands = periodsBetween(periods, weekKeys[0], weekKeys[6]);
   const selPeriods = periodsOn(periods, selected);
   const tintOf = (key: string): Period | undefined => periodsOn(periods, key)[0];
@@ -691,7 +702,9 @@ export default function CalendarPage() {
   // Exams and events marked important (they count as big days too).
   const isUpcomingExam = (e: CalendarEvent) => isBigEvent(e) && !isOver(e);
   // Events are not ticked (only tasks): what is past is just past, not « en retard ».
-  const isHomeworkSoon = (e: CalendarEvent) => isDeliverable(e) && daysUntil(e.date) <= 14 && daysUntil(e.date) >= 0;
+  // (Days compared as keys: date-fns' differenceInCalendarDays twice per event was the slowest part of this list.)
+  const in14 = toKey(addDays(fromKey(today), 14));
+  const isHomeworkSoon = (e: CalendarEvent) => e.date >= today && e.date <= in14 && isDeliverable(e);
   // « Rien à afficher » only when a hidden category holds something this block would list (not a hidden « Sport »).
   // Anything still to come (not over): after the important ones, the next things, whatever they are.
   const isComing = (e: CalendarEvent) => e.date >= today && !isOver(e);
@@ -703,12 +716,19 @@ export default function CalendarPage() {
     const upcomingHidden = filtering && events.some(e => !passes(e) && away(e) && (isComing(e) || isHomeworkSoon(e)));
     // An event over several days once, at its first day (not « J-3, J-4, J-5 »); none when that day is the one shown
     // (its next day, J-4, would say the wrong day).
-    const pool = firstOfSpans([...visible].sort(sortEvents).filter(e => isUpcomingExam(e) || isHomeworkSoon(e) || isComing(e))).filter(away);
+    // Only what is from today on can be listed: the sorted list from its first event of today (a binary search).
+    let lo = 0;
+    for (let hi = sorted.length; lo < hi; ) {
+      const mid = (lo + hi) >> 1;
+      if (sorted[mid].date < today) lo = mid + 1;
+      else hi = mid;
+    }
+    const pool = firstOfSpans(sorted.slice(lo).filter(e => isUpcomingExam(e) || isHomeworkSoon(e) || isComing(e))).filter(away);
     // One list in date order: the important ones (marked, one per repeat) among homework to hand in and the next events.
     const upcoming = upcomingList(pool, e => (isUpcomingExam(e) ? 'big' : isHomeworkSoon(e) ? 'homework' : 'other'));
     return { upcomingHidden, upcoming };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the helpers above only read these values
-  }, [events, visible, passes, filtering, shared, today, minute, selected, mode]);
+  }, [events, sorted, passes, filtering, shared, today, minute, selected, mode]);
   const upcomingRows = allUpcoming ? [...upcoming.shown, ...upcoming.more].sort(sortEvents) : upcoming.shown;
 
   const monthDays = useMemo(() => {
@@ -944,7 +964,7 @@ export default function CalendarPage() {
                   days={weekKeys}
                   today={today}
                   selected={selected}
-                  events={weekKeys.flatMap(k => byDay.get(k) ?? [])}
+                  events={weekEvents}
                   todos={todos}
                   periods={periods}
                   drag={drag}
@@ -1232,7 +1252,7 @@ export default function CalendarPage() {
               </div>
               {mode === 'day' ? (
                 <TimeGrid
-                  days={[selected]}
+                  days={dayKeys}
                   today={today}
                   events={dayEvents}
                   todos={todos}
