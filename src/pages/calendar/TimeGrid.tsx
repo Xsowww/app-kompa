@@ -363,8 +363,17 @@ export default function TimeGrid({ days, today, selected, events, todos, periods
                               {eventTitle(ev, shared)}
                             </span>
                             <span className="tabular mt-0.5 truncate text-[11px]" style={{ color: c.text }}>
-                              {ev.start}
-                              {resizing?.ev.id === ev.id ? ` – ${fromMinutes(end)}` : ev.end && ` – ${ev.end}`}
+                              {/* A night: « 21:00 → » the evening, « → 07:00 » the morning after (not 23:59, 00:00). */}
+                              {nights.has(ev.id) && resizing?.ev.id !== ev.id
+                                ? ev.start === '00:00'
+                                  ? `→ ${ev.end}`
+                                  : `${ev.start} →`
+                                : (
+                                  <>
+                                    {ev.start}
+                                    {resizing?.ev.id === ev.id ? ` – ${fromMinutes(end)}` : ev.end && ` – ${ev.end}`}
+                                  </>
+                                )}
                             </span>
                             {height > 70 && (ev.place || ev.details) && <span className="mt-0.5 truncate text-[11px] text-stone-500">{ev.place || ev.details!.split('\n')[0]}</span>}
                           </>
