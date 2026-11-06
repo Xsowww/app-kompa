@@ -135,7 +135,7 @@ export async function checkPassword(email: string, password: string): Promise<bo
 export const cloudEnabled = supabase !== null;
 
 export type OAuthProvider = 'google' | 'apple';
-type AuthSettings = { external?: Record<string, boolean>; passkeys_enabled?: boolean };
+type AuthSettings = { external?: Record<string, boolean>; passkeys_enabled?: boolean; mailer_autoconfirm?: boolean };
 let settings: Promise<AuthSettings> | null = null;
 /** What is switched on in Supabase (read once). */
 const authSettings = () =>
@@ -148,6 +148,15 @@ export function oauthProviders(): Promise<OAuthProvider[]> {
   if (!url || !key) return Promise.resolve([]);
   // shortcut: Apple's button hidden until the Apple Developer account is bought; put 'apple' back in this list then.
   return authSettings().then(s => (['google'] as const).filter(p => s.external?.[p] === true));
+}
+
+/**
+ * A new account must click the link of its e-mail before entering (Supabase › Authentication › Sign In / Providers ›
+ * Email › « Confirm email »). null: not known (local mode, or Supabase not reached).
+ */
+export function signUpNeedsEmail(): Promise<boolean | null> {
+  if (!url || !key) return Promise.resolve(null);
+  return authSettings().then(s => (typeof s.mailer_autoconfirm === 'boolean' ? !s.mailer_autoconfirm : null));
 }
 
 /** Face ID / fingerprint sign-in: switched on in Supabase (Authentication › Passkeys) and possible in this browser. */
