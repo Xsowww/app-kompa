@@ -2826,6 +2826,12 @@ alter table public.group_events add column if not exists series text
   check (series is null or char_length(series) <= 60);
 create index if not exists group_events_series on public.group_events (group_id, series) where series is not null;
 
+-- Nuits et vacances scolaires (2026-11-07_series_nuits.sql) : séries jusqu'à 120 caractères (« span-<uuid> » en fait 41).
+alter table public.events drop constraint if exists events_series_check;
+alter table public.events add constraint events_series_check check (series is null or char_length(series) <= 120);
+alter table public.group_events drop constraint if exists group_events_series_check;
+alter table public.group_events add constraint group_events_series_check check (series is null or char_length(series) <= 120);
+
 -- E-mails de bienvenue et de conseils (server/emails.mjs). À coller dans Supabase › SQL Editor
 -- (après 2026-10-31_agendas_series.sql). Le serveur (clé secrète) demande qui doit recevoir quoi, puis le note.
 alter table public.profiles add column if not exists welcome_sent_at timestamptz;

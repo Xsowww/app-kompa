@@ -2,7 +2,7 @@ import { useDrive } from './drive';
 import { applyUsage, guessCategory, useCalendar } from './calendar';
 import { DEMO_KEY, demoPlan, readDemo } from '../lib/demoFirst';
 import { spanDays } from '../lib/repeat';
-import { uid } from '../lib/utils';
+import { newSeries } from '../lib/seriesId';
 import { goTo, linkToDay } from '../copilot/actions';
 import { useNotes } from './notes';
 import { useCopilot } from './copilot';
@@ -251,7 +251,7 @@ export function addDemoItem() {
   let first;
   if (plan.endDate) {
     // « Congés du 22 au 26 décembre 9h »: one a day, linked, the first one keeping the reminders (as the calendar does).
-    const series = `span-${uid()}`;
+    const series = newSeries(true); // short enough for the server (lib/seriesId)
     const days = spanDays(plan.date, plan.endDate, plan.start, plan.end);
     useCalendar.getState().addMany(days.map((d, i) => ({ ...base, ...d, series, ...(i > 0 && { reminders: [] }) })));
     first = useCalendar.getState().events.find(e => e.series === series && e.date === plan.date);
