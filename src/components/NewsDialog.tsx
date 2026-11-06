@@ -75,7 +75,7 @@ export default function NewsDialog() {
           // Kompaly's own page has his mark, not the drone.
           <div key={page} className="news-pro-pic enter mt-3" style={{ '--c': PRO_TINTS[item.icon] } as CSSProperties}>
             <span className="news-pro-tile" aria-hidden>
-              {Icon ? <Icon size={34} strokeWidth={1.8} className="short:size-6" /> : <KompalyMark size={40} className="text-white short:size-7" />}
+              {Icon ? <Icon size={34} strokeWidth={1.8} className="short:size-6" /> : <KompalyMark size={54} className="text-white short:size-9" />}
             </span>
           </div>
         ) : (
