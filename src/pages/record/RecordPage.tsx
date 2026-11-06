@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Bell, BookOpenCheck, Check, ClipboardList, FileText, FolderOpen, Loader2, Mic, MonitorSpeaker, Pause, Play, RotateCcw, Square, Star, Trash2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { AlertTriangle, Bell, BookOpenCheck, Check, ClipboardList, Clock, FileText, FolderOpen, Loader2, Mic, MonitorSpeaker, Pause, Play, RotateCcw, Square, Star, Trash2 } from 'lucide-react';
 import { Modal } from '../../components/Overlays';
 import { EmptyState } from '../../components/EmptyState';
 import { useSettings } from '../../store/settings';
@@ -17,6 +18,7 @@ import {
   recordingElsewhere,
   resumeListening,
   star,
+  stoppedSince,
   startRecording,
   useRecLive,
   useRecorder,
@@ -80,7 +82,9 @@ function Setup() {
   const [busy, setBusy] = useState(false);
   const error = useRecLive(st => st.startError);
   const setError = (startError: string) => useRecLive.setState({ startError });
-  const [server, setServer] = useState<{ transcription: boolean } | null>(null);
+  const [server, setServer] = useState<{ transcription: boolean; audioLeft?: number; audioMax?: number } | null>(null);
+  // « Mode simple uniquement » (Profil › Kompaly): the sound would go to an AI, so no recording.
+  const simpleOnly = useSettings(s => s.simpleOnly);
   useEffect(() => {
     // No answer at all (no server, network): said like a server without transcription.
     serverState().then(setServer, () => setServer({ transcription: false }));
@@ -189,7 +193,16 @@ function Setup() {
         ))}
       </div>
 
-      {server && !server.transcription && <p className="text-[13px] text-amber-800">{t('La transcription est indisponible pour le moment.')}</p>}
+      {simpleOnly ? (
+        <p className="rounded-xl bg-stone-100 px-3 py-2.5 text-[13px] text-stone-700">
+          {t('Le mode simple uniquement est activé : l’enregistrement écrit passe par une IA, il est donc coupé. Pour enregistrer, désactive-le dans')}{' '}
+          <Link to="/profil?onglet=copilot" className="font-semibold underline underline-offset-2">{t('Profil › Kompaly')}</Link>.
+        </p>
+      ) : server && !server.transcription ? (
+        <p className="text-[13px] text-amber-800">{t('La transcription est indisponible pour le moment.')}</p>
+      ) : (
+        server?.audioLeft !== undefined && <AudioLeft left={server.audioLeft} max={server.audioMax} />
+      )}
       {error && (
         <p role="alert" className="flex gap-2 rounded-xl bg-red-50 px-3 py-2.5 text-[13px] text-red-700">
           <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden /> {error}
@@ -197,7 +210,7 @@ function Setup() {
       )}
 
       <div className="flex items-center gap-3">
-        <button type="button" className="btn-primary h-12 flex-1 text-[15px]" disabled={busy} onClick={() => void start()}>
+        <button type="button" className="btn-primary h-12 flex-1 text-[15px]" disabled={busy || simpleOnly} onClick={() => void start()}>
           {busy ? <Loader2 size={16} className="animate-spin" /> : <span className="h-2.5 w-2.5 rounded-full bg-red-500" aria-hidden />} {t('Démarrer')}
         </button>
         <button type="button" className="btn-secondary h-12 px-3.5" onClick={() => setSettings(true)} title={t('Mots-clés et alertes')} aria-label={t('Mots-clés et alertes')}>
@@ -206,6 +219,17 @@ function Setup() {
       </div>
       {settings && <AlertSettings onClose={() => setSettings(false)} />}
     </section>
+  );
+}
+
+/** « Il te reste 3 h 12 d'enregistrement aujourd'hui » (the server's own count, server/cours.mjs › audioLeft). */
+function AudioLeft({ left, max }: { left: number; max?: number }) {
+  if (left <= 0) return <p className="text-[13px] font-medium text-amber-800">{t('Tu as utilisé tes {max} d’enregistrement d’aujourd’hui : c’est de nouveau possible après minuit.', { max: duration(max ?? 4 * 3600) })}</p>;
+  return (
+    <p className="flex items-center gap-2 text-[13.5px] text-stone-600">
+      <Clock size={15} className="shrink-0 text-stone-500" aria-hidden />
+      <span>{t('Il te reste {time} d’enregistrement aujourd’hui.', { time: duration(left) })}</span>
+    </p>
   );
 }
 
@@ -334,7 +358,9 @@ function Running({ s }: { s: Session }) {
           <Banner tone="info">{t('Enregistrement en cours dans un autre onglet.')}</Banner>
         ) : !live.hearing ? (
           <Banner tone="warn">
-            <span className="min-w-48 flex-1">{live.problem ?? t('L’écoute s’est arrêtée.')} {t('Rien n’est perdu.')}</span>
+            <span className="min-w-48 flex-1">
+              {live.problem ?? (stoppedSince(s) !== null ? t('La page a été fermée : l’enregistrement s’est arrêté à {time}.', { time: clock(elapsed(s)) }) : t('L’écoute s’est arrêtée.'))} {t('Rien n’est perdu.')}
+            </span>
             <button type="button" className="btn-secondary h-8 bg-surface text-[12.5px]" disabled={busy} onClick={() => void resume()}>
               <RotateCcw size={13} /> {t('Reprendre l’écoute')}
             </button>

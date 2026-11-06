@@ -33,14 +33,16 @@ function sameTarget(a: DropTarget | null, b: DropTarget | null) {
  * `data-drop-timeline="YYYY-MM-DD" data-start-hour data-hour-px` for the hourly grid.
  * The same gesture resizes an event or sweeps a new one on the grid (`mode`).
  */
-export function useEventDrag(onDrop: (ev: CalendarEvent, target: DropTarget, mode: DragMode) => void) {
+export function useEventDrag(onDrop: (ev: CalendarEvent, target: DropTarget, mode: DragMode) => void, onTap?: (ev: CalendarEvent) => void) {
   const [drag, setDrag] = useState<DragState | null>(null);
   const ghostRef = useRef<HTMLDivElement>(null);
   const onDropRef = useRef(onDrop);
+  const onTapRef = useRef(onTap);
   const cleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     onDropRef.current = onDrop;
+    onTapRef.current = onTap;
   });
   useEffect(() => () => cleanupRef.current?.(), []);
 
@@ -56,6 +58,9 @@ export function useEventDrag(onDrop: (ev: CalendarEvent, target: DropTarget, mod
     let pos = { x: x0, y: y0 };
     let raf = 0;
     let timer = 0;
+    // The furthest the finger went: a slow tap (a long press without moving) still opens the event.
+    let far = 0;
+    let menu = false;
 
     const findTarget = (x: number, y: number): DropTarget | null => {
       const el = document.elementFromPoint(x, y);
@@ -121,6 +126,7 @@ export function useEventDrag(onDrop: (ev: CalendarEvent, target: DropTarget, mod
 
     const onMove = (m: PointerEvent) => {
       pos = { x: m.clientX, y: m.clientY };
+      far = Math.max(far, Math.hypot(m.clientX - x0, m.clientY - y0));
       if (!active) {
         const dist = Math.hypot(m.clientX - x0, m.clientY - y0);
         if (touch && dist > 8) cleanup(); // the finger is scrolling, not dragging
@@ -149,8 +155,15 @@ export function useEventDrag(onDrop: (ev: CalendarEvent, target: DropTarget, mod
       // The click that follows a drag must not open or select anything.
       window.addEventListener('click', swallowClick, true);
       setTimeout(() => window.removeEventListener('click', swallowClick, true), 0);
+      // A finger held still on an event (a slow tap: the drag started by itself), not a move: it opens, as a tap does.
+      // Not when the long press already opened the menu of the event.
+      if (touch && mode === 'move' && far < 10) {
+        if (!menu) onTapRef.current?.(ev);
+        return;
+      }
       if (t) onDropRef.current(ev, t, mode);
     };
+    const onMenu = () => (menu = true);
 
     const onKey = (k: KeyboardEvent) => k.key === 'Escape' && cleanup();
 
@@ -162,6 +175,7 @@ export function useEventDrag(onDrop: (ev: CalendarEvent, target: DropTarget, mod
       window.removeEventListener('pointercancel', cleanup);
       window.removeEventListener('touchmove', onTouchMove);
       window.removeEventListener('keydown', onKey);
+      window.removeEventListener('contextmenu', onMenu, true);
       document.body.style.userSelect = '';
       cleanupRef.current = null;
       if (active) setDrag(null);
@@ -173,6 +187,7 @@ export function useEventDrag(onDrop: (ev: CalendarEvent, target: DropTarget, mod
     window.addEventListener('pointercancel', cleanup);
     window.addEventListener('touchmove', onTouchMove, { passive: false });
     window.addEventListener('keydown', onKey);
+    window.addEventListener('contextmenu', onMenu, true);
     cleanupRef.current = cleanup;
     if (touch) timer = window.setTimeout(activate, LONG_PRESS);
   };

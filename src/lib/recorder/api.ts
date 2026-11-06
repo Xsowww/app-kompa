@@ -16,13 +16,15 @@ export class CoursError extends Error {
 }
 
 /** The server can't help (not set up, or today's allowance used): no use trying again soon. */
-export const isFinal = (e: unknown) => e instanceof CoursError && ['disabled', 'daily_limit', 'site_limit', 'bad_audio', 'bad_task', 'http_404'].includes(e.code); // 404: no transcription server here at all
+export const isFinal = (e: unknown) => e instanceof CoursError && ['disabled', 'daily_limit', 'site_limit', 'bad_audio', 'bad_task', 'http_404', 'simple_only'].includes(e.code); // 404: no transcription server here at all
 
 async function call<T>(path: string, init: RequestInit, timeoutMs: number, stop?: AbortSignal): Promise<T> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   stop?.addEventListener('abort', () => ctrl.abort());
   try {
+    // « Mode simple uniquement » (Profil › Kompaly): the sound, the text and the photos go to an AI, so nothing leaves.
+    if (getSettings().simpleOnly && path !== 'etat' && path !== 'alerte') throw new CoursError('simple_only');
     const token = await accessToken();
     const res = await fetch(`/api/cours/${path}`, { ...init, headers: { ...init.headers, ...(token ? { Authorization: `Bearer ${token}` } : {}) }, signal: ctrl.signal });
     const data = await res.json().catch(() => ({}));
@@ -57,7 +59,8 @@ export const listPoints = (body: { title: string; text: string }) => call<{ poin
 export const writeDoc = (task: 'fiche' | 'examen', body: { title: string; points: string[]; parts?: string[]; moments?: string[] }) =>
   call<{ text: string }>('rediger', json({ task, usage: getSettings().usage, ...body }), 120_000).then(r => r.text);
 export const alertOtherDevices = (body: { title: string; body: string; except?: string }) => call<{ ok: boolean }>('alerte', json(body), 15_000).catch(() => null);
-export const serverState = () => call<{ transcription: boolean; redaction: boolean; photo?: boolean }>('etat', { method: 'GET' }, 10_000);
+/** `audioLeft` / `audioMax`: seconds of recording left today and allowed a day (signed in). */
+export const serverState = () => call<{ transcription: boolean; redaction: boolean; photo?: boolean; audioLeft?: number; audioMax?: number }>('etat', { method: 'GET' }, 10_000);
 /** Photos (JPEG data URLs) → the sheet they hold, in Markdown (server/photo.mjs). */
 export const readPhotoSheet = (photos: string[], stop?: AbortSignal) => call<{ text: string }>('photo', json({ photos }), 110_000, stop).then(r => r.text);
 

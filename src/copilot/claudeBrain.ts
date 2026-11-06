@@ -97,11 +97,13 @@ async function post<T>(path: string, body: unknown, timeoutMs = 90_000, stop?: A
   stop?.addEventListener('abort', onStop, { once: true });
   try {
     if (stop?.aborted) throw new CopilotApiError('aborted');
+    // « Mode simple uniquement »: nothing leaves for the AI (the server refuses it too).
+    if (getSettings().simpleOnly) throw new CopilotApiError('simple_only');
     const token = await accessToken();
     const res = await fetch(`/api/copilot/${path}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ ...(body as object), simpleOnly: getSettings().simpleOnly }),
       signal: ctrl.signal,
     });
     const data = await res.json().catch(() => ({}));
@@ -132,7 +134,7 @@ export function wasStopped(e: unknown) {
 export function canRetry(e: unknown) {
   if (e instanceof PartlyDone) return false;
   const code = e instanceof CopilotApiError ? e.code : 'unknown';
-  return !['aborted', 'rate_limited', 'daily_limit', 'site_limit', 'too_large', 'bad_key'].includes(code);
+  return !['aborted', 'rate_limited', 'daily_limit', 'site_limit', 'too_large', 'bad_key', 'simple_only'].includes(code);
 }
 
 export interface AiStatus {
@@ -536,25 +538,6 @@ export async function claudeReply(text: string, userName: string, stop?: AbortSi
   }
 }
 
-export type NudgeKind = 'remark' | 'brief' | 'review';
-const NUDGE_MAX: Record<NudgeKind, number> = { remark: 320, brief: 520, review: 640 };
-
-/** Lets the AI phrase a proactive remark in Kompaly's voice. Returns null on any problem. */
-export async function aiNudge(situation: Record<string, unknown>, userName: string, kind: NudgeKind = 'remark'): Promise<string | null> {
-  if (aiPausedUntil()) return null;
-  try {
-    const res = await post<{ text: string }>(
-      'nudge',
-      { situation: { ...situation, maintenant: fmt(new Date(), "EEEE d MMMM 'à' HH:mm") }, userName, kind, ...persona() },
-      kind === 'remark' ? 9000 : 15000,
-    );
-    const text = res.text?.trim();
-    return text && text.length <= NUDGE_MAX[kind] ? text : null;
-  } catch {
-    return null;
-  }
-}
-
 export function describeApiError(e: unknown): string {
   const code = e instanceof CopilotApiError ? e.code : 'unknown';
   if (code === 'rate_limited') {
@@ -568,6 +551,7 @@ export function describeApiError(e: unknown): string {
   }
   if (code === 'daily_limit') return t('Tu as utilisé tes questions à l’IA du jour : je passe en mode simple jusqu’à minuit.');
   if (code === 'site_limit') return t('L’IA gratuite a atteint sa limite du jour : je passe en mode simple jusqu’à minuit.');
+  if (code === 'simple_only') return t('Le mode simple uniquement est activé (Profil › Kompaly) : je réponds sans IA.');
   if (code === 'too_large') return t('C’est trop long pour l’IA d’un coup : demande une partie précise ou ouvre une nouvelle conversation.');
   // The AI doesn't answer: simple mode for a while instead of the same apology at every message.
   if (code === 'bad_key') {

@@ -9,9 +9,9 @@ import { callOnce, mapStatus, resolveProvider, ProviderError } from './aiProvide
 import { languageLine } from './copilotPrompt.mjs';
 
 const GEMINI_NATIVE = 'https://generativelanguage.googleapis.com/v1beta/models/';
-// Tried in order (a model Google has retired answers 404: the next one is used). 2.5 Flash first, without its
-// « thinking » (seconds, where gemini-flash-latest thought for more than 85 s on one page of a notebook).
-const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-flash-latest'];
+// Tried in order (a model Google has retired answers 404, an overloaded or silent one gives way: the next one is used).
+// 2.5 Flash first, without its « thinking »; the newer ones with as little as they accept; the « lite » ones, quick, last.
+const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.5-flash-lite', 'gemini-flash-lite-latest'];
 
 export const MAX_PHOTOS = 4;
 const MAX_PHOTO = 2_800_000; // characters of one data URL (the page sends ~0.5 Mo JPEGs)
@@ -109,48 +109,170 @@ async function readOnce(vision, photos, lang) {
 /** A model Google no longer serves, or one that refuses the settings: try the next one. */
 const tryNext = (status, detail) => status === 404 || (status === 400 && /not found|not supported|unsupported|thinking/i.test(detail));
 
-/** Gemini's own API (not the OpenAI-compatible one): it lets the « thinking » of 2.5 models be turned off. */
+/** Waiting this long for the first words of a model: it is stuck (overloaded, or thinking at length), the next one is tried. */
+const FIRST_WORDS_MS = 30_000;
+/** Stopped before the end with less than this: not a sheet, the next model is tried. */
+const KEEP_PARTIAL_AFTER = 300; // characters
+/** A page of notes is ~1 500 tokens: more is a model repeating itself. */
+const MAX_OUTPUT = 4096;
+
+/** At the bottom of a sheet read only in part. */
+export const PARTIAL_NOTE = 'La lecture s’est arrêtée avant la fin de la page : vérifie et complète la fin.';
+
+/** The same passage over and over at the end (a model in a loop on a hard page): the text up to its first time, else null. */
+export function cutLoop(text) {
+  const tail = text.slice(-1200);
+  for (let size = 20; size <= 300; size += 1) {
+    const unit = tail.slice(-size);
+    if (unit.trim().length < 12) continue;
+    let n = 1;
+    while (tail.length >= size * (n + 1) && tail.slice(-size * (n + 1), -size * n) === unit) n++;
+    if (n >= 4) return text.slice(0, text.length - size * (n - 1)).trimEnd();
+  }
+  return null;
+}
+
+/** Text parts of one Gemini answer (thoughts left out). */
+const partsText = data => (data?.candidates?.[0]?.content?.parts ?? []).filter(p => !p.thought).map(p => p.text ?? '').join('');
+const finishOf = data => data?.candidates?.[0]?.finishReason ?? data?.promptFeedback?.blockReason;
+
+/**
+ * Reads Gemini's answer as it is written (SSE), so that a slow or looping model never ends in a timeout with nothing:
+ * at `stopAt` (ms since epoch) what was read so far is kept, a loop is cut, no first words by `firstBy` gives up.
+ * Also accepts a plain JSON body (one answer). Returns { text, partial, finish }.
+ */
+export async function readGeminiStream(res, { stopAt, firstBy, abort }) {
+  const reader = res.body?.getReader?.();
+  if (!reader) {
+    const data = await res.json().catch(() => null);
+    return { text: partsText(data), partial: false, finish: finishOf(data) };
+  }
+  const decoder = new TextDecoder();
+  let raw = '';
+  let text = '';
+  let finish;
+  let pending = '';
+  const take = line => {
+    const json = line.replace(/^data:\s*/, '');
+    if (!json || json === '[DONE]') return;
+    try {
+      const data = JSON.parse(json);
+      text += partsText(data);
+      finish = finishOf(data) ?? finish;
+    } catch {
+      /* not a whole JSON line */
+    }
+  };
+  const stop = () => {
+    abort();
+    reader.cancel().catch(() => {});
+  };
+  for (;;) {
+    const left = (text ? stopAt : Math.min(stopAt, firstBy)) - Date.now();
+    let timer;
+    const chunk = left > 0 ? await Promise.race([reader.read(), new Promise(r => (timer = setTimeout(() => r(null), left)))]) : null;
+    clearTimeout(timer);
+    if (!chunk || chunk.done) {
+      if (!chunk) stop();
+      if (pending.startsWith('data:')) take(pending);
+      // A plain JSON answer (no « data: » lines).
+      if (!text && raw.trim().startsWith('{')) {
+        try {
+          const data = JSON.parse(raw);
+          text = partsText(data);
+          finish = finishOf(data);
+        } catch {
+          /* not JSON either */
+        }
+      }
+      return { text, partial: !chunk, finish };
+    }
+    const piece = decoder.decode(chunk.value, { stream: true });
+    raw += piece;
+    const lines = (pending + piece).split(/\r?\n/);
+    pending = lines.pop() ?? '';
+    for (const line of lines) if (line.startsWith('data:')) take(line);
+    const loop = text.length > 600 ? cutLoop(text) : null;
+    if (loop !== null) {
+      stop();
+      return { text: loop, partial: true, finish: 'LOOP' };
+    }
+  }
+}
+
+/**
+ * Gemini's own API (not the OpenAI-compatible one): it lets the « thinking » of 2.5 models be turned off.
+ * The answer is read as it comes: a model that doesn't start writing within FIRST_WORDS_MS, or is overloaded, gives
+ * way to the next one; what is read by the end of the time is kept (with PARTIAL_NOTE) instead of a timeout.
+ */
 async function geminiRead(vision, photos, system, ask) {
   const deadline = Date.now() + TIMEOUT_MS;
   let last = null;
   const tried = [];
+  const out = model => tried.some(x => x.model === model && (x.gone || x.slow));
   // How little the model may think: 2.5 models take a budget (0 = none); later ones a level (« minimal », else « low »);
   // a model that refuses the setting is asked again without it.
   const thinking = model => (/2\.5/.test(model) ? [{ thinkingBudget: 0 }, null] : [{ thinkingLevel: 'minimal' }, { thinkingLevel: 'low' }, null]);
   const attempts = vision.models.flatMap(model => thinking(model).map(config => ({ model, config })));
+  const timeout = note => {
+    last = new ProviderError('timeout', 504, [...tried.map(x => x.note), note].join(' · '));
+  };
   for (const { model, config } of attempts) {
-    if (tried.some(x => x.model === model && x.gone)) continue;
+    if (out(model)) continue;
     const left = deadline - Date.now();
-    if (left < 5000) break;
+    if (left < 8000) break;
     const body = {
       systemInstruction: { parts: [{ text: system }] },
       contents: [{ role: 'user', parts: [{ text: ask }, ...photos.map(p => ({ inline_data: { mime_type: p.mime, data: p.data } }))] }],
-      generationConfig: { maxOutputTokens: 6000, temperature: 0.2, ...(config && { thinkingConfig: config }) },
+      generationConfig: { maxOutputTokens: MAX_OUTPUT, temperature: 0.2, ...(config && { thinkingConfig: config }) },
     };
-    let res;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), left);
+    const started = Date.now();
+    // The last model that may still be tried uses all the time left; an earlier one gives way when it doesn't start writing.
+    const lastChance = attempts.filter(a => !out(a.model)).at(-1)?.model === model;
     try {
-      res = await fetch(`${GEMINI_NATIVE}${encodeURIComponent(model)}:generateContent`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': vision.apiKey },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(left),
-      });
-    } catch (e) {
-      throw new ProviderError(e?.name === 'TimeoutError' || e?.name === 'AbortError' ? 'timeout' : 'upstream', 504, [...tried.map(x => x.note), `${model}: trop long`].join(' · '));
+      let res;
+      try {
+        res = await fetch(`${GEMINI_NATIVE}${encodeURIComponent(model)}:streamGenerateContent?alt=sse`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': vision.apiKey },
+          body: JSON.stringify(body),
+          signal: ctrl.signal,
+        });
+      } catch (e) {
+        if (e?.name !== 'AbortError' && e?.name !== 'TimeoutError') throw new ProviderError('upstream', 502, [...tried.map(x => x.note), `${model}: ${e?.message ?? 'réseau'}`].join(' · '));
+        tried.push({ model, slow: true, note: `${model}: pas de réponse` });
+        timeout('plus de temps');
+        continue;
+      }
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        const message = String(data?.error?.message ?? res.statusText).slice(0, 120);
+        // 404: Google no longer has this model (the next one is tried); 400 on the thinking setting: tried without it;
+        // 429 or 5xx: this model is busy or overloaded, the next one may not be.
+        const busy = res.status === 429 || res.status >= 500;
+        tried.push({ model, gone: res.status === 404, slow: busy, note: `${model} ${res.status}${config ? ` (${Object.values(config)[0]})` : ''}` });
+        last = new ProviderError(res.status === 400 && /api[ _]?key/i.test(message) ? 'bad_key' : mapStatus(res.status), res.status, [...tried.map(x => x.note), message].join(' · '));
+        if (tryNext(res.status, message) || busy) continue;
+        throw last;
+      }
+      const got = await readGeminiStream(res, { stopAt: deadline - 2000, firstBy: lastChance ? deadline : started + FIRST_WORDS_MS, abort: () => ctrl.abort() });
+      let text = got.text.trim();
+      const cut = got.partial || got.finish === 'MAX_TOKENS';
+      if (!text || (cut && text.length < KEEP_PARTIAL_AFTER && got.finish !== 'LOOP')) {
+        if (!cut) throw new ProviderError('upstream', 502, `${model}: réponse vide (${got.finish ?? '?'})`);
+        tried.push({ model, slow: true, note: `${model}: trop lent (${Math.round((Date.now() - started) / 1000)} s)` });
+        timeout('plus de temps');
+        continue;
+      }
+      // Stopped before the end (time, length, a loop): what was read is kept, and said at the bottom of the sheet.
+      if (cut) text = `${text.replace(/^```(?:markdown|md)?\s*\n/i, '')}\n\n*${PARTIAL_NOTE}*`;
+      photoStatus.model = `${model}${config ? ` (${Object.values(config)[0]})` : ''}${cut ? ` · coupée (${got.finish ?? 'temps'})` : ''}`;
+      return text.replace(/^```(?:markdown|md)?\s*\n([\s\S]*?)\n```$/i, '$1').trim();
+    } finally {
+      clearTimeout(timer);
     }
-    const data = await res.json().catch(() => null);
-    if (!res.ok) {
-      const message = String(data?.error?.message ?? res.statusText).slice(0, 120);
-      // 404: Google no longer has this model (the next one is tried); 400 on the thinking setting: tried without it.
-      tried.push({ model, gone: res.status === 404, note: `${model} ${res.status}${config ? ` (${Object.values(config)[0]})` : ''}` });
-      last = new ProviderError(res.status === 400 && /api[ _]?key/i.test(message) ? 'bad_key' : mapStatus(res.status), res.status, [...tried.map(x => x.note), message].join(' · '));
-      if (tryNext(res.status, message)) continue;
-      throw last;
-    }
-    const text = (data?.candidates?.[0]?.content?.parts ?? []).filter(p => !p.thought).map(p => p.text ?? '').join('').trim();
-    if (!text) throw new ProviderError('upstream', 502, `${model}: réponse vide (${data?.candidates?.[0]?.finishReason ?? data?.promptFeedback?.blockReason ?? '?'})`);
-    photoStatus.model = `${model}${config ? ` (${Object.values(config)[0]})` : ''}`;
-    return text.replace(/^```(?:markdown|md)?\s*\n([\s\S]*?)\n```$/i, '$1').trim();
   }
   throw last ?? new ProviderError('timeout', 504, 'plus de temps');
 }

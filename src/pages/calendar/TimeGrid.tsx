@@ -10,7 +10,7 @@ import { periodsFill, periodsOn, type Period } from '../../lib/periods';
 import { eventTitle, useCalendarSource } from './source';
 import SeriesIcon from './SeriesIcon';
 import type { DragMode, DragState } from './useEventDrag';
-import { DEFAULT_LENGTH, layout, spanBars, sweptRange, tasksOn } from './layout';
+import { DEFAULT_LENGTH, layout, nightPieces, spanBars, sweptRange, tasksOn } from './layout';
 import { TaskChip } from './TaskItem';
 import { t, tn } from '../../i18n';
 
@@ -62,7 +62,9 @@ export default function TimeGrid({ days, today, selected, events, todos, periods
   const cols = `48px repeat(${days.length}, minmax(0, 1fr))`;
 
   // A week: an event over several days is one bar across its days, not a piece a day (nor a tall block per day).
-  const bars = useMemo(() => (week ? spanBars(events, days) : []), [week, events, days]);
+  // A night (« Garde 21h-7h »: the evening, then the next morning) stays two blocks at their hours.
+  const nights = useMemo(() => nightPieces(events, days), [events, days]);
+  const bars = useMemo(() => (week ? spanBars(events.filter(e => !nights.has(e.id)), days) : []), [week, events, days, nights]);
   const barred = useMemo(() => new Set(bars.flatMap(b => events.filter(e => e.series === b.ev.series).map(e => e.id))), [bars, events]);
   const lanes = bars.length ? Math.max(...bars.map(b => b.lane)) + 1 : 0;
   const allDay = (day: string) => events.filter(e => e.date === day && !e.start && !barred.has(e.id));
@@ -361,8 +363,17 @@ export default function TimeGrid({ days, today, selected, events, todos, periods
                               {eventTitle(ev, shared)}
                             </span>
                             <span className="tabular mt-0.5 truncate text-[11px]" style={{ color: c.text }}>
-                              {ev.start}
-                              {resizing?.ev.id === ev.id ? ` – ${fromMinutes(end)}` : ev.end && ` – ${ev.end}`}
+                              {/* A night: « 21:00 → » the evening, « → 07:00 » the morning after (not 23:59, 00:00). */}
+                              {nights.has(ev.id) && resizing?.ev.id !== ev.id
+                                ? ev.start === '00:00'
+                                  ? `→ ${ev.end}`
+                                  : `${ev.start} →`
+                                : (
+                                  <>
+                                    {ev.start}
+                                    {resizing?.ev.id === ev.id ? ` – ${fromMinutes(end)}` : ev.end && ` – ${ev.end}`}
+                                  </>
+                                )}
                             </span>
                             {height > 70 && (ev.place || ev.details) && <span className="mt-0.5 truncate text-[11px] text-stone-500">{ev.place || ev.details!.split('\n')[0]}</span>}
                           </>

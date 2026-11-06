@@ -142,3 +142,42 @@ export const isFor = (e: Pick<CalendarEvent, 'people'>, who: string | null) => !
 /** The tasks due on a day (Tâches), as the calendar shows them: without a time first, then by time (as events). */
 export const tasksOn = (todos: Todo[], day: string) =>
   todos.filter(x => x.due === day && !(x as { deletedAt?: string }).deletedAt).sort((a, b) => (a.time ?? '').localeCompare(b.time ?? '') || a.title.localeCompare(b.title));
+
+/**
+ * The day the calendar opens on: today; or, when nothing is left from today to Sunday (events, dated tasks not done),
+ * the next day something is planned, within `ahead` days (Lina's calendar opened on an empty week). `weekEnd`: this
+ * week's Sunday (YYYY-MM-DD).
+ */
+export function openingDay(today: string, weekEnd: string, items: { date: string; done?: boolean }[], lastDay: string): { day: string; jumped: boolean } {
+  const coming = items.filter(x => !x.done && x.date >= today && x.date <= lastDay).map(x => x.date).sort();
+  if (!coming.length || coming[0] <= weekEnd) return { day: today, jumped: false };
+  return { day: coming[0], jumped: true };
+}
+
+/** A day's events and dated tasks in one list, in the order of the day: what has no time first, then by time. */
+export function byStartTime<E extends Pick<CalendarEvent, 'start'>>(events: E[], todos: Todo[]): ({ ev: E } | { todo: Todo })[] {
+  const at = (it: { ev: E } | { todo: Todo }) => ('ev' in it ? it.ev.start : it.todo.time) ?? '';
+  // A stable sort: the events keep their order (already sorted), each task goes after the events of its time.
+  return [...events.map(ev => ({ ev })), ...todos.map(todo => ({ todo }))].sort((a, b) => at(a).localeCompare(at(b)));
+}
+
+/**
+ * The pieces of nights among a week's events: an event over two days (« span- » series) from an evening to the next
+ * morning (« 21:00 → 23:59 », then « 00:00 → 07:00 »). The hourly grid draws them at their hours, not as a bar.
+ * `days`: the days shown (a night across their edge has only one piece there).
+ */
+export function nightPieces(events: Pick<CalendarEvent, 'id' | 'date' | 'start' | 'end' | 'series'>[], days: string[]): Set<string> {
+  const evening = (e: Pick<CalendarEvent, 'start' | 'end'>) => !!e.start && e.start >= '12:00' && e.end === '23:59';
+  const morning = (e: Pick<CalendarEvent, 'start' | 'end'>) => e.start === '00:00' && !!e.end && e.end <= '12:00';
+  const bySeries = new Map<string, typeof events>();
+  for (const e of events) if (isSpan(e.series)) bySeries.set(e.series!, [...(bySeries.get(e.series!) ?? []), e]);
+  const out = new Set<string>();
+  for (const pieces of bySeries.values()) {
+    const [a, b] = [...pieces].sort((x, y) => x.date.localeCompare(y.date));
+    const whole = pieces.length === 2 && evening(a) && morning(b);
+    // Only its morning, on the first day shown; only its evening, on the last one.
+    const edge = pieces.length === 1 && ((a.date === days[0] && morning(a)) || (a.date === days[days.length - 1] && evening(a)));
+    if (whole || edge) pieces.forEach(e => out.add(e.id));
+  }
+  return out;
+}

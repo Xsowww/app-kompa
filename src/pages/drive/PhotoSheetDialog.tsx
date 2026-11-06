@@ -28,12 +28,13 @@ const sheetTitle = (md: string) => /^#\s+(.+)$/m.exec(md)?.[1].replace(/[*_`#]/g
 
 function failure(e: unknown): string {
   const code = e instanceof CoursError ? e.code : '';
+  if (code === 'simple_only') return t('Le mode simple uniquement est activé (Profil › Kompaly) : la photo n’est envoyée à aucune IA.');
   if (code === 'disabled' || code === 'http_404') return t('La lecture des photos n’est pas encore activée sur Kompaly.');
   if (code === 'daily_limit' || code === 'site_limit') return t('Limite du jour atteinte : réessaie demain.');
   if (code === 'rate_limited') return t('Beaucoup de demandes en ce moment : réessaie dans une minute.');
   if (code === 'too_large' || code === 'http_413') return t('Photos trop lourdes : enlève-en une et réessaie.');
   // 524: Cloudflare gave up waiting for the server.
-  if (code === 'timeout' || code === 'http_504' || code === 'http_524') return t('La lecture a pris trop de temps. Réessaie, une photo à la fois.');
+  if (code === 'timeout' || code === 'http_504' || code === 'http_524') return t('La lecture a pris trop de temps. Réessaie dans un instant, avec une photo nette et bien éclairée.');
   if (code === 'network') return t('Pas de réponse. Vérifie ta connexion et réessaie.');
   // The photo itself: unreadable, or nothing came out of it.
   if (code === 'bad_photo' || code === 'empty_answer' || code === 'http_400') return t('La lecture n’a pas marché. Réessaie avec une photo plus nette.');

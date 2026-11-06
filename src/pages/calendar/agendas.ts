@@ -1,5 +1,6 @@
 // My shared calendars over my own calendar and the home page: their events, in each one's colour, read-only
-// there (opening one goes to its agenda). Online only: without the cloud there is nothing to read.
+// there (opening one goes to its agenda). The meetings of my groups and teams too (Nadia's team meeting was nowhere
+// in her calendar): opening one goes to the group. Online only: without the cloud there is nothing to read.
 
 import { useEffect, useMemo } from 'react';
 import { CATEGORIES, guessCategory, knowSharedCategories, useCalendar, type CalendarEvent, type EventCategory } from '../../store/calendar';
@@ -12,13 +13,15 @@ import { supabase } from '../../lib/supabase';
 
 /** An event of one of my shared calendars, shown in mine. */
 export interface AgendaEvent extends CalendarEvent {
-  agenda: { id: string; name: string };
+  /** `kind`: a shared calendar, or a group (team) whose meeting it is. */
+  agenda: { id: string; name: string; kind?: Group['kind'] };
 }
 
 export const fromAgenda = (e: CalendarEvent): e is AgendaEvent => 'agenda' in e;
 
-/** Its day in its agenda, the event glowing there. */
-export const agendaLink = (e: Pick<AgendaEvent, 'agenda' | 'date' | 'id'>) => `/agendas?g=${e.agenda.id}&jour=${e.date}&evt=${e.id}`;
+/** Its day in its agenda, the event glowing there; a group's meeting, the group's meetings. */
+export const agendaLink = (e: Pick<AgendaEvent, 'agenda' | 'date' | 'id'>) =>
+  e.agenda.kind === 'groupe' ? `/groupes?g=${e.agenda.id}&onglet=revisions` : `/agendas?g=${e.agenda.id}&jour=${e.date}&evt=${e.id}`;
 
 /**
  * The agenda as a category of its own (its name, its colour): every screen of the calendar already draws a
@@ -30,10 +33,10 @@ export function agendaCategory(g: Pick<Group, 'id' | 'name' | 'color'>): EventCa
   return id;
 }
 
-/** The events of the shared calendars shown (`hidden`: left out by the person), as calendar events. */
+/** The events of the shared calendars and groups shown (`hidden`: left out by the person), as calendar events. */
 export function agendaEvents(agendas: Group[], events: Record<string, GroupEvent[] | undefined>, hidden: string[]): AgendaEvent[] {
   return agendas
-    .filter(g => g.kind === 'agenda' && !hidden.includes(g.id))
+    .filter(g => !hidden.includes(g.id))
     .flatMap(g => {
       const category = agendaCategory(g);
       return (events[g.id] ?? []).map(e => ({
@@ -49,7 +52,7 @@ export function agendaEvents(agendas: Group[], events: Record<string, GroupEvent
         category,
         done: false,
         createdAt: e.createdAt,
-        agenda: { id: g.id, name: g.name },
+        agenda: { id: g.id, name: g.name, kind: g.kind },
       }));
     });
 }
@@ -77,7 +80,7 @@ const FRESH_MS = 60_000;
 const NONE: string[] = [];
 
 /**
- * My shared calendars and the events of those shown, read when needed (the calendar and the home page).
+ * My shared calendars and groups, and the events of those shown, read when needed (the calendar and the home page).
  * Nothing without the cloud (local mode), nor when not `enabled` (a shared calendar open): no request.
  */
 export function useAgendaOverlay(enabled = true): { agendas: Group[]; events: AgendaEvent[] } {
@@ -85,7 +88,8 @@ export function useAgendaOverlay(enabled = true): { agendas: Group[]; events: Ag
   const loaded = useGroups(s => s.loaded);
   const raw = useGroups(s => s.events);
   const hidden = useSettings(s => s.hiddenAgendas) ?? NONE;
-  const agendas = useMemo(() => (supabase && enabled ? groups.filter(g => g.kind === 'agenda') : []), [groups, enabled]);
+  // Shared calendars first, then groups (the filter lists them in that order).
+  const agendas = useMemo(() => (supabase && enabled ? [...groups.filter(g => g.kind === 'agenda'), ...groups.filter(g => g.kind !== 'agenda')] : []), [groups, enabled]);
   const wanted = agendas.filter(g => !hidden.includes(g.id)).map(g => g.id).join(',');
 
   useEffect(() => {

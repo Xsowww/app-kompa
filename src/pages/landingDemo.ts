@@ -122,7 +122,8 @@ export function demoPlace(
   if (/\?\s*$/.test(sentence) || (!p.date && !p.start)) return { error: 'notEvent' };
   if (!p.title.trim()) return { error: 'empty' };
   if (p.start) {
-    const night = p.end ? null : nightEnd(sentence);
+    // The quick add now gives a night its end and next day (« 21h-7h »: endDate); older readings, from the sentence.
+    const night = p.end ? (p.endDate && p.end < p.start ? p.end : null) : nightEnd(sentence);
     return { kind: 'event', title: p.title, date: p.date ?? today, start: p.start, end: p.end ?? night, ...(night && { nextDay: true }) };
   }
   return { kind: 'task', title: p.title, date: p.date, start: null };

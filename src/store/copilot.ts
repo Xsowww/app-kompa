@@ -4,6 +4,7 @@ import { uid, nowIso } from '../lib/utils';
 import { userStorage } from '../lib/userStorage';
 import { toKompa } from '../lib/kompaName';
 import type { CopilotMood } from '../copilot/Character';
+import { getSettings, useSettings } from './settings';
 
 export interface CopilotLink {
   label: string;
@@ -52,7 +53,10 @@ interface CopilotState {
   pose: CopilotPose;
   bubble: Bubble | null;
   thinking: boolean;
+  /** The AI can be asked: the server has one and « Mode simple uniquement » is off (Profil › Kompaly). */
   aiEnabled: boolean;
+  /** The server has an AI (/api/copilot/status), whatever the person chose. */
+  aiServer: boolean;
   offsetY: number; // vertical position along the screen edge, 0..1
   /** when each proactive remark was last made, to avoid repeating ourselves */
   memory: Record<string, number>;
@@ -92,6 +96,7 @@ export const useCopilot = create<CopilotState>()(
       bubble: null,
       thinking: false,
       aiEnabled: false,
+      aiServer: false,
       offsetY: 0.62,
       memory: {},
       pendingOffer: null,
@@ -132,7 +137,7 @@ export const useCopilot = create<CopilotState>()(
       },
 
       setThinking: thinking => set({ thinking }),
-      setAiEnabled: aiEnabled => set({ aiEnabled }),
+      setAiEnabled: aiServer => set({ aiServer, aiEnabled: aiServer && !getSettings().simpleOnly }),
       setOffsetY: offsetY => set({ offsetY: Math.min(0.88, Math.max(0.14, offsetY)) }),
       remember: key => set(s => ({ memory: { ...s.memory, [key]: Date.now() } })),
       clearHistory: () => set({ messages: [], pendingOffer: null }),
@@ -155,6 +160,11 @@ export const useCopilot = create<CopilotState>()(
     },
   ),
 );
+
+// « Mode simple uniquement » turned on or off: the AI goes or comes back at once.
+useSettings.subscribe((st, prev) => {
+  if (st.simpleOnly !== prev.simpleOnly) useCopilot.setState(c => ({ aiEnabled: c.aiServer && !st.simpleOnly }));
+});
 
 /** Opens or closes the conversation, from anywhere (menu entry, Ctrl+J), even while the character is hidden. */
 export function toggleKompaly(open = useCopilot.getState().pose !== 'open') {

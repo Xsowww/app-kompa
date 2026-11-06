@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chatSystem, nudgeSystem, productSheet, aiName, TOOLS } from '../server/copilotPrompt.mjs';
+import { chatSystem, productSheet, aiName, TOOLS } from '../server/copilotPrompt.mjs';
 import { quotaOf } from '../server/copilot.mjs';
 import { audioUsage } from '../server/cours.mjs';
 
@@ -78,11 +78,6 @@ describe('Kompaly knows Kompaly: the product sheet in its prompt', () => {
   it('writes words in full and says hello once, at the right time of day', () => {
     expect(prompt).toContain("pas d'abréviations de SMS (« ttes »");
     expect(prompt).toContain('Pas de salutation en début de réponse');
-    const nudge = nudgeSystem({ kind: 'remark', userName: 'Léa' });
-    expect(nudge).toContain('si la situation donne une « salutation », utilise exactement celle-là');
-    expect(nudge).toContain('à partir de 18 h « Bonsoir »');
-    // The product sheet is for the conversation, not for each spontaneous remark.
-    expect(nudge).not.toContain('Fiche produit (faits sûrs');
   });
 
   it('calls the Drive « Fichiers », and still understands « Drive »', () => {

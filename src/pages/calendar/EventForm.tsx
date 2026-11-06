@@ -167,7 +167,9 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
   const canSpan = !event && !repeat;
   // null: ends the same day. « Congés du 22 au 26 décembre » typed in the calendar's bar: the 26th.
   const [endDay, setEndDay] = useState<string | null>(() => (canSpan && initialTitle ? (parseQuickAdd(initialTitle).endDate ?? null) : null));
-  const spanning = canSpan && !!endDay && !!day && endDay > day;
+  // A night (a new event from 21:00 to 07:00): it ends the next morning, one piece on each day (as « 21h-7h » typed).
+  const night = canSpan && !(endDay && day && endDay > day) && !!day && !!start && !!end && end < start;
+  const spanning = (canSpan && !!endDay && !!day && endDay > day) || night;
   // Longer than MAX_SPAN_DAYS: said and blocked (a day typed past the little calendar's end), never cut without a word.
   const endDayMsg = canSpan && endDay && day ? (endDay <= day ? t('Le jour de fin doit être après le jour de début.') : spanTooLong(day, endDay) ? t('{n} jours au plus.', { n: MAX_SPAN_DAYS }) : '') : '';
   const onTitle = (v: string) => {
@@ -232,7 +234,7 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
     } else if (spanning) {
       const id = `span-${uid()}`;
       // The first day keeps the reminders; the others none (« 15 min avant » 0:00 would ring at midnight).
-      (into ? (l: NewEvent[]) => addToAgenda(into, l) : addMany)(spanDays(day, endDay!, start || undefined, end || undefined).map((p, i) => ({ ...data, ...p, start: p.start, end: p.end, series: id, reminders: i ? [] : data.reminders })));
+      (into ? (l: NewEvent[]) => addToAgenda(into, l) : addMany)(spanDays(day, night ? shiftKey(day, 1) : endDay!, start || undefined, end || undefined).map((p, i) => ({ ...data, ...p, start: p.start, end: p.end, series: id, reminders: i ? [] : data.reminders })));
     } else if (into) addToAgenda(into, [data]);
     else add(data);
     toast(
@@ -240,6 +242,8 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
         ? t('Enregistré : {title}', { title: data.title })
         : series
           ? t('Ajouté {n} fois, jusqu’au {day}', { n: series.days.length, day: fmtDay(fromKey(series.days.at(-1)!), 'EEEE d MMMM') })
+          : night
+            ? t('Ajouté : {title}, jusqu’au lendemain {time}', { title: data.title, time: end })
           : spanning
             ? t('Ajouté du {from} au {to}', { from: fmtDay(fromKey(day), 'EEEE d MMMM'), to: fmtDay(fromKey(endDay!), 'EEEE d MMMM') })
           : understood && parsed.weekly
@@ -391,6 +395,7 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
         </div>
         {/* Said as soon as the times are chosen, under them. */}
         <FieldError id="event-time-err">{timeMsg}</FieldError>
+        {night && <p className="mt-1.5 text-[12px] text-stone-500">{t('Finit le lendemain à {time} : il sera sur les deux jours.', { time: end })}</p>}
 
         <label className="relative mt-4 block">
           <MapPin size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" aria-hidden />

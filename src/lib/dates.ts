@@ -105,6 +105,7 @@ export function parseQuickAdd(input: string, base = new Date(), language = lang)
   let end: string | null = null;
   let every: Repeat | undefined;
   let impossible = false; // « le 30 février »: no date, rather than « le 30 » of this month
+  let nightEnd: string | null = null;
   // Same length as `text` (accents stripped, no trim) so match indices map back.
   // The typographic apostrophe of phone keyboards (« aujourd’hui ») counts as a plain one.
   const n = () => text.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[’‘]/g, "'");
@@ -154,7 +155,9 @@ export function parseQuickAdd(input: string, base = new Date(), language = lang)
     start = hm(range[1], range[2]);
     end = range[5] ? (range[6] ? '12:30' : '12:00') : hm(range[3], range[4]);
     if (start) remove(range);
-    if (!start || !end || end <= start) end = null; // « de 18h à 9h »: only the start makes sense
+    // « Garde de nuit 21h-7h », « de 22h à 6h »: a night, it ends the next morning (an event over two days, below).
+    if (start && end && end < start && start >= '17:00' && end <= '08:00') nightEnd = end;
+    if (!start || !end || end <= start) end = null; // « de 14h à 9h »: only the start makes sense
   }
   if (!start) {
     const t = find(/\s(?:a\s|vers\s)?(\d{1,2})\s?(?:heures?|h|:)\s?(\d{2})?(?=\s)/);
@@ -316,6 +319,13 @@ export function parseQuickAdd(input: string, base = new Date(), language = lang)
       }
       if (date) remove(m);
     }
+  }
+
+  // A night (« lundi 21h-7h »): from that evening to the next morning, as two linked days (lib/repeat spanDays).
+  if (nightEnd && !endDate && !every && !impossible) {
+    date = date ?? base;
+    endDate = addDays(date, 1);
+    end = nightEnd;
   }
 
   const title = text
