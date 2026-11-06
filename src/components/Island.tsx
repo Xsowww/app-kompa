@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { BellRing, Check, CloudAlert, Coffee, FastForward, Info, Pause, Play, Square, Timer, WifiOff, X } from 'lucide-react';
@@ -12,8 +12,19 @@ import { acceptOffer } from '../copilot/offers';
 import { frenchSpacing, stripMarkdown } from '../copilot/markdown';
 import KompalyMark from './KompalyMark';
 import { sober } from '../lib/sober';
+import { focusables } from '../lib/a11y';
+import { useMinute, useToday } from '../lib/useToday';
+import { useCalendar } from '../store/calendar';
+import { useTodos } from '../store/todos';
+import { dayTasks } from '../lib/proDashboard';
+import { share, upcoming, useIslandLog } from './islandHub';
+import { Lights, type HubView } from './IslandHub';
 import { locale, t, tn } from '../i18n';
 import './island.css';
+import './islandHub.css';
+
+/** The hub: the island opened by a tap (its views, tiles, the assistant…), loaded the first time. */
+const IslandHub = lazy(() => import('./IslandHub'));
 
 /**
  * Affichage Pro: everything that pops up comes in one place, the island at the top centre of the screen (under the
@@ -23,6 +34,8 @@ import './island.css';
  *   circle beside it for a second one. A tap opens it; it shrinks by itself after a few seconds (not while the
  *   pointer or the keyboard is on it), on Échap or a tap elsewhere.
  * The toasts come one after the other, never stacked; the timer comes back once they are gone.
+ * With nothing going on it stays, small (Kompaly's lights, the day's tasks as a ring, the next event's time or the
+ * clock); a tap on it (or on the timer) opens the hub (components/IslandHub), a dialog grown from the pill.
  * Mounted by Toasts (components/Overlays) in Pro, for a signed-in account.
  */
 
@@ -44,7 +57,7 @@ interface KompalySaid {
 
 interface Face {
   key: string;
-  mode: 'mini' | 'full' | 'toast';
+  mode: 'mini' | 'full' | 'toast' | 'idle' | 'hub';
   el: ReactNode;
   /** Read out by screen readers when it comes (politely). */
   say?: string;
@@ -114,12 +127,13 @@ function TimerMini({ phase, onOpen }: { phase: FocusPhase; onOpen: (keyboard: bo
       data-kind="timer"
       data-phase={phase}
       data-paused={paused || undefined}
-      aria-label={t('{status}, encore {time}. Afficher les commandes', { status, time })}
+      aria-label={t('{status}, encore {time}. Ouvrir le minuteur', { status, time })}
       onClick={e => onOpen(e.detail === 0)}
     >
       <span>
         <Ring left={rest} size={20} />
       </span>
+      <Lights />
       <span className="fi-mini-time tabular">
         <Digits text={time} />
       </span>
@@ -431,6 +445,48 @@ function lastSaid(messages: ReturnType<typeof useCopilot.getState>['messages']):
   return m ? { text: m.text, links: m.links, offers: m.offers } : null;
 }
 
+/**
+ * Nothing going on: the small pill stays. At its left the day's tasks as a ring, Kompaly's lights in the middle, at its
+ * right the time of today's next event (its colour) or the clock.
+ */
+function IdleFace({ onOpen }: { onOpen: (keyboard: boolean) => void }) {
+  const today = useToday();
+  const now = useMinute();
+  const events = useCalendar(s => s.events);
+  const todos = useTodos(s => s.todos);
+  const nowTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const next = upcoming(events, today, nowTime, 4).find(e => e.date === today && e.start);
+  const day = dayTasks(todos, today);
+  const done = day.done.length;
+  const clock = now.toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' });
+  const r = 15;
+  const len = 2 * Math.PI * r;
+  return (
+    <button
+      type="button"
+      className="isl-mini isl-idle"
+      data-kind="idle"
+      aria-label={
+        next
+          ? t('Kompaly. Prochain : {title} à {time}. {done} sur {total} tâches faites. Ouvrir', { title: next.title, time: next.start!, done, total: day.total })
+          : t('Kompaly. {done} sur {total} tâches faites aujourd’hui. Ouvrir', { done, total: day.total })
+      }
+      onClick={e => onOpen(e.detail === 0)}
+    >
+      <span className="fi-ring isl-day-ring" style={{ width: 20, height: 20 }} aria-hidden>
+        <svg className="fi-ring-svg" viewBox="0 0 36 36" width={20} height={20}>
+          <circle cx="18" cy="18" r={r} className="fi-ring-track" />
+          <circle cx="18" cy="18" r={r} className="fi-ring-bar" strokeDasharray={len} strokeDashoffset={len * (1 - share(done, day.total))} transform="rotate(-90 18 18)" />
+        </svg>
+      </span>
+      <Lights />
+      <span className={next ? 'isl-idle-num is-next tabular' : 'isl-idle-num tabular'} aria-hidden>
+        {next ? next.start : clock}
+      </span>
+    </button>
+  );
+}
+
 export default function Island() {
   const phase = useFocus(s => s.phase);
   const toasts = useUi(s => s.toasts);
@@ -461,6 +517,8 @@ export default function Island() {
 
   // News opens the island to say it: a session that starts or changes phase, a reminder, Kompaly speaking… What is
   // already there when the app opens comes as the small pill.
+  // The hub (a tap on the small pill): its view while it is open.
+  const [hub, setHub] = useState<HubView | null>(null);
   const [expanded, setExpanded] = useState<Kind | null>(null);
   const [poke, setPoke] = useState(0);
   const news = { timer: phase, reminder: alert?.key ?? null, notice: notice?.id ?? null, service, kompaly: bubble };
@@ -473,12 +531,32 @@ export default function Island() {
     if (news.reminder && news.reminder !== seen.reminder) fresh = 'reminder';
     if (news.timer && news.timer !== seen.timer) fresh = 'timer';
     setSeen(news);
-    if (fresh) {
+    // The hub open: it shows them itself (its Minuteur, its Notifications), nothing springs open over it.
+    if (fresh && !hub) {
       setExpanded(fresh);
       setPoke(p => p + 1);
     }
   }
   const open = expanded && present.includes(expanded) ? expanded : null;
+
+  const [lastView, setLastView] = useState<HubView>('accueil');
+  // Said politely while the hub is open (what would have opened the island meanwhile).
+  const [announce, setAnnounce] = useState('');
+
+  // Its history (the hub's « Notifications »): each toast, reminder, Kompaly's words and lasting message, once.
+  const logged = useRef(new Set<string>());
+  useEffect(() => {
+    const log = useIslandLog.getState();
+    const add = (id: string, entry: Omit<Parameters<typeof log.add>[0], 'id' | 'at'>) => {
+      if (logged.current.has(id)) return;
+      logged.current.add(id);
+      log.add({ id, at: Date.now(), ...entry });
+      if (hub && entry.kind !== 'toast') setAnnounce(entry.kind === 'kompaly' ? `Kompaly : ${sober(stripMarkdown(entry.text))}` : entry.text);
+    };
+    for (const x of toasts) add(`toast-${x.id}`, { kind: x.sticky ? 'notice' : 'toast', tone: x.tone, text: x.text });
+    for (const a of alerts) add(`reminder-${a.key}-${a.at ?? ''}`, { kind: 'reminder', text: a.title, sub: a.body.split('\n')[0], url: a.url });
+    if (bubble) add(`kompaly-${bubble.text.slice(0, 60)}`, { kind: 'kompaly', text: bubble.text });
+  }, [toasts, alerts, bubble, hub]);
 
   const [hover, setHover] = useState(false);
   const [keyboard, setKeyboard] = useState(false);
@@ -516,13 +594,36 @@ export default function Island() {
 
   // Open: a press elsewhere or Échap shrinks it (Échap on a toast in it: the toast goes).
   useEffect(() => {
-    if (!open && !passingId) return;
+    if (!open && !passingId && !hub) return;
     const onDown = (e: PointerEvent) => {
-      if (open && !wrap.current?.contains(e.target as Node)) setExpanded(null);
+      if (wrap.current?.contains(e.target as Node)) return;
+      if (open) setExpanded(null);
+      // The hub closes on a press elsewhere, not under a dialog or a menu opened from it.
+      if (hub && !(e.target as HTMLElement | null)?.closest?.('[aria-modal="true"], [role="menu"], [role="listbox"]')) setHub(null);
     };
     const onKey = (e: KeyboardEvent) => {
+      // The hub is a dialog: Tab stays in it.
+      if (hub && e.key === 'Tab' && wrap.current?.contains(document.activeElement)) {
+        const box = wrap.current.querySelector<HTMLElement>('.isl-face:not([data-leave]) .hub');
+        // (Its tabs other than the chosen one are reached with the arrows: not in Tab's round.)
+        const els = box ? focusables(box).filter(el => el.tabIndex >= 0) : [];
+        if (!els.length) return;
+        const at = els.indexOf(document.activeElement as HTMLElement);
+        if (e.shiftKey ? at <= 0 : at === els.length - 1 || at < 0) {
+          e.preventDefault();
+          (e.shiftKey ? els[els.length - 1] : els[0]).focus();
+        }
+        return;
+      }
       if (e.key !== 'Escape' || e.defaultPrevented) return;
       const inside = !!wrap.current?.contains(document.activeElement);
+      if (hub && (inside || !document.querySelector('[aria-modal="true"]:not(.isl-face)'))) {
+        e.stopPropagation();
+        e.preventDefault();
+        setHub(null);
+        toMain.current = inside;
+        return;
+      }
       if (inside) {
         e.stopPropagation();
         if (passingId) useUi.getState().dismissToast(passingId);
@@ -540,7 +641,7 @@ export default function Island() {
       window.removeEventListener('pointerdown', onDown, true);
       window.removeEventListener('keydown', onKey, true);
     };
-  }, [open, passingId]);
+  }, [open, passingId, hub]);
 
   const expand = (kind: Kind, keyboard: boolean) => {
     setExpanded(kind);
@@ -548,6 +649,19 @@ export default function Island() {
     toMain.current = keyboard;
   };
   const used = () => setPoke(p => p + 1);
+  const toHub = useRef(false);
+  /** Opens the hub on a view (the last one seen, for the small pill); the focus goes into it. */
+  const openHub = (view: HubView) => {
+    setExpanded(null);
+    setHub(view);
+    setLastView(view);
+    toHub.current = true;
+  };
+  const closeHub = () => {
+    const inside = !!wrap.current?.contains(document.activeElement);
+    setHub(null);
+    toMain.current = inside;
+  };
 
   const full = (kind: Kind): Face => {
     switch (kind) {
@@ -572,7 +686,7 @@ export default function Island() {
     kind === 'reminder' ? t('{what} : {title}. Afficher', { what: reminderFrom(alert!), title: alert!.title }) : kind === 'kompaly' ? t('Kompaly a quelque chose à te dire. Afficher') : t('{what}. Afficher', { what: miniText(kind) });
   const mini = (kind: Kind): Face =>
     kind === 'timer'
-      ? { key: 'timer-mini', mode: 'mini', el: <TimerMini phase={phase!} onOpen={k => expand('timer', k)} /> }
+      ? { key: 'timer-mini', mode: 'mini', el: <TimerMini phase={phase!} onOpen={() => openHub('minuteur')} /> }
       : {
           key: `${kind}-mini`,
           mode: 'mini',
@@ -586,13 +700,32 @@ export default function Island() {
           ),
         };
 
-  const face: Face | null = passing
-    ? { key: `toast-${passing.id}`, mode: 'toast', el: <ToastFace toast={passing} />, say: sober(passing.text), front: true }
-    : open
-      ? full(open)
-      : present[0]
-        ? mini(present[0])
-        : null;
+  const face: Face | null = hub
+    ? {
+        key: 'hub',
+        mode: 'hub',
+        el: (
+          <Suspense fallback={<div className="hub-wait" />}>
+            <IslandHub
+              view={hub}
+              setView={v => {
+                setHub(v);
+                setLastView(v);
+              }}
+              onClose={closeHub}
+              passing={passing}
+            />
+          </Suspense>
+        ),
+        say: passing ? sober(passing.text) : announce || undefined,
+      }
+    : passing
+      ? { key: `toast-${passing.id}`, mode: 'toast', el: <ToastFace toast={passing} />, say: sober(passing.text), front: true }
+      : open
+        ? full(open)
+        : present[0]
+          ? mini(present[0])
+          : { key: 'idle', mode: 'idle', el: <IdleFace onOpen={() => openHub(lastView === 'minuteur' && !phase ? 'accueil' : lastView)} /> };
   // A second thing going on: its circle beside the pill.
   const second = face?.mode === 'mini' ? present[1] : undefined;
   const [lastSecond, setLastSecond] = useState(second);
@@ -647,7 +780,7 @@ export default function Island() {
       area = w * h;
       box.style.width = `${w}px`;
       box.style.height = `${h}px`;
-      box.style.borderRadius = `${box.dataset.mode === 'mini' ? h / 2 : Math.min(h / 2, 38)}px`;
+      box.style.borderRadius = `${box.dataset.mode === 'mini' || box.dataset.mode === 'idle' ? h / 2 : Math.min(h / 2, box.dataset.mode === 'hub' ? 34 : 38)}px`;
       wrap.current?.style.setProperty('--isl-w', `${w}px`);
     };
     fit();
@@ -673,25 +806,25 @@ export default function Island() {
     }
   }, [faceKey, keyboard]);
 
-  // Phones: the page moves down under the top bar while something stays in the island, so the small pill covers no
-  // title or button (island.css › data-focus-island). A passing message goes over the page. The page heads redraw the
-  // wallpaper behind them as it moves (AppShell redraws it on resize).
-  const lane = present.length > 0 && stage !== 'gone' && stage !== 'out';
+  // The hub opened: the focus goes to its chosen tab (it may still be loading the first time). Closed: no announcement left.
   useEffect(() => {
-    const root = document.documentElement;
-    if (lane === 'focusIsland' in root.dataset) return;
-    if (lane) root.dataset.focusIsland = '';
-    else delete root.dataset.focusIsland;
-    let frames = 0;
+    if (!hub) {
+      setAnnounce('');
+      return;
+    }
+    if (!toHub.current) return;
+    let tries = 0;
     let raf = 0;
-    const redraw = () => {
-      window.dispatchEvent(new Event('resize'));
-      if (++frames < 28) raf = requestAnimationFrame(redraw);
+    const put = () => {
+      const tab = wrap.current?.querySelector<HTMLElement>('.isl-face:not([data-leave]) .hub [role="tab"][aria-selected="true"]');
+      if (tab) {
+        toHub.current = false;
+        tab.focus({ preventScroll: true });
+      } else if (++tries < 60) raf = requestAnimationFrame(put);
     };
-    raf = requestAnimationFrame(redraw);
+    put();
     return () => cancelAnimationFrame(raf);
-  }, [lane]);
-  useEffect(() => () => void delete document.documentElement.dataset.focusIsland, []);
+  }, [hub]);
 
   const live = (
     // What comes is read out, politely: the focus stays where it is.
@@ -715,7 +848,9 @@ export default function Island() {
         onFocus={e => setKeyboard((e.target as HTMLElement).matches(':focus-visible'))}
         onBlur={e => !wrap.current?.contains(e.relatedTarget as Node) && setKeyboard(false)}
       >
-        <div ref={shape} className="isl" role="group" aria-label={t('Notifications')} data-stage={stage === 'gone' ? 'in' : stage} data-mode={face?.mode ?? 'mini'}>
+        {/* The hub open: the page behind a little dimmed (a press on it closes the hub). */}
+        <div className="isl-scrim" data-on={hub ? '' : undefined} aria-hidden onPointerDown={() => hub && setHub(null)} />
+        <div ref={shape} className="isl" role={face?.mode === 'hub' ? undefined : 'group'} aria-label={face?.mode === 'hub' ? undefined : t('Notifications')} data-stage={stage === 'gone' ? 'in' : stage} data-mode={face?.mode ?? 'mini'}>
           {leaving.map(l => (
             <div
               key={l.key}
@@ -729,7 +864,13 @@ export default function Island() {
             </div>
           ))}
           {face && (
-            <div key={face.key} ref={current} className="isl-face">
+            <div
+              key={face.key}
+              ref={current}
+              className="isl-face"
+              // The hub is a dialog (its tabs, its views): the island's other faces are its messages.
+              {...(face.mode === 'hub' && { role: 'dialog', 'aria-modal': true, 'aria-label': t('Kompaly, ta journée') })}
+            >
               {face.el}
             </div>
           )}

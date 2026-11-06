@@ -474,9 +474,11 @@ export default function Copilot() {
   const asked = useCopilot(s => s.ask);
   useEffect(() => {
     if (!asked || thinking) return;
+    const quiet = !!useCopilot.getState().askQuiet;
     useCopilot.getState().askKompaly(null);
     clearBubble();
-    setPose('open');
+    // From the island's hub (Affichage Pro): the answer shows there, the panel stays closed.
+    if (!quiet) setPose('open');
     void send(asked);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- send reads the latest state itself
   }, [asked, thinking]);

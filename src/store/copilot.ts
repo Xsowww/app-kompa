@@ -60,9 +60,11 @@ interface CopilotState {
   pendingOffer: CopilotOffer | null;
   /** A question a button asks Kompaly for the student (« Fais une fiche de… »): the chat opens and sends it. */
   ask: string | null;
+  /** The question comes from the island's hub (Affichage Pro): answered there, the panel stays closed. */
+  askQuiet?: boolean;
   /** A remark said while the panel was closed and not read yet: a dot on Kompaly until it is opened. */
   unread: boolean;
-  askKompaly: (question: string | null) => void;
+  askKompaly: (question: string | null, quiet?: boolean) => void;
   push: (role: CopilotMessage['role'], text: string, extra?: Partial<Pick<CopilotMessage, 'links' | 'offers' | 'proactive' | 'brief' | 'retry'>>) => void;
   setPose: (pose: CopilotPose) => void;
   say: (bubble: Bubble) => void;
@@ -95,7 +97,7 @@ export const useCopilot = create<CopilotState>()(
       pendingOffer: null,
       ask: null,
       unread: false,
-      askKompaly: question => set({ ask: question }),
+      askKompaly: (question, quiet = false) => set({ ask: question, askQuiet: quiet }),
 
       push: (role, text, extra = {}) =>
         set(s => ({

@@ -663,6 +663,10 @@
 @media (max-width: 359px) {
   .pro-kbtn { width: 36px; padding: 0; justify-content: center; }
 }
+/* Phones: the island takes the middle of the bar; Kompaly is in it (its hub's « Assistant »). */
+@media (max-width: 639px) {
+  .pro-kbtn { display: none; }
+}
 @media (pointer: coarse) {
   .pro-kbtn::after { content: ''; position: absolute; inset: -4px; }
 }
@@ -915,16 +919,99 @@
     transform: translateY(-3px);
   }
 }
-/* Dialogs and menus: rounder, a light edge, the page behind dimmed and softly blurred. */
-:root[data-pro][data-style][data-theme] [aria-modal='true'].shadow-pop {
-  border-radius: 30px;
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.13), inset 0 1px 0 rgb(255 255 255 / 0.1), 0 30px 80px -20px rgb(0 0 0 / 0.85);
+/* ── Affichage Pro: everything that floats (dialogs, menus, pickers, lists, panels) is the same glass ──
+   One material, written once: a dark tint that lets the wallpaper's colours through, a light from above (the gradient),
+   a fine bright edge, a deep shadow. Before, dialogs and menus took Verre sombre's solid colour (--dialog-bg,
+   --glass-strong): adding a task or an event looked like going back to a plain dark theme. The blur only on these few
+   floating things (one or two at once), never on the scrolling cards (Safari's black squares). */
+:root[data-pro][data-style][data-theme] {
+  --pro-glass-tint: rgb(22 24 38 / 0.62);
+  --pro-glass-light: linear-gradient(180deg, rgb(255 255 255 / 0.085), rgb(255 255 255 / 0.025) 38%, rgb(255 255 255 / 0) 70%);
+  --pro-glass-edge: inset 0 0 0 1px rgb(255 255 255 / 0.13), inset 0 1px 0 rgb(255 255 255 / 0.14);
+  --pro-glass-shadow: 0 30px 70px -24px rgb(0 0 0 / 0.75), 0 10px 24px -12px rgb(0 0 0 / 0.45);
+  --dialog-bg: rgb(22 24 38 / 0.62);
+  --glass-strong: rgb(22 24 38 / 0.62);
 }
-:root[data-pro] .fixed.inset-0:has(> [aria-modal='true'].shadow-pop) {
-  background-color: rgb(4 5 10 / 0.55);
-  -webkit-backdrop-filter: blur(10px) saturate(120%);
-  backdrop-filter: blur(10px) saturate(120%);
+:root[data-pro][data-style][data-theme] :is(.shadow-pop.bg-surface, .card.shadow-pop, [role='menu'].shadow-pop, #nav-more-panel, #copilot-panel, #specificity-of-the-glass) {
+  border-color: transparent;
+  background-color: var(--pro-glass-tint);
+  background-image: var(--pro-glass-light);
+  -webkit-backdrop-filter: blur(32px) saturate(185%);
+  backdrop-filter: blur(32px) saturate(185%);
+  box-shadow: var(--pro-glass-edge), var(--pro-glass-shadow);
+}
+/* Menus, pickers, search results a little more opaque: small, over anything (a dialog, a busy page), their words stay clear.
+   (Phones' « Plus »: inside the tab bar, whose own blur leaves its blur nothing to see.) */
+:root[data-pro][data-style][data-theme] :is([role='menu'].shadow-pop, .shadow-pop.bg-surface.fixed, #recherche-resultats, #nav-more-panel, #specificity-of-the-glass) {
+  background-color: rgb(24 26 40 / 0.86);
 }
 :root[data-pro][data-style][data-theme] [role='menu'].shadow-pop {
   border-radius: 20px;
+}
+/* A dialog: the page behind dimmed a little and blurred (its colours stay), the dialog a pane of that glass over it.
+   (The blur is the backdrop's: a blur on the dialog itself would only see the backdrop's tint.) */
+:root[data-pro] .fixed.inset-0:has(> [aria-modal='true'].shadow-pop) {
+  background-color: rgb(6 8 16 / 0.34);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  backdrop-filter: blur(24px) saturate(150%);
+}
+:root[data-pro][data-style][data-theme] .fixed.inset-0 > :is([aria-modal='true'].shadow-pop.bg-surface, [aria-modal='true'].shadow-pop, #specificity-of-the-glass) {
+  border-radius: 30px;
+  background-color: rgb(20 22 36 / 0.5);
+  background-image: var(--pro-glass-light);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.14), inset 0 1px 0 rgb(255 255 255 / 0.16), 0 40px 90px -24px rgb(0 0 0 / 0.8);
+}
+/* Inside the glass: fields and quiet blocks are lighter glass, not dark holes. */
+:root[data-pro][data-style][data-theme] :is([aria-modal='true'], [role='menu'], .shadow-pop) :is(.field, input.bg-surface, textarea.bg-surface) {
+  background-color: rgb(255 255 255 / 0.06);
+  border-color: rgb(255 255 255 / 0.12);
+}
+:root[data-pro][data-style][data-theme] :is([aria-modal='true'], .shadow-pop) :is(.field, input.bg-surface, textarea.bg-surface):hover:not(:focus, :disabled) {
+  border-color: rgb(255 255 255 / 0.22);
+}
+:root[data-pro][data-style][data-theme] :is([aria-modal='true'], .shadow-pop) :is(.bg-paper, .bg-stone-50, .bg-surface:not(.shadow-pop)) {
+  background-color: rgb(255 255 255 / 0.045);
+}
+/* Their rows: a soft capsule of light under the pointer. */
+:root[data-pro][data-style][data-theme] [role='menu'] :is(button, a)[role^='menuitem'] {
+  border-radius: 13px;
+}
+:root[data-pro][data-style][data-theme] [role='menu'] :is(button, a)[role^='menuitem']:is(:hover, :focus-visible) {
+  background-color: rgb(255 255 255 / 0.1);
+}
+/* The lines that split a menu or a dialog: hair-thin light. */
+:root[data-pro][data-style][data-theme] :is([aria-modal='true'], [role='menu'], .shadow-pop) :is(.border-stone-100, .border-stone-200, hr) {
+  border-color: rgb(255 255 255 / 0.09);
+}
+
+/* ── Affichage Pro: the calendar on the same glass ── */
+/* The month: the days on the panel's glass (no dark tiles), fine lines of light between them (each day's edge: the
+   1 px gaps would only show the same glass). */
+:root[data-pro][data-style][data-theme] [data-fab-ignore].bg-stone-200:has([data-drop-day]) {
+  background-color: transparent;
+  border-color: rgb(255 255 255 / 0.1);
+}
+:root[data-pro][data-style][data-theme] [data-fab-ignore] [data-drop-day]:is(.bg-surface, .bg-stone-50) {
+  background-color: rgb(255 255 255 / 0.02);
+  box-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.1);
+}
+:root[data-pro][data-style][data-theme] [data-fab-ignore] [data-drop-day].bg-surface:hover {
+  background-color: rgb(255 255 255 / 0.06);
+}
+:root[data-pro][data-style][data-theme] [data-fab-ignore] [data-drop-day].bg-stone-50 {
+  background-color: rgb(255 255 255 / 0.1);
+}
+/* The week's days above the hours (sticky): frosted, of the panel's tint, instead of the page's dark colour. */
+:root[data-pro][data-style][data-theme] .sticky.z-10.grid[style*='--cal-head'] {
+  background: rgb(26 28 42 / 0.72) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+  border-color: rgb(255 255 255 / 0.09);
+}
+/* Kompaly's conversation: as round as the other panels, a deeper tint (a long conversation over a busy page). */
+:root[data-pro][data-style][data-theme] :is(#copilot-panel, #specificity-of-the-glass) {
+  border-radius: 26px;
+  background-color: rgb(20 22 34 / 0.88);
 }
