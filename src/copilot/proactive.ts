@@ -14,7 +14,6 @@ import { toKey, todayKey, daysUntil, fmt, fromKey, weekStart, countdownLabel, is
 
 export { isOver };
 import { hasRevisionPlan, hourLabel, linkToDay, linkToNote } from './actions';
-import { aiNudge, type NudgeKind } from './claudeBrain';
 import { getSettings } from '../store/settings';
 import { notify } from '../lib/notify';
 import { usageWords } from '../lib/usage';
@@ -40,13 +39,14 @@ let busy = false;
 interface Nudge {
   key: string; // memory key: the same remark is not repeated within `every`
   every: number;
-  situation: Record<string, unknown>; // given to Claude to phrase it
-  fallback: string; // local wording
+  /** What happened, in words (read by the tests). Never sent anywhere: nothing goes to an AI unless the person asks. */
+  situation: Record<string, unknown>;
+  fallback: string; // the wording
   offers?: CopilotOffer[];
   links?: Bubble['links'];
   mood?: Bubble['mood'];
   urgent?: boolean; // bypass the global gap
-  kind?: NudgeKind; // 'brief' and 'review' are longer, several lines
+  kind?: 'remark' | 'brief' | 'review'; // 'brief' and 'review' are longer, several lines
   /** It says hello: the conversation's own welcome line is not added above it (copilot/Copilot › hello). */
   hello?: boolean;
 }
@@ -79,11 +79,8 @@ async function nudge(n: Nudge) {
   lastNudge = Date.now();
   useCopilot.getState().remember(n.key);
   try {
-    let text = n.fallback;
-    if (useCopilot.getState().aiEnabled) {
-      const ai = await aiNudge({ ...n.situation, actions_proposees: n.offers?.map(o => o.label) ?? [] }, useAuth.getState().user?.name ?? '', n.kind);
-      if (ai) text = ai;
-    }
+    // Phrased here, on the device: a remark Kompaly makes by himself never sends anything to an AI (titles, file names…).
+    const text = n.fallback;
     useCopilot.getState().say({ text, offers: n.offers, links: n.links, mood: n.mood ?? (n.offers ? 'alert' : 'happy'), brief: n.kind === 'brief' || n.hello || undefined });
     // Out of the app (another tab): only a suggestion to act on, never a greeting, a bravo or a summary.
     if (getSettings().copilotNotify && n.offers?.length && !n.kind) notify('Kompaly', text.length > 160 ? `${text.slice(0, 159)}…` : text);

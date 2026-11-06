@@ -2,12 +2,14 @@
 
 import { recWords } from '../pages/record/words';
 import { normalize } from '../lib/utils';
-import { parseQuickAdd, todayKey, daysUntil, fmt, fromKey } from '../lib/dates';
+import { parseQuickAdd, todayKey, daysUntil, fmt, fromKey, type ParsedQuickAdd } from '../lib/dates';
+import { reminderMoment } from '../lib/reminders';
+import { quickEvent } from './simpleIntent';
 import { useCalendar, isBigEvent } from '../store/calendar';
 import { buildQuiz, checkAnswer, type Quiz } from './quiz';
 import {
   addTodo, listTodos, completeTodo, deleteTodo, listTrash, findInTrash, restoreFromTrash, trashItems, deleteEvent, renameItem, moveItem,
-  itemName, linkToItem, hitLabel, HIT_LABEL, setStar, setFolderColor, searchNotes, findNote, startFocus, stopFocus, updateSettings,
+  itemName, linkToItem, hitLabel, HIT_LABEL, hourLabel, setStar, setFolderColor, searchNotes, findNote, startFocus, stopFocus, updateSettings,
 } from './actions';
 import type { CopilotLink, CopilotOffer } from '../store/copilot';
 import {
@@ -460,6 +462,32 @@ export function fromOtherLanguage(typed: string): string | null {
 export const isTourRequest = (typed: string) =>
   /(visite guidee|fais[- ]?moi visiter|(re)?(fais|faire)([- ]moi)? (le|un) tour (de|du) (kompaly|l'?appli|l'?app|site)|guided tour|show me around|visita guiada|fuhrung durch|rundgang|visita guidata|fammi fare un giro)/.test(normalize(typed));
 
+/** « dentiste mardi 17h30 » understood: the event made, said back, and « Me prévenir 1 h avant » offered (as on the home page). */
+function eventAdded(parsed: ParsedQuickAdd): BotReply {
+  const date = parsed.date ?? todayKey();
+  const { first: ev, count, last } = addEvents({ title: parsed.title, date, start: parsed.start ?? undefined, end: parsed.end ?? undefined, important: parsed.important, endDate: parsed.endDate, repeat: parsed.every });
+  // A night (« 21h-7h »): the evening and the next morning, said as one.
+  const night = !!parsed.endDate && count === 2 && !!parsed.start && !!parsed.end && parsed.end < parsed.start;
+  const more = night
+    ? t('Jusqu’au lendemain {time}, sur les deux jours du calendrier.', { time: hourLabel(parsed.end!) })
+    : count > 1
+      ? parsed.endDate
+        ? t('Jusqu’au {day}.', { day: fmt(fromKey(last), 'EEEE d MMMM') })
+        : t('Répété {n} fois, jusqu’au {day}.', { n: count, day: fmt(fromKey(last), 'EEEE d MMMM') })
+      : '';
+  const described = describeEvent(night ? { ...ev, end: undefined } : ev);
+  // The hour before, when there is still time for it and it isn't already set.
+  const offers: CopilotOffer[] =
+    ev.start && !(ev.reminders ?? []).includes(60) && reminderMoment(ev.date, ev.start, 60) > new Date()
+      ? [{ label: t('Me prévenir 1 h avant'), kind: 'add_reminder', payload: { eventId: ev.id, minutes: '60' } }]
+      : [];
+  return {
+    text: `${t('Ajouté au calendrier : {event}', { event: described })}${more ? `\n${more}` : ''}${parsed.date ? '' : `\n${t('(Pas de date trouvée : je l’ai mis aujourd’hui.)')}`}`,
+    links: [{ label: t('Voir le jour'), to: linkToDay(ev.date, ev.id) }],
+    offers,
+  };
+}
+
 export function localReply(raw: string): BotReply {
   const typed = raw.trim();
   let input = SUGGESTED.find(([, shown]) => shown.toLowerCase() === typed.toLowerCase())?.[0] ?? typed;
@@ -632,6 +660,10 @@ export function localReply(raw: string): BotReply {
     const f = createDriveFolder(name, parent);
     return { text: t('Dossier « {name} » créé dans tes fichiers.', { name: f.name }), links: [{ label: t('Ouvrir le dossier'), to: linkToDriveFolder(f.id) }] };
   }
+
+  // ── An event in one sentence: « Ajoute un rendez-vous dentiste mardi 17h30 », « Judo de Léo mercredi 14h » ──
+  const said = quickEvent(input);
+  if (said) return eventAdded(said);
 
   // ── Add an event ──────────────────────────────────────────────────────────
   m = input.match(/^(?:ajoute|ajouter|planifie|programme|rappelle[- ]moi|note dans (?:le|mon) calendrier|mets?)\s+(?:un\s+|une\s+)?(?:[ée]v[ée]nement\s+|rdv\s+|rendez-vous\s+)?(.*)$/i);

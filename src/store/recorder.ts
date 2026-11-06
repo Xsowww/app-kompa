@@ -299,6 +299,7 @@ async function runPump() {
 }
 
 function offReason(e: CoursError) {
+  if (e.code === 'simple_only') return t('Le mode simple uniquement est activé (Profil › Kompaly) : rien n’est envoyé à une IA, le son n’est pas écrit.');
   if (e.code === 'disabled') return t('La transcription n’est pas activée sur le serveur.');
   if (e.code === 'site_limit') return t('Kompaly a atteint sa limite de transcription pour aujourd’hui.');
   if (e.code === 'daily_limit') return t('Tu as atteint ta limite de transcription pour aujourd’hui.');
@@ -777,6 +778,7 @@ export function openInDrive(id: string) {
 
 export function errorText(e: unknown): string {
   if (e instanceof CoursError) {
+    if (e.code === 'simple_only') return t('Le mode simple uniquement est activé (Profil › Kompaly) : rien n’est envoyé à une IA.');
     if (e.code === 'disabled') return t('L’IA n’est pas activée sur le serveur.');
     if (e.code === 'daily_limit') return t('Tu as utilisé toutes tes demandes à l’IA pour aujourd’hui : réessaie demain.');
     if (e.code === 'site_limit') return t('L’IA gratuite de Kompaly a atteint sa limite du jour : réessaie demain.');

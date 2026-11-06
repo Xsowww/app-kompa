@@ -9,6 +9,7 @@ import { useAuth } from '../store/auth';
 import { startTour } from '../store/tour';
 import { toast } from '../store/ui';
 import { isTourRequest, isYes, localReply, type BotReply } from './localBrain';
+import { isSimpleRequest } from './simpleIntent';
 import { acceptOffer, runOffer } from './offers';
 import * as claudeBrain from './claudeBrain';
 import { normalize, cx } from '../lib/utils';
@@ -423,7 +424,8 @@ export default function Copilot() {
     const stop = new AbortController();
     stopRef.current = stop;
     let reply: BotReply & { retry?: string };
-    if (aiEnabled && !(await brain()).aiPausedUntil()) {
+    // What the simple mode understands for sure (« dentiste mardi 17h30 », « qu'est-ce que j'ai demain ? ») stays on the device.
+    if (aiEnabled && !(await brain()).aiPausedUntil() && !isSimpleRequest(clean)) {
       try {
         reply = await (await brain()).claudeReply(clean, user?.name ?? '', stop.signal);
       } catch (e) {

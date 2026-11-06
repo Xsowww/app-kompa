@@ -16,13 +16,15 @@ export class CoursError extends Error {
 }
 
 /** The server can't help (not set up, or today's allowance used): no use trying again soon. */
-export const isFinal = (e: unknown) => e instanceof CoursError && ['disabled', 'daily_limit', 'site_limit', 'bad_audio', 'bad_task', 'http_404'].includes(e.code); // 404: no transcription server here at all
+export const isFinal = (e: unknown) => e instanceof CoursError && ['disabled', 'daily_limit', 'site_limit', 'bad_audio', 'bad_task', 'http_404', 'simple_only'].includes(e.code); // 404: no transcription server here at all
 
 async function call<T>(path: string, init: RequestInit, timeoutMs: number, stop?: AbortSignal): Promise<T> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   stop?.addEventListener('abort', () => ctrl.abort());
   try {
+    // « Mode simple uniquement » (Profil › Kompaly): the sound, the text and the photos go to an AI, so nothing leaves.
+    if (getSettings().simpleOnly && path !== 'etat' && path !== 'alerte') throw new CoursError('simple_only');
     const token = await accessToken();
     const res = await fetch(`/api/cours/${path}`, { ...init, headers: { ...init.headers, ...(token ? { Authorization: `Bearer ${token}` } : {}) }, signal: ctrl.signal });
     const data = await res.json().catch(() => ({}));

@@ -11,7 +11,7 @@ import { useFocus, focusLeft } from '../store/focus';
 import { normalize, noteText, stripHtml, formatBytes, uid } from '../lib/utils';
 import { textSnippet } from '../lib/textFind';
 import { toKey, todayKey, daysUntil, fromKey, fmt, fmtDay, weekStart, countdownLabel, validKey } from '../lib/dates';
-import { defaultUntil, isSpan, repeatDays, spanDays, type Repeat } from '../lib/repeat';
+import { defaultUntil, isSpan, repeatDays, shiftKey, spanDays, type Repeat } from '../lib/repeat';
 import { cleanReminders, eventReminders, MAX_MINUTES, minutesBefore, reminderLabel, reminderMoment } from '../lib/reminders';
 import { isTaskRepeat } from '../lib/taskRepeat';
 import { canNotify } from '../lib/notify';
@@ -288,7 +288,9 @@ export function addEvent(input: { title: string; date: string; start?: string; e
  * (lib/repeat). The first day of an event over several days keeps the reminders, the others none.
  */
 export function addEvents(input: Parameters<typeof addEvent>[0] & { endDate?: string; repeat?: Repeat; until?: string }): { first: CalendarEvent; count: number; last: string } {
-  const endDate = validKey(input.endDate);
+  // A night given without its next day (« 21:00 → 07:00 »): it ends the next morning.
+  const overnight = !input.endDate && !input.repeat && !!input.start && !!input.end && input.end < input.start;
+  const endDate = overnight ? shiftKey(input.date, 1) : validKey(input.endDate);
   const spanning = !!endDate && endDate > input.date;
   if (!spanning && !input.repeat) {
     const first = addEvent(input);
@@ -506,6 +508,9 @@ function revisionSlot(date: string, at: string, examStart: string | undefined, n
   if (examStart) {
     const end = toMin(examStart) - 30;
     const start = Math.max(end - 90, isToday ? Math.ceil(nowMin / 15) * 15 : 0);
+    // A pupil or a student is in class on a weekday from 8:00 to 17:00: no session there.
+    const weekday = fromKey(date).getDay() % 6 !== 0;
+    if (studying() && weekday && start < 17 * 60 && end > 8 * 60) return null;
     return end - start >= 30 ? { start: toHm(start), end: toHm(end) } : null;
   }
   if (isToday && nowMin > toMin(at)) return 24 * 60 - nowMin >= 90 ? {} : null;

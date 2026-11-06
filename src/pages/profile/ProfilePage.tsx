@@ -554,8 +554,10 @@ function CopilotTab() {
         <div className="flex items-start gap-3 px-5 py-4">
           <span className={cx('mt-[5px] h-2 w-2 shrink-0 rounded-full', !aiEnabled ? 'bg-stone-400' : paused ? 'bg-amber-500' : 'bg-emerald-500')} />
           <div className="min-w-0 text-[13px]">
-            <p className="font-medium">{paused ? t('Mode simple pour l’instant.') : aiEnabled ? t('Mode intelligent activé.') : t('Mode simple.')}</p>
-            {paused ? (
+            <p className="font-medium">{s.simpleOnly ? t('Mode simple uniquement.') : paused ? t('Mode simple pour l’instant.') : aiEnabled ? t('Mode intelligent activé.') : t('Mode simple.')}</p>
+            {s.simpleOnly ? (
+              <p className="text-[12px] text-stone-500">{t('Rien n’est envoyé à une IA.')}</p>
+            ) : paused ? (
               <p className="text-[12px] text-stone-500">
                 {aiPauseReason() === 'error' ? t('L’IA ne répond pas, retour dans') : aiPauseReason() === 'mine' ? t('Tes questions du jour sont utilisées, retour dans') : t('L’IA gratuite a atteint sa limite, retour dans')} <span className="tabular">{clock}</span>.
               </p>
@@ -566,6 +568,10 @@ function CopilotTab() {
             )}
           </div>
         </div>
+        {/* Read by Kompaly's chat (store/copilot › aiEnabled), the recording and the photo sheet (lib/recorder/api), and the server. */}
+        <Row label={t('Mode simple uniquement')} hint={t('Rien n’est envoyé à une IA : Kompaly répond sur ton appareil aux demandes courantes (« dentiste mardi 17h30 », « qu’est-ce que j’ai demain ? »). L’enregistrement écrit et la fiche depuis une photo, qui passent par une IA, sont alors coupés.')}>
+          <Toggle label={t('Mode simple uniquement')} checked={!!s.simpleOnly} onChange={v => s.set({ simpleOnly: v })} />
+        </Row>
         <Row label={t('Afficher Kompaly')} hint={t('Caché, il reste là : « Kompaly » dans le menu (en haut sur téléphone) ou {key} + J.', { key: IS_MAC ? '⌘' : t('Ctrl') })}>
           <Toggle label={t('Afficher Kompaly')} checked={s.copilotVisible} onChange={v => s.set({ copilotVisible: v })} />
         </Row>
