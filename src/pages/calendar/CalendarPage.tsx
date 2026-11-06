@@ -20,6 +20,7 @@ import { eventTitle, periodIdeas, removeEvent, useCalendarSource } from './sourc
 import TimeGrid from './TimeGrid';
 import SeriesIcon from './SeriesIcon';
 import { firstOfSpans, isSpan, spanDays, spanTooLong } from '../../lib/repeat';
+import { refillEndless } from '../../lib/repeatSeries';
 import ImportIcsDialog, { type IcsSource } from './ImportIcsDialog';
 import { useCreateActions } from '../../store/create';
 import { isIcsFile } from '../../lib/ics';
@@ -72,6 +73,19 @@ const useShort = () => useSyncExternalStore(subscribeShort, () => shortQuery?.ma
 const gridQuery = media('(min-width: 768px)');
 const subscribeGrid = subscribeTo(gridQuery);
 const useWeekGrid = () => useSyncExternalStore(subscribeGrid, () => gridQuery?.matches ?? true);
+
+/** « 14h », « 9h30 »: the month's cells on a phone have room for a few characters only. */
+const shortTime = (hhmm: string) => `${Number(hhmm.slice(0, 2))}h${hhmm.slice(3) === '00' ? '' : hhmm.slice(3)}`;
+/** Lines left for events in a phone's month cell under the bars of events over several days. */
+const phoneRoom = (lanes: number) => Math.max(1, 2 - lanes);
+/** The morning end of a night (an event from an evening to the next morning, « span- »): « 07:00 », else null. */
+function nightEnd(ev: CalendarEvent, byDay: Map<string, CalendarEvent[]>): string | null {
+  if (!ev.start || ev.end !== '23:59' || !ev.series) return null;
+  const next = new Date(`${ev.date}T12:00`);
+  next.setDate(next.getDate() + 1);
+  const morning = (byDay.get(toKey(next)) ?? []).find(e => e.series === ev.series && e.start === '00:00');
+  return morning?.end ?? null;
+}
 
 function Dot({ color, size = 8 }: { color: string; size?: number }) {
   return <span className="inline-block shrink-0 rounded-full" style={{ background: color, width: size, height: size }} />;
@@ -348,6 +362,10 @@ export default function CalendarPage() {
   const overlay = useAgendaOverlay(!shared);
   const events = useMemo(() => (shared || !overlay.events.length ? ownEvents : [...ownEvents, ...overlay.events]), [shared, ownEvents, overlay.events]);
   const hiddenAgendas = useSettings(s => s.hiddenAgendas) ?? [];
+  // My series without end: their next occurrences made when due (lib/repeatSeries), once per visit.
+  useEffect(() => {
+    if (!shared) refillEndless();
+  }, [shared]);
   // My tasks with a due day, on their day (not in a shared calendar: they are mine).
   const allTodos = useTodos(s => s.todos);
   const [task, setTask] = useState<Todo | null>(null);
@@ -1087,7 +1105,7 @@ export default function CalendarPage() {
                               {fmt(d, 'd')}
                             </span>
                             {/* Room for the bars of the events over several days, drawn over the row. */}
-                            {row.lanes > 0 && <span aria-hidden className="block h-[calc(var(--lanes)*6px)] shrink-0 @md:h-[calc(var(--lanes)*20px)]" />}
+                            {row.lanes > 0 && <span aria-hidden className="block h-[calc(var(--lanes)*15px)] shrink-0 @md:h-[calc(var(--lanes)*20px)]" />}
                             {/* Under the number: every day number stays on the same line, with or without a period. */}
                             {named.slice(0, 2).map(p => (
                               <span key={p.id} className="hidden truncate px-1 text-[10px] font-semibold leading-tight @md:block" style={{ color: periodText(p) }}>{label(p)}</span>
@@ -1118,14 +1136,24 @@ export default function CalendarPage() {
                                 </span>
                               ),
                             )}
-                            {items.length > 0 && (
-                              <span className="flex justify-center gap-0.5 @md:hidden">
-                                {evs.slice(0, 3).map(e => (
-                                  <Dot key={e.id} color={catOf(e.category).color} size={5} />
-                                ))}
-                                {tasks.length > 0 && evs.length < 3 && <span className="h-[5px] w-[5px] rounded-[1.5px] border border-stone-400" aria-hidden />}
+                            {/* A phone: the first ones by their title (their time under it when alone that day), not anonymous
+                                dots (test n°3); the day's list below the grid has them whole. */}
+                            {items.slice(0, phoneRoom(row.lanes)).map(it => (
+                              <span
+                                key={'ev' in it ? it.ev.id : it.todo.id}
+                                aria-hidden
+                                className={cx('flex min-w-0 items-center gap-[3px] overflow-hidden whitespace-nowrap text-[10px] leading-[14px] text-stone-700 @md:hidden', 'todo' in it && 'text-stone-500', 'todo' in it && it.todo.done && 'line-through')}
+                              >
+                                {'ev' in it ? <span className="h-[10px] w-[2px] shrink-0 rounded-full" style={{ background: catOf(it.ev.category).color }} /> : <span className="h-[6px] w-[6px] shrink-0 rounded-[1.5px] border border-stone-400" />}
+                                <span className="min-w-0 truncate">{'ev' in it ? eventTitle(it.ev, shared) : it.todo.title}</span>
+                              </span>
+                            ))}
+                            {items.length === 1 && row.lanes === 0 && ('ev' in items[0] ? items[0].ev.start : items[0].todo.time) && (
+                              <span aria-hidden className="tabular truncate pl-[5px] text-[10px] leading-[14px] text-stone-500 @md:hidden">
+                                {shortTime(('ev' in items[0] ? items[0].ev.start : items[0].todo.time)!)}
                               </span>
                             )}
+                            {items.length > phoneRoom(row.lanes) && <span aria-hidden className="text-[10px] font-medium leading-[14px] text-stone-500 @md:hidden">+{items.length - phoneRoom(row.lanes)}</span>}
                             {items.length > 2 && <span className="hidden px-1 text-[10px] text-stone-500 @md:block">{tn(items.length - 2, '+{n} autre', '+{n} autres')}</span>}
                           </button>
                         );
@@ -1134,6 +1162,8 @@ export default function CalendarPage() {
                       {row.bars.map(({ ev, from, to, lane, before, after }) => {
                         const n = to - from + 1;
                         const c = catOf(ev.category);
+                        // A night (evening to next morning): its end time on the bar, as the day's list says it.
+                        const night = nightEnd(ev, byDay);
                         return (
                           <button
                             key={`${ev.series}-${from}`}
@@ -1144,9 +1174,9 @@ export default function CalendarPage() {
                             title={eventTitle(ev, shared)}
                             aria-label={eventTitle(ev, shared)}
                             className={cx(
-                              // A line in its colour on a phone, a light bar with its name from a tablet.
-                              'pointer-events-none absolute flex h-1 items-center gap-1 overflow-hidden bg-[var(--bar)] px-1.5 text-left text-[11px] font-medium @md:pointer-events-auto @md:h-[18px] @md:bg-[var(--bar-soft)]',
-                              'top-[calc(30px+var(--lane)*6px)] @md:top-[calc(30px+var(--lane)*20px)]',
+                              // A light bar with its name, across its days (a night: « Garde → 07:00 », one piece, test n°3).
+                              'pointer-events-none absolute flex h-[13px] items-center gap-1 overflow-hidden whitespace-nowrap bg-[var(--bar-soft)] px-1 text-left text-[10px] font-medium leading-none @md:pointer-events-auto @md:h-[18px] @md:px-1.5 @md:text-[11px]',
+                              'top-[calc(30px+var(--lane)*15px)] @md:top-[calc(30px+var(--lane)*20px)]',
                               before ? 'rounded-l-none' : 'rounded-l',
                               after ? 'rounded-r-none' : 'rounded-r',
                               drag && '@md:pointer-events-none',
@@ -1161,7 +1191,8 @@ export default function CalendarPage() {
                               boxShadow: before ? undefined : `inset 3px 0 0 ${c.color}`,
                             } as React.CSSProperties}
                           >
-                            <span className="hidden truncate @md:inline">{eventTitle(ev, shared)}</span>
+                            <span className="truncate">{eventTitle(ev, shared)}</span>
+                            {night && <span className="tabular shrink-0 opacity-80">→ {night}</span>}
                           </button>
                         );
                       })}
