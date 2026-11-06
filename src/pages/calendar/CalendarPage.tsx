@@ -797,7 +797,7 @@ export default function CalendarPage() {
         <div ref={headRef} className={cx('page-head', compactHead ? 'pb-3 pt-1' : 'pb-4 pt-2')}>
           <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
           {!compactHead && title}
-          <div className={cx('flex items-center gap-2', !shared && 'sm:ml-auto')}>
+          <div className={cx('flex flex-wrap items-center gap-2', !shared && 'sm:ml-auto')}>
             <div className="flex items-center gap-1">
               <button className="icon-btn pointer-coarse:h-9 pointer-coarse:w-9" onClick={() => shift(-1)} title={mode === 'day' ? t('Jour précédent') : t('Précédent')} aria-label={mode === 'day' ? t('Jour précédent') : t('Précédent')}>
                 <ChevronLeft size={17} />
@@ -952,7 +952,7 @@ export default function CalendarPage() {
                           <button
                             type="button"
                             onClick={() => (selectDay(key), setMode('day'))}
-                            className={cx('flex min-h-9 items-center gap-1.5 rounded-md text-left text-[14px] font-semibold', key === today && 'text-brand-600')}
+                            className={cx('flex min-h-9 items-center gap-1.5 rounded-md text-left pointer-coarse:min-h-11 text-[14px] font-semibold', key === today && 'text-brand-600')}
                             title={t('Voir la journée')}
                           >
                             <span className="first-letter:uppercase">{fmt(fromKey(key), 'EEEE d')}</span>
@@ -1223,6 +1223,9 @@ export default function CalendarPage() {
                     size="sm"
                     icon={CalendarPlus}
                     title={selected === today ? t('Rien de prévu aujourd’hui.') : t('Rien de prévu ce jour-là.')}
+                    // « Périodes » was found late (shared custody: one week out of two): named here while none is set.
+                    text={!readOnly && !periods.length ? t('Des semaines à part (garde alternée, vacances, stage…) ? Colore-les avec « Périodes ».') : undefined}
+                    action={!readOnly && !periods.length ? { label: t('Ajouter une période'), icon: CalendarRange, onClick: () => setPeriodsOpen(true) } : undefined}
                     preview="slots"
                   />
                 )

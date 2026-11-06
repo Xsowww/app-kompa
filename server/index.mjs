@@ -84,7 +84,7 @@ const files = new Map();
 const CF_TOKEN = /^[a-f0-9]{32}$/i.test(process.env.CF_ANALYTICS_TOKEN ?? '') ? process.env.CF_ANALYTICS_TOKEN : '';
 const BEACON = CF_TOKEN ? `<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token":"${CF_TOKEN}","spa":true}'></script>` : '';
 /** The app's pages (src/App.tsx): any other address gets the page with a 404 status. */
-const APP_ROUTES = new Set(['/', '/connexion', '/inscription', '/mot-de-passe-oublie', '/reinitialisation', '/confirmer', '/securite', '/bienvenue', '/mentions-legales', '/confidentialite', '/conditions', '/tarifs', '/prix', '/a-propos', '/contact', '/presse', '/qui-sommes-nous', '/drive', '/calendrier', '/notes', '/taches', '/progression', '/groupes', '/agendas', '/corbeille', '/profil', '/admin', '/enregistrer', '/partage', '/accueil']);
+const APP_ROUTES = new Set(['/', '/connexion', '/inscription', '/mot-de-passe-oublie', '/reinitialisation', '/confirmer', '/securite', '/bienvenue', '/mentions-legales', '/confidentialite', '/conditions', '/tarifs', '/prix', '/fichiers', '/a-propos', '/contact', '/presse', '/qui-sommes-nous', '/drive', '/calendrier', '/notes', '/taches', '/progression', '/groupes', '/agendas', '/corbeille', '/profil', '/admin', '/enregistrer', '/partage', '/accueil']);
 
 async function serveStatic(req, res) {
   // A share from another app (manifest's share_target) the service worker didn't take: the page says nothing came.

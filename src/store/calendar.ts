@@ -41,7 +41,7 @@ export const CATEGORIES: Record<BuiltinCategory, CategoryInfo> = {
 /** Names of the five built-in categories for each usage of the account (applied by applyUsage below). */
 export const CATEGORY_LABELS: Record<Usage, Record<BuiltinCategory, string>> = {
   etudes: { cours: t('Cours'), examen: t('Examen'), devoir: t('Devoir'), perso: t('Perso'), sport: t('Sport') },
-  travail: { cours: t('Réunion'), examen: t('Échéance'), devoir: t('Livrable'), perso: t('Perso'), sport: t('Sport') },
+  travail: { cours: t('Réunion'), examen: t('Échéance'), devoir: t('À rendre'), perso: t('Perso'), sport: t('Sport') },
   perso: { cours: t('Rendez-vous'), examen: t('Grand jour'), devoir: t('À faire'), perso: t('Perso'), sport: t('Sport') },
 };
 

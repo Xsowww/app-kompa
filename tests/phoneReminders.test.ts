@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deviceWord, freshReminder, reminderDevice, unblockSteps } from '../src/lib/phoneReminders';
+import { deviceWord, freshReminder, offerMomentOk, reminderDevice, unblockSteps } from '../src/lib/phoneReminders';
 
 const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
 const IPAD_DESKTOP = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15';
@@ -61,5 +61,25 @@ describe('le premier rappel fait apparaître l’offre', () => {
     expect(freshReminder([{ reminders: [15], createdAt: at(3), externalId: 'x@google' }], now)).toBe(false);
     expect(freshReminder([{ reminders: [15], createdAt: at(600) }], now)).toBe(false);
     expect(freshReminder([{ reminders: [15] }], now)).toBe(false);
+  });
+});
+
+// Test n°3: « Ton rappel est enregistré » opened at a bad moment (over another window, while typing).
+describe('offerMomentOk', () => {
+  const now = 100_000;
+  const calm = { typing: false, overlay: false, lastInput: now - 10_000, newReminder: true };
+  it('waits for a calm moment after a reminder was saved here', () => {
+    expect(offerMomentOk(calm, now)).toBe(true);
+  });
+  it('never over another window, a menu or Kompaly’s panel', () => {
+    expect(offerMomentOk({ ...calm, overlay: true }, now)).toBe(false);
+  });
+  it('never while the person types, nor just after a key', () => {
+    expect(offerMomentOk({ ...calm, typing: true }, now)).toBe(false);
+    expect(offerMomentOk({ ...calm, lastInput: now - 1000 }, now)).toBe(false);
+    expect(offerMomentOk({ ...calm, lastInput: now - 2000 }, now)).toBe(true);
+  });
+  it('only for a reminder saved on this visit (not one already there, nor one synced in)', () => {
+    expect(offerMomentOk({ ...calm, newReminder: false }, now)).toBe(false);
   });
 });

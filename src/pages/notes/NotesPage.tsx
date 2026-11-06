@@ -822,7 +822,8 @@ export default function NotesPage() {
               {rootNotes.length > 0 && rootFolders.length > 0 && <div className="mx-2 my-2 h-px bg-stone-200/70" />}
               {rootNotes.map(n => renderNote(n, 0))}
               {notes.length === 0 && folders.length === 0 && (
-                <EmptyState size="sm" icon={NotebookPen} title={t('Aucune note pour l’instant.')} preview="list" />
+                // Its own button (not only the floating « + », which some never found).
+                <EmptyState size="sm" icon={NotebookPen} title={t('Aucune note pour l’instant.')} action={{ label: t('Nouvelle note'), icon: FilePlus2, onClick: () => newNote() }} preview="list" />
               )}
             </div>
           )}
@@ -878,6 +879,11 @@ export default function NotesPage() {
             <NotebookPen size={28} strokeWidth={1.5} className="text-stone-300" />
             {/* Nothing at all: the list already says so (and the « + » button offers the templates). Folders only: said here. */}
             {(notes.length > 0 || folders.length > 0) && <p className="mt-3 text-[13px] text-stone-500">{notes.length > 0 ? t('Choisis une note.') : t('Aucune note pour l’instant.')}</p>}
+            {notes.length === 0 && folders.length > 0 && (
+              <button type="button" className="btn-secondary mt-3" onClick={() => newNote()}>
+                <FilePlus2 size={15} /> {t('Nouvelle note')}
+              </button>
+            )}
           </div>
         )}
       </section>

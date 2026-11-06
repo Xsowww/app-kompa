@@ -67,3 +67,12 @@ export const offerKey = (userId: string) => `cop:${userId}:reminders-offered`;
 export function freshReminder(items: { reminders?: number[]; createdAt?: string; externalId?: string }[], now: number, within = 120_000): boolean {
   return items.some(x => !!x.reminders?.length && !x.externalId && !!x.createdAt && now - new Date(x.createdAt).getTime() <= within && now - new Date(x.createdAt).getTime() >= -60_000);
 }
+
+/**
+ * When « Ton rappel est enregistré » may open (test n°3: it came at bad moments): a reminder saved on this visit (not
+ * one already there when the app opened, nor one arriving from another device), no other window, menu or Kompaly's
+ * panel open, the person not typing, and no key pressed for 1.5 s.
+ */
+export function offerMomentOk(s: { typing: boolean; overlay: boolean; lastInput: number; newReminder: boolean }, now: number): boolean {
+  return s.newReminder && !s.overlay && !s.typing && now - s.lastInput >= 1500;
+}

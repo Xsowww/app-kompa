@@ -119,7 +119,7 @@ export default function FocusTimer() {
         title={t('{focus} min de travail, {pause} min de pause', { focus: focusMinutes, pause: breakMinutes })}
       >
         <Timer size={15} />
-        {t('Session focus')}
+        {t('Concentration')}
         <span className="tabular ml-auto text-[11px] text-stone-500">{t('{n} min', { n: focusMinutes })}</span>
       </button>
     );

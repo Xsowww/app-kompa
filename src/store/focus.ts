@@ -119,7 +119,7 @@ export const useFocus = create<FocusState>()(
                   : tn(pause, 'Session terminée. Tu as mérité ta pause de {n}\u00a0minute.', 'Session terminée. Tu as mérité ta pause de {n}\u00a0minutes.'),
               ]);
           // 12. A button to write down what was done, while it is fresh.
-          const note = s.label ? t('Session focus — {label}', { label: s.label }) : t('Session focus du {date}', { date: new Date().toLocaleDateString(lang) });
+          const note = s.label ? t('Concentration — {label}', { label: s.label }) : t('Concentration du {date}', { date: new Date().toLocaleDateString(lang) });
           useCopilot.getState().say({ text, mood: 'happy', offers: [{ label: t('Noter ce que j’ai fait'), kind: 'create_note', payload: { title: note, content: t('Ce que j’ai fait :\n- \n\nCe qu’il reste :\n- ') } }] });
           notify(t('Session terminée'), late ? tn(breakLeft, 'Il reste {n}\u00a0minute de pause.', 'Il reste {n}\u00a0minutes de pause.') : tn(pause, 'Pause de {n}\u00a0minute.', 'Pause de {n}\u00a0minutes.'));
           set({ phase: 'break', endsAt: breakEndsAt, minutes: settings.breakMinutes });

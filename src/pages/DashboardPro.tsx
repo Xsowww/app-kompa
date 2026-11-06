@@ -26,6 +26,8 @@ import { agendaLink, fromAgenda, useAgendaOverlay } from './calendar/agendas';
 import HomeShortcuts from './HomeShortcuts';
 import { t, tn } from '../i18n';
 import './dashboardPro.css';
+import { firstName } from '../lib/firstName';
+import { untilLabel } from '../lib/until';
 
 /** Today's concentration goal: four blocks of the person's own length (4 × 25 min). */
 const GOAL_BLOCKS = 4;
@@ -379,7 +381,7 @@ export default function DashboardPro() {
         {/* ── Greeting, the day in one line, two actions ── */}
         <div className="dpro-top">
           <div className="min-w-0">
-            <h1>{t('{hello}, {name}', { hello, name: user.name })}</h1>
+            <h1 className="text-balance break-words">{t('{hello}, {name}', { hello, name: firstName(user.name) })}</h1>
             <p className="dpro-date">
               <span className="inline-block first-letter:uppercase">{fmt(now, 'EEEE d MMMM')}</span>
               {' · '}
@@ -641,13 +643,17 @@ export default function DashboardPro() {
                         const d = daysUntil(e.date);
                         return (
                           <li key={e.id}>
+                            {/* « dans 13 jours » in words (« J-13 » wasn't understood), under the title. */}
                             <Link to={linkToDay(e.date, e.id)}>
-                              <b className={cx('tabular', d <= 3 && 'is-soon')}>{d === 0 ? t('Auj.') : t('J-{n}', { n: d })}</b>
                               <span className="truncate">{e.title}</span>
-                              <time className="dpro-big-later-date tabular" dateTime={e.date}>
-                                {fmtDay(fromKey(e.date), d < 7 ? 'EEE d' : 'EEE d MMM').replace(/^./, c => c.toUpperCase())}
-                                {e.start && ` · ${e.start}`}
-                              </time>
+                              <span className="dpro-big-later-date truncate">
+                                <b className={cx(d <= 3 && 'is-soon')}>{untilLabel(d).replace(/^./, c => c.toUpperCase())}</b>
+                                {' · '}
+                                <time className="tabular" dateTime={e.date}>
+                                  {fmtDay(fromKey(e.date), d < 7 ? 'EEE d' : 'EEE d MMM')}
+                                  {e.start && ` · ${e.start}`}
+                                </time>
+                              </span>
                             </Link>
                           </li>
                         );

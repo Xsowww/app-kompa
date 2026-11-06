@@ -813,7 +813,7 @@ export default function Copilot() {
                 }
               }}
               enterKeyHint="send"
-              placeholder={dictation.listening ? t('Je t’écoute… touche ■ pour envoyer') : dictation.busy ? t('J’écris ce que tu as dit…') : t('Écris à Kompaly…')}
+              placeholder={dictation.listening ? t('Je t’écoute… ■ pour finir') : dictation.busy ? t('J’écris ce que tu as dit…') : t('Écris à Kompaly…')}
               aria-label={t('Message pour Kompaly')}
               className={cx(
                 'block min-h-9 min-w-0 flex-1 resize-none overflow-y-auto rounded-lg bg-stone-50 px-3 py-[7px] text-[13px] leading-[1.55] outline-none placeholder:text-stone-500 focus:bg-stone-100 focus-visible:ring-2 focus-visible:ring-focus',

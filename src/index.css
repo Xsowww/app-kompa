@@ -6,10 +6,15 @@
 /* `short:` a phone held sideways (a window less than 500 px high, without the side bar): the tab bar and the top bar
    give their height back to the page. */
 @custom-variant short (@media (max-height: 500px) and (width < 64rem));
+/* `big-text:` « Taille du texte » set to Grand or Très grand (data-text on <html>): a layout that needs more room then. */
+@custom-variant big-text (&:where([data-text] *));
 
 @theme {
   --font-sans: 'Plus Jakarta Sans Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* Spacing in pixels (4 px a step, as Tailwind's 0.25rem at 16 px): « Taille du texte » makes the text grow (rem,
+     vite.config › remText), not the gaps and boxes around it, so a page keeps its layout at every text size. */
+  --spacing: 4px;
 
   /* Bento: tiles (white, ink, blue) on a cool grey page. */
   --color-paper: #eceef3;
@@ -170,6 +175,13 @@ body,
 html {
   background: var(--color-paper);
 }
+/* « Taille du texte » (Profil › Apparence, public/theme.js before the first paint): every text, in rem, follows. */
+html[data-text='grand'] {
+  font-size: 112.5%;
+}
+html[data-text='tresgrand'] {
+  font-size: 125%;
+}
 
 body {
   margin: 0;
@@ -249,6 +261,11 @@ body {
 /* ── Design system ───────────────────────────────────────────── */
 /* The end of a page's scroll area: on phones it clears the tab bar, the « + » button and the REC pill
    (the page itself scrolls on under the floating bar); on computers, the « + » button in the corner. */
+/* A text that keeps its size whatever « Taille du texte » says (a bar of tabs with no room to grow): `text-fix-12`
+   is 12 px (vite.config › remText leaves `.text-fix-*` in pixels). */
+@utility text-fix-* {
+  font-size: calc(--value(number) * 1px);
+}
 @utility pb-room {
   padding-bottom: calc(9.5rem + env(safe-area-inset-bottom));
   @media (width >= 64rem) {

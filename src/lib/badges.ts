@@ -199,7 +199,7 @@ export function computeBadges(d: BadgeData, seen: string[] = []): Badge[] {
     streakBadge(3, t('Lancé'), t('Une série de 3 jours avec au moins un élément du calendrier fait.'), Sprout),
     streakBadge(7, t('Semaine pleine'), t('Une série de 7 jours d’affilée.'), Flame),
     streakBadge(30, t('Inarrêtable'), t('Une série de 30 jours. Rien que ça.'), Mountain),
-    focusBadge(1, t('Première session'), t('Terminer une première session focus.'), Timer),
+    focusBadge(1, t('Première session'), t('Terminer une première séance de concentration.'), Timer),
     focusBadge(10, t('Dans le rythme'), t('10 sessions focus terminées.'), Hourglass),
     focusBadge(50, t('Concentré'), t('50 sessions focus terminées.'), Brain),
     focusBadge(100, t('Moine copiste'), t('100 sessions focus terminées.'), Gem),
@@ -208,11 +208,11 @@ export function computeBadges(d: BadgeData, seen: string[] = []): Badge[] {
       current: Math.floor(totalMinutes / 60), target: 10, earnedAt: minutesAt(600),
     },
     {
-      id: 'matinal', title: t('Lève-tôt'), description: t('Une session focus commencée avant 8 h.'), icon: Sunrise, family: 'focus',
+      id: 'matinal', title: t('Lève-tôt'), description: t('Une séance de concentration commencée avant 8 h.'), icon: Sunrise, family: 'focus',
       current: early ? 1 : 0, target: 1, earnedAt: early?.startedAt,
     },
     {
-      id: 'nocturne', title: t('Oiseau de nuit'), description: t('Une session focus commencée après 22 h.'), icon: Moon, family: 'focus',
+      id: 'nocturne', title: t('Oiseau de nuit'), description: t('Une séance de concentration commencée après 22 h.'), icon: Moon, family: 'focus',
       current: late ? 1 : 0, target: 1, earnedAt: late?.startedAt,
     },
     {
@@ -321,9 +321,9 @@ function evaluate() {
   settings.set({ badgesSeen: [...seen, ...fresh.map(b => b.id)] });
   const text =
     fresh.length === 1
-      ? t('Nouveau badge : « {title} ». {description}', { title: fresh[0].title, description: fresh[0].description })
-      : t('{n} nouveaux badges : {list}.', { n: fresh.length, list: fresh.map(b => t('« {title} »', { title: b.title })).join(', ') });
-  useCopilot.getState().say({ text, mood: 'happy', links: [{ label: t('Voir mes badges'), to: '/profil#badges' }] });
+      ? t('Nouvelle récompense : « {title} ». {description}', { title: fresh[0].title, description: fresh[0].description })
+      : t('{n} nouvelles récompenses : {list}.', { n: fresh.length, list: fresh.map(b => t('« {title} »', { title: b.title })).join(', ') });
+  useCopilot.getState().say({ text, mood: 'happy', links: [{ label: t('Voir mes récompenses'), to: '/profil#badges' }] });
 }
 
 /** Watches the data stores and announces newly earned badges (debounced). Safe to call several times. */

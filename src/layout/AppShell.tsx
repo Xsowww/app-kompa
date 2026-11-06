@@ -893,7 +893,9 @@ function PhoneTabBar({ order, news, label, extra, pro }: { order: SpaceKey[]; ne
   const tab = (active: boolean) =>
     pro
       ? cx('pro-tab', active ? 'text-[#14161f]' : 'text-white/65 hover:text-white')
-      : cx('flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-[17px] py-1.5 text-[10px] font-semibold tracking-[-0.01em] transition-colors max-[339px]:text-[9px] short:flex-row short:justify-center short:gap-1.5 short:py-2 short:text-[12px] [&_svg]:shrink-0', active ? 'bg-white text-[#14161f]' : 'text-white/60 hover:text-white');
+      // Names in 12 px at least (13–14 px with a bigger « Taille du texte » where the bar has room): each tab as wide
+      // as its name, the room left shared out, so « Calendrier » or « Enregistrer » fit whole down to 320 px.
+      : cx('flex min-w-0 flex-auto flex-col items-center gap-0.5 rounded-[17px] px-0.5 py-1.5 text-fix-12 font-semibold tracking-[-0.03em] transition-colors min-[400px]:text-[min(0.75rem,14px)] min-[400px]:tracking-[-0.01em] short:flex-row short:justify-center short:gap-1.5 short:py-2 short:text-[12px] [&_svg]:shrink-0', active ? 'bg-white text-[#14161f]' : 'text-white/60 hover:text-white');
   const Shown = current?.icon ?? LayoutGrid;
   const bubble = useBubble(bar, '[aria-current="page"], [data-here]', [pathname, open, pro, order.join()]);
 

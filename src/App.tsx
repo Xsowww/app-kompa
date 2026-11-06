@@ -338,6 +338,8 @@ export default function App() {
         <Route path="/tarifs" element={<Suspense fallback={<Loading full />}><LegalPage key="tarifs" doc="tarifs" /></Suspense>} />
         {/* Typed by hand by visitors looking for the price. */}
         <Route path="/prix" element={<Navigate to="/tarifs" replace />} />
+        {/* « Fichiers » is the Drive's name in the app: its address typed by hand. */}
+        <Route path="/fichiers" element={<Navigate to="/drive" replace />} />
         <Route path="/a-propos" element={<Suspense fallback={<Loading full />}><LegalPage key="apropos" doc="apropos" /></Suspense>} />
         <Route path="/contact" element={<Navigate to="/a-propos" replace />} />
         <Route path="/presse" element={<Navigate to="/a-propos" replace />} />

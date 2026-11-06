@@ -10,4 +10,9 @@ describe('routes', () => {
     const known = JSON.parse(server.match(/const APP_ROUTES = new Set\((\[[^\]]+\])\)/)![1].replace(/'/g, '"')) as string[];
     expect(new Set(known)).toEqual(new Set(routes));
   });
+  // Test n°3: « /fichiers » (the page's French name) answered 404; it leads to the Drive.
+  it('« /fichiers » leads to the Drive', () => {
+    const app = readFileSync('src/App.tsx', 'utf8');
+    expect(app).toMatch(/<Route path="\/fichiers" element={<Navigate to="\/drive" replace \/>} \/>/);
+  });
 });

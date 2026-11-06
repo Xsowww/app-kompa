@@ -1127,8 +1127,10 @@ export default function DrivePage() {
               className="py-16"
               icon={FolderOpen}
               title={parentId ? t('Ce dossier est vide') : t('Aucun fichier pour l’instant.')}
-              // Fingers can't drop files on the page: the « + » button for them.
-              text={<><span className="pointer-coarse:hidden">{t('Dépose des fichiers ici.')}</span><span className="hidden pointer-coarse:inline">{t('Touche + pour commencer.')}</span></>}
+              // Fingers can't drop files on the page; everyone gets its own « Importer » button (the floating « + » alone
+              // wasn't found).
+              text={<span className="pointer-coarse:hidden">{t('Dépose des fichiers ici, ou :')}</span>}
+              action={{ label: t('Importer des fichiers'), icon: Upload, onClick: () => fileInput.current?.click() }}
               preview={view === 'grid' ? 'tiles' : 'list'}
             />
           )

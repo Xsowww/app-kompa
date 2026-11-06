@@ -8,6 +8,7 @@ import tailwindcss from '@tailwindcss/vite';
 import { handleCopilot } from './server/copilot.mjs';
 import { loadPublicEnv } from './server/publicEnv.mjs';
 import { guestHome, hasSession } from './src/lib/guestHome.mjs';
+import { remText } from './scripts/remText.mjs';
 
 // Public Supabase settings committed in .env.supabase.public (values in .env win).
 loadPublicEnv();
@@ -105,6 +106,8 @@ export default defineConfig(({ mode }) => {
   const env = { ...process.env, ...loadEnv(mode, process.cwd(), '') } as Record<string, string>;
   return {
     plugins: [tailwindcss(), react(), copilotApi(env), preloadPlugin(), swVersion()],
+    // « Taille du texte »: the text in rem (scripts/remText).
+    css: { postcss: { plugins: [remText] } },
     // The commit being deployed (lib/freshness: an old tab on a public page reloads to the new version).
     define: { __BUILD__: JSON.stringify((process.env.RENDER_GIT_COMMIT ?? '').slice(0, 7)) },
     // Fewer, bigger files: all the icons (with React, which they need) in one instead of ~35 tiny ones,

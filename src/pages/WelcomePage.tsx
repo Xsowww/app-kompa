@@ -9,6 +9,7 @@ import { USAGES } from '../lib/usage';
 import { DEFAULT_ANSWERS, OTHER_STATUS, WELCOME_STEPS, needOptions, statusGroups, type WelcomeAnswers } from '../lib/welcome';
 import { cx } from '../lib/utils';
 import { t } from '../i18n';
+import { firstName } from '../lib/firstName';
 
 const USAGE_ICONS = { etudes: GraduationCap, travail: Briefcase, perso: House };
 
@@ -23,7 +24,7 @@ const LOCK_MS = 700;
  */
 export default function WelcomePage() {
   const navigate = useNavigate();
-  const name = useAuth(s => s.user?.name ?? '');
+  const name = firstName(useAuth(s => s.user?.name ?? ''));
   const [draft] = useState(loadWelcomeDraft);
   const [step, setStep] = useState(draft?.step ?? 0);
   const [a, setA] = useState<WelcomeAnswers>(draft?.answers ?? DEFAULT_ANSWERS);

@@ -3,7 +3,7 @@ import { Bell, BellRing, Check, Share, ShieldAlert, SquarePlus } from 'lucide-re
 import { deviceState, enableDevice, pushActive, sendTestPush, type DeviceState } from '../lib/push';
 import { devicePushChanged } from '../lib/reminderScheduler';
 import { showSystemNotification } from '../lib/notify';
-import { deviceInfo, deviceWord, freshReminder, offerKey, reminderDevice, unblockSteps } from '../lib/phoneReminders';
+import { deviceInfo, deviceWord, freshReminder, offerKey, offerMomentOk, reminderDevice, unblockSteps } from '../lib/phoneReminders';
 import { useCalendar } from '../store/calendar';
 import { useTodos } from '../store/todos';
 import { useAuth } from '../store/auth';
@@ -204,14 +204,38 @@ export function FirstReminderOffer() {
     };
     if (offered() || deviceState() === 'on') return;
     let wait: ReturnType<typeof setTimeout> | undefined;
+    // What was already there when the app opened: only a reminder saved during this visit brings the offer.
+    const withReminder = () => [...useCalendar.getState().events, ...useTodos.getState().todos].filter(x => x.reminders?.length);
+    const before = new Set(withReminder().map(x => x.id));
+    let lastInput = 0;
+    const onInput = () => (lastInput = Date.now());
+    window.addEventListener('keydown', onInput, true);
+    window.addEventListener('input', onInput, true);
     // `first`: the demo's sentence, made just before the app opened: after its toast (« Ton premier événement est prêt »).
     const check = (first?: boolean) => {
       if (wait || offered() || deviceState() === 'on') return;
-      if (!freshReminder([...useCalendar.getState().events, ...useTodos.getState().todos], Date.now())) return;
-      // After the form's own closing (and never over another window): a moment, then again until none is open.
+      const items = first ? withReminder() : withReminder().filter(x => !before.has(x.id));
+      if (!freshReminder(items, Date.now())) return;
+      // After the form's own closing, never over another window, a menu or Kompaly's panel, nor while typing: a
+      // moment, then again for a few seconds (the demo's: until its windows are gone). Not calm by then: not now
+      // (later it would come out of the blue), another time, with the next reminder.
       const show = (tries: number, delay = 900) => {
         wait = setTimeout(() => {
-          if (document.querySelector('[aria-modal="true"]') && tries > 0) return show(tries - 1);
+          const el = document.activeElement as HTMLElement | null;
+          const calm = offerMomentOk(
+            {
+              newReminder: true,
+              typing: !!el?.closest('input, textarea, select, [contenteditable="true"]'),
+              overlay: !!document.querySelector('[aria-modal="true"], [role="menu"], [role="alertdialog"], [role="dialog"]:not([aria-hidden="true"])'),
+              lastInput,
+            },
+            Date.now(),
+          );
+          if (!calm) {
+            if (tries > 0) return show(tries - 1);
+            wait = undefined;
+            return;
+          }
           try {
             localStorage.setItem(key, '1');
           } catch {
@@ -220,7 +244,7 @@ export function FirstReminderOffer() {
           setOpen(true);
         }, delay);
       };
-      show(40, first ? 6500 : 900);
+      show(first ? 40 : 6, first ? 6500 : 900);
     };
     check(true);
     const offCal = useCalendar.subscribe(() => check());
@@ -229,6 +253,8 @@ export function FirstReminderOffer() {
       offCal();
       offTodos();
       clearTimeout(wait);
+      window.removeEventListener('keydown', onInput, true);
+      window.removeEventListener('input', onInput, true);
     };
   }, [userId]);
 

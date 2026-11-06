@@ -20,7 +20,7 @@ import { CONTACT } from '../../lib/feedback';
 import { latestRelease } from '../../lib/news';
 import { AUTH_MSG, confirmLogout, sameEmail, useAuth } from '../../store/auth';
 import { useFocusLog } from '../../store/focusLog';
-import { useSettings, ACCENTS, AVATAR_COLORS, applyAppearance, resolveDark, UI_STYLES, PRO_WALLS, type AccentKey, type ThemeMode, type Chattiness, type UiStyle, type ProWall } from '../../store/settings';
+import { useSettings, ACCENTS, AVATAR_COLORS, applyAppearance, resolveDark, UI_STYLES, PRO_WALLS, type AccentKey, type ThemeMode, type Chattiness, type UiStyle, type ProWall, type TextSize } from '../../store/settings';
 import { useCopilot } from '../../store/copilot';
 import { useDrive } from '../../store/drive';
 import { downloadZip } from '../drive/download';
@@ -125,7 +125,7 @@ function BadgesSection() {
       <h2>
         <button onClick={() => setOpen(v => !v)} aria-expanded={open} aria-controls="badges-grille" className="flex w-full items-center gap-2 rounded-xl px-5 py-4 text-left">
           <ChevronRight size={15} className={cx('text-stone-400 transition-transform', open && 'rotate-90')} />
-          <span className="text-[14px] font-semibold">{t('Badges')}</span>
+          <span className="text-[14px] font-semibold">{t('Récompenses')}</span>
           <span className="tabular text-[13px] font-normal text-stone-500">
             · {t('{n} sur {total}', { n: earned, total: badges.length })}
           </span>
@@ -152,7 +152,7 @@ function ProfileTab() {
     { value: stats.exams, label: plural(stats.exams, words.pastOne, words.pastMany) },
     {
       value: stats.focusSessions,
-      label: tn(stats.focusSessions, 'session focus', 'sessions focus'),
+      label: tn(stats.focusSessions, 'séance de concentration', 'séances de concentration'),
       sub: stats.focusHours ? t('{hours} h', { hours: stats.focusHours.toLocaleString(locale(), { maximumFractionDigits: 1 }) }) : undefined,
     },
     { value: stats.notes, label: tn(stats.notes, 'note', 'notes'), sub: stats.words ? tn(stats.words, '{count} mot', '{count} mots', { count: stats.words.toLocaleString(locale()) }) : undefined },
@@ -333,6 +333,13 @@ function ProfileTab() {
 // ── Appearance ──────────────────────────────────────────────────────────────
 
 const STYLE_LABELS: Record<UiStyle, string> = { classique: t('Classique'), verre: t('Verre'), liquide: t('Liquid Glass'), relief: t('Relief') };
+/** What each style looks like, in one plain line (under the choices: « Liquid Glass » says nothing to most people). */
+const STYLE_HINTS: Record<UiStyle, string> = {
+  classique: t('Des cartes blanches et nettes sur un fond gris clair.'),
+  verre: t('Des cartes transparentes, comme du verre dépoli, sur un fond coloré.'),
+  liquide: t('Des cartes en verre bombé qui reflètent la lumière, aux bords bien arrondis.'),
+  relief: t('Des cartes en léger relief, comme moulées dans la page.'),
+};
 
 /** A small picture of each style: its page, a card and a button (drawn, not the real thing), in the theme on screen. */
 function StylePreview({ look, dark }: { look: UiStyle; dark: boolean }) {
@@ -403,7 +410,7 @@ function ProSection() {
   };
   return (
     <Section label={t('Affichage Pro')}>
-      <Row label={t('Affichage Pro')} hint={t('Un fond d’écran, des couleurs vives pour voir d’un coup d’œil ce qui compte, la barre d’icônes flottante et le minuteur dans l’encoche. Toujours sombre.')}>
+      <Row label={t('Affichage Pro')} hint={t('Un autre look, toujours sombre : un fond d’écran, des tuiles de couleur pour voir d’un coup d’œil ce qui compte, une barre d’icônes qui flotte en bas et le minuteur en haut de l’écran.')}>
         <Toggle label={t('Affichage Pro')} checked={!!settings.pro} onChange={setPro} />
       </Row>
       {settings.pro && (
@@ -447,8 +454,27 @@ function AppearanceTab() {
     settings.set({ style });
     applyAppearance({ ...settings, style });
   };
+  const setTextSize = (textSize: TextSize) => {
+    settings.set({ textSize });
+    applyAppearance({ ...settings, textSize });
+  };
   return (
     <div className="space-y-5">
+    {/* First: the one setting someone who reads with difficulty comes for. */}
+    <Section label={t('Taille du texte')}>
+      <Row label={t('Taille du texte')} hint={t('Tout le texte de Kompaly, plus grand pour lire sans effort.')}>
+        <Segmented
+          label={t('Taille du texte')}
+          value={settings.textSize ?? 'normal'}
+          onChange={setTextSize}
+          options={[
+            { value: 'normal', label: t('Normal') },
+            { value: 'grand', label: t('Grand') },
+            { value: 'tresgrand', label: t('Très grand') },
+          ]}
+        />
+      </Row>
+    </Section>
     <ProSection />
     <Section label={t('Apparence')}>
       {settings.pro && <p className="px-5 py-3 text-[12.5px] text-stone-500">{t('L’affichage Pro est actif : le thème et le style ci-dessous reviendront quand tu le couperas.')}</p>}
@@ -483,6 +509,9 @@ function AppearanceTab() {
             </button>
           ))}
         </div>
+        <p className="mt-2.5 text-[12px] leading-relaxed text-stone-500" aria-live="polite">
+          {t('{style}\u00a0: {hint}', { style: STYLE_LABELS[settings.style ?? 'classique'], hint: STYLE_HINTS[settings.style ?? 'classique'] })}
+        </p>
       </div>
       <Row label={t('Langue')}>
         <LanguagePicker />
@@ -590,8 +619,8 @@ function CopilotTab() {
             ]}
           />
         </Row>
-        <Row label={t('Annoncer les nouveaux badges')}>
-          <Toggle label={t('Annoncer les nouveaux badges')} checked={s.badgeAnnouncements} onChange={v => s.set({ badgeAnnouncements: v })} />
+        <Row label={t('Annoncer les nouvelles récompenses')}>
+          <Toggle label={t('Annoncer les nouvelles récompenses')} checked={s.badgeAnnouncements} onChange={v => s.set({ badgeAnnouncements: v })} />
         </Row>
       </Section>
 
@@ -679,7 +708,7 @@ function StudiesTab() {
   const hour = studies ? t('Heure des séances') : t('Heure des créneaux');
   return (
     <div className="space-y-5">
-      <Section title={t('Sessions focus')}>
+      <Section title={t('Concentration')}>
         <Row label={t('Durée de travail')}>
           <Segmented<number> label={t('Durée de travail')} value={s.focusMinutes} onChange={v => s.set({ focusMinutes: v })} options={[15, 25, 45, 50].map(v => ({ value: v, label: t('{n} min', { n: v }) }))} />
         </Row>
@@ -833,6 +862,14 @@ function NotificationsTab() {
           </Row>
         )}
       </Section>
+      {/* Its own card, near the top (at the very bottom of the list, it wasn't found). Local mode: no e-mail is ever sent. */}
+      {cloudEnabled && (
+        <Section title={t('E-mails')}>
+          <Row label={t('E-mail de conseils')} hint={t('Un seul, quelques jours après l’inscription : les astuces pour bien démarrer.')}>
+            <Toggle label={t('E-mail de conseils')} checked={s.emailTips} onChange={x => s.set({ emailTips: x })} />
+          </Row>
+        </Section>
+      )}
       <Section title={t('Rappels')}>
         <Row label={t('Rappel par défaut')} hint={t('Pour les événements avec une heure.')}>
           <SelectField<number>
@@ -844,12 +881,12 @@ function NotificationsTab() {
           />
         </Row>
         {/* With « Point du matin », the 8:00 summary takes the place of the 9:00 reminder (lib/reminders › upcomingReminders). */}
-        <Row label={t('Rappel par défaut des tâches')} hint={s.morningBrief ? t('Pour les tâches datées. Le jour même, le résumé de 8 h remplace le rappel de 9 h.') : t('Pour les tâches datées (1 h avant celles qui ont une heure).')}>
+        <Row label={t('Rappel par défaut des tâches')} hint={s.morningBrief ? t('Pour les tâches qui ont une date. Le jour même, c’est le point du matin, à 8 h, qui te les rappelle : pas de second rappel à 9 h.') : t('Pour les tâches datées (1 h avant celles qui ont une heure).')}>
           <SelectField<string>
             value={TASK_DEFAULTS.find(o => o.minutes.join() === [...s.defaultTaskReminders].sort((a, b) => b - a).join())?.value ?? 'les-deux'}
             onChange={v => s.set({ defaultTaskReminders: TASK_DEFAULTS.find(o => o.value === v)?.minutes ?? [900, 0] })}
             label={t('Rappel par défaut des tâches')}
-            className="h-9 w-52"
+            className="h-9 w-72 max-w-full"
             options={TASK_DEFAULTS.map(o => ({ value: o.value, label: o.label }))}
           />
         </Row>
@@ -872,12 +909,6 @@ function NotificationsTab() {
         <Row label={t('Kompaly')} hint={t('Ses suggestions, quand tu es ailleurs.')}>
           <Toggle label={t('Kompaly')} checked={s.copilotNotify} onChange={v => s.set({ copilotNotify: v })} />
         </Row>
-        {/* Local mode: no e-mail is ever sent. */}
-        {cloudEnabled && (
-          <Row label={t('E-mail de conseils')} hint={t('Un seul, quelques jours après l’inscription.')}>
-            <Toggle label={t('E-mail de conseils')} checked={s.emailTips} onChange={x => s.set({ emailTips: x })} />
-          </Row>
-        )}
       </Section>
     </div>
   );
@@ -1417,7 +1448,7 @@ export default function ProfilePage() {
               data-active={tab === tb.key || undefined}
             >
               {createElement(tabIcon(tb.key), { size: 16, 'aria-hidden': true, className: cx('shrink-0', tab === tb.key && 'text-brand-600') })}
-              <span className="max-w-full whitespace-nowrap text-center text-[11px] font-medium leading-[1.1] max-[359px]:text-[10px] max-[359px]:tracking-[-0.02em]">{tabLabel(tb.key)}</span>
+              <span className="max-w-full whitespace-nowrap text-center text-fix-11 font-medium leading-[1.1] max-[359px]:text-fix-10 max-[359px]:tracking-[-0.02em] min-[400px]:text-[min(0.6875rem,13px)]">{tabLabel(tb.key)}</span>
             </button>
           ))}
         </nav>
