@@ -10,7 +10,7 @@ import { catOf } from './proColors';
 import { parseQuickAdd, toKey, fromKey, todayKey, validKey, fmt, fmtDay, weekStart, countdownLabel, daysUntil, toMinutes, fromMinutes, isOver } from '../../lib/dates';
 import { toast } from '../../store/ui';
 import { useSettings } from '../../store/settings';
-import { AGENDA_EXAMPLES, WORDS } from '../../lib/usage';
+import { AGENDA_EXAMPLES, WORDS, groupWords } from '../../lib/usage';
 import CategoriesDialog from './CategoriesDialog';
 import PeriodsDialog from './PeriodsDialog';
 import { covers, periodColor, periodUntil, periodLabel, periodsFill, weekLanes, periodRange, periodText, periodTint, periodsBetween, periodsOn, type Period } from '../../lib/periods';
@@ -19,7 +19,7 @@ import EventForm from './EventForm';
 import { eventTitle, periodIdeas, removeEvent, useCalendarSource } from './source';
 import TimeGrid from './TimeGrid';
 import SeriesIcon from './SeriesIcon';
-import { firstOfSpans, spanDays, spanTooLong } from '../../lib/repeat';
+import { firstOfSpans, isSpan, spanDays, spanTooLong } from '../../lib/repeat';
 import ImportIcsDialog, { type IcsSource } from './ImportIcsDialog';
 import { useCreateActions } from '../../store/create';
 import { isIcsFile } from '../../lib/ics';
@@ -31,7 +31,7 @@ import { feedLabel, feedOf } from '../../lib/icsFeeds';
 import { useTodos, type Todo } from '../../store/todos';
 import TaskDialog from '../tasks/TaskDialog';
 import { TaskRow } from './TaskItem';
-import { isFor, spanBars, sweptRange, tasksOn, upcomingList } from './layout';
+import { byStartTime, isFor, openingDay, spanBars, sweptRange, tasksOn, upcomingList } from './layout';
 import { agendaLink, copyToMyCalendar, fromAgenda, useAgendaOverlay } from './agendas';
 import { ContextMenu, type MenuItem } from '../../components/Overlays';
 import { isMenuKey, menuPoint } from '../../lib/a11y';
@@ -107,10 +107,17 @@ function EventItem({ ev, onEdit, dragging, onDragStart, onMenu }: EventItemProps
   return (
     <div className="group enter flex items-stretch gap-2 sm:gap-4">
       <div className="tabular w-10 shrink-0 pt-3 text-right text-[12px] sm:w-12">
-        {ev.start ? (
+        {/* A night (an event over two days): « 21:00 » the evening, « → 07:00 » the next morning, not 23:59 and 00:00. */}
+        {ev.start && isSpan(ev.series) && ev.start === '00:00' && ev.end ? (
+          <p className="whitespace-nowrap text-stone-500">
+            <span aria-hidden>→ </span>
+            <span className="sr-only">{t('jusqu’à')} </span>
+            {ev.end}
+          </p>
+        ) : ev.start ? (
           <>
             <p className="font-medium">{ev.start}</p>
-            {ev.end && <p className="text-stone-500">{ev.end}</p>}
+            {ev.end && !(isSpan(ev.series) && ev.end === '23:59') && <p className="text-stone-500">{ev.end}</p>}
           </>
         ) : (
           <p className="text-stone-500">{t('Journée')}</p>
@@ -206,6 +213,7 @@ function CalendarFilter({ categories, shown, importantOnly, tasksOnly, onToggle,
   onForWho: (id: string | null) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const usage = useSettings(s => s.usage);
   const rootRef = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const count = shown.size + (importantOnly ? 1 : 0) + (tasksOnly ? 1 : 0) + (forWho ? 1 : 0);
@@ -296,7 +304,9 @@ function CalendarFilter({ categories, shown, importantOnly, tasksOnly, onToggle,
           )}
           {agendas.length > 0 && (
             <div className="mt-1 border-t border-stone-100 pt-1">
-              <p className="px-2 pb-1 pt-1 text-[12px] text-stone-500">{t('Mes agendas partagés')}</p>
+              <p className="px-2 pb-1 pt-1 text-[12px] text-stone-500">
+                {agendas.some(g => g.kind !== 'agenda') ? t('Mes agendas partagés et {groups}', { groups: groupWords(usage).groups }) : t('Mes agendas partagés')}
+              </p>
               {agendas.map(g => (
                 <label key={g.id} className={row}>
                   <input type="checkbox" className={box} checked={!hiddenAgendas.includes(g.id)} onChange={() => onAgenda(g.id)} />
@@ -341,7 +351,16 @@ export default function CalendarPage() {
   // My tasks with a due day, on their day (not in a shared calendar: they are mine).
   const allTodos = useTodos(s => s.todos);
   const [task, setTask] = useState<Todo | null>(null);
-  const [selected, setSelected] = useState(() => validKey(params.get('jour')) ?? todayKey());
+  // Today; or, when nothing is left this week, the next day something is planned (and a line says so).
+  const [opening] = useState(() => {
+    const asked = validKey(params.get('jour'));
+    if (asked) return { day: asked, jumped: false };
+    const now = new Date();
+    const items = [...events, ...(shared ? [] : allTodos.filter(x => x.due).map(x => ({ date: x.due!, done: x.done })))];
+    return openingDay(todayKey(), toKey(addDays(weekStart(now), 6)), items, toKey(addDays(now, 60)));
+  });
+  const [selected, setSelected] = useState(opening.day);
+  const [jumpNote, setJumpNote] = useState(opening.jumped);
   const [mode, setModeState] = useState<Mode>(savedMode);
   const [quick, setQuick] = useState('');
   // Filter: nothing ticked shows everything; ticked categories (and/or « Importants », « Tâches ») show only those.
@@ -625,7 +644,8 @@ export default function CalendarPage() {
     const label = dayChanged ? (timeChanged ? t('Déplacé au {day} à {time}', { day, time: patch.start! }) : t('Déplacé au {day}', { day })) : t('Déplacé à {time}', { time: patch.start! });
     toast(label, 'success', { label: t('Annuler||l’action'), run: () => update(ev.id, before) });
   };
-  const { drag, ghostRef, start: dragStart } = useEventDrag(moveEvent);
+  // A slow tap (the finger held still a moment) opens the event, as a quick one does.
+  const { drag, ghostRef, start: dragStart } = useEventDrag(moveEvent, ev => openEvent(ev));
   // Nothing moves on a read-only calendar, nor a shared calendar's event shown in mine.
   const canChange = (ev: CalendarEvent) => !readOnly && !fromAgenda(ev);
   const startDrag: typeof dragStart = (ev, ...a) => (canChange(ev) ? dragStart(ev, ...a) : undefined);
@@ -868,6 +888,15 @@ export default function CalendarPage() {
 
         {/* Two columns from 1280 px: at 1024 px (with the sidebar) the calendar was left ~370 px, the month without titles.
             The week's seven columns need all the width: its list goes under it (titles were cut to « Payer l… »). */}
+        {/* Opened on the next thing planned (nothing left this week): said, with the way back to today. */}
+        {jumpNote && selected === opening.day && (
+          <p role="status" className="cal-jump mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl bg-brand-50 px-4 py-2.5 text-[13.5px] text-ink">
+            <span className="min-w-[16rem] flex-1">{t('Rien de prévu d’ici dimanche : voici ton prochain rendez-vous, {day}.', { day: fmt(fromKey(opening.day), 'EEEE d MMMM') })}</span>
+            <button type="button" className="btn-ghost h-9 shrink-0 px-2.5 text-[13px] font-medium" onClick={() => (setJumpNote(false), selectDay(today))}>
+              {t('Revenir à aujourd’hui')}
+            </button>
+          </p>
+        )}
         <div className={cx('mt-4 grid grid-cols-1 items-start gap-4', mode !== 'week' && 'xl:grid-cols-[minmax(0,1fr)_300px]')}>
           <section className="card min-w-0 p-4 md:p-5">
             {weekBands.length > 0 && mode !== 'month' && (
@@ -942,12 +971,14 @@ export default function CalendarPage() {
                         </div>
                         {evs.length || tasks.length ? (
                           <div className="space-y-2">
-                            {evs.map(ev => (
-                              <EventItem key={ev.id} ev={ev} dragging={drag?.ev.id === ev.id} onDragStart={e => startDrag(ev, e)} onEdit={() => openEvent(ev)} onMenu={e => openMenu(ev, e)} />
-                            ))}
-                            {tasks.map(x => (
-                              <TaskRow key={x.id} todo={x} onOpen={setTask} />
-                            ))}
+                            {/* Events and dated tasks in the order of the day (a task at 10:00 before an event at 21:00). */}
+                            {byStartTime(evs, tasks).map(it =>
+                              'todo' in it ? (
+                                <TaskRow key={it.todo.id} todo={it.todo} onOpen={setTask} />
+                              ) : (
+                                <EventItem key={it.ev.id} ev={it.ev} dragging={drag?.ev.id === it.ev.id} onDragStart={e => startDrag(it.ev, e)} onEdit={() => openEvent(it.ev)} onMenu={e => openMenu(it.ev, e)} />
+                              ),
+                            )}
                           </div>
                         ) : (
                           <p className="pl-1 text-[13px] text-stone-500">{t('Rien de prévu.')}</p>
@@ -1197,12 +1228,13 @@ export default function CalendarPage() {
                 )
               ) : (
                 <div className="space-y-2">
-                  {dayEvents.map(ev => (
-                    <EventItem key={ev.id} ev={ev} dragging={drag?.ev.id === ev.id} onDragStart={e => startDrag(ev, e)} onEdit={() => openEvent(ev)} onMenu={e => openMenu(ev, e)} />
-                  ))}
-                  {dayTasks.map(x => (
-                    <TaskRow key={x.id} todo={x} onOpen={setTask} />
-                  ))}
+                  {byStartTime(dayEvents, dayTasks).map(it =>
+                    'todo' in it ? (
+                      <TaskRow key={it.todo.id} todo={it.todo} onOpen={setTask} />
+                    ) : (
+                      <EventItem key={it.ev.id} ev={it.ev} dragging={drag?.ev.id === it.ev.id} onDragStart={e => startDrag(it.ev, e)} onEdit={() => openEvent(it.ev)} onMenu={e => openMenu(it.ev, e)} />
+                    ),
+                  )}
                 </div>
               )}
             </div>

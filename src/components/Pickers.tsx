@@ -218,9 +218,10 @@ function TimePanel({ value, onPick, clearable }: { value: string; onPick: (v: st
     }
   }, []);
   const typed = parseTime(text);
-  // A time typed and then left (Tab, a click elsewhere) is kept, not lost; Échap still cancels it, and a
-  // pick made after typing (a minute in the list, « OK », « Sans heure ») is the one that counts.
-  const leave = useRef({ typed, value, onPick, escaped: false, typing: false });
+  // A time typed counts at once (the form's « Ajouter » pressed right after it got none: Nadia's meeting without a
+  // time); Échap puts back the one there was. A pick made after typing (a minute in the list, « OK », « Sans heure »)
+  // is the one that counts.
+  const leave = useRef({ typed, value, onPick, escaped: false, typing: false, before: value });
   useEffect(() => {
     leave.current = { ...leave.current, typed, value, onPick };
   });
@@ -231,7 +232,8 @@ function TimePanel({ value, onPick, clearable }: { value: string; onPick: (v: st
     return () => {
       removeEventListener('keydown', onKey, true);
       const l = leave.current;
-      if (!l.escaped && l.typing && l.typed && l.typed !== l.value) l.onPick(l.typed, false);
+      if (l.escaped && l.typing && l.value !== l.before) l.onPick(l.before, false);
+      else if (!l.escaped && l.typing && l.typed && l.typed !== l.value) l.onPick(l.typed, false);
     };
   }, []);
   const pick = (v: string, done: boolean) => {
@@ -260,6 +262,8 @@ function TimePanel({ value, onPick, clearable }: { value: string; onPick: (v: st
           onChange={e => {
             leave.current.typing = true;
             setText(e.target.value);
+            const v = parseTime(e.target.value);
+            if (v) onPick(v, false);
           }}
           inputMode="numeric"
           spellCheck={false}
