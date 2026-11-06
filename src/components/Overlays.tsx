@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { BellRing, CheckCircle2, CloudAlert, Info, WifiOff, X, XCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -8,7 +8,18 @@ import { useUi, type ReminderAlert, type Toast } from '../store/ui';
 import { cx } from '../lib/utils';
 import { retryNow, useService } from '../lib/serviceStatus';
 import { arrowNav, focusBeforeOverlay, focusables, trapTab } from '../lib/a11y';
+import { useSettings } from '../store/settings';
+import { useAuth } from '../store/auth';
 import { locale, t } from '../i18n';
+
+/** Affichage Pro: the island at the top of the screen shows the toasts, reminders, Kompaly… (loaded with the app). */
+const Island = lazy(() => import('./Island'));
+/** In Pro and signed in, everything that pops up goes through the island (components/Island). */
+function useIsland() {
+  const pro = useSettings(s => s.pro);
+  const signedIn = useAuth(s => !!s.user);
+  return pro && signedIn;
+}
 
 function ToastRow({ t: item }: { t: Toast }) {
   const { dismissToast: dismiss, pauseToast, resumeToast } = useUi.getState();
@@ -64,7 +75,9 @@ export function ServiceBanner({ inline }: { inline?: boolean }) {
     useInlineBanner.setState(s => ({ n: s.n + 1 }));
     return () => useInlineBanner.setState(s => ({ n: s.n - 1 }));
   }, [inline]);
-  if (state === 'ok' || (!inline && hosted)) return null;
+  // Affichage Pro: « Hors ligne » is in the island.
+  const island = useIsland();
+  if (state === 'ok' || (!inline && hosted) || (inline && island)) return null;
   const down = state === 'down';
   return (
     // In the app: within the pages' centred column (layout/AppShell). Phones: the few words that matter, the button keeps its room (cut after « Tes … », the longer text said nothing).
@@ -88,6 +101,7 @@ export function ServiceBanner({ inline }: { inline?: boolean }) {
 
 export function Toasts() {
   const toasts = useUi(s => s.toasts).slice(-3);
+  const island = useIsland();
   // Ctrl+Z (⌘Z) undoes what the last toast offers to undo: from the keyboard, its button is far down the Tab order.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -104,6 +118,12 @@ export function Toasts() {
     addEventListener('keydown', onKey);
     return () => removeEventListener('keydown', onKey);
   }, []);
+  if (island)
+    return (
+      <Suspense fallback={null}>
+        <Island />
+      </Suspense>
+    );
   return (
     // Full width minus 16 px each side: centred with left-1/2 alone, the toast shrank to half the screen on phones.
     // --uploads-room: set by the upload card while it shows (from the bottom of the screen to above it), so that toasts
@@ -400,12 +420,14 @@ export function ContextMenu({ x, y, items, onClose, label, large, above }: { x: 
  * « Plus tard » (10 min) and, for a single one, « Fait » (lib/reminderActions), like its system notification.
  */
 export function ReminderAlerts() {
+  // Affichage Pro: in the island (components/Island).
+  const island = useIsland();
   const alerts = useUi(s => s.alerts);
   const dismiss = useUi(s => s.dismissAlert);
   // Échap closes the newest card, like every other window — unless a dialog is open or a field has the focus: Échap is theirs.
   const last = alerts[alerts.length - 1]?.key;
   useEffect(() => {
-    if (!last) return;
+    if (!last || island) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || e.defaultPrevented || document.querySelector('[aria-modal="true"]')) return;
       const el = e.target as HTMLElement | null;
@@ -414,8 +436,8 @@ export function ReminderAlerts() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [last, dismiss]);
-  if (!alerts.length) return null;
+  }, [last, dismiss, island]);
+  if (!alerts.length || island) return null;
   return (
     <div
       role="alert"

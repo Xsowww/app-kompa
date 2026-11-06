@@ -1,0 +1,746 @@
+/*
+ * Affichage Pro: the island at the top of the screen, like the iPhone's « Dynamic Island » (components/Island). One black
+ * shape that springs between its sizes: a small pill (the timer, a reminder waiting, Kompaly with something to say…),
+ * an open card (a message, its buttons), and back. Its content cross-fades as it changes. Only drawn in Pro.
+ */
+.isl-wrap {
+  /* Springs (a damped spring sampled with linear()): grows with a little bounce, shrinks quicker and calmer. */
+  --isl-open-ease: linear(0, 0.039, 0.136, 0.267, 0.411, 0.554, 0.686, 0.8, 0.893, 0.966, 1.019, 1.054, 1.074, 1.083, 1.082, 1.076, 1.067, 1.055, 1.043, 1.031, 1.021, 1.012, 1.005, 1, 0.997, 0.994, 0.993, 0.993, 0.993, 0.994, 0.995, 0.996, 1);
+  --isl-open-t: 600ms;
+  --isl-close-ease: linear(0, 0.024, 0.085, 0.17, 0.268, 0.371, 0.472, 0.569, 0.657, 0.735, 0.803, 0.86, 0.907, 0.945, 0.975, 0.997, 1.013, 1.023, 1.03, 1.033, 1.034, 1.033, 1.031, 1.028, 1.025, 1.021, 1.018, 1.015, 1.012, 1.009, 1.007, 1.005, 1);
+  --isl-close-t: 440ms;
+  --isl-mini-h: 36px;
+  --isl-open-w: min(392px, calc(100vw - 16px));
+  /* A toast is as wide as its words, up to this (on one line more often on a computer). */
+  --isl-toast-w: min(460px, calc(100vw - 16px));
+  --isl-amber: #ffb340;
+
+  position: fixed;
+  /* Above the page, its bars and Kompaly's panel; under menus (55+) and dialogs (60). A message (a toast, a reminder)
+     comes over a dialog, as the toasts did (data-front). */
+  z-index: 52;
+  left: 50%;
+  /* Phones: under the notch (the safe area) and the top bar (56 px, AppShell's header); wider screens: in the middle of
+     the top bar, where there is room. */
+  top: calc(env(safe-area-inset-top) + 60px);
+  width: 0;
+  height: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+}
+.isl-wrap[data-front] {
+  z-index: 70;
+}
+
+/* The shape. Its size is the content's, written by Island as it changes; the springs animate it. */
+.isl {
+  position: absolute;
+  top: 0;
+  left: 0;
+  translate: -50% 0;
+  width: 120px;
+  height: var(--isl-mini-h);
+  max-width: calc(100vw - 8px);
+  border-radius: 18px;
+  background: #000;
+  color: #fff;
+  overflow: hidden;
+  isolation: isolate;
+  box-shadow:
+    0 0 0 0.5px rgb(255 255 255 / 0.13),
+    0 12px 30px -12px rgb(0 0 0 / 0.8);
+  /* The shape springs; it is black at once (only its very first frame, at the notch, is see-through). */
+  --isl-t: var(--isl-close-t);
+  --isl-e: var(--isl-close-ease);
+  transition:
+    width var(--isl-t) var(--isl-e),
+    height var(--isl-t) var(--isl-e),
+    border-radius var(--isl-t) var(--isl-e),
+    transform var(--isl-t) var(--isl-e),
+    opacity 160ms ease-out,
+    box-shadow var(--isl-t) ease,
+    scale 260ms var(--isl-close-ease);
+  transform-origin: 50% 0;
+}
+.isl[data-dir='grow'] {
+  --isl-t: var(--isl-open-t);
+  --isl-e: var(--isl-open-ease);
+}
+.isl:not([data-mode='mini']) {
+  box-shadow:
+    0 0 0 0.5px rgb(255 255 255 / 0.13),
+    0 24px 54px -18px rgb(0 0 0 / 0.9),
+    0 10px 24px -14px rgb(0 0 0 / 0.6);
+}
+/* Out of the notch on the first frame, back into it at the end. */
+.isl[data-stage='in'],
+.isl[data-stage='out'] {
+  width: 84px !important;
+  height: 26px !important;
+  border-radius: 13px !important;
+  opacity: 0;
+  transform: translateY(-10px) scale(0.6);
+}
+.isl[data-stage='in'] {
+  transition: none;
+}
+.isl[data-stage='out'] {
+  --isl-t: var(--isl-close-t);
+  --isl-e: var(--isl-close-ease);
+  pointer-events: none;
+}
+.isl[data-stage='out'] {
+  transition-delay: 0ms, 0ms, 0ms, 0ms, 180ms, 0ms, 0ms;
+}
+@media (hover: hover) {
+  .isl[data-mode='mini']:hover {
+    scale: 1.05;
+  }
+}
+.isl[data-mode='mini']:active {
+  scale: 0.96;
+}
+
+/* A face: what the shape shows. Each keeps its own size, centred at the top: the shape grows around it, nothing slides
+   or squeezes. The new one comes out of a blur as the old one fades into one. */
+.isl-face {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  translate: -50% 0;
+  transform-origin: 50% 0;
+  animation:
+    isl-fade-in 240ms ease-out 40ms backwards,
+    isl-scale-in 560ms var(--isl-open-ease) backwards;
+}
+.isl[data-dir='shrink'] .isl-face {
+  animation:
+    isl-fade-in 220ms ease-out 30ms backwards,
+    isl-scale-down-in 440ms var(--isl-close-ease) backwards;
+}
+.isl-face[data-leave] {
+  pointer-events: none;
+  animation: isl-out-grow 160ms ease-in forwards;
+}
+.isl[data-dir='shrink'] .isl-face[data-leave] {
+  animation: isl-out-shrink 140ms ease-in forwards;
+}
+@keyframes isl-fade-in {
+  from {
+    opacity: 0;
+    filter: blur(6px);
+  }
+}
+@keyframes isl-scale-in {
+  from {
+    transform: scale(0.9);
+  }
+}
+@keyframes isl-scale-down-in {
+  from {
+    transform: scale(1.14);
+  }
+}
+@keyframes isl-out-grow {
+  to {
+    opacity: 0;
+    filter: blur(5px);
+    transform: scale(1.12);
+  }
+}
+@keyframes isl-out-shrink {
+  to {
+    opacity: 0;
+    filter: blur(4px);
+    transform: scale(0.8);
+  }
+}
+
+/* ── The small pill ── an icon on the left, a word or the time on the right (the camera's place in the middle). */
+.isl-mini {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  height: var(--isl-mini-h);
+  min-width: 120px;
+  padding: 0 14px 0 9px;
+  border-radius: calc(var(--isl-mini-h) / 2);
+  white-space: nowrap;
+  font-size: 13.5px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+}
+.isl-mini > span {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.isl-mini-text {
+  max-width: 148px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: rgb(255 255 255 / 0.86);
+}
+.isl-mini[data-kind='timer'] {
+  color: var(--fi-accent);
+  font-size: 14.5px;
+  font-weight: 700;
+}
+.isl-mini[data-kind='reminder'] .isl-mini-text,
+.isl-mini[data-kind='service'] .isl-mini-text {
+  color: var(--isl-amber);
+}
+.isl-mini[data-kind='kompaly'] .isl-mini-text {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.isl-mini[data-kind='kompaly'] .isl-mini-text::after {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #5b80ff;
+}
+
+/* A second thing going on, beside the pill: a small black circle (as the iPhone does with two activities). */
+.isl-sat {
+  position: absolute;
+  top: 0;
+  left: calc(var(--isl-w, 120px) / 2 + 6px);
+  display: grid;
+  place-items: center;
+  width: var(--isl-mini-h);
+  height: var(--isl-mini-h);
+  border-radius: 50%;
+  background: #000;
+  color: #fff;
+  box-shadow:
+    0 0 0 0.5px rgb(255 255 255 / 0.13),
+    0 12px 30px -12px rgb(0 0 0 / 0.8);
+  cursor: pointer;
+  transition:
+    left var(--isl-open-t) var(--isl-open-ease),
+    opacity 220ms ease,
+    transform var(--isl-open-t) var(--isl-open-ease),
+    filter 220ms ease;
+  animation: isl-sat-in var(--isl-open-t) var(--isl-open-ease) backwards;
+}
+.isl-sat[data-hidden] {
+  opacity: 0;
+  filter: blur(4px);
+  transform: translateX(-28px) scale(0.4);
+  pointer-events: none;
+  transition-duration: var(--isl-close-t), 160ms, var(--isl-close-t), 160ms;
+}
+@keyframes isl-sat-in {
+  from {
+    opacity: 0;
+    transform: translateX(-28px) scale(0.4);
+  }
+}
+@media (hover: hover) {
+  .isl-sat:hover {
+    scale: 1.08;
+  }
+}
+
+/* ── Open ── what it is, the message, the buttons. */
+.isl-full {
+  width: var(--isl-open-w);
+  padding: 16px 16px 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.isl-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+.isl-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: rgb(255 255 255 / 0.1);
+  color: #fff;
+}
+.isl-icon[data-tone='amber'] {
+  background: rgb(255 179 64 / 0.18);
+  color: var(--isl-amber);
+}
+.isl-icon[data-tone='blue'] {
+  background: rgb(91 128 255 / 0.2);
+  color: #8fa8ff;
+}
+.isl-icon[data-tone='kompaly'] {
+  background: #1c1c1f;
+  box-shadow: inset 0 0 0 0.5px rgb(255 255 255 / 0.14);
+}
+.isl-text {
+  flex: 1;
+  min-width: 0;
+  padding-top: 1px;
+  line-height: 1.25;
+  text-align: left;
+}
+.isl-text small {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgb(255 255 255 / 0.56);
+}
+.isl-text small span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.isl-text strong,
+.isl-msg {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  margin-top: 3px;
+  text-wrap: pretty;
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+.isl-msg {
+  -webkit-line-clamp: 3;
+  font-size: 14.5px;
+  font-weight: 500;
+  line-height: 1.38;
+  color: rgb(255 255 255 / 0.94);
+}
+.isl-text p {
+  margin-top: 2px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  color: rgb(255 255 255 / 0.62);
+}
+/* The message itself opens Kompaly's conversation. */
+button.isl-text {
+  border-radius: 10px;
+  cursor: pointer;
+}
+@media (hover: hover) {
+  button.isl-text:hover .isl-msg {
+    color: #fff;
+  }
+}
+.isl-x {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin: -2px -4px 0 0;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.1);
+  color: rgb(255 255 255 / 0.7);
+  transition: background-color 150ms ease;
+}
+.isl-x:hover {
+  background: rgb(255 255 255 / 0.2);
+  color: #fff;
+}
+
+.isl-ctl {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+/* Reminders: four buttons side by side, all the same width. */
+.isl-ctl[data-grid] {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 6px;
+}
+.isl-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 7px 15px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.14);
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.15;
+  text-align: center;
+  transition:
+    background-color 150ms ease,
+    scale 200ms var(--isl-close-ease);
+}
+.isl-ctl[data-grid] .isl-btn {
+  padding: 7px 4px;
+}
+.isl-btn:hover {
+  background: rgb(255 255 255 / 0.24);
+}
+.isl-btn:active,
+.isl-x:active {
+  scale: 0.93;
+}
+.isl-primary {
+  background: #fff;
+  color: #000;
+}
+.isl-primary:hover {
+  background: rgb(255 255 255 / 0.84);
+}
+.isl-done {
+  background: rgb(48 209 88 / 0.22);
+  color: #5fe08a;
+}
+.isl-done:hover {
+  background: rgb(48 209 88 / 0.34);
+}
+
+/* ── A toast ── a short line, one icon, its button; as wide as it needs. */
+.isl-toast {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: max-content;
+  min-width: min(220px, var(--isl-toast-w));
+  max-width: var(--isl-toast-w);
+  min-height: 54px;
+  padding: 9px 18px 9px 11px;
+}
+.isl-toast:has(.isl-btn) {
+  padding-right: 9px;
+}
+.isl-ticon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.12);
+  color: rgb(255 255 255 / 0.8);
+}
+.isl-toast[data-tone='success'] .isl-ticon {
+  background: rgb(48 209 88 / 0.2);
+  color: #4cd97b;
+}
+.isl-toast[data-tone='error'] .isl-ticon {
+  background: rgb(255 69 58 / 0.22);
+  color: #ff6b61;
+}
+.isl-ttext {
+  flex: 1;
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.005em;
+  text-wrap: pretty;
+}
+.isl-toast .isl-btn {
+  flex: none;
+  min-height: 36px;
+  white-space: nowrap;
+}
+
+:is(.isl-mini, .isl-sat, .isl-btn, .isl-x, button.isl-text):focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+.isl-mini:focus-visible {
+  outline-offset: -3px;
+}
+
+/* ── The focus timer ── its ring, the countdown, its buttons. */
+.fi-face {
+  --fi-accent: var(--pro-timer, #ffb547);
+}
+.fi-face[data-phase='break'] {
+  --fi-accent: #5ee6c4;
+}
+.fi-full {
+  height: 140px;
+  justify-content: space-between;
+  gap: 0;
+  padding: 18px 18px 16px 20px;
+}
+.fi-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.fi-text {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.2;
+}
+.fi-text small,
+.fi-text strong {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.fi-text small {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgb(255 255 255 / 0.58);
+}
+.fi-text strong {
+  /* A long subject: on two lines rather than cut short. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  margin-top: 2px;
+  font-size: 15.5px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+.fi-time {
+  flex: none;
+  font-size: clamp(32px, 10vw, 42px);
+  font-weight: 750;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--fi-accent);
+}
+.fi-face[data-paused] :is(.fi-time, .fi-mini-time) {
+  animation: fi-breathe 2.4s ease-in-out infinite;
+}
+.fi-ring {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  color: var(--fi-accent);
+}
+.fi-ring-svg {
+  position: absolute;
+  inset: 0;
+}
+.fi-ring circle {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 4;
+}
+.fi-ring-track {
+  opacity: 0.24;
+}
+.fi-ring-bar {
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1s linear;
+}
+.fi-ctl {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.fi-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 42px;
+  min-width: 42px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.15);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 650;
+  white-space: nowrap;
+  transition:
+    background-color 150ms ease,
+    scale 200ms var(--isl-close-ease);
+}
+.fi-btn:hover {
+  background: rgb(255 255 255 / 0.25);
+}
+.fi-btn:active {
+  scale: 0.92;
+}
+.fi-round {
+  width: 42px;
+  padding: 0;
+}
+.fi-pause {
+  background: color-mix(in srgb, var(--fi-accent) 26%, transparent);
+  color: var(--fi-accent);
+}
+.fi-pause:hover {
+  background: color-mix(in srgb, var(--fi-accent) 38%, transparent);
+}
+.fi-stop {
+  background: rgb(255 69 58 / 0.28);
+  color: var(--pro-urgent, #ff6b5e);
+}
+.fi-stop:hover {
+  background: rgb(255 69 58 / 0.42);
+}
+.fi-btn:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+/* Each figure of the countdown rolls in when it changes. */
+.fi-digit,
+.fi-colon {
+  display: inline-block;
+}
+.fi-digit {
+  animation: fi-roll 420ms var(--isl-close-ease);
+}
+.fi-colon {
+  translate: 0 -0.06em;
+}
+@keyframes fi-roll {
+  from {
+    opacity: 0;
+    transform: translateY(-0.45em);
+    filter: blur(2px);
+  }
+}
+@keyframes fi-breathe {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* Kompaly's small blue dot breathes while he has something to say. */
+.kmark-live {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: kmark-live 2.6s ease-in-out infinite;
+}
+@keyframes kmark-live {
+  50% {
+    transform: scale(0.72);
+    opacity: 0.6;
+  }
+}
+
+@media (min-width: 640px) {
+  .isl-wrap {
+    top: calc(env(safe-area-inset-top) + 10px);
+  }
+}
+/* Over the page on phones: as small as it reads well. */
+@media (max-width: 639px) {
+  .isl-wrap {
+    --isl-mini-h: 34px;
+    --isl-toast-w: var(--isl-open-w);
+  }
+  .isl-mini {
+    min-width: 112px;
+  }
+}
+/* Phones turned sideways: a lower top bar (48 px, the `short` variant). */
+@media (max-height: 500px) and (width < 64rem) {
+  .isl-wrap {
+    top: calc(env(safe-area-inset-top) + 52px);
+  }
+}
+@media (max-height: 500px) and (640px <= width < 64rem) {
+  .isl-wrap {
+    top: calc(env(safe-area-inset-top) + 6px);
+  }
+}
+/* Phones: under the top bar the page makes room for the small pill (Island sets data-focus-island while something
+   stays in it: the timer, a reminder…), so it covers no page title or button. A passing message goes over the page. */
+@media (max-width: 639px) {
+  :root[data-pro] #contenu {
+    transition: padding-top var(--fi-lane-t, 420ms) cubic-bezier(0.3, 1.15, 0.45, 1);
+  }
+  :root[data-pro][data-focus-island] #contenu {
+    padding-top: 44px;
+  }
+}
+
+/* Small phones: a little tighter. */
+@media (max-width: 359px) {
+  .isl-full {
+    padding: 14px 12px 14px 14px;
+  }
+  .isl-head,
+  .fi-head {
+    gap: 10px;
+  }
+  .fi-full {
+    height: 132px;
+    padding: 16px 14px 14px 16px;
+  }
+  .fi-btn {
+    padding: 0 13px;
+  }
+  .isl-btn {
+    padding-inline: 12px;
+    font-size: 13px;
+  }
+  .isl-ctl[data-grid] .isl-btn {
+    padding-inline: 2px;
+    font-size: 12.5px;
+  }
+}
+@media (pointer: coarse) {
+  .isl-btn {
+    min-height: 40px;
+  }
+  .fi-btn {
+    height: 44px;
+    min-width: 44px;
+  }
+  .fi-round {
+    width: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-pro] #contenu,
+  .isl-wrap,
+  .isl-wrap *,
+  .fi-ring-bar {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+.reduce-motion :is(.isl-wrap, .isl-wrap *) {
+  animation: none !important;
+  transition: none !important;
+}
+/* Without motion, the face going away leaves at once. */
+@media (prefers-reduced-motion: reduce) {
+  .isl-face[data-leave] {
+    display: none;
+  }
+}
+.reduce-motion .isl-face[data-leave] {
+  display: none;
+}
