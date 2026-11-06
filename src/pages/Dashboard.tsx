@@ -218,6 +218,8 @@ function DashboardClassic() {
 
         {/* What the questionnaire says the person came for (Enregistrer un cours, Session focus…), and the badges. */}
         <HomeShortcuts />
+        {/* Kompaly's remarks come here (copilot/Copilot › Note), above the cards: never over them. */}
+        <div id="kompaly-note" />
 
         {/* Bento: two columns from a tablet, each stacking its tiles at their own height (a long day on the left no
             longer stretches the big day on the right). On a phone one column, in the order of priority (order-*). */}

@@ -6,6 +6,7 @@ import { FeedbackDialog } from '../components/FeedbackDialogs';
 import { confirmLogout, useAuth } from '../store/auth';
 import { loadUserData } from '../store/session';
 import Copilot, { KompalyEntry } from '../copilot/Copilot';
+import { FirstReminderOffer } from '../components/PhoneReminders';
 import Tour from '../components/Tour';
 import { startProactive } from '../copilot/proactive';
 import { HIT_LABEL, linkToDriveFile, registerNavigate, search, type SearchHit } from '../copilot/actions';
@@ -782,6 +783,7 @@ export default function AppShell() {
       />
 
       <Copilot />
+      <FirstReminderOffer />
       <Tour />
     </div>
   );

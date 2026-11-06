@@ -29,8 +29,9 @@ import { applyUsage, useCalendar } from '../../store/calendar';
 import { loadUserData } from '../../store/session';
 import { confirmAction, toast } from '../../store/ui';
 import { exportBackup, importBackup, exportIcs, wipeUserData, clearBeforeAccountDeletion, resetLocalData, imageToAvatar } from '../../lib/backup';
-import { chime, showSystemNotification } from '../../lib/notify';
-import { deviceState, disableDevice, enableDevice, pushActive, sendTestPush } from '../../lib/push';
+import { chime } from '../../lib/notify';
+import { deviceState, disableDevice } from '../../lib/push';
+import PhoneReminders from '../../components/PhoneReminders';
 import { devicePushChanged } from '../../lib/reminderScheduler';
 import { TASK_DEFAULTS, TIMED_OPTIONS } from '../../lib/reminders';
 import { install, installed, macSafari, useInstallOffer } from '../../lib/install';
@@ -786,63 +787,33 @@ function ShortcutsTab() {
 
 function NotificationsTab() {
   const s = useSettings();
+  // Kept in step with the block above it (« Activer les rappels » there shows the switch here).
   const [state, setState] = useState(deviceState);
-  const [push, setPush] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const canInstall = useInstallOffer();
-  useEffect(() => {
-    let alive = true;
-    void pushActive().then(p => alive && setPush(p));
-    return () => {
-      alive = false;
-    };
-  }, [state]);
 
-  const toggle = async (on: boolean) => {
+  const turnOff = async () => {
     setBusy(true);
     try {
-      if (on) {
-        const next = await enableDevice();
-        setState(next);
-        if (next === 'denied') toast(t('Notifications bloquées : autorise-les dans les réglages du navigateur.'), 'error');
-      } else {
-        await disableDevice();
-        setState(deviceState());
-      }
+      await disableDevice();
+      setState(deviceState());
       await devicePushChanged();
     } finally {
       setBusy(false);
     }
   };
 
-  const testClosed = async () => {
-    const r = await sendTestPush(10);
-    if (r === 'ok') toast(t('Ferme ou quitte Kompaly : la notification arrive dans 10 secondes.'), 'success');
-    else toast(r === 'unavailable' ? t('Pas encore disponible.') : t('L’essai n’a pas pu partir : réessaie dans un instant.'), 'error');
-  };
-
-  const hint =
-    state === 'on'
-      ? push
-        ? t('Même quand Kompaly est fermé.')
-        : push === false && cloudEnabled
-          ? t('Seulement quand Kompaly est ouvert.')
-          : undefined
-      : state === 'denied'
-        ? t('Bloquées par le navigateur : autorise-les via le cadenas à gauche de l’adresse, puis recharge la page.')
-        : state === 'install'
-          ? t('Sur iPhone et iPad : ajoute d’abord Kompaly à l’écran d’accueil (Partager › « Sur l’écran d’accueil »), puis ouvre-le depuis son icône.')
-          : state === 'unsupported'
-            ? t('Non disponibles dans ce navigateur.')
-            : undefined;
-
   const defaultValue = s.defaultReminders[0] ?? -1;
   return (
     <div className="space-y-5">
-      <Section title={t('Sur cet appareil')}>
-        <Row label={t('Notifications')} hint={hint}>
-          {(state === 'on' || state === 'off') && <Toggle label={t('Notifications sur cet appareil')} checked={state === 'on'} onChange={v => !busy && void toggle(v)} />}
-        </Row>
+      <Section label={t('Sur cet appareil')}>
+        {/* Per device: the iPhone's three gestures, « Activer », where to allow them again, a test reminder. */}
+        <PhoneReminders key={state === 'on' ? 'on' : 'off'} onState={setState} />
+        {state === 'on' && (
+          <Row label={t('Notifications sur cet appareil')} hint={t('Coupe-les ici si tu ne veux plus de rappels sur cet appareil.')}>
+            <Toggle label={t('Notifications sur cet appareil')} checked onChange={v => !v && !busy && void turnOff()} />
+          </Row>
+        )}
         {!installed() && (canInstall || macSafari()) && (
           <Row
             label={t('Installer Kompaly')}
@@ -851,18 +822,6 @@ function NotificationsTab() {
             {canInstall && (
               <button className="btn-primary h-8" onClick={() => void install().then(ok => ok && toast(t('Kompaly est installé'), 'success'))}>
                 {t('Installer')}
-              </button>
-            )}
-          </Row>
-        )}
-        {state === 'on' && (
-          <Row label={t('Tester')}>
-            <button className="btn-secondary h-8" onClick={() => void showSystemNotification(t('Notifications activées'), t('Tes rappels Kompaly arriveront ici.\nEssai'), 'test', '/profil?onglet=notifications')}>
-              <Bell size={14} /> {t('Essayer')}
-            </button>
-            {push && (
-              <button className="btn-secondary h-8" title={t('Ferme Kompaly juste après : la notification arrive 10 secondes plus tard.')} onClick={() => void testClosed()}>
-                {t('Site fermé')}
               </button>
             )}
           </Row>
@@ -1435,32 +1394,27 @@ export default function ProfilePage() {
   return (
     <div className="h-full overflow-y-auto px-4 pb-room md:px-8">
       <div className="mx-auto max-w-[1180px]">
-        {/* The title and the sections stay in sight while the page scrolls (the page's own background, solid: nothing
-            shows through; the same rule as the shell's sticky page heads). Phones: one row of icons, named by the
-            title of each and by the heading of the open section under it. */}
+        {/* The title stays in sight while the page scrolls (the page's own background, solid: nothing shows through; the
+            same rule as the shell's sticky page heads). */}
         <div className="page-head -mx-4 px-4 pb-3 md:-mx-8 md:px-8 md:pb-5">
           <h1 className="text-[20px] font-semibold tracking-[-0.02em] md:text-[24px]">{t('Profil et réglages')}</h1>
-          <nav aria-label={t('Sections du profil')} className="seg mt-2.5 flex md:hidden">
-            {TABS.map(tb => (
-              <button
-                key={tb.key}
-                aria-current={tab === tb.key ? 'page' : undefined}
-                onClick={() => setParams(tb.key === 'profil' ? {} : { onglet: tb.key })}
-                title={tabLabel(tb.key)}
-                aria-label={tabLabel(tb.key)}
-                className={cx(
-                  // The shared segmented control (index.css › seg), one equal share each. Tablets in portrait: the name
-                  // under the icon (room for it there).
-                  'seg-item h-9 flex-1 shrink px-1 sm:h-12 sm:flex-col sm:gap-0.5',
-                )}
-                data-active={tab === tb.key || undefined}
-              >
-                {createElement(tabIcon(tb.key), { size: 15, 'aria-hidden': true, className: cx('shrink-0', tab === tb.key && 'text-brand-600') })}
-                <span aria-hidden className="hidden max-w-full truncate text-[11px] font-medium sm:block">{tabLabel(tb.key)}</span>
-              </button>
-            ))}
-          </nav>
         </div>
+        {/* Phones and tablets: every section with its name under its icon (an icon alone wasn't understood: where are the
+            notifications?), four by row on a phone, one row on a tablet. Not sticky: it would take a third of the screen. */}
+        <nav aria-label={t('Sections du profil')} className="seg mb-4 grid w-full grid-cols-4 sm:flex md:hidden">
+          {TABS.map(tb => (
+            <button
+              key={tb.key}
+              aria-current={tab === tb.key ? 'page' : undefined}
+              onClick={() => setParams(tb.key === 'profil' ? {} : { onglet: tb.key })}
+              className="seg-item h-[52px] min-w-0 flex-col gap-1 px-0 sm:flex-1 sm:shrink"
+              data-active={tab === tb.key || undefined}
+            >
+              {createElement(tabIcon(tb.key), { size: 16, 'aria-hidden': true, className: cx('shrink-0', tab === tb.key && 'text-brand-600') })}
+              <span className="max-w-full whitespace-nowrap text-center text-[11px] font-medium leading-[1.1] max-[359px]:text-[10px] max-[359px]:tracking-[-0.02em]">{tabLabel(tb.key)}</span>
+            </button>
+          ))}
+        </nav>
         <div className="flex flex-col gap-6 md:flex-row">
           <nav aria-label={t('Sections du profil')} className="hidden shrink-0 md:sticky md:top-16 md:flex md:w-48 md:flex-col md:gap-0.5 md:self-start">
             {TABS.map(tb => (

@@ -44,6 +44,7 @@ export const AUTH_MSG = {
   notConfirmed: t('Confirme d’abord ton adresse : clique sur le lien reçu par e-mail.'),
   wrongCode: t('Code incorrect. Tape le code Kompaly affiché en ce moment sur ton téléphone.'),
   needCode: t('Entre aussi le code à 6 chiffres de ton application d’authentification.'),
+  tooMany: t('Trop de tentatives, réessaie dans quelques minutes.'),
 };
 
 const USERS_KEY = 'cop:users';
@@ -206,7 +207,7 @@ function authMessage(e: AuthError | Error): string {
   if (code === 'email_not_confirmed' || msg.includes('not confirmed')) return AUTH_MSG.notConfirmed;
   if (code === 'user_already_exists' || code === 'email_exists' || msg.includes('already registered')) return AUTH_MSG.accountExists;
   if (code === 'weak_password' || msg.includes('password should')) return t('Mot de passe trop faible : au moins 8 caractères, avec lettres et chiffres.');
-  if (code.startsWith('over_') || msg.includes('rate limit')) return t('Trop de tentatives, réessaie dans quelques minutes.');
+  if (code.startsWith('over_') || msg.includes('rate limit') || (e as AuthError).status === 429) return AUTH_MSG.tooMany;
   if (code === 'same_password') return t('Le nouveau mot de passe doit être différent de l’ancien.');
   if (msg.includes('captcha')) return t('La vérification anti-robot a échoué. Recharge la page et réessaie.');
   if (code === 'insufficient_aal' || msg.includes('aal2')) return AUTH_MSG.needCode;
@@ -442,9 +443,12 @@ export const useAuth = create<AuthState>((set, get) => ({
       // An address that already has an account gets a look-alike answer and no e-mail at all.
       if (data.user && !data.user.identities?.length) throw new Error(AUTH_MSG.accountExistsSignIn);
       if (!data.session || !data.user) return null; // confirmation e-mail sent
+      // « Confirm email » off in Supabase: the account opens at once, straight to the questionnaire.
       const user = fromSupabase(data.user);
       setStorageUser(user.id);
+      awaitConfirmation(false);
       set({ user, mfaStep: null });
+      void rememberCurrent(user); // on the device's list of accounts, like after a sign-in
       return user;
     }
     const users = readUsers();

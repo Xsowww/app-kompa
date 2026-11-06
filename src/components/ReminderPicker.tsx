@@ -3,6 +3,7 @@ import { Bell, BellOff, Plus, SlidersHorizontal, X } from 'lucide-react';
 import { DateField, Popover, SelectField, TimeField } from './Pickers';
 import { anchorOf, MAX_MINUTES, minutesBefore, reminderLabel, reminderMoment } from '../lib/reminders';
 import { deviceState, enableDevice } from '../lib/push';
+import { deviceInfo, deviceWord, reminderDevice } from '../lib/phoneReminders';
 import { devicePushChanged } from '../lib/reminderScheduler';
 import { toast } from '../store/ui';
 import { cx } from '../lib/utils';
@@ -54,6 +55,10 @@ function customMinutes(c: Custom, date: string | undefined, time: string | undef
 /** « Rappels » : one or several moments before an event or a task (lib/reminders). */
 export default function ReminderPicker({ value, onChange, timed, date, time, disabled }: Props) {
   const [state, setState] = useState(deviceState);
+  // An iPhone in a browser tab: only Kompaly on the home screen can ring (whatever the browser says).
+  const [info] = useState(deviceInfo);
+  const device = reminderDevice(info);
+  const where = deviceWord(device, info.userAgent, info.touchPoints);
   const [custom, setCustom] = useState<Custom | null>(null);
   const [openedAt] = useState(Date.now); // « now » for the menu (a moment already past isn't offered)
   const check = custom ? customMinutes(custom, date, time, value) : null;
@@ -73,17 +78,17 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
     onChange([...value, check.minutes]);
     setCustom(null);
   };
-  // Ready-made: the day before at 9:00; when that is already past (an event today or tomorrow morning), one hour
-  // before (or 8:00 the same day without a time). Then « Personnaliser… ».
+  // Ready-made: the day before at 9:00 and one hour before (8:00 the same day for an item without a time), those still
+  // to come and not chosen yet. Then « Personnaliser… ».
   const usable = (minutes: number) => !!date && !value.includes(minutes) && reminderMoment(date, time, minutes).getTime() > openedAt;
   const eve = date ? minutesBefore(date, time, date, '09:00') + 1440 : -1;
   // The item's own moment is past (an all-day event today after 9:00, a time gone by): no reminder can ring any more.
   const over = !!date && anchorOf(date, time).getTime() <= openedAt;
   // Today without an hour: the day isn't over, only its 9:00 is — an hour lets a reminder ring later today.
   const needsTime = over && !time && date === dayKey(new Date(openedAt));
-  const left = [
-    usable(eve) ? { minutes: eve, label: t('La veille à 09:00') } : usable(60) ? { minutes: 60, label: timed ? t('1 h avant') : t('Le jour même à 08:00') } : null,
-  ].filter((o): o is { minutes: number; label: string } => !!o);
+  const left = [usable(eve) && { minutes: eve, label: t('La veille à 09:00') }, usable(60) && { minutes: 60, label: timed ? t('1 h avant') : t('Le jour même à 08:00') }].filter(
+    (o): o is { minutes: number; label: string } => !!o,
+  );
   const [menu, setMenu] = useState<HTMLElement | null>(null);
   const sorted = [...value].sort((a, b) => a - b);
 
@@ -93,7 +98,7 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
     if (next === 'on') {
       void devicePushChanged();
       toast(t('Notifications activées sur cet appareil'), 'success');
-    } else if (next === 'denied') toast(t('Notifications bloquées\u00a0: autorise-les dans les réglages de ton navigateur.'), 'error');
+    } else if (next === 'denied') toast(t('Notifications refusées : les étapes pour les autoriser sont dans Profil › Notifications.'), 'error');
   };
 
   return (
@@ -138,12 +143,12 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
           {menu && (
             <Popover anchor={menu} onClose={() => setMenu(null)} label={t('Ajouter un rappel')} className="p-1">
               <div role="menu" aria-label={t('Ajouter un rappel')} className="min-w-52">
-                {left.map(o => (
+                {left.map((o, i) => (
                   <button
                     key={o.minutes}
                     type="button"
                     role="menuitem"
-                    autoFocus
+                    autoFocus={i === 0}
                     onClick={() => {
                       onChange([...value, o.minutes]);
                       setMenu(null);
@@ -247,21 +252,22 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
         </div>
       )}
       {!disabled && value.length > 0 && state !== 'on' && (
+        // Said for this device (the full steps: Profil › Notifications, and the window after the first reminder).
         <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-stone-50 px-2.5 py-2 text-[12px] text-stone-600">
-          {state === 'off' ? (
+          {device === 'ios-browser' ? (
+            <span>{t('Pour qu’il sonne sur ton iPhone : ajoute Kompaly à l’écran d’accueil (Partager › Sur l’écran d’accueil), puis ouvre-le depuis son icône.')}</span>
+          ) : state === 'off' ? (
             <>
               <span className="flex items-start gap-2">
                 <BellOff size={13} className="mt-px shrink-0 text-stone-400" aria-hidden />
-                {t('Sur cet appareil, tu ne seras prévenu que si Kompaly est ouvert.')}
+                {t('Sur {device}, tu ne seras prévenu que si Kompaly est ouvert.', { device: where })}
               </span>
               <button type="button" onClick={() => void turnOn()} className="hit font-medium text-brand-600 underline-offset-2 hover:underline">
                 {t('Activer les notifications')}
               </button>
             </>
-          ) : state === 'install' ? (
-            <span>{t('Sur iPhone, ajoute Kompaly à l’écran d’accueil (Partager › Sur l’écran d’accueil) pour recevoir les notifications.')}</span>
           ) : state === 'denied' ? (
-            <span>{t('Notifications bloquées\u00a0: autorise-les dans les réglages de ton navigateur.')}</span>
+            <span>{t('Notifications bloquées sur {device} : les étapes pour les autoriser sont dans Profil › Notifications.', { device: where })}</span>
           ) : (
             <span>{t('Ce navigateur n’affiche pas de notifications\u00a0: le rappel s’affichera seulement dans Kompaly.')}</span>
           )}

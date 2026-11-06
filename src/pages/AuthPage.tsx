@@ -8,7 +8,7 @@ import { toast } from '../store/ui';
 import { afterSignIn, markLocalWelcome } from '../store/welcome';
 // The account's load and every store: downloaded once signed in, not with the page.
 const loadUserData = () => import('../store/session').then(m => m.loadUserData());
-import { cloudEnabled, endRecovery, inRecovery, linkError, oauthError, passkeysAvailable, setRememberMe } from '../lib/supabase';
+import { cloudEnabled, endRecovery, inRecovery, linkError, oauthError, passkeysAvailable, setRememberMe, signUpNeedsEmail } from '../lib/supabase';
 import { prefetchCaptcha } from '../lib/captcha';
 import { offerPasskey } from '../lib/passkeyOffer';
 import Character from '../copilot/Character';
@@ -148,7 +148,8 @@ type Field = 'name' | 'email' | 'password' | 'code' | 'agreed' | 'age';
 
 const COPY: Record<Mode, { title: string; subtitle?: string; submit: string }> = {
   login: { title: t('Connexion'), submit: t('Se connecter') },
-  register: { title: t('Créer un compte'), subtitle: t('Gratuit. Tu reçois un e-mail pour confirmer ton adresse.'), submit: t('Créer mon compte') },
+  // The subtitle says what comes next once Supabase is asked (RegisterSubtitle): an e-mail to confirm, or straight in.
+  register: { title: t('Créer un compte'), submit: t('Créer mon compte') },
   forgot: { title: t('Mot de passe oublié'), subtitle: t('On t’envoie un lien pour le changer.'), submit: t('Envoyer le lien') },
   reset: { title: t('Nouveau mot de passe'), submit: t('Enregistrer||sauver') },
 };
@@ -190,8 +191,18 @@ export default function AuthPage({ mode }: { mode: Mode }) {
   // Face ID asked but nothing came (no key on this device, or the prompt closed).
   const [passkeyHint, setPasskeyHint] = useState(false);
   const [busy, setBusy] = useState(false);
+  // One sign-up at a time: a double click (or Enter twice) sent it twice, the second one answered « trop de tentatives ».
+  const sending = useRef(false);
+  // Sign-up refused because the address already has an account (or too many tries, often a first click that worked):
+  // a way to sign in with it instead.
+  const [existing, setExisting] = useState('');
   const isRegister = mode === 'register';
-  const needsEmail = mode !== 'reset';
+  // Does Supabase ask new accounts to confirm their address first (null: not known yet)?
+  const [needsEmail, setNeedsEmail] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (isRegister) void signUpNeedsEmail().then(setNeedsEmail);
+  }, [isRegister]);
+  const hasEmailField = mode !== 'reset';
   const needsPassword = mode !== 'forgot';
   const passwordRef = useRef<HTMLInputElement>(null);
   // Errors about a field go right under it (and the focus into it); the others in the banner (`error`).
@@ -233,7 +244,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
   const check = (field: Field, v: string | boolean = values[field]): string => {
     const s = typeof v === 'string' ? v : '';
     if (field === 'name') return isRegister && s.trim().length < 2 ? (s.trim() ? t('Ton prénom doit contenir au moins 2 caractères.') : t('Entre ton prénom.')) : '';
-    if (field === 'email') return needsEmail && !/^\S+@\S+\.\S+$/.test(s) ? (s.trim() ? t('Adresse e-mail invalide.') : t('Entre ton adresse e-mail.')) : '';
+    if (field === 'email') return hasEmailField && !/^\S+@\S+\.\S+$/.test(s) ? (s.trim() ? t('Adresse e-mail invalide.') : t('Entre ton adresse e-mail.')) : '';
     if (field === 'password') {
       if ((isRegister || mode === 'reset') && (s.length < 8 || !/\p{L}/u.test(s) || !/\d/.test(s))) return t('Au moins 8 caractères, avec des lettres et des chiffres.');
       return mode === 'login' && !s ? t('Entre ton mot de passe.') : '';
@@ -272,13 +283,16 @@ export default function AuthPage({ mode }: { mode: Mode }) {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (sending.current) return;
     setError('');
     setInfo('');
+    setExisting('');
     // Every wrong field at once, each under itself; the focus goes to the first one.
     const found = (['name', 'email', 'password', 'code', 'agreed', 'age'] as Field[]).map(f => [f, check(f)] as const).filter(([, m]) => m);
     setErrs(Object.fromEntries(found));
     if (found.length) return fail(found[0][0], found[0][1]);
     setBusy(true);
+    sending.current = true;
     try {
       if (mode === 'forgot') {
         await requestPasswordReset(email);
@@ -327,10 +341,18 @@ export default function AuthPage({ mode }: { mode: Mode }) {
       // The others (network, too many tries, expired link…) are about no field: in the banner.
       const field: Field | null = aboutEmail ? 'email' : aboutCode && mode === 'reset' ? 'code' : aboutPassword && needsPassword ? 'password' : null;
       if (field === 'code') setNeedsCode(true);
+      if (isRegister && (message === AUTH_MSG.accountExists || message === AUTH_MSG.accountExistsSignIn || message === AUTH_MSG.tooMany)) {
+        // Said once, with what to do, instead of a bare error: the account is most likely there already.
+        setErrs({});
+        setExisting(message === AUTH_MSG.tooMany ? t('Trop de tentatives d’affilée. Ton compte existe peut-être déjà (un premier clic a pu suffire) : essaie de te connecter avec cette adresse.') : t('Un compte existe déjà avec cette adresse. Connecte-toi, ou choisis «\u00a0Oublié\u00a0?\u00a0» si tu n’as plus le mot de passe.'));
+        if (message === AUTH_MSG.tooMany && cloudEnabled) setCanResend(true);
+        return;
+      }
       fail(field, message);
       if (message === AUTH_MSG.notConfirmed) setCanResend(true);
     } finally {
       setBusy(false);
+      sending.current = false;
     }
   }
 
@@ -428,6 +450,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
           <form onSubmit={onSubmit} noValidate className="enter w-full max-w-[340px]">
             <h1 className="text-[30px] font-extrabold tracking-[-0.035em]">{adding ? t('Ajouter un compte') : copy.title}</h1>
             {(adding || copy.subtitle) && <p className="mt-1 text-[13px] text-stone-500">{adding ? t('Tu passeras de l’un à l’autre en un clic.') : copy.subtitle}</p>}
+            {isRegister && <p className="mt-1 min-h-[1.5em] text-[13px] text-stone-500">{needsEmail === true ? t('Gratuit. Tu reçois un e-mail pour confirmer ton adresse.') : needsEmail === false || !cloudEnabled ? t('Gratuit. Tu entres tout de suite dans Kompaly.') : t('Gratuit, rien ne te sera facturé.')}</p>}
 
             {mode === 'login' && hasSaved && (
               <section aria-labelledby="comptes-appareil" className="mt-6">
@@ -485,7 +508,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
                   {errAt('name')}
                 </label>
               )}
-              {needsEmail && (
+              {hasEmailField && (
                 <label className="block">
                   <span className="mb-1.5 block text-[12px] font-medium text-stone-600">{t('E-mail')}</span>
                   <input ref={el => { refs.current.email = el; }} {...invalid('email')} className="field w-full" type="email" value={email} onChange={e => (setEmail(e.target.value), edit('email', e.target.value))} autoComplete="username" autoFocus={!isRegister && !askedEmail} placeholder={t('prenom@exemple.fr')} />
@@ -588,6 +611,14 @@ export default function AuthPage({ mode }: { mode: Mode }) {
               <p id="auth-error" role="alert" className="mt-3 text-[13px] text-red-600">
                 {error}
               </p>
+            )}
+            {existing && (
+              <div role="alert" className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-3 text-[13px] leading-snug text-amber-900">
+                <p>{existing}</p>
+                <button type="button" className="btn-primary mt-3 w-full" onClick={() => navigate('/connexion', { state: { email: email.trim() } })}>
+                  {t('Me connecter avec cette adresse')}
+                </button>
+              </div>
             )}
             {info && <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-[13px] text-emerald-800">{info}</p>}
             {canResend && cloudEnabled && (mode === 'login' || mode === 'register') && (
