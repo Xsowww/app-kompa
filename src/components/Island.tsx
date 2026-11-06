@@ -61,8 +61,6 @@ interface Face {
   el: ReactNode;
   /** Read out by screen readers when it comes (politely). */
   say?: string;
-  /** Over the dialogs, as the toasts were. */
-  front?: boolean;
 }
 
 /** Re-draws every second (a countdown). */
@@ -668,9 +666,9 @@ export default function Island() {
       case 'timer':
         return { key: 'timer', mode: 'full', el: <TimerFull phase={phase!} onUsed={used} /> };
       case 'reminder':
-        return { key: `reminder-${alert!.key}`, mode: 'full', el: <ReminderFace alert={alert!} more={alerts.length - 1} />, say: `${reminderFrom(alert!)} : ${alert!.title}`, front: true };
+        return { key: `reminder-${alert!.key}`, mode: 'full', el: <ReminderFace alert={alert!} more={alerts.length - 1} />, say: `${reminderFrom(alert!)} : ${alert!.title}` };
       case 'notice':
-        return { key: `notice-${notice!.id}`, mode: 'full', el: <NoticeFace toast={notice!} />, say: sober(notice!.text), front: true };
+        return { key: `notice-${notice!.id}`, mode: 'full', el: <NoticeFace toast={notice!} />, say: sober(notice!.text) };
       case 'service':
         return { key: `service-${service}`, mode: 'full', el: <ServiceFace state={service} />, say: service === 'down' ? t('Service perturbé') : t('Hors ligne') };
       case 'kompaly':
@@ -720,7 +718,7 @@ export default function Island() {
         say: passing ? sober(passing.text) : announce || undefined,
       }
     : passing
-      ? { key: `toast-${passing.id}`, mode: 'toast', el: <ToastFace toast={passing} />, say: sober(passing.text), front: true }
+      ? { key: `toast-${passing.id}`, mode: 'toast', el: <ToastFace toast={passing} />, say: sober(passing.text) }
       : open
         ? full(open)
         : present[0]
@@ -840,7 +838,6 @@ export default function Island() {
       <div
         ref={wrap}
         className="isl-wrap"
-        data-front={face?.front || undefined}
         onPointerEnter={e => e.pointerType === 'mouse' && setHover(true)}
         onPointerLeave={() => setHover(false)}
         onPointerDown={() => setKeyboard(false)}
@@ -883,8 +880,8 @@ export default function Island() {
             data-hidden={!second || stage !== 'on' || undefined}
             tabIndex={second ? undefined : -1}
             aria-hidden={!second || undefined}
-            aria-label={!second ? undefined : second === 'timer' ? t('Session focus. Afficher les commandes') : miniLabel(second)}
-            onClick={e => second && expand(second, e.detail === 0)}
+            aria-label={!second ? undefined : second === 'timer' ? t('Session focus. Ouvrir le minuteur') : miniLabel(second)}
+            onClick={e => (second === 'timer' ? openHub('minuteur') : second && expand(second, e.detail === 0))}
           >
             {lastSecond === 'timer' ? <SatelliteRing phase={phase} /> : present.includes(lastSecond) && icon(lastSecond)}
           </button>

@@ -19,8 +19,8 @@
   --isl-top: calc(env(safe-area-inset-top) + 11px);
 
   position: fixed;
-  /* Above the page, its bars and Kompaly's panel; under menus (55+) and dialogs (60). A message (a toast, a reminder)
-     comes over a dialog, as the toasts did (data-front). */
+  /* Above the page, its bars and Kompaly's panel; always under menus (55+) and dialogs (60), its messages too: a dialog
+     is never covered (they wait in the hub's Notifications). */
   z-index: 52;
   left: 50%;
   /* In the middle of the top bar (56 px, AppShell's header; on phones it keeps its centre free for it), under the notch. */
@@ -29,9 +29,6 @@
   height: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', var(--font-sans);
   -webkit-tap-highlight-color: transparent;
-}
-.isl-wrap[data-front] {
-  z-index: 70;
 }
 
 /* The shape. Its size is the content's, written by Island as it changes; the springs animate it. */

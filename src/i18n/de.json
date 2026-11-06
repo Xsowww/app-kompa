@@ -2588,7 +2588,7 @@
  "Session focus de {n} min lancée. Je ne te dérange plus.": "Fokus-Session von {n} Min. gestartet. Ich störe nicht mehr.",
  "Session focus du {date}": "Fokus-Session vom {date}",
  "Session focus — {label}": "Fokus-Session — {label}",
- "Session focus. Afficher les commandes": "Fokus-Sitzung. Steuerung anzeigen",
+ "Session focus. Ouvrir le minuteur": "Fokus-Sitzung. Timer öffnen",
  "Session terminée": "Session beendet",
  "Session terminée sur « {label} ». Tu as mérité ta pause de {n} minute.": "Session zu „{label}“ beendet. Du hast dir deine {n} Minute Pause verdient.",
  "Session terminée sur « {label} ». Tu as mérité ta pause de {n} minutes.": "Session zu „{label}“ beendet. Du hast dir deine {n} Minuten Pause verdient.",

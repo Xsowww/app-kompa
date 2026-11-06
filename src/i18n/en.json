@@ -2588,7 +2588,7 @@
  "Session focus de {n} min lancée. Je ne te dérange plus.": "{n}-minute focus session started. I won’t disturb you.",
  "Session focus du {date}": "Focus session of {date}",
  "Session focus — {label}": "Focus session — {label}",
- "Session focus. Afficher les commandes": "Focus session. Show the controls",
+ "Session focus. Ouvrir le minuteur": "Focus session. Open the timer",
  "Session terminée": "Session done",
  "Session terminée sur « {label} ». Tu as mérité ta pause de {n} minute.": "Session on “{label}” done. You’ve earned your {n}-minute break.",
  "Session terminée sur « {label} ». Tu as mérité ta pause de {n} minutes.": "Session on “{label}” done. You’ve earned your {n}-minute break.",

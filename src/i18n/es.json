@@ -2588,7 +2588,7 @@
  "Session focus de {n} min lancée. Je ne te dérange plus.": "Sesión de concentración de {n} min iniciada. Ya no te molesto.",
  "Session focus du {date}": "Sesión de concentración del {date}",
  "Session focus — {label}": "Sesión de concentración — {label}",
- "Session focus. Afficher les commandes": "Sesión de concentración. Mostrar los controles",
+ "Session focus. Ouvrir le minuteur": "Sesión de concentración. Abrir el temporizador",
  "Session terminée": "Sesión terminada",
  "Session terminée sur « {label} ». Tu as mérité ta pause de {n} minute.": "Sesión de «{label}» terminada. Te has ganado tu descanso de {n} minuto.",
  "Session terminée sur « {label} ». Tu as mérité ta pause de {n} minutes.": "Sesión de «{label}» terminada. Te has ganado tu descanso de {n} minutos.",
