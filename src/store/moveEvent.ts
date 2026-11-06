@@ -8,7 +8,7 @@ import { useGroups } from './groups';
 import { useAuth } from './auth';
 import { createEvents, deleteEvents, groupError, type Group, type GroupEvent } from '../lib/groups';
 import { agendaTargets, toAgendaRows } from '../pages/groups/agendaTarget';
-import { uid } from '../lib/utils';
+import { newSeries } from '../lib/seriesId';
 import { t } from '../i18n';
 
 /** Where an event can go: my calendar (`null`), a shared calendar I can add to, or one of my teams. */
@@ -48,7 +48,7 @@ export async function moveEventToAgenda(eventId: string, from: string | null, to
       if (!ev) return { ok: false, error: t('Événement introuvable.') };
       const list: CalendarEvent[] = [ev, ...(withNext ? nextInSeries(ev, all) : [])];
       // A new series id there (≤ 40 characters), the same for all the pieces moved.
-      const series = ev.series ? (ev.series.startsWith('span-') ? `span-${uid().slice(0, 30)}` : uid()) : undefined;
+      const series = ev.series ? newSeries(ev.series.startsWith('span-')) : undefined;
       await createEvents(to!, toAgendaRows(list.map(e => ({ ...e, ...(series && { series }) })), target!));
       const ids = list.map(e => e.id);
       useCalendar.getState().removeMany(ids);
@@ -61,7 +61,7 @@ export async function moveEventToAgenda(eventId: string, from: string | null, to
     const ev = all.find(e => e.id === eventId);
     if (!ev) return { ok: false, error: t('Événement introuvable.') };
     const list = [ev, ...(withNext && ev.series ? all.filter(e => e.series === ev.series && e.date > ev.date) : [])];
-    const series = ev.series && list.length > 1 ? (ev.series.startsWith('span-') ? `span-${uid().slice(0, 30)}` : uid()) : undefined;
+    const series = ev.series && list.length > 1 ? newSeries(ev.series.startsWith('span-')) : undefined;
     if (to) await createEvents(to, toAgendaRows(list.map(e => asMine(e, series)), target!));
     else useCalendar.getState().addMany(list.map(e => asMine(e, series)));
     try {

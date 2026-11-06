@@ -7,6 +7,7 @@ import { getSettings, useSettings } from './settings';
 import type { Usage } from '../lib/usage';
 import { eventReminders, followMoments } from '../lib/reminders';
 import { dayShift, shiftKey } from '../lib/repeat';
+import { fitSeries } from '../lib/seriesId';
 import { t } from '../i18n';
 
 export type BuiltinCategory = 'cours' | 'examen' | 'devoir' | 'perso' | 'sport';
@@ -221,7 +222,7 @@ export function guessCategory(title: string, timed = false, custom?: CustomCateg
 function fresh(e: NewEvent & { id?: string }): CalendarEvent {
   const reminders = e.reminders ?? (!e.externalId && (e.start || isBigEvent(e)) ? [...eventReminders(e, getSettings().defaultReminders ?? [], new Date())] : undefined);
   // An id given: the next occurrences of a series without end, the same on every device (lib/repeatSeries).
-  return { ...e, ...(reminders && { reminders }), id: e.id || uid(), done: false, createdAt: nowIso() };
+  return { ...e, ...(reminders && { reminders }), ...(e.series && { series: fitSeries(e.series) }), id: e.id || uid(), done: false, createdAt: nowIso() };
 }
 
 /**
@@ -234,6 +235,9 @@ export function followPatch(ev: Pick<CalendarEvent, 'date' | 'start' | 'reminder
   if (to.date === ev.date && to.time === ev.start) return patch;
   return { ...patch, reminders: followMoments(ev.reminders, { date: ev.date, time: ev.start }, to, ev.reminders) };
 }
+
+/** A change as the server takes it (a series id too long for it is made short: lib/seriesId). */
+const fitPatch = <P extends Partial<CalendarEvent>>(patch: P): P => (patch.series && patch.series !== fitSeries(patch.series) ? { ...patch, series: fitSeries(patch.series) } : patch);
 
 /** The occurrences of an event's series after it (none for an event that doesn't repeat). */
 export const nextInSeries = (ev: Pick<CalendarEvent, 'series' | 'date' | 'id'>, events: CalendarEvent[]) =>
@@ -266,7 +270,8 @@ export const useCalendar = create<CalendarState>()(
         const add = list.filter(e => !e.id || !have.has(e.id)).map(fresh);
         if (add.length) set(s => ({ events: [...s.events, ...add] }));
       },
-      updateSeries(id, patch) {
+      updateSeries(id, raw) {
+        const patch = fitPatch(raw);
         const ev = get().events.find(e => e.id === id);
         if (!ev?.series) return get().update(id, patch);
         const shift = patch.date ? dayShift(ev.date, patch.date) : 0;
@@ -277,7 +282,10 @@ export const useCalendar = create<CalendarState>()(
           ),
         }));
       },
-      update: (id, patch) => set(s => ({ events: s.events.map(e => (e.id === id ? { ...e, ...followPatch(e, patch) } : e)) })),
+      update: (id, raw) => {
+        const patch = fitPatch(raw);
+        set(s => ({ events: s.events.map(e => (e.id === id ? { ...e, ...followPatch(e, patch) } : e)) }));
+      },
       remove: id => get().removeMany([id]),
       removeMany(ids) {
         const gone = new Set(ids);

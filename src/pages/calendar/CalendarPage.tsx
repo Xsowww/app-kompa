@@ -14,7 +14,8 @@ import { AGENDA_EXAMPLES, WORDS, groupWords } from '../../lib/usage';
 import CategoriesDialog from './CategoriesDialog';
 import PeriodsDialog from './PeriodsDialog';
 import { covers, periodColor, periodUntil, periodLabel, periodsFill, weekLanes, periodRange, periodText, periodTint, periodsBetween, periodsOn, type Period } from '../../lib/periods';
-import { cx, uid } from '../../lib/utils';
+import { cx } from '../../lib/utils';
+import { newSeries } from '../../lib/seriesId';
 import EventForm from './EventForm';
 import { eventTitle, periodIdeas, removeEvent, useCalendarSource } from './source';
 import TimeGrid from './TimeGrid';
@@ -584,7 +585,7 @@ export default function CalendarPage() {
     // « Congés du 22 au 26 décembre »: one event over several days (one a day, linked, as the form makes it); the first
     // day keeps the reminders, the others none.
     if (parsed.endDate) {
-      const series = `span-${uid()}`;
+      const series = newSeries(true);
       source.addMany(
         spanDays(date, parsed.endDate, parsed.start ?? undefined, parsed.end ?? undefined).map((p, i) => ({
           title: parsed.title,

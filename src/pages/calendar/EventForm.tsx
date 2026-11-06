@@ -26,7 +26,7 @@ import { MAX_SPAN_DAYS, dayShift, endlessUntil, guessRule, isSpan, ruleDays, rul
 import { planNewEnd, rememberRule, savedRule } from '../../lib/repeatSeries';
 import RepeatPicker, { EndChoice } from './RepeatPicker';
 import { feedLabel, feedOf } from '../../lib/icsFeeds';
-import { uid } from '../../lib/utils';
+import { newSeries } from '../../lib/seriesId';
 import { copyToMyCalendar } from './agendas';
 import AgendaChoice from '../groups/AgendaChoice';
 import { addToAgenda, useAgendaTargets } from '../groups/agendaAdd';
@@ -244,12 +244,12 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
       else update(event.id, changes);
     } else if (event) update(event.id, changes);
     else if (series) {
-      const id = uid();
+      const id = newSeries();
       (into ? (l: NewEvent[]) => addToAgenda(into, l) : addMany)(series.days.map(d => ({ ...data, date: d, series: id })));
       // My calendar: the rule is kept, a series without end goes on by itself (lib/repeatSeries).
       if (!into && !shared && repeat) rememberRule(id, repeat, day);
     } else if (spanning) {
-      const id = `span-${uid()}`;
+      const id = newSeries(true);
       // The first day keeps the reminders; the others none (« 15 min avant » 0:00 would ring at midnight).
       (into ? (l: NewEvent[]) => addToAgenda(into, l) : addMany)(spanDays(day, night ? shiftKey(day, 1) : endDay!, start || undefined, end || undefined).map((p, i) => ({ ...data, ...p, start: p.start, end: p.end, series: id, reminders: i ? [] : data.reminders })));
     } else if (into) addToAgenda(into, [data]);

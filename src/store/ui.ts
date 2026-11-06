@@ -99,7 +99,8 @@ export const useUi = create<UiState>((set, get) => ({
     const t: Toast = { id: uid(), text, tone, action, ...(duration <= 0 && { sticky: true }) };
     // A success makes an earlier error out of date (retried and done): it isn't left on screen beside it.
     // The same message again (a button pressed twice…): one toast, the new one, not two alike stacked.
-    const gone = get().toasts.filter(x => (tone === 'success' && x.tone === 'error') || (x.text === text && x.tone === tone));
+    // A sticky error (« Pas enregistré … · Réessayer ») stays: something else that worked doesn't fix it.
+    const gone = get().toasts.filter(x => (tone === 'success' && x.tone === 'error' && !x.sticky) || (x.text === text && x.tone === tone));
     gone.forEach(x => (stopTimer(x.id), timers.delete(x.id)));
     // The island shows one at a time: the one in view makes way sooner for the next (an error stays readable).
     const island = get().island;
