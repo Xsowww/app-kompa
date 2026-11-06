@@ -713,13 +713,30 @@ const newest = (rows: Row[] | null | undefined, col: string, at = 0) =>
 
 const DELTA_TABLES = ['events', 'note_folders', 'notes', 'drive_items', 'todos', 'focus_sessions'] as const;
 
+let noBatch = false; // server without sync_changes (migration 2026-11-07b): one request per table, as before
+
+/** What changed since `since`, in one request (sync_changes) when the server has it: 1 request instead of 8. */
 async function fetchChanges(userId: string, since: string) {
+  if (!noBatch) {
+    const { data, error } = await supabase!.rpc('sync_changes', { since });
+    if (!error && data && typeof data === 'object') {
+      const d = data as Record<string, unknown>;
+      const list = (k: string) => (Array.isArray(d[k]) ? (d[k] as Row[]) : []);
+      return { profile: { data: (d.profile ?? null) as Profile['data'], error: null } as Profile, gone: list('gone'), rows: Object.fromEntries(DELTA_TABLES.map(t => [t, list(t)])) as Record<Table, Row[]> };
+    }
+    if (error && !permanent(error)) throw error;
+    noBatch = true;
+  }
+  return fetchEach(userId, since);
+}
+
+async function fetchEach(userId: string, since: string) {
   const [profile, gone, ...tables] = await Promise.all([loadProfile(userId), selectAll('sync_deletions', since), ...DELTA_TABLES.map(t => selectAll(t, since))]);
   const err = profile.error ?? gone.error ?? tables.find(r => r.error)?.error;
   if (err) throw err;
   return { profile, gone: gone.data!, rows: Object.fromEntries(DELTA_TABLES.map((t, i) => [t, tables[i].data!])) as Record<Table, Row[]> };
 }
-type Changes = Awaited<ReturnType<typeof fetchChanges>>;
+type Changes = Awaited<ReturnType<typeof fetchEach>>;
 
 function applyChanges({ profile, gone, rows }: Changes) {
   const deleted = Object.fromEntries(DELTA_TABLES.map(t => [t, new Map<string, number>()])) as Record<Table, Map<string, number>>;

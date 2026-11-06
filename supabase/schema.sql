@@ -3503,3 +3503,21 @@ language sql stable security definer set search_path = '' as $$
 $$;
 revoke all on function public.agenda_invite_preview(text) from public;
 grant execute on function public.agenda_invite_preview(text) to anon, authenticated;
+
+-- Synchro groupée (2026-11-07b_synchro_groupee.sql) : ce qui a changé depuis la dernière lecture, en une seule question.
+create or replace function public.sync_changes(since timestamptz)
+returns json
+language sql stable security invoker set search_path = '' as $$
+  select json_build_object(
+    'events', coalesce((select json_agg(t) from public.events t where t.user_id = (select auth.uid()) and t.synced_at > since), '[]'::json),
+    'note_folders', coalesce((select json_agg(t) from public.note_folders t where t.user_id = (select auth.uid()) and t.synced_at > since), '[]'::json),
+    'notes', coalesce((select json_agg(t) from public.notes t where t.user_id = (select auth.uid()) and t.synced_at > since), '[]'::json),
+    'drive_items', coalesce((select json_agg(t) from public.drive_items t where t.user_id = (select auth.uid()) and t.synced_at > since), '[]'::json),
+    'todos', coalesce((select json_agg(t) from public.todos t where t.user_id = (select auth.uid()) and t.synced_at > since), '[]'::json),
+    'focus_sessions', coalesce((select json_agg(t) from public.focus_sessions t where t.user_id = (select auth.uid()) and t.synced_at > since), '[]'::json),
+    'gone', coalesce((select json_agg(d) from public.sync_deletions d where d.user_id = (select auth.uid()) and d.deleted_at > since), '[]'::json),
+    'profile', (select row_to_json(p) from public.profiles p where p.id = (select auth.uid()))
+  );
+$$;
+revoke all on function public.sync_changes(timestamptz) from public, anon;
+grant execute on function public.sync_changes(timestamptz) to authenticated;
