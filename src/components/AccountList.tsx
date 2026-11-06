@@ -4,6 +4,7 @@ import { needsCredentials, PROVIDER_NAMES, savedAccounts, type SavedAccount } fr
 import { useAuth } from '../store/auth';
 import { confirmAction } from '../store/ui';
 import { relativeTime } from '../lib/utils';
+import { cloudEnabled } from '../lib/supabase';
 import { t } from '../i18n';
 
 /**
@@ -47,7 +48,7 @@ export default function AccountList({ currentId, onPick, busy, onEmpty }: { curr
               title={t('Retirer de cet appareil')}
               aria-label={t('Retirer le compte {email} de cet appareil', { email: a.email })}
               onClick={async () => {
-                if (!(await confirmAction(t('Retirer {email} de cet appareil ?', { email: a.email }), t('Ses données ne sont pas supprimées : tu pourras t’y reconnecter.'), t('Retirer')))) return;
+                if (!(await confirmAction(t('Retirer {email} de cet appareil ?', { email: a.email }), cloudEnabled ? t('Sa copie sur cet appareil est effacée. Ses données en ligne restent : tu pourras t’y reconnecter.') : t('Ses données ne sont pas supprimées : tu pourras t’y reconnecter.'), t('Retirer')))) return;
                 useAuth.getState().removeAccount(a.id);
                 const rest = list.filter(x => x.id !== a.id);
                 setList(rest);

@@ -7,6 +7,7 @@
  */
 
 import { t } from '../i18n';
+import { fitSeries } from './seriesId';
 
 export interface IcsEvent {
   /** UID of the event, or `${UID}_${YYYYMMDD}` for one occurrence of a recurring (or multi-day) event. */
@@ -338,7 +339,8 @@ function detailsOf(ev: RawEvent): string | undefined {
 /** Turns one occurrence into calendar events (several when it spans several days, linked by a « span- » series). */
 function toEvents(ev: RawEvent, start: Date, durationMs: number, allDay: boolean, externalId: (d: Date) => string, base: Omit<IcsEvent, 'externalId' | 'date'>): IcsEvent[] {
   const days = splitDays(ev, start, durationMs, allDay, externalId, base);
-  const series = `span-${ev.uid}_${compactKey(start)}`;
+  // Short enough for the server (a holidays calendar's UIDs are long): lib/seriesId.
+  const series = fitSeries(`span-${ev.uid}_${compactKey(start)}`);
   return days.length > 1 ? days.map(e => ({ ...e, series })) : days;
 }
 

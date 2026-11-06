@@ -7,6 +7,7 @@ import { getSettings, useSettings } from './settings';
 import type { Usage } from '../lib/usage';
 import { eventReminders } from '../lib/reminders';
 import { dayShift, shiftKey } from '../lib/repeat';
+import { fitSeries } from '../lib/seriesId';
 import { t } from '../i18n';
 
 export type BuiltinCategory = 'cours' | 'examen' | 'devoir' | 'perso' | 'sport';
@@ -218,8 +219,11 @@ export function guessCategory(title: string, timed = false, custom?: CustomCateg
  */
 function fresh(e: NewEvent): CalendarEvent {
   const reminders = e.reminders ?? (!e.externalId && (e.start || isBigEvent(e)) ? [...eventReminders(e, getSettings().defaultReminders ?? [], new Date())] : undefined);
-  return { ...e, ...(reminders && { reminders }), id: uid(), done: false, createdAt: nowIso() };
+  return { ...e, ...(reminders && { reminders }), ...(e.series && { series: fitSeries(e.series) }), id: uid(), done: false, createdAt: nowIso() };
 }
+
+/** A change as the server takes it (a series id too long for it is made short: lib/seriesId). */
+const fitPatch = <P extends Partial<CalendarEvent>>(patch: P): P => (patch.series && patch.series !== fitSeries(patch.series) ? { ...patch, series: fitSeries(patch.series) } : patch);
 
 /** The occurrences of an event's series after it (none for an event that doesn't repeat). */
 export const nextInSeries = (ev: Pick<CalendarEvent, 'series' | 'date' | 'id'>, events: CalendarEvent[]) =>
@@ -246,7 +250,8 @@ export const useCalendar = create<CalendarState>()(
         return ev;
       },
       addMany: list => set(s => ({ events: [...s.events, ...list.map(fresh)] })),
-      updateSeries(id, patch) {
+      updateSeries(id, raw) {
+        const patch = fitPatch(raw);
         const ev = get().events.find(e => e.id === id);
         if (!ev?.series) return get().update(id, patch);
         const shift = patch.date ? dayShift(ev.date, patch.date) : 0;
@@ -255,7 +260,10 @@ export const useCalendar = create<CalendarState>()(
           events: s.events.map(e => (e.id === id ? { ...e, ...patch } : e.series === ev.series && e.date > ev.date ? { ...e, ...rest, ...(shift && { date: shiftKey(e.date, shift) }) } : e)),
         }));
       },
-      update: (id, patch) => set(s => ({ events: s.events.map(e => (e.id === id ? { ...e, ...patch } : e)) })),
+      update: (id, raw) => {
+        const patch = fitPatch(raw);
+        set(s => ({ events: s.events.map(e => (e.id === id ? { ...e, ...patch } : e)) }));
+      },
       remove: id => get().removeMany([id]),
       removeMany(ids) {
         const gone = new Set(ids);
