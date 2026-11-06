@@ -705,7 +705,8 @@ export default function AppShell() {
         {/* Wide screens: the header, like every page, keeps to the same centred column (1180 px of content, the pages'
             `max-w-[1180px]` or `max-w-[1244px]` with their padding), so the search and the bin line up with it. */}
         <header className="mx-auto flex h-14 w-full max-w-[1244px] shrink-0 items-center gap-3 px-4 short:h-12 md:px-8">
-          <span className="lg:hidden">{tight ? <LogoMark /> : <Logo />}</span>
+          {/* Affichage Pro on phones: the mark alone, the middle of the bar is the island's (components/Island). */}
+          <span className="lg:hidden">{tight ? <LogoMark /> : pro ? <><span className="sm:hidden"><LogoMark /></span><span className="max-sm:hidden"><Logo /></span></> : <Logo />}</span>
           {/* Affichage Pro: at the right, beside the avatar (the page's title has the left). */}
           <div className={pro ? 'pro-search hidden lg:block' : 'hidden flex-1 lg:block'}>
             <GlobalSearch />

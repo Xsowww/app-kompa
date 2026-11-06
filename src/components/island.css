@@ -14,22 +14,21 @@
   /* A toast is as wide as its words, up to this (on one line more often on a computer). */
   --isl-toast-w: min(460px, calc(100vw - 16px));
   --isl-amber: #ffb340;
+  /* The hub (components/IslandHub): as wide as a phone allows, a comfortable panel on a computer. */
+  --isl-hub-w: min(640px, calc(100vw - 16px));
+  --isl-top: calc(env(safe-area-inset-top) + 11px);
 
   position: fixed;
-  /* Above the page, its bars and Kompaly's panel; under menus (55+) and dialogs (60). A message (a toast, a reminder)
-     comes over a dialog, as the toasts did (data-front). */
+  /* Above the page, its bars and Kompaly's panel; always under menus (55+) and dialogs (60), its messages too: a dialog
+     is never covered (they wait in the hub's Notifications). */
   z-index: 52;
   left: 50%;
-  /* Phones: under the notch (the safe area) and the top bar (56 px, AppShell's header); wider screens: in the middle of
-     the top bar, where there is room. */
-  top: calc(env(safe-area-inset-top) + 60px);
+  /* In the middle of the top bar (56 px, AppShell's header; on phones it keeps its centre free for it), under the notch. */
+  top: var(--isl-top);
   width: 0;
   height: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', var(--font-sans);
   -webkit-tap-highlight-color: transparent;
-}
-.isl-wrap[data-front] {
-  z-index: 70;
 }
 
 /* The shape. Its size is the content's, written by Island as it changes; the springs animate it. */
@@ -93,11 +92,11 @@
   transition-delay: 0ms, 0ms, 0ms, 0ms, 180ms, 0ms, 0ms;
 }
 @media (hover: hover) {
-  .isl[data-mode='mini']:hover {
+  .isl:is([data-mode='mini'], [data-mode='idle']):hover {
     scale: 1.05;
   }
 }
-.isl[data-mode='mini']:active {
+.isl:is([data-mode='mini'], [data-mode='idle']):active {
   scale: 0.96;
 }
 
@@ -650,7 +649,7 @@ button.isl-text {
 
 @media (min-width: 640px) {
   .isl-wrap {
-    top: calc(env(safe-area-inset-top) + 10px);
+    --isl-top: calc(env(safe-area-inset-top) + 10px);
   }
 }
 /* Over the page on phones: as small as it reads well. */
@@ -666,22 +665,7 @@ button.isl-text {
 /* Phones turned sideways: a lower top bar (48 px, the `short` variant). */
 @media (max-height: 500px) and (width < 64rem) {
   .isl-wrap {
-    top: calc(env(safe-area-inset-top) + 52px);
-  }
-}
-@media (max-height: 500px) and (640px <= width < 64rem) {
-  .isl-wrap {
-    top: calc(env(safe-area-inset-top) + 6px);
-  }
-}
-/* Phones: under the top bar the page makes room for the small pill (Island sets data-focus-island while something
-   stays in it: the timer, a reminder…), so it covers no page title or button. A passing message goes over the page. */
-@media (max-width: 639px) {
-  :root[data-pro] #contenu {
-    transition: padding-top var(--fi-lane-t, 420ms) cubic-bezier(0.3, 1.15, 0.45, 1);
-  }
-  :root[data-pro][data-focus-island] #contenu {
-    padding-top: 44px;
+    --isl-top: calc(env(safe-area-inset-top) + 7px);
   }
 }
 
@@ -724,7 +708,6 @@ button.isl-text {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :root[data-pro] #contenu,
   .isl-wrap,
   .isl-wrap *,
   .fi-ring-bar {
