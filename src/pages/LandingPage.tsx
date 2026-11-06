@@ -818,7 +818,7 @@ export default function LandingPage() {
             <p className="mt-4 text-[13px] text-stone-500">{t('1 minute · sans appli à installer · sans pub')}</p>
             <p className="mt-1.5 text-[13px] text-stone-500">
               {t('Gratuit, pour un usage perso : pas de facturation ni d’offre équipe pour l’instant.')}{' '}
-              <Link to="/tarifs" className="font-medium text-ink underline decoration-stone-300 underline-offset-2 hover:decoration-ink pointer-coarse:py-3">
+              <Link to="/tarifs" className="whitespace-nowrap font-medium text-ink underline decoration-stone-300 underline-offset-2 hover:decoration-ink pointer-coarse:py-3">
                 {t('Voir les limites')}
               </Link>
             </p>
