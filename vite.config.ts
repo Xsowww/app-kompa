@@ -129,7 +129,10 @@ export default defineConfig(({ mode }) => {
                 ? 'date'
                 : PUBLIC_UI.test(id)
                   ? 'public'
-                  : undefined,
+                  : // Its own small file: else the public pieces would take it, and the first script would wait for them.
+                    id.endsWith('/src/i18n/index.ts')
+                    ? 'i18n'
+                    : undefined,
         },
       },
     },

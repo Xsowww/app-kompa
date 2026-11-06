@@ -531,9 +531,10 @@ body:has(#nav-more-panel) #create-button {
 }
 .kompaly-note-in { animation: note-open 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
 
-/* Affichage Pro: another space's cards come in one after the other, out of a blur (layout/proMotion sets --pro-i). */
+/* Affichage Pro: another space's cards come in one after the other (layout/proMotion sets --pro-i). Opacity and
+   movement only: a blur animated on every card cost a phone a redraw of each one at each frame. */
 @keyframes pro-in {
-  from { opacity: 0; filter: blur(12px); transform: translateY(16px) scale(0.985); }
+  from { opacity: 0; transform: translateY(16px) scale(0.985); }
 }
 .pro-in {
   animation: pro-in 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;

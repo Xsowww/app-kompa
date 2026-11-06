@@ -9,10 +9,11 @@ import { subjectSuggestions } from '../pages/tasks/focusStats';
 import { cx } from '../lib/utils';
 import { toast } from '../store/ui';
 import { t, tn } from '../i18n';
+import { useShallow } from 'zustand/react/shallow';
 
 /** Asks what the session is about before starting (optional, free text + quick chips). */
 function SubjectPicker({ onStart, onCancel }: { onStart: (subject: string) => void; onCancel: () => void }) {
-  const { focusMinutes, usage } = useSettings();
+  const { focusMinutes, usage } = useSettings(useShallow(s => ({ focusMinutes: s.focusMinutes, usage: s.usage })));
   const sessions = useFocusLog(s => s.sessions);
   const events = useCalendar(s => s.events);
   const [subject, setSubject] = useState('');
@@ -80,7 +81,7 @@ const focusLater = (selector: string) =>
 
 export default function FocusTimer() {
   const focus = useFocus();
-  const { focusMinutes, breakMinutes } = useSettings();
+  const { focusMinutes, breakMinutes } = useSettings(useShallow(s => ({ focusMinutes: s.focusMinutes, breakMinutes: s.breakMinutes })));
   const [, setNow] = useState(0);
   const [picking, setPicking] = useState(false);
 

@@ -261,7 +261,7 @@ export default function DashboardPro() {
   const focusMinutes = useSettings(st => st.focusMinutes);
   const navigate = useNavigate();
   const user = useAuth(s => s.user)!;
-  const { notes } = useNotes();
+  const notes = useNotes(s => s.notes);
   const events = useCalendar(s => s.events);
   const overlay = useAgendaOverlay().events;
   const todos = useTodos(s => s.todos);

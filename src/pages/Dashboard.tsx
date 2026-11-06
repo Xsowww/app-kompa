@@ -28,6 +28,7 @@ import { agendaLink, fromAgenda, useAgendaOverlay } from './calendar/agendas';
 import { t, tn } from '../i18n';
 import { firstName } from '../lib/firstName';
 import { untilLabel } from '../lib/until';
+import { useShallow } from 'zustand/react/shallow';
 
 /** A bento tile: white by default, `dark` for the big day (the strongest tile of the page). */
 function Widget({ title, to, linkLabel, className, dark, children }: { title: string; to?: string; linkLabel?: string; className?: string; dark?: boolean; children: React.ReactNode }) {
@@ -105,7 +106,7 @@ function DashboardClassic() {
   const periods = useSettings(st => st.periods);
   const navigate = useNavigate();
   const user = useAuth(s => s.user)!;
-  const { notes, folders } = useNotes();
+  const { notes, folders } = useNotes(useShallow(s => ({ notes: s.notes, folders: s.folders })));
   const events = useCalendar(s => s.events);
   // My shared calendars' events among mine for the day (read-only here: they open in their agenda).
   const overlay = useAgendaOverlay().events;

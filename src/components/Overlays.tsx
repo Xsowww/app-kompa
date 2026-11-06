@@ -33,7 +33,9 @@ function ToastRow({ t: item }: { t: Toast }) {
       onBlur={e => !e.currentTarget.contains(e.relatedTarget as Node | null) && !e.currentTarget.matches(':hover') && resumeToast(item.id)}
     >
       {item.tone === 'success' ? <CheckCircle2 size={15} className="shrink-0 text-emerald-400" aria-hidden /> : item.tone === 'error' ? <XCircle size={15} className="shrink-0 text-red-400" aria-hidden /> : <Info size={15} className="shrink-0 text-stone-400" aria-hidden />}
-      <span className="min-w-0 line-clamp-2">{item.text}</span>
+      {/* An error or a message that stays (« Pas enregistré : … ») is read in full, on as many lines as it needs; a
+          passing one is kept short. */}
+      <span className={cx('min-w-0 flex-1', !item.sticky && item.tone !== 'error' && 'line-clamp-3')}>{item.text}</span>
       {item.action && (
         <button
           className="hit-sm -my-1 ml-1.5 shrink-0 whitespace-nowrap rounded-md px-2 py-1 font-medium text-brand-200 transition-colors hover:bg-on-inverse/10 hover:text-on-inverse dark:text-brand-700"
