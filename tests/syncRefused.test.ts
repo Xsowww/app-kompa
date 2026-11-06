@@ -77,6 +77,9 @@ describe('enregistrement en ligne : jamais « enregistré » quand ce n’est pa
     expect(toast?.text).toMatch(/Pas enregistré : « Refusé »/);
     expect(toast?.action?.label).toBe('Réessayer');
     expect(toast?.sticky).toBe(true);
+    // Something else that worked (« Ajouté ») doesn't hide it.
+    useUi.getState().toast('Ajouté', 'success');
+    expect(useUi.getState().toasts.some(x => x.id === toast!.id)).toBe(true);
     // Saved for the next visit too.
     const queue = [...memory.entries()].find(([k]) => k.startsWith('cop:u1:sync-queue'));
     expect(queue?.[1]).toContain(ev.id);

@@ -1,7 +1,7 @@
 // The connection is back after a time offline: the changes made meanwhile leave at once, and a toast says so
 // (« Hors ligne » had promised it: components/Overlays › ServiceBanner).
 
-import { flushNow, pendingCount } from './cloudSync';
+import { flushNow, pendingCount, refusedCount } from './cloudSync';
 import { toast } from '../store/ui';
 import { t, tn } from '../i18n';
 
@@ -17,8 +17,10 @@ export function watchBackOnline(): () => void {
     if (!offline) return;
     offline = false;
     const count = pendingCount();
+    const refusedBefore = refusedCount();
     const sent = count > 0 && (await flushNow().catch(() => false));
-    toast(backOnlineText(count, sent), 'success');
+    // What the server refused is said apart (« Pas enregistré … · Réessayer »): never counted as sent.
+    toast(backOnlineText(count - Math.max(0, refusedCount() - refusedBefore), sent), 'success');
   };
   addEventListener('offline', onOffline);
   addEventListener('online', onOnline);
