@@ -234,7 +234,16 @@ const queuePrefix = (userId: string) => `cop:${userId}:sync-queue`;
 const queueKey = (userId: string) => `${queuePrefix(userId)}:${TAB}`;
 let adopted: string[] = [];
 
+// Written a moment after the last change, not at each one: saving a note with pictures (megabytes) rewrote the whole
+// queue every time (60 MB written for 30 saves of a 2 MB note). Leaving or hiding the page writes it at once.
+let queueTimer: ReturnType<typeof setTimeout> | undefined;
 function saveQueue() {
+  queueTimer ??= setTimeout(writeQueue, 300);
+}
+
+function writeQueue() {
+  clearTimeout(queueTimer);
+  queueTimer = undefined;
   if (!currentUser) return;
   try {
     if (!hasPending() && !refusedCount()) {
@@ -397,6 +406,7 @@ function sayRefused() {
   const n = refusedCount();
   if (!toSay || !n) return;
   toSay = false;
+  writeQueue(); // kept for the next visit at once: it is what this device alone holds
   const first = ORDER.flatMap(t => [...refused[t].values()])[0];
   const text =
     n === 1
@@ -502,31 +512,53 @@ async function sendSettings(user: string) {
   for (const k of [...profileKeys]) if (k === '*' || now[k] === patch[k]) profileKeys.delete(k);
 }
 
-/** Records the difference between two versions of a list (immutable updates → reference check). */
+/** Two rows alike: field by field (a note's text compared as is, only small lists and objects as JSON). */
+function sameRow(a: Row, b: Row) {
+  for (const k in b) {
+    const x = a[k];
+    const y = b[k];
+    if (x === y) continue;
+    if (x && y && typeof x === 'object' && typeof y === 'object' && JSON.stringify(x) === JSON.stringify(y)) continue;
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Records the difference between two versions of a list (immutable updates → reference check). The usual change
+ * (one thing edited: same length, same order) is read side by side, without a map of the whole list.
+ */
 function diff<T extends { id: string }>(table: Table, cur: T[], prev: T[], toRow: (x: T) => Row) {
   if (pulling || cur === prev) return;
   const stamp = new Date().toISOString();
-  const before = new Map(prev.map(x => [x.id, x]));
-  const now = new Set<string>();
   let found = false;
-  for (const x of cur) {
-    now.add(x.id);
-    const old = before.get(x.id);
-    if (old !== x) {
-      const row = toRow(x);
-      // A new copy of the same thing (reloaded from storage…): nothing to send.
-      if (old && JSON.stringify(toRow(old)) === JSON.stringify(row)) continue;
-      found = true;
-      if (STAMPED.has(table)) row.updated_at = stamp;
-      pending[table].upserts.set(x.id, row);
-      pending[table].deletes.delete(x.id);
+  const changed = (x: T, old: T | undefined) => {
+    const row = toRow(x);
+    // A new copy of the same thing (reloaded from storage…): nothing to send.
+    if (old && sameRow(toRow(old), row)) return;
+    found = true;
+    if (STAMPED.has(table)) row.updated_at = stamp;
+    pending[table].upserts.set(x.id, row);
+    pending[table].deletes.delete(x.id);
+  };
+  let aligned = cur.length === prev.length;
+  for (let i = 0; aligned && i < cur.length; i++) if (cur[i] !== prev[i] && cur[i].id !== prev[i].id) aligned = false;
+  if (aligned) {
+    for (let i = 0; i < cur.length; i++) if (cur[i] !== prev[i]) changed(cur[i], prev[i]);
+  } else {
+    const before = new Map(prev.map(x => [x.id, x]));
+    const now = new Set<string>();
+    for (const x of cur) {
+      now.add(x.id);
+      const old = before.get(x.id);
+      if (old !== x) changed(x, old);
     }
-  }
-  for (const id of before.keys()) {
-    if (!now.has(id)) {
-      found = true;
-      pending[table].upserts.delete(id);
-      pending[table].deletes.add(id);
+    for (const id of before.keys()) {
+      if (!now.has(id)) {
+        found = true;
+        pending[table].upserts.delete(id);
+        pending[table].deletes.add(id);
+      }
     }
   }
   if (!found) return;
@@ -832,19 +864,23 @@ export function startSync(userId: string) {
     }),
   ];
   const onLeave = () => {
+    writeQueue();
     if (hasPending()) void flush();
   };
+  const onHide = () => document.visibilityState === 'hidden' && writeQueue();
   window.addEventListener('pagehide', onLeave);
   // Changes made on another device: fetched when coming back to the tab or the window, when the
   // network returns, and every 2 minutes for a window left open (a visible tab never "comes back").
   const onBack = () => void refresh();
   document.addEventListener('visibilitychange', onBack);
+  document.addEventListener('visibilitychange', onHide);
   window.addEventListener('focus', onBack);
   window.addEventListener('online', onBack);
   const timer = setInterval(onBack, 120_000);
   unsubscribers.push(
     () => window.removeEventListener('pagehide', onLeave),
     () => document.removeEventListener('visibilitychange', onBack),
+    () => document.removeEventListener('visibilitychange', onHide),
     () => window.removeEventListener('focus', onBack),
     () => window.removeEventListener('online', onBack),
     () => clearInterval(timer),
@@ -858,7 +894,7 @@ function detach() {
 
 export function stopSync() {
   detach();
-  saveQueue(); // keep unsent changes for the next visit
+  writeQueue(); // keep unsent changes for the next visit
   adopted = [];
   currentUser = null;
   clearTimeout(flushTimer);
