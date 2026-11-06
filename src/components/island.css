@@ -177,7 +177,8 @@
   align-items: center;
   min-width: 0;
 }
-.isl-mini-text {
+.isl-mini > .isl-mini-text {
+  display: block;
   max-width: 148px;
   overflow: hidden;
   text-overflow: ellipsis;
