@@ -21,6 +21,7 @@ import { FieldError } from '../components/Field';
 import LanguagePicker from '../components/LanguagePicker';
 import { LEGAL_LINKS } from './legal/links';
 import { t, tn } from '../i18n';
+import { cx } from '../lib/utils';
 
 /** After « Créer mon compte »: where the link went, how to get it again, and the way back to fix the address. */
 function CheckInbox({ email, busy, wait, info, error, onResend, onChange }: { email: string; busy: boolean; wait: number; info: string; error: string; onResend: () => void; onChange: () => void }) {
@@ -227,6 +228,8 @@ export default function AuthPage({ mode }: { mode: Mode }) {
 
   // What is wrong with a field ('' when nothing), with its current value or the one being typed.
   const values = { name, email, password, code, agreed, age: oldEnough };
+  // Sign-up: the button stays greyed until the conditions and the age are ticked.
+  const locked = isRegister && !(agreed && oldEnough);
   const check = (field: Field, v: string | boolean = values[field]): string => {
     const s = typeof v === 'string' ? v : '';
     if (field === 'name') return isRegister && s.trim().length < 2 ? (s.trim() ? t('Ton prénom doit contenir au moins 2 caractères.') : t('Entre ton prénom.')) : '';
@@ -593,10 +596,33 @@ export default function AuthPage({ mode }: { mode: Mode }) {
               </button>
             )}
 
-            <button type="submit" disabled={busy} className="btn-primary mt-6 w-full">
-              {busy && <Loader2 size={15} className="animate-spin" />}
-              {copy.submit}
-            </button>
+            {/* Sign-up: greyed until both boxes are ticked, with the reason on hover. Still a button (aria-disabled): a press
+                shows what is missing under the boxes and takes the focus there. */}
+            <div className="group relative mt-6">
+              <button
+                type="submit"
+                disabled={busy}
+                aria-disabled={locked || undefined}
+                aria-describedby={locked ? 'auth-locked' : undefined}
+                className={cx('btn-primary w-full transition-opacity', locked && 'cursor-not-allowed opacity-40')}
+              >
+                {busy && <Loader2 size={15} className="animate-spin" />}
+                {copy.submit}
+              </button>
+              {locked && (
+                <span
+                  id="auth-locked"
+                  role="tooltip"
+                  className="pointer-events-none absolute left-1/2 top-full z-10 mt-2 w-max max-w-[300px] -translate-x-1/2 rounded-lg bg-ink px-3 py-1.5 text-center text-[12px] text-paper opacity-0 shadow-pop transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                >
+                  {!agreed && !oldEnough
+                    ? t('Coche les deux cases ci-dessus pour créer ton compte.')
+                    : !agreed
+                      ? t('Accepte les conditions d’utilisation pour continuer.')
+                      : t('Confirme que tu as 15\u00a0ans ou plus, ou l’accord d’un parent.')}
+                </span>
+              )}
+            </div>
 
             <p className="mt-6 text-center text-[13px] text-stone-500">
               {mode === 'login' ? t('Pas encore de compte ?') : mode === 'register' ? t('Déjà un compte ?') : null}{' '}
