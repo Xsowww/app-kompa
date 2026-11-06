@@ -20,6 +20,8 @@ import PasswordInput from '../components/PasswordInput';
 import { FieldError } from '../components/Field';
 import LanguagePicker from '../components/LanguagePicker';
 import { LEGAL_LINKS } from './legal/links';
+import { workWeek } from './landingDemo';
+import InviteNote from './groups/InviteNote';
 import { t, tn } from '../i18n';
 import { cx } from '../lib/utils';
 
@@ -68,13 +70,12 @@ function CheckInbox({ email, busy, wait, info, error, onResend, onChange }: { em
 }
 
 function Showcase() {
-  const days = [
-    { d: t('Lun'), n: 13 },
-    { d: t('Mar'), n: 14, dot: '#3b6fd8' },
-    { d: t('Mer'), n: 15, dot: '#d48a17' },
-    { d: t('Jeu'), n: 16, active: true },
-    { d: t('Ven'), n: 17, dot: '#d9483b' },
-  ];
+  // This week, from today (landingDemo › workWeek): never dates that don't match their day.
+  const week = workWeek(new Date());
+  const names = [t('Lun'), t('Mar'), t('Mer'), t('Jeu'), t('Ven')];
+  const dots = [undefined, '#3b6fd8', '#d48a17', undefined, '#d9483b'];
+  const active = Math.max(0, week.today);
+  const days = week.days.map((k, i) => ({ d: names[i], n: Number(k.slice(8)), active: i === active, dot: i === active ? undefined : dots[i] }));
   return (
     <div className="relative flex h-full flex-col justify-center overflow-hidden px-14">
       <div className="max-w-[440px]">
@@ -87,7 +88,7 @@ function Showcase() {
       {/* Product preview */}
       <div className="mt-10 grid max-w-[460px] grid-cols-5 gap-3">
         <div className="card col-span-3 p-4">
-          <p className="eyebrow">{t('Cette semaine')}</p>
+          <p className="eyebrow">{week.today < 0 ? t('Semaine prochaine') : t('Cette semaine')}</p>
           <div className="mt-3 grid grid-cols-5 gap-1.5 text-center">
             {days.map(x => (
               <div key={x.n} className={x.active ? 'rounded-xl bg-tile-blue py-1.5 text-white' : 'py-1.5'}>
@@ -451,6 +452,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
             <h1 className="text-[30px] font-extrabold tracking-[-0.035em]">{adding ? t('Ajouter un compte') : copy.title}</h1>
             {(adding || copy.subtitle) && <p className="mt-1 text-[13px] text-stone-500">{adding ? t('Tu passeras de l’un à l’autre en un clic.') : copy.subtitle}</p>}
             {isRegister && <p className="mt-1 min-h-[1.5em] text-[13px] text-stone-500">{needsEmail === true ? t('Gratuit. Tu reçois un e-mail pour confirmer ton adresse.') : needsEmail === false || !cloudEnabled ? t('Gratuit. Tu entres tout de suite dans Kompaly.') : t('Gratuit, rien ne te sera facturé.')}</p>}
+            {(isRegister || mode === 'login') && !adding && <InviteNote register={isRegister} />}
 
             {mode === 'login' && hasSaved && (
               <section aria-labelledby="comptes-appareil" className="mt-6">

@@ -104,8 +104,12 @@ export function productSheet({ provider, env = {} } = {}) {
 
 /** Personality presets. `style` is added to the system prompt. */
 export const PERSONAS = {
+  neutre: {
+    label: 'Neutre',
+    style: `Personnalité : un assistant clair, poli et efficace. Tu vas droit au but, avec des phrases simples et un ton neutre et bienveillant. Pas de blagues ni de familiarités, peu de points d'exclamation. Face au stress ou à la fatigue, tu restes calme et rassurant.`,
+  },
   pote: {
-    label: 'Meilleur pote',
+    label: 'Pote',
     style: `Personnalité : le meilleur pote de l'utilisateur, un ami un peu plus organisé que lui. Tu parles naturellement, avec de l'humour : une vanne légère, une remarque taquine, une blague si on t'en demande une. Mais tu sais lire la situation : examen proche, stress, fatigue, découragement, sujet perso ou délicat → tu deviens sérieux, posé et bienveillant, sans blague.`,
   },
   coach: {
@@ -139,7 +143,7 @@ export function sanitizeNotes(raw, max = 600) {
 const clean = (s, max = 80) => String(s ?? '').replace(/[\r\n<>]+/g, ' ').trim().slice(0, max);
 
 function personaBlock(body) {
-  const persona = PERSONAS[body?.persona] ?? PERSONAS.pote;
+  const persona = PERSONAS[body?.persona] ?? PERSONAS.neutre;
   const notes = sanitizeNotes(body?.personaNotes);
   const userName = clean(body?.userName, 40) || "l'utilisateur";
   const parts = [persona.style, `L'utilisateur s'appelle ${userName}.`];
