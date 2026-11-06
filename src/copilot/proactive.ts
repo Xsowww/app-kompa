@@ -669,7 +669,10 @@ function greet() {
     const hour = new Date().getHours();
     const hello = hour >= 5 && hour < 18 ? t('Bonjour') : t('Bonsoir');
     useCopilot.getState().say({
-      text: computer
+      // Affichage Pro: no left bar; he speaks in the island at the top, which opens him.
+      text: computer && settings.pro
+        ? t('{hello} {name} ! Je suis Kompaly, ton assistant. Demande-moi d’ajouter un rendez-vous, de retrouver un fichier ou de t’organiser : clique sur ce message (ou Ctrl+J).', { hello, name })
+        : computer
         ? t('{hello} {name} ! Je suis Kompaly, ton assistant. Demande-moi d’ajouter un rendez-vous, de retrouver un fichier ou de t’organiser : clique sur « Demander à Kompaly » dans la barre de gauche (Ctrl+J).', { hello, name })
         : t('{hello} {name} ! Je suis Kompaly, ton assistant. Demande-moi d’ajouter un rendez-vous, de retrouver un fichier ou de t’organiser : touche « Kompaly » en haut de l’écran.', { hello, name }),
       mood: 'happy',

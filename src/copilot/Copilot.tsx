@@ -2,6 +2,8 @@ import { Fragment, memo, useEffect, useLayoutEffect, useRef, useState, type Comp
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowUp, ArrowUpRight, Check, Copy, Maximize2, Mic, Minimize2, RefreshCw, RotateCcw, Square, X } from 'lucide-react';
 import Character, { CopilotAvatar, type CopilotMood } from './Character';
+import KompalyMark from '../components/KompalyMark';
+import { sober } from '../lib/sober';
 import { toggleKompaly, useCopilot, type CopilotLink, type CopilotOffer } from '../store/copilot';
 import { useAuth } from '../store/auth';
 import { startTour } from '../store/tour';
@@ -138,7 +140,10 @@ export default function Copilot() {
     return () => window.removeEventListener('resize', onResize);
   }, []);
   const offsetY = Math.min(savedY, 1 - (screen.w >= 1024 ? 150 : 200) / screen.h);
-  const visible = useSettings(s => s.copilotVisible);
+  // Affichage Pro: no character and no bubble; what he says comes in the island at the top (components/Island), his
+  // panel opens from the menu and Ctrl+J.
+  const pro = useSettings(s => s.pro);
+  const visible = useSettings(s => s.copilotVisible) && !pro;
   const [wide, setWide] = useState(false);
   const [providerInfo, setProviderInfo] = useState('');
   const [providerLabel, setProviderLabel] = useState('');
@@ -264,7 +269,7 @@ export default function Copilot() {
   // Phones and tablets: a remark covers the page (Drive files, the month, « À venir »). It goes after a few
   // seconds, or at the first touch, scroll or key in the page (not on the bubble or on Kompaly himself).
   useEffect(() => {
-    if (!bubble || pose === 'open' || !matchMedia(NARROW).matches) return;
+    if (!bubble || pose === 'open' || !visible || !matchMedia(NARROW).matches) return;
     // A little longer with a button to tap (« Ouvrir le calendrier »).
     const gone = setTimeout(clearBubble, bubble.offers?.length ? 8000 : 6000);
     const onGesture = (e: Event) => {
@@ -278,7 +283,7 @@ export default function Copilot() {
       clearTimeout(listen);
       events.forEach(type => window.removeEventListener(type, onGesture, { capture: true }));
     };
-  }, [bubble, pose, clearBubble]);
+  }, [bubble, pose, visible, clearBubble]);
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: scrollMotion() });
@@ -320,7 +325,8 @@ export default function Copilot() {
       window.removeEventListener('resize', place);
       window.removeEventListener('uploads-room', place);
     };
-  }, [offsetY, wide, visible]);
+    // `pose`: without the character (hidden, or Affichage Pro) the panel only exists once opened: measured then.
+  }, [offsetY, wide, visible, pose]);
 
   useEffect(() => {
     if (pose !== 'open') return;
@@ -444,6 +450,8 @@ export default function Copilot() {
     setThinking(false);
     push('bot', reply.text, { links: reply.links, offers: reply.offers, retry: reply.retry });
     speak(reply.text);
+    // Affichage Pro: his panel was closed meanwhile, the answer comes in the island.
+    if (useSettings.getState().pro && useCopilot.getState().pose !== 'open') useCopilot.getState().show({ text: reply.text, links: reply.links, offers: reply.offers });
   }
 
   const retry = (id: string, question: string) => {
@@ -583,9 +591,15 @@ export default function Copilot() {
         >
           {/* Not a <header>: a banner landmark inside a dialog confuses the page's landmarks. */}
           <div className="flex items-center gap-2.5 border-b border-stone-100 px-3.5 py-2.5">
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-stone-100">
-              <CopilotAvatar size={24} />
-            </span>
+            {pro ? (
+              <span className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-[#1c1c1f] text-white ring-1 ring-white/10">
+                <KompalyMark size={20} />
+              </span>
+            ) : (
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-stone-100">
+                <CopilotAvatar size={24} />
+              </span>
+            )}
             <div className="min-w-0 flex-1">
               <p className="w-fit text-[13px] font-semibold leading-tight" title={providerInfo}>
                 Kompaly
@@ -618,7 +632,7 @@ export default function Copilot() {
                         m.role === 'user' ? 'whitespace-pre-line rounded-br-md bg-inverse text-on-inverse' : 'rounded-bl-md bg-stone-100 text-stone-800',
                       )}
                     >
-                      {m.role === 'user' ? m.text : <Markdown text={m.text} />}
+                      {m.role === 'user' ? m.text : <Markdown text={pro ? sober(m.text) : m.text} />}
                       {m.role === 'bot' && <Extras links={m.links} offers={m.offers} onGo={go} onOffer={onOffer} disabled={m !== lastBot} />}
                       {m.role === 'bot' && m.retry && m === last && !thinking && (
                         <button type="button" onClick={() => retry(m.id, m.retry!)} className="mt-2 inline-flex h-7 items-center gap-1.5 rounded-md border border-stone-200 bg-surface px-2.5 text-[12px] font-medium text-stone-700 hover:bg-stone-50 pointer-coarse:h-9" tabIndex={isOpen ? 0 : -1}>
@@ -723,7 +737,7 @@ export default function Copilot() {
 
         {/* Spontaneous remarks are read out even though the bubble only appears visually. */}
         <div role="status" aria-live="polite" className="sr-only">
-          {bubble && !isOpen ? bubble.text : ''}
+          {bubble && !isOpen && visible ? bubble.text : ''}
         </div>
 
         {/* Spontaneous remark (on computers, moved off the cards it would hide: see above). */}
@@ -800,6 +814,9 @@ export default function Copilot() {
 export function KompalyEntry({ phone, compact }: { phone?: boolean; compact?: boolean }) {
   const open = useCopilot(s => s.pose === 'open');
   const unread = useCopilot(s => s.unread);
+  // Affichage Pro: the sober mark (two dots), no drone's face.
+  const pro = useSettings(s => s.pro);
+  const avatar = pro ? <KompalyMark size={24} className="shrink-0" /> : <CopilotAvatar size={26} />;
   const label = unread ? t('Demander à Kompaly (nouveau message)') : t('Demander à Kompaly');
   if (phone)
     return (
@@ -812,7 +829,7 @@ export function KompalyEntry({ phone, compact }: { phone?: boolean; compact?: bo
         title={t('Demander à Kompaly')}
         aria-label={label}
       >
-        <CopilotAvatar size={26} />
+        {avatar}
         <span className={compact ? 'max-[399px]:hidden' : 'max-[359px]:hidden'} aria-hidden>
           {t('Kompaly')}
         </span>
@@ -832,7 +849,7 @@ export function KompalyEntry({ phone, compact }: { phone?: boolean; compact?: bo
       className="mb-2 flex h-11 items-center gap-2.5 rounded-lg bg-brand-50 px-2 text-left text-[14px] font-semibold text-ink transition-colors hover:bg-brand-100"
     >
       <span className="relative flex w-[22px] justify-center">
-        <CopilotAvatar size={26} />
+        {avatar}
         {unread && <span aria-hidden className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-red-500 ring-2 ring-surface" />}
       </span>
       <span className="min-w-0 truncate">{t('Demander à Kompaly')}</span>

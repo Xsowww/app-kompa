@@ -8,6 +8,8 @@ export interface Toast {
   tone: 'info' | 'success' | 'error';
   /** Optional button in the toast, e.g. « Annuler ». */
   action?: ToastAction;
+  /** Stays until closed (`duration: 0`): « Nouvelle version disponible ». */
+  sticky?: boolean;
 }
 
 export interface ToastAction {
@@ -66,6 +68,12 @@ const stopTimer = (id: string) => {
 
 interface UiState {
   toasts: Toast[];
+  /**
+   * Affichage Pro: the island at the top of the screen shows the toasts, one after the other (components/Island). A
+   * toast's countdown then starts when it comes into view, not when it is made.
+   */
+  island: boolean;
+  setIsland: (on: boolean) => void;
   alerts: ReminderAlert[];
   /** Reports and feedback still to handle (admins only): the badge on « Administration ». */
   adminPending: number;
@@ -82,21 +90,38 @@ interface UiState {
 
 export const useUi = create<UiState>((set, get) => ({
   toasts: [],
+  island: false,
   alerts: [],
   adminPending: 0,
   dialog: null,
   toast(text, tone = 'info', action, options = {}) {
-    const t: Toast = { id: uid(), text, tone, action };
+    const duration = options.duration ?? toastDuration(tone, action);
+    const t: Toast = { id: uid(), text, tone, action, ...(duration <= 0 && { sticky: true }) };
     // A success makes an earlier error out of date (retried and done): it isn't left on screen beside it.
     // The same message again (a button pressed twice…): one toast, the new one, not two alike stacked.
     const gone = get().toasts.filter(x => (tone === 'success' && x.tone === 'error') || (x.text === text && x.tone === tone));
     gone.forEach(x => (stopTimer(x.id), timers.delete(x.id)));
+    // The island shows one at a time: the one in view makes way sooner for the next (an error stays readable).
+    const island = get().island;
+    const shown = island && duration > 0 ? get().toasts.find(x => !x.sticky && !gone.includes(x)) : undefined;
+    const c = shown && timers.get(shown.id);
+    if (shown && c) {
+      const running = !!c.timer;
+      stopTimer(shown.id);
+      c.left = Math.min(c.left, shown.tone === 'error' ? 3000 : 1600);
+      if (running) get().resumeToast(shown.id);
+    }
     set(s => ({ toasts: [...s.toasts.filter(x => !gone.includes(x)), t] }));
-    const duration = options.duration ?? toastDuration(tone, action);
     if (duration > 0) {
       timers.set(t.id, { left: duration, since: 0 });
-      get().resumeToast(t.id);
+      if (!island) get().resumeToast(t.id);
     }
+  },
+  setIsland(on) {
+    if (get().island === on) return;
+    set({ island: on });
+    // Back to the usual toasts: those waiting for their turn count down now.
+    if (!on) get().toasts.forEach(x => get().resumeToast(x.id));
   },
   dismissToast(id) {
     stopTimer(id);

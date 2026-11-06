@@ -66,6 +66,8 @@ interface CopilotState {
   push: (role: CopilotMessage['role'], text: string, extra?: Partial<Pick<CopilotMessage, 'links' | 'offers' | 'proactive' | 'brief' | 'retry'>>) => void;
   setPose: (pose: CopilotPose) => void;
   say: (bubble: Bubble) => void;
+  /** Shows a message already in the conversation (an answer that came while the panel was closed), unread. */
+  show: (bubble: Bubble) => void;
   clearBubble: () => void;
   setThinking: (v: boolean) => void;
   setAiEnabled: (v: boolean) => void;
@@ -110,6 +112,10 @@ export const useCopilot = create<CopilotState>()(
         // In the middle of a conversation, a suggestion with buttons would hijack the next « oui ».
         if (get().pose === 'open' && bubble.offers?.length) return;
         get().push('bot', bubble.text, { links: bubble.links, offers: bubble.offers, proactive: true, brief: bubble.brief });
+        get().show(bubble);
+      },
+
+      show(bubble) {
         if (get().pose === 'open') return;
         clearTimeout(bubbleTimer);
         set({ bubble, pose: 'peek', unread: true });
