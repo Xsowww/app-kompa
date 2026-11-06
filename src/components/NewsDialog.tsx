@@ -1,7 +1,8 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BellRing, CalendarRange, ChevronLeft, ChevronRight, FolderDown, Link2, Repeat, ScanText, Sparkles } from 'lucide-react';
+import { BellRing, CalendarRange, ChevronLeft, ChevronRight, FolderDown, Link2, Repeat, Megaphone, ScanText, Sparkles } from 'lucide-react';
 import { Modal } from './Overlays';
+import KompalyMark from './KompalyMark';
 import { DroneStill } from '../copilot/Character';
 import { RELEASES, useNews, type NewsIcon } from '../lib/news';
 import { useSettings } from '../store/settings';
@@ -20,10 +21,13 @@ const TINTS: Record<NewsIcon, string> = {
   zip: 'from-teal-500/25 to-teal-500/5 text-teal-600 dark:text-teal-300',
   drone: 'from-stone-500/25 to-stone-500/5 text-stone-600 dark:text-stone-300',
 };
+// Affichage Pro: the same colour per page, as one solid tile (themes.css › news-pro-tile).
+const PRO_TINTS: Record<NewsIcon, string> = { link: '#40c8e0', repeat: '#8e6cff', span: '#30d158', bell: '#f5a524', photo: '#ff5c8a', zip: '#2bb3a0', drone: '#3a3f52' };
 
 /** « Nouveautés » : one page per novelty, read in order; closing marks the release as seen on every device. */
 export default function NewsDialog() {
   const open = useNews(s => s.open);
+  const pro = useSettings(s => s.pro);
   const release = RELEASES.find(r => r.id === open);
   const [page, setPage] = useState(0);
   const navigate = useNavigate();
@@ -60,15 +64,25 @@ export default function NewsDialog() {
         className="touch-pan-y"
       >
         <p className="flex items-center gap-1.5 text-[12px] font-medium text-stone-500">
-          <Sparkles size={13} aria-hidden /> {t('Nouveautés du {day}', { day: fmtDay(fromKey(release.id), 'd MMMM') })}
+          {pro ? <Megaphone size={13} aria-hidden /> : <Sparkles size={13} aria-hidden />} {t('Nouveautés du {day}', { day: fmtDay(fromKey(release.id), 'd MMMM') })}
           <span className="tabular ml-auto">
             {page + 1} / {release.items.length}
           </span>
         </p>
         {/* A phone held sideways: a smaller picture, the whole page fits without scrolling. */}
+        {pro ? (
+          // Affichage Pro: a quiet glass panel, the novelty's icon on a tile of its colour (as « Plus » shows the spaces);
+          // Kompaly's own page has his mark, not the drone.
+          <div key={page} className="news-pro-pic enter mt-3" style={{ '--c': PRO_TINTS[item.icon] } as CSSProperties}>
+            <span className="news-pro-tile" aria-hidden>
+              {Icon ? <Icon size={34} strokeWidth={1.8} className="short:size-6" /> : <KompalyMark size={40} className="text-white short:size-7" />}
+            </span>
+          </div>
+        ) : (
         <div key={page} className={cx('enter mt-3 flex h-40 items-center justify-center rounded-2xl bg-gradient-to-br short:h-20', TINTS[item.icon])}>
           {Icon ? <Icon size={56} strokeWidth={1.6} aria-hidden className="short:size-9" /> : <DroneStill className="h-28 drop-shadow-[0_6px_10px_rgba(0,0,0,0.25)] short:h-16" />}
         </div>
+        )}
         <h3 className="mt-4 text-[18px] font-semibold tracking-[-0.01em] short:mt-3">{item.title}</h3>
         <p className="mt-1.5 min-h-[3.75rem] text-[14px] leading-relaxed text-stone-600 short:min-h-0">{item.text}</p>
 

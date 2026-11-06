@@ -1,20 +1,20 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutGrid, Settings2, Sparkles, X, type LucideIcon } from 'lucide-react';
+import { LayoutGrid, Megaphone, Settings2, Trash2, X, type LucideIcon } from 'lucide-react';
 import FocusTimer from '../components/FocusTimer';
 import Avatar from '../components/Avatar';
-import { CopilotAvatar } from '../copilot/Character';
+import KompalyMark from '../components/KompalyMark';
 import { toggleKompaly, useCopilot } from '../store/copilot';
 import { useRecorder } from '../store/recorder';
 import { useAuth } from '../store/auth';
-import { openNews } from '../lib/news';
+import { newsName, openNews } from '../lib/news';
 import { cx } from '../lib/utils';
 import { t } from '../i18n';
 import type { SpaceKey } from '../lib/navOrder';
 import { HOME, SPACES, type Space } from './spaces';
 import { useBubble, type BubbleAt } from './proMotion';
 
-/** What « Plus » holds besides the spaces (Administration, Corbeille). */
+/** What « Plus » holds besides the spaces (Administration; Corbeille too on phones outside Pro). */
 export type Extra = { to: string; label: string; aria: string; icon: LucideIcon; color: string; count: number; urgent?: boolean };
 
 /** Affichage Pro, computers: the spaces in the floating pill after « Accueil »; the others are under « Plus ». */
@@ -59,9 +59,10 @@ type Props = {
 
 /**
  * Affichage Pro on a computer: the side bar becomes a floating pill of icons at the left, vertically centred (the
- * mock-up « Kompaly Verre »): Accueil and the first spaces, Kompaly's head, and « Plus » for everything else the side
- * bar had (the other spaces, Nouveautés, Session focus, Corbeille, Administration, Profil). The name of each icon in a
- * bubble beside it on hover and keyboard focus; the white bubble slides under the page you are on.
+ * mock-up « Kompaly Verre »): Accueil and the first spaces, Kompaly's mark, and « Plus » for everything else the side
+ * bar had (the other spaces, Session focus, Administration, Profil); Nouveautés and Corbeille are at the top right,
+ * beside the search (ProTopActions). The name of each icon in a bubble beside it on hover and keyboard focus; the white
+ * bubble slides under the page you are on.
  */
 export function ProRail({ order, news, newsLabel, label, extra }: Props) {
   const { pathname } = useLocation();
@@ -77,7 +78,7 @@ export function ProRail({ order, news, newsLabel, label, extra }: Props) {
 
   const main: Space[] = [HOME, ...order.slice(0, PRO_RAIL).map(k => SPACES[k])];
   const others = order.slice(PRO_RAIL).map(k => SPACES[k]);
-  // In « Plus »: the page you are on is one of its spaces, Profil, Corbeille or Administration.
+  // In « Plus »: the page you are on is one of its spaces, Profil or Administration.
   const here = others.find(n => isIn(pathname, n.to)) ?? extra.find(n => isIn(pathname, n.to));
   const inMore: { icon: LucideIcon; color?: string; name: string } | null = here
     ? { icon: here.icon, color: here.color, name: label(here) }
@@ -173,8 +174,7 @@ export function ProRail({ order, news, newsLabel, label, extra }: Props) {
           aria-controls="copilot-panel"
           aria-label={unread ? t('Demander à Kompaly (nouveau message)') : t('Demander à Kompaly')}
         >
-          <CopilotAvatar size={32} />
-          {unread && <Mark tone="dot" />}
+          <KompalyMark size={26} alert={unread} />
           <span className="pro-tip" aria-hidden>
             {t('Kompaly')}
           </span>
@@ -219,23 +219,77 @@ export function ProRail({ order, news, newsLabel, label, extra }: Props) {
             <Settings2 size={16} className="text-stone-500" aria-hidden />
           </NavLink>
         )}
-        {(others.length > 0 || extra.some(e => e.to !== '/corbeille')) && <span className="pro-more-sep" aria-hidden />}
+        {(others.length > 0 || extra.length > 0) && <span className="pro-more-sep" aria-hidden />}
         {others.map(n => {
           const count = news(n.to);
           return row(n.to, n.icon, n.color, label(n), { to: n.to, aria: count ? newsLabel(n.to) : undefined, end: count > 0 && <span className="pro-pill-count tabular" aria-hidden>{count > 9 ? '9+' : count}</span> });
         })}
-        {extra
-          .filter(e => e.to !== '/corbeille')
-          .map(e => row(e.to, e.icon, e.color, e.label, { to: e.to, aria: e.aria, end: e.count > 0 && <span className="pro-pill-count pro-pill-urgent tabular" aria-hidden>{e.count}</span> }))}
-        <span className="pro-more-sep" aria-hidden />
-        {row('news', Sparkles, '#ffb547', t('Nouveautés'), { onClick: () => (setOpen(false), openNews()) })}
-        {extra
-          .filter(e => e.to === '/corbeille')
-          .map(e => row(e.to, e.icon, '#9ba1b5', e.label, { to: e.to, aria: e.aria, end: e.count > 0 && <span className="pro-pill-count tabular" aria-hidden>{e.count > 99 ? '99+' : e.count}</span> }))}
+        {extra.map(e => row(e.to, e.icon, e.color, e.label, { to: e.to, aria: e.aria, end: e.count > 0 && <span className="pro-pill-count pro-pill-urgent tabular" aria-hidden>{e.count}</span> }))}
         <div className="pro-more-focus">
           <FocusTimer />
         </div>
       </div>
     </>
+  );
+}
+
+/** A count that never gets wider than its button. */
+const capped = (n: number, max: number) => (n > max ? `${max}+` : String(n));
+
+/**
+ * Affichage Pro on a computer: Nouveautés and Corbeille as two round glass buttons at the top right, between the search
+ * and the avatar (no longer in « Plus »). Nouveautés has a red number while the latest ones are unread, the bin a grey
+ * one, how many things it holds; their name in a bubble under them on hover and on keyboard focus.
+ */
+export function ProTopActions({ unread, trash, trashLabel }: { unread: number; trash: number; trashLabel: string }) {
+  return (
+    <div className="hidden shrink-0 items-center gap-2 lg:flex">
+      <button type="button" className="pro-hbtn" onClick={() => openNews()} aria-label={newsName(unread)}>
+        <Megaphone size={18} strokeWidth={1.9} aria-hidden />
+        {unread > 0 && (
+          <span aria-hidden className="pro-count tabular">
+            {capped(unread, 9)}
+          </span>
+        )}
+        <span className="pro-tip" aria-hidden>
+          {t('Nouveautés')}
+        </span>
+      </button>
+      <NavLink to="/corbeille" className="pro-hbtn" aria-label={trashLabel}>
+        <Trash2 size={18} strokeWidth={1.9} aria-hidden />
+        {trash > 0 && (
+          <span aria-hidden className="pro-count pro-count-muted tabular">
+            {capped(trash, 99)}
+          </span>
+        )}
+        <span className="pro-tip" aria-hidden>
+          {t('Corbeille')}
+        </span>
+      </NavLink>
+    </div>
+  );
+}
+
+/**
+ * Affichage Pro on phones and tablets: Kompaly in the top bar, his mark and his name in a glass capsule (not the drone's
+ * head), a red dot when he has written. His panel opens from it, as from the computer's pill.
+ */
+export function ProKompalyButton() {
+  const open = useCopilot(s => s.pose === 'open');
+  const unread = useCopilot(s => s.unread);
+  return (
+    <button
+      type="button"
+      onClick={() => toggleKompaly()}
+      aria-expanded={open}
+      aria-controls="copilot-panel"
+      aria-label={unread ? t('Demander à Kompaly (nouveau message)') : t('Demander à Kompaly')}
+      className="pro-kbtn lg:hidden"
+    >
+      <KompalyMark size={22} alert={unread} />
+      <span className="max-[359px]:hidden" aria-hidden>
+        {t('Kompaly')}
+      </span>
+    </button>
   );
 }
