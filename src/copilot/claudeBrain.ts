@@ -8,8 +8,13 @@ import { create } from 'zustand';
 import { fmt, todayKey } from '../lib/dates';
 import { lang, t } from '../i18n';
 import { useCopilot, type CopilotLink, type CopilotOffer } from '../store/copilot';
-import { useCalendar, CATEGORIES, CATEGORY_LABELS, guessCategory, type EventCategory } from '../store/calendar';
-import { normalize } from '../lib/utils';
+import { useCalendar, CATEGORIES, CATEGORY_LABELS, guessCategory, type CalendarEvent, type EventCategory } from '../store/calendar';
+import { normalize, uid } from '../lib/utils';
+import { eventReminders, reminderLabel } from '../lib/reminders';
+import { quietly } from '../lib/cloudSync';
+import { confirmSaved, type SavedTable } from './saveCheck';
+import * as shared from './sharedTools';
+import { useGroups } from '../store/groups';
 import type { Usage } from '../lib/usage';
 import { useTodos } from '../store/todos';
 import { useNotes } from '../store/notes';
@@ -35,11 +40,11 @@ import {
   searchNotes, listTodos, addTodo, completeTodo, startFocus, stopFocus, updateSettings, setReminders,
 } from './actions';
 import { REPEATS, type Repeat } from '../lib/repeat';
-import { offerLog, pendingChanges } from './offers';
+import { asyncOffers, offerLog, pendingChanges, runOffer } from './offers';
 import { deleteOffer, mergeOffers } from './offerMerge';
 import { readFileText } from './fileText';
 import type { BotReply } from './localBrain';
-import { aiPausedUntil, pauseAi } from './aiPause';
+import { aiPausedUntil, pauseAi, QUOTA_KEY, quotaFullUntil } from './aiPause';
 
 type Block = Anthropic.Beta.BetaContentBlock;
 type Param = Anthropic.Beta.BetaMessageParam;
@@ -57,7 +62,8 @@ export { aiPausedUntil } from './aiPause';
 /** Personality and preferences, sent with every request (the server builds the prompt). */
 function persona() {
   const { persona, personaNotes } = getSettings();
-  return { persona, personaNotes: personaNotes.slice(0, 600), lang };
+  // With a shared calendar or a group, the tools that work in them come too (server/copilotPrompt › toolsFor).
+  return { persona, personaNotes: personaNotes.slice(0, 600), lang, shared: useGroups.getState().groups.length > 0 };
 }
 
 /** Questions asked to the AI today, as the server counts them (the bar in Kompaly's panel). Kept for the day on this device. */
@@ -66,7 +72,6 @@ export interface AiQuota {
   max: number;
   day: string;
 }
-const QUOTA_KEY = 'kompaly-ai-quota';
 function storedQuota(): AiQuota | null {
   try {
     const q = JSON.parse(localStorage.getItem(QUOTA_KEY) ?? 'null') as AiQuota | null;
@@ -87,6 +92,8 @@ function keepQuota(q: unknown) {
   } catch {
     /* private mode: shown until the page closes */
   }
+  // The last question of the day answered: simple mode from now on, said by the header (aiPause) and the chat.
+  if (used >= max) pauseAi(Math.max(60, Math.round((quotaFullUntil() - Date.now()) / 1000)), 'mine');
 }
 
 /** `stop`: « Arrêter » pressed in the panel (the request is dropped, said as 'aborted', not as a timeout). */
@@ -169,7 +176,9 @@ const awaitingClick = (what: string) => ({
 // Once a file or a note has been read, its text could carry orders (« rename this file… ») the AI might follow.
 // From then on, changes to what already exists wait for a click too, like deletions. Adding stays direct.
 const READS = new Set(['read_file', 'read_note', 'search_notes', 'search_site']);
-const CHANGES = new Set(['update_event', 'append_to_note', 'rename_item', 'move_item', 'star_file', 'set_folder_color', 'restore_from_trash', 'complete_todo', 'update_settings', 'set_reminders']);
+const CHANGES = new Set(['update_event', 'append_to_note', 'rename_item', 'move_item', 'star_file', 'set_folder_color', 'restore_from_trash', 'complete_todo', 'update_settings', 'set_reminders', 'move_event']);
+/** Changes that go to a shared calendar's server (or move between calendars): run after the click, then read back. */
+const isSharedChange = (name: string, input: Record<string, unknown>) => name === 'move_event' || (name === 'update_event' && !!(str(input.agenda) || shared.groupOfEvent(str(input.event_id))));
 const hasReadContent = () => history.some(m => m.role === 'assistant' && Array.isArray(m.content) && m.content.some(b => b.type === 'tool_use' && READS.has(b.name)));
 
 /** The button for a change asked after a reading: what it does, in the student's words. */
@@ -182,12 +191,146 @@ function changeLabel(name: string, input: Record<string, unknown>): string {
   if (name === 'rename_item' && named) return t('Renommer « {name} » en « {to} »', { name: named, to: str(input.new_name) });
   if (name === 'move_item' && named) return t('Déplacer « {name} »', { name: named });
   if (name === 'update_event' && ev) return t('Modifier « {title} »', { title: ev.title });
+  if (name === 'move_event') return ev ? t('Déplacer « {title} » vers « {to} »', { title: ev.title, to: str(input.to) }) : t('Déplacer vers « {to} »', { to: str(input.to) });
   if (name === 'append_to_note' && note) return t('Ajouter du texte à « {title} »', { title: note.title });
   if (name === 'complete_todo' && todo) return t('Cocher « {title} »', { title: todo.title });
   if (name === 'set_reminders' && (ev || todo)) return t('Régler les rappels de « {title} »', { title: ev?.title ?? todo!.title });
   if (name === 'restore_from_trash') return t('Restaurer depuis la corbeille');
   if (name === 'update_settings') return t('Changer les réglages');
   return t('Oui, fais-le');
+}
+
+// ── Saved for real? ─────────────────────────────────────────────────────────
+/** What a tool wrote to the person's own space: checked on the server before the AI (or a button) says « done ». */
+interface Write {
+  table: SavedTable;
+  ids: string[];
+  /** The tool's result, completed with the check (« enregistre »). */
+  out?: Record<string, unknown>;
+}
+let writes: Write[] = [];
+const wrote = (table: SavedTable, ids: string[], out?: unknown) => {
+  const w: Write = { table, ids: ids.filter(Boolean), out: out && typeof out === 'object' ? (out as Record<string, unknown>) : undefined };
+  if (w.ids.length) writes.push(w);
+  return out;
+};
+
+/** Sends and reads back every write, table by table. Returns those the server refused, and whether it was offline. */
+async function verify(list: Write[]): Promise<{ refused: Write[]; offline: boolean }> {
+  const refused: Write[] = [];
+  let offline = false;
+  const tables = [...new Set(list.map(w => w.table))];
+  await Promise.all(
+    tables.map(async table => {
+      const mine = list.filter(w => w.table === table);
+      const check = await confirmSaved(table, [...new Set(mine.flatMap(w => w.ids))]);
+      for (const w of mine) {
+        const missing = check.missing?.filter(id => w.ids.includes(id)) ?? [];
+        if (check.ok || (!check.offline && !missing.length)) {
+          if (w.out) w.out.enregistre = true;
+        } else if (check.offline) {
+          offline = true;
+          if (w.out) w.out.hors_ligne = "pas de réseau : gardé sur cet appareil, envoyé dès que le réseau revient";
+        } else {
+          refused.push({ ...w, ids: missing });
+          if (w.out) w.out.enregistre = false;
+        }
+      }
+    }),
+  );
+  return { refused, offline };
+}
+
+/** « Réessayer l'enregistrement »: what the server refused is sent again (taken out quietly, put back: queued anew). */
+function requeue(table: SavedTable, ids: string[]) {
+  const set = new Set(ids);
+  if (table === 'events') {
+    const back = useCalendar.getState().events.filter(e => set.has(e.id));
+    quietly(() => useCalendar.setState(s => ({ events: s.events.filter(e => !set.has(e.id)) })));
+    useCalendar.setState(s => ({ events: [...s.events, ...back] }));
+  } else if (table === 'todos') {
+    const back = useTodos.getState().todos.filter(x => set.has(x.id));
+    quietly(() => useTodos.setState(s => ({ todos: s.todos.filter(x => !set.has(x.id)) })));
+    useTodos.setState(s => ({ todos: [...s.todos, ...back] }));
+  } else {
+    const back = useNotes.getState().notes.filter(n => set.has(n.id));
+    quietly(() => useNotes.setState(s => ({ notes: s.notes.filter(n => !set.has(n.id)) })));
+    useNotes.setState(s => ({ notes: [...s.notes, ...back] }));
+  }
+}
+
+const retrySave = (list: Write[]): CopilotOffer => ({
+  label: t('Réessayer l’enregistrement'),
+  kind: 'retry_save',
+  payload: { writes: JSON.stringify(list.map(({ table, ids }) => ({ table, ids }))) },
+});
+const NOT_SAVED = () => t('Pas enregistré en ligne : le serveur l’a refusé. Ça reste seulement sur cet appareil (tes autres appareils ne le verront pas).');
+
+asyncOffers.retry_save = async p => {
+  const list = JSON.parse(p.writes ?? '[]') as Write[];
+  for (const w of list) requeue(w.table, w.ids);
+  const { refused, offline } = await verify(list);
+  if (refused.length) return { text: t('Le serveur le refuse encore. Ça reste seulement sur cet appareil : réessaie plus tard, ou écris-nous si ça dure.'), offers: [retrySave(refused)] };
+  if (offline) return { text: t('Toujours pas de réseau : c’est gardé sur cet appareil et partira dès qu’il revient.') };
+  return { text: t('C’est enregistré en ligne.') };
+};
+
+/** A change confirmed with its button: done, then checked like the AI's own. */
+asyncOffers.confirm_change = async p => {
+  const before = writes.length;
+  const r = runOffer({ label: '', kind: 'confirm_change', payload: p });
+  const { refused } = await verify(writes.splice(before));
+  return refused.length ? { text: NOT_SAVED(), offers: [retrySave(refused)] } : r;
+};
+
+/** A change of a shared calendar confirmed with its button (after a reading): sent, read back. */
+asyncOffers.confirm_shared = async p => {
+  try {
+    const out = (await sharedChange(p.name ?? '', JSON.parse(p.input ?? '{}') as Record<string, unknown>, [])) as { message?: string };
+    return { text: out.message ?? t('C’est fait.') };
+  } catch (e) {
+    return { text: t('Ça n’a pas marché : {reason}', { reason: (e as Error).message }) };
+  }
+};
+
+/** What the personal calendar holds for an event, as the AI must say it (its reminders as they will ring). */
+function eventFacts(ev: CalendarEvent) {
+  const reminders = eventReminders(ev, getSettings().defaultReminders ?? []);
+  return {
+    id: ev.id,
+    created: describeEvent(ev),
+    agenda: 'agenda perso',
+    ...(ev.place && { lieu: ev.place }),
+    rappels: reminders.length ? reminders.map(n => reminderLabel(n, !!ev.start, ev.date, ev.start)) : 'aucun',
+  };
+}
+
+/** update_event, move_event on a shared calendar (or between calendars): the server answers, then it is read back. */
+async function sharedChange(name: string, input: Record<string, unknown>, links: CopilotLink[]): Promise<unknown> {
+  if (name === 'move_event') {
+    const res = await shared.moveTo(str(input.event_id), str(input.to), input.series === true);
+    const where = res.target ? `${res.target.kind === 'agenda' ? 'agenda partagé' : 'groupe'} « ${res.target.name} »` : 'agenda perso';
+    const first = res.first as { date: string; id: string; title: string };
+    if (res.target) links.push({ label: t('Voir « {name} »', { name: res.target.name }), to: res.target.kind === 'agenda' ? `/agendas?g=${res.target.id}&jour=${first.date}&evt=${first.id}` : `/groupes?g=${res.target.id}&onglet=revisions` });
+    else links.push({ label: t('Voir le jour'), to: linkToDay(first.date, first.id) });
+    return {
+      deplace: first.title,
+      vers: where,
+      occurrences: res.count,
+      enregistre: true,
+      message: t('« {title} » est maintenant dans {where}.', { title: first.title, where: res.target ? t('« {name} »', { name: res.target.name }) : t('ton agenda perso') }),
+    };
+  }
+  const groupId = str(input.agenda) ? (await shared.findAgenda(str(input.agenda)))?.id : shared.groupOfEvent(str(input.event_id));
+  if (!groupId) throw new Error('événement introuvable (list_events avec agenda)');
+  const out = await shared.updateShared(groupId, str(input.event_id), {
+    ...(str(input.title) && { title: str(input.title) }),
+    ...(str(input.date) && { date: str(input.date) }),
+    ...(str(input.start) && { start: str(input.start) }),
+    ...(str(input.end) && { end: str(input.end) }),
+    ...(typeof input.place === 'string' && { place: str(input.place) || null }),
+  });
+  return { updated: out, enregistre: true, message: t('C’est modifié dans « {name} ».', { name: out.agenda }) };
 }
 
 pendingChanges.apply = (name, input) => {
@@ -210,17 +353,19 @@ function change(name: string, input: Record<string, unknown>, links: CopilotLink
         date: str(input.date) || undefined,
         start: str(input.start) || undefined,
         end: str(input.end) || undefined,
+        place: typeof input.place === 'string' ? str(input.place) : undefined,
         important: typeof input.important === 'boolean' ? input.important : undefined,
       });
       if (!ev) throw new Error('événement introuvable');
       links.push({ label: t('Voir le jour'), to: linkToDay(ev.date, ev.id) });
-      return { updated: describeEvent(ev) };
+      const { created, ...facts } = eventFacts(ev);
+      return wrote('events', [ev.id], { updated: created, ...facts });
     }
     case 'append_to_note': {
       const n = appendToNote(str(input.note_id), typeof input.content === 'string' ? input.content : '');
       if (!n) throw new Error('note introuvable');
       links.push({ label: hitLabel('note', n.title), to: linkToNote(n.id) });
-      return { updated: n.title };
+      return wrote('notes', [n.id], { updated: n.title });
     }
     case 'rename_item': {
       const s = renameItem(str(input.id), str(input.new_name));
@@ -254,7 +399,7 @@ function change(name: string, input: Record<string, unknown>, links: CopilotLink
     case 'complete_todo': {
       const todo = completeTodo(str(input.todo_id), input.done !== false);
       if (!todo) throw new Error('tâche introuvable');
-      return { todo: todo.title, done: input.done !== false };
+      return wrote('todos', [todo.id], { todo: todo.title, done: input.done !== false });
     }
     case 'set_reminders': {
       const res = setReminders({
@@ -267,7 +412,8 @@ function change(name: string, input: Record<string, unknown>, links: CopilotLink
       });
       const ev = useCalendar.getState().events.find(e => e.id === str(input.event_id));
       links.push(ev ? { label: t('Voir le jour'), to: linkToDay(ev.date, ev.id) } : { label: t('Voir mes tâches'), to: `/taches?tache=${encodeURIComponent(str(input.todo_id))}` });
-      return res;
+      const ids = ev ? [ev.id, ...(input.series === true && ev.series ? useCalendar.getState().events.filter(e => e.series === ev.series && e.date > ev.date).map(e => e.id) : [])] : [str(input.todo_id)];
+      return wrote(ev ? 'events' : 'todos', ids, res);
     }
     case 'update_settings': {
       const changed = updateSettings({
@@ -287,6 +433,7 @@ function change(name: string, input: Record<string, unknown>, links: CopilotLink
 
 async function runTool(name: string, input: Record<string, unknown>, links: CopilotLink[], offers: CopilotOffer[]): Promise<unknown> {
   if ('_invalid_arguments' in input) throw new Error('arguments illisibles (JSON invalide), réessaie avec des arguments JSON valides');
+  if (isSharedChange(name, input)) return sharedChange(name, input, links);
   if (CHANGES.has(name)) return change(name, input, links);
   switch (name) {
     case 'search_site': {
@@ -321,19 +468,43 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
       return { ...a, today: ev(a.today), exams: ev(a.exams), nextDeadlines: ev(a.nextDeadlines) };
     }
     case 'list_events': {
+      if (str(input.agenda)) {
+        const g = await shared.findAgenda(str(input.agenda));
+        if (g) return shared.listShared(g, { from: str(input.from), to: str(input.to), title: str(input.title) });
+      }
       // By title (« tous mes Yoga »): every occurrence, whatever the date; else the dates given.
       const q = normalize(str(input.title));
       const list = q
         ? useCalendar.getState().events.filter(e => !e.deletedAt && normalize(e.title).includes(q) && (!str(input.from) || e.date >= str(input.from)) && (!str(input.to) || e.date <= str(input.to))).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 300)
         : eventsBetween(str(input.from), str(input.to));
-      return list.map(e => ({ id: e.id, title: e.title, date: e.date, start: e.start, end: e.end, category: e.category, done: e.done }));
+      // Only what is set (an empty field costs tokens at every step of the conversation).
+      return list.map(e => ({ id: e.id, title: e.title, date: e.date, ...(e.start && { start: e.start }), ...(e.end && { end: e.end }), category: e.category, ...(e.place && { place: e.place }), ...(e.series && { series: true }) }));
     }
     case 'add_event': {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(str(input.date)) || !str(input.title)) throw new Error('title et date (YYYY-MM-DD) requis');
       const picked = str(input.category) in CATEGORIES ? (str(input.category) as EventCategory) : undefined;
+      const repeatKey = REPEATS.some(r => r.key === str(input.repeat)) ? (str(input.repeat) as Repeat) : undefined;
+      // In a shared calendar or a group: written on its server, read back from it.
+      const agenda = str(input.agenda) ? await shared.findAgenda(str(input.agenda)) : null;
+      if (agenda) {
+        const res = await shared.addShared(agenda, {
+          title: str(input.title),
+          date: str(input.date),
+          start: str(input.start) || undefined,
+          end: str(input.end) || undefined,
+          place: str(input.place) || undefined,
+          category: picked,
+          endDate: str(input.end_date) || undefined,
+          repeat: repeatKey,
+          until: str(input.until) || undefined,
+        });
+        links.push({ label: t('Voir « {name} »', { name: agenda.name }), to: agenda.kind === 'agenda' ? `/agendas?g=${agenda.id}&jour=${res.first.date}&evt=${res.first.id}` : `/groupes?g=${agenda.id}&onglet=revisions` });
+        const facts = shared.describeShared(res.first, agenda);
+        return { created: `${facts.titre} — ${facts.quand}`, ...facts, enregistre: true, ...(res.count > 1 && (repeatKey ? { occurrences: res.count, last_one: res.last } : { last_day: res.last })) };
+      }
       // « perso » is the AI's default when unsure: a title that clearly says more (« Point d'équipe » → Réunion) wins.
       const guessed = guessCategory(str(input.title), !!str(input.start));
-      const repeat = REPEATS.some(r => r.key === str(input.repeat)) ? (str(input.repeat) as Repeat) : undefined;
+      const repeat = repeatKey;
       // Over several days (end_date) or repeated (repeat, until): one event a day or per time, linked (lib/repeat).
       const { first: ev, count, last } = addEvents({
         title: str(input.title),
@@ -342,12 +513,16 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
         end: str(input.end) || undefined,
         category: !picked || (picked === 'perso' && guessed !== 'perso') ? guessed : picked,
         important: input.important === true || undefined,
+        place: str(input.place) || undefined,
         endDate: str(input.end_date) || undefined,
         repeat,
         until: str(input.until) || undefined,
       });
       links.push({ label: t('Voir le jour'), to: linkToDay(ev.date, ev.id) });
-      return { created: describeEvent(ev), id: ev.id, ...(count > 1 && (repeat ? { occurrences: count, last_one: last } : { last_day: last })) };
+      // Read back from the store: what is really there (title, day, place, reminders), then checked on the server.
+      const saved = useCalendar.getState().events.find(e => e.id === ev.id) ?? ev;
+      const ids = ev.series ? useCalendar.getState().events.filter(e => e.series === ev.series).map(e => e.id) : [ev.id];
+      return wrote('events', ids, { ...eventFacts(saved), ...(count > 1 && (repeat ? { occurrences: count, last_one: last } : { last_day: last })) });
     }
     case 'delete_event': {
       // One call for several (event_ids): one button « Supprimer les N événements » (offerMerge also groups separate calls).
@@ -368,17 +543,18 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
       const res = planRevisions(exam.id, typeof input.sessions === 'number' ? input.sessions : 3)!;
       if (res.created.length) links.push({ label: t('Voir le planning'), to: linkToDay(res.created[0].date) });
       if (res.note) links.push({ label: openNoteLabel(), to: linkToNote(res.note.id) });
-      return {
+      if (res.note) wrote('notes', [res.note.id]);
+      return wrote('events', res.created.map(e => e.id), {
         exam: describeEvent(exam),
         sessions: res.created.map(describeEvent),
         note: res.note?.title,
         ...(res.created.length ? {} : { warning: "aucune séance créée : l'examen est passé ou trop proche" }),
-      };
+      });
     }
     case 'create_note': {
       const n = createNote(str(input.title) || 'Note', typeof input.content === 'string' ? input.content : '', str(input.folder) || undefined);
       links.push({ label: hitLabel('note', n.title), to: linkToNote(n.id) });
-      return { created: n.title, id: n.id };
+      return wrote('notes', [n.id], { created: n.title, id: n.id });
     }
     case 'create_folder': {
       if (input.space === 'notes') {
@@ -412,7 +588,15 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
     case 'add_todo': {
       if (!str(input.title)) throw new Error('title requis');
       const todo = addTodo(str(input.title), str(input.due) || undefined, str(input.time) || undefined, str(input.repeat) || undefined);
-      return { created: todo.title, id: todo.id, due: todo.due, ...(todo.time && { time: todo.time }), ...(todo.repeat && { repeat: todo.repeat }) };
+      const reminders = todo.due ? (todo.reminders ?? []) : [];
+      return wrote('todos', [todo.id], {
+        created: todo.title,
+        id: todo.id,
+        due: todo.due,
+        ...(todo.time && { time: todo.time }),
+        ...(todo.repeat && { repeat: todo.repeat }),
+        rappels: reminders.length ? reminders.map(n => reminderLabel(n, !!todo.time, todo.due, todo.time)) : 'aucun',
+      });
     }
     case 'delete_todo': {
       const wanted = [...ids(input.todo_ids), ...(str(input.todo_id) ? [str(input.todo_id)] : [])];
@@ -420,6 +604,28 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
       if (!found.length) throw new Error('tâche introuvable (il faut son id exact, voir list_todos)');
       offers.push(deleteOffer('todo', found.map(x => x.id), found.map(x => x.title)));
       return awaitingClick(found.map(x => x.title).join(' ; '));
+    }
+    case 'choose_agenda': {
+      const groups = (await shared.myGroups()).filter(g => g.kind === 'agenda' || g.kind === 'groupe');
+      if (!groups.length) return { result: "il n'a aucun agenda partagé ni groupe : ajoute dans son agenda perso sans redemander" };
+      const request = str(input.request) || t('Ajoute-le');
+      const choice = (label: string, name: string): CopilotOffer => ({ label, kind: 'ask', payload: { prompt: t('{request}, dans l’agenda « {name} ».', { request: request.replace(/[.!]+$/, ''), name }) } });
+      offers.push(choice(t('Mon agenda perso'), 'perso'), ...groups.slice(0, 6).map(g => choice(g.name, g.name)));
+      return { awaiting_choice: 'des boutons « Dans quel agenda ? » sont affichés', note: 'Rien n’est créé. Demande-lui en une phrase dans quel agenda le mettre, sans lister les agendas (les boutons le font).' };
+    }
+    case 'list_group_files': {
+      const { group, files } = await shared.groupFiles(str(input.group));
+      links.push({ label: t('Voir « {name} »', { name: group.name }), to: `/groupes?g=${group.id}&onglet=fichiers` });
+      return files.length ? files.slice(0, 100).map(f => ({ id: f.id, name: f.name, size: f.size })) : { result: `aucun fichier partagé dans « ${group.name} »` };
+    }
+    case 'read_group_file': {
+      const r = await shared.readGroupFile(str(input.group), str(input.file_id));
+      return 'error' in r ? r : r.res;
+    }
+    case 'share_note_to_group': {
+      const r = await shared.shareNote(str(input.note_id), str(input.group));
+      links.push({ label: t('Voir « {name} »', { name: r.group.name }), to: `/groupes?g=${r.group.id}&onglet=notes&note=${r.note.id}` });
+      return { shared: r.note.title, group: r.group.name, enregistre: true };
     }
     case 'start_focus':
       return { started: startFocus(str(input.subject)) };
@@ -460,8 +666,11 @@ function contextBlock(): string {
   if (needs.length) lines.push(`Ce dont il/elle a le plus besoin : ${needs.join(', ')}`);
   if (recentProactive.length) lines.push(`Tu lui as dit récemment, de toi-même : ${recentProactive.join(' ')}`);
   if (offerLog.length) lines.push(`Boutons utilisés depuis : ${offerLog.splice(0).join(' | ')}`);
+  const agendas = shared.agendasLine();
+  if (agendas) lines.push(agendas);
   if (history.length === 0) {
-    const earlier = msgs.slice(-9, -1).filter(m => !m.proactive);
+    // Not what was typed and answered in simple mode (on the device): it never leaves it, even later.
+    const earlier = msgs.slice(-9, -1).filter(m => !m.proactive && !m.local);
     if (earlier.length) lines.push(`Fin de votre conversation précédente : ${earlier.map(m => `${m.role === 'user' ? 'Lui' : 'Toi'}: ${m.text}`).join(' | ').slice(0, 1500)}`);
   }
   return `[Contexte]\n${lines.join('\n')}`;
@@ -481,9 +690,19 @@ export class PartlyDone extends Error {
   }
 }
 
+/** Read-only tools: several asked at once run together (the writes, one after the other, in order). */
+const READ_ONLY = new Set(['search_site', 'search_notes', 'get_overview', 'read_note', 'read_file', 'list_drive_folder', 'analyze_calendar', 'list_events', 'list_trash', 'list_todos', 'list_group_files', 'read_group_file']);
+
+/** Says it plainly when the server refused what the AI may have announced as done. */
+const SAYS_FAILED = /pas (?:été )?enregistr|n'?a pas (?:pu|été)|refus|échou|pas pu/i;
+
 export async function claudeReply(text: string, userName: string, stop?: AbortSignal): Promise<BotReply> {
   const links: CopilotLink[] = [];
   const offers: CopilotOffer[] = [];
+  // One id for the question and the steps after its tools: the server gives the question back if a step fails.
+  const turn = uid();
+  writes = [];
+  let refusedAll: Write[] = [];
   const starts = history.flatMap((m, i) => (m.role === 'user' && Array.isArray(m.content) && m.content.some(b => b.type === 'text') ? [i] : []));
   if (starts.length >= KEEP_QUESTIONS) history = history.slice(starts[starts.length - KEEP_QUESTIONS + 1]);
   const before = history.length;
@@ -491,7 +710,7 @@ export async function claudeReply(text: string, userName: string, stop?: AbortSi
   history.push({ role: 'user', content: [{ type: 'text', text: contextBlock() }, { type: 'text', text }] });
   try {
     for (let step = 0; step < 10; step++) {
-      const res = await post<{ content: Block[]; stop_reason: string }>('chat', { messages: history, userName, ...persona() }, undefined, stop);
+      const res = await post<{ content: Block[]; stop_reason: string }>('chat', { messages: history, userName, turn, ...persona() }, undefined, stop);
       history.push({ role: 'assistant', content: res.content as Anthropic.Beta.BetaContentBlockParam[] });
       if (res.stop_reason === 'refusal') return { text: t('Là je préfère ne pas m’aventurer. On parle d’autre chose ?') };
       if (res.stop_reason === 'pause_turn') continue;
@@ -504,33 +723,48 @@ export async function claudeReply(text: string, userName: string, stop?: AbortSi
           .join('\n')
           .trim();
         const unique = links.filter((l, i) => links.findIndex(x => x.to === l.to) === i).slice(0, 4);
-        if (answer) return { text: answer, links: unique, offers: mergeOffers(offers) };
+        // Refused by the server: said by the app itself if the AI didn't (never « ajouté » alone), with « Réessayer ».
+        if (refusedAll.length) offers.unshift(retrySave(refusedAll));
+        const honest = refusedAll.length && answer && !SAYS_FAILED.test(answer) ? `${answer}\n\n⚠️ ${NOT_SAVED()}` : answer;
+        if (answer) return { text: honest, links: unique, offers: mergeOffers(offers) };
         // An empty answer: say so honestly (« done » only when a tool did act), and keep a readable turn in the
         // history, or every next question would be refused for this empty message.
-        const said = offers.length ? t('Tu confirmes ?') : acted ? t('C’est fait.') : t('Je n’ai pas de réponse cette fois. Tu peux reformuler ?');
+        const said = refusedAll.length ? NOT_SAVED() : offers.length ? t('Tu confirmes ?') : acted ? t('C’est fait.') : t('Je n’ai pas de réponse cette fois. Tu peux reformuler ?');
         history[history.length - 1] = { role: 'assistant', content: [{ type: 'text', text: said }] };
         return { text: said, links: unique, offers: mergeOffers(offers) };
       }
-      const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];
-      for (const tu of toolUses) {
+      // Reads run together; writes one after the other, in the order asked. Nothing is said to the AI before the
+      // writes are read back from the server (verify): it describes what is saved, or says it isn't.
+      const gated = hasReadContent();
+      let chain: Promise<unknown> = Promise.resolve();
+      const outcomes = toolUses.map(tu => {
         const input = (tu.input ?? {}) as Record<string, unknown>;
-        if (CHANGES.has(tu.name) && hasReadContent()) {
-          offers.push({ label: changeLabel(tu.name, input), kind: 'confirm_change', payload: { name: tu.name, input: JSON.stringify(input) } });
-          results.push({ type: 'tool_result', tool_use_id: tu.id, content: JSON.stringify(awaitingClick(changeLabel(tu.name, input))) });
-          continue;
+        if (CHANGES.has(tu.name) && gated) {
+          offers.push({ label: changeLabel(tu.name, input), kind: isSharedChange(tu.name, input) ? 'confirm_shared' : 'confirm_change', payload: { name: tu.name, input: JSON.stringify(input) } });
+          return Promise.resolve({ out: awaitingClick(changeLabel(tu.name, input)) as unknown, error: null as string | null });
         }
         acted = true;
-        try {
-          const out = await runTool(tu.name, (tu.input ?? {}) as Record<string, unknown>, links, offers);
-          results.push({ type: 'tool_result', tool_use_id: tu.id, content: JSON.stringify(out) });
-        } catch (e) {
-          results.push({ type: 'tool_result', tool_use_id: tu.id, content: (e as Error).message, is_error: true });
-        }
-      }
+        const run = () => runTool(tu.name, input, links, offers).then(out => ({ out, error: null as string | null }), (e: unknown) => ({ out: null as unknown, error: (e as Error).message }));
+        if (READ_ONLY.has(tu.name)) return run();
+        const p = chain.then(run);
+        chain = p;
+        return p;
+      });
+      const done = await Promise.all(outcomes);
+      const { refused } = await verify(writes.splice(0));
+      refusedAll = [...refusedAll, ...refused];
+      const results: Anthropic.Beta.BetaToolResultBlockParam[] = toolUses.map((tu, i) => {
+        const { out, error } = done[i];
+        if (error !== null) return { type: 'tool_result', tool_use_id: tu.id, content: error, is_error: true };
+        if (refused.some(w => w.out === out))
+          return { type: 'tool_result', tool_use_id: tu.id, is_error: true, content: `PAS ENREGISTRÉ : le serveur l'a refusé, ça reste seulement sur cet appareil (ses autres appareils ne le verront pas). Dis-le-lui clairement, sans dire que c'est ajouté ou fait ; un bouton « Réessayer l'enregistrement » s'affiche. Ce qui avait été fait ici : ${JSON.stringify(out)}` };
+        return { type: 'tool_result', tool_use_id: tu.id, content: JSON.stringify(out) };
+      });
       history.push({ role: 'user', content: results });
       // Stopped while the tools ran: no next call (what they did stays done).
       if (stop?.aborted) throw new CopilotApiError('aborted');
     }
+    if (refusedAll.length) return { text: NOT_SAVED(), links, offers: mergeOffers([retrySave(refusedAll), ...offers]) };
     return { text: t('J’ai fait plusieurs choses, jette un œil.'), links, offers: mergeOffers(offers) };
   } catch (e) {
     history = history.slice(0, before); // keep the conversation valid for the next try

@@ -19,7 +19,7 @@ import type { CopilotLink } from '../store/copilot';
 import type { Group, GroupEvent, GroupNoteSummary } from '../lib/groups';
 import { getSettings, useSettings, applyAppearance, ACCENTS, type Settings, type AccentKey, type ThemeMode, type Chattiness } from '../store/settings';
 import { usageWords } from '../lib/usage';
-import { hasTwin, noteFor, noteTitle, notePrefix, pickExam, planTag, sessionPrefix, sessionsFor } from './revisionPlan';
+import { hasTwin, noteFor, noteTitle, notePrefix, pickExam, planTag, restDay, sessionPrefix, sessionsFor } from './revisionPlan';
 import { lang, t, tn } from '../i18n';
 
 // Studies: revision sessions and a revision sheet; work and personal life: time to prepare and a checklist.
@@ -200,7 +200,10 @@ export function analyzeCalendar() {
   const weekEnd = toKey(addDays(ws, 6));
   const week = eventsBetween(toKey(ws), weekEnd);
   const upcoming = eventsBetween(today, toKey(addDays(new Date(), 30)));
-  const exams = upcoming.filter(e => (studying() ? e.category === 'examen' : isBigEvent(e)));
+  // Exams a term ahead (test n°3: « partiels du 5 janvier », asked in November, were « not planned »), 12 at most.
+  const exams = eventsBetween(today, toKey(addDays(new Date(), 120)))
+    .filter(e => (studying() ? e.category === 'examen' : isBigEvent(e)))
+    .slice(0, 12);
   const todayEvents = eventsBetween(today, today);
 
   const perDay = new Map<string, number>();
@@ -270,12 +273,13 @@ export function createDriveFolder(name: string, parentName?: string) {
   return useDrive.getState().createFolder(name, parent?.id ?? null);
 }
 
-export function addEvent(input: { title: string; date: string; start?: string; end?: string; category?: EventCategory; important?: boolean }) {
+export function addEvent(input: { title: string; date: string; start?: string; end?: string; category?: EventCategory; important?: boolean; place?: string }) {
   return useCalendar.getState().add({
     title: input.title,
     date: input.date,
     start: input.start || undefined,
     end: input.end || undefined,
+    ...(input.place?.trim() && { place: input.place.trim() }),
     // The student's own category named in the title wins over the AI's pick among the built-in ones.
     category: customCategoryIn(input.title) ?? input.category ?? guessCategory(input.title, !!input.start),
     important: input.important || undefined,
@@ -300,6 +304,7 @@ export function addEvents(input: Parameters<typeof addEvent>[0] & { endDate?: st
     title: input.title,
     category: customCategoryIn(input.title) ?? input.category ?? guessCategory(input.title, !!input.start),
     important: input.important || undefined,
+    ...(input.place?.trim() && { place: input.place.trim() }),
   };
   const series = spanning ? `span-${uid()}` : uid();
   if (spanning) {
@@ -526,14 +531,15 @@ export function planRevisions(examId: string, sessions = getSettings().revisionS
   const today = new Date();
   const candidates: string[] = [];
   // Prefer J-1, J-3, J-5… then fill remaining days, never in the past.
-  const order = [1, 3, 5, 2, 4, 6, 7, 9, 11, 13];
+  const order = [1, 3, 5, 2, 4, 6, 7, 9, 11, 13, 8, 10, 12, 14];
   for (const d of order) {
     if (d < until || (d === until && until === 0)) {
       const key = toKey(addDays(fromKey(exam.date), -d));
-      if (key >= toKey(today)) candidates.push(key);
+      // Never a session on a public holiday nor on the evening of the 24th or the 31st of December.
+      if (key >= toKey(today) && !restDay(key)) candidates.push(key);
     }
   }
-  if (candidates.length === 0) candidates.push(todayKey());
+  if (candidates.length === 0 && !restDay(todayKey())) candidates.push(todayKey());
   const chosen = until < 0 ? [] : [...new Set(candidates)].slice(0, n).sort();
   const at = getSettings().revisionTime || '18:00';
   const created = chosen.flatMap(date => {
@@ -556,10 +562,12 @@ export function planRevisions(examId: string, sessions = getSettings().revisionS
   return { exam, created, note };
 }
 
-export function updateEvent(id: string, patch: { title?: string; date?: string; start?: string; end?: string; done?: boolean; important?: boolean }) {
+export function updateEvent(id: string, patch: { title?: string; date?: string; start?: string; end?: string; done?: boolean; important?: boolean; place?: string }) {
   const ev = useCalendar.getState().events.find(e => e.id === id);
   if (!ev) return null;
-  const clean = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined && v !== ''));
+  // An empty place clears it (« enlève le lieu »); the other fields keep their value when empty.
+  const clean: Partial<CalendarEvent> = Object.fromEntries(Object.entries(patch).filter(([k, v]) => v !== undefined && (v !== '' || k === 'place')));
+  if (clean.place === '') clean.place = undefined;
   useCalendar.getState().update(id, clean);
   return useCalendar.getState().events.find(e => e.id === id)!;
 }
