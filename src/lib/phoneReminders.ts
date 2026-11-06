@@ -71,7 +71,7 @@ export function freshReminder(items: { reminders?: number[]; createdAt?: string;
 /**
  * When « Ton rappel est enregistré » may open (test n°3: it came at bad moments): a reminder saved on this visit (not
  * one already there when the app opened, nor one arriving from another device), no other window, menu or Kompaly's
- * panel open, the person not typing, and no key pressed for 1.5 s.
+ * panel open, the person not typing, and no key pressed nor tap for 1.5 s (else not now: another time).
  */
 export function offerMomentOk(s: { typing: boolean; overlay: boolean; lastInput: number; newReminder: boolean }, now: number): boolean {
   return s.newReminder && !s.overlay && !s.typing && now - s.lastInput >= 1500;

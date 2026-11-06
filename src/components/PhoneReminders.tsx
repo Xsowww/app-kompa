@@ -211,6 +211,8 @@ export function FirstReminderOffer() {
     const onInput = () => (lastInput = Date.now());
     window.addEventListener('keydown', onInput, true);
     window.addEventListener('input', onInput, true);
+    // A tap too: someone already busy elsewhere (another view, another form) is not interrupted.
+    window.addEventListener('pointerdown', onInput, true);
     // `first`: the demo's sentence, made just before the app opened: after its toast (« Ton premier événement est prêt »).
     const check = (first?: boolean) => {
       if (wait || offered() || deviceState() === 'on') return;
@@ -255,6 +257,7 @@ export function FirstReminderOffer() {
       clearTimeout(wait);
       window.removeEventListener('keydown', onInput, true);
       window.removeEventListener('input', onInput, true);
+      window.removeEventListener('pointerdown', onInput, true);
     };
   }, [userId]);
 
