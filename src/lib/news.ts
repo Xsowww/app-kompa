@@ -3,7 +3,7 @@
 // To announce a release: add it at the top of RELEASES (a new id), its pages in the order they should be read.
 
 import { create } from 'zustand';
-import { t } from '../i18n';
+import { t, tn } from '../i18n';
 
 export type NewsIcon = 'repeat' | 'span' | 'link' | 'bell' | 'photo' | 'zip' | 'drone';
 
@@ -45,3 +45,6 @@ export const openNews = (id = latestRelease.id) => useNews.setState({ open: id }
 /** Shown by itself? Only to an account that existed before the release and hasn't seen it. */
 export const newsToShow = (seen: string, accountCreated: string | undefined) =>
   !!latestRelease && seen !== latestRelease.id && seen < latestRelease.id && !!accountCreated && accountCreated.slice(0, 10) < latestRelease.id;
+
+/** « Nouveautés, 7 à découvrir »: the name of a button that opens them, with how many are unread (Affichage Pro). */
+export const newsName = (unread: number) => (unread ? tn(unread, 'Nouveautés, {n} à découvrir', 'Nouveautés, {n} à découvrir') : t('Nouveautés'));

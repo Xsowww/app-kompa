@@ -3,12 +3,13 @@ import { SelectField, TimeField } from '../../components/Pickers';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   User, Palette, Sparkles, GraduationCap, Bell, Database, ShieldCheck, Camera, Check, Download, Upload, CalendarArrowUp, LogOut, Trash2, ChevronRight,
-  HardDrive, Smartphone, Keyboard, Briefcase, House, UserPlus, MessageSquareText, FolderDown, Compass, Mail,
+  HardDrive, Smartphone, Keyboard, Briefcase, House, UserPlus, MessageSquareText, FolderDown, Compass, Mail, Megaphone,
 } from 'lucide-react';
 import { startTour } from '../../store/tour';
 import { GESTURES, IS_MAC, MARKDOWN, SHORTCUTS, keyChips } from './shortcuts';
 import { openFeedback } from '../../lib/feedback';
 import { openNews } from '../../lib/news';
+import KompalyMark from '../../components/KompalyMark';
 import AccountList from '../../components/AccountList';
 import PasswordStrength from '../../components/PasswordStrength';
 import Field, { FieldError } from '../../components/Field';
@@ -204,7 +205,7 @@ function ProfileTab() {
         onClick={() => openNews()}
         className="card flex h-12 w-full items-center gap-3 px-4 text-left text-[14px] font-medium text-stone-700 transition-colors hover:bg-stone-50 lg:hidden"
       >
-        <Sparkles size={18} strokeWidth={1.9} className="text-stone-500" aria-hidden />
+        {createElement(settings.pro ? Megaphone : Sparkles, { size: 18, strokeWidth: 1.9, className: 'text-stone-500', 'aria-hidden': true })}
         <span className="flex-1">{t('Nouveautés')}</span>
         <ChevronRight size={16} className="text-stone-400" aria-hidden />
       </button>
@@ -1427,7 +1428,9 @@ export default function ProfilePage() {
   const usage = useSettings(s => s.usage);
   // The « Études » tab is « Travail » or « Organisation » for other usages, its icon too.
   const tabLabel = (key: TabKey) => (key === 'etudes' ? (WORDS[usage] ?? WORDS.etudes).profileTab : TABS.find(x => x.key === key)!.label);
-  const tabIcon = (key: TabKey) => (key === 'etudes' ? (USAGE_ICONS[usage] ?? GraduationCap) : TABS.find(x => x.key === key)!.icon);
+  // Affichage Pro: Kompaly's tab has his mark, not sparkles.
+  const pro = useSettings(s => s.pro);
+  const tabIcon = (key: TabKey) => (key === 'etudes' ? (USAGE_ICONS[usage] ?? GraduationCap) : pro && key === 'copilot' ? KompalyMark : TABS.find(x => x.key === key)!.icon);
 
   return (
     <div className="h-full overflow-y-auto px-4 pb-room md:px-8">

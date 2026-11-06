@@ -1,6 +1,6 @@
-import { Fragment, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { Fragment, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutGrid, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn, ListChecks, Trash2, ArrowLeftRight, UserRound, UserPlus, LogOut, Sparkles, X } from 'lucide-react';
+import { LayoutGrid, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn, ListChecks, Trash2, ArrowLeftRight, UserRound, UserPlus, LogOut, Megaphone, Sparkles, CornerDownLeft, X } from 'lucide-react';
 import { EmptyState } from '../components/EmptyState';
 import { FeedbackDialog } from '../components/FeedbackDialogs';
 import { confirmLogout, useAuth } from '../store/auth';
@@ -22,7 +22,7 @@ import { prefetchGroups, useGroups } from '../store/groups';
 import { startReminders } from '../lib/reminderScheduler';
 import { startFeedRefresh } from '../lib/icsFeeds';
 import NewsDialog from '../components/NewsDialog';
-import { newsToShow, openNews } from '../lib/news';
+import { latestRelease, newsName, newsToShow, openNews } from '../lib/news';
 import { useAgendaNews, totalAgendaNews, watchAgendaNews } from '../store/agendaNews';
 import { useUi } from '../store/ui';
 import { useGroupActivity, totalUnread } from '../store/groupActivity';
@@ -45,7 +45,7 @@ import { useGlobalShortcuts } from './shortcuts';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { watchAppBadge } from '../lib/appBadge';
 import { watchBackOnline } from '../lib/backOnline';
-import { Bubble, ProRail, type Extra } from './ProNav';
+import { Bubble, ProKompalyButton, ProRail, ProTopActions, type Extra } from './ProNav';
 import { useBubble, useProEntrance } from './proMotion';
 
 const SHARED: SpaceKey[] = ['groupes', 'agendas'];
@@ -284,7 +284,8 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
             </div>
           )}
           {hits.map((h, i) => {
-            const Icon = h === seeAll ? Search : HIT_ICON[h.type];
+            // Affichage Pro: a quick action is an arrow (Entrée), not sparkles.
+            const Icon = h === seeAll ? Search : pro && h.type === 'action' ? CornerDownLeft : HIT_ICON[h.type];
             // Empty field: « Récents », then « Raccourcis ».
             const heading = empty && (i === 0 && recent.length ? t('Récents') : i === recent.length ? t('Raccourcis') : null);
             return (
@@ -321,10 +322,40 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
   );
 }
 
-/** Other accounts of this device in one click, or a new one (see lib/accounts). `avatar`: phones' top bar, the avatar opens it (« Profil et réglages » first). */
-function AccountSwitch({ currentId, avatar, pro }: { currentId: string; avatar?: boolean; pro?: boolean }) {
+/** Affichage Pro, phones and tablets: a row of the avatar's menu with a count at its end (Nouveautés, Corbeille). */
+function CountRow({ icon, label, aria, count, urgent, onClick }: { icon: ReactNode; label: string; aria: string; count: number; urgent?: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      tabIndex={-1}
+      aria-label={aria}
+      onClick={onClick}
+      // As ContextMenu's own rows (components/Overlays).
+      className="flex h-8 w-full items-center gap-2.5 rounded-[10px] px-2 text-left text-[13px] text-stone-700 outline-none transition-colors hover:bg-stone-100 focus-visible:bg-stone-100 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus pointer-coarse:h-10"
+    >
+      <span className="flex w-4 justify-center text-stone-400 [&>svg]:h-[15px] [&>svg]:w-[15px]" aria-hidden>
+        {icon}
+      </span>
+      <span className="flex-1">{label}</span>
+      {count > 0 && (
+        <span aria-hidden className={cx('pro-menu-count tabular', urgent && 'pro-menu-count-urgent')}>
+          {count > 99 ? '99+' : count}
+        </span>
+      )}
+    </button>
+  );
+}
+
+/**
+ * Other accounts of this device in one click, or a new one (see lib/accounts). `avatar`: phones' top bar, the avatar opens
+ * it (« Profil et réglages » first). Affichage Pro: also on computers; on phones and tablets it also holds Nouveautés
+ * and Corbeille, with their counts (`news`, `trash`), and the avatar has a red dot while news are unread.
+ */
+function AccountSwitch({ currentId, avatar, pro, news = 0, trash = 0, trashLabel = '' }: { currentId: string; avatar?: boolean; pro?: boolean; news?: number; trash?: number; trashLabel?: string }) {
   const navigate = useNavigate();
-  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; narrow: boolean } | null>(null);
+  const dot = !!avatar && !!pro && news > 0;
   const others = menu ? savedAccounts().filter(a => a.id !== currentId) : [];
   const open = (a: SavedAccount) => {
     if (needsCredentials(a)) return void useAuth.getState().addAccount(a.email);
@@ -347,17 +378,19 @@ function AccountSwitch({ currentId, avatar, pro }: { currentId: string; avatar?:
       <button
         type="button"
         // Affichage Pro: also on a computer (no side bar there), at the end of the top right cluster.
-        className={avatar ? cx('hit inline-flex h-9 w-9 items-center justify-center rounded-full', pro ? 'pro-avatar' : 'lg:hidden') : 'icon-btn'}
+        className={avatar ? cx('hit inline-flex h-9 w-9 items-center justify-center rounded-full', pro ? 'pro-avatar relative shrink-0 lg:h-10 lg:w-10' : 'lg:hidden') : 'icon-btn'}
         title={avatar ? t('Profil et comptes') : t('Changer de compte')}
-        aria-label={avatar ? t('Profil et comptes') : t('Changer de compte')}
+        aria-label={avatar ? `${t('Profil et comptes')}${dot ? `, ${newsName(news)}` : ''}` : t('Changer de compte')}
         aria-haspopup="menu"
         data-tour={avatar ? 'profil' : undefined}
         onClick={e => {
           const r = e.currentTarget.getBoundingClientRect();
-          setMenu(avatar ? { x: r.right, y: r.bottom + 8 } : { x: r.left, y: r.top - 8 - 44 * (savedAccounts().filter(a => a.id !== currentId).length + 2) });
+          const narrow = !window.matchMedia('(min-width: 1024px)').matches;
+          setMenu(avatar ? { x: r.right, y: r.bottom + 8, narrow } : { x: r.left, y: r.top - 8 - 44 * (savedAccounts().filter(a => a.id !== currentId).length + 2), narrow });
         }}
       >
-        {avatar ? <Avatar size={30} /> : <ArrowLeftRight size={15} />}
+        {avatar ? <Avatar size={pro ? 34 : 30} /> : <ArrowLeftRight size={15} />}
+        {dot && <span aria-hidden className="pro-avatar-dot lg:hidden" />}
       </button>
       {menu && (
         <ContextMenu
@@ -367,6 +400,22 @@ function AccountSwitch({ currentId, avatar, pro }: { currentId: string; avatar?:
           onClose={() => setMenu(null)}
           items={[
             ...(avatar ? [{ label: t('Profil et réglages'), icon: <Settings2 size={15} />, onClick: () => navigate('/profil') }, { label: '', divider: true, onClick: () => {} }] : []),
+            // Affichage Pro, phones and tablets: Nouveautés and the bin (computers: beside the search).
+            ...(avatar && pro && menu.narrow
+              ? [
+                  {
+                    label: '',
+                    onClick: () => {},
+                    content: (
+                      <>
+                        <CountRow icon={<Megaphone />} label={t('Nouveautés')} aria={newsName(news)} count={news} urgent onClick={() => (setMenu(null), openNews())} />
+                        <CountRow icon={<Trash2 />} label={t('Corbeille')} aria={trashLabel} count={trash} onClick={() => (setMenu(null), navigate('/corbeille'))} />
+                      </>
+                    ),
+                  },
+                  { label: '', divider: true, onClick: () => {} },
+                ]
+              : []),
             ...others.map(a => ({ label: `${a.name || a.email} · ${a.email}${asks(a)}`, icon: <UserRound size={15} />, onClick: () => open(a) })),
             ...(others.length ? [{ label: '', divider: true, onClick: () => {} }] : []),
             { label: t('Ajouter un compte'), icon: <UserPlus size={15} />, onClick: () => void useAuth.getState().addAccount() },
@@ -473,11 +522,15 @@ export default function AppShell() {
   // Timetables followed by link: read again when due (lib/icsFeeds).
   useEffect(() => startFeedRefresh(), [user.id]);
   // « Nouveautés » once per account after a release (not to an account newer than it), a moment after the page is up.
+  // Affichage Pro: no window opening by itself; a red number on « Nouveautés » (and a dot on the avatar of phones) says
+  // there is something to read until it is opened.
   useEffect(() => {
-    if (!newsToShow(useSettings.getState().newsSeen, user.createdAt)) return;
+    if (useSettings.getState().pro || !newsToShow(useSettings.getState().newsSeen, user.createdAt)) return;
     const id = setTimeout(openNews, 1500);
     return () => clearTimeout(id);
   }, [user.id, user.createdAt]);
+  const newsSeen = useSettings(st => st.newsSeen);
+  const unreadNews = pro && newsToShow(newsSeen, user.createdAt) ? latestRelease.items.length : 0;
 
   // Nouveautés dans les groupes : pastilles + notifications (version en ligne).
   useEffect(() => {
@@ -534,7 +587,8 @@ export default function AppShell() {
   // What « Plus » holds besides the spaces (phones; Affichage Pro on a computer too).
   const extra: Extra[] = [
     ...(isAdmin ? [{ to: '/admin', label: t('Administration'), aria: adminLabel, icon: ChartNoAxesColumn, color: '#5e6470', count: adminPending, urgent: true }] : []),
-    { to: '/corbeille', label: t('Corbeille'), aria: trashLabel, icon: Trash2, color: '#78716c', count: trashCount },
+    // Affichage Pro: the bin is beside the search (computers) or in the avatar's menu (phones), not in « Plus ».
+    ...(pro ? [] : [{ to: '/corbeille', label: t('Corbeille'), aria: trashLabel, icon: Trash2, color: '#78716c', count: trashCount }]),
   ];
   // A space with news, as its icon says it (the pill and the phone's bar show only a number).
   const newsLabel = (to: string) =>
@@ -655,10 +709,11 @@ export default function AppShell() {
           <div className={pro ? 'pro-search hidden lg:block' : 'hidden flex-1 lg:block'}>
             <GlobalSearch />
           </div>
-          {/* Phones: a focus session running, and Kompaly when his character is hidden. */}
+          {pro && <ProTopActions unread={unreadNews} trash={trashCount} trashLabel={trashLabel} />}
+          {/* Phones: a focus session running, and Kompaly when his character is hidden (Affichage Pro: his mark, sober). */}
           <span className="ml-auto flex items-center gap-1 lg:hidden">
             <FocusPill />
-            <KompalyEntry phone compact={tight} />
+            {pro ? <ProKompalyButton /> : <KompalyEntry phone compact={tight} />}
           </span>
           <button
             ref={searchBtn}
@@ -679,7 +734,7 @@ export default function AppShell() {
             {trashCount > 0 && <span className="tabular absolute -right-0.5 -top-0.5 min-w-[16px] rounded-full bg-stone-500 px-1 text-center text-[10px] font-semibold leading-4 text-white" aria-hidden>{trashCount > 99 ? '99+' : trashCount}</span>}
           </NavLink>
           )}
-          <AccountSwitch currentId={user.id} avatar pro={pro} />
+          <AccountSwitch currentId={user.id} avatar pro={pro} news={unreadNews} trash={trashCount} trashLabel={trashLabel} />
         </header>
         <ServiceBanner inline />
         {searchOpen && (
