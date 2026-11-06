@@ -266,6 +266,12 @@ body {
 @utility text-fix-* {
   font-size: calc(--value(number) * 1px);
 }
+/* Long public pages: a block far below the screen is laid out and drawn only when it comes near (no change on
+   screen; the browser keeps its last size, `auto`, so the scroll bar doesn't jump). */
+@utility cv-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 900px;
+}
 @utility pb-room {
   padding-bottom: calc(9.5rem + env(safe-area-inset-bottom));
   @media (width >= 64rem) {

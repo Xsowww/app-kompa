@@ -625,7 +625,7 @@ function Usages({ chosen }: { chosen: Usage | null }) {
   }, [picked]);
 
   return (
-    <section ref={ref} id="usages" aria-labelledby="usages-title" className="mx-auto max-w-[1120px] px-5 py-20 md:px-8" onPointerDown={() => setPicked(true)} onFocus={() => setPicked(true)}>
+    <section ref={ref} id="usages" aria-labelledby="usages-title" className="cv-auto mx-auto max-w-[1120px] px-5 py-20 md:px-8" onPointerDown={() => setPicked(true)} onFocus={() => setPicked(true)}>
       <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,420px)_1fr]">
         <div className="min-w-0">
           <h2 id="usages-title" className="text-[30px] font-extrabold leading-[1.05] tracking-[-0.025em] md:text-[36px]">
@@ -918,12 +918,13 @@ export default function LandingPage() {
           </figure>
         </section>
 
-        <div className="border-y border-stone-200 bg-surface">
+        {/* cv-auto (index.css): the sections below the first screen are laid out and drawn only when they come near. */}
+        <div className="cv-auto border-y border-stone-200 bg-surface">
           <Assistant />
         </div>
 
         {/* What it does */}
-        <section id="fonctions" aria-labelledby="fonctions-title" className="mx-auto max-w-[1120px] px-5 py-20 md:px-8">
+        <section id="fonctions" aria-labelledby="fonctions-title" className="cv-auto mx-auto max-w-[1120px] px-5 py-20 md:px-8">
           <h2 id="fonctions-title" className="max-w-[22ch] text-[30px] font-extrabold leading-[1.05] tracking-[-0.025em] md:text-[36px]">
             {t('Ce que Kompaly fait pour toi.')}
           </h2>
@@ -977,7 +978,7 @@ export default function LandingPage() {
         </div>
 
         {/* Privacy */}
-        <section id="confiance" aria-labelledby="confiance-title" className="bg-ink text-paper">
+        <section id="confiance" aria-labelledby="confiance-title" className="cv-auto bg-ink text-paper">
           <div className="mx-auto grid max-w-[1120px] gap-10 px-5 py-20 md:px-8 lg:grid-cols-[minmax(0,420px)_1fr]">
             <div className="min-w-0">
               <h2 id="confiance-title" className="text-[30px] font-extrabold leading-[1.05] tracking-[-0.025em] md:text-[36px]">
@@ -1009,7 +1010,7 @@ export default function LandingPage() {
         </section>
 
         {/* FAQ */}
-        <section id="questions" aria-labelledby="questions-title" className="mx-auto max-w-[760px] px-5 py-20 md:px-8">
+        <section id="questions" aria-labelledby="questions-title" className="cv-auto mx-auto max-w-[760px] px-5 py-20 md:px-8">
           <h2 id="questions-title" className="text-[30px] font-extrabold leading-[1.05] tracking-[-0.025em] md:text-[36px]">
             {t('Questions fréquentes')}
           </h2>
@@ -1029,7 +1030,7 @@ export default function LandingPage() {
         </section>
 
         {/* Last call */}
-        <section className="mx-auto max-w-[1120px] px-5 pb-24 md:px-8">
+        <section className="cv-auto mx-auto max-w-[1120px] px-5 pb-24 md:px-8">
           <div className="flex flex-col items-start gap-6 rounded-3xl border border-stone-200 bg-surface p-7 sm:p-8 md:flex-row md:items-center md:p-12">
             <div className="min-w-0 flex-1">
               <h2 className="text-[26px] font-extrabold leading-tight tracking-[-0.03em] md:text-[30px]">{t('Range tout au même endroit, dès aujourd’hui.')}</h2>
@@ -1042,7 +1043,7 @@ export default function LandingPage() {
         </section>
       </main>
 
-      <footer className="border-t border-stone-200">
+      <footer className="cv-auto border-t border-stone-200">
         <div className="mx-auto flex max-w-[1120px] flex-wrap items-center gap-x-6 gap-y-3 px-5 py-8 text-[13px] text-stone-500 md:px-8">
           <Logo />
           <nav aria-label={t('Informations légales')} className="flex flex-wrap gap-x-4 gap-y-2 pointer-coarse:gap-y-0">

@@ -1,14 +1,13 @@
-import { Fragment, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import { Fragment, lazy, Suspense, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { LayoutGrid, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn, ListChecks, Trash2, ArrowLeftRight, UserRound, UserPlus, LogOut, Megaphone, Sparkles, CornerDownLeft, X } from 'lucide-react';
 import { EmptyState } from '../components/EmptyState';
 import { FeedbackDialog } from '../components/FeedbackDialogs';
 import { confirmLogout, useAuth } from '../store/auth';
 import { loadUserData } from '../store/session';
-import Copilot, { KompalyEntry } from '../copilot/Copilot';
+import { KompalyEntry } from '../components/KompalyEntry';
 import { FirstReminderOffer } from '../components/PhoneReminders';
 import Tour from '../components/Tour';
-import { startProactive } from '../copilot/proactive';
 import { HIT_LABEL, linkToDriveFile, registerNavigate, search, type SearchHit } from '../copilot/actions';
 import { recentHits, rememberHit, searchCommands, suggestions } from '../copilot/commands';
 import { useDrive } from '../store/drive';
@@ -48,6 +47,28 @@ import { watchAppBadge } from '../lib/appBadge';
 import { watchBackOnline } from '../lib/backOnline';
 import { Bubble, ProKompalyButton, ProRail, ProTopActions, type Extra } from './ProNav';
 import { useBubble, useProEntrance } from './proMotion';
+
+// Kompaly's conversation (the panel, the character at the edge, his simple mode): about 40 KB of code the page
+// itself doesn't need to appear. Asked once the page has been drawn, so it no longer delays the first screen;
+// « Demander à Kompaly » is there from the start (components/KompalyEntry) and opens it as soon as it is in.
+// Offline before it ever came: nothing rather than a broken page (it comes at the next start).
+const Copilot = lazy(() => import('../copilot/Copilot').catch(() => ({ default: () => null })));
+function LateCopilot() {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const frame = requestAnimationFrame(() => (timer = setTimeout(() => setOn(true))));
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(timer);
+    };
+  }, []);
+  return on ? (
+    <Suspense fallback={null}>
+      <Copilot />
+    </Suspense>
+  ) : null;
+}
 
 const SHARED: SpaceKey[] = ['groupes', 'agendas'];
 
@@ -510,7 +531,18 @@ export default function AppShell() {
   const [pendingInvite] = useState(() => keptInvitation());
   useEffect(() => void takeInvite(), []);
   useInvitations(pendingInvite);
-  useEffect(() => startProactive(), []);
+  // Kompaly's remarks: their code comes with the conversation's, once the page is on screen (LateCopilot).
+  useEffect(() => {
+    let stop: (() => void) | undefined;
+    let gone = false;
+    void import('../copilot/proactive').then(m => {
+      if (!gone) stop = m.startProactive();
+    }, () => {}); // offline before it came: at the next start
+    return () => {
+      gone = true;
+      stop?.();
+    };
+  }, []);
   // Shared spaces read in the background once the page is up: their pages open at once.
   useEffect(() => {
     if (!cloudEnabled) return;
@@ -783,7 +815,7 @@ export default function AppShell() {
         pro={pro}
       />
 
-      <Copilot />
+      <LateCopilot />
       <FirstReminderOffer />
       <Tour />
     </div>
