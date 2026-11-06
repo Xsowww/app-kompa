@@ -10,6 +10,9 @@
   gap: 14px;
   color: #fff;
 }
+.isl-day-ring .fi-ring-track {
+  opacity: 0.4;
+}
 .isl-day-ring {
   color: var(--pro-tasks, #ff375f);
 }
@@ -990,5 +993,15 @@ button.hub-tile:active {
   .isl-lights > i,
   .hub-dots i {
     animation: none;
+  }
+}
+
+/* Phones turned sideways: a panel that opens at the very top of the page (the calendar's filter) goes over the island,
+   which steps aside meanwhile. */
+@media (max-height: 500px) and (width < 64rem) {
+  body:has(.short\:top-3.pop) .isl-wrap {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 160ms ease;
   }
 }

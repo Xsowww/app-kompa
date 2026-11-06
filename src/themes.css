@@ -1015,3 +1015,13 @@
   border-radius: 26px;
   background-color: rgb(20 22 34 / 0.88);
 }
+/* The file preview (pages/drive/PreviewModal): the wallpaper's colours through a deep blur, its bar the same glass. */
+:root[data-pro] [aria-modal='true'].fixed.inset-0.flex-col {
+  background-color: rgb(6 8 16 / 0.6);
+  -webkit-backdrop-filter: blur(28px) saturate(150%);
+  backdrop-filter: blur(28px) saturate(150%);
+}
+:root[data-pro] [aria-modal='true'].fixed.inset-0.flex-col > header {
+  background-color: rgb(16 18 28 / 0.55);
+  box-shadow: inset 0 -1px 0 rgb(255 255 255 / 0.08);
+}
