@@ -23,7 +23,8 @@ let registration: Promise<ServiceWorkerRegistration | null> | null = null;
 /** The service worker, registered once (it only handles notifications, no offline cache). */
 export function serviceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (!('serviceWorker' in navigator)) return Promise.resolve(null);
-  registration ??= navigator.serviceWorker.register('/sw.js').catch(e => {
+  // updateViaCache 'none': a new sw.js (a fix) is seen at the next visit, never held back by the browser's cache.
+  registration ??= navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).catch(e => {
     console.warn('[notifications] service worker', e);
     return null;
   });

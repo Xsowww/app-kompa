@@ -16,16 +16,67 @@ self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', e =>
   e.waitUntil(
     (async () => {
-      for (const name of await caches.keys()) if (name.startsWith('kompaly-app-') && name !== APP) await caches.delete(name);
+      // Only the former versions of the app's files go (never the shared files waiting, nor the accounts' words).
+      for (const name of await caches.keys()) if (name.startsWith('kompaly-app-') && name !== APP) await caches.delete(name).catch(() => false);
+      // The page's request starts while this worker wakes up (a phone saves ~0,1 s at each opening).
+      await self.registration.navigationPreload?.enable().catch(() => undefined);
       await self.clients.claim();
     })(),
   ),
 );
 
-/** Kept when the answer is whole and ours (no error page, no redirect, no partial content). */
-async function keep(key, res) {
-  if (res.ok && res.status === 200 && res.type === 'basic') await (await caches.open(APP)).put(key, res.clone());
-  return res;
+/**
+ * Fit to keep: whole, ours, 200, and not reached through a redirect. A redirected answer given back to a page's
+ * opening is refused by the browser (« net::ERR_FAILED » on every page, test n°3): never kept, never served.
+ */
+const keepable = res => !!res && res.ok && res.status === 200 && res.type === 'basic' && !res.redirected;
+
+/** Kept when fit. A full or refused cache never breaks the answer. */
+const keep = (key, res) => (keepable(res) ? store(key, res) : Promise.resolve());
+/** Stores an answer already checked (a copy, made while the original goes to the page). */
+async function store(key, res) {
+  try {
+    await (await caches.open(APP)).put(key, res);
+  } catch {
+    /* cache full or refused: the page works, only not offline */
+  }
+}
+
+/** A copy kept by an older version may still carry its redirect: served as a plain answer. */
+const plain = res => (res && res.redirected ? new Response(res.body, { status: res.status, statusText: res.statusText, headers: res.headers }) : res);
+
+const fromCache = (key, opts) => caches.match(key, opts).then(plain, () => undefined);
+
+/** No network and no page kept: a page that says so, instead of the browser's error (or ERR_FAILED). */
+const offlinePage = () =>
+  new Response(
+    '<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kompaly · Pas de connexion</title>' +
+      '<body style="font:16px/1.5 system-ui,sans-serif;display:grid;place-items:center;min-height:90vh;margin:0;padding:1rem;text-align:center;color:#1c1917;background:#faf8f5">' +
+      '<main><h1 style="font-size:1.25rem">Pas de connexion</h1><p>Kompaly s’ouvrira dès que le réseau revient.</p>' +
+      '<p><a href="" style="display:inline-block;padding:.75rem 1.25rem;border-radius:.75rem;background:#1c1917;color:#fff;text-decoration:none">Réessayer</a></p></main></body></html>',
+    { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } },
+  );
+
+/**
+ * Opening a page: the network first (a new version shows at once), the page kept from the last visit without network.
+ * Whatever goes wrong in this worker, the page is asked again by its address before giving up: the worker never
+ * blocks the site (before, a refused cache or a redirect kept made every page fail until the worker was removed).
+ */
+async function openPage(e) {
+  const req = e.request;
+  try {
+    const res = (await e.preloadResponse?.catch(() => undefined)) || (await fetch(req));
+    if (keepable(res) && res.headers.get('content-type')?.includes('text/html')) e.waitUntil(store(SHELL, res.clone()));
+    return res;
+  } catch {
+    try {
+      const res = await fetch(req.url, { credentials: 'same-origin' });
+      // Reached through a redirect: the browser goes there itself (a redirected answer can't open a page).
+      return res.redirected ? Response.redirect(res.url, 303) : res;
+    } catch {
+      return (await fromCache(SHELL)) ?? offlinePage();
+    }
+  }
 }
 
 self.addEventListener('fetch', e => {
@@ -34,26 +85,30 @@ self.addEventListener('fetch', e => {
   if (url.origin !== self.location.origin || url.pathname.startsWith('/api/') || url.pathname.startsWith('/__kompaly/')) return;
   if (req.method === 'POST' && url.pathname === '/partage') return e.respondWith(receiveShare(req));
   if (req.method !== 'GET' || req.headers.has('range')) return;
-  if (req.mode === 'navigate') {
-    // The network first (a new version shows at once); offline, the page kept from the last visit.
-    e.respondWith(
-      fetch(req)
-        .then(res => (res.headers.get('content-type')?.includes('text/html') ? keep(SHELL, res) : res))
-        .catch(async () => (await caches.match(SHELL)) ?? Response.error()),
-    );
-    return;
-  }
+  if (req.mode === 'navigate') return e.respondWith(openPage(e));
   // Built files carry their content's hash in their name: one kept is the right one, no need to ask again.
   if (url.pathname.startsWith('/assets/')) {
-    e.respondWith(caches.match(req, { ignoreSearch: true }).then(hit => hit ?? fetch(req).then(res => keep(req, res))));
+    e.respondWith(
+      fromCache(req, { ignoreSearch: true }).then(
+        hit =>
+          hit ??
+          fetch(req).then(res => {
+            if (keepable(res)) e.waitUntil(store(req, res.clone()));
+            return res;
+          }),
+      ),
+    );
     return;
   }
   // The site's other files (theme.js, icons, Kompaly's pictures…): the kept copy at once, refreshed behind. Only those
   // at the top (and Kompaly's folder): in development the sources are files too, and must never come from a cache.
   if (/^\/(kompaly\/)?[^/]+\.(js|css|png|svg|webp|ico|woff2|webmanifest)$/.test(url.pathname) && url.pathname !== '/sw.js') {
-    const fresh = fetch(req).then(res => keep(req, res));
+    const fresh = fetch(req).then(res => {
+      if (keepable(res)) e.waitUntil(store(req, res.clone()));
+      return res;
+    });
     e.waitUntil(fresh.catch(() => {}));
-    e.respondWith(caches.match(req).then(hit => hit ?? fresh));
+    e.respondWith(fromCache(req).then(hit => hit ?? fresh));
   }
 });
 
@@ -68,7 +123,8 @@ self.addEventListener('message', e => {
         if (url.origin !== self.location.origin || url.pathname.startsWith('/api/') || (await cache.match(url.href, { ignoreSearch: true }))) continue;
         await fetch(url.href).then(res => keep(url.href, res)).catch(() => {});
       }
-      if (!(await cache.match(SHELL))) await fetch('/', { credentials: 'same-origin' }).then(res => keep(SHELL, res)).catch(() => {});
+      // The page itself, only as a plain page (« / » redirected elsewhere is not kept: keep() checks it).
+      if (!(await cache.match(SHELL))) await fetch('/', { credentials: 'same-origin' }).then(res => (res.headers.get('content-type')?.includes('text/html') ? keep(SHELL, res) : undefined)).catch(() => {});
     })(),
   );
 });
