@@ -7,7 +7,7 @@ import { lang, locale, t } from '../../i18n';
 
 // Pages légales, lisibles sans compte. Les sous-traitants cités ici doivent rester à jour (registre des traitements).
 
-export type LegalDoc = 'mentions' | 'confidentialite' | 'conditions' | 'tarifs';
+export type LegalDoc = 'mentions' | 'confidentialite' | 'conditions' | 'tarifs' | 'apropos';
 
 const UPDATED = new Date(2026, 10, 6).toLocaleDateString(locale(), { day: 'numeric', month: 'long', year: 'numeric' });
 const CONTACT = 'contact@kompaly.com';
@@ -15,6 +15,30 @@ const CONTACT = 'contact@kompaly.com';
 type Section = { title: string; body: string[] };
 
 const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
+  // Who is behind it, and how to write (visitors looked for /a-propos, /contact, /presse).
+  // TODO(owner): personalise this presentation (a sentence about you, when and why Kompaly started), keep it factual.
+  apropos: {
+    title: t('Qui fait Kompaly\u00a0?'),
+    sections: [
+      {
+        title: t('Un projet indépendant'),
+        body: [
+          t('Kompaly est créé par Léo Boucher, un particulier en France, à titre non professionnel. Pas d’investisseurs, pas de publicité : le service est gratuit.'),
+          t('Kompaly réunit ton agenda, tes notes, tes tâches et tes fichiers au même endroit, avec une IA qui range pour toi : pour les études, le travail ou la famille.'),
+        ],
+      },
+      {
+        title: t('Tes données'),
+        body: [
+          t('Elles sont hébergées dans l’Union européenne (Irlande, Allemagne), ne sont ni vendues ni utilisées pour de la publicité, et tu peux tout exporter ou tout supprimer à tout moment. Tous les détails sont dans la politique de confidentialité.'),
+        ],
+      },
+      {
+        title: t('Contact'),
+        body: [t('Une question, un bug, une idée ou une demande de la presse : écris à {email}.', { email: CONTACT })],
+      },
+    ],
+  },
   // The same numbers as the FAQ and the conditions (lib/limits, the server's defaults).
   tarifs: {
     title: t('Tarifs'),
@@ -84,7 +108,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
         body: [
           t('Compte : prénom, adresse e-mail, mot de passe (enregistré sous forme chiffrée, jamais lisible), double authentification.'),
           t('Connexion avec Google ou Apple, si tu l’utilises : ce service nous transmet ton nom, ton adresse e-mail (Apple peut te proposer une adresse masquée), un identifiant propre à ton compte chez lui et, pour Google, l’adresse de ta photo de profil. Kompaly n’utilise que ton prénom et ton e-mail ; il n’a accès à rien d’autre de ce compte (ni e-mails, ni fichiers, ni agenda).'),
-          t('L’utilisation par Kompaly des informations reçues des API de Google respecte la Google API Services User Data Policy, y compris ses exigences d’utilisation limitée (Limited Use).'),
+          t('Les informations reçues de Google servent seulement à te connecter : Kompaly respecte le règlement de Google sur les données de ses API (« Google API Services User Data Policy »), y compris sa règle d’utilisation limitée (« Limited Use »).'),
           t('Face ID ou empreinte, si tu l’actives : la vérification se fait sur ton appareil. Kompaly ne reçoit ni ton visage ni ton empreinte, seulement une clé publique (qui prouve que c’est bien ton appareil), son nom (« iPhone », « Mac »…) et ses dates d’ajout et de dernière utilisation.'),
           t('Contenus : fichiers, notes, événements, tâches, sessions de concentration, groupes et agendas partagés et ce que tu y partages, enregistrements (le texte écrit à partir du son, tes mots-clés et les documents créés), réglages (thème, profil d’études ou de travail facultatif).'),
           t('Emplois du temps suivis par lien : le lien (.ics) est gardé avec tes réglages, et le serveur de Kompaly le lit pour toi toutes les 3 heures environ ; ses événements sont rangés dans ton calendrier.'),

@@ -554,18 +554,19 @@ export default function AuthPage({ mode }: { mode: Mode }) {
               <>
               <label className="hit mt-4 flex cursor-pointer items-start gap-2.5 text-[12.5px] leading-snug text-stone-600">
                 <input ref={el => { refs.current.agreed = el; }} {...invalid('agreed')} type="checkbox" checked={agreed} onChange={e => (setAgreed(e.target.checked), edit('agreed', e.target.checked))} className="relative z-[1] mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-ink)]" />
-                <span>
-                  {t('J’accepte les')}{' '}
-                  <Link to="/conditions" target="_blank" className="relative z-[1] font-medium text-ink underline decoration-stone-300 underline-offset-2">
-                    {t('conditions d’utilisation')}
-                  </Link>{' '}
-                  {t('et la')}{' '}
-                  <Link to="/confidentialite" target="_blank" className="relative z-[1] font-medium text-ink underline decoration-stone-300 underline-offset-2">
-                    {t('politique de confidentialité')}
-                  </Link>
-                  .
-                </span>
+                <span>{t('J’accepte les conditions d’utilisation et la politique de confidentialité.')}</span>
               </label>
+              {/* Out of the label: a tap on them opens the page, a tap on the sentence ticks the box. */}
+              <p className="mt-1 pl-[26px] text-[12px] text-stone-500">
+                {t('À lire :')}{' '}
+                <Link to="/conditions" target="_blank" className="hit-sm font-medium text-ink underline decoration-stone-300 underline-offset-2">
+                  {t('conditions d’utilisation')}
+                </Link>
+                {' · '}
+                <Link to="/confidentialite" target="_blank" className="hit-sm font-medium text-ink underline decoration-stone-300 underline-offset-2">
+                  {t('politique de confidentialité')}
+                </Link>
+              </p>
               {errAt('agreed')}
               </>
             )}

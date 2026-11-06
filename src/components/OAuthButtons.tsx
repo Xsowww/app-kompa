@@ -28,13 +28,30 @@ function AppleIcon() {
 
 const NAMES: Record<OAuthProvider, string> = { google: 'Google', apple: 'Apple' };
 
+const PROVIDERS_KEY = 'cop-oauth';
+
 /** « Continuer avec Google / Apple », only for the providers switched on in Supabase. */
 /** `first`: a button shown above Google and Apple (Face ID / fingerprint on the sign-in page). */
 export default function OAuthButtons({ remember, onError, first, children }: { remember: boolean; onError: (message: string) => void; first?: ReactNode; children?: ReactNode }) {
-  const [list, setList] = useState<OAuthProvider[]>([]);
+  // The list known from the last visit (Google, the first time: it is on) at once, so the form doesn't jump when the
+  // real one arrives; corrected if it differs.
+  const [list, setList] = useState<OAuthProvider[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(PROVIDERS_KEY) ?? '["google"]') as OAuthProvider[];
+    } catch {
+      return ['google'];
+    }
+  });
   const [going, setGoing] = useState<OAuthProvider | null>(null);
   useEffect(() => {
-    void oauthProviders().then(setList);
+    void oauthProviders().then(l => {
+      setList(l);
+      try {
+        localStorage.setItem(PROVIDERS_KEY, JSON.stringify(l));
+      } catch {
+        /* private browsing: the default next time */
+      }
+    });
   }, []);
   if (!list.length && !first) return null;
 

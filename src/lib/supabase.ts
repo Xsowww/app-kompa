@@ -153,7 +153,8 @@ export function oauthProviders(): Promise<OAuthProvider[]> {
 /** Face ID / fingerprint sign-in: switched on in Supabase (Authentication › Passkeys) and possible in this browser. */
 export function passkeysAvailable(): Promise<boolean> {
   if (!url || !key || typeof window === 'undefined' || !window.PublicKeyCredential) return Promise.resolve(false);
-  return authSettings().then(s => s.passkeys_enabled === true);
+  const onDevice = PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable?.().catch(() => false) ?? Promise.resolve(false);
+  return Promise.all([authSettings(), onDevice]).then(([s, here]) => s.passkeys_enabled === true && here);
 }
 
 /** Ends a session kept for an account that is not the one in use (« Retirer de cet appareil »). */

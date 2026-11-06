@@ -4,4 +4,5 @@ export const LEGAL_LINKS: { to: string; label: string }[] = [
   { to: '/confidentialite', label: t('Confidentialité') },
   { to: '/conditions', label: t('Conditions') },
   { to: '/tarifs', label: t('Tarifs') },
+  { to: '/a-propos', label: t('Qui fait Kompaly\u00a0?') },
 ];
