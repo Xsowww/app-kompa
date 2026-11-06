@@ -3,6 +3,7 @@ import { fr } from 'date-fns/locale/fr';
 import { dateLocale, lang, t, type Lang } from '../i18n';
 import { parseQuickAddIn } from './quickAddOther';
 import type { Repeat } from './repeat';
+import { minutesBefore } from './reminders';
 
 // Read once: the app (and this file) loads after loadLang().
 const DATE_LOCALE = lang === 'fr' ? fr : (dateLocale ?? fr);
@@ -76,6 +77,10 @@ export interface ParsedQuickAdd {
   important?: boolean;
   /** A date that doesn't exist (« le 31/11 », « 30 février »): left in the title, to be corrected. */
   impossible?: boolean;
+  /** « rappel 1h avant », « sans rappel », « rappelle-moi la veille à 18h »: the reminder asked (remindMinutes). */
+  remind?: RemindSpec;
+  /** « à la mairie », « chez le kiné »: where it happens (the Lieu field). */
+  place?: string;
 }
 
 const hm = (h: string | number, m?: string) => (Number(h) < 24 && Number(m ?? 0) < 60 ? `${String(h).padStart(2, '0')}:${m ?? '00'}` : null);
@@ -90,11 +95,12 @@ function realDate(y: number, month: number, day: number) {
  * Understands simple French sentences such as
  * "Exam de maths vendredi 14h", "Rendre TP le 12/11 à 9h30", "Sport demain 18h-19h".
  */
-export function parseQuickAdd(input: string, base = new Date(), language = lang): ParsedQuickAdd {
+/** `extras`: also the reminder (« rappel 1h avant ») and the place (« à la mairie ») — the calendar's bar and form, which save them. */
+export function parseQuickAdd(input: string, base = new Date(), language = lang, extras = false): ParsedQuickAdd {
   // Another language: its own words, unless the French reading understands more (« Dentiste demain 9h »).
   if (language !== 'fr') {
     const other = parseQuickAddIn(language, input, base);
-    const french = parseQuickAdd(input, base, 'fr');
+    const french = parseQuickAdd(input, base, 'fr', extras);
     const score = (r: ParsedQuickAdd) => Number(!!r.date) + Number(!!r.start);
     return score(french) > score(other) ? french : other;
   }
@@ -128,6 +134,21 @@ export function parseQuickAdd(input: string, base = new Date(), language = lang)
     }
     return null;
   };
+
+  // The reminder said in the sentence, taken out first (its « à 7h » is not the start): « rappel 1h avant »,
+  // « rappelle-moi la veille à 18h », « rappel à 7h », « sans rappel ». Turned into minutes once the day is known.
+  let remind: RemindSpec | undefined;
+  const R = String.raw`\s(?:avec\s)?(?:un\s)?(?:rappel|rappelle-moi|rappelle\smoi|previens-moi|previens\smoi)`;
+  const HOUR = String.raw`(\d{1,2})\s?(?:heures?|h|:)\s?(\d{2})?`;
+  let rm: RegExpMatchArray | null;
+  if (!extras) {
+    /* the reminder words stay in the text */
+  } else if (cut(/\s(?:sans|pas\sde|aucun)\srappels?(?=\s)/)) remind = { none: true };
+  else if ((rm = cut(new RegExp(`${R}\\s(\\d{1,3}|une?)\\s?(min|mn|minutes?|h|heures?|j|jours?|semaines?)\\s(?:avant|before)(?=\\s)`)))) {
+    const k = /^une?$/.test(rm[1]) ? 1 : Number(rm[1]);
+    remind = { before: k * (/^(min|mn)/.test(rm[2]) ? 1 : /^(h|heure)/.test(rm[2]) ? 60 : /^j/.test(rm[2]) ? 1440 : 10080) };
+  } else if ((rm = cut(new RegExp(`${R}\\s(?:la\\s)?veille(?:\\s(?:a|vers)\\s${HOUR})?(?=\\s)`)))) remind = { eve: true, at: (rm[1] && hm(rm[1], rm[2])) || '18:00' };
+  else if ((rm = cut(new RegExp(`${R}\\s(?:le\\sjour\\smeme\\s)?(?:a|vers)\\s${HOUR}(?=\\s)`)))) remind = rm[1] && hm(rm[1], rm[2]) ? { at: hm(rm[1], rm[2])! } : undefined;
 
   // A length, not a time: « pendant 2h », « durant 30 min », « (1h) », « de 2h » when another hour gives the start
   // (« Réunion de 2h demain 10h »). It gives the end once the start is known.
@@ -328,6 +349,21 @@ export function parseQuickAdd(input: string, base = new Date(), language = lang)
     end = nightEnd;
   }
 
+  // Where (« à la mairie », « chez le kiné », « au CHU », « salle B12 »): the Lieu field, not the title. Up to the end
+  // of what is left, or « avec … » / « pour … » / a comma. Not « au sujet de », « à la place », nor a title left empty.
+  let place: string | undefined;
+  const where = extras && find(/\s((?:chez|en\ssalle|salle|a\sla|a\sl'|au|aux)\s?)(?!(?:sujet|plus|moins|cas|lieu|fait|revoir|place|fois|bout|cours|besoin|maximum|minimum|total)(?:\s|$))([^\s,()]+(?:\s(?!avec\s|pour\s|et\s|puis\s)[^\s,()]+){0,4})(?=\s*(?:$|,|\savec\s|\spour\s|\set\s|\spuis\s))/);
+  if (where && where.index! > 1) {
+    const word = where[1].trim();
+    const raw = text.slice(where.index! + 1 + where[1].length, where.index! + where[0].length).trim();
+    // « chez le kiné » reads as a place as said; « à la mairie » is « Mairie », « salle B12 » stays « Salle B12 ».
+    const value = word === 'chez' || word.endsWith('salle') ? text.slice(where.index! + 1, where.index! + where[0].length).trim() : raw;
+    if (value && text.slice(0, where.index).trim()) {
+      place = value.charAt(0).toUpperCase() + value.slice(1);
+      remove(where);
+    }
+  }
+
   const title = text
     .replace(/\s+/g, ' ')
     .replace(/\s(le|Le|a|à|de|De|du|Du|pour|Pour|avant|Avant)\s*$/, '')
@@ -344,7 +380,28 @@ export function parseQuickAdd(input: string, base = new Date(), language = lang)
     ...(every === 'year' && { yearly: true }),
     ...(important && { important }),
     ...(impossible && { impossible }),
+    ...(remind && { remind }),
+    ...(place && { place }),
   };
+}
+
+/** A reminder said in a quick add: none, a length before, or a moment (that day, or the day before) at a time. */
+export interface RemindSpec {
+  none?: true;
+  before?: number;
+  eve?: boolean;
+  at?: string;
+}
+
+/** The reminders of an event on `date` at `start` from what the sentence said ([] for « sans rappel »; undefined: the usual ones). */
+export function remindMinutes(spec: RemindSpec | undefined, date: string, start?: string | null): number[] | undefined {
+  if (!spec) return undefined;
+  if (spec.none) return [];
+  if (spec.before !== undefined) return [spec.before];
+  const day = spec.eve ? toKey(addDays(fromKey(date), -1)) : date;
+  const n = minutesBefore(date, start ?? undefined, day, spec.at ?? '18:00');
+  // « rappel à 15h » for an event at 14h: after it, impossible; the usual ones then.
+  return n >= 0 ? [n] : undefined;
 }
 
 /** "08:15" → 495 */

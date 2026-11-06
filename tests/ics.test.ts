@@ -9,7 +9,9 @@ describe('parseIcs', () => {
   it('lit un événement simple, avec la salle dans les détails', () => {
     const [e] = parseIcs(cal(ev('UID:a', 'DTSTART:20261014T080000', 'DTEND:20261014T100000', 'SUMMARY:CM Chimie', 'LOCATION:Amphi A')), { now });
     expect(e).toMatchObject({ title: 'CM Chimie', date: '2026-10-14', start: '08:00', end: '10:00', externalId: 'a' });
-    expect(e.details).toContain('Amphi A');
+    // Test n°3: LOCATION goes in « Lieu », not in the notes.
+    expect(e.place).toBe('Amphi A');
+    expect(e.details).toBeUndefined();
   });
 
   it('déroule une série hebdomadaire en sautant EXDATE et les séances annulées', () => {
@@ -117,7 +119,8 @@ describe('emploi du temps Hyperplanning : titre et notes courts', () => {
       'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
     const [e] = parseIcs(text, { now: new Date(2026, 9, 1) });
     expect(e.title).toBe('Welcome Day 7');
-    expect(e.details).toBe('Salle 307\nEnseignant : M. Martin');
+    expect(e.place).toBe('Salle 307');
+    expect(e.details).toBe('Enseignant : M. Martin');
   });
 });
 
@@ -147,7 +150,7 @@ describe('parseIcs : les jours d’un même événement sont reliés', () => {
       ),
       { now },
     );
-    expect(a.details).toBe('Salle 307');
-    expect(b.details).toBe('Amphi A');
+    expect(a.place).toBe('Salle 307');
+    expect(b.place).toBe('Amphi A');
   });
 });

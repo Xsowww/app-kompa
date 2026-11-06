@@ -76,13 +76,13 @@ describe('quick add: categories by usage (Réunion / Rendez-vous, not Perso)', (
     const p = fr(input);
     return guessCategory(p.title, !!p.start);
   };
-  it('work: Réunion (cours) for a meeting, a call, an appointment; Livrable (devoir) for a follow-up; Perso for days off', () => {
+  it('work: Réunion (cours) for a meeting or an appointment; a call to make or a follow-up stays neutral; Perso for days off', () => {
     expect(cat('travail', 'Réunion d’équipe lundi 9h')).toBe('cours');
     expect(cat('travail', 'RDV banque lundi 9h')).toBe('cours');
-    expect(cat('travail', 'Appeler M. Durand jeudi prochain vers 10h pour le dossier')).toBe('cours');
-    expect(cat('travail', 'Rappeler le client demain 11h')).toBe('cours');
+    expect(cat('travail', 'Appeler M. Durand jeudi prochain vers 10h pour le dossier')).toBe('perso');
+    expect(cat('travail', 'Rappeler le client demain 11h')).toBe('perso');
     expect(cat('travail', 'Conseil de classe mardi 17h')).toBe('cours');
-    expect(cat('travail', 'Relancer M. Durand jeudi prochain vers 10h pour le dossier')).toBe('devoir');
+    expect(cat('travail', 'Relancer M. Durand jeudi prochain vers 10h pour le dossier')).toBe('perso');
     expect(cat('travail', 'Congés du 22 au 26 décembre')).toBe('perso');
     expect(cat('travail', 'Appeler le médecin demain 9h')).toBe('perso');
   });

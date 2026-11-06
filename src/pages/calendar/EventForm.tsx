@@ -19,7 +19,7 @@ import ReminderPicker from '../../components/ReminderPicker';
 import { DateField, SelectField, TimeField } from '../../components/Pickers';
 import { FieldError } from '../../components/Field';
 import { fmtDay, fromKey, parseQuickAdd } from '../../lib/dates';
-import { cleanReminders, earlyReminders, eventReminders, followMoments, reminderLabel } from '../../lib/reminders';
+import { cleanReminders, earlyReminders, eventReminders, followMoments, remindersText } from '../../lib/reminders';
 import { covers } from '../../lib/periods';
 import { MAX_SPAN_DAYS, REPEATS, dayShift, defaultUntil, isSpan, repeatDays, shiftKey, spanDays, spanTooLong, type Repeat } from '../../lib/repeat';
 import { feedLabel, feedOf } from '../../lib/icsFeeds';
@@ -86,7 +86,7 @@ function EventView({ event: ev, onClose }: { event: CalendarEvent; onClose: () =
             t('Rappels'),
             <span className="inline-flex items-center gap-1.5">
               <Bell size={12} aria-hidden className="shrink-0 text-stone-500" />
-              {reminders.map(m => reminderLabel(m, !!ev.start, ev.date, ev.start)).join(', ')}
+              {remindersText(reminders, ev.date, ev.start)}
             </span>,
           )}
         {ev.details && row(t('Notes'), <span className="block whitespace-pre-line [overflow-wrap:anywhere]">{ev.details}</span>)}
@@ -147,7 +147,7 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
   // A new event: « Dentiste demain 16h » fills the day and the times (as the calendar's bar), unless they were set by
   // hand; saved as « Dentiste ». Editing one leaves its title as it is.
   const touched = useRef({ day: false, start: false, end: false, important: false, repeat: false, endDay: false });
-  const parsed = !event && (!template || retyped) && title.trim() ? parseQuickAdd(title) : null;
+  const parsed = !event && (!template || retyped) && title.trim() ? parseQuickAdd(title, undefined, undefined, true) : null;
   const understood = !!parsed && !parsed.impossible && !!(parsed.date || parsed.start || parsed.important || parsed.every);
   // « 31/11 »: said and blocked, unless the day was chosen by hand.
   const [dayByHand, setDayByHand] = useState(false);
@@ -177,7 +177,7 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
     setRetyped(true);
     if (v.trim()) setTitleError('');
     if (event) return;
-    const p = v.trim() ? parseQuickAdd(v) : null;
+    const p = v.trim() ? parseQuickAdd(v, undefined, undefined, true) : null;
     const ok = p && !p.impossible ? p : null;
     const was = touched.current;
     if (!was.day) setDay(ok?.date ?? date);

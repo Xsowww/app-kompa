@@ -30,6 +30,7 @@ describe('guessed category', () => {
     expect(guessCategory('Rendre TP', true)).toBe('devoir'); // « Rendre TP le 12/11 à 9h30 »: handed in, not a class
     expect(guessCategory('Rendu du TD 3', true)).toBe('devoir');
     expect(guessCategory('Projet tutoré')).toBe('devoir');
+    expect(guessCategory('Dossier CAF')).toBe('perso');
     expect(guessCategory('Dentiste')).toBe('perso');
     expect(guessCategory('Foot')).toBe('sport');
   });
@@ -39,9 +40,12 @@ describe('guessed category', () => {
     expect(guessCategory('Dentiste', true)).toBe('perso');
     expect(guessCategory('Anniversaire de Léa')).toBe('perso');
     expect(guessCategory('Rendre le rapport')).toBe('examen');
-    expect(guessCategory('Projet Dupont', true)).toBe('cours');
-    expect(guessCategory('Projet Dupont')).not.toBe('devoir');
-    expect(guessCategory('Envoyer le devis')).toBe('devoir');
+    // Test n°3: without a word that says it, nothing forced (« Réunion », « Livrable »): neutral.
+    expect(guessCategory('Projet Dupont', true)).toBe('perso');
+    expect(guessCategory('Projet Dupont')).toBe('perso');
+    expect(guessCategory('Envoyer le devis')).toBe('perso');
+    expect(guessCategory('Appeler le plombier', true)).toBe('perso');
+    expect(guessCategory('Livrable maquette')).toBe('devoir');
     expect(guessCategory('Réunion client', true)).toBe('cours');
     expect(guessCategory('Livraison site client')).toBe('examen');
   });

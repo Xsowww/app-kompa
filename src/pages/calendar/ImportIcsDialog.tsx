@@ -180,7 +180,7 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
     const updates = parsed.flatMap(e => {
       const old = byExternal.get(e.externalId);
       if (!old || !(current(old) || current(e))) return [];
-      const patch = { title: e.title, date: e.date, start: e.start, end: e.end, details: e.details, series: e.series };
+      const patch = { title: e.title, date: e.date, start: e.start, end: e.end, details: e.details, place: e.place, series: e.series };
       const differs = (Object.keys(patch) as (keyof typeof patch)[]).filter(k => (old[k] ?? undefined) !== (patch[k] ?? undefined));
       return differs.length ? [{ id: old.id, patch, quiet: differs.every(k => k === 'series') }] : [];
     });
@@ -211,7 +211,7 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
   const submit = () => {
     if (!plan || !changes) return;
     const cal = useCalendar.getState();
-    const list: NewEvent[] = plan.todo.map(e => ({ title: e.title, date: e.date, start: e.start, end: e.end, details: e.details, externalId: e.externalId, category: categoryOf(e), series: e.series }));
+    const list: NewEvent[] = plan.todo.map(e => ({ title: e.title, date: e.date, start: e.start, end: e.end, details: e.details, place: e.place, externalId: e.externalId, category: categoryOf(e), series: e.series }));
     if (list.length) cal.addMany(list);
     for (const u of plan.updates) cal.update(u.id, u.patch);
     for (const e of plan.removals) cal.remove(e.id);

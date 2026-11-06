@@ -7,7 +7,7 @@ import { EmptyState, Skeleton } from '../../components/EmptyState';
 import { allCategories, guessCategory, isDeliverable, isBigEvent, sortEvents, type CalendarEvent, type EventCategory } from '../../store/calendar';
 // The colours of the categories, vivid in the Affichage Pro.
 import { catOf } from './proColors';
-import { parseQuickAdd, toKey, fromKey, todayKey, validKey, fmt, fmtDay, weekStart, countdownLabel, daysUntil, toMinutes, fromMinutes, isOver } from '../../lib/dates';
+import { parseQuickAdd, remindMinutes, toKey, fromKey, todayKey, validKey, fmt, fmtDay, weekStart, countdownLabel, daysUntil, toMinutes, fromMinutes, isOver } from '../../lib/dates';
 import { toast } from '../../store/ui';
 import { useSettings } from '../../store/settings';
 import { AGENDA_EXAMPLES, WORDS, groupWords } from '../../lib/usage';
@@ -26,7 +26,7 @@ import { isIcsFile } from '../../lib/ics';
 import { useEventDrag, type DragMode, type DropTarget } from './useEventDrag';
 import { exportIcs } from '../../lib/backup';
 import { flashWhenReady } from '../../lib/flash';
-import { eventReminders, followMoments, reminderLabel } from '../../lib/reminders';
+import { followMoments, remindersText, shownReminders } from '../../lib/reminders';
 import { feedLabel, feedOf } from '../../lib/icsFeeds';
 import { useTodos, type Todo } from '../../store/todos';
 import TaskDialog from '../tasks/TaskDialog';
@@ -101,7 +101,7 @@ function EventItem({ ev, onEdit, dragging, onDragStart, onMenu }: EventItemProps
   const c = catOf(ev.category);
   const defaults = useSettings(s => s.defaultReminders);
   // A shared calendar's reminders are the ones chosen on it (no usual reminder of mine there).
-  const reminders = shared ? (ev.reminders ?? []) : eventReminders(ev, defaults);
+  const reminders = shownReminders(ev, defaults, !!shared);
   // From a timetable followed by link: its name, so it is never mixed up with what was added by hand.
   const feed = feedOf(ev, useSettings(s => s.icsFeeds));
   return (
@@ -160,10 +160,10 @@ function EventItem({ ev, onEdit, dragging, onDragStart, onMenu }: EventItemProps
             {shared && ` · ${t('par {name}', { name: shared.author(ev.id) })}`}
             {isBigEvent(ev) && ` · ${countdownLabel(ev.date)}`}
             {reminders.length > 0 && (
-              <span className="ml-2 inline-flex items-center gap-1 whitespace-nowrap" title={t('Rappels')}>
-                <Bell size={11} aria-label={t('Rappel')} />
-                {reminderLabel(Math.min(...reminders), !!ev.start, ev.date, ev.start)}
-                {reminders.length > 1 && ` +${reminders.length - 1}`}
+              // Every reminder, in the words of the event's form (only the soonest, « 15 min avant +1 », hid a « 1 h avant »).
+              <span className="ml-2 inline-flex max-w-full items-center gap-1 align-bottom" title={remindersText(reminders, ev.date, ev.start)}>
+                <Bell size={11} className="shrink-0" aria-label={t('Rappels')} />
+                <span className="truncate">{remindersText(reminders, ev.date, ev.start)}</span>
               </span>
             )}
           </p>
@@ -526,7 +526,7 @@ export default function CalendarPage() {
   const fillOf = (key: string, strength: number) => periodsFill(periodsOn(periods, key), strength);
   const label = (p: Period) => periodLabel(p, shared?.nameOf);
 
-  const parsed = quick.trim() ? parseQuickAdd(quick) : null;
+  const parsed = quick.trim() ? parseQuickAdd(quick, undefined, undefined, true) : null;
   const parsedCat = parsed ? guessCategory(parsed.title || quick, !!parsed.start, custom) : null;
   // No day in the sentence: the day shown, unless it is past (an event typed while looking back lands today).
   const quickDate = parsed?.date ?? (selected < today ? today : selected);
@@ -563,7 +563,8 @@ export default function CalendarPage() {
           category: parsedCat!,
           important: parsed.important,
           series,
-          ...(i > 0 && { reminders: [] }),
+          ...(parsed.place && { place: parsed.place }),
+          ...(i > 0 ? { reminders: [] } : { reminders: remindMinutes(parsed.remind, date, parsed.start) }),
         })),
       );
       setQuick('');
@@ -571,7 +572,8 @@ export default function CalendarPage() {
       toast(t('Ajouté du {from} au {to}', { from: fmtDay(fromKey(date), 'EEEE d MMMM'), to: fmtDay(fromKey(parsed.endDate), 'EEEE d MMMM') }), 'success');
       return;
     }
-    source.add({ title: parsed.title, date, start: parsed.start ?? undefined, end: parsed.end ?? undefined, category: parsedCat!, important: parsed.important });
+    // « rappel 1h avant », « sans rappel »: the reminder said is the one made (else the usual ones).
+    source.add({ title: parsed.title, date, start: parsed.start ?? undefined, end: parsed.end ?? undefined, category: parsedCat!, important: parsed.important, reminders: remindMinutes(parsed.remind, date, parsed.start), ...(parsed.place && { place: parsed.place }) });
     setQuick('');
     showSaved({ date, category: parsedCat!, important: parsed.important });
     toast(t('Ajouté : {title}', { title: parsed.title }), 'success');

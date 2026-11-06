@@ -82,7 +82,8 @@ export default function TaskDialog({ todo, onClose, remind, onDelete }: { todo?:
               label={t('Heure de l’échéance')}
               placeholder={t('Dans la journée')}
               onChange={v => {
-                if (due && v !== time) setReminders(r => followMoments(r, { date: due, time: time || undefined }, { date: due, time: v || undefined }, v ? [15] : [900]));
+                // None left that can follow: the usual ones of a task (« 1 h avant » with a time), never another fixed « 15 min ».
+                if (due && v !== time) setReminders(r => followMoments(r, { date: due, time: time || undefined }, { date: due, time: v || undefined }, taskReminders(due, v || undefined, new Date(), [900, 0])));
                 setTime(v);
               }}
               className="w-full"
