@@ -515,7 +515,7 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
           </div>
         )}
 
-        <ReminderPicker value={reminders} onChange={v => ((touched.current.reminders = true), setChosen(v))} timed={!!start} date={day || undefined} time={start || undefined} />
+        <ReminderPicker value={reminders} onChange={v => ((touched.current.reminders = true), setChosen(v))} timed={!!start} date={day || undefined} time={start || undefined} item={{ kind: 'event', id: event?.id, title: cleanTitle || title, end: end || undefined }} />
         {shared && reminders.length > 0 && (
           <p className="mt-1.5 text-[12px] text-stone-500">{people.length ? t('Envoyé à chaque personne choisie ci-dessous.') : t('Envoyé à chaque membre de l’agenda.')}</p>
         )}

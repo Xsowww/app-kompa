@@ -48,6 +48,19 @@ describe('« la veille à 18h » reste à 18h quand l’événement bouge', () =
   });
 });
 
+describe('rappel test', () => {
+  it('says word for word what its first real reminder will say', async () => {
+    const { testMessage } = await import('../src/lib/reminderTest');
+    const { upcomingReminders } = await import('../src/lib/reminders');
+    const src = { kind: 'event' as const, id: 'e1', title: 'Kiné', date: '2099-03-10', time: '14:00', end: '15:00' };
+    const real = upcomingReminders([{ ...src, reminders: [60, 1440] }], new Date(2099, 2, 1), 30)[0];
+    const test = testMessage(src, [60, 1440]);
+    expect(test.body).toBe(real.body);
+    expect(test.url).toBe(real.url);
+    expect(test.title).toBe('Essai : Kiné');
+  });
+});
+
 describe('les mêmes rappels partout', () => {
   it('« Aucun » chosen stays none, the usual ones only when never chosen', () => {
     expect(shownReminders({ reminders: [], date: '2027-03-10', start: '14:00' }, [15])).toEqual([]);

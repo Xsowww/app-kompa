@@ -213,7 +213,8 @@ export function startPushLoop() {
 
 // ── API for the app ─────────────────────────────────────────────────────────
 // GET  /api/push/cle   → { key } the public key the browser subscribes with (404 when push is not set up)
-// POST /api/push/test  { subscription, delay } → a test notification to this device, after `delay` s (0-30)
+// POST /api/push/test  { subscription, delay, title?, body?, url? } → a test notification to this device, after `delay` s
+// (0-30). With a title: « Envoyer un rappel test » of an event or a task, the words its real reminder will have.
 const tests = new Map();
 setInterval(() => tests.clear(), 60_000).unref();
 
@@ -233,15 +234,19 @@ async function pushTest(req) {
     body += chunk;
     if (body.length > 4096) return [413, { error: 'trop long' }];
   }
-  let sub, delay;
+  let sub, delay, title, text, url;
   try {
-    ({ subscription: sub, delay } = JSON.parse(body));
+    ({ subscription: sub, delay, title, body: text, url } = JSON.parse(body));
   } catch {
     /* checked below */
   }
   const s = { endpoint: sub?.endpoint, p256dh: sub?.keys?.p256dh, auth: sub?.keys?.auth };
   if (!pushEndpointOk(s.endpoint) || typeof s.p256dh !== 'string' || typeof s.auth !== 'string') return [400, { error: 'appareil inconnu' }];
-  const go = () => send(s, { title: 'Notifications activées', body: 'Tes rappels Kompaly arriveront ici, même site fermé.\nEssai', url: '/profil?onglet=notifications', tag: 'test', test: true }, 300);
+  const own = typeof title === 'string' && title.trim();
+  const message = own
+    ? { title: title.trim().slice(0, 200), body: String(text ?? '').slice(0, 300), url: typeof url === 'string' && url.startsWith('/') && !url.startsWith('//') ? url.slice(0, 300) : '/', tag: 'test-rappel', test: true }
+    : { title: 'Notifications activées', body: 'Tes rappels Kompaly arriveront ici, même site fermé.\nEssai', url: '/profil?onglet=notifications', tag: 'test', test: true };
+  const go = () => send(s, message, 300);
   const wait = Math.min(Math.max(Number(delay) || 0, 0), 30) * 1000;
   if (wait) {
     setTimeout(go, wait).unref();

@@ -102,7 +102,7 @@ export default function TaskDialog({ todo, onClose, remind, onDelete }: { todo?:
             onChange={setRepeat}
           />
         </div>
-        <ReminderPicker value={reminders} onChange={setReminders} timed={!!time} date={due || undefined} time={time || undefined} disabled={due ? undefined : t('Choisis d’abord une échéance.')} />
+        <ReminderPicker value={reminders} onChange={setReminders} timed={!!time} date={due || undefined} time={time || undefined} disabled={due ? undefined : t('Choisis d’abord une échéance.')} item={{ kind: 'task', id: todo?.id, title }} />
         <div className="modal-foot max-[359px]:gap-1.5">
           {onDelete && (
             // Phones: the bin alone, so that « Annuler » and « Enregistrer » stay on one line beside it.

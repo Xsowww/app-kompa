@@ -130,7 +130,7 @@ function EventForm({ group, event, onDone }: { group: Group; event?: GroupEvent;
       )}
       {canRemind && (
         <>
-          <ReminderPicker value={reminders} onChange={v => setReminders(v.slice(0, 5))} timed={!!start} date={date || undefined} time={start || undefined} />
+          <ReminderPicker value={reminders} onChange={v => setReminders(v.slice(0, 5))} timed={!!start} date={date || undefined} time={start || undefined} item={{ kind: 'event', id: event?.id, title, end: end || undefined }} />
           {reminders.length > 0 && <p className="mt-1.5 text-[12px] text-stone-500">{t('Envoyé à chaque membre {of}.', { of: w.of })}</p>}
         </>
       )}

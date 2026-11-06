@@ -22,7 +22,7 @@ const choiceOf = (rule: RepeatRule | null): Choice =>
   !rule ? '' : rule.interval === 1 ? rule.unit : rule.unit === 'week' && rule.interval === 2 ? '2weeks' : CUSTOM;
 
 const segment = (on: boolean) =>
-  cx('hit h-8 flex-1 rounded-md px-2 text-[12.5px] font-medium transition-colors pointer-coarse:h-10', on ? 'bg-surface text-ink shadow-card' : 'text-stone-600 hover:text-ink');
+  cx('hit h-8 flex-1 whitespace-nowrap rounded-md px-2.5 text-[12.5px] font-medium transition-colors pointer-coarse:h-10', on ? 'bg-surface text-ink shadow-card' : 'text-stone-600 hover:text-ink');
 
 export default function RepeatPicker({ value, onChange, from, label = t('Répéter') }: { value: RepeatRule | null; onChange: (rule: RepeatRule | null) => void; from: string; label?: string }) {
   // « Personnaliser… » chosen: its fields stay open even when they say « every 1 week ».
@@ -77,7 +77,7 @@ export default function RepeatPicker({ value, onChange, from, label = t('Répét
             </div>
           )}
           {value.unit === 'week' && (
-            <div role="group" aria-label={t('Jours de la semaine')} className="flex flex-wrap gap-1.5">
+            <div role="group" aria-label={t('Jours de la semaine')} className="grid max-w-[340px] grid-cols-7 gap-1">
               {WEEK.map(w => {
                 const on = days.includes(w);
                 return (
@@ -90,7 +90,7 @@ export default function RepeatPicker({ value, onChange, from, label = t('Répét
                     // At least one day: the last one can't be taken off.
                     onClick={() => (on ? days.length > 1 && set({ days: days.filter(x => x !== w) }) : set({ days: [...days, w] }))}
                     className={cx(
-                      'hit flex h-9 w-9 items-center justify-center rounded-full border text-[13px] font-semibold transition-colors pointer-coarse:h-11 pointer-coarse:w-11',
+                      'flex h-9 min-w-0 items-center justify-center rounded-full border text-[13px] font-semibold transition-colors pointer-coarse:h-11',
                       on ? 'border-ink bg-ink text-surface' : 'border-stone-200 text-stone-600 hover:bg-stone-100',
                     )}
                   >
