@@ -12,14 +12,24 @@ export type LegalDoc = 'mentions' | 'confidentialite' | 'conditions' | 'tarifs' 
 const UPDATED = new Date(2026, 10, 6).toLocaleDateString(locale(), { day: 'numeric', month: 'long', year: 'numeric' });
 const CONTACT = 'contact@kompaly.com';
 
-type Section = { title: string; body: string[] };
+type Section = { title: string; body: string[]; sign?: string };
 
 const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
   // Who is behind it, and how to write (visitors looked for /a-propos, /contact, /presse).
-  // TODO(owner): personalise this presentation (a sentence about you, when and why Kompaly started), keep it factual.
   apropos: {
     title: t('Qui fait Kompaly\u00a0?'),
     sections: [
+      // The founder's own story (told by him, rewritten with him): change it only with him.
+      {
+        title: t('Pourquoi j’ai créé Kompaly'),
+        body: [
+          t('Je n’ai jamais été quelqu’un d’organisé par nature. Pendant mes études comme dans ma vie de tous les jours, tout était éparpillé : un horaire noyé dans ma boîte mail, un document au fond d’une conversation, une date griffonnée sur un papier, un fichier perdu quelque part dans mon téléphone.'),
+          t('Le jour où il fallait les retrouver, je passais de longues minutes à fouiller partout, sans même savoir par où commencer. L’information existait bien ; elle n’était simplement jamais au bon endroit.'),
+          t('J’ai cherché une application capable de tout réunir et de faire une partie du rangement à ma place. Je ne l’ai pas trouvée. Alors je l’ai construite.'),
+          t('Kompaly est né de cette envie simple : que chacun, lycéen, étudiant, actif ou parent, retrouve en quelques secondes ce dont il a besoin, au moment où il en a besoin. Moins de temps à chercher, plus de temps pour ce qui compte vraiment.'),
+        ],
+        sign: t('Léo, créateur de Kompaly'),
+      },
       {
         title: t('Un projet indépendant'),
         body: [
@@ -284,6 +294,7 @@ export default function LegalPage({ doc }: { doc: LegalDoc }) {
                 )}
               </p>
             ))}
+            {s.sign && <p className="mt-3 text-[14px] font-medium italic text-ink">— {s.sign}</p>}
           </section>
         ))}
         {doc === 'tarifs' && (
