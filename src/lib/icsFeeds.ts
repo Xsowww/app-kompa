@@ -117,7 +117,7 @@ export const feedMark = (feedId: string) => `feed:${feedId}:`;
 
 export interface FeedPlan {
   add: CalendarEvent[];
-  updates: { id: string; patch: Pick<CalendarEvent, 'title' | 'date' | 'start' | 'end' | 'details' | 'series'> & Partial<Pick<CalendarEvent, 'category'>> }[];
+  updates: { id: string; patch: Pick<CalendarEvent, 'title' | 'date' | 'start' | 'end' | 'details' | 'place' | 'series'> & Partial<Pick<CalendarEvent, 'category'>> }[];
   remove: string[];
 }
 
@@ -139,13 +139,13 @@ export function planFeed(feedId: string, items: (IcsEvent & { id: string })[], e
     const old = mine.get(it.id);
     if (old) {
       // `series`: the days of an event over several days, linked (also the ones added before they were).
-      const patch: FeedPlan['updates'][number]['patch'] = { title: it.title, date: it.date, start: it.start, end: it.end, details: it.details, series: it.series };
+      const patch: FeedPlan['updates'][number]['patch'] = { title: it.title, date: it.date, start: it.start, end: it.end, details: it.details, place: it.place, series: it.series };
       // Left « Perso » by an older guess: a class now (a category chosen by the student is kept).
       const category = timetableCategory(it.title, !!it.start);
       if (old.category === 'perso' && category !== 'perso') patch.category = category;
       if ((Object.keys(patch) as (keyof typeof patch)[]).some(k => (old[k] ?? undefined) !== (patch[k] ?? undefined))) plan.updates.push({ id: it.id, patch });
     } else if (!taken.has(it.id) && (pastToo || it.date >= today)) {
-      plan.add.push({ id: it.id, title: it.title, date: it.date, start: it.start, end: it.end, details: it.details, ...(it.series && { series: it.series }), externalId: mark + it.externalId, category: timetableCategory(it.title, !!it.start), done: false, createdAt: now });
+      plan.add.push({ id: it.id, title: it.title, date: it.date, start: it.start, end: it.end, details: it.details, ...(it.place && { place: it.place }), ...(it.series && { series: it.series }), externalId: mark + it.externalId, category: timetableCategory(it.title, !!it.start), done: false, createdAt: now });
     }
   }
   for (const e of mine.values()) if (!seen.has(e.id) && e.date >= today) plan.remove.push(e.id);

@@ -70,6 +70,20 @@ export function eventReminders(e: { reminders?: number[]; date?: string; start?:
 }
 
 /**
+ * The one answer to « which reminders will ring for this event »: what the event sheet, the lists, Kompaly and the
+ * scheduler (notifications) all show. A shared calendar's: the ones chosen on it (no usual reminder of mine there).
+ * The usual ones of an event never given any are those of Profil › Notifications — the same ones the scheduler sends.
+ */
+export function shownReminders(e: { reminders?: number[]; date?: string; start?: string; externalId?: string; category?: string; important?: boolean }, defaults: number[], shared = false): number[] {
+  return shared ? (e.reminders ?? []) : eventReminders(e, defaults);
+}
+
+/** The reminders in words, in the order of the event's form (« 15 min avant, 1 h avant, La veille à 18:00 »): the same text everywhere. */
+export function remindersText(list: number[], date: string, time?: string): string {
+  return [...list].sort((a, b) => a - b).map(m => reminderLabel(m, !!time, date, time)).join(', ');
+}
+
+/**
  * A new dated task's reminders: those chosen in Profil › Notifications (the day before at 18:00 and/or that day at 9:00),
  * or an hour before a task with a time (none when « Aucun » is chosen); those already past are left out (a task for
  * today, made in the afternoon, gets none rather than one in the past).

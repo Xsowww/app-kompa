@@ -106,6 +106,8 @@ export interface Settings {
   badgeAnnouncements: boolean; // Kompaly announces newly earned badges
   groupsSeen: Record<string, string>; // « groupId:tab » → last time the student looked (synced across devices)
   customCategories: CustomCategory[]; // calendar categories created by the student
+  /** Series that repeat without end (lib/repeatSeries): series id → its rule (lib/repeat encodeRule), made further ahead as time goes. */
+  repeatRules: Record<string, string>;
   periods: Period[]; // « En entreprise », « Vacances »… shown as a tint over the calendar days
   hiddenAgendas: string[]; // shared calendars left out of my calendar and the home page (all shown by default)
   icsFeeds: IcsFeed[]; // timetables followed by link (lib/icsFeeds), read again every few hours
@@ -167,6 +169,7 @@ export const DEFAULT_SETTINGS: Settings = {
   badgeAnnouncements: false,
   groupsSeen: {},
   customCategories: [],
+  repeatRules: {},
   periods: [],
   hiddenAgendas: [],
   icsFeeds: [],

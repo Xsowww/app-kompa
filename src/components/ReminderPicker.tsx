@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Bell, BellOff, Plus, SlidersHorizontal, X } from 'lucide-react';
+import { Bell, BellOff, BellRing, Plus, SlidersHorizontal, X } from 'lucide-react';
 import { DateField, Popover, SelectField, TimeField } from './Pickers';
 import { anchorOf, MAX_MINUTES, minutesBefore, reminderLabel, reminderMoment } from '../lib/reminders';
 import { deviceState, enableDevice } from '../lib/push';
@@ -19,6 +19,8 @@ interface Props {
   time?: string;
   /** No date yet: reminders need one. */
   disabled?: string;
+  /** What is reminded (its title, an end time): « Envoyer un rappel test » shows its very notification. */
+  item?: { kind: 'event' | 'task'; id?: string; title: string; end?: string };
 }
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -53,7 +55,7 @@ function customMinutes(c: Custom, date: string | undefined, time: string | undef
 }
 
 /** « Rappels » : one or several moments before an event or a task (lib/reminders). */
-export default function ReminderPicker({ value, onChange, timed, date, time, disabled }: Props) {
+export default function ReminderPicker({ value, onChange, timed, date, time, disabled, item }: Props) {
   const [state, setState] = useState(deviceState);
   // An iPhone in a browser tab: only Kompaly on the home screen can ring (whatever the browser says).
   const [info] = useState(deviceInfo);
@@ -91,6 +93,26 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
   );
   const [menu, setMenu] = useState<HTMLElement | null>(null);
   const sorted = [...value].sort((a, b) => a - b);
+
+  const [testing, setTesting] = useState(false);
+  const sendTest = async () => {
+    if (!item || !date || !value.length) return;
+    setTesting(true);
+    try {
+      const { sendReminderTest } = await import('../lib/reminderTest');
+      const way = await sendReminderTest({ kind: item.kind, id: item.id ?? 'nouveau', title: item.title, date, time, end: item.end }, value);
+      toast(
+        way === 'push'
+          ? t('Rappel test envoyé : il arrive sur {device} comme le vrai, même Kompaly fermé.', { device: where })
+          : way === 'system'
+            ? t('Rappel test affiché. Pour le recevoir Kompaly fermé, active les rappels dans Profil › Notifications.')
+            : t('Rappel test affiché dans Kompaly. Sans notifications activées sur {device}, le vrai ne s’affichera que si Kompaly est ouvert.', { device: where }),
+        way === 'app' ? 'info' : 'success',
+      );
+    } finally {
+      setTesting(false);
+    }
+  };
 
   const turnOn = async () => {
     const next = await enableDevice();
@@ -174,6 +196,11 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
             </Popover>
           )}
         </div>
+      )}
+      {!disabled && item && value.length > 0 && !over && !custom && (
+        <button type="button" onClick={() => void sendTest()} disabled={testing} className="hit mt-2 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-brand-600 underline-offset-2 hover:underline disabled:opacity-60">
+          <BellRing size={13} aria-hidden /> {t('Envoyer un rappel test')}
+        </button>
       )}
       {!disabled && custom && (
         <div
