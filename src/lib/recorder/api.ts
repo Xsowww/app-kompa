@@ -29,6 +29,8 @@ async function call<T>(path: string, init: RequestInit, timeoutMs: number, stop?
     const res = await fetch(`/api/cours/${path}`, { ...init, headers: { ...init.headers, ...(token ? { Authorization: `Bearer ${token}` } : {}) }, signal: ctrl.signal });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new CoursError(data.error ?? `http_${res.status}`, Number(data.retryAfter) || undefined);
+    // A long reading answers 200 at once and its outcome at the end (server/cours.mjs › sendSlowly): an error then too.
+    if (typeof data?.error === 'string') throw new CoursError(data.error, Number(data.retryAfter) || undefined);
     return data as T;
   } catch (e) {
     if (e instanceof CoursError) throw e;
@@ -62,7 +64,23 @@ export const alertOtherDevices = (body: { title: string; body: string; except?: 
 /** `audioLeft` / `audioMax`: seconds of recording left today and allowed a day (signed in). */
 export const serverState = () => call<{ transcription: boolean; redaction: boolean; photo?: boolean; audioLeft?: number; audioMax?: number }>('etat', { method: 'GET' }, 10_000);
 /** Photos (JPEG data URLs) → the sheet they hold, in Markdown (server/photo.mjs). */
-export const readPhotoSheet = (photos: string[], stop?: AbortSignal) => call<{ text: string }>('photo', json({ photos }), 110_000, stop).then(r => r.text);
+export const readPhotoSheet = (photos: string[], stop?: AbortSignal) =>
+  call<{ text?: string }>('photo', json({ photos }), 110_000, stop).then(r => {
+    if (!r.text) throw new CoursError('empty_answer');
+    return r.text;
+  });
+
+/** A slot read on a planning's photo (server/photo.mjs › cleanSlots). */
+export interface PlanningSlot {
+  title: string;
+  date: string;
+  start?: string;
+  end?: string;
+  place?: string;
+}
+/** Photo(s) of a planning → the slots it holds (nothing is added: the page shows them first). `name`: whose line. */
+export const readPlanningPhoto = (photos: string[], body: { today: string; name?: string }, stop?: AbortSignal) =>
+  call<{ slots?: PlanningSlot[]; note?: string }>('planning', json({ photos, ...body }), 110_000, stop).then(r => ({ slots: Array.isArray(r.slots) ? r.slots : [], note: r.note ?? '' }));
 
 function json(body: unknown): RequestInit {
   return { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...(body as object), lang }) };

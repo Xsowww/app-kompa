@@ -504,14 +504,14 @@ export async function createEvent(groupId: string, e: NewGroupEvent): Promise<Gr
 const SERIES_MISSING = t('Répéter un événement ou le faire durer plusieurs jours n’est pas encore disponible dans les agendas partagés.');
 const noSeriesColumn = (e: { code?: string; message?: string } | null) => e?.code === 'PGRST204' && /series/.test(e.message ?? '');
 
-/** Several events at once (a repeat, the days of an event): one request, one « Ajouté » for the others. */
-export async function createEvents(groupId: string, list: NewGroupEvent[]): Promise<void> {
+/** Several events at once (a repeat, the days of an event): one request, one « Ajouté » for the others. Returns them as saved. */
+export async function createEvents(groupId: string, list: NewGroupEvent[]): Promise<GroupEvent[]> {
   const rows = list.map(e => ({ group_id: groupId, title: e.title, date: e.date, start_time: e.start, end_time: e.end, place: e.place, category: e.category ?? null, details: e.details ?? null, ...(e.people?.length && { people: e.people }), ...(e.reminders?.length && { reminders: e.reminders }), series: e.series ?? null }));
-  const res = await db().from('group_events').insert(rows);
+  const res = await db().from('group_events').insert(rows).select('*');
   if (noSeriesColumn(res.error)) throw new Refused(SERIES_MISSING);
   if (noPeopleColumn(res.error)) throw new Refused(PEOPLE_MISSING);
   if (noRemindersColumn(res.error)) throw new Refused(AGENDA_MISSING);
-  check(res);
+  return ((check(res) as Row[] | null) ?? []).map(toEvent);
 }
 
 /** Deletes several events (« this one and the next ones »). */

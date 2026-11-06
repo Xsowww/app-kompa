@@ -81,7 +81,7 @@ async function nudge(n: Nudge) {
   try {
     // Phrased here, on the device: a remark Kompaly makes by himself never sends anything to an AI (titles, file names…).
     const text = n.fallback;
-    useCopilot.getState().say({ text, offers: n.offers, links: n.links, mood: n.mood ?? (n.offers ? 'alert' : 'happy'), brief: n.kind === 'brief' || n.hello || undefined });
+    useCopilot.getState().say({ text, offers: n.offers, links: n.links, mood: n.mood ?? (n.offers ? 'alert' : 'happy'), brief: n.kind === 'brief' || n.hello || undefined, hello: n.hello });
     // Out of the app (another tab): only a suggestion to act on, never a greeting, a bravo or a summary.
     if (getSettings().copilotNotify && n.offers?.length && !n.kind) notify('Kompaly', text.length > 160 ? `${text.slice(0, 159)}…` : text);
   } finally {

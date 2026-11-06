@@ -1,23 +1,25 @@
 import { Fragment, memo, useEffect, useLayoutEffect, useRef, useState, type ComponentProps, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ArrowUp, ArrowUpRight, Check, ChevronDown, ChevronUp, Copy, Maximize2, Mic, Minimize2, RefreshCw, RotateCcw, Square, X } from 'lucide-react';
+import { ArrowUp, ArrowUpRight, Camera, Check, ChevronDown, ChevronUp, Copy, Maximize2, Mic, Minimize2, RefreshCw, RotateCcw, Square, X } from 'lucide-react';
 import Character, { CopilotAvatar, type CopilotMood } from './Character';
 import KompalyMark from '../components/KompalyMark';
 import { sober } from '../lib/sober';
-import { toggleKompaly, useCopilot, type Bubble, type CopilotLink, type CopilotOffer } from '../store/copilot';
+import { answerOrphan, toggleKompaly, useCopilot, type Bubble, type CopilotLink, type CopilotOffer } from '../store/copilot';
 import { useAuth } from '../store/auth';
 import { startTour } from '../store/tour';
 import { toast } from '../store/ui';
 import { isTourRequest, isYes, localReply, type BotReply } from './localBrain';
 import { isSimpleRequest } from './simpleIntent';
-import { acceptOffer, runOffer } from './offers';
+import { acceptOffer, isAsyncOffer, runOffer } from './offers';
+import { photoFailure, readSlots, slotsReply } from './photoSlots';
+import { usePhotoReady } from '../pages/drive/photoReady';
 import * as claudeBrain from './claudeBrain';
 import { normalize, cx } from '../lib/utils';
 import { useSettings } from '../store/settings';
 import Markdown from './Markdown';
 import { frenchSpacing, stripMarkdown } from './markdown';
-import { aiPausedUntil, aiPauseReason, resumeAfterError } from './aiPause';
+import { aiPausedUntil, aiPauseReason, quotaFullUntil, resumeAfterError } from './aiPause';
 import { useDictation } from './voice';
 import { homeVisited } from './proactive';
 import { scrollMotion, trapTab } from '../lib/a11y';
@@ -46,6 +48,8 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigat
 const NOTE_SLOT = 'kompaly-note';
 /** The input grows with the text up to about five lines, then scrolls. */
 const INPUT_MAX = 116;
+/** « Réessayer » of a photo whose reading failed (the photo is kept in memory, never in the conversation). */
+const PHOTO_RETRY = '\u0000photo';
 
 /**
  * The character, his eyes following the mouse. Only this small part re-renders while the mouse moves
@@ -219,6 +223,10 @@ export default function Copilot() {
   const { push, setPose, clearBubble, setThinking, setOffsetY, clearHistory, greet } = useCopilot.getState();
   const usage = useSettings(s => s.usage ?? 'etudes');
   const studying = usage === 'etudes';
+  // « Photo d'un planning »: only where the server reads photos (the same service as « Fiche depuis une photo »).
+  const photoReady = usePhotoReady();
+  const photoInput = useRef<HTMLInputElement>(null);
+  const lastPhoto = useRef<File | null>(null);
   const hello = () =>
     // Today's morning brief already says hello (« Salut Léa ! Ta journée en 3 lignes »): not a second one above it.
     !useCopilot.getState().messages.some(m => m.brief && toKey(new Date(m.at)) === todayKey()) &&
@@ -255,6 +263,12 @@ export default function Copilot() {
   const [note, setNote] = useState<{ bubble: Bubble; slot: HTMLElement | null } | null>(null);
   const [folded, setFolded] = useState(false);
   const noteRef = useRef<HTMLElement>(null);
+
+  // A question left without answer by a closed page: said once the conversation is back from storage.
+  useEffect(() => {
+    if (useCopilot.persist.hasHydrated()) answerOrphan();
+    return useCopilot.persist.onFinishHydration(answerOrphan);
+  }, []);
 
   // Is the AI brain plugged in on the server?
   useEffect(() => {
@@ -489,9 +503,32 @@ export default function Copilot() {
 
   // The other changes of the same answer stay clickable (they come back under the reply).
   const onOffer = (o: CopilotOffer, rest: CopilotOffer[]) => {
+    if (thinking) return;
     const reply = acceptOffer(o, rest);
     speak(reply.text);
   };
+
+  /** A photo of a planning: read on the server, its slots listed with « Ajouter ces N créneaux » (nothing added before). */
+  async function sendPhoto(file: File, again = false) {
+    if (useCopilot.getState().thinking) return;
+    lastPhoto.current = file;
+    if (!again) push('user', t('📷 Photo d’un planning'));
+    setThinking(true);
+    const stop = new AbortController();
+    stopRef.current = stop;
+    let reply: BotReply & { retry?: string };
+    try {
+      const { slots, note } = await readSlots(file, stop.signal);
+      reply = slotsReply(slots, note);
+    } catch (e) {
+      reply = stop.signal.aborted ? { text: t('J’arrête là.') } : { text: photoFailure(e), retry: PHOTO_RETRY };
+    }
+    stopRef.current = null;
+    setThinking(false);
+    push('bot', reply.text, { offers: reply.offers, retry: reply.retry });
+    speak(reply.text);
+    if (useSettings.getState().pro && useCopilot.getState().pose !== 'open') useCopilot.getState().show({ text: reply.text, offers: reply.offers });
+  }
 
   /** `again`: « Réessayer » — the question is already in the conversation, its failed answer goes. */
   async function send(text: string, again = false) {
@@ -499,7 +536,10 @@ export default function Copilot() {
     if (!clean || thinking) return;
     if (!again) setInput('');
     const pending = useCopilot.getState().pendingOffer;
-    if (!again) push('user', clean);
+    // Who answers is decided now: what the simple mode answers on the device is marked so (never sent to an AI later).
+    const viaAi = aiEnabled && !(await brain()).aiPausedUntil() && !isSimpleRequest(clean);
+    const local = !viaAi && !isTourRequest(clean);
+    if (!again) push('user', clean, local ? { local: true } : undefined);
 
     // « Fais-moi visiter »: the guided tour, panel closed so that it shows (with or without the AI).
     if (isTourRequest(clean)) {
@@ -509,6 +549,14 @@ export default function Copilot() {
       return;
     }
 
+    // « oui » to a button that waits for a server (an addition checked, a photo's slots): the same as its click.
+    if (pending && isAsyncOffer(pending) && (isYes(normalize(clean)) || /^(avec plaisir|je veux bien|volontiers)$/.test(normalize(clean)))) {
+      useCopilot.setState({ pendingOffer: null });
+      // acceptOffer says it again as the person's words: the « oui » already is.
+      useCopilot.setState(s => ({ messages: s.messages.slice(0, -1) }));
+      acceptOffer(pending);
+      return;
+    }
     // "oui" to his last proposal → just do it (a question for the AI: asked right after)
     if (pending?.kind === 'ask' && pending.payload?.prompt && aiEnabled && (isYes(normalize(clean)) || /^(avec plaisir|je veux bien|volontiers)$/.test(normalize(clean)))) {
       useCopilot.setState({ pendingOffer: null });
@@ -517,7 +565,7 @@ export default function Copilot() {
     }
     if (pending && (isYes(normalize(clean)) || /^(avec plaisir|je veux bien|volontiers)$/.test(normalize(clean)))) {
       const r = runOffer(pending);
-      push('bot', r.text, { links: r.links });
+      push('bot', r.text, { links: r.links, local: true });
       speak(r.text);
       return;
     }
@@ -527,7 +575,7 @@ export default function Copilot() {
     stopRef.current = stop;
     let reply: BotReply & { retry?: string };
     // What the simple mode understands for sure (« dentiste mardi 17h30 », « qu'est-ce que j'ai demain ? ») stays on the device.
-    if (aiEnabled && !(await brain()).aiPausedUntil() && !isSimpleRequest(clean)) {
+    if (viaAi) {
       try {
         reply = await (await brain()).claudeReply(clean, user?.name ?? '', stop.signal);
       } catch (e) {
@@ -552,7 +600,14 @@ export default function Copilot() {
     }
     stopRef.current = null;
     setThinking(false);
-    push('bot', reply.text, { links: reply.links, offers: reply.offers, retry: reply.retry });
+    push('bot', reply.text, { links: reply.links, offers: reply.offers, retry: reply.retry, ...(local && { local: true }) });
+    // The day's last question to the AI was just answered: said in the chat too, once (the header turns to simple mode).
+    const key = `quota-full:${todayKey()}`;
+    if (viaAi && quotaFullUntil() && !useCopilot.getState().memory[key]) {
+      useCopilot.getState().remember(key);
+      const max = claudeBrain.useAiQuota.getState().quota?.max ?? 30;
+      push('bot', t('C’était ta {n}e question à l’IA aujourd’hui : je passe en mode simple jusqu’à minuit. Les demandes courantes (ajouter un rendez-vous, « qu’est-ce que j’ai demain ? ») marchent toujours.', { n: max }));
+    }
     speak(reply.text);
     // Affichage Pro: his panel was closed meanwhile, the answer comes in the island.
     if (useSettings.getState().pro && useCopilot.getState().pose !== 'open') useCopilot.getState().show({ text: reply.text, links: reply.links, offers: reply.offers });
@@ -561,6 +616,10 @@ export default function Copilot() {
   const retry = (id: string, question: string) => {
     resumeAfterError();
     useCopilot.setState(s => ({ messages: s.messages.filter(m => m.id !== id) }));
+    if (question === PHOTO_RETRY) {
+      if (lastPhoto.current) void sendPhoto(lastPhoto.current, true);
+      return;
+    }
     void send(question, true);
   };
 
@@ -793,7 +852,36 @@ export default function Copilot() {
             </div>
           )}
 
-          <form onSubmit={onSubmit} className="flex items-end gap-2 border-t border-stone-100 p-2.5">
+          <form onSubmit={onSubmit} className="flex items-end gap-2 border-t border-stone-100 p-2.5 max-[359px]:gap-1">
+            {photoReady && (
+              <>
+                {/* No « capture »: the phone offers the camera or a photo already taken. */}
+                <input
+                  ref={photoInput}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+                  className="sr-only"
+                  tabIndex={-1}
+                  aria-hidden
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    e.target.value = '';
+                    if (file) void sendPhoto(file);
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => photoInput.current?.click()}
+                  disabled={thinking}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-stone-500 transition-colors hover:bg-stone-100 hover:text-ink disabled:opacity-30"
+                  title={t('Photo d’un planning : j’en tire les créneaux')}
+                  aria-label={t('Photo d’un planning')}
+                  tabIndex={isOpen ? 0 : -1}
+                >
+                  <Camera size={17} />
+                </button>
+              </>
+            )}
             {/* Entrée sends, Maj+Entrée goes to the line; ↑ in the empty field brings the last message back. */}
             <textarea
               ref={inputRef}
