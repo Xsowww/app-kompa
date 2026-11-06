@@ -13,6 +13,10 @@ export interface DemoItem {
   /** yyyy-MM-dd; null for a task without a day. */
   date: string | null;
   start: string | null;
+  /** « de 9h à 11h », « 21h-7h »: the end (the next morning when `nextDay`). */
+  end?: string | null;
+  /** A night (« Garde de nuit lundi 21h-7h »): it ends the next day, shown on both. */
+  nextDay?: boolean;
   color: string;
   /** One of the page's own examples (they make room for the visitor's). */
   example?: boolean;
@@ -51,15 +55,83 @@ export const exampleBase = (now: Date) => {
 };
 
 /**
- * What the demo does with a read sentence: an event when it has an hour, else a task (for its day, or without one).
- * An hour without a day: today. Nothing to add without a title, or for a date that doesn't exist.
+ * The sign-in and sign-up pages' little week (pages/AuthPage › Showcase): Monday to Friday of this week, today
+ * marked; on a weekend, the next week (from its Monday). `today`: its index (0 Monday … 4 Friday), -1 on a weekend.
  */
-export function demoPlace(p: ParsedQuickAdd, today: string): Pick<DemoItem, 'kind' | 'title' | 'date' | 'start'> | { error: 'empty' | 'impossible' } {
+export function workWeek(now: Date): { days: string[]; today: number } {
+  const key = keyOf(now);
+  const weekend = (now.getDay() + 6) % 7 > 4;
+  const monday = weekend ? plusDays(mondayOf(key), 7) : mondayOf(key);
+  const days = weekOf(monday).slice(0, 5);
+  return { days, today: days.indexOf(key) };
+}
+
+/** The day after a yyyy-MM-dd. */
+export const dayAfter = (key: string) => plusDays(key, 1);
+
+// An hour in a sentence: « 9h », « 9 h 30 », « 14:15 », « 10 heures »; a range is one: « 9h-11h », « de 21h à 7h ».
+const HOUR = '(\\d{1,2})\\s?(?:heures?|h|:)\\s?(\\d{2})?';
+const HOURS = new RegExp(`(?:\\bde\\s)?${HOUR}(?:\\s?(?:-|–|—|à|a|jusqu'à|jusqu’à)\\s?${HOUR})?(?![\\p{L}\\d])`, 'giu');
+const hhmm = (h: string, m?: string) => (Number(h) < 24 && Number(m ?? 0) < 60 ? `${h.padStart(2, '0')}:${m ?? '00'}` : null);
+
+/**
+ * A sentence with several hours that aren't one range (« Conduite 9h, repos 11h », « Dentiste 9h puis kiné 11h »):
+ * one part per hour, each ending with its hour (the words after the last one go with it). A range (« de 9h à 11h »,
+ * « 21h-7h ») is one hour. At most `max` parts; the sentence whole when it has one hour or none.
+ */
+export function splitSentence(text: string, max = 3): string[] {
+  // A length is not an hour: « Réunion 10h pendant 2h », « Footing 18h (1h) ».
+  const ends = [...text.matchAll(HOURS)].filter(m => !/(?:pendant|durant|\()\s*$/i.test(text.slice(0, m.index))).map(m => m.index + m[0].length);
+  if (ends.length < 2) return [text.trim()];
+  const parts: string[] = [];
+  let from = 0;
+  for (const end of ends.slice(0, -1)) {
+    parts.push(text.slice(from, end));
+    from = end;
+  }
+  parts.push(text.slice(from));
+  return parts
+    .map(p => p.replace(/^[\s,;.:–—-]+|[\s,;.:–—-]+$/g, '').replace(/^(?:puis|et|ensuite|après|apres)\s+/i, '').trim())
+    .filter(Boolean)
+    .slice(0, max);
+}
+
+/** « Garde de nuit 21h-7h », « de 22h à 6h »: the end of a night (the quick add drops it, as it is before the start). */
+export function nightEnd(text: string): string | null {
+  for (const m of text.matchAll(HOURS)) {
+    if (!m[3]) continue;
+    const start = hhmm(m[1], m[2]);
+    const end = hhmm(m[3], m[4]);
+    if (start && end && end < start) return end;
+  }
+  return null;
+}
+
+/**
+ * What the demo does with a read sentence: an event when it has an hour (with its end; the next morning for a night),
+ * a task when it has only a day. An hour without a day: today. Nothing for a sentence with neither a day nor an hour,
+ * or a question (not an appointment: the demo suggests an example instead), nor without a title, nor for a date that
+ * doesn't exist.
+ */
+export function demoPlace(
+  p: ParsedQuickAdd,
+  today: string,
+  sentence = '',
+): Pick<DemoItem, 'kind' | 'title' | 'date' | 'start' | 'end' | 'nextDay'> | { error: 'empty' | 'impossible' | 'notEvent' } {
   if (p.impossible) return { error: 'impossible' };
+  if (/\?\s*$/.test(sentence) || (!p.date && !p.start)) return { error: 'notEvent' };
   if (!p.title.trim()) return { error: 'empty' };
-  if (p.start) return { kind: 'event', title: p.title, date: p.date ?? today, start: p.start };
+  if (p.start) {
+    // The quick add now gives a night its end and next day (« 21h-7h »: endDate); older readings, from the sentence.
+    const night = p.end ? (p.endDate && p.end < p.start ? p.end : null) : nightEnd(sentence);
+    return { kind: 'event', title: p.title, date: p.date ?? today, start: p.start, end: p.end ?? night, ...(night && { nextDay: true }) };
+  }
   return { kind: 'task', title: p.title, date: p.date, start: null };
 }
+
+/** The visitor's last sentence, recreated in their new account (store/welcome): `{ text, at }` (ISO), kept 24 h. */
+export const DEMO_KEY = 'kompaly-demo';
+export const demoKept = (text: string, now: Date) => JSON.stringify({ text: text.trim().slice(0, 120), at: now.toISOString() });
 
 /**
  * The rows under the week: its items and the tasks without a day, at most `max`. The visitor's newest first, the
@@ -67,7 +139,8 @@ export function demoPlace(p: ParsedQuickAdd, today: string): Pick<DemoItem, 'kin
  */
 export function rowsFor(items: DemoItem[], monday: string, max = 4): DemoItem[] {
   const end = plusDays(monday, 6);
-  const shown = items.filter(i => (i.date ? i.date >= monday && i.date <= end : i.kind === 'task'));
+  const inWeek = (k: string) => k >= monday && k <= end;
+  const shown = items.filter(i => (i.date ? inWeek(i.date) || (!!i.nextDay && inWeek(dayAfter(i.date))) : i.kind === 'task'));
   const kept = [...shown.filter(i => !i.example).sort((a, b) => b.id - a.id), ...shown.filter(i => i.example)].slice(0, max);
   return kept.sort((a, b) => (a.date ?? '9999').localeCompare(b.date ?? '9999') || (a.start ?? '24:00').localeCompare(b.start ?? '24:00') || a.id - b.id);
 }

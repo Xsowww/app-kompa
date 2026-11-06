@@ -11,6 +11,7 @@ import { DialogHost, ServiceBanner, Toasts } from './components/Overlays';
 import { t } from './i18n';
 import { PUBLIC_PAGES, pageHeads } from './lib/seoPages.mjs';
 import { quietly } from './page';
+import { keepInvite, readInvite } from './pages/groups/invitePending';
 
 /**
  * A page's code, loaded the first time it opens. Offline, a page not opened yet can't arrive: rather than the
@@ -70,6 +71,7 @@ const WelcomePage = lazy(() => import('./pages/WelcomePage'));
 const ConfirmPage = lazy(() => import('./pages/ConfirmPage'));
 // The public home page, for visitors not signed in (and search engines).
 const LandingPage = lazy(() => import('./pages/LandingPage'));
+const InvitePage = lazy(() => import('./pages/groups/InvitePage'));
 
 /** Signed in and online: the main pages' code arrives while nothing else happens, so they open offline too. */
 const PREFETCH: (() => Promise<unknown>)[] = [
@@ -141,8 +143,6 @@ function PageTitle() {
   return null;
 }
 
-export const PENDING_INVITE = 'cop-invite';
-
 /**
  * Goes to `to`, with the loading screen meanwhile (never an empty page). Unlike <Navigate>, it goes again when another
  * navigation lands here before it (a sign-in page sending to « / » while the account needed the questionnaire left
@@ -181,9 +181,13 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   // Not signed in: « / » is the public home page, the other pages of the app ask to sign in.
   if (!user) {
     if (unknown) return <Suspense fallback={<Loading full />}><NotFoundPage /></Suspense>;
-    // An invitation link opened signed out: kept for after sign-in (AppShell opens it).
-    if (/[?&](rejoindre|invitation)=/.test(search)) sessionStorage.setItem(PENDING_INVITE, pathname + search);
-    else if (pathname !== '/') rememberAfterLogin(pathname + search); // the page asked for, opened once signed in
+    // An invitation link opened signed out: its own page (who invites to what), the link kept on this device for after
+    // the sign-up and its e-mail confirmation (pages/groups/invitePending; AppShell joins it).
+    if (/[?&](rejoindre|invitation)=/.test(search)) {
+      if (readInvite(search)) keepInvite(pathname + search);
+      return <Suspense fallback={<Loading full />}><InvitePage /></Suspense>;
+    }
+    if (pathname !== '/') rememberAfterLogin(pathname + search); // the page asked for, opened once signed in
     return pathname === '/' ? <Suspense fallback={<Loading full />}><LandingPage /></Suspense> : <Navigate to="/connexion" replace />;
   }
   if (mfaStep) return <Redirect to="/securite" />;

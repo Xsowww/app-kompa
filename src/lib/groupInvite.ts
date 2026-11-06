@@ -4,14 +4,22 @@ import { t } from '../i18n';
 
 type Kind = 'groupe' | 'agenda';
 
-export const inviteLink = (kind: Kind, secret: string, origin: string) =>
-  kind === 'agenda' ? `${origin}/agendas?invitation=${secret}` : `${origin}/groupes?rejoindre=${secret}`;
+/**
+ * The link. `about`: who invites and the name of what they invite to, written in it (`de=`, `nom=`) for the page a
+ * guest without an account lands on (« Sandrine t'invite dans l'agenda Famille »): shown there, never trusted.
+ */
+export const inviteLink = (kind: Kind, secret: string, origin: string, about?: { from?: string; name?: string }) => {
+  const base = kind === 'agenda' ? `${origin}/agendas?invitation=${secret}` : `${origin}/groupes?rejoindre=${secret}`;
+  const from = about?.from?.trim().slice(0, 40);
+  const name = about?.name?.trim().slice(0, 60);
+  return `${base}${from ? `&de=${encodeURIComponent(from)}` : ''}${name ? `&nom=${encodeURIComponent(name)}` : ''}`;
+};
 
 /** The ready-to-send message: the link, and a group's code too (typed by hand on another device). */
-export const inviteText = (g: { kind: Kind; name: string }, secret: string, origin: string) =>
+export const inviteText = (g: { kind: Kind; name: string }, secret: string, origin: string, from?: string) =>
   g.kind === 'agenda'
-    ? t('Rejoins l’agenda partagé « {name} » sur Kompaly : {link}', { name: g.name, link: inviteLink('agenda', secret, origin) })
-    : t('Rejoins « {name} » sur Kompaly : {link} (code {code})', { name: g.name, link: inviteLink('groupe', secret, origin), code: secret });
+    ? t('Rejoins l’agenda partagé « {name} » sur Kompaly : {link}', { name: g.name, link: inviteLink('agenda', secret, origin, { from, name: g.name }) })
+    : t('Rejoins « {name} » sur Kompaly : {link} (code {code})', { name: g.name, link: inviteLink('groupe', secret, origin, { from, name: g.name }), code: secret });
 
 /**
  * What was pasted or typed in « Rejoindre »: a shared calendar's link (or its bare token), a group's link, its code,
@@ -27,4 +35,18 @@ export function parseInvite(text: string): { kind: Kind; secret: string } | null
     .replace(/[^A-Z0-9]/g, '')
     .slice(-6);
   return code.length === 6 ? { kind: 'groupe', secret: code } : null;
+}
+
+/**
+ * Ways to send the message where the phone has no share sheet (a computer, an old browser): SMS, WhatsApp, e-mail.
+ * Each opens the app with the message written, the person picks who to send it to.
+ */
+export function shareLinks(message: string, subject: string): { key: 'sms' | 'whatsapp' | 'email'; href: string }[] {
+  const text = encodeURIComponent(message);
+  return [
+    // « ?& »: the form both iPhone (« &body ») and Android (« ?body ») read.
+    { key: 'sms', href: `sms:?&body=${text}` },
+    { key: 'whatsapp', href: `https://wa.me/?text=${text}` },
+    { key: 'email', href: `mailto:?subject=${encodeURIComponent(subject)}&body=${text}` },
+  ];
 }

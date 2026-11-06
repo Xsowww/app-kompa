@@ -20,7 +20,7 @@ export type ProWall = 'montagne' | 'nuit' | 'aurore' | 'maree' | 'braise';
 export const PRO_WALLS: ProWall[] = ['montagne', 'nuit', 'aurore', 'maree', 'braise'];
 export type Language = Lang;
 /** Kompaly's personality presets (the server turns them into instructions). */
-export type PersonaKey = 'pote' | 'coach' | 'prof' | 'zen' | 'taquin';
+export type PersonaKey = 'neutre' | 'pote' | 'coach' | 'prof' | 'zen' | 'taquin';
 
 export const ACCENTS: Record<AccentKey, { label: string; shades: Record<'50' | '100' | '200' | '500' | '600' | '700', string> }> = {
   orange: { label: t('Orange'), shades: { 50: '#fdf3ef', 100: '#fbe4da', 200: '#f6c6b2', 500: '#e8613c', 600: '#c94a26', 700: '#ad3e20' } },
@@ -140,7 +140,7 @@ export const DEFAULT_SETTINGS: Settings = {
   chattiness: 'calme',
   revisionSessions: 3,
   revisionTime: '18:00',
-  persona: 'pote',
+  persona: 'neutre',
   personaNotes: '',
   morningBrief: true,
   weeklyReview: true,

@@ -5,7 +5,7 @@ import SeriesIcon from './SeriesIcon';
 import { Modal } from '../../components/Overlays';
 import { ReportDialog } from '../../components/FeedbackDialogs';
 import { useNotes } from '../../store/notes';
-import { allCategories, guessCategory, isBigEvent, nextInSeries, type CalendarEvent, type EventCategory } from '../../store/calendar';
+import { allCategories, guessCategory, isBigEvent, nextInSeries, type CalendarEvent, type EventCategory, type NewEvent } from '../../store/calendar';
 // The colours of the categories, vivid in the Affichage Pro.
 import { catOf } from './proColors';
 import { askSeriesScope, changedFields, removeEvent, useCalendarSource } from './source';
@@ -25,6 +25,8 @@ import { MAX_SPAN_DAYS, REPEATS, dayShift, defaultUntil, isSpan, repeatDays, shi
 import { feedLabel, feedOf } from '../../lib/icsFeeds';
 import { uid } from '../../lib/utils';
 import { copyToMyCalendar } from './agendas';
+import AgendaChoice from '../groups/AgendaChoice';
+import { addToAgenda, useAgendaTargets } from '../groups/agendaAdd';
 import { t, tn } from '../../i18n';
 
 const NONE: number[] = [];
@@ -116,6 +118,10 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
   // My calendar or a shared one (no « important » there; its own categories, and reminders for each member it is for).
   const source = useCalendarSource();
   const { add, addMany, update, updateSeries, shared, categories: custom, periods, events: allEvents } = source;
+  // A new event of my calendar can go straight to one of my shared calendars (« Agenda : Perso · Famille »).
+  const targets = useAgendaTargets(!event && !shared);
+  const [agendaId, setAgendaId] = useState('');
+  const into = targets.find(g => g.id === agendaId) ?? null;
   // An event changed, or the one duplicated (its times and all, on the day it is opened for).
   const base = event ?? template;
   const [title, setTitle] = useState(base?.title ?? initialTitle ?? '');
@@ -135,7 +141,7 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
   const mine = useSettings(s => s.defaultReminders);
   const feeds = useSettings(s => s.icsFeeds);
   // My usual reminder isn't imposed on the members of a shared calendar: none until one is chosen.
-  const defaults = shared ? NONE : mine;
+  const defaults = shared || into ? NONE : mine;
   const words = { ...(WORDS[useSettings(s => s.usage)] ?? WORDS.etudes), ...(shared && AGENDA_EXAMPLES) };
   const [creating, setCreating] = useState(false);
   // A new event: « Dentiste demain 16h » fills the day and the times (as the calendar's bar), unless they were set by
@@ -183,7 +189,7 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
   };
   const effective = category ?? guessCategory(cleanTitle || title, !!start, custom);
   // My usual reminder and, for a big day, a week before and the day before when still to come (lib/reminders); a shared calendar: the chosen ones.
-  const reminders = shared ? (chosen ?? NONE) : eventReminders({ reminders: chosen, date: day, start, externalId: event?.externalId, category: effective, important }, defaults, new Date());
+  const reminders = shared || into ? (chosen ?? NONE) : eventReminders({ reminders: chosen, date: day, start, externalId: event?.externalId, category: effective, important }, defaults, new Date());
   // Becoming a big day with reminders already chosen: the early ones are added (removable).
   const becomeBig = (big: boolean) => {
     if (!shared && big && chosen && day && !isBigEvent({ category: effective, important })) setChosen(cleanReminders([...chosen, ...earlyReminders(day, start || undefined, new Date())]));
@@ -224,12 +230,13 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
     } else if (event) update(event.id, changes);
     else if (series) {
       const id = uid();
-      addMany(series.days.map(d => ({ ...data, date: d, series: id })));
+      (into ? (l: NewEvent[]) => addToAgenda(into, l) : addMany)(series.days.map(d => ({ ...data, date: d, series: id })));
     } else if (spanning) {
       const id = `span-${uid()}`;
       // The first day keeps the reminders; the others none (« 15 min avant » 0:00 would ring at midnight).
-      addMany(spanDays(day, night ? shiftKey(day, 1) : endDay!, start || undefined, end || undefined).map((p, i) => ({ ...data, ...p, start: p.start, end: p.end, series: id, reminders: i ? [] : data.reminders })));
-    } else add(data);
+      (into ? (l: NewEvent[]) => addToAgenda(into, l) : addMany)(spanDays(day, night ? shiftKey(day, 1) : endDay!, start || undefined, end || undefined).map((p, i) => ({ ...data, ...p, start: p.start, end: p.end, series: id, reminders: i ? [] : data.reminders })));
+    } else if (into) addToAgenda(into, [data]);
+    else add(data);
     toast(
       event
         ? t('Enregistré : {title}', { title: data.title })
@@ -303,6 +310,7 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
           </p>
         )}
         {impossible && !titleError && <p className="mt-1.5 text-[12px] font-medium text-red-600 dark:text-red-400" role="alert">{t('Cette date n’existe pas : corrige-la pour ajouter.')}</p>}
+        <AgendaChoice targets={targets} value={agendaId} onChange={setAgendaId} />
 
         <p className="mb-1.5 mt-4 text-[12px] font-medium text-stone-600">{t('Catégorie')}</p>
         <div className="flex flex-wrap gap-2">
@@ -417,7 +425,7 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
           ))}
 
         {/* What makes it a « big day » for the home page and Kompaly, whatever its category. */}
-        {!shared && <button
+        {!shared && !into && <button
           type="button"
           onClick={() => ((touched.current.important = true), becomeBig(!important), setImportant(v => !v))}
           aria-pressed={important}

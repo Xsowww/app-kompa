@@ -501,6 +501,12 @@ body:has(#nav-more-panel) #create-button {
 .cop-hover { animation: cop-hover 2.6s ease-in-out infinite; }
 .cop-slow { animation-duration: 4.5s; }
 .cop-dot { opacity: 0; animation: cop-dot 1.5s infinite; }
+/* A remark of Kompaly laid in the home page (copilot/Copilot › Note): it opens its room, the cards slide down. */
+@keyframes note-open {
+  from { max-height: 0; opacity: 0; transform: translateY(-6px); }
+  to { max-height: 24rem; opacity: 1; transform: none; }
+}
+.kompaly-note-in { animation: note-open 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
 
 /* Affichage Pro: another space's cards come in one after the other, out of a blur (layout/proMotion sets --pro-i). */
 @keyframes pro-in {
@@ -512,7 +518,7 @@ body:has(#nav-more-panel) #create-button {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .enter, .pop, .cop-bounce, .cop-talk, .cop-wiggle, .cop-z, .cop-hover, .pro-in, .pro-dot-rec { animation: none; }
+  .enter, .pop, .cop-bounce, .cop-talk, .cop-wiggle, .cop-z, .cop-hover, .pro-in, .pro-dot-rec, .kompaly-note-in { animation: none; }
   .cop-dot { animation: none; opacity: 1; }
   *,
   *::before,

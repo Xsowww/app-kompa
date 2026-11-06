@@ -1,5 +1,9 @@
 import { useDrive } from './drive';
-import { applyUsage, useCalendar } from './calendar';
+import { applyUsage, guessCategory, useCalendar } from './calendar';
+import { DEMO_KEY, demoPlan, readDemo } from '../lib/demoFirst';
+import { spanDays } from '../lib/repeat';
+import { uid } from '../lib/utils';
+import { goTo, linkToDay } from '../copilot/actions';
 import { useNotes } from './notes';
 import { useCopilot } from './copilot';
 import { useSettings, applyAppearance, storedStyle, storedTheme } from './settings';
@@ -210,6 +214,7 @@ export function finishWelcome(answers: WelcomeAnswers) {
   applyUsage(usages[0]);
   const user = useAuth.getState().user;
   seedNewAccount();
+  addDemoItem();
   if (cloudEnabled && user) void markOnboarded(user.id);
   if (!cloudEnabled && user) {
     try {
@@ -219,6 +224,39 @@ export function finishWelcome(answers: WelcomeAnswers) {
     }
   }
   useWelcome.setState({ pending: false, unsure: false });
+}
+
+/**
+ * The sentence tried in the home page's demo, still there (a day at most): the account's first event or task, made
+ * like the calendar's quick add, said with a toast. The demo's copy then goes, used or not.
+ */
+export function addDemoItem() {
+  let raw: string | null = null;
+  try {
+    raw = localStorage.getItem(DEMO_KEY);
+    localStorage.removeItem(DEMO_KEY);
+  } catch {
+    return;
+  }
+  const demo = readDemo(raw);
+  const plan = demo && demoPlan(demo.text, demo.at);
+  if (!plan) return;
+  if (plan.kind === 'task') {
+    const todo = useTodos.getState().add(plan.title, plan.date);
+    toast(t('Ta première tâche est prête : {title}', { title: plan.title }), 'success', { label: t('Voir'), run: () => goTo(`/taches?tache=${encodeURIComponent(todo.id)}`) });
+    return;
+  }
+  const category = guessCategory(plan.title, true);
+  const base = { title: plan.title, category, ...(plan.important && { important: true }) };
+  let first;
+  if (plan.endDate) {
+    // « Congés du 22 au 26 décembre 9h »: one a day, linked, the first one keeping the reminders (as the calendar does).
+    const series = `span-${uid()}`;
+    const days = spanDays(plan.date, plan.endDate, plan.start, plan.end);
+    useCalendar.getState().addMany(days.map((d, i) => ({ ...base, ...d, series, ...(i > 0 && { reminders: [] }) })));
+    first = useCalendar.getState().events.find(e => e.series === series && e.date === plan.date);
+  } else first = useCalendar.getState().add({ ...base, date: plan.date, start: plan.start, ...(plan.end && { end: plan.end }) });
+  toast(t('Ton premier événement est prêt : {title}', { title: plan.title }), 'success', { label: t('Voir'), run: () => goTo(linkToDay(plan.date, first?.id)) });
 }
 
 /** A brand-new account starts empty: only the task that launches the guided tour. */

@@ -12,13 +12,24 @@ export type LegalDoc = 'mentions' | 'confidentialite' | 'conditions' | 'tarifs' 
 const UPDATED = new Date(2026, 10, 6).toLocaleDateString(locale(), { day: 'numeric', month: 'long', year: 'numeric' });
 const CONTACT = 'contact@kompaly.com';
 
-type Section = { title: string; body: string[]; sign?: string };
+/** `box`: a framed block (the press's), read first. */
+type Section = { title: string; body: string[]; sign?: string; box?: boolean };
 
 const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
   // Who is behind it, and how to write (visitors looked for /a-propos, /contact, /presse).
   apropos: {
     title: t('Qui fait Kompaly\u00a0?'),
     sections: [
+      // For journalists: what Kompaly is, since when, who to write to. Facts only (no figures to invent).
+      {
+        title: t('Presse'),
+        box: true,
+        body: [
+          t('Kompaly, appli gratuite d’organisation, lancée en 2026 : agenda, notes, tâches et fichiers au même endroit, avec une IA qui range pour toi.'),
+          t('Créée et développée en France par Léo Boucher, de façon indépendante.'),
+          t('Contact presse : {email}', { email: CONTACT }),
+        ],
+      },
       // The founder's own story (told by him, rewritten with him): change it only with him.
       {
         title: t('Pourquoi j’ai créé Kompaly'),
@@ -72,7 +83,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
       {
         title: t('C’est pour qui\u00a0?'),
         body: [
-          t('Pour un usage personnel : tes études, ton travail ou ta famille. Pas de facturation, ni de prise de rendez-vous par des clients, ni d’offre pour une équipe ou une entreprise pour l’instant.'),
+          t('Pour tes études, ton travail ou ta famille, seul ou à plusieurs : groupes, agendas partagés et équipes inclus, gratuitement. Kompaly ne fait pas de devis ni de factures, ni de prise de rendez-vous par des clients.'),
         ],
       },
     ],
@@ -201,7 +212,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
       {
         title: t('Le service'),
         body: [
-          t('Kompaly est un espace pour s’organiser (études, travail ou vie perso) : fichiers, calendrier, notes, tâches, groupes et agendas partagés, enregistrement de cours ou de réunions, et l’ami Kompaly qui t’accompagne. Il est proposé gratuitement, en l’état, et peut évoluer.'),
+          t('Kompaly est un espace pour s’organiser (études, travail ou vie perso) : fichiers, calendrier, notes, tâches, groupes et agendas partagés, enregistrement de cours ou de réunions, et l’assistant Kompaly qui t’accompagne. Il est proposé gratuitement, en l’état, et peut évoluer.'),
           t('En créant un compte, tu acceptes ces conditions et la politique de confidentialité.'),
         ],
       },
@@ -278,7 +289,7 @@ export default function LegalPage({ doc }: { doc: LegalDoc }) {
         <p className="mt-1 text-[12px] text-stone-500">{t('Mise à jour\u00a0: {date}', { date: UPDATED })}</p>
         {lang !== 'fr' && <p className="mt-3 rounded-lg bg-stone-100 px-3 py-2 text-[12.5px] text-stone-600">{t('Traduction pour information : seule la version française fait foi.')}</p>}
         {sections.map(s => (
-          <section key={s.title} className="mt-8">
+          <section key={s.title} className={s.box ? 'mt-6 rounded-2xl border border-stone-200 bg-surface p-5' : 'mt-8'}>
             <h2 className="text-[15px] font-semibold">{s.title}</h2>
             {s.body.map(p => (
               <p key={p} className="mt-2 text-[14px] leading-relaxed text-stone-700">

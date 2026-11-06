@@ -27,8 +27,7 @@ export default function WelcomePage() {
   const [draft] = useState(loadWelcomeDraft);
   const [step, setStep] = useState(draft?.step ?? 0);
   const [a, setA] = useState<WelcomeAnswers>(draft?.answers ?? DEFAULT_ANSWERS);
-  // The persona has a default answer: nothing looks chosen until it is picked (coming back to it shows the answer).
-  const [personaPicked, setPersonaPicked] = useState(!!draft && draft.step >= WELCOME_STEPS - 1);
+  // Every question behaves the same: a choice is only marked, « Continuer » goes on (never by itself), « Passer » skips.
   useEffect(() => saveWelcomeDraft({ step, answers: a }), [step, a]);
   // The app's code arrives while the questions are answered: « C'est parti » opens it at once.
   useEffect(() => {
@@ -74,7 +73,7 @@ export default function WelcomePage() {
       </button>
       <button
         type="button"
-        onClick={() => !moving.current && (last ? finish({ ...a, persona: personaPicked ? a.persona : DEFAULT_ANSWERS.persona }) : go(step + 1))}
+        onClick={() => !moving.current && (last ? finish(a) : go(step + 1))}
         className="hit w-full py-3 text-center text-[13px] text-stone-500 underline decoration-stone-300 underline-offset-2 hover:text-ink"
       >
         {t('Passer')}
@@ -160,7 +159,8 @@ export default function WelcomePage() {
                     <p className="eyebrow mb-2">{g.title}</p>
                     <div className="flex flex-wrap gap-2">
                       {g.options.map(o => (
-                        <button key={o} type="button" aria-pressed={a.year === o} className={chip(a.year === o)} onClick={() => !moving.current && (set({ year: o }), go(2))}>
+                        <button key={o} type="button" aria-pressed={a.year === o} className={chip(a.year === o)} onClick={() => !moving.current && set({ year: o })}>
+                          {a.year === o && <Check size={13} aria-hidden />}
                           {o}
                         </button>
                       ))}
@@ -168,7 +168,8 @@ export default function WelcomePage() {
                   </div>
                 ))}
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" aria-pressed={a.year === OTHER_STATUS} className={chip(a.year === OTHER_STATUS)} onClick={() => !moving.current && (set({ year: OTHER_STATUS }), go(2))}>
+                  <button type="button" aria-pressed={a.year === OTHER_STATUS} className={chip(a.year === OTHER_STATUS)} onClick={() => !moving.current && set({ year: OTHER_STATUS })}>
+                    {a.year === OTHER_STATUS && <Check size={13} aria-hidden />}
                     {OTHER_STATUS}
                   </button>
                 </div>
@@ -200,11 +201,10 @@ export default function WelcomePage() {
                 <button
                   key={p.key}
                   type="button"
-                  aria-pressed={personaPicked && a.persona === p.key}
-                  className={choice(personaPicked && a.persona === p.key)}
+                  aria-pressed={a.persona === p.key}
+                  className={choice(a.persona === p.key)}
                   onClick={() => {
                     if (moving.current) return;
-                    setPersonaPicked(true);
                     set({ persona: p.key });
                   }}
                 >
@@ -212,6 +212,7 @@ export default function WelcomePage() {
                     <span className="block text-[14px] font-medium">{personaLabel(p, a.usage)}</span>
                     <span className="block text-[12px] text-stone-500">{p.description}</span>
                   </span>
+                  {a.persona === p.key && <Check size={16} className="shrink-0 text-brand-600" aria-hidden />}
                 </button>
               ))}
               {actions(t('C’est parti'))}
