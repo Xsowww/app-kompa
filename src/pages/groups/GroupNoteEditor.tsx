@@ -473,10 +473,15 @@ function LoadedEditor({ initial, onClose, readOnly, typed }: { initial: GroupNot
     clearTimeout(timer.current);
     if (dirty.current && !blocked.current) await save();
     blocked.current = true;
-    removeWithUndo([id], t('Note supprimée'), async () => {
-      await deleteNote(id);
-      useGroups.getState().dropNote(initial.groupId, id);
-    });
+    removeWithUndo(
+      [id],
+      t('Note supprimée'),
+      async () => {
+        await deleteNote(id);
+        useGroups.getState().dropNote(initial.groupId, id);
+      },
+      { table: 'group_notes', ids: [id] },
+    );
     onClose();
   };
 

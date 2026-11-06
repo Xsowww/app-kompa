@@ -7,7 +7,8 @@ import { useAuth } from '../store/auth';
 import * as api from '../lib/groups';
 import type { Group, GroupEvent, NewGroupEvent } from '../lib/groups';
 import { cloudEnabled } from '../lib/supabase';
-import { normalize, uid } from '../lib/utils';
+import { normalize } from '../lib/utils';
+import { newSeries } from '../lib/seriesId';
 import { fmtDay, fromKey, todayKey, validKey } from '../lib/dates';
 import { defaultUntil, repeatDays, shiftKey, spanDays, type Repeat } from '../lib/repeat';
 import { reminderLabel } from '../lib/reminders';
@@ -105,12 +106,12 @@ export async function addShared(g: Group, input: SharedAdd) {
   const base = { title: input.title, place: input.place || null, category: g.kind === 'agenda' ? category : null, details: null, people: [], reminders: [] };
   let rows: NewGroupEvent[];
   if (endDate && endDate > input.date) {
-    const series = `span-${uid()}`;
+    const series = newSeries(true);
     rows = spanDays(input.date, endDate, input.start, input.end).map(d => ({ ...base, date: d.date, start: d.start ?? null, end: d.end ?? null, series }));
   } else if (input.repeat) {
     const until = validKey(input.until) && input.until! >= input.date ? input.until! : defaultUntil(input.date, input.repeat);
     const days = repeatDays(input.date, input.repeat, until).days;
-    const series = uid();
+    const series = newSeries();
     rows = (days.length ? days : [input.date]).map(date => ({ ...base, date, start: input.start || null, end: input.start && input.end ? input.end : null, series }));
   } else rows = [{ ...base, date: input.date, start: input.start || null, end: input.start && input.end ? input.end : null }];
   let saved: GroupEvent[];

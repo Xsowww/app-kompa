@@ -9,7 +9,7 @@ import * as api from '../lib/groups';
 import type { GroupEvent } from '../lib/groups';
 import { toAgendaRows } from '../pages/groups/agendaTarget';
 import { isSpan } from '../lib/repeat';
-import { uid } from '../lib/utils';
+import { newSeries } from '../lib/seriesId';
 import { t } from '../i18n';
 
 /** Where an event lives: my calendar, or a shared calendar / group by its id. */
@@ -76,13 +76,13 @@ export async function moveEventToAgenda(eventId: string, from: AgendaRef, to: Ag
   }
   const count = mine.length || theirs.length;
   // A new series id in the target (the old one belongs to the original's calendar).
-  const newSeries = count > 1 ? `${isSpan((mine[0] ?? theirs[0]).series ?? undefined) ? 'span-' : ''}${uid()}` : undefined;
+  const linked = count > 1 ? newSeries(isSpan((mine[0] ?? theirs[0]).series ?? undefined)) : undefined;
 
   // 1. The copy, read back from where it is now.
   let moved: (CalendarEvent | GroupEvent)[];
   let takeBack: () => Promise<void>;
   if (to.kind === 'perso') {
-    const list = theirs.map(e => asMine(e, newSeries));
+    const list = theirs.map(e => asMine(e, linked));
     const before = new Set(useCalendar.getState().events.map(e => e.id));
     useCalendar.getState().addMany(list);
     moved = useCalendar.getState().events.filter(e => !before.has(e.id));
@@ -90,7 +90,7 @@ export async function moveEventToAgenda(eventId: string, from: AgendaRef, to: Ag
     takeBack = async () => void useCalendar.setState(s => ({ events: s.events.filter(e => !ids.has(e.id)) }));
   } else {
     const g = useGroups.getState().groups.find(x => x.id === to.groupId);
-    const source: NewEvent[] = mine.length ? mine.map(e => ({ ...e, series: newSeries })) : theirs.map(e => asMine(e, newSeries));
+    const source: NewEvent[] = mine.length ? mine.map(e => ({ ...e, series: linked })) : theirs.map(e => asMine(e, linked));
     const rows = toAgendaRows(source, { categories: g?.categories ?? [] });
     try {
       moved = rows.length > 1 ? await api.createEvents(to.groupId, rows) : [await api.createEvent(to.groupId, rows[0])];

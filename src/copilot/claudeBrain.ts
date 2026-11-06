@@ -11,8 +11,7 @@ import { useCopilot, type CopilotLink, type CopilotOffer } from '../store/copilo
 import { useCalendar, CATEGORIES, CATEGORY_LABELS, guessCategory, type CalendarEvent, type EventCategory } from '../store/calendar';
 import { normalize, uid } from '../lib/utils';
 import { eventReminders, reminderLabel } from '../lib/reminders';
-import { quietly } from '../lib/cloudSync';
-import { confirmSaved, type SavedTable } from './saveCheck';
+import { confirmSaved, retrySaving, type SavedTable } from './saveCheck';
 import * as shared from './sharedTools';
 import { useGroups } from '../store/groups';
 import type { Usage } from '../lib/usage';
@@ -233,30 +232,15 @@ async function verify(list: Write[]): Promise<{ refused: Write[]; offline: boole
           if (w.out) w.out.hors_ligne = "pas de réseau : gardé sur cet appareil, envoyé dès que le réseau revient";
         } else {
           refused.push({ ...w, ids: missing });
-          if (w.out) w.out.enregistre = false;
+          if (w.out) {
+            w.out.enregistre = false;
+            if (check.why) w.out.raison = check.why;
+          }
         }
       }
     }),
   );
   return { refused, offline };
-}
-
-/** « Réessayer l'enregistrement »: what the server refused is sent again (taken out quietly, put back: queued anew). */
-function requeue(table: SavedTable, ids: string[]) {
-  const set = new Set(ids);
-  if (table === 'events') {
-    const back = useCalendar.getState().events.filter(e => set.has(e.id));
-    quietly(() => useCalendar.setState(s => ({ events: s.events.filter(e => !set.has(e.id)) })));
-    useCalendar.setState(s => ({ events: [...s.events, ...back] }));
-  } else if (table === 'todos') {
-    const back = useTodos.getState().todos.filter(x => set.has(x.id));
-    quietly(() => useTodos.setState(s => ({ todos: s.todos.filter(x => !set.has(x.id)) })));
-    useTodos.setState(s => ({ todos: [...s.todos, ...back] }));
-  } else {
-    const back = useNotes.getState().notes.filter(n => set.has(n.id));
-    quietly(() => useNotes.setState(s => ({ notes: s.notes.filter(n => !set.has(n.id)) })));
-    useNotes.setState(s => ({ notes: [...s.notes, ...back] }));
-  }
 }
 
 const retrySave = (list: Write[]): CopilotOffer => ({
@@ -268,7 +252,8 @@ const NOT_SAVED = () => t('Pas enregistré en ligne : le serveur l’a refusé. 
 
 asyncOffers.retry_save = async p => {
   const list = JSON.parse(p.writes ?? '[]') as Write[];
-  for (const w of list) requeue(w.table, w.ids);
+  // What the server refused is kept by the sync (lib/cloudSync): sent again, then checked like the first time.
+  await retrySaving();
   const { refused, offline } = await verify(list);
   if (refused.length) return { text: t('Le serveur le refuse encore. Ça reste seulement sur cet appareil : réessaie plus tard, ou écris-nous si ça dure.'), offers: [retrySave(refused)] };
   if (offline) return { text: t('Toujours pas de réseau : c’est gardé sur cet appareil et partira dès qu’il revient.') };

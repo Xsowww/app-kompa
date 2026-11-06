@@ -1,7 +1,7 @@
 // Did what Kompaly just wrote really reach the server? The stores save on the device at once and send in the
-// background (lib/cloudSync): a row the database refuses (test n°3: nights refused by events_series_check) stayed on
-// this device only while Kompaly said « ajouté ». Before the AI is told « done », the changes are sent now and read
-// back from the server, by id. Local mode (no account): the device is where everything is kept, nothing more to check.
+// background (lib/cloudSync): a row the database refused (test n°3: nights refused by events_series_check) stayed on
+// this device only while Kompaly said « ajouté ». Before the AI is told « done », the changes are sent now and the
+// sync says what became of them (cloudSync › whenSaved). Local mode (no account): the device is where it is kept.
 
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../store/auth';
@@ -13,30 +13,29 @@ export interface SaveCheck {
   ok: boolean;
   /** No network: kept on this device, sent when it comes back (not refused). */
   offline?: boolean;
-  /** Ids the server doesn't have after the send: refused. */
+  /** Ids the server refused, and why (in the person's words). */
   missing?: string[];
+  why?: string;
 }
 
-const timeout = <T,>(p: Promise<T>, ms: number) => Promise.race([p, new Promise<'timeout'>(r => setTimeout(() => r('timeout'), ms))]);
-
-/** Sends what waits, then reads these rows back. Never throws. */
+/** Sends what waits, then says what became of these rows. Never throws. */
 export async function confirmSaved(table: SavedTable, ids: string[], ms = 8000): Promise<SaveCheck> {
   // Nobody signed in: nothing is sent anywhere, the device is where it is kept.
   if (!supabase || !ids.length || !useAuth.getState().user?.id) return { ok: true };
-  if (typeof navigator !== 'undefined' && navigator.onLine === false) return { ok: false, offline: true };
   try {
-    const { flushNow } = await import('../lib/cloudSync');
-    if ((await timeout(flushNow(), ms)) === 'timeout') return { ok: false, offline: true };
-    const found = new Set<string>();
-    // By 100: a long repeat makes an address too long for one request.
-    for (let i = 0; i < ids.length; i += 100) {
-      const res = await timeout(Promise.resolve(supabase.from(table).select('id').in('id', ids.slice(i, i + 100))), ms);
-      if (res === 'timeout' || res.error) return { ok: false, offline: true };
-      for (const r of (res.data ?? []) as { id: string }[]) found.add(r.id);
-    }
-    const missing = ids.filter(id => !found.has(id));
-    return missing.length ? { ok: false, missing } : { ok: true };
+    const { whenSaved } = await import('../lib/cloudSync');
+    const r = await whenSaved(table, ids, ms);
+    if (r.state === 'saved' || r.state === 'local') return { ok: true };
+    if (r.state === 'waiting') return { ok: false, offline: true };
+    return { ok: false, missing: ids, why: r.why };
   } catch {
     return { ok: false, offline: true };
   }
+}
+
+/** « Réessayer l'enregistrement »: what the server refused is sent again (cloudSync keeps it). */
+export async function retrySaving() {
+  if (!supabase) return;
+  const { retryRefused } = await import('../lib/cloudSync');
+  await retryRefused();
 }

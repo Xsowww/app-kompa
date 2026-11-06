@@ -15,6 +15,7 @@ Object.assign(globalThis, {
 // The server check (saveCheck) and the shared calendars' server (lib/groups) are stand-ins: nothing leaves the test.
 const check = vi.hoisted(() => ({ next: { ok: true } as { ok: boolean; offline?: boolean; missing?: string[] }, calls: [] as string[][] }));
 vi.mock('../src/copilot/saveCheck', () => ({
+  retrySaving: async () => void check.calls.push(['retry']),
   confirmSaved: async (_table: string, ids: string[]) => {
     check.calls.push(ids);
     const r = check.next;
@@ -232,6 +233,6 @@ describe('the conversation', () => {
     expect(useCopilot.getState().thinking).toBe(true);
     await vi.waitFor(() => expect(useCopilot.getState().thinking).toBe(false));
     expect(useCopilot.getState().messages.at(-1)!.text).toBe('C’est enregistré en ligne.');
-    expect(useCalendar.getState().events.map(e => e.id)).toEqual([ev.id]);
+    expect(check.calls).toEqual([['retry'], [ev.id]]);
   });
 });

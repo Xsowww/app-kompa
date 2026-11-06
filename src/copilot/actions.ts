@@ -9,6 +9,7 @@ import { useCalendar, catOf, guessCategory, customCategoryIn, customNamed, creat
 import { useTodos } from '../store/todos';
 import { useFocus, focusLeft } from '../store/focus';
 import { normalize, noteText, stripHtml, formatBytes, uid } from '../lib/utils';
+import { newSeries } from '../lib/seriesId';
 import { textSnippet } from '../lib/textFind';
 import { toKey, todayKey, daysUntil, fromKey, fmt, fmtDay, weekStart, countdownLabel, validKey } from '../lib/dates';
 import { defaultUntil, isSpan, repeatDays, shiftKey, spanDays, type Repeat } from '../lib/repeat';
@@ -306,7 +307,7 @@ export function addEvents(input: Parameters<typeof addEvent>[0] & { endDate?: st
     important: input.important || undefined,
     ...(input.place?.trim() && { place: input.place.trim() }),
   };
-  const series = spanning ? `span-${uid()}` : uid();
+  const series = spanning ? newSeries(true) : uid(); // short enough for the server (lib/seriesId): found again below
   if (spanning) {
     useCalendar.getState().addMany(spanDays(input.date, endDate!, input.start || undefined, input.end || undefined).map((p, i) => ({ ...base, ...p, series, ...(i > 0 && { reminders: [] }) })));
   } else {

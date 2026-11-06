@@ -15,7 +15,8 @@ import { useUi } from '../store/ui';
 import { useTodos, type Todo } from '../store/todos';
 import { isTaskRepeat } from './taskRepeat';
 import { useFocusLog, type FocusSession } from '../store/focusLog';
-import { t } from '../i18n';
+import { t, tn } from '../i18n';
+import { fitSeries } from './seriesId';
 import { userStorage, SYNC_CURSOR } from './userStorage';
 import { mergeRows } from './syncMerge';
 
@@ -37,7 +38,7 @@ const eventToRow = (e: CalendarEvent): Row => ({
   important: !!e.important,
   reminders: e.reminders ?? null,
   external_id: e.externalId ?? null,
-  series: e.series ?? null,
+  series: fitSeries(e.series) ?? null, // short enough for the server (lib/seriesId), also for an older copy
   created_at: e.createdAt,
   deleted_at: e.deletedAt ?? null,
 });
@@ -204,12 +205,21 @@ const profileKeys = new Set<string>();
 let pulling = false;
 let flushTimer: ReturnType<typeof setTimeout> | undefined;
 let warned = false;
-let warnedDrop = false;
 let unsubscribers: (() => void)[] = [];
 let currentUser: string | null = null;
 /** Bumped by every local change: a refresh that raced with one is thrown away. */
 let changes = 0;
 let lastPull = 0;
+
+/**
+ * Rows the server refused for good (a rule of the database, not the network): kept on this device and in the saved
+ * queue, said (« Pas enregistré : … · Réessayer »), sent again by « Réessayer » or by the next change of the same thing.
+ * Before, they were dropped from the queue with a vague message: a night (« span- » series too long) looked saved here
+ * and was missing everywhere else.
+ */
+const refused = Object.fromEntries(ORDER.map(t => [t, new Map<string, { row: Row; why: string }>()])) as Record<Table, Map<string, { row: Row; why: string }>>;
+/** Things refused by the server, not sent again yet. */
+export const refusedCount = () => ORDER.reduce((n, t) => n + refused[t].size, 0);
 
 const hasPending = () => profileKeys.size > 0 || ORDER.some(t => pending[t].upserts.size || pending[t].deletes.size);
 /** Changes waiting to be sent: one per thing changed or deleted (the settings count as one). */
@@ -224,16 +234,25 @@ const queuePrefix = (userId: string) => `cop:${userId}:sync-queue`;
 const queueKey = (userId: string) => `${queuePrefix(userId)}:${TAB}`;
 let adopted: string[] = [];
 
+// Written a moment after the last change, not at each one: saving a note with pictures (megabytes) rewrote the whole
+// queue every time (60 MB written for 30 saves of a 2 MB note). Leaving or hiding the page writes it at once.
+let queueTimer: ReturnType<typeof setTimeout> | undefined;
 function saveQueue() {
+  queueTimer ??= setTimeout(writeQueue, 300);
+}
+
+function writeQueue() {
+  clearTimeout(queueTimer);
+  queueTimer = undefined;
   if (!currentUser) return;
   try {
-    if (!hasPending()) {
+    if (!hasPending() && !refusedCount()) {
       localStorage.removeItem(queueKey(currentUser));
       adopted.forEach(k => localStorage.removeItem(k));
       adopted = [];
       return;
     }
-    const data = Object.fromEntries(ORDER.map(t => [t, { upserts: [...pending[t].upserts.values()], deletes: [...pending[t].deletes] }]));
+    const data = Object.fromEntries(ORDER.map(t => [t, { upserts: [...pending[t].upserts.values()], deletes: [...pending[t].deletes], ...(refused[t].size && { refused: [...refused[t].values()] }) }]));
     localStorage.setItem(queueKey(currentUser), JSON.stringify({ tables: data, profileKeys: [...profileKeys] }));
     // Their content is in this tab's queue now: left behind, they would be sent again on a later visit.
     adopted.filter(k => k !== queueKey(currentUser!)).forEach(k => localStorage.removeItem(k));
@@ -249,13 +268,14 @@ function loadQueue(userId: string) {
     adopted.push(key);
     try {
       const saved = JSON.parse(localStorage.getItem(key) ?? '') as {
-        tables: Record<Table, { upserts: Row[]; deletes: string[] }>;
+        tables: Record<Table, { upserts: Row[]; deletes: string[]; refused?: { row: Row; why: string }[] }>;
         profileKeys?: string[];
         profileDirty?: boolean;
       };
       for (const t of ORDER) {
         for (const r of saved.tables[t]?.upserts ?? []) pending[t].upserts.set(r.id as string, r);
         for (const id of saved.tables[t]?.deletes ?? []) pending[t].deletes.add(id);
+        for (const x of saved.tables[t]?.refused ?? []) if (x?.row?.id) refused[t].set(x.row.id as string, x);
       }
       for (const k of saved.profileKeys ?? (saved.profileDirty ? ['*'] : [])) profileKeys.add(k);
     } catch {
@@ -338,6 +358,7 @@ async function upsertRows(table: Table, rows: Row[]) {
   }
   if (!error) {
     await deleteTrashedTasks();
+    rows.forEach(r => refused[table].delete(r.id as string));
     return 0;
   }
   if (!permanent(error)) throw error;
@@ -357,10 +378,62 @@ async function upsertRows(table: Table, rows: Row[]) {
     if (e && !permanent(e)) throw e;
     if (e) {
       console.error('[sync] ligne refusée', table, r.id, e);
+      if (!refused[table].has(r.id as string)) toSay = true;
+      refused[table].set(r.id as string, { row: r, why: refusalReason(e) });
       dropped++;
-    }
+    } else refused[table].delete(r.id as string);
   }
   return dropped;
+}
+
+/** Why the server refused a row, in a few plain words. */
+function refusalReason(e: { code?: string; message?: string }) {
+  if (e.code === '23503') return t('son dossier n’existe plus');
+  if (e.code === '22001') return t('texte trop long');
+  if (e.code === '42501' || e.code === 'PGRST301') return t('accès refusé');
+  return t('refusé par le serveur');
+}
+
+/** What a refused row is called in the message: its title, its name, its subject. */
+const rowName = (r: Row) => String(r.title ?? r.name ?? r.subject ?? '').trim().slice(0, 40) || t('Sans titre');
+
+/**
+ * Says what the server refused, once per new refusal, until « Réessayer » or closed: never « enregistré » when it isn't.
+ * The things stay on this device (and in the saved queue, for the next visit).
+ */
+let toSay = false;
+function sayRefused() {
+  const n = refusedCount();
+  if (!toSay || !n) return;
+  toSay = false;
+  writeQueue(); // kept for the next visit at once: it is what this device alone holds
+  const first = ORDER.flatMap(t => [...refused[t].values()])[0];
+  const text =
+    n === 1
+      ? t('Pas enregistré : « {name} », {why}', { name: rowName(first.row), why: first.why })
+      : tn(n, 'Pas enregistré : {n} élément, {why}', 'Pas enregistré : {n} éléments, {why}', { why: first.why });
+  useUi.getState().toast(text, 'error', { label: t('Réessayer'), run: () => void retryRefused() }, { duration: 0 });
+}
+
+/** Sends again what the server refused (« Réessayer », and once at each visit): a fix since (an update) lets it through. */
+export function retryRefused() {
+  return requeueRefused() ? flush() : Promise.resolve();
+}
+
+function requeueRefused() {
+  const stamp = new Date().toISOString();
+  let any = false;
+  for (const table of ORDER) {
+    for (const [id, { row }] of refused[table]) {
+      if (pending[table].deletes.has(id) || pending[table].upserts.has(id)) continue; // a newer change goes instead
+      const again = { ...row, ...(STAMPED.has(table) && { updated_at: stamp }), ...(table === 'events' && { series: fitSeries(row.series as string | null) ?? null }) };
+      pending[table].upserts.set(id, again);
+      any = true;
+    }
+    refused[table].clear();
+  }
+  saveQueue();
+  return any;
 }
 
 /** One send at a time; a caller arriving during a send waits for it instead of returning at once. */
@@ -391,10 +464,7 @@ async function send() {
           const folders = [...useNotes.getState().folders, ...useNotes.getState().trashFolders];
           rows = rows.sort((a, b) => folderDepth(folders, a.id as string) - folderDepth(folders, b.id as string));
         }
-        if ((await upsertRows(table, rows)) && !warnedDrop) {
-          warnedDrop = true;
-          useUi.getState().toast(t('Un élément n’a pas pu être enregistré en ligne (il a peut-être été supprimé sur un autre appareil).'), 'error');
-        }
+        await upsertRows(table, rows);
         for (const r of rows) if (p.upserts.get(r.id as string) === r) p.upserts.delete(r.id as string);
       }
       // By 200: emptying a big trash in one request made an address too long for the server.
@@ -418,6 +488,7 @@ async function send() {
     }
     schedule(8000);
   } finally {
+    sayRefused();
     if (hasPending() && !warned) schedule();
   }
 }
@@ -441,31 +512,53 @@ async function sendSettings(user: string) {
   for (const k of [...profileKeys]) if (k === '*' || now[k] === patch[k]) profileKeys.delete(k);
 }
 
-/** Records the difference between two versions of a list (immutable updates → reference check). */
+/** Two rows alike: field by field (a note's text compared as is, only small lists and objects as JSON). */
+function sameRow(a: Row, b: Row) {
+  for (const k in b) {
+    const x = a[k];
+    const y = b[k];
+    if (x === y) continue;
+    if (x && y && typeof x === 'object' && typeof y === 'object' && JSON.stringify(x) === JSON.stringify(y)) continue;
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Records the difference between two versions of a list (immutable updates → reference check). The usual change
+ * (one thing edited: same length, same order) is read side by side, without a map of the whole list.
+ */
 function diff<T extends { id: string }>(table: Table, cur: T[], prev: T[], toRow: (x: T) => Row) {
   if (pulling || cur === prev) return;
   const stamp = new Date().toISOString();
-  const before = new Map(prev.map(x => [x.id, x]));
-  const now = new Set<string>();
   let found = false;
-  for (const x of cur) {
-    now.add(x.id);
-    const old = before.get(x.id);
-    if (old !== x) {
-      const row = toRow(x);
-      // A new copy of the same thing (reloaded from storage…): nothing to send.
-      if (old && JSON.stringify(toRow(old)) === JSON.stringify(row)) continue;
-      found = true;
-      if (STAMPED.has(table)) row.updated_at = stamp;
-      pending[table].upserts.set(x.id, row);
-      pending[table].deletes.delete(x.id);
+  const changed = (x: T, old: T | undefined) => {
+    const row = toRow(x);
+    // A new copy of the same thing (reloaded from storage…): nothing to send.
+    if (old && sameRow(toRow(old), row)) return;
+    found = true;
+    if (STAMPED.has(table)) row.updated_at = stamp;
+    pending[table].upserts.set(x.id, row);
+    pending[table].deletes.delete(x.id);
+  };
+  let aligned = cur.length === prev.length;
+  for (let i = 0; aligned && i < cur.length; i++) if (cur[i] !== prev[i] && cur[i].id !== prev[i].id) aligned = false;
+  if (aligned) {
+    for (let i = 0; i < cur.length; i++) if (cur[i] !== prev[i]) changed(cur[i], prev[i]);
+  } else {
+    const before = new Map(prev.map(x => [x.id, x]));
+    const now = new Set<string>();
+    for (const x of cur) {
+      now.add(x.id);
+      const old = before.get(x.id);
+      if (old !== x) changed(x, old);
     }
-  }
-  for (const id of before.keys()) {
-    if (!now.has(id)) {
-      found = true;
-      pending[table].upserts.delete(id);
-      pending[table].deletes.add(id);
+    for (const id of before.keys()) {
+      if (!now.has(id)) {
+        found = true;
+        pending[table].upserts.delete(id);
+        pending[table].deletes.add(id);
+      }
     }
   }
   if (!found) return;
@@ -499,6 +592,7 @@ export interface CloudProfile {
 export async function pushLeftovers(userId: string) {
   currentUser = userId;
   loadQueue(userId);
+  requeueRefused(); // refused at the last visit: tried again once (an update may have fixed it), said again if still refused
   if (!(await flushNow())) throw new Error('leftover changes could not be sent');
 }
 
@@ -557,13 +651,20 @@ const cleanFeeds = (list: unknown): Settings['icsFeeds'] =>
     .filter((f): f is Settings['icsFeeds'][number] => !!f && typeof f.id === 'string' && typeof f.url === 'string' && /^https?:\/\//.test(f.url) && typeof f.name === 'string')
     .slice(0, 10);
 
+/** The server's rows plus the ones it refused (still on this device only): a whole download doesn't make them vanish. */
+const withRefused = (table: Table, rows: Row[]) => {
+  if (!refused[table].size) return rows;
+  const there = new Set(rows.map(r => r.id as string));
+  return [...rows, ...[...refused[table].values()].map(x => x.row).filter(r => !there.has(r.id as string))];
+};
+
 function apply({ events, folders, notes, items, profile, todos, focus }: Awaited<ReturnType<typeof fetchAll>>) {
   pulling = true;
   try {
-    const f = folders.data ?? [];
-    const n = notes.data ?? [];
-    const i = items.data ?? [];
-    const ev = events.data ?? [];
+    const f = withRefused('note_folders', folders.data ?? []);
+    const n = withRefused('notes', notes.data ?? []);
+    const i = withRefused('drive_items', items.data ?? []);
+    const ev = withRefused('events', events.data ?? []);
     const cal = useCalendar.getState();
     const toEvent = eventsKeepingSeries([...cal.events, ...cal.trash]);
     useCalendar.setState({ events: ev.filter(r => !isTrashed(r)).map(toEvent), trash: ev.filter(isTrashed).map(toEvent) });
@@ -578,7 +679,7 @@ function apply({ events, folders, notes, items, profile, todos, focus }: Awaited
     if (!todos.error) {
       const s = useTodos.getState();
       const toTodo = todosKeepingRepeat([...s.todos, ...s.trash]);
-      const rows = todos.data ?? [];
+      const rows = withRefused('todos', todos.data ?? []);
       useTodos.setState({ todos: rows.filter(r => !isTrashed(r)).map(toTodo), trash: rows.filter(isTrashed).map(toTodo) });
     }
     if (!focus.error) useFocusLog.setState({ sessions: (focus.data ?? []).map(rowToFocus) });
@@ -612,13 +713,30 @@ const newest = (rows: Row[] | null | undefined, col: string, at = 0) =>
 
 const DELTA_TABLES = ['events', 'note_folders', 'notes', 'drive_items', 'todos', 'focus_sessions'] as const;
 
+let noBatch = false; // server without sync_changes (migration 2026-11-07b): one request per table, as before
+
+/** What changed since `since`, in one request (sync_changes) when the server has it: 1 request instead of 8. */
 async function fetchChanges(userId: string, since: string) {
+  if (!noBatch) {
+    const { data, error } = await supabase!.rpc('sync_changes', { since });
+    if (!error && data && typeof data === 'object') {
+      const d = data as Record<string, unknown>;
+      const list = (k: string) => (Array.isArray(d[k]) ? (d[k] as Row[]) : []);
+      return { profile: { data: (d.profile ?? null) as Profile['data'], error: null } as Profile, gone: list('gone'), rows: Object.fromEntries(DELTA_TABLES.map(t => [t, list(t)])) as Record<Table, Row[]> };
+    }
+    if (error && !permanent(error)) throw error;
+    noBatch = true;
+  }
+  return fetchEach(userId, since);
+}
+
+async function fetchEach(userId: string, since: string) {
   const [profile, gone, ...tables] = await Promise.all([loadProfile(userId), selectAll('sync_deletions', since), ...DELTA_TABLES.map(t => selectAll(t, since))]);
   const err = profile.error ?? gone.error ?? tables.find(r => r.error)?.error;
   if (err) throw err;
   return { profile, gone: gone.data!, rows: Object.fromEntries(DELTA_TABLES.map((t, i) => [t, tables[i].data!])) as Record<Table, Row[]> };
 }
-type Changes = Awaited<ReturnType<typeof fetchChanges>>;
+type Changes = Awaited<ReturnType<typeof fetchEach>>;
 
 function applyChanges({ profile, gone, rows }: Changes) {
   const deleted = Object.fromEntries(DELTA_TABLES.map(t => [t, new Map<string, number>()])) as Record<Table, Map<string, number>>;
@@ -763,19 +881,23 @@ export function startSync(userId: string) {
     }),
   ];
   const onLeave = () => {
+    writeQueue();
     if (hasPending()) void flush();
   };
+  const onHide = () => document.visibilityState === 'hidden' && writeQueue();
   window.addEventListener('pagehide', onLeave);
   // Changes made on another device: fetched when coming back to the tab or the window, when the
   // network returns, and every 2 minutes for a window left open (a visible tab never "comes back").
   const onBack = () => void refresh();
   document.addEventListener('visibilitychange', onBack);
+  document.addEventListener('visibilitychange', onHide);
   window.addEventListener('focus', onBack);
   window.addEventListener('online', onBack);
   const timer = setInterval(onBack, 120_000);
   unsubscribers.push(
     () => window.removeEventListener('pagehide', onLeave),
     () => document.removeEventListener('visibilitychange', onBack),
+    () => document.removeEventListener('visibilitychange', onHide),
     () => window.removeEventListener('focus', onBack),
     () => window.removeEventListener('online', onBack),
     () => clearInterval(timer),
@@ -789,15 +911,17 @@ function detach() {
 
 export function stopSync() {
   detach();
-  saveQueue(); // keep unsent changes for the next visit
+  writeQueue(); // keep unsent changes for the next visit
   adopted = [];
   currentUser = null;
   clearTimeout(flushTimer);
   for (const t of ORDER) {
     pending[t].upserts.clear();
     pending[t].deletes.clear();
+    refused[t].clear();
   }
   profileKeys.clear();
+  toSay = false;
 }
 
 /** Sends what is waiting (before signing out, for instance); true when nothing is left to send. */
@@ -806,6 +930,29 @@ export async function flushNow() {
   // Twice: a send already running when we arrive may not include the latest changes.
   for (let i = 0; i < 2 && hasPending(); i++) await flush();
   return !hasPending();
+}
+
+export type SyncTable = Table;
+export type SaveResult = { state: 'saved' | 'local' | 'refused' | 'waiting'; why?: string };
+
+/**
+ * After a change of the stores: did it reach the server? Sends at once (not 0,7 s later) and waits at most `waitMs`.
+ * 'saved': the server has it; 'refused': it said no (`why`); 'waiting': not sent yet (no network: it leaves later);
+ * 'local': no account online (local mode), nothing to send. For whoever must not say « enregistré » too soon (Kompaly).
+ */
+export async function whenSaved(table: Table, ids: string[], waitMs = 8000): Promise<SaveResult> {
+  if (!supabase || !currentUser) return { state: 'local' };
+  const waiting = () => ids.some(id => pending[table].upserts.has(id) || pending[table].deletes.has(id));
+  const end = Date.now() + waitMs;
+  while (waiting() && Date.now() < end) {
+    clearTimeout(flushTimer);
+    const left = end - Date.now();
+    await Promise.race([flush(), new Promise(r => setTimeout(r, left))]);
+    if (waiting() && warned) break; // network trouble: retried later on its own
+  }
+  const no = ids.map(id => refused[table].get(id)).find(Boolean);
+  if (no) return { state: 'refused', why: no.why };
+  return { state: waiting() ? 'waiting' : 'saved' };
 }
 
 /** Throws when the change didn't reach the server (network), so the caller can try again. */
