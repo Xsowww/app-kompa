@@ -82,7 +82,8 @@ export default function TaskDialog({ todo, onClose, remind, onDelete }: { todo?:
               label={t('Heure de l’échéance')}
               placeholder={t('Dans la journée')}
               onChange={v => {
-                if (due && v !== time) setReminders(r => followMoments(r, { date: due, time: time || undefined }, { date: due, time: v || undefined }, v ? [15] : [900]));
+                // None left that can follow: the usual ones of a task (« 1 h avant » with a time), never another fixed « 15 min ».
+                if (due && v !== time) setReminders(r => followMoments(r, { date: due, time: time || undefined }, { date: due, time: v || undefined }, taskReminders(due, v || undefined, new Date(), [900, 0])));
                 setTime(v);
               }}
               className="w-full"
@@ -101,7 +102,7 @@ export default function TaskDialog({ todo, onClose, remind, onDelete }: { todo?:
             onChange={setRepeat}
           />
         </div>
-        <ReminderPicker value={reminders} onChange={setReminders} timed={!!time} date={due || undefined} time={time || undefined} disabled={due ? undefined : t('Choisis d’abord une échéance.')} />
+        <ReminderPicker value={reminders} onChange={setReminders} timed={!!time} date={due || undefined} time={time || undefined} disabled={due ? undefined : t('Choisis d’abord une échéance.')} item={{ kind: 'task', id: todo?.id, title }} />
         <div className="modal-foot max-[359px]:gap-1.5">
           {onDelete && (
             // Phones: the bin alone, so that « Annuler » and « Enregistrer » stay on one line beside it.

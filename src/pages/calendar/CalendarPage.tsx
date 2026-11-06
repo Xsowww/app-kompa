@@ -7,26 +7,28 @@ import { EmptyState, Skeleton } from '../../components/EmptyState';
 import { allCategories, guessCategory, isDeliverable, isBigEvent, sortEvents, type CalendarEvent, type EventCategory } from '../../store/calendar';
 // The colours of the categories, vivid in the Affichage Pro.
 import { catOf } from './proColors';
-import { parseQuickAdd, toKey, fromKey, todayKey, validKey, fmt, fmtDay, weekStart, countdownLabel, daysUntil, toMinutes, fromMinutes, isOver } from '../../lib/dates';
+import { parseQuickAdd, remindMinutes, toKey, fromKey, todayKey, validKey, fmt, fmtDay, weekStart, countdownLabel, daysUntil, toMinutes, fromMinutes, isOver } from '../../lib/dates';
 import { toast } from '../../store/ui';
 import { useSettings } from '../../store/settings';
 import { AGENDA_EXAMPLES, WORDS, groupWords } from '../../lib/usage';
 import CategoriesDialog from './CategoriesDialog';
 import PeriodsDialog from './PeriodsDialog';
 import { covers, periodColor, periodUntil, periodLabel, periodsFill, weekLanes, periodRange, periodText, periodTint, periodsBetween, periodsOn, type Period } from '../../lib/periods';
-import { cx, uid } from '../../lib/utils';
+import { cx } from '../../lib/utils';
+import { newSeries } from '../../lib/seriesId';
 import EventForm from './EventForm';
 import { eventTitle, periodIdeas, removeEvent, useCalendarSource } from './source';
 import TimeGrid from './TimeGrid';
 import SeriesIcon from './SeriesIcon';
 import { firstOfSpans, isSpan, spanDays, spanTooLong } from '../../lib/repeat';
+import { refillEndless } from '../../lib/repeatSeries';
 import ImportIcsDialog, { type IcsSource } from './ImportIcsDialog';
 import { useCreateActions } from '../../store/create';
 import { isIcsFile } from '../../lib/ics';
 import { useEventDrag, type DragMode, type DropTarget } from './useEventDrag';
 import { exportIcs } from '../../lib/backup';
 import { flashWhenReady } from '../../lib/flash';
-import { eventReminders, followMoments, reminderLabel } from '../../lib/reminders';
+import { followMoments, remindersText, shownReminders } from '../../lib/reminders';
 import { feedLabel, feedOf } from '../../lib/icsFeeds';
 import { useTodos, type Todo } from '../../store/todos';
 import TaskDialog from '../tasks/TaskDialog';
@@ -73,6 +75,19 @@ const gridQuery = media('(min-width: 768px)');
 const subscribeGrid = subscribeTo(gridQuery);
 const useWeekGrid = () => useSyncExternalStore(subscribeGrid, () => gridQuery?.matches ?? true);
 
+/** « 14h », « 9h30 »: the month's cells on a phone have room for a few characters only. */
+const shortTime = (hhmm: string) => `${Number(hhmm.slice(0, 2))}h${hhmm.slice(3) === '00' ? '' : hhmm.slice(3)}`;
+/** Lines left for events in a phone's month cell under the bars of events over several days. */
+const phoneRoom = (lanes: number) => Math.max(1, 2 - lanes);
+/** The morning end of a night (an event from an evening to the next morning, « span- »): « 07:00 », else null. */
+function nightEnd(ev: CalendarEvent, byDay: Map<string, CalendarEvent[]>): string | null {
+  if (!ev.start || ev.end !== '23:59' || !ev.series) return null;
+  const next = new Date(`${ev.date}T12:00`);
+  next.setDate(next.getDate() + 1);
+  const morning = (byDay.get(toKey(next)) ?? []).find(e => e.series === ev.series && e.start === '00:00');
+  return morning?.end ?? null;
+}
+
 function Dot({ color, size = 8 }: { color: string; size?: number }) {
   return <span className="inline-block shrink-0 rounded-full" style={{ background: color, width: size, height: size }} />;
 }
@@ -101,7 +116,7 @@ function EventItem({ ev, onEdit, dragging, onDragStart, onMenu }: EventItemProps
   const c = catOf(ev.category);
   const defaults = useSettings(s => s.defaultReminders);
   // A shared calendar's reminders are the ones chosen on it (no usual reminder of mine there).
-  const reminders = shared ? (ev.reminders ?? []) : eventReminders(ev, defaults);
+  const reminders = shownReminders(ev, defaults, !!shared);
   // From a timetable followed by link: its name, so it is never mixed up with what was added by hand.
   const feed = feedOf(ev, useSettings(s => s.icsFeeds));
   return (
@@ -160,10 +175,10 @@ function EventItem({ ev, onEdit, dragging, onDragStart, onMenu }: EventItemProps
             {shared && ` · ${t('par {name}', { name: shared.author(ev.id) })}`}
             {isBigEvent(ev) && ` · ${countdownLabel(ev.date)}`}
             {reminders.length > 0 && (
-              <span className="ml-2 inline-flex items-center gap-1 whitespace-nowrap" title={t('Rappels')}>
-                <Bell size={11} aria-label={t('Rappel')} />
-                {reminderLabel(Math.min(...reminders), !!ev.start, ev.date, ev.start)}
-                {reminders.length > 1 && ` +${reminders.length - 1}`}
+              // Every reminder, in the words of the event's form (only the soonest, « 15 min avant +1 », hid a « 1 h avant »).
+              <span className="ml-2 inline-flex max-w-full items-center gap-1 align-bottom" title={remindersText(reminders, ev.date, ev.start)}>
+                <Bell size={11} className="shrink-0" aria-label={t('Rappels')} />
+                <span className="truncate">{remindersText(reminders, ev.date, ev.start)}</span>
               </span>
             )}
           </p>
@@ -348,6 +363,10 @@ export default function CalendarPage() {
   const overlay = useAgendaOverlay(!shared);
   const events = useMemo(() => (shared || !overlay.events.length ? ownEvents : [...ownEvents, ...overlay.events]), [shared, ownEvents, overlay.events]);
   const hiddenAgendas = useSettings(s => s.hiddenAgendas) ?? [];
+  // My series without end: their next occurrences made when due (lib/repeatSeries), once per visit.
+  useEffect(() => {
+    if (!shared) refillEndless();
+  }, [shared]);
   // My tasks with a due day, on their day (not in a shared calendar: they are mine).
   const allTodos = useTodos(s => s.todos);
   const [task, setTask] = useState<Todo | null>(null);
@@ -505,28 +524,39 @@ export default function CalendarPage() {
       !(tasksOnly && !shown.size && !importantOnly) && (shown.size === 0 || shown.has(e.category)) && (!importantOnly || isBigEvent(e)) && isFor(e, forWho),
     [shown, importantOnly, tasksOnly, forWho],
   );
-  const visible = useMemo(() => events.filter(passes), [events, passes]);
+  // Sorted once per change of the events or the filter: the days and « À venir » read this list (with 4 000 events,
+  // sorting it again at each day or month shown cost ~60 ms a click).
+  const sorted = useMemo(() => events.filter(passes).sort(sortEvents), [events, passes]);
   const byDay = useMemo(() => {
     const m = new Map<string, CalendarEvent[]>();
-    for (const e of [...visible].sort(sortEvents)) m.set(e.date, [...(m.get(e.date) ?? []), e]);
+    for (const e of sorted) {
+      const list = m.get(e.date);
+      if (list) list.push(e);
+      else m.set(e.date, [e]);
+    }
     return m;
-  }, [visible]);
+  }, [sorted]);
 
   const selDate = fromKey(selected);
   const today = useToday();
-  const week = Array.from({ length: 7 }, (_, i) => addDays(weekStart(selDate), i));
+  // The week shown, its keys and its events: the same arrays while it stays (the hourly grid keeps its layout
+  // instead of placing every event again at each key typed in the quick add).
+  const monday = toKey(weekStart(selDate));
+  const week = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(fromKey(monday), i)), [monday]);
   const dayEvents = byDay.get(selected) ?? [];
   const dayTasks = tasksOn(todos, selected);
   // Periods (« En entreprise »…): a band over the week, a tint on their days.
   const { periods } = source;
-  const weekKeys = week.map(toKey);
+  const weekKeys = useMemo(() => week.map(toKey), [week]);
+  const weekEvents = useMemo(() => weekKeys.flatMap(k => byDay.get(k) ?? []), [weekKeys, byDay]);
+  const dayKeys = useMemo(() => [selected], [selected]);
   const weekBands = periodsBetween(periods, weekKeys[0], weekKeys[6]);
   const selPeriods = periodsOn(periods, selected);
   const tintOf = (key: string): Period | undefined => periodsOn(periods, key)[0];
   const fillOf = (key: string, strength: number) => periodsFill(periodsOn(periods, key), strength);
   const label = (p: Period) => periodLabel(p, shared?.nameOf);
 
-  const parsed = quick.trim() ? parseQuickAdd(quick) : null;
+  const parsed = quick.trim() ? parseQuickAdd(quick, undefined, undefined, true) : null;
   const parsedCat = parsed ? guessCategory(parsed.title || quick, !!parsed.start, custom) : null;
   // No day in the sentence: the day shown, unless it is past (an event typed while looking back lands today).
   const quickDate = parsed?.date ?? (selected < today ? today : selected);
@@ -549,13 +579,13 @@ export default function CalendarPage() {
     if (!parsed?.title) return openForm();
     // « Sport tous les mardis 18h », « Anniversaire de Léa le 12 mars tous les ans »: the form, to choose until when it repeats.
     // Over more days than an event can last: the form too, which says so.
-    if (parsed.every || (parsed.endDate && spanTooLong(quickDate, parsed.endDate)))
+    if (parsed.every || parsed.rule || (parsed.endDate && spanTooLong(quickDate, parsed.endDate)))
       return setForm({ date: quickDate, start: parsed.start ?? undefined, end: parsed.end ?? undefined, title: quick, fromQuick: true });
     const date = quickDate;
     // « Congés du 22 au 26 décembre »: one event over several days (one a day, linked, as the form makes it); the first
     // day keeps the reminders, the others none.
     if (parsed.endDate) {
-      const series = `span-${uid()}`;
+      const series = newSeries(true);
       source.addMany(
         spanDays(date, parsed.endDate, parsed.start ?? undefined, parsed.end ?? undefined).map((p, i) => ({
           title: parsed.title,
@@ -563,7 +593,8 @@ export default function CalendarPage() {
           category: parsedCat!,
           important: parsed.important,
           series,
-          ...(i > 0 && { reminders: [] }),
+          ...(parsed.place && { place: parsed.place }),
+          ...(i > 0 ? { reminders: [] } : { reminders: remindMinutes(parsed.remind, date, parsed.start) }),
         })),
       );
       setQuick('');
@@ -571,7 +602,8 @@ export default function CalendarPage() {
       toast(t('Ajouté du {from} au {to}', { from: fmtDay(fromKey(date), 'EEEE d MMMM'), to: fmtDay(fromKey(parsed.endDate), 'EEEE d MMMM') }), 'success');
       return;
     }
-    source.add({ title: parsed.title, date, start: parsed.start ?? undefined, end: parsed.end ?? undefined, category: parsedCat!, important: parsed.important });
+    // « rappel 1h avant », « sans rappel »: the reminder said is the one made (else the usual ones).
+    source.add({ title: parsed.title, date, start: parsed.start ?? undefined, end: parsed.end ?? undefined, category: parsedCat!, important: parsed.important, reminders: remindMinutes(parsed.remind, date, parsed.start), ...(parsed.place && { place: parsed.place }) });
     setQuick('');
     showSaved({ date, category: parsedCat!, important: parsed.important });
     toast(t('Ajouté : {title}', { title: parsed.title }), 'success');
@@ -671,7 +703,9 @@ export default function CalendarPage() {
   // Exams and events marked important (they count as big days too).
   const isUpcomingExam = (e: CalendarEvent) => isBigEvent(e) && !isOver(e);
   // Events are not ticked (only tasks): what is past is just past, not « en retard ».
-  const isHomeworkSoon = (e: CalendarEvent) => isDeliverable(e) && daysUntil(e.date) <= 14 && daysUntil(e.date) >= 0;
+  // (Days compared as keys: date-fns' differenceInCalendarDays twice per event was the slowest part of this list.)
+  const in14 = toKey(addDays(fromKey(today), 14));
+  const isHomeworkSoon = (e: CalendarEvent) => e.date >= today && e.date <= in14 && isDeliverable(e);
   // « Rien à afficher » only when a hidden category holds something this block would list (not a hidden « Sport »).
   // Anything still to come (not over): after the important ones, the next things, whatever they are.
   const isComing = (e: CalendarEvent) => e.date >= today && !isOver(e);
@@ -683,12 +717,19 @@ export default function CalendarPage() {
     const upcomingHidden = filtering && events.some(e => !passes(e) && away(e) && (isComing(e) || isHomeworkSoon(e)));
     // An event over several days once, at its first day (not « J-3, J-4, J-5 »); none when that day is the one shown
     // (its next day, J-4, would say the wrong day).
-    const pool = firstOfSpans([...visible].sort(sortEvents).filter(e => isUpcomingExam(e) || isHomeworkSoon(e) || isComing(e))).filter(away);
+    // Only what is from today on can be listed: the sorted list from its first event of today (a binary search).
+    let lo = 0;
+    for (let hi = sorted.length; lo < hi; ) {
+      const mid = (lo + hi) >> 1;
+      if (sorted[mid].date < today) lo = mid + 1;
+      else hi = mid;
+    }
+    const pool = firstOfSpans(sorted.slice(lo).filter(e => isUpcomingExam(e) || isHomeworkSoon(e) || isComing(e))).filter(away);
     // One list in date order: the important ones (marked, one per repeat) among homework to hand in and the next events.
     const upcoming = upcomingList(pool, e => (isUpcomingExam(e) ? 'big' : isHomeworkSoon(e) ? 'homework' : 'other'));
     return { upcomingHidden, upcoming };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the helpers above only read these values
-  }, [events, visible, passes, filtering, shared, today, minute, selected, mode]);
+  }, [events, sorted, passes, filtering, shared, today, minute, selected, mode]);
   const upcomingRows = allUpcoming ? [...upcoming.shown, ...upcoming.more].sort(sortEvents) : upcoming.shown;
 
   const monthDays = useMemo(() => {
@@ -924,7 +965,7 @@ export default function CalendarPage() {
                   days={weekKeys}
                   today={today}
                   selected={selected}
-                  events={weekKeys.flatMap(k => byDay.get(k) ?? [])}
+                  events={weekEvents}
                   todos={todos}
                   periods={periods}
                   drag={drag}
@@ -1085,7 +1126,7 @@ export default function CalendarPage() {
                               {fmt(d, 'd')}
                             </span>
                             {/* Room for the bars of the events over several days, drawn over the row. */}
-                            {row.lanes > 0 && <span aria-hidden className="block h-[calc(var(--lanes)*6px)] shrink-0 @md:h-[calc(var(--lanes)*20px)]" />}
+                            {row.lanes > 0 && <span aria-hidden className="block h-[calc(var(--lanes)*15px)] shrink-0 @md:h-[calc(var(--lanes)*20px)]" />}
                             {/* Under the number: every day number stays on the same line, with or without a period. */}
                             {named.slice(0, 2).map(p => (
                               <span key={p.id} className="hidden truncate px-1 text-[10px] font-semibold leading-tight @md:block" style={{ color: periodText(p) }}>{label(p)}</span>
@@ -1116,14 +1157,24 @@ export default function CalendarPage() {
                                 </span>
                               ),
                             )}
-                            {items.length > 0 && (
-                              <span className="flex justify-center gap-0.5 @md:hidden">
-                                {evs.slice(0, 3).map(e => (
-                                  <Dot key={e.id} color={catOf(e.category).color} size={5} />
-                                ))}
-                                {tasks.length > 0 && evs.length < 3 && <span className="h-[5px] w-[5px] rounded-[1.5px] border border-stone-400" aria-hidden />}
+                            {/* A phone: the first ones by their title (their time under it when alone that day), not anonymous
+                                dots (test n°3); the day's list below the grid has them whole. */}
+                            {items.slice(0, phoneRoom(row.lanes)).map(it => (
+                              <span
+                                key={'ev' in it ? it.ev.id : it.todo.id}
+                                aria-hidden
+                                className={cx('flex min-w-0 items-center gap-[3px] overflow-hidden whitespace-nowrap text-[10px] leading-[14px] text-stone-700 @md:hidden', 'todo' in it && 'text-stone-500', 'todo' in it && it.todo.done && 'line-through')}
+                              >
+                                {'ev' in it ? <span className="h-[10px] w-[2px] shrink-0 rounded-full" style={{ background: catOf(it.ev.category).color }} /> : <span className="h-[6px] w-[6px] shrink-0 rounded-[1.5px] border border-stone-400" />}
+                                <span className="min-w-0 truncate">{'ev' in it ? eventTitle(it.ev, shared) : it.todo.title}</span>
+                              </span>
+                            ))}
+                            {items.length === 1 && row.lanes === 0 && ('ev' in items[0] ? items[0].ev.start : items[0].todo.time) && (
+                              <span aria-hidden className="tabular truncate pl-[5px] text-[10px] leading-[14px] text-stone-500 @md:hidden">
+                                {shortTime(('ev' in items[0] ? items[0].ev.start : items[0].todo.time)!)}
                               </span>
                             )}
+                            {items.length > phoneRoom(row.lanes) && <span aria-hidden className="text-[10px] font-medium leading-[14px] text-stone-500 @md:hidden">+{items.length - phoneRoom(row.lanes)}</span>}
                             {items.length > 2 && <span className="hidden px-1 text-[10px] text-stone-500 @md:block">{tn(items.length - 2, '+{n} autre', '+{n} autres')}</span>}
                           </button>
                         );
@@ -1132,6 +1183,8 @@ export default function CalendarPage() {
                       {row.bars.map(({ ev, from, to, lane, before, after }) => {
                         const n = to - from + 1;
                         const c = catOf(ev.category);
+                        // A night (evening to next morning): its end time on the bar, as the day's list says it.
+                        const night = nightEnd(ev, byDay);
                         return (
                           <button
                             key={`${ev.series}-${from}`}
@@ -1142,9 +1195,9 @@ export default function CalendarPage() {
                             title={eventTitle(ev, shared)}
                             aria-label={eventTitle(ev, shared)}
                             className={cx(
-                              // A line in its colour on a phone, a light bar with its name from a tablet.
-                              'pointer-events-none absolute flex h-1 items-center gap-1 overflow-hidden bg-[var(--bar)] px-1.5 text-left text-[11px] font-medium @md:pointer-events-auto @md:h-[18px] @md:bg-[var(--bar-soft)]',
-                              'top-[calc(30px+var(--lane)*6px)] @md:top-[calc(30px+var(--lane)*20px)]',
+                              // A light bar with its name, across its days (a night: « Garde → 07:00 », one piece, test n°3).
+                              'pointer-events-none absolute flex h-[13px] items-center gap-1 overflow-hidden whitespace-nowrap bg-[var(--bar-soft)] px-1 text-left text-[10px] font-medium leading-none @md:pointer-events-auto @md:h-[18px] @md:px-1.5 @md:text-[11px]',
+                              'top-[calc(30px+var(--lane)*15px)] @md:top-[calc(30px+var(--lane)*20px)]',
                               before ? 'rounded-l-none' : 'rounded-l',
                               after ? 'rounded-r-none' : 'rounded-r',
                               drag && '@md:pointer-events-none',
@@ -1159,7 +1212,8 @@ export default function CalendarPage() {
                               boxShadow: before ? undefined : `inset 3px 0 0 ${c.color}`,
                             } as React.CSSProperties}
                           >
-                            <span className="hidden truncate @md:inline">{eventTitle(ev, shared)}</span>
+                            <span className="truncate">{eventTitle(ev, shared)}</span>
+                            {night && <span className="tabular shrink-0 opacity-80">→ {night}</span>}
                           </button>
                         );
                       })}
@@ -1199,7 +1253,7 @@ export default function CalendarPage() {
               </div>
               {mode === 'day' ? (
                 <TimeGrid
-                  days={[selected]}
+                  days={dayKeys}
                   today={today}
                   events={dayEvents}
                   todos={todos}

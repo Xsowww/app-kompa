@@ -17,6 +17,8 @@ export interface IcsEvent {
   start?: string; // HH:mm
   end?: string; // HH:mm
   details?: string;
+  /** LOCATION (or « Salle : 307 » in a timetable's description): the event's Lieu, not its notes. */
+  place?: string;
   /** The days of one event over several days are linked: « span-<UID>_<first day> » (see lib/repeat isSpan). */
   series?: string;
 }
@@ -300,7 +302,7 @@ function expand(start: Date, rule: Record<string, string>, horizon: Date, utc = 
   return dates;
 }
 
-/** Location on the first line, then the description without ENT export noise. */
+/** The place (LOCATION, or the timetable's « Salle : ») apart, and the description without ENT export noise. */
 // Timetables (Hyperplanning, ADE) write « Matière : Droit civil », « Salle : 307 »… in the description.
 const field = (line: string) => /^\s*([\p{L} ()'’]{2,30}?)\s*:\s*(.+)$/u.exec(line);
 const SUBJECT = /^(mati[eè]re|cours|subject|module|ue|enseignement)$/i;
@@ -314,7 +316,7 @@ export function titleOf(summary: string, description: string): string {
   return (subject || summary).trim();
 }
 
-function detailsOf(ev: RawEvent): string | undefined {
+function detailsOf(ev: RawEvent): { place?: string; details?: string } {
   const lines = ev.description
     .split('\n')
     // « (Exporté le:16/10/2026 08:12) », « Mis à jour le 12/10 » — not « Exporter le rapport en PDF ».
@@ -332,8 +334,7 @@ function detailsOf(ev: RawEvent): string | undefined {
     return !SUBJECT.test(key) && !NOISE.test(key);
   });
   const desc = kept.join('\n').replace(/\n{3,}/g, '\n\n').trim();
-  const parts = [place, desc].filter(Boolean);
-  return parts.length ? parts.join('\n') : undefined;
+  return { ...(place && { place: place.slice(0, 300) }), ...(desc && { details: desc }) };
 }
 
 /** Turns one occurrence into calendar events (several when it spans several days, linked by a « span- » series). */
@@ -406,7 +407,7 @@ export function parseIcs(text: string, opts: ParseOptions = {}): IcsEvent[] {
     const start = e.start!;
     const allDay = start.allDay;
     const durationMs = e.end ? e.end.date.getTime() - start.date.getTime() : (e.durationMs ?? (allDay ? DAY_MS : 0));
-    const base = { title: titleOf(e.summary, e.description) || t('Sans titre'), details: detailsOf(e) };
+    const base = { title: titleOf(e.summary, e.description) || t('Sans titre'), ...detailsOf(e) };
 
     if (e.recurrenceId) {
       out.push(...toEvents(e, start.date, durationMs, allDay, () => `${e.uid}_${e.recurrenceId}`, base));

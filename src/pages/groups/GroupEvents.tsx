@@ -12,7 +12,8 @@ import { useCalendar, guessCategory, type CalendarEvent } from '../../store/cale
 import { confirmAction, toast } from '../../store/ui';
 import { createEvent, createEvents, deleteEvent, deleteEvents, groupError, setAttendance, updateEvent, updateEvents, type Group, type GroupEvent, type NewGroupEvent } from '../../lib/groups';
 import { countdownLabel, fmt, fromKey, todayKey } from '../../lib/dates';
-import { dayShift, defaultUntil, repeatDays, shiftKey } from '../../lib/repeat';
+import { dayShift, endlessUntil, ruleDays, shiftKey, type RepeatRule } from '../../lib/repeat';
+import RepeatPicker from '../calendar/RepeatPicker';
 import { cx, relativeTime, uid } from '../../lib/utils';
 import { askSeriesScope, changedFields } from '../calendar/source';
 import { MemberDot, LoadFailed } from './shared';
@@ -39,13 +40,13 @@ function EventForm({ group, event, onDone }: { group: Group; event?: GroupEvent;
   const [place, setPlace] = useState(event?.place ?? '');
   const [details, setDetails] = useState(event?.details ?? '');
   const [reminders, setReminders] = useState<number[]>(event?.reminders ?? []);
-  const [weekly, setWeekly] = useState(false);
-  const [until, setUntil] = useState(() => defaultUntil(event?.date ?? todayKey()));
+  // Test n°3: every N weeks or months, several days, « le 1er lundi du mois », with or without end — as in the calendar.
+  const [rule, setRule] = useState<RepeatRule | null>(null);
   // Reminders of a group's meetings are sent by the server once migration 2026-11-03 is there: not offered before.
   const canRemind = useFinitions() || !!event?.reminders.length;
   const [busy, setBusy] = useState(false);
   const badTime = !!start && !!end && end <= start;
-  const repeat = weekly && !event ? repeatDays(date, 'week', until < date ? date : until) : null;
+  const repeat = rule && !event && date ? ruleDays(date, rule, rule.until ?? endlessUntil(rule, todayKey())) : null;
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -114,22 +115,22 @@ function EventForm({ group, event, onDone }: { group: Group; event?: GroupEvent;
       {/* Said before « Proposer »: a meeting without a time is noted for the whole day (Nadia's had none, unnoticed). */}
       {!start && !badTime && <p className="mt-2 text-[12px] text-stone-500">{t('Pas d’heure choisie : ce sera noté pour toute la journée.')}</p>}
       {!event && (
-        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-          <label className="check-hit flex items-center gap-1.5 text-[13px] text-stone-700">
-            <input type="checkbox" className="h-4 w-4 shrink-0 accent-[var(--color-ink)]" checked={weekly} onChange={e => setWeekly(e.target.checked)} />
-            {t('Chaque semaine')}
-          </label>
-          {weekly && (
-            <>
-              <DateField value={until} min={date} onChange={setUntil} label={t('Jusqu’au')} className="h-9 w-44" />
-              {repeat && <span className="text-[12px] text-stone-500">{tn(repeat.days.length, '{n} fois||une fois', '{n} fois')}</span>}
-            </>
+        <div className="mt-3">
+          <RepeatPicker value={rule} onChange={setRule} from={date} />
+          {repeat && (
+            <p className="mt-1.5 text-[12px] text-stone-500" aria-live="polite">
+              {!repeat.days.length
+                ? t('Aucun jour entre ces dates.')
+                : rule?.until
+                  ? t('{n} fois, jusqu’au {day}.', { n: repeat.days.length, day: fmt(fromKey(repeat.days.at(-1)!), 'd MMMM') })
+                  : t('Sans fin : {n} fois prévues pour l’instant, jusqu’au {day}.', { n: repeat.days.length, day: fmt(fromKey(repeat.days.at(-1)!), 'd MMMM') })}
+            </p>
           )}
         </div>
       )}
       {canRemind && (
         <>
-          <ReminderPicker value={reminders} onChange={v => setReminders(v.slice(0, 5))} timed={!!start} date={date || undefined} time={start || undefined} />
+          <ReminderPicker value={reminders} onChange={v => setReminders(v.slice(0, 5))} timed={!!start} date={date || undefined} time={start || undefined} item={{ kind: 'event', id: event?.id, title, end: end || undefined }} />
           {reminders.length > 0 && <p className="mt-1.5 text-[12px] text-stone-500">{t('Envoyé à chaque membre {of}.', { of: w.of })}</p>}
         </>
       )}

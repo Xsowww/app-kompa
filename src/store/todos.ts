@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 import { uid, nowIso } from '../lib/utils';
 import { userStorage } from '../lib/userStorage';
 import { t } from '../i18n';
-import { taskReminders } from '../lib/reminders';
+import { followMoments, taskReminders } from '../lib/reminders';
 import { todayKey } from '../lib/dates';
 import { nextDue, type TaskRepeat } from '../lib/taskRepeat';
 import { TRASH_DAYS } from './drive';
@@ -69,6 +69,9 @@ export const useTodos = create<TodosState>()(
           todos: s.todos.map(x => {
             if (x.id !== id) return x;
             const next = { ...x, ...patch };
+            // Moved (another day or time) without new reminders: they follow it, « la veille à 18h » stays at 18:00.
+            if (x.due && next.due && x.reminders?.length && !('reminders' in patch) && (next.due !== x.due || next.time !== x.time))
+              next.reminders = followMoments(x.reminders, { date: x.due, time: x.time }, { date: next.due, time: next.time }, x.reminders);
             return next.due && !x.due && next.reminders === undefined ? { ...next, reminders: usualReminders(next.due, next.time) } : next;
           }),
         })),

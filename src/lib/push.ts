@@ -154,9 +154,9 @@ export async function pushActive(): Promise<boolean> {
 }
 
 /** Test from the server: proves the whole chain, also with the site closed (`delay` seconds to close it). */
-export async function sendTestPush(delay = 0): Promise<'ok' | 'unavailable' | 'error'> {
+export async function sendTestPush(delay = 0, message?: { title: string; body: string; url: string }): Promise<'ok' | 'unavailable' | 'error'> {
   const sub = await subscription(true).catch(() => null);
   if (!sub) return 'unavailable';
-  const r = await fetch('/api/push/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subscription: sub.toJSON(), delay }) }).catch(() => null);
+  const r = await fetch('/api/push/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subscription: sub.toJSON(), delay, ...message }) }).catch(() => null);
   return r?.ok ? 'ok' : 'error';
 }

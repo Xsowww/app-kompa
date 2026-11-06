@@ -5,7 +5,7 @@ import { userStorage } from '../lib/userStorage';
 import { TRASH_DAYS } from './drive';
 import { getSettings, useSettings } from './settings';
 import type { Usage } from '../lib/usage';
-import { eventReminders } from '../lib/reminders';
+import { eventReminders, followMoments } from '../lib/reminders';
 import { dayShift, shiftKey } from '../lib/repeat';
 import { fitSeries } from '../lib/seriesId';
 import { t } from '../i18n';
@@ -88,8 +88,8 @@ export const isBigEvent = (e: Pick<CalendarEvent, 'category' | 'important'>) => 
 interface CalendarState {
   events: CalendarEvent[];
   add: (e: NewEvent) => CalendarEvent;
-  /** Adds many events in one update (.ics import). */
-  addMany: (list: NewEvent[]) => void;
+  /** Adds many events in one update (.ics import, a repeat). An `id` given is kept (lib/repeatSeries). */
+  addMany: (list: (NewEvent & { id?: string })[]) => void;
   update: (id: string, patch: Partial<CalendarEvent>) => void;
   /** Changes this occurrence and the next ones of its series (a new day moves them by as many days). */
   updateSeries: (id: string, patch: Partial<CalendarEvent>) => void;
@@ -158,27 +158,29 @@ const OTHER_HANDIN = '\\p{L}*abgabe|entregas?$|consegna';
 const WORK_PERSO = wordRe(`m[ée]decin|dentiste|kin[ée]|ost[ée]o|docteur|pharmacie|anniversaire|mariage|bapt[eê]me|vacances|cong[ée]s?$|${OTHER_DOCTOR}|${OTHER_BIRTHDAY}`);
 // « Point avec Marc », « Appel client », « Visio » (not « Point relais », « Appel d'offres »).
 // « Appeler M. Durand », « Rappeler le client », « Conseil de classe »: a call or a meeting too.
-const WORK_MEETING = wordRe(`r[ée]union|meeting|call$|visio(?!n)|point$(?! relais)|appels?$(?! d['’]offres?)|appeler|rappeler|t[ée]l[ée]phoner|entretien|rendez-vous|rdv$|revue$|s[ée]minaire|atelier|comit[ée]|conseils?$|formation|conf[ée]rence|webinaire|${OTHER_MEETING}`);
-const WORK_QUOTE = wordRe('devis|facture|relance|proposition|contrat|payer|paiement|imp[oô]ts?$|d[ée]claration|urssaf|tva$');
+// A call planned (« Appel client ») is one; a thing to do (« Appeler le plombier ») is not: no « Réunion » forced (test n°3).
+const WORK_MEETING = wordRe(`r[ée]union|meeting|call$|visio(?!n)|point$(?! relais)|appels?$(?! d['’]offres?)|entretien|rendez-vous|rdv$|revue$|s[ée]minaire|atelier|comit[ée]|conseils?$|formation|conf[ée]rence|webinaire|${OTHER_MEETING}`);
+// Something to hand in at work: a deliverable said as such (a quote or a follow-up is not a « Livrable »).
+const WORK_HANDIN = wordRe('livrables?$');
 const WORK_DEADLINE = wordRe(`deadline|[ée]ch[ée]ance|date limite|livraison|lancement|audits?$|${SALON}|d[ée]m[ée]nagement|rendre|rendu|remise|soutenance|pr[ée]sentation|d[ée]mo$|bouclage|cl[ôo]ture|${OTHER_HANDIN}`);
 const HOME_MEETING = wordRe(`r[ée]union|meeting|call$|visio(?!n)|point (?:d['’][ée]quipe|client|hebdo)|entretien|rendez-vous|rdv$|conseils? de classe|m[ée]decin|dentiste|kin[ée]|${OTHER_MEETING}|${OTHER_DOCTOR}`);
 const HOME_TODO = wordRe('devis|facture|relance|proposition|contrat|payer|imp[oô]ts?$|d[ée]claration');
 const HOME_BIG = wordRe(`deadline|[ée]ch[ée]ance|livraison|lancement|audits?$|${SALON}|anniversaire|mariage|d[ée]m[ée]nagement|${OTHER_BIRTHDAY}`);
 const STUDY_EXAM = wordRe('exam|partiel|contr[oô]le|ds$|qcm$|interro|oral(?:e|es|s)?$|soutenance|concours|\\p{L}*pr[üu]fung|\\p{L}*klausur|esam[ei]$|verifica|parcial(?:es)?$|tests?$|quiz|midterms?$|finals$');
-const STUDY_HOMEWORK = wordRe(`devoir|tp$|td$|rendre|rendu|dm$|projet|dossier|exos?$|exercice|r[ée]vis|homework|assignments?$|\\p{L}*hausaufgaben?$|deberes$|compiti$|${OTHER_HANDIN}`);
+// « Dossier CAF » is not homework (test n°3: things forced into « Devoir »).
+const STUDY_HOMEWORK = wordRe(`devoir|tp$|td$|rendre|rendu|dm$|projet|exos?$|exercice|r[ée]vis|homework|assignments?$|\\p{L}*hausaufgaben?$|deberes$|compiti$|${OTHER_HANDIN}`);
 const SPORT = wordRe('sport|foot|basket|gym|muscu|course$|piscine|natation|yoga|tennis|danse|gimnasio|palestra|fitness|training|entrenamiento|allenamento');
 // « Courses » (faire les courses) n'est ni du sport ni un cours.
 const STUDY_CLASS = wordRe('cours(?!es$)|amphi|cm$|lecture|classes?$|class$|lessons?$|\\p{L}*vorlesung|\\p{L}*kurs(?:e)?$|seminar$|lezion[ei]$|cors[oi]$|clases?$|profs?$|professeur|maths?$|math[ée]matiques|physique|chimie|histoire|anglais|fran[cç]ais|info$|informatique|bio$|biologie|[ée]co$|[ée]conomie|philo$|philosophie');
 
-/** A work title: Réunion (cours), Livrable (devoir), Échéance (examen), or the private life (perso). */
-function workCategory(t: string, timed: boolean): EventCategory | undefined {
+/** A work title: Réunion (cours), Livrable (devoir), Échéance (examen) when the title says so, the private life (perso); else nothing (neutral). */
+function workCategory(t: string): EventCategory | undefined {
   // Private life seen from a work calendar: the dentist or a birthday is not a meeting nor a deadline.
   if (WORK_PERSO.test(t)) return 'perso';
   if (WORK_MEETING.test(t)) return 'cours';
-  if (WORK_QUOTE.test(t)) return 'devoir';
+  if (WORK_HANDIN.test(t)) return 'devoir';
   if (WORK_DEADLINE.test(t)) return 'examen';
-  // « Projet Dupont lundi 10h »: a work session on it; without an hour, a project milestone.
-  if (/\bprojet\b/.test(t)) return timed ? 'cours' : 'examen';
+  // Anything else (« Projet Dupont », « Facture Martin », « Appeler le fournisseur »): neutral, the person chooses.
   return undefined;
 }
 
@@ -193,7 +195,7 @@ export function guessCategory(title: string, timed = false, custom?: CustomCateg
   const t = title.toLowerCase();
   const usage = getSettings().usage ?? 'etudes';
   if (usage === 'travail') {
-    const work = workCategory(t, timed);
+    const work = workCategory(t);
     if (work) return work;
     return SPORT.test(t) ? 'sport' : 'perso';
   }
@@ -217,9 +219,21 @@ export function guessCategory(title: string, timed = false, custom?: CustomCateg
  * ones of a big day, unless it says otherwise. (« Aucun » as the usual one: [] kept, so changing the usual reminder
  * later doesn't add one to it.)
  */
-function fresh(e: NewEvent): CalendarEvent {
+function fresh(e: NewEvent & { id?: string }): CalendarEvent {
   const reminders = e.reminders ?? (!e.externalId && (e.start || isBigEvent(e)) ? [...eventReminders(e, getSettings().defaultReminders ?? [], new Date())] : undefined);
-  return { ...e, ...(reminders && { reminders }), ...(e.series && { series: fitSeries(e.series) }), id: uid(), done: false, createdAt: nowIso() };
+  // An id given: the next occurrences of a series without end, the same on every device (lib/repeatSeries).
+  return { ...e, ...(reminders && { reminders }), ...(e.series && { series: fitSeries(e.series) }), id: e.id || uid(), done: false, createdAt: nowIso() };
+}
+
+/**
+ * A change of day or time without new reminders (dragged, moved by Kompaly, a series moved): « 15 min avant » stays
+ * 15 min before, « la veille à 18h » stays at 18:00 (lib/reminders followMoments). The one rule for every way to move.
+ */
+export function followPatch(ev: Pick<CalendarEvent, 'date' | 'start' | 'reminders'>, patch: Partial<CalendarEvent>): Partial<CalendarEvent> {
+  if ('reminders' in patch || !ev.reminders?.length || (!('date' in patch) && !('start' in patch))) return patch;
+  const to = { date: patch.date ?? ev.date, time: 'start' in patch ? patch.start : ev.start };
+  if (to.date === ev.date && to.time === ev.start) return patch;
+  return { ...patch, reminders: followMoments(ev.reminders, { date: ev.date, time: ev.start }, to, ev.reminders) };
 }
 
 /** A change as the server takes it (a series id too long for it is made short: lib/seriesId). */
@@ -236,8 +250,9 @@ export function timetableCategory(title: string, timed: boolean): EventCategory 
 }
 
 /** By day, then the day's events without a time first (as in the day view: a birthday above the hours), then by hour. */
-export const sortEvents = (a: CalendarEvent, b: CalendarEvent) =>
-  a.date.localeCompare(b.date) || (a.start ?? '').localeCompare(b.start ?? '');
+// Plain comparisons: the keys are ASCII (YYYY-MM-DD, HH:mm), localeCompare was ~10× slower on a big calendar.
+const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+export const sortEvents = (a: Pick<CalendarEvent, 'date' | 'start'>, b: Pick<CalendarEvent, 'date' | 'start'>) => cmp(a.date, b.date) || cmp(a.start ?? '', b.start ?? '');
 
 export const useCalendar = create<CalendarState>()(
   persist(
@@ -249,7 +264,12 @@ export const useCalendar = create<CalendarState>()(
         set(s => ({ events: [...s.events, ev] }));
         return ev;
       },
-      addMany: list => set(s => ({ events: [...s.events, ...list.map(fresh)] })),
+      addMany(list) {
+        // An id already there (a series made on two devices at once): not twice.
+        const have = new Set(get().events.map(e => e.id));
+        const add = list.filter(e => !e.id || !have.has(e.id)).map(fresh);
+        if (add.length) set(s => ({ events: [...s.events, ...add] }));
+      },
       updateSeries(id, raw) {
         const patch = fitPatch(raw);
         const ev = get().events.find(e => e.id === id);
@@ -257,12 +277,14 @@ export const useCalendar = create<CalendarState>()(
         const shift = patch.date ? dayShift(ev.date, patch.date) : 0;
         const { date: _d, ...rest } = patch;
         set(s => ({
-          events: s.events.map(e => (e.id === id ? { ...e, ...patch } : e.series === ev.series && e.date > ev.date ? { ...e, ...rest, ...(shift && { date: shiftKey(e.date, shift) }) } : e)),
+          events: s.events.map(e =>
+            e.id === id ? { ...e, ...followPatch(e, patch) } : e.series === ev.series && e.date > ev.date ? { ...e, ...followPatch(e, { ...rest, ...(shift && { date: shiftKey(e.date, shift) }) }) } : e,
+          ),
         }));
       },
       update: (id, raw) => {
         const patch = fitPatch(raw);
-        set(s => ({ events: s.events.map(e => (e.id === id ? { ...e, ...patch } : e)) }));
+        set(s => ({ events: s.events.map(e => (e.id === id ? { ...e, ...followPatch(e, patch) } : e)) }));
       },
       remove: id => get().removeMany([id]),
       removeMany(ids) {
