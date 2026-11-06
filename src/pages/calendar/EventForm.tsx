@@ -10,6 +10,7 @@ import { allCategories, guessCategory, isBigEvent, nextInSeries, useCalendar, ty
 import { catOf } from './proColors';
 import { askSeriesScope, changedFields, removeEvent, useCalendarSource } from './source';
 import PeoplePicker from './PeoplePicker';
+import MoveTo from './MoveTo';
 import { useSettings } from '../../store/settings';
 import { toast } from '../../store/ui';
 import { AGENDA_EXAMPLES, WORDS } from '../../lib/usage';
@@ -558,6 +559,8 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
               <Trash2 size={16} />
             </button>
           )}
+          {/* « Déplacer vers… » another agenda or a team (not an event of a timetable followed by link: the link brings it back). */}
+          {event && !feedOf(event, feeds) && (!shared || shared.canEdit) && <MoveTo event={event} source={source} onMoved={onClose} />}
           {event && onDuplicate && (
             <button type="button" className="btn-ghost w-10 px-0" title={t('Dupliquer')} aria-label={t('Dupliquer')} onClick={() => (onClose(), onDuplicate(event))}>
               <Copy size={16} />
