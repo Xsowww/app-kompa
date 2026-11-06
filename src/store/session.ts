@@ -2,7 +2,8 @@ import { useDrive } from './drive';
 import { applyUsage, guessCategory, useCalendar } from './calendar';
 import { DEMO_KEY, demoPlan, readDemo } from '../lib/demoFirst';
 import { spanDays } from '../lib/repeat';
-import { uid } from '../lib/utils';
+import { newSeries } from '../lib/seriesId';
+import { sendLeftDeletes } from '../lib/pendingDeletes';
 import { goTo, linkToDay } from '../copilot/actions';
 import { useNotes } from './notes';
 import { useCopilot } from './copilot';
@@ -118,6 +119,8 @@ async function loadAccount(userId: string | null) {
     useRecorder.persist.rehydrate(),
   ]);
 
+  // Shared deletions a reload interrupted (« Supprimé · Annuler » still on screen): sent now (lib/pendingDeletes).
+  if (cloudEnabled) void sendLeftDeletes(userId).catch(() => undefined);
   // Cloud mode: the local copy above is only a cache, the truth is in Supabase.
   // A regular on this device: their copy shows at once, the account is brought up to date behind it.
   if (cloudEnabled && hasLocalCopy()) {
@@ -251,7 +254,7 @@ export function addDemoItem() {
   let first;
   if (plan.endDate) {
     // « Congés du 22 au 26 décembre 9h »: one a day, linked, the first one keeping the reminders (as the calendar does).
-    const series = `span-${uid()}`;
+    const series = newSeries(true); // short enough for the server (lib/seriesId)
     const days = spanDays(plan.date, plan.endDate, plan.start, plan.end);
     useCalendar.getState().addMany(days.map((d, i) => ({ ...base, ...d, series, ...(i > 0 && { reminders: [] }) })));
     first = useCalendar.getState().events.find(e => e.series === series && e.date === plan.date);

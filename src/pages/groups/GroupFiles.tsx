@@ -73,10 +73,15 @@ export default function GroupFiles({ group }: { group: Group }) {
   // Renaming needs migration 2026-11-03 (before it, a shared file isn't renamed).
   const canRename = useFinitions() && canEdit;
   const remove = (f: GroupFile) =>
-    removeWithUndo([f.id], t('« {name} » supprimé', { name: f.name }), async () => {
-      await deleteFile(f);
-      await useGroups.getState().refresh(group.id, ['files']);
-    });
+    removeWithUndo(
+      [f.id],
+      t('« {name} » supprimé', { name: f.name }),
+      async () => {
+        await deleteFile(f);
+        await useGroups.getState().refresh(group.id, ['files']);
+      },
+      { table: 'group_files', ids: [f.id], paths: [`${f.groupId}/${f.id}`] },
+    );
 
   const rename = async (f: GroupFile) => {
     const name = await askText(t('Renommer le fichier'), f.name, t('Renommer'), { fileName: true, maxLength: 255 });

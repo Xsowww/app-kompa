@@ -14,6 +14,7 @@ import { sortPeriods } from '../../lib/periods';
 import { t, tn } from '../../i18n';
 import { dayShift, shiftKey } from '../../lib/repeat';
 import { useSettings } from '../../store/settings';
+import { forgetDelete, rememberDelete, sendOnLeave } from '../../lib/pendingDeletes';
 
 /** A built-in category or one of the calendar's own; anything else (deleted since, mine) shows as Perso. */
 const categoryIn = (custom: CustomCategory[]) => (c: string | null | undefined): EventCategory =>
@@ -59,7 +60,21 @@ const toRow = (p: Partial<CalendarEvent>, category: ReturnType<typeof categoryIn
 // the very same event (its author, no « Ajouté » sent to the others). Leaving the page sends them at once.
 const UNDO_MS = 6000;
 const pending = new Map<string, () => void>();
-const flushPending = () => [...pending.values()].forEach(send => send());
+/** The same removals, written on this device (lib/pendingDeletes): a reload during the toast doesn't lose them. */
+const durable = new Map<string, string>();
+const flushPending = () => {
+  sendOnLeave([...new Set(durable.values())]);
+  [...pending.values()].forEach(send => send());
+};
+/** Waits for « Annuler », written on this device first; `done(sent)` forgets it there (sent, or undone). */
+function waitDelete(ids: string[]) {
+  const key = rememberDelete({ table: 'group_events', ids });
+  ids.forEach(id => durable.set(id, key));
+  return () => {
+    ids.forEach(id => durable.delete(id));
+    forgetDelete(key);
+  };
+}
 
 /** The Calendar page (day, week, month…) on a shared calendar: every member sees the changes live. */
 export default function SharedCalendar({ group }: { group: Group }) {
@@ -201,12 +216,13 @@ export default function SharedCalendar({ group }: { group: Group }) {
       toggleDone: () => undefined, // no « fait » in a shared calendar
       removeMany: ids => {
         let sent = false;
+        const forget = waitDelete(ids);
         const send = () => {
           if (sent) return;
           sent = true;
           clearTimeout(timer);
           ids.forEach(id => pending.delete(id));
-          void deleteEvents(ids).catch(fail);
+          void deleteEvents(ids).then(forget, e => (forget(), fail(e)));
         };
         const timer = setTimeout(send, UNDO_MS);
         ids.forEach(id => pending.set(id, send));
@@ -214,17 +230,24 @@ export default function SharedCalendar({ group }: { group: Group }) {
         toast(tn(ids.length, '{n} événement supprimé de l’agenda', '{n} événements supprimés de l’agenda'), 'info', {
           label: t('Annuler||l’action'),
           run: () => {
+            if (sent) return;
+            sent = true; // undone: never sent after, even by leaving the page
             clearTimeout(timer);
             ids.forEach(id => pending.delete(id));
+            forget();
             redraw(n => n + 1);
           },
         });
       },
       remove: id => {
+        let sent = false;
+        const forget = waitDelete([id]);
         const send = () => {
+          if (sent) return;
+          sent = true;
           clearTimeout(timer);
           pending.delete(id);
-          void deleteEvent(id).catch(fail);
+          void deleteEvent(id).then(forget, e => (forget(), fail(e)));
         };
         const timer = setTimeout(send, UNDO_MS);
         pending.set(id, send);
@@ -232,8 +255,11 @@ export default function SharedCalendar({ group }: { group: Group }) {
         toast(t('Supprimé de l’agenda'), 'info', {
           label: t('Annuler||l’action'),
           run: () => {
+            if (sent) return;
+            sent = true;
             clearTimeout(timer);
             pending.delete(id);
+            forget();
             redraw(n => n + 1);
           },
         });

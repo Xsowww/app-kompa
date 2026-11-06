@@ -178,9 +178,10 @@ async function checkLocalPassword(userId: string | undefined, password: string) 
   return found;
 }
 
-function clearLocalCache(userId: string) {
+/** The account's copy on this device, wiped (lib/wipeLocal: its saved stores, files, pictures and text kept here). */
+function clearLocalCache(userId: string, keepUnsent = false) {
   dropPendingStorage(userId);
-  for (const key of Object.keys(localStorage)) if (key.startsWith(`cop:${userId}:`)) localStorage.removeItem(key);
+  void import('../lib/wipeLocal').then(m => m.wipeAccountCopy(userId, { keepUnsent }));
 }
 
 // ── Cloud mode helpers ──────────────────────────────────────────────────────
@@ -585,10 +586,8 @@ export const useAuth = create<AuthState>((set, get) => ({
     setStorageUser(null);
     // Ordinateur partagé : tout est sur le serveur, on ne laisse rien de lisible ici.
     // Si l'envoi a échoué, on garde la copie locale pour la prochaine connexion.
-    if (sent && ended && userId) {
-      clearLocalCache(userId);
-      void import('../lib/textIndex').then(m => m.forgetTextIndex());
-    }
+    // Not sent (no network): only the changes still to send stay, for the next sign-in here; the rest goes all the same.
+    if (supabase && ended && userId) clearLocalCache(userId, !sent);
     set({ user: null, mfaStep: null });
   },
 
@@ -728,6 +727,9 @@ export const useAuth = create<AuthState>((set, get) => ({
   removeAccount(id) {
     const a = savedAccount(id);
     forgetAccount(id);
+    // « Retirer de cet appareil » (privacy policy): its copy here goes too. Online only: in local mode it is the only one.
+    // Its changes not sent yet stay, to leave at its next sign-in here.
+    if (supabase && id !== get().user?.id) clearLocalCache(id, true);
     if (a?.session) void revokeSession(a.session, c => import('../lib/push').then(m => m.forgetThisDevice(c))).catch(() => undefined);
   },
 
