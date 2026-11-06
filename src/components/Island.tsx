@@ -10,7 +10,7 @@ import { retryNow, useService, type Health } from '../lib/serviceStatus';
 import { reminderItems, SNOOZE_MINUTES } from '../lib/reminders';
 import { acceptOffer } from '../copilot/offers';
 import { frenchSpacing, stripMarkdown } from '../copilot/markdown';
-import KompalyMark from '../copilot/KompalyMark';
+import KompalyMark from './KompalyMark';
 import { sober } from '../lib/sober';
 import { locale, t, tn } from '../i18n';
 import './island.css';
@@ -565,7 +565,7 @@ export default function Island() {
   };
   // The small pill's words for each, and its icon (also the second one's circle).
   const icon = (kind: Kind) =>
-    kind === 'reminder' ? <BellRing size={16} strokeWidth={2.4} color="var(--isl-amber)" /> : kind === 'notice' ? <Info size={16} strokeWidth={2.4} color="#8fa8ff" /> : kind === 'service' ? service === 'down' ? <CloudAlert size={16} strokeWidth={2.4} color="var(--isl-amber)" /> : <WifiOff size={16} strokeWidth={2.4} color="var(--isl-amber)" /> : <KompalyMark size={20} live />;
+    kind === 'reminder' ? <BellRing size={16} strokeWidth={2.4} color="var(--isl-amber)" /> : kind === 'notice' ? <Info size={16} strokeWidth={2.4} color="#8fa8ff" /> : kind === 'service' ? service === 'down' ? <CloudAlert size={16} strokeWidth={2.4} color="var(--isl-amber)" /> : <WifiOff size={16} strokeWidth={2.4} color="var(--isl-amber)" /> : <KompalyMark size={21} className="kmark-live" />;
   const miniText = (kind: Kind) =>
     kind === 'reminder' ? (alerts.length > 1 ? tn(alerts.length, '{n} rappel', '{n} rappels') : reminderFrom(alert!)) : kind === 'notice' ? sober(notice!.text) : kind === 'service' ? (service === 'down' ? t('Service perturbé') : t('Hors ligne')) : 'Kompaly';
   const miniLabel = (kind: Kind) =>

@@ -408,9 +408,11 @@
   .pro-column {
     padding-left: calc(max(20px, env(safe-area-inset-left)) + 64px);
   }
+  /* The top centre is the island's (components/FocusIsland: the timer, messages): the search keeps right of it, starting
+     at least 116 px right of the middle of the screen (184 px at its right: Nouveautés, Corbeille, the avatar, the margin). */
   .pro-search {
     margin-left: auto;
-    width: min(300px, 34vw);
+    width: min(300px, calc(50vw - 300px));
   }
   .pro-rail {
     position: fixed;
@@ -583,6 +585,141 @@
 @keyframes pro-rec {
   50% { box-shadow: 0 0 0 2px rgb(16 18 26), 0 0 0 5px rgb(255 59 48 / 0.35); }
 }
+/* Computers, top right (layout/ProNav › ProTopActions): Nouveautés and Corbeille, round glass buttons as dark as the
+   search capsule beside them; the bin white when it is the page you are on (as the pill's chosen icon). */
+.pro-hbtn {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background-color: var(--color-surface);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.07);
+  color: rgb(255 255 255 / 0.78);
+  transition: color 0.2s, background-color 0.2s, box-shadow 0.2s;
+}
+.pro-hbtn:hover {
+  color: #fff;
+  background-color: rgb(46 49 64 / 0.72);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.16);
+}
+.pro-hbtn[aria-current='page'] {
+  color: #14161f;
+  background-color: rgb(255 255 255 / 0.94);
+  box-shadow: 0 6px 18px -6px rgb(0 0 0 / 0.55);
+}
+.pro-hbtn:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+.pro-hbtn:active {
+  scale: 0.94;
+}
+.pro-hbtn .pro-count {
+  top: -4px;
+  right: -5px;
+}
+/* The bin's count: how many things, not news (grey, not red). */
+.pro-count-muted {
+  background: #686d7e;
+}
+/* Their name under them. */
+.pro-hbtn .pro-tip {
+  z-index: 50;
+  left: 50%;
+  top: calc(100% + 10px);
+  translate: -50% -4px;
+}
+@media (hover: hover) {
+  .pro-hbtn:hover .pro-tip { opacity: 1; translate: -50% 0; }
+}
+.pro-hbtn:focus-visible .pro-tip { opacity: 1; translate: -50% 0; }
+/* Phones and tablets, top bar (layout/ProNav › ProKompalyButton): Kompaly's mark and name in a glass capsule. */
+.pro-kbtn {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 7px;
+  height: 36px;
+  padding: 0 13px 0 9px;
+  border-radius: 999px;
+  background-color: var(--color-surface);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-ink);
+  transition: background-color 0.2s;
+}
+.pro-kbtn:hover {
+  background-color: rgb(46 49 64 / 0.72);
+}
+.pro-kbtn:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+@media (max-width: 359px) {
+  .pro-kbtn { width: 36px; padding: 0; justify-content: center; }
+}
+@media (pointer: coarse) {
+  .pro-kbtn::after { content: ''; position: absolute; inset: -4px; }
+}
+/* Phones and tablets: unread news, a red dot on the avatar (they are in its menu). */
+.pro-avatar-dot {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #ff3b30;
+  box-shadow: 0 0 0 2px rgb(16 18 26);
+  pointer-events: none;
+}
+/* The avatar's menu on phones and tablets: Nouveautés' red count, the bin's grey one, at the end of their rows. */
+.pro-menu-count {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.12);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+  color: var(--color-stone-600);
+}
+.pro-menu-count-urgent {
+  background: #ff3b30;
+  color: #fff;
+}
+/* « Nouveautés » (components/NewsDialog): each page's picture is its icon on a tile of its colour, in a quiet glass
+   panel lit softly by that colour (no pastel gradient). */
+.news-pro-pic {
+  display: flex;
+  height: 10rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 22px;
+  background: radial-gradient(50% 70% at 50% 50%, color-mix(in srgb, var(--c) 20%, transparent), transparent 75%), rgb(255 255 255 / 0.04);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08);
+}
+.news-pro-tile {
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  border-radius: 22px;
+  color: #fff;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--c) 80%, white), var(--c));
+  box-shadow: 0 16px 32px -14px var(--c), inset 0 1px 0 rgb(255 255 255 / 0.28), inset 0 0 0 1px rgb(255 255 255 / 0.08);
+}
+@media (max-height: 500px) and (width < 64rem) {
+  .news-pro-pic { height: 5rem; }
+  .news-pro-tile { width: 48px; height: 48px; border-radius: 15px; }
+}
 /* The rows of « Plus »: a coloured tile (one colour = one space everywhere), the name, a count. */
 .pro-row {
   display: flex;
@@ -708,6 +845,10 @@
 }
 :root[data-pro] #nav-more-panel a {
   border-radius: 20px;
+  /* The icons on one line, whether a name takes one line or two (« Agendas partagés »). */
+  justify-content: flex-start;
+  padding-top: 12px;
+  padding-bottom: 10px;
 }
 @media (width >= 40rem) {
   :root[data-pro] #nav-more-panel {

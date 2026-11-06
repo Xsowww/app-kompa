@@ -2,7 +2,7 @@ import { Fragment, memo, useEffect, useLayoutEffect, useRef, useState, type Comp
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowUp, ArrowUpRight, Check, Copy, Maximize2, Mic, Minimize2, RefreshCw, RotateCcw, Square, X } from 'lucide-react';
 import Character, { CopilotAvatar, type CopilotMood } from './Character';
-import KompalyMark from './KompalyMark';
+import KompalyMark from '../components/KompalyMark';
 import { sober } from '../lib/sober';
 import { toggleKompaly, useCopilot, type CopilotLink, type CopilotOffer } from '../store/copilot';
 import { useAuth } from '../store/auth';

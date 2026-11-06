@@ -635,8 +635,8 @@ button.isl-text {
   }
 }
 
-/* Kompaly's small blue dot breathes while he has something to say. */
-.kmark-live {
+/* Kompaly's small blue dot breathes while he has something to say (components/KompalyMark: its second dot). */
+.kmark-live circle:last-child {
   transform-box: fill-box;
   transform-origin: center;
   animation: kmark-live 2.6s ease-in-out infinite;
