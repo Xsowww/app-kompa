@@ -13,7 +13,7 @@ describe('photo → fiche', () => {
   });
   it('who reads them', () => {
     expect(resolveVision({})).toBeNull();
-    expect(resolveVision({ GEMINI_API_KEY: 'k' })).toMatchObject({ kind: 'gemini', models: ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.5-flash-lite', 'gemini-flash-lite-latest'] });
+    expect(resolveVision({ GEMINI_API_KEY: 'k' })).toMatchObject({ kind: 'gemini', models: ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-flash-latest', 'gemini-flash-lite-latest'] });
     expect(resolveVision({ AI_PROVIDER: 'groq', AI_API_KEY: 'g' })).toBeNull();
     expect(resolveVision({ AI_PROVIDER: 'groq', AI_API_KEY: 'g', GEMINI_API_KEY: 'k' })?.apiKey).toBe('k');
   });

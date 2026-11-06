@@ -6,7 +6,7 @@
 import { resolveProvider, parseWait, mapStatus, ProviderError } from './aiProviders.mjs';
 import { authenticate, chat, ipOf, overQuota, rateLimited, readJson, secondsToParisMidnight, send } from './copilot.mjs';
 import { LANG_CODES, languageLine } from './copilotPrompt.mjs';
-import { MAX_PHOTO_BODY, cleanPhotos, readPhotos, resolveVision } from './photo.mjs';
+import { MAX_PHOTO_BODY, cleanPhotos, readPhotos, readPlanning, resolveVision } from './photo.mjs';
 
 const MAX_AUDIO = 3_000_000; // bytes: 90 s of 16 kHz 16-bit mono, a piece is 15-35 s
 const BYTES_PER_SECOND = 32_000;
@@ -161,6 +161,29 @@ export function cleanSegments(data) {
     out.push({ start: Number(s.start) || 0, end: Number(s.end) || 0, text });
   }
   return out;
+}
+
+/**
+ * A long answer (reading a photo: up to 85 s) without a proxy cutting the wait: the status goes at once, then a space
+ * every 10 s (JSON ignores it) keeps the line alive, and the result — or { error } — comes at the end. Cloudflare and
+ * phone networks give up on a request that stays silent for a long time; this one never is.
+ */
+export async function sendSlowly(res, work, every = 10_000) {
+  res.statusCode = 200;
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-store');
+  // Not buffered by a proxy in front (nginx, Render): the spaces must leave as they are written.
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.write(' ');
+  const timer = setInterval(() => res.write(' '), every);
+  try {
+    res.end(JSON.stringify(await work()));
+  } catch (e) {
+    const code = e instanceof ProviderError ? e.code : e?.status === 429 ? 'rate_limited' : 'server_error';
+    res.end(JSON.stringify({ error: code, ...(e?.retryAfter && { retryAfter: e.retryAfter }) }));
+  } finally {
+    clearInterval(timer);
+  }
 }
 
 function readBody(req, max) {
@@ -341,7 +364,7 @@ export async function handleCours(req, res, env = process.env) {
     send(res, 200, { transcription: !!resolveTranscriber(env), redaction: !!resolveProvider(env), photo: !!resolveVision(env), ...(audio && { audioLeft: audio.left, audioMax: audio.max }) });
     return true;
   }
-  if (req.method !== 'POST' || !['/api/cours/transcrire', '/api/cours/rediger', '/api/cours/alerte', '/api/cours/photo'].includes(url)) {
+  if (req.method !== 'POST' || !['/api/cours/transcrire', '/api/cours/rediger', '/api/cours/alerte', '/api/cours/photo', '/api/cours/planning'].includes(url)) {
     send(res, 404, { error: 'not_found' });
     return true;
   }
@@ -368,8 +391,8 @@ export async function handleCours(req, res, env = process.env) {
       send(res, ok ? 200 : 503, { ok });
       return true;
     }
-    // Photo → fiche (server/photo.mjs).
-    if (url === '/api/cours/photo') {
+    // Photo → fiche, and photo of a planning → slots (Kompaly's panel): server/photo.mjs.
+    if (url === '/api/cours/photo' || url === '/api/cours/planning') {
       const vision = resolveVision(env);
       if (!vision) return (send(res, 503, { error: 'disabled' }), true);
       if (rateLimited(`photo:${who}`, 6)) return (send(res, 429, { error: 'rate_limited', retryAfter: 30 }), true);
@@ -384,7 +407,8 @@ export async function handleCours(req, res, env = process.env) {
       if (!photos) return (send(res, 400, { error: 'bad_photo' }), true);
       const limit = overQuota(who, false, { id: 'vision' }, env);
       if (limit) return (send(res, 429, { error: limit, retryAfter: secondsToParisMidnight() }), true);
-      send(res, 200, { text: await readPhotos(vision, photos, body.lang) });
+      if (url === '/api/cours/planning') await sendSlowly(res, () => readPlanning(vision, photos, { today: body.today, name: body.name, lang: body.lang }));
+      else await sendSlowly(res, async () => ({ text: await readPhotos(vision, photos, body.lang) }));
       return true;
     }
     if (url === '/api/cours/transcrire') {

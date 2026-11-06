@@ -291,6 +291,26 @@ export function parseQuickAdd(input: string, base = new Date(), language = lang)
     }
   }
 
+  // A day name and its number without a month: « dimanche 15 » is the next 15th that is a Sunday (test n°3: « salle
+  // dimanche 15 à 11h » was put on Sunday the 8th, the number left in the title). Not « lundi 21h » (an hour).
+  if (!date && !impossible) {
+    const m = find(new RegExp(`\\s${BEFORE}(?:ce\\s|le\\s)?(${DAY})\\s(\\d{1,2})(?:er)?${PERIOD}(?=\\s)(?!\\s?(?:h|heures?|:)\\d?)`));
+    const day = m ? Number(m[2]) : 0;
+    if (m && day >= 1 && day <= 31) {
+      const target = WEEKDAYS.indexOf(m[1]);
+      let first: Date | null = null;
+      for (let k = 0; k < 14 && !date; k++) {
+        const d = realDate(base.getFullYear(), base.getMonth() + k, day) ?? realDate(base.getFullYear() + 1, base.getMonth() + k - 12, day);
+        if (!d || differenceInCalendarDays(d, base) < 0) continue;
+        first ??= d;
+        if (d.getDay() === target) date = d;
+      }
+      // No such Sunday the 15th within a year: the next 15th (the number said wins over the name).
+      date ??= first;
+      if (date) remove(m);
+    }
+  }
+
   // Weekday names: "vendredi" (the next one), "vendredi soir", "lundi prochain".
   // « Jeudi prochain » is the Thursday of next week (« ce jeudi » / « jeudi » is the coming one):
   // said on a Wednesday it is in 8 days, said on a Saturday « mardi prochain » is in 3 days.
