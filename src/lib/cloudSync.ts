@@ -395,7 +395,7 @@ function refusalReason(e: { code?: string; message?: string }) {
 }
 
 /** What a refused row is called in the message: its title, its name, its subject. */
-const rowName = (r: Row) => String(r.title ?? r.name ?? r.subject ?? '').trim().slice(0, 60) || t('Sans titre');
+const rowName = (r: Row) => String(r.title ?? r.name ?? r.subject ?? '').trim().slice(0, 40) || t('Sans titre');
 
 /**
  * Says what the server refused, once per new refusal, until « Réessayer » or closed: never « enregistré » when it isn't.
@@ -410,8 +410,8 @@ function sayRefused() {
   const first = ORDER.flatMap(t => [...refused[t].values()])[0];
   const text =
     n === 1
-      ? t('Pas enregistré : « {name} » ({why}). Il reste sur cet appareil.', { name: rowName(first.row), why: first.why })
-      : tn(n, 'Pas enregistré : {n} élément ({why}). Il reste sur cet appareil.', 'Pas enregistré : {n} éléments ({why}). Ils restent sur cet appareil.', { why: first.why });
+      ? t('Pas enregistré : « {name} », {why}', { name: rowName(first.row), why: first.why })
+      : tn(n, 'Pas enregistré : {n} élément, {why}', 'Pas enregistré : {n} éléments, {why}', { why: first.why });
   useUi.getState().toast(text, 'error', { label: t('Réessayer'), run: () => void retryRefused() }, { duration: 0 });
 }
 
