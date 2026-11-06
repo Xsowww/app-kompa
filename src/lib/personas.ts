@@ -2,12 +2,16 @@ import type { PersonaKey } from '../store/settings';
 import type { Usage } from './usage';
 import { t } from '../i18n';
 
-/** How Kompaly can talk: the same names in the welcome questionnaire and in the profile. */
+/**
+ * How Kompaly can talk: the same names in the welcome questionnaire and in the profile. A plain tone first (the
+ * default), the playful ones last: nobody's first impression should be a joke.
+ */
 export const PERSONAS: { key: PersonaKey; label: string; description: string }[] = [
-  { key: 'pote', label: t('Meilleur pote'), description: t('Drôle et détendu, sérieux quand il le faut.') },
+  { key: 'neutre', label: t('Neutre'), description: t('Clair et poli, droit au but. Le ton par défaut.') },
   { key: 'coach', label: t('Coach motivant'), description: t('Te pousse à passer à l’action, fête chaque progrès.') },
   { key: 'prof', label: t('Prof patient'), description: t('Explique pas à pas et vérifie que c’est compris.') },
   { key: 'zen', label: t('Zen'), description: t('Calme, aide à prendre du recul quand ça déborde.') },
+  { key: 'pote', label: t('Pote'), description: t('Drôle et détendu, sérieux quand il le faut.') },
   { key: 'taquin', label: t('Taquin'), description: t('Te charrie gentiment, jamais méchant.') },
 ];
 

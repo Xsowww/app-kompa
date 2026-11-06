@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Bell, Briefcase, CornerDownLeft, Download, EllipsisVertical, FileSearch, Flame, GraduationCap, House, Lock, Menu, Mic, Plus, Server, Share, ShieldCheck, Sparkles, Square, SquarePlus, Sunrise, Timer, UserRound, Users, X } from 'lucide-react';
+import { ArrowRight, Bell, Briefcase, CalendarDays, CornerDownLeft, Download, EllipsisVertical, FileSearch, FileText, Flame, GraduationCap, HeartPulse, House, Lock, Menu, Mic, Plus, Server, Share, ShieldCheck, Sparkles, Square, SquarePlus, Sunrise, Timer, UserRound, Users, X } from 'lucide-react';
 import { DAILY_QUESTIONS, DAILY_RECORDING_HOURS } from '../lib/limits';
 import Logo from '../components/Logo';
 import LanguagePicker from '../components/LanguagePicker';
@@ -8,7 +8,7 @@ import FileIcon from '../components/FileIcon';
 import Character, { DroneStill } from '../copilot/Character';
 import { USAGES, WORDS, type Usage } from '../lib/usage';
 import { LEGAL_LINKS } from './legal/links';
-import { dateOf, demoMonday, demoPlace, exampleBase, keyOf, mondayOf, rowsFor, weekOf, weeksAhead, type DemoItem } from './landingDemo';
+import { DEMO_KEY, dateOf, dayAfter, demoKept, demoMonday, demoPlace, exampleBase, keyOf, mondayOf, rowsFor, splitSentence, weekOf, weeksAhead, type DemoItem } from './landingDemo';
 import { cx } from '../lib/utils';
 import { t } from '../i18n';
 
@@ -35,28 +35,36 @@ let datesModule: Promise<typeof import('../lib/dates')> | undefined;
 const loadDates = () => (datesModule ??= import('../lib/dates'));
 
 /** One example per life, under the title: a tap writes it in the demo and adds it. */
-const TRIES: { audience: Usage; icon: typeof Mic; label: string; text: string; color: string }[] = [
-  { audience: 'etudes', icon: GraduationCap, label: t('Lycée, fac'), text: t('Réviser le partiel jeudi 18h'), color: '#3d6fd8' },
-  { audience: 'travail', icon: Briefcase, label: t('Travail'), text: t('Relancer M. Dupont vendredi 10h'), color: '#d48a17' },
-  { audience: 'perso', icon: House, label: t('Famille'), text: t('Judo de Léo mercredi 14h'), color: '#7a5ad6' },
+const TRIES: { key: string; audience: Usage; icon: typeof Mic; label: string; text: string; color: string }[] = [
+  { key: 'etudes', audience: 'etudes', icon: GraduationCap, label: t('Lycée, fac'), text: t('Réviser le partiel jeudi 18h'), color: '#3d6fd8' },
+  { key: 'travail', audience: 'travail', icon: Briefcase, label: t('Travail'), text: t('Relancer M. Dupont vendredi 10h'), color: '#d48a17' },
+  { key: 'famille', audience: 'perso', icon: House, label: t('Famille'), text: t('Judo de Léo mercredi 14h'), color: '#7a5ad6' },
+  { key: 'sante', audience: 'perso', icon: HeartPulse, label: t('Santé'), text: t('Cardiologue jeudi 9h30'), color: '#d6457a' },
 ];
 type Try = (typeof TRIES)[number];
 const TYPED_COLOR = '#2f9e6b';
 
-/** The demo week's own examples, one per life (none of them a chip's, so a tap never doubles one). */
+/**
+ * The demo week's own examples, one per life (none of them a chip's, so a tap never doubles one). A night of work
+ * on the ground, not only office hours: it shows on both days.
+ */
 const EXAMPLES: DemoItem[] = [
-  { id: 1, kind: 'event', title: t('Réunion d’équipe'), date: DEMO_DAYS[0], start: '09:00', color: '#d48a17', example: true },
+  { id: 1, kind: 'event', title: t('Garde de nuit'), date: DEMO_DAYS[0], start: '21:00', end: '07:00', nextDay: true, color: '#1f8a8a', example: true },
   { id: 2, kind: 'event', title: t('Cours d’anglais'), date: DEMO_DAYS[3], start: '08:30', color: '#3d6fd8', example: true },
   { id: 3, kind: 'event', title: t('Repas chez mamie'), date: DEMO_DAYS[6], start: '12:30', color: '#7a5ad6', example: true },
 ];
 
-/** The big day of the dark tile: the life of the last example tried (one for everybody first). */
-const BIG_DAY: Record<Usage | 'tous', { title: string; days: number }> = {
-  tous: { title: t('Anniversaire de maman'), days: 12 },
-  etudes: { title: t('Partiel de droit civil'), days: 12 },
-  travail: { title: t('Rendu de la maquette'), days: 3 },
-  perso: { title: t('Renouveler les passeports'), days: 9 },
-};
+/** The big day of the dark tile: always the same (it never changes by itself while the visitor tries). */
+const BIG_DAY = { title: t('Anniversaire de maman'), days: 12 };
+
+/** Kept for the visitor's new account (store/welcome recreates it as their first event); nothing if storage is off. */
+function keepForAccount(sentence: string) {
+  try {
+    localStorage.setItem(DEMO_KEY, demoKept(sentence, new Date()));
+  } catch {
+    /* private mode: nothing kept */
+  }
+}
 
 interface Said {
   text: string;
@@ -81,29 +89,51 @@ function useDemo() {
     }
     const { parseQuickAdd, fmt, fromKey } = await loadDates();
     const now = new Date();
-    const placed = demoPlace(parseQuickAdd(sentence, tried ? exampleBase(now) : now), keyOf(now));
-    if ('error' in placed) {
-      setSaid({ text: placed.error === 'impossible' ? t('Cette date n’existe pas : vérifie le jour.') : t('Il me manque ce qu’il faut noter : par exemple « Dentiste mardi 17h30 ».'), added: false });
+    const base = tried ? exampleBase(now) : now;
+    // « Conduite 9h, repos 11h »: one item per hour, the day said once counting for all of them.
+    const parts = splitSentence(sentence).map(s => ({ s, p: parseQuickAdd(s, base) }));
+    const day = parts.find(x => x.p.date)?.p.date ?? null;
+    const placed = parts.map(({ s, p }) => demoPlace({ ...p, date: p.date ?? (p.start ? day : null) }, keyOf(now), s));
+    const ok = placed.flatMap(x => ('error' in x ? [] : [x]));
+    if (!ok.length) {
+      const why = placed.flatMap(x => ('error' in x ? [x.error] : []))[0];
+      setSaid({
+        text:
+          why === 'impossible'
+            ? t('Cette date n’existe pas : vérifie le jour.')
+            : why === 'empty'
+              ? t('Il me manque ce qu’il faut noter : par exemple « Dentiste mardi 17h30 ».')
+              : t('Je range les rendez-vous et ce qui a un jour ou une heure. Essaie par exemple « Dentiste mardi 17h30 ».'),
+        added: false,
+      });
       return;
     }
-    const item: DemoItem = { ...placed, id: next.current++, color: tried?.color ?? TYPED_COLOR };
-    setItems(list => [...list, item]);
+    const added: DemoItem[] = ok.map(x => ({ ...x, id: next.current++, color: tried?.color ?? TYPED_COLOR }));
+    setItems(list => [...list, ...added]);
     setText('');
     if (tried) setAudience(tried.audience);
-    if (item.date) {
-      const m = mondayOf(item.date);
+    // Only what the visitor wrote themself goes to their account (not an example tapped).
+    else keepForAccount(sentence);
+    const first = added[0];
+    if (first.date) {
+      const m = mondayOf(first.date);
       const ahead = weeksAhead(m, now);
       setMonday(m);
       setWeekName(ahead === 0 || ahead === 1 ? null : t('Semaine du {day}', { day: fmt(fromKey(m), 'd MMMM') }));
     }
-    const day = item.date ? fmt(fromKey(item.date), 'EEEE d MMMM') : '';
+    const long = (key: string) => fmt(fromKey(key), 'EEEE d MMMM');
+    const say = (item: DemoItem) =>
+      item.kind === 'event'
+        ? item.nextDay
+          ? t('C’est noté : {title}, {day} de {start} au lendemain {end}.', { title: item.title, day: long(item.date!), start: item.start!, end: item.end! })
+          : item.end
+            ? t('C’est noté : {title}, {day} de {start} à {end}.', { title: item.title, day: long(item.date!), start: item.start!, end: item.end })
+            : t('C’est noté : {title}, {day} à {time}.', { title: item.title, day: long(item.date!), time: item.start ?? '' })
+        : item.date
+          ? t('Ajouté à tes tâches : {title}, pour {day}.', { title: item.title, day: long(item.date) })
+          : t('Ajouté à tes tâches : {title}.', { title: item.title });
     setSaid({
-      text:
-        item.kind === 'event'
-          ? t('C’est noté : {title}, {day} à {time}.', { title: item.title, day, time: item.start ?? '' })
-          : day
-            ? t('Ajouté à tes tâches : {title}, pour {day}.', { title: item.title, day })
-            : t('Ajouté à tes tâches : {title}.', { title: item.title }),
+      text: added.length > 1 ? t('C’est noté, {n} rendez-vous : {list}.', { n: added.length, list: added.map(i => `${i.title} ${i.start ?? ''}`.trim()).join(', ') }) : say(first),
       added: true,
     });
   };
@@ -128,10 +158,10 @@ function TryChips({ demo }: { demo: Demo }) {
   };
   return (
     <div className="mt-6" onPointerEnter={() => void loadDates()} onFocus={() => void loadDates()} onTouchStart={() => void loadDates()}>
-      <p className="text-[13px] font-medium text-stone-500">{t('Essaie avec un exemple :')}</p>
+      <p className="text-[14px] font-medium text-stone-600">{t('Essaie avec un exemple :')}</p>
       <ul className="mt-2 flex flex-wrap gap-2">
         {TRIES.map(x => (
-          <li key={x.audience} className="max-w-full">
+          <li key={x.key} className="max-w-full">
             <button
               type="button"
               aria-disabled={busy}
@@ -163,7 +193,7 @@ function HeroDemo({ demo }: { demo: Demo }) {
   const today = keyOf(new Date());
   const rows = rowsFor(demo.items, demo.monday);
   const names = [t('Lun'), t('Mar'), t('Mer'), t('Jeu'), t('Ven'), t('Sam'), t('Dim')];
-  const big = BIG_DAY[demo.audience ?? 'tous'];
+  const big = BIG_DAY;
   const short = (key: string) => `${names[(dateOf(key).getDay() + 6) % 7]} ${dateOf(key).getDate()}`;
 
   return (
@@ -202,7 +232,8 @@ function HeroDemo({ demo }: { demo: Demo }) {
             <div className="grid grid-cols-7 gap-1 text-center" aria-hidden>
               {keys.map((k, i) => {
                 const now = k === today;
-                const dots = demo.items.filter(x => x.date === k).slice(0, 3);
+                // A night shows on its two days.
+                const dots = demo.items.filter(x => x.date === k || (x.nextDay && x.date && dayAfter(x.date) === k)).slice(0, 3);
                 return (
                   <div key={k} className={cx('min-w-0 rounded-xl py-1.5', now && 'bg-tile-blue text-white')}>
                     <p className={cx('text-[12px] leading-tight', now ? 'text-white/90' : 'text-stone-500')}>{names[i]}</p>
@@ -234,6 +265,12 @@ function HeroDemo({ demo }: { demo: Demo }) {
                     ) : (
                       <span className="tabular">
                         {short(x.date ?? today)} · {x.start}
+                        {x.end && !x.nextDay && `\u2013${x.end}`}
+                        {x.nextDay && x.end && (
+                          <span className="block">
+                            → {short(dayAfter(x.date ?? today))} · {x.end}
+                          </span>
+                        )}
                       </span>
                     )}
                   </span>
@@ -267,17 +304,17 @@ function HeroDemo({ demo }: { demo: Demo }) {
 
       {/* Kompaly under the window (never over it): what he did, then the invitation to keep it. */}
       <div className="mt-3 flex items-end justify-end gap-3.5">
-        <div key={demo.said?.text ?? 'hello'} className="pop mb-6 min-w-0 max-w-[17rem] rounded-2xl rounded-br-sm border border-stone-200 bg-surface px-3.5 py-2.5 text-[13.5px] leading-snug shadow-pop" role="status">
+        <div key={demo.said?.text ?? 'hello'} className="pop mb-6 min-w-0 max-w-[19rem] rounded-2xl rounded-br-sm border border-stone-200 bg-surface px-3.5 py-2.5 text-[15px] leading-snug shadow-pop" role="status">
           {demo.said ? demo.said.text : t('Écris une phrase ou touche un exemple : je la range dans ta semaine.')}
           {demo.said?.added && (
             <span className="mt-2 block">
               {t('Crée ton compte pour le garder.')}
-              <Link to="/inscription" className="btn-primary mt-2 flex h-10 w-fit px-3.5 text-[13.5px]">
+              <Link to="/inscription" className="btn-primary mt-2 flex h-11 w-fit px-4 text-[15px]">
                 {t('Créer mon compte gratuit')} <ArrowRight size={15} aria-hidden />
               </Link>
             </span>
           )}
-          <span className="mt-1.5 block text-[12px] text-stone-500">{t('Démo : rien n’est enregistré ni envoyé.')}</span>
+          <span className="mt-2 block text-[15px] text-stone-600">{t('Démo : rien n’est enregistré ni envoyé.')}</span>
         </div>
         <div className="shrink-0" aria-hidden>
           <Character pose="open" look={{ x: -0.9, y: -0.3 }} mood={demo.said?.added ? 'happy' : 'idle'} size={76} />
@@ -468,7 +505,7 @@ function Assistant() {
               <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-brand-500" aria-hidden />
               <span>
                 <strong className="font-semibold">{t('Mode intelligent :')}</strong>{' '}
-                {t('il comprend tout ce que tu écris, par exemple « résume mon cours de droit en 5 points », et lit tes documents quand tu le lui demandes. Il passe par une IA (Claude, d’Anthropic) : {n} questions par jour.', { n: DAILY_QUESTIONS })}
+                {t('il comprend tout ce que tu écris, par exemple « résume mon cours de droit en 5 points », et lit tes documents quand tu le lui demandes. Il passe par une IA (détails dans Vie privée) : {n} questions par jour.', { n: DAILY_QUESTIONS })}
               </span>
             </li>
             <li className="flex gap-3">
@@ -480,7 +517,7 @@ function Assistant() {
             </li>
           </ul>
           <p className="mt-4 max-w-[60ch] rounded-2xl bg-stone-100 px-4 py-3 text-[14px] leading-relaxed text-stone-600">
-            {t('Tu n’as rien à choisir : Kompaly est en mode intelligent tant que l’IA répond et qu’il te reste des questions du jour, sinon il passe tout seul en mode simple. L’enregistrement de cours est à part : il passe toujours par une IA (le son, chez Groq), avec sa limite de {hours} h par jour.', { hours: DAILY_RECORDING_HOURS })}
+            {t('Tu n’as rien à choisir : Kompaly est en mode intelligent tant que l’IA répond et qu’il te reste des questions du jour, sinon il passe tout seul en mode simple. L’enregistrement de cours est à part : son texte est toujours écrit par une IA, avec une limite de {hours} h par jour.', { hours: DAILY_RECORDING_HOURS })}
           </p>
         </div>
 
@@ -511,8 +548,15 @@ function Assistant() {
   );
 }
 
+/** The members drawn on the « Groupes » / « Équipes » card (initials on their colour). */
+const MEMBERS = [
+  { l: 'L', c: '#3d6fd8' },
+  { l: 'S', c: '#d48a17' },
+  { l: 'K', c: '#2f9e6b' },
+];
+
 /** Words of the « Usages » cards on this page (the app's own words are in lib/usage: no « devis » here). */
-const USAGE_EXAMPLES: Record<Usage, { hint: string; quick: string; big: string; days: number; group: string; file: string; files: string; rec: string; docs: string[] }> = {
+const USAGE_EXAMPLES: Record<Usage, { hint: string; quick: string; big: string; days: number; group: string; meet: string; note: string; file: string; rec: string; docs: string[] }> = {
   etudes: {
     hint: t('Lycée ou fac : cours, bac, partiels, révisions en groupe'),
     quick: t('Réviser le partiel jeudi 18h'),
@@ -520,7 +564,8 @@ const USAGE_EXAMPLES: Record<Usage, { hint: string; quick: string; big: string; 
     days: 12,
     group: t('Groupe de TD'),
     file: t('Cours de droit civil — chapitre 3.pdf'),
-    files: t('Cours, sujets, corrigés…'),
+    meet: t('Révisions en groupe · mar. 18h'),
+    note: t('Fiche du chapitre 3, partagée'),
     rec: t('Droit civil, amphi B'),
     docs: [t('Cours rédigé'), t('Fiche de révision'), t('Examen d’entraînement')],
   },
@@ -529,9 +574,10 @@ const USAGE_EXAMPLES: Record<Usage, { hint: string; quick: string; big: string; 
     quick: t('Réunion client jeudi 10h'),
     big: t('Rendu de la maquette'),
     days: 3,
-    group: t('Groupe du projet'),
+    group: t('Équipe du projet'),
     file: t('Planning du projet.pdf'),
-    files: t('Présentations, plannings, comptes rendus…'),
+    meet: t('Réunion d’équipe · jeu. 10h'),
+    note: t('Compte rendu du lundi, partagé'),
     rec: t('Point projet du lundi'),
     docs: [t('Compte rendu'), t('Résumé')],
   },
@@ -540,9 +586,10 @@ const USAGE_EXAMPLES: Record<Usage, { hint: string; quick: string; big: string; 
     quick: t('Judo de Léo mercredi 14h'),
     big: t('Renouveler les passeports'),
     days: 9,
-    group: t('Agenda de la famille'),
+    group: t('Asso du quartier'),
     file: t('Assurance scolaire de Léo.pdf'),
-    files: t('Papiers, photos, plannings…'),
+    meet: t('Réunion de l’asso · jeu. 20h'),
+    note: t('Liste des bénévoles, partagée'),
     rec: t('Réunion de l’asso du quartier'),
     docs: [t('Texte rédigé'), t('Résumé')],
   },
@@ -616,15 +663,31 @@ function Usages({ chosen }: { chosen: Usage | null }) {
             <p className="mt-1 text-[12.5px] text-white/70">{t('dans {n} jours', { n: ex.days })}</p>
             <p className="mt-1.5 text-[13.5px] font-semibold">{ex.big}</p>
           </div>
-          <div className="card flex flex-col gap-3 p-4">
-            <p className="flex items-center gap-1.5 text-[12px] text-stone-500">
-              <Users size={13} aria-hidden /> {ex.group}
+          {/* The shared space as it looks in the app: « Équipes » for work (lib/usage), « Groupes » otherwise. */}
+          <div className="card flex flex-col gap-2.5 p-4">
+            <p className="flex items-center gap-1.5 text-[12px] font-semibold text-stone-500">
+              <Users size={13} aria-hidden /> {WORDS[usage].groups}
             </p>
-            <div className="flex items-center gap-2.5">
-              <FileIcon category="pdf" size={30} />
+            <div className="flex min-w-0 items-center gap-2.5">
+              <span className="flex shrink-0" aria-hidden>
+                {MEMBERS.map((m, i) => (
+                  <span key={m.l} className={cx('flex h-7 w-7 items-center justify-center rounded-full text-[12px] font-bold text-white ring-2 ring-surface', i > 0 && '-ml-2')} style={{ background: m.c }}>
+                    {m.l}
+                  </span>
+                ))}
+              </span>
+              <p className="min-w-0 text-[14px] font-semibold leading-snug [overflow-wrap:anywhere]">{ex.group}</p>
+            </div>
+            <p className="flex items-center gap-2 text-[13px] leading-snug">
+              <CalendarDays size={14} className="shrink-0 text-stone-500" aria-hidden /> <span className="min-w-0">{ex.meet}</span>
+            </p>
+            <p className="flex items-center gap-2 text-[13px] leading-snug">
+              <FileText size={14} className="shrink-0 text-stone-500" aria-hidden /> <span className="min-w-0">{ex.note}</span>
+            </p>
+            <div className="mt-auto flex items-center gap-2.5 border-t border-stone-100 pt-2.5">
+              <FileIcon category="pdf" size={26} />
               <p className="min-w-0 text-[13px] leading-snug [overflow-wrap:anywhere]">{ex.file}</p>
             </div>
-            <p className="mt-auto text-[12px] text-stone-500">{ex.files}</p>
           </div>
           <div className="card p-4 sm:col-span-2">
             <p className="flex items-center gap-1.5 text-[12px] text-stone-500">
@@ -643,7 +706,7 @@ function Usages({ chosen }: { chosen: Usage | null }) {
 }
 
 const TRUST = [
-  { icon: Server, text: t('Tes données sont hébergées dans l’Union européenne (Irlande, Allemagne). Seul ce que tu demandes à une IA en sort, aux États-Unis : ta question en mode intelligent chez Anthropic (Claude), qui ne s’en sert pas pour entraîner ses modèles ; le son d’un enregistrement chez Groq pour l’écrire en texte, puis effacé ; la photo d’une fiche chez Google (Gemini) pour la lire.') },
+  { icon: Server, text: t('Tes données sont hébergées dans l’Union européenne (Irlande, Allemagne). Seul ce que tu demandes à une IA en sort, vers les États-Unis : ta question en mode intelligent (jamais utilisée pour entraîner l’IA), le son d’un enregistrement pour l’écrire en texte, puis effacé, et la photo d’une fiche pour la lire. Le nom de chaque service est dans la politique de confidentialité.') },
   { icon: Lock, text: t('Tes fichiers sont protégés : transferts chiffrés (HTTPS), disques chiffrés sur les serveurs. Ils ne sont ouverts que par ton compte, et par les membres d’un groupe pour ce que tu y partages. Kompaly ne lit un fichier que pour répondre à une de tes demandes.') },
   { icon: ShieldCheck, text: t('Une sécurité en plus, si tu veux : à la connexion, un code affiché par ton téléphone en plus du mot de passe (la « double authentification »).') },
   { icon: Download, text: t('Ni publicité, ni revente de données. Exporte tout ou supprime ton compte en un clic.') },
@@ -651,7 +714,7 @@ const TRUST = [
 
 // One wording for the age everywhere (sign-up box, Google button, here): « 15 ans ou plus, ou l’accord d’un parent ».
 const FAQ = [
-  { q: t('C’est pour qui ?'), a: t('Pour tes études, ton travail ou ta famille : lycée, fac, salariés, indépendants, parents, assos. Pas de facturation, ni de prise de rendez-vous clients, ni d’offre équipe pour l’instant.') },
+  { q: t('C’est pour qui ?'), a: t('Pour tes études, ton travail ou ta famille : lycée, fac, salariés, indépendants, parents, assos. Groupes et équipes inclus, gratuitement. Kompaly ne fait pas de devis ni de factures, ni de prise de rendez-vous par des clients.') },
   {
     q: t('Faut-il télécharger une appli ?'),
     a: t('Non, rien à télécharger sur l’App Store ou le Play Store : Kompaly marche dans le navigateur, sur ordinateur et sur téléphone. Pour l’avoir comme une appli, ajoute-le à ton écran d’accueil. Sur iPhone : dans Safari, Partager › « Sur l’écran d’accueil ». Sur Android : dans Chrome, ⋮ › « Installer l’application » (ça ajoute seulement une icône). Il s’ouvre alors en plein écran, et l’essentiel marche hors connexion.'),
@@ -680,7 +743,7 @@ const FAQ = [
     q: t('Je peux y ranger mes papiers d’identité ?'),
     a: t('Oui, tu peux ranger tes documents dans Fichiers : ils sont chiffrés pendant l’envoi et sur les serveurs, et toi seul y as accès. La fonction « fiche depuis une photo » n’est pas faite pour eux : elle sert à tes cours et à tes notes, et envoie la photo à une IA pour la lire.'),
   },
-  { q: t('Que devient ce que je demande à Kompaly ?'), a: t('En mode intelligent, ta question est envoyée à Anthropic (Claude), qui ne s’en sert pas pour entraîner ses modèles. Le son d’un enregistrement part chez Groq pour être écrit en texte, puis il est effacé ; la photo d’une fiche part chez Google (Gemini) pour être lue. Le mode simple fonctionne sans rien envoyer.') },
+  { q: t('Que devient ce que je demande à Kompaly ?'), a: t('En mode intelligent, ta question est envoyée à une IA, qui ne s’en sert pas pour entraîner ses modèles. Le son d’un enregistrement est envoyé à une IA pour être écrit en texte, puis effacé ; la photo d’une fiche, pour être lue. Le mode simple fonctionne sans rien envoyer. Le nom de chaque service est dans la politique de confidentialité.') },
   { q: t('Le son de mes enregistrements est-il gardé ?'), a: t('Non. Le son est envoyé par petits morceaux pour être écrit en texte, puis effacé : seuls le texte et les documents restent. Demande l’accord des personnes que tu enregistres.') },
   { q: t('J’ai un compte perso et un compte travail.'), a: t('Ajoute les deux sur ton appareil et passe de l’un à l’autre en un clic.') },
   {
@@ -733,6 +796,9 @@ function LandingMenu() {
           <Link to="/tarifs" onClick={close} className={row}>
             {t('Tarifs')}
           </Link>
+          <Link to="/a-propos" onClick={close} className={row}>
+            {t('À propos')}
+          </Link>
           <div className="mt-1 flex flex-wrap items-center gap-2 border-t border-stone-100 px-1 pt-3 pb-1">
             <Link to="/inscription" onClick={close} className="btn-primary h-11 flex-1 px-4 text-[15px]">
               {t('Créer mon compte gratuit')}
@@ -764,6 +830,9 @@ export default function LandingPage() {
             <Link to="/tarifs" className="inline-flex h-9 items-center hover:text-ink">
               {t('Tarifs')}
             </Link>
+            <Link to="/a-propos" className="inline-flex h-9 items-center hover:text-ink">
+              {t('À propos')}
+            </Link>
           </nav>
           <div className="ml-auto flex items-center gap-2">
             {/* Phones: the language goes in the menu, « Se connecter » stays in the bar. */}
@@ -781,7 +850,8 @@ export default function LandingPage() {
 
       <main>
         {/* Hero */}
-        <section className="mx-auto grid max-w-[1120px] grid-cols-[minmax(0,1fr)] items-center gap-10 px-5 pb-12 pt-8 md:px-8 md:pb-16 md:pt-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,480px)] lg:gap-14">
+        <section className="mx-auto grid max-w-[1120px] grid-cols-[minmax(0,1fr)] items-center gap-10 px-5 pb-12 pt-6 md:px-8 md:pb-16 md:pt-14 short:pt-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,480px)] lg:gap-14">
+          {/* The buttons right under the promise, the examples after them: « Créer mon compte gratuit » is whole in the first screen (iPhone 13, laptop). */}
           <div className="min-w-0">
             {/* The three lives first: nobody should think « this isn't for me ». */}
             <p className="mb-3 flex items-center gap-2 text-[13px] font-semibold text-brand-600 max-[359px]:text-[12.5px]">
@@ -794,34 +864,35 @@ export default function LandingPage() {
               </span>
               {t('Pour tes études, ton travail ou ta famille')}
             </p>
-            <h1 className="max-w-[20ch] text-balance text-[31px] font-extrabold leading-[1.04] tracking-[-0.03em] min-[375px]:text-[34px] sm:text-[44px] lg:text-[42px] xl:text-[50px]">
+            <h1 className="max-w-[20ch] text-balance text-[27px] font-extrabold leading-[1.06] tracking-[-0.03em] min-[375px]:text-[29px] sm:text-[44px] short:text-[32px] lg:text-[42px] xl:text-[50px]">
               {t('Ton agenda, tes notes et tes fichiers au même endroit, avec une IA qui range pour toi.')}
             </h1>
-            <div className="mt-5 flex items-start gap-3">
+            <div className="mt-4 flex items-start gap-3 sm:mt-5">
               {/* Phones: Kompaly in the first screen (his demo comes lower there); wider screens have him beside, in the demo. */}
               <div className="-mt-1 shrink-0 sm:hidden" aria-hidden>
-                <Character pose="open" look={{ x: 0.8, y: 0.2 }} mood="happy" size={64} />
+                <Character pose="open" look={{ x: 0.8, y: 0.2 }} mood="happy" size={56} />
               </div>
-              <p className="min-w-0 max-w-[50ch] text-[16px] leading-relaxed text-stone-600 max-sm:text-[15px] sm:text-[16.5px]">
+              <p className="min-w-0 max-w-[50ch] text-[16px] leading-relaxed text-stone-600 max-sm:text-[15px] max-sm:leading-snug sm:text-[16.5px]">
                 {t('Écris-le en une phrase ou enregistre un cours, une réunion : Kompaly le range et te prévient sur ton téléphone.')}
               </p>
             </div>
-            <TryChips demo={demo} />
-            <div className="mt-7 flex flex-wrap items-center gap-3">
-              <Link to="/inscription" className="btn-primary h-11 px-5 text-[15px]">
+            <div className="mt-6 flex flex-wrap items-center gap-3 sm:mt-7">
+              <Link to="/inscription" className="btn-primary h-12 px-5 text-[16px]">
                 {t('Créer mon compte gratuit')}
               </Link>
-              <Link to="/connexion" className="btn-secondary h-11 px-5 text-[15px]">
+              <Link to="/connexion" className="btn-secondary h-12 px-5 text-[15px]">
                 {t('J’ai déjà un compte')}
               </Link>
             </div>
-            <p className="mt-4 text-[13px] text-stone-500">{t('1 minute · sans appli à installer · sans pub')}</p>
-            <p className="mt-1.5 text-[13px] text-stone-500">
-              {t('Gratuit, pour un usage perso : pas de facturation ni d’offre équipe pour l’instant.')}{' '}
-              <Link to="/tarifs" className="whitespace-nowrap font-medium text-ink underline decoration-stone-300 underline-offset-2 hover:decoration-ink pointer-coarse:py-3">
+            {/* What reassures, readable by everyone (15 px, dark enough): free for good, what it is for, what it is not. */}
+            <p className="mt-4 text-[15px] leading-snug text-stone-700">{t('1 minute · sans appli à installer · sans pub')}</p>
+            <p className="mt-1.5 text-[15px] leading-snug text-stone-700">
+              {t('Gratuit, rien ne te sera facturé · usage perso, groupes et équipes inclus · pas de devis ni de factures.')}{' '}
+              <Link to="/tarifs" className="whitespace-nowrap font-semibold text-ink underline decoration-stone-400 underline-offset-2 hover:decoration-ink pointer-coarse:py-3">
                 {t('Voir les limites')}
               </Link>
             </p>
+            <TryChips demo={demo} />
           </div>
           <HeroDemo demo={demo} />
         </section>

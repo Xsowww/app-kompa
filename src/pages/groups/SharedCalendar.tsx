@@ -19,6 +19,13 @@ import { useSettings } from '../../store/settings';
 const categoryIn = (custom: CustomCategory[]) => (c: string | null | undefined): EventCategory =>
   c && (c in CATEGORIES || custom.some(x => x.id === c)) ? (c as EventCategory) : 'perso';
 
+/** The everyday names of the categories, « Perso » being the shared calendar's own name (cut for the chips). */
+function nameCategories(agenda: string) {
+  applyUsage('perso');
+  const name = agenda.trim();
+  if (name) CATEGORIES.perso.label = name.length > 24 ? `${name.slice(0, 23)}…` : name;
+}
+
 /** A shared calendar's event as the Calendar page shows it. */
 const toCalendar = (e: GroupEvent, category: ReturnType<typeof categoryIn>): CalendarEvent => ({
   id: e.id,
@@ -68,12 +75,13 @@ export default function SharedCalendar({ group }: { group: Group }) {
   // shortcut: a shared calendar (coloc, famille, équipe) names the built-in categories the same way for every member,
   // whatever their own usage: the everyday names, set before the calendar draws and put back when it closes.
   // Set again once drawn: going from one shared calendar to another, the one closing puts the account's names back
-  // after the new one has set its own.
-  useState(() => applyUsage('perso'));
+  // after the new one has set its own. Its everyday category (« Perso » in my calendar) is named after the calendar
+  // itself: « Famille · par toi », never « Perso » on an event that isn't in my personal calendar.
+  useState(() => nameCategories(group.name));
   useEffect(() => {
-    applyUsage('perso');
+    nameCategories(group.name);
     return () => applyUsage(useSettings.getState().usage);
-  }, []);
+  }, [group.name]);
   useEffect(() => {
     // A removal still waiting for its « Annuler » can't reach the server once the tab is closing: the browser asks first.
     const warn = (e: BeforeUnloadEvent) => {

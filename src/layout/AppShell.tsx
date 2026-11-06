@@ -6,6 +6,7 @@ import { FeedbackDialog } from '../components/FeedbackDialogs';
 import { confirmLogout, useAuth } from '../store/auth';
 import { loadUserData } from '../store/session';
 import Copilot, { KompalyEntry } from '../copilot/Copilot';
+import { FirstReminderOffer } from '../components/PhoneReminders';
 import Tour from '../components/Tour';
 import { startProactive } from '../copilot/proactive';
 import { HIT_LABEL, linkToDriveFile, registerNavigate, search, type SearchHit } from '../copilot/actions';
@@ -32,7 +33,7 @@ import { groupWords } from '../lib/usage';
 import { PHONE_TABS, type SpaceKey } from '../lib/navOrder';
 import { HOME, SPACES, useNavOrder, useSpaceLabel } from './spaces';
 import { ContextMenu, ReminderAlerts, ServiceBanner } from '../components/Overlays';
-import { PENDING_INVITE } from '../App';
+import { pendingInvite as keptInvitation, takeInvite } from '../pages/groups/invitePending';
 import { JoinedDialog } from '../pages/groups/Joined';
 import { InviteDialog } from '../pages/groups/InviteDialog';
 import RecPill, { RecBadge } from '../pages/record/RecPill';
@@ -506,8 +507,8 @@ export default function AppShell() {
   useGlobalShortcuts(navigate);
   // Invitation links: joined, then a window says so (pages/groups/Joined). One opened before signing in
   // (App › RequireAuth) is joined now, without leaving the page shown after sign-in.
-  const [pendingInvite] = useState(() => sessionStorage.getItem(PENDING_INVITE));
-  useEffect(() => sessionStorage.removeItem(PENDING_INVITE), []);
+  const [pendingInvite] = useState(() => keptInvitation());
+  useEffect(() => void takeInvite(), []);
   useInvitations(pendingInvite);
   useEffect(() => startProactive(), []);
   // Shared spaces read in the background once the page is up: their pages open at once.
@@ -783,6 +784,7 @@ export default function AppShell() {
       />
 
       <Copilot />
+      <FirstReminderOffer />
       <Tour />
     </div>
   );

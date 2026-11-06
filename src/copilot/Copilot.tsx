@@ -1,10 +1,11 @@
 import { Fragment, memo, useEffect, useLayoutEffect, useRef, useState, type ComponentProps, type FormEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ArrowUp, ArrowUpRight, Check, Copy, Maximize2, Mic, Minimize2, RefreshCw, RotateCcw, Square, X } from 'lucide-react';
+import { ArrowUp, ArrowUpRight, Check, ChevronDown, ChevronUp, Copy, Maximize2, Mic, Minimize2, RefreshCw, RotateCcw, Square, X } from 'lucide-react';
 import Character, { CopilotAvatar, type CopilotMood } from './Character';
 import KompalyMark from '../components/KompalyMark';
 import { sober } from '../lib/sober';
-import { toggleKompaly, useCopilot, type CopilotLink, type CopilotOffer } from '../store/copilot';
+import { toggleKompaly, useCopilot, type Bubble, type CopilotLink, type CopilotOffer } from '../store/copilot';
 import { useAuth } from '../store/auth';
 import { startTour } from '../store/tour';
 import { toast } from '../store/ui';
@@ -40,6 +41,8 @@ const ROOMY = 1590;
 /** The bubble moved off the cards (Tailwind's -translate-y-[85%] is the same `translate` property: kept in it). */
 const shifted = (x: number, y: number) => (x || y ? `${x}px calc(-85% + ${y}px)` : undefined);
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
+/** The home page's place for his remarks (pages/Dashboard), above its cards: there they push the page down, never cover it. */
+const NOTE_SLOT = 'kompaly-note';
 /** The input grows with the text up to about five lines, then scrolls. */
 const INPUT_MAX = 116;
 
@@ -128,6 +131,69 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
+/**
+ * A remark of his laid in the page instead of floating over it: on the home page, above the cards (they move down,
+ * nothing is hidden), and on phones and tablets elsewhere, a card over the tab bar, left of the « + ». He is drawn whole
+ * in it (never cut by the edge of the screen). « Réduire » keeps one line; ✕ puts it away (it stays in the conversation).
+ */
+function Note({ bubble, docked, folded, mood, blink, onFold, onClose, onAnswer, onGo, onOffer, onUse, noteRef }: {
+  bubble: Bubble;
+  /** Over the page, at the bottom (phones and tablets), rather than in the home page's flow. */
+  docked: boolean;
+  folded: boolean;
+  mood: CopilotMood;
+  blink: boolean;
+  onFold: () => void;
+  onClose: () => void;
+  onAnswer: () => void;
+  onGo: (to: string) => void;
+  onOffer: (o: CopilotOffer, rest: CopilotOffer[]) => void;
+  onUse: () => void;
+  noteRef: React.Ref<HTMLElement>;
+}) {
+  return (
+    <section
+      ref={noteRef}
+      aria-label={t('Message de Kompaly')}
+      onClickCapture={e => (e.target as Element).closest('button') && onUse()}
+      className={cx(
+        'kompaly-note flex items-start gap-2.5 rounded-[22px] border border-stone-200 bg-surface text-stone-800',
+        docked ? 'pointer-events-auto shadow-pop' : 'shadow-card',
+        folded ? 'py-2 pl-3 pr-1.5' : 'py-3 pl-2.5 pr-1.5 sm:pl-3',
+      )}
+    >
+      {/* Him, whole: a tap opens the conversation (the same as « Répondre »). */}
+      <button type="button" onClick={onAnswer} className="hit -my-1 shrink-0 rounded-2xl" aria-label={t('Répondre à Kompaly')} title={t('Répondre à Kompaly')}>
+        {folded ? <CopilotAvatar size={30} /> : <Character pose="open" mood={mood} blink={blink} size={54} />}
+      </button>
+      <div className={cx('min-w-0 flex-1', folded ? 'self-center' : 'pt-0.5')}>
+        {!folded && <p className="text-[12px] font-semibold text-stone-500">Kompaly</p>}
+        <div className={cx('text-[14px] leading-[1.5] [overflow-wrap:anywhere]', folded && 'line-clamp-1')}>
+          <Markdown text={bubble.text} />
+        </div>
+        {!folded && (
+          <>
+            <Extras links={bubble.links} offers={bubble.offers} onGo={onGo} onOffer={onOffer} />
+            {!bubble.offers?.length && !bubble.links?.length && (
+              <button type="button" onClick={onAnswer} className="hit mt-1.5 text-[13px] font-semibold text-brand-600 underline-offset-2 hover:underline">
+                {t('Répondre')}
+              </button>
+            )}
+          </>
+        )}
+      </div>
+      <div className={cx('flex shrink-0', folded ? 'flex-row items-center' : 'flex-col')}>
+        <button type="button" onClick={onFold} className="icon-btn h-8 w-8 text-stone-500" aria-expanded={!folded} aria-label={folded ? t('Afficher tout le message') : t('Réduire le message')} title={folded ? t('Afficher tout') : t('Réduire')}>
+          {folded ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+        </button>
+        <button type="button" onClick={onClose} className="icon-btn h-8 w-8 text-stone-500" aria-label={t('Fermer le message')} title={t('Fermer')}>
+          <X size={15} />
+        </button>
+      </div>
+    </section>
+  );
+}
+
 export default function Copilot() {
   const navigate = useNavigate();
   const user = useAuth(s => s.user);
@@ -184,6 +250,10 @@ export default function Copilot() {
   const opener = useRef<HTMLElement | null>(null);
   const bubbleRef = useRef<HTMLDivElement>(null);
   const [bubbleShift, setBubbleShift] = useState({ x: 0, y: 0 });
+  // A remark laid in the page (Note): `slot` is the home page's place for it, null when it is docked at the bottom.
+  const [note, setNote] = useState<{ bubble: Bubble; slot: HTMLElement | null } | null>(null);
+  const [folded, setFolded] = useState(false);
+  const noteRef = useRef<HTMLElement>(null);
 
   // Is the AI brain plugged in on the server?
   useEffect(() => {
@@ -273,7 +343,7 @@ export default function Copilot() {
     // A little longer with a button to tap (« Ouvrir le calendrier »).
     const gone = setTimeout(clearBubble, bubble.offers?.length ? 8000 : 6000);
     const onGesture = (e: Event) => {
-      if (!(e.target instanceof Node && rootRef.current?.contains(e.target))) clearBubble();
+      if (!(e.target instanceof Node && (rootRef.current?.contains(e.target) || noteRef.current?.contains(e.target)))) clearBubble();
     };
     const events = ['pointerdown', 'scroll', 'keydown'] as const;
     // A moment first: the tap or the scroll that made it appear does not hide it at once.
@@ -383,6 +453,38 @@ export default function Copilot() {
     hello();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- hello reads the latest state itself
   }, [isOpen]);
+
+  // Where a new remark goes. The home page, read from its top: in its place above the cards (it stays there until
+  // closed: going by itself would make the page jump back up). Phones and tablets elsewhere: docked at the bottom, and
+  // gone with the remark (a few seconds, or the first touch). Computers elsewhere: the bubble beside him, as before.
+  const laid = useRef<{ bubble: Bubble; path: string } | null>(null);
+  // Before the paint: never a frame of the floating bubble first.
+  useLayoutEffect(() => {
+    if (!visible || isOpen) {
+      laid.current = null;
+      return setNote(null);
+    }
+    if (!bubble) return setNote(n => (n?.slot && pathname === '/' && n.slot.isConnected ? n : null));
+    // Laid on another page, then that page was left: it goes (it is still in the conversation).
+    if (laid.current?.bubble === bubble) {
+      if (laid.current.path === pathname) return;
+      laid.current = null;
+      setNote(null);
+      return clearBubble();
+    }
+    const slot = pathname === '/' ? document.getElementById(NOTE_SLOT) : null;
+    const scroller = slot?.closest<HTMLElement>('.overflow-y-auto');
+    if (slot && (scroller?.scrollTop ?? 0) < 120) setNote({ bubble, slot });
+    else if (narrow) setNote({ bubble, slot: null });
+    else return setNote(null);
+    laid.current = { bubble, path: pathname };
+    setFolded(false);
+  }, [bubble, visible, isOpen, narrow, pathname, clearBubble]);
+  const closeNote = () => {
+    setNote(null);
+    clearBubble();
+    useCopilot.setState({ unread: false });
+  };
 
   // The other changes of the same answer stay clickable (they come back under the reply).
   const onOffer = (o: CopilotOffer, rest: CopilotOffer[]) => {
@@ -568,7 +670,26 @@ export default function Copilot() {
   // « Kompaly » opens him (phones and tablets: in the top bar; computers: the sidebar's « Demander à Kompaly », Ctrl+J).
   // Something unread still shows the corner of his screen with its dot (computers and tablets).
   const shownPose = pose === 'hidden' && screen.w >= ROOMY && !asleep ? (screen.w >= ROOMY + 90 ? 'open' : 'peek') : pose;
-  const away = pose === 'hidden' && !badge && screen.w < ROOMY;
+  // A remark laid in the page (Note) has him whole beside it: not a second one at the edge meanwhile.
+  const laidNote = !!note && !isOpen;
+  const away = (pose === 'hidden' && !badge && screen.w < ROOMY) || laidNote;
+
+  const noteCard = note && (
+    <Note
+      bubble={note.bubble}
+      docked={!note.slot}
+      folded={folded}
+      mood={mood}
+      blink={blink}
+      onFold={() => setFolded(f => !f)}
+      onClose={closeNote}
+      onAnswer={open}
+      onGo={go}
+      onOffer={onOffer}
+      onUse={read}
+      noteRef={noteRef}
+    />
+  );
 
   return (
     <div ref={rootRef} className="pointer-events-none fixed right-0 z-50" style={{ top: `${offsetY * 100}%`, transform: 'translateY(-50%)' }}>
@@ -743,7 +864,7 @@ export default function Copilot() {
         </div>
 
         {/* Spontaneous remark (on computers, moved off the cards it would hide: see above). */}
-        {bubble && !isOpen && visible && (
+        {bubble && !isOpen && visible && !note && (
           <div
             ref={bubbleRef}
             style={{ translate: shifted(bubbleShift.x, bubbleShift.y) }}
@@ -803,6 +924,17 @@ export default function Copilot() {
             {!isOpen && !away && <span aria-hidden className="pointer-events-auto absolute inset-y-1 right-0 hidden w-8 pointer-coarse:block" />}
           </div>
         )}
+        {laidNote &&
+          createPortal(
+            note.slot ? (
+              // It opens the room it takes (the cards slide down), its shadow and focus rings inside the clipped edge.
+              <div className="kompaly-note-in -mx-1.5 -mt-1.5 overflow-hidden px-1.5 pb-4 pt-1.5">{noteCard}</div>
+            ) : (
+              // Over the tab bar and the « + » (phones and tablets), at his side of the screen.
+              <div className="pop pointer-events-none fixed bottom-[calc(9.25rem+env(safe-area-inset-bottom))] right-[max(12px,env(safe-area-inset-right))] z-40 w-[min(26rem,calc(100vw-24px))] short:bottom-[calc(4.25rem+env(safe-area-inset-bottom))] short:right-[calc(max(16px,env(safe-area-inset-right))+3.75rem)] short:w-[min(26rem,calc(100vw-100px))]">{noteCard}</div>
+            ),
+            note.slot ?? document.body,
+          )}
       </div>
     </div>
   );

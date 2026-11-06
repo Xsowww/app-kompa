@@ -12,7 +12,7 @@ export const WELCOME_STEPS = 4;
 export type WelcomeAnswers = Pick<Settings, 'usage' | 'usages' | 'year' | 'needs' | 'persona'>;
 
 /** Nothing chosen (« Passer » everywhere): the everyday wording (no « cours », no « échéances »). */
-export const DEFAULT_ANSWERS: WelcomeAnswers = { usage: 'perso', usages: [], year: '', needs: [], persona: 'pote' };
+export const DEFAULT_ANSWERS: WelcomeAnswers = { usage: 'perso', usages: [], year: '', needs: [], persona: 'neutre' };
 
 /** « Tu es… »: the answers of each usage, in small groups (`title`) so a long list stays easy to scan. */
 export interface StatusGroup {
@@ -71,7 +71,7 @@ export function needOptions(a: Pick<WelcomeAnswers, 'usage' | 'usages' | 'year'>
   return list.filter((x): x is { key: string; label: string } => !!x);
 }
 
-const PERSONA_KEYS: PersonaKey[] = ['pote', 'coach', 'prof', 'zen', 'taquin'];
+const PERSONA_KEYS: PersonaKey[] = ['neutre', 'pote', 'coach', 'prof', 'zen', 'taquin'];
 const isUsage = (u: unknown): u is Usage => USAGES.some(x => x.key === u);
 
 /** The answers of a saved draft (account settings, any device), each checked; null when there is none. */
