@@ -58,6 +58,13 @@ export function overAudioQuota(who, seconds, t, env = process.env) {
   return null;
 }
 
+/** What is left of today's sound for one account (the Enregistrer page: « Il te reste 3 h 12 aujourd'hui »), in seconds. */
+export function audioLeft(who, env = process.env) {
+  const max = (Number(env.TRANSCRIBE_DAILY_MINUTES) || 240) * 60;
+  const used = day === parisDay() ? (perUser.get(who) ?? 0) : 0;
+  return { left: Math.max(0, Math.round(max - used)), max };
+}
+
 /** Minutes of sound written down today and this month, for the admins (GET /api/copilot/admin). */
 export function audioUsage(env = process.env) {
   const t = resolveTranscriber(env);
@@ -327,7 +334,11 @@ export async function handleCours(req, res, env = process.env) {
   if (!url.startsWith('/api/cours/')) return false;
 
   if (url === '/api/cours/etat' && req.method === 'GET') {
-    send(res, 200, { transcription: !!resolveTranscriber(env), redaction: !!resolveProvider(env), photo: !!resolveVision(env) });
+    // Signed in: what is left of today's recording time too (never anyone else's).
+    const asking = (req.headers.authorization || !(env.SUPABASE_URL || env.VITE_SUPABASE_URL)) && !rateLimited(`cours-ip:${ipOf(req, env)}`, PER_IP_PER_MIN);
+    const caller = asking ? await authenticate(req, env) : null;
+    const audio = caller ? audioLeft(caller.id ?? ipOf(req, env), env) : null;
+    send(res, 200, { transcription: !!resolveTranscriber(env), redaction: !!resolveProvider(env), photo: !!resolveVision(env), ...(audio && { audioLeft: audio.left, audioMax: audio.max }) });
     return true;
   }
   if (req.method !== 'POST' || !['/api/cours/transcrire', '/api/cours/rediger', '/api/cours/alerte', '/api/cours/photo'].includes(url)) {

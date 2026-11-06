@@ -30,13 +30,16 @@ function download(name: string, content: string, type: string) {
 
 const stamp = () => toKey(new Date()); // the local day (in UTC it was the day before until 1 or 2 am)
 
+/** The `app` of a backup file: Kompaly's, and the one of the files saved under its old name. */
+export const BACKUP_APPS = ['kompaly', 'cop-pilot'];
+
 /** Everything except file contents (those stay in the Drive) and the sound of the recordings. */
 export function exportBackup() {
   const { avatarImage: _img, ...settings } = useSettings.getState();
   const { user } = useAuth.getState();
   const { messages, memory } = useCopilot.getState();
   const data = {
-    app: 'cop-pilot',
+    app: 'kompaly',
     version: 1,
     exportedAt: new Date().toISOString(),
     user: { name: user?.name, email: user?.email },
@@ -89,7 +92,8 @@ export async function importBackup(file: File): Promise<{ notes: number; events:
   } catch {
     throw new Error(t('Ce fichier n’est pas une sauvegarde Kompaly.'));
   }
-  if (data?.app !== 'cop-pilot' || !Array.isArray(data.calendar) || !data.notes) throw new Error(t('Ce fichier n’est pas une sauvegarde Kompaly.'));
+  // « cop-pilot »: the files saved before the app was renamed, still read.
+  if (!BACKUP_APPS.includes(data?.app) || !Array.isArray(data.calendar) || !data.notes) throw new Error(t('Ce fichier n’est pas une sauvegarde Kompaly.'));
   const cal = useCalendar.getState();
   const nb0 = useNotes.getState();
   const drive0 = useDrive.getState();
@@ -138,11 +142,16 @@ const icsText = (t: string) => t.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').re
 const nextDay = (date: string) => toKey(addDays(fromKey(date), 1));
 
 /** .ics file that Google Agenda, Apple Calendrier or Outlook can import (`name`: a shared calendar's, in the file name). */
-export function exportIcs(events: CalendarEvent[] = useCalendar.getState().events, name?: string) {
-  const now = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+/**
+ * My calendar as an .ics file (text). Not the events of the calendars I follow by link (Profil › agendas suivis, lib/icsFeeds):
+ * they are someone else's, and imported again elsewhere (Google) they would come twice.
+ */
+export function calendarIcs(events: CalendarEvent[], at = new Date()): string {
+  const now = at.toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
   const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Kompaly//FR', 'CALSCALE:GREGORIAN'];
   for (const e of events) {
-    lines.push('BEGIN:VEVENT', `UID:${e.id}@cop-pilot`, `DTSTAMP:${now}`);
+    if (e.externalId?.startsWith('feed:')) continue;
+    lines.push('BEGIN:VEVENT', `UID:${e.id}@kompaly`, `DTSTAMP:${now}`);
     if (e.start) {
       // In UTC (« Z »): a floating time would be placed at the wrong hour by a calendar set to another time zone.
       lines.push(`DTSTART:${utcStamp(e.date, e.start)}`);
@@ -157,9 +166,13 @@ export function exportIcs(events: CalendarEvent[] = useCalendar.getState().event
     lines.push('END:VEVENT');
   }
   lines.push('END:VCALENDAR');
+  return lines.map(foldLine).join('\r\n');
+}
+
+export function exportIcs(events: CalendarEvent[] = useCalendar.getState().events, name?: string) {
   // « Famille » → « kompaly-famille-2026-11-03.ics » (letters and digits only: a file name every system takes).
   const slug = name?.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
-  download(slug ? `kompaly-${slug}-${stamp()}.ics` : t('kompaly-calendrier-{day}.ics', { day: stamp() }), lines.map(foldLine).join('\r\n'), 'text/calendar');
+  download(slug ? `kompaly-${slug}-${stamp()}.ics` : t('kompaly-calendrier-{day}.ics', { day: stamp() }), calendarIcs(events), 'text/calendar');
 }
 
 /** The account's own tables (group content lives in separate tables and is left alone). */

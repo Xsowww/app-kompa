@@ -7,7 +7,7 @@
 import { BlockList, isIPv6 } from 'node:net';
 import Anthropic from '@anthropic-ai/sdk';
 import { resolveProvider, openAiChat, ProviderError } from './aiProviders.mjs';
-import { chatSystem, nudgeSystem, TOOLS, NUDGE_MAX_CHARS } from './copilotPrompt.mjs';
+import { chatSystem, TOOLS } from './copilotPrompt.mjs';
 
 const MAX_BODY = 1_500_000; // bytes (file contents read by Kompaly travel in the history)
 const RATE_WINDOW_MS = 60_000;
@@ -347,7 +347,7 @@ export async function handleCopilot(req, res, env = process.env) {
     send(res, 200, { ai: aiUsage(resolveProvider(env), env), audio: audioUsage(env) });
     return true;
   }
-  if (req.method !== 'POST' || (url !== '/api/copilot/chat' && url !== '/api/copilot/nudge')) {
+  if (req.method !== 'POST' || url !== '/api/copilot/chat') {
     send(res, 404, { error: 'not_found' });
     return true;
   }
@@ -375,27 +375,9 @@ export async function handleCopilot(req, res, env = process.env) {
   try {
     const body = await readJson(req);
 
-    if (url === '/api/copilot/nudge') {
-      // Free providers have a tight quota (Groq: 8 000 tokens/min): keep it for the student's own
-      // requests, spontaneous remarks are then phrased by the app itself. AI_NUDGES=1 turns them back on.
-      if (provider.id !== 'anthropic' && env.AI_NUDGES !== '1') {
-        send(res, 200, { text: '' });
-        return true;
-      }
-      if (overQuota(who, false, provider, env)) {
-        send(res, 200, { text: '' });
-        return true;
-      }
-      const kind = Object.hasOwn(NUDGE_MAX_CHARS, body.kind) ? body.kind : 'remark';
-      const situation = JSON.stringify(body.situation ?? {}).slice(0, 4000);
-      const response = await chat(provider, {
-        system: nudgeSystem({ ...body, kind }),
-        messages: [{ role: 'user', content: situation }],
-        maxTokens: 2000,
-        timeoutMs: 20_000,
-      });
-      const text = response.stop_reason === 'refusal' ? '' : response.content.filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
-      send(res, 200, { text });
+    // « Mode simple uniquement » (Profil › Kompaly): the page doesn't ask, and an old tab that still would is refused here.
+    if (body.simpleOnly === true) {
+      send(res, 403, { error: 'simple_only' });
       return true;
     }
 

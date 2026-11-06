@@ -75,6 +75,8 @@ export interface Settings {
   personaNotes: string; // free instructions written by the student (max 600 chars)
   morningBrief: boolean; // « ta journée en 3 lignes »
   weeklyReview: boolean; // Sunday evening review
+  /** « Mode simple uniquement » (Profil › Kompaly): nothing goes to an AI, Kompaly answers on the device only. */
+  simpleOnly: boolean;
   // studies
   focusMinutes: number;
   breakMinutes: number;
@@ -142,6 +144,7 @@ export const DEFAULT_SETTINGS: Settings = {
   personaNotes: '',
   morningBrief: true,
   weeklyReview: true,
+  simpleOnly: false,
   focusMinutes: 25,
   breakMinutes: 5,
   focusSessions: 0,

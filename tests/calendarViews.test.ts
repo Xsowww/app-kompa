@@ -5,7 +5,7 @@ Object.assign(globalThis, {
   location: new URL('http://localhost/'),
   localStorage: { getItem: (k: string) => memory.get(k) ?? null, setItem: (k: string, v: string) => memory.set(k, v), removeItem: (k: string) => memory.delete(k) },
 });
-const { spanBars, upcomingList, sweptRange, isFor, tasksOn, layout } = await import('../src/pages/calendar/layout');
+const { spanBars, upcomingList, sweptRange, isFor, tasksOn, layout, openingDay, nightPieces, byStartTime } = await import('../src/pages/calendar/layout');
 const { agendaEvents, fromAgenda, agendaLink } = await import('../src/pages/calendar/agendas');
 const { catOf, sortEvents } = await import('../src/store/calendar');
 
@@ -100,5 +100,43 @@ describe('agendas partagés par-dessus le mien', () => {
     expect(e).toMatchObject({ title: 'Piano', start: '17:00', place: 'Conservatoire', done: false });
     expect(catOf(e.category)).toMatchObject({ label: 'Famille', color: '#2f9e6b' });
     expect(agendaLink(e)).toBe('/agendas?g=g1&jour=2026-11-04&evt=e1');
+  });
+  it('a team’s meeting is in my calendar too, and leads to the team', () => {
+    const team = { ...group('t1', 'École Test', null), kind: 'groupe' as const };
+    const [e] = agendaEvents([team], { t1: [{ ...gev('m1', 't1'), title: 'Conseil des maîtres' }] }, []);
+    expect(e).toMatchObject({ title: 'Conseil des maîtres', start: '17:00' });
+    expect(agendaLink(e)).toBe('/groupes?g=t1&onglet=revisions');
+  });
+});
+
+describe('le jour où s’ouvre le calendrier', () => {
+  // Vendredi 6 novembre 2026 ; la semaine finit dimanche 8.
+  const open = (items: { date: string; done?: boolean }[]) => openingDay('2026-11-06', '2026-11-08', items, '2027-01-05');
+  it('today, when something is still planned this week (today included)', () => {
+    expect(open([{ date: '2026-11-08' }, { date: '2026-11-20' }])).toEqual({ day: '2026-11-06', jumped: false });
+    expect(open([{ date: '2026-11-06' }])).toEqual({ day: '2026-11-06', jumped: false });
+  });
+  it('the next planned day, when the rest of the week is empty (what is past or done doesn’t count)', () => {
+    expect(open([{ date: '2026-11-02' }, { date: '2026-11-07', done: true }, { date: '2026-11-12' }, { date: '2026-11-10' }])).toEqual({ day: '2026-11-10', jumped: true });
+  });
+  it('today when nothing is planned at all, or only far away', () => {
+    expect(open([])).toEqual({ day: '2026-11-06', jumped: false });
+    expect(open([{ date: '2027-03-01' }])).toEqual({ day: '2026-11-06', jumped: false });
+  });
+});
+
+describe('les nuits et l’ordre de la journée', () => {
+  const week = ['2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05', '2026-11-06', '2026-11-07', '2026-11-08'];
+  it('a night is drawn at its hours on both days (not as a bar); a trip of several days stays a bar', () => {
+    const night = [ev('n1', '2026-11-02', { start: '21:00', end: '23:59', series: 'span-n' }), ev('n2', '2026-11-03', { start: '00:00', end: '07:00', series: 'span-n' })];
+    const trip = [ev('t1', '2026-11-04', { start: '09:00', end: '23:59', series: 'span-t' }), ev('t2', '2026-11-05', { series: 'span-t' }), ev('t3', '2026-11-06', { start: '00:00', end: '17:00', series: 'span-t' })];
+    const edge = [ev('s1', '2026-11-08', { start: '20:00', end: '23:59', series: 'span-s' })];
+    expect([...nightPieces([...night, ...trip, ...edge], week)].sort()).toEqual(['n1', 'n2', 's1']);
+    expect(spanBars([...night, ...trip].filter(e => !nightPieces([...night, ...trip], week).has(e.id)), week)).toHaveLength(1);
+  });
+  it('events and tasks of a day in the order of the day', () => {
+    const evs = [ev('e1', '2026-11-03', { start: '09:30' }), ev('e2', '2026-11-03', { start: '21:00' })];
+    const todos = [{ id: 'x', title: 'Relancer', done: false, due: '2026-11-03', time: '10:00', createdAt: '' }, { id: 'y', title: 'Sans heure', done: false, due: '2026-11-03', createdAt: '' }];
+    expect(byStartTime(evs, todos).map(it => ('ev' in it ? it.ev.id : it.todo.id))).toEqual(['y', 'e1', 'x', 'e2']);
   });
 });

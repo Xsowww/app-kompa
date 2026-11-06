@@ -111,6 +111,8 @@ function EventForm({ group, event, onDone }: { group: Group; event?: GroupEvent;
         <textarea value={details} maxLength={2000} rows={2} onChange={e => setDetails(e.target.value)} placeholder={t('Ce qu’on fera, ce qu’il faut apporter…')} className="field mt-1 h-auto w-full resize-none py-2" />
       </label>
       {badTime && <p className="mt-2 text-[12px] text-red-600">{t('L’heure de fin doit être après l’heure de début.')}</p>}
+      {/* Said before « Proposer »: a meeting without a time is noted for the whole day (Nadia's had none, unnoticed). */}
+      {!start && !badTime && <p className="mt-2 text-[12px] text-stone-500">{t('Pas d’heure choisie : ce sera noté pour toute la journée.')}</p>}
       {!event && (
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
           <label className="check-hit flex items-center gap-1.5 text-[13px] text-stone-700">
