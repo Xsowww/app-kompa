@@ -38,6 +38,23 @@ describe('rappel dit dans la phrase', () => {
   });
 });
 
+describe('répétitions dites dans la phrase', () => {
+  const rule = (s: string) => {
+    const p = parseQuickAdd(s, base, 'fr', true);
+    return { title: p.title, date: p.date, rule: p.rule };
+  };
+  it('« tous les 3 mois », « tous les 2 jours »', () => {
+    expect(rule('Détartrage tous les 3 mois le 20/11')).toEqual({ title: 'Détartrage', date: '2026-11-20', rule: { unit: 'month', interval: 3 } });
+    expect(rule('Arroser tous les 2 jours')).toMatchObject({ title: 'Arroser', rule: { unit: 'day', interval: 2 } });
+  });
+  it('« tous les lundis et jeudis », from the first one to come', () => {
+    expect(rule('Piscine tous les lundis et jeudis 18h')).toEqual({ title: 'Piscine', date: '2026-11-09', rule: { unit: 'week', interval: 1, days: [1, 4] } });
+  });
+  it('« le 1er lundi du mois »', () => {
+    expect(rule('Conseil municipal le 1er lundi du mois 20h')).toEqual({ title: 'Conseil municipal', date: '2026-12-07', rule: { unit: 'month', interval: 1, nth: 1 } });
+  });
+});
+
 describe('le lieu dans « Lieu », pas dans le titre', () => {
   const where = (s: string) => {
     const p = parseQuickAdd(s, base, 'fr', true);

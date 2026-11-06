@@ -173,7 +173,7 @@ const SPORT = wordRe('sport|foot|basket|gym|muscu|course$|piscine|natation|yoga|
 const STUDY_CLASS = wordRe('cours(?!es$)|amphi|cm$|lecture|classes?$|class$|lessons?$|\\p{L}*vorlesung|\\p{L}*kurs(?:e)?$|seminar$|lezion[ei]$|cors[oi]$|clases?$|profs?$|professeur|maths?$|math[ée]matiques|physique|chimie|histoire|anglais|fran[cç]ais|info$|informatique|bio$|biologie|[ée]co$|[ée]conomie|philo$|philosophie');
 
 /** A work title: Réunion (cours), Livrable (devoir), Échéance (examen) when the title says so, the private life (perso); else nothing (neutral). */
-function workCategory(t: string, timed: boolean): EventCategory | undefined {
+function workCategory(t: string): EventCategory | undefined {
   // Private life seen from a work calendar: the dentist or a birthday is not a meeting nor a deadline.
   if (WORK_PERSO.test(t)) return 'perso';
   if (WORK_MEETING.test(t)) return 'cours';
@@ -194,7 +194,7 @@ export function guessCategory(title: string, timed = false, custom?: CustomCateg
   const t = title.toLowerCase();
   const usage = getSettings().usage ?? 'etudes';
   if (usage === 'travail') {
-    const work = workCategory(t, timed);
+    const work = workCategory(t);
     if (work) return work;
     return SPORT.test(t) ? 'sport' : 'perso';
   }

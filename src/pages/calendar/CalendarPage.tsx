@@ -549,7 +549,7 @@ export default function CalendarPage() {
     if (!parsed?.title) return openForm();
     // « Sport tous les mardis 18h », « Anniversaire de Léa le 12 mars tous les ans »: the form, to choose until when it repeats.
     // Over more days than an event can last: the form too, which says so.
-    if (parsed.every || (parsed.endDate && spanTooLong(quickDate, parsed.endDate)))
+    if (parsed.every || parsed.rule || (parsed.endDate && spanTooLong(quickDate, parsed.endDate)))
       return setForm({ date: quickDate, start: parsed.start ?? undefined, end: parsed.end ?? undefined, title: quick, fromQuick: true });
     const date = quickDate;
     // « Congés du 22 au 26 décembre »: one event over several days (one a day, linked, as the form makes it); the first

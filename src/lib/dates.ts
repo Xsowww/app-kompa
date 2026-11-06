@@ -2,7 +2,7 @@ import { addDays, format, isValid, parseISO, startOfWeek, differenceInCalendarDa
 import { fr } from 'date-fns/locale/fr';
 import { dateLocale, lang, t, type Lang } from '../i18n';
 import { parseQuickAddIn } from './quickAddOther';
-import type { Repeat } from './repeat';
+import type { Repeat, RepeatRule } from './repeat';
 import { minutesBefore } from './reminders';
 
 // Read once: the app (and this file) loads after loadLang().
@@ -81,6 +81,8 @@ export interface ParsedQuickAdd {
   remind?: RemindSpec;
   /** « à la mairie », « chez le kiné »: where it happens (the Lieu field). */
   place?: string;
+  /** « tous les 3 mois », « tous les lundis et jeudis », « le 1er lundi du mois » (with `extras`): the repeat's rule. */
+  rule?: RepeatRule;
 }
 
 const hm = (h: string | number, m?: string) => (Number(h) < 24 && Number(m ?? 0) < 60 ? `${String(h).padStart(2, '0')}:${m ?? '00'}` : null);
@@ -218,8 +220,37 @@ export function parseQuickAdd(input: string, base = new Date(), language = lang,
 
   // « tous les mardis », « chaque lundi »: every week, from the next one. « toutes les semaines » (with or without
   // « le mercredi » further on), « tous les jours », « tous les mois », « une semaine sur deux »: the day said, else the one shown.
-  const weekday = cut(new RegExp(`\\s(?:tous\\sles|chaque)\\s(${DAY})s?${PERIOD}(?=\\s)`));
-  if (weekday) {
+  // The calendar's own words (`extras`): « tous les 3 mois », « tous les lundis et jeudis », « le 1er lundi du mois ».
+  let rule: RepeatRule | undefined;
+  const NUM: Record<string, number> = { deux: 2, trois: 3, quatre: 4, cinq: 5, six: 6, dix: 10, douze: 12 };
+  const UNITS: Record<string, RepeatRule['unit']> = { jours: 'day', semaines: 'week', mois: 'month', ans: 'year' };
+  const NTHS: Record<string, number> = { premier: 1, '1er': 1, deuxieme: 2, '2e': 2, troisieme: 3, '3e': 3, quatrieme: 4, '4e': 4, dernier: -1 };
+  let rr: RegExpMatchArray | null = null;
+  if (!extras) {
+    /* the ready-made words below only */
+  } else if ((rr = cut(/\s(?:tous\sles|toutes\sles)\s(\d{1,2}|deux|trois|quatre|cinq|six|dix|douze)\s(jours|semaines|mois|ans)(?=\s)/))) {
+    const n = NUM[rr[1]] ?? Number(rr[1]);
+    if (n >= 1) rule = { unit: UNITS[rr[2]], interval: n };
+  } else if ((rr = cut(new RegExp(`\\s(?:le|chaque|tous\\sles)\\s(premier|1er|deuxieme|2e|troisieme|3e|quatrieme|4e|dernier)s?\\s(${DAY})s?\\s(?:du|de\\schaque)\\smois(?=\\s)`)))) {
+    const nth = NTHS[rr[1]];
+    const wd = WEEKDAYS.indexOf(rr[2]);
+    // The next such day, this month or the next ones.
+    for (let k = 0; k < 3 && !date; k++) {
+      const m = new Date(base.getFullYear(), base.getMonth() + k, 1);
+      const d = nth > 0 ? new Date(m.getFullYear(), m.getMonth(), 1 + ((wd - m.getDay() + 7) % 7) + (nth - 1) * 7) : (last => new Date(m.getFullYear(), m.getMonth(), last.getDate() - ((last.getDay() - wd + 7) % 7)))(new Date(m.getFullYear(), m.getMonth() + 1, 0));
+      if (d.getMonth() === m.getMonth() && differenceInCalendarDays(d, base) >= 0) date = d;
+    }
+    rule = { unit: 'month', interval: 1, nth };
+  } else if ((rr = cut(new RegExp(`\\s(?:tous\\sles|chaque)\\s(${DAY})s?((?:\\s?(?:,|et)\\s?(?:le\\s)?(?:${DAY})s?)+)${PERIOD}(?=\\s)`)))) {
+    const days = [rr[1], ...(rr[2].match(new RegExp(DAY, 'g')) ?? [])].map(d => WEEKDAYS.indexOf(d));
+    rule = { unit: 'week', interval: 1, days: [...new Set(days)] };
+    // From the first of those days to come.
+    date = addDays(base, Math.min(...rule.days!.map(w => (w - base.getDay() + 7) % 7)));
+  }
+  const weekday = rule ? null : cut(new RegExp(`\\s(?:tous\\sles|chaque)\\s(${DAY})s?${PERIOD}(?=\\s)`));
+  if (rule) {
+    /* said above */
+  } else if (weekday) {
     every = 'week';
     date = addDays(base, (WEEKDAYS.indexOf(weekday[1]) - base.getDay() + 7) % 7);
   } else if (cut(/\s(?:toutes\sles\s(?:2|deux)\ssemaines|une\ssemaine\ssur\s(?:2|deux)|tous\sles\squinze\sjours)(?=\s)/)) every = '2weeks';
@@ -382,6 +413,7 @@ export function parseQuickAdd(input: string, base = new Date(), language = lang,
     ...(impossible && { impossible }),
     ...(remind && { remind }),
     ...(place && { place }),
+    ...(rule && { rule }),
   };
 }
 

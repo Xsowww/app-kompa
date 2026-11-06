@@ -5,7 +5,7 @@ import SeriesIcon from './SeriesIcon';
 import { Modal } from '../../components/Overlays';
 import { ReportDialog } from '../../components/FeedbackDialogs';
 import { useNotes } from '../../store/notes';
-import { allCategories, guessCategory, isBigEvent, nextInSeries, type CalendarEvent, type EventCategory, type NewEvent } from '../../store/calendar';
+import { allCategories, guessCategory, isBigEvent, nextInSeries, useCalendar, type CalendarEvent, type EventCategory, type NewEvent } from '../../store/calendar';
 // The colours of the categories, vivid in the Affichage Pro.
 import { catOf } from './proColors';
 import { askSeriesScope, changedFields, removeEvent, useCalendarSource } from './source';
@@ -16,12 +16,14 @@ import { AGENDA_EXAMPLES, WORDS } from '../../lib/usage';
 import { cx } from '../../lib/utils';
 import { NewCategory } from './CategoriesDialog';
 import ReminderPicker from '../../components/ReminderPicker';
-import { DateField, SelectField, TimeField } from '../../components/Pickers';
+import { DateField, TimeField } from '../../components/Pickers';
 import { FieldError } from '../../components/Field';
-import { fmtDay, fromKey, parseQuickAdd } from '../../lib/dates';
+import { fmtDay, fromKey, fromMinutes, parseQuickAdd, remindMinutes, todayKey, toMinutes } from '../../lib/dates';
 import { cleanReminders, earlyReminders, eventReminders, followMoments, remindersText } from '../../lib/reminders';
 import { covers } from '../../lib/periods';
-import { MAX_SPAN_DAYS, REPEATS, dayShift, defaultUntil, isSpan, repeatDays, shiftKey, spanDays, spanTooLong, type Repeat } from '../../lib/repeat';
+import { MAX_SPAN_DAYS, dayShift, endlessUntil, guessRule, isSpan, ruleDays, ruleLabel, ruleOf, shiftKey, spanDays, spanTooLong, type RepeatRule } from '../../lib/repeat';
+import { planNewEnd, rememberRule, savedRule } from '../../lib/repeatSeries';
+import RepeatPicker, { EndChoice } from './RepeatPicker';
 import { feedLabel, feedOf } from '../../lib/icsFeeds';
 import { uid } from '../../lib/utils';
 import { copyToMyCalendar } from './agendas';
@@ -30,8 +32,8 @@ import { addToAgenda, useAgendaTargets } from '../groups/agendaAdd';
 import { t, tn } from '../../i18n';
 
 const NONE: number[] = [];
-/** The repeat a sentence asks for: « tous les mardis » every week, « tous les ans » every year. */
-const repeatSaid = (p: { every?: Repeat }): Repeat | '' => p.every ?? '';
+/** The repeat a sentence asks for: « tous les mardis » every week, « tous les 3 mois », « le 1er lundi du mois ». */
+const repeatSaid = (p: ReturnType<typeof parseQuickAdd>): RepeatRule | null => p.rule ?? (p.every ? ruleOf(p.every) : null);
 /** Periods a repeat skips at first (they can be ticked off): the holidays. */
 const HOLIDAYS = /vacance|cong[ée]|holiday|vacation|ferien|urlaub|vacacion|vacanz|feri[ea]/i;
 
@@ -130,12 +132,14 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
   const [end, setEnd] = useState(base?.end ?? initialEnd ?? '');
   const [category, setCategory] = useState<EventCategory | null>(base?.category ?? null);
   const [details, setDetails] = useState(base?.details ?? '');
-  const [place, setPlace] = useState(base?.place ?? '');
+  // What the calendar's bar typed (« Kiné mardi 14h chez le kiné rappel la veille »): read once for the fields below.
+  const [said] = useState(() => (initialTitle && !base ? parseQuickAdd(initialTitle, undefined, undefined, true) : null));
+  const [place, setPlace] = useState(base?.place ?? said?.place ?? '');
   const [important, setImportant] = useState(!!base?.important);
   // Shared calendar: who it is for (none: everyone).
   const [people, setPeople] = useState<string[]>(base?.people ?? []);
   // undefined = not chosen: the usual reminder (Profil › Notifications) for an event with a time.
-  const [chosen, setChosen] = useState<number[] | undefined>(base?.reminders);
+  const [chosen, setChosen] = useState<number[] | undefined>(base?.reminders ?? (said ? remindMinutes(said.remind, said.date ?? date, said.start) : undefined));
   // A duplicate's title is read as a sentence only once changed (« Cours 8h » duplicated stays « Cours 8h »).
   const [retyped, setRetyped] = useState(false);
   const mine = useSettings(s => s.defaultReminders);
@@ -146,27 +150,34 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
   const [creating, setCreating] = useState(false);
   // A new event: « Dentiste demain 16h » fills the day and the times (as the calendar's bar), unless they were set by
   // hand; saved as « Dentiste ». Editing one leaves its title as it is.
-  const touched = useRef({ day: false, start: false, end: false, important: false, repeat: false, endDay: false });
+  const touched = useRef({ day: false, start: false, end: false, important: false, repeat: false, endDay: false, place: false, reminders: !!base?.reminders });
   const parsed = !event && (!template || retyped) && title.trim() ? parseQuickAdd(title, undefined, undefined, true) : null;
-  const understood = !!parsed && !parsed.impossible && !!(parsed.date || parsed.start || parsed.important || parsed.every);
+  const understood = !!parsed && !parsed.impossible && !!(parsed.date || parsed.start || parsed.important || parsed.every || parsed.rule || parsed.place || parsed.remind);
   // « 31/11 »: said and blocked, unless the day was chosen by hand.
   const [dayByHand, setDayByHand] = useState(false);
   const impossible = !!parsed?.impossible && !dayByHand;
   const cleanTitle = understood ? parsed.title : title.trim();
   // Repeating: my own calendar, a new event (« tous les mardis » in the title chooses « Chaque semaine »).
   const canRepeat = !event;
-  const [repeat, setRepeat] = useState<Repeat | ''>(() => (canRepeat && initialTitle ? repeatSaid(parseQuickAdd(initialTitle)) : ''));
-  const [until, setUntil] = useState('');
-  const lastDay = until || (day && repeat ? defaultUntil(day, repeat) : '');
+  const [repeat, setRepeat] = useState<RepeatRule | null>(() => (canRepeat && said ? repeatSaid(said) : null));
+  // Without end (the default, test n°3: no end forced in February): made a horizon ahead, then as time goes (lib/repeatSeries).
+  const lastDay = repeat && day ? (repeat.until ?? endlessUntil(repeat, todayKey())) : '';
   const around = repeat && day ? periods.filter(p => p.start <= lastDay && p.end >= day) : [];
   // Ticked: not on those days (the holidays at first).
   const [skipped, setSkipped] = useState<string[] | null>(null);
   const skipIds = skipped ?? around.filter(p => HOLIDAYS.test(p.title)).map(p => p.id);
-  const series = repeat && day ? repeatDays(day, repeat, lastDay, k => periods.some(p => skipIds.includes(p.id) && covers(p, k))) : null;
+  const series = repeat && day ? ruleDays(day, repeat, lastDay, k => periods.some(p => skipIds.includes(p.id) && covers(p, k))) : null;
+  // An event that already repeats (not one over several days): its rule, and its end, which can be changed here.
+  const inSeries = event?.series && !isSpan(event.series) ? allEvents.filter(e => e.series === event.series) : null;
+  const saved = inSeries && !shared ? savedRule(event!.series!) : null;
+  const seriesRule = inSeries ? (saved?.rule ?? guessRule(inSeries.map(e => e.date))) : null;
+  const seriesEnd = inSeries ? (saved ? (saved.rule.until ?? null) : inSeries.reduce((a, e) => (e.date > a ? e.date : a), '')) : null;
+  // undefined: not changed here.
+  const [newEnd, setNewEnd] = useState<string | null | undefined>(undefined);
   // Over several days (a seminar, a trip): one event a day, linked (lib/repeat spanDays). Not with a repeat.
   const canSpan = !event && !repeat;
   // null: ends the same day. « Congés du 22 au 26 décembre » typed in the calendar's bar: the 26th.
-  const [endDay, setEndDay] = useState<string | null>(() => (canSpan && initialTitle ? (parseQuickAdd(initialTitle).endDate ?? null) : null));
+  const [endDay, setEndDay] = useState<string | null>(() => (canSpan && said ? (said.endDate ?? null) : null));
   // A night (a new event from 21:00 to 07:00): it ends the next morning, one piece on each day (as « 21h-7h » typed).
   const night = canSpan && !(endDay && day && endDay > day) && !!day && !!start && !!end && end < start;
   const spanning = (canSpan && !!endDay && !!day && endDay > day) || night;
@@ -184,8 +195,11 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
     if (!was.start) setStart(ok?.start ?? initialStart ?? '');
     if (!was.end) setEnd(ok?.end ?? (ok?.start ? '' : (initialEnd ?? '')));
     if (!was.important) setImportant(!!ok?.important);
-    if (canRepeat && !was.repeat) setRepeat(ok ? repeatSaid(ok) : '');
+    if (canRepeat && !was.repeat) setRepeat(ok ? repeatSaid(ok) : null);
     if (!was.endDay) setEndDay(ok?.endDate ?? null);
+    // « à la mairie », « rappel 1h avant » said in the title: in their fields (unless changed by hand).
+    if (!was.place) setPlace(ok?.place ?? '');
+    if (!was.reminders) setChosen(ok ? remindMinutes(ok.remind, ok.date ?? date, ok.start) : undefined);
   };
   const effective = category ?? guessCategory(cleanTitle || title, !!start, custom);
   // My usual reminder and, for a big day, a week before and the day before when still to come (lib/reminders); a shared calendar: the chosen ones.
@@ -231,12 +245,22 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
     else if (series) {
       const id = uid();
       (into ? (l: NewEvent[]) => addToAgenda(into, l) : addMany)(series.days.map(d => ({ ...data, date: d, series: id })));
+      // My calendar: the rule is kept, a series without end goes on by itself (lib/repeatSeries).
+      if (!into && !shared && repeat) rememberRule(id, repeat, day);
     } else if (spanning) {
       const id = `span-${uid()}`;
       // The first day keeps the reminders; the others none (« 15 min avant » 0:00 would ring at midnight).
       (into ? (l: NewEvent[]) => addToAgenda(into, l) : addMany)(spanDays(day, night ? shiftKey(day, 1) : endDay!, start || undefined, end || undefined).map((p, i) => ({ ...data, ...p, start: p.start, end: p.end, series: id, reminders: i ? [] : data.reminders })));
     } else if (into) addToAgenda(into, [data]);
     else add(data);
+    // A new end for the series (« Sans fin », a later or earlier « Jusqu’au »): the days after it go, the missing ones are made.
+    if (event?.series && inSeries && newEnd !== undefined && newEnd !== seriesEnd) {
+      const now = shared ? inSeries : useCalendar.getState().events.filter(e => e.series === event.series);
+      const plan = planNewEnd(now, newEnd, saved);
+      if (plan.remove.length) source.removeMany(plan.remove);
+      if (plan.add.length) addMany(plan.add);
+      if (!shared && plan.rule) rememberRule(event.series, plan.rule, plan.from);
+    }
     toast(
       event
         ? t('Enregistré : {title}', { title: data.title })
@@ -280,6 +304,12 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
                   : t('Dernier d’une répétition'))(nextInSeries(event, allEvents).length)}
           </p>
         )}
+        {inSeries && seriesRule && (!shared || shared.canEdit) && (
+          <div className="mt-2 rounded-2xl bg-stone-50 p-3">
+            <p className="mb-2 text-[12.5px] font-medium text-stone-700">{ruleLabel(seriesRule, inSeries.reduce((a, e) => (e.date < a ? e.date : a), event!.date))}</p>
+            <EndChoice until={newEnd === undefined ? seriesEnd : newEnd} onChange={setNewEnd} from={event!.date} />
+          </div>
+        )}
         <input
           ref={titleRef}
           autoFocus
@@ -302,7 +332,10 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
                 parsed.date && day === parsed.date && fmtDay(fromKey(parsed.date), 'EEEE d MMMM'),
                 parsed.start && start === parsed.start && (parsed.end && end === parsed.end ? `${parsed.start}\u00a0–\u00a0${parsed.end}` : parsed.start),
                 parsed.important && important && t('important'),
-                parsed.yearly && repeat === 'year' && t('chaque année'),
+                parsed.yearly && repeat?.unit === 'year' && t('chaque année'),
+                parsed.rule && repeat && ruleLabel(repeat, day).toLowerCase(),
+                parsed.place && place === parsed.place && t('lieu : {place}', { place: parsed.place }),
+                parsed.remind && t('rappel'),
               ]
                 .filter(Boolean)
                 .join(' · '),
@@ -382,6 +415,11 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
               onChange={v => {
                 // « 15 min avant » follows the new time, « La veille à 9h » stays at 9:00 (lib/reminders).
                 if (chosen && day && v !== start) setChosen(followMoments(chosen, { date: day, time: start || undefined }, { date: day, time: v || undefined }, v ? defaults : [0]));
+                // A new start moves the end with it: the length stays (a night too, across midnight).
+                if (start && end && v && v !== start) {
+                  const length = (toMinutes(end) - toMinutes(start) + 1440) % 1440;
+                  setEnd(fromMinutes((toMinutes(v) + length) % 1440));
+                }
                 setStart(v);
                 touched.current.start = true;
               }}
@@ -399,7 +437,7 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
 
         <label className="relative mt-4 block">
           <MapPin size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" aria-hidden />
-          <input value={place} onChange={e => setPlace(e.target.value)} maxLength={300} placeholder={t('Lieu (facultatif)')} aria-label={t('Lieu')} className="field h-10 w-full pl-9 text-[14px]" />
+          <input value={place} onChange={e => ((touched.current.place = true), setPlace(e.target.value))} maxLength={300} placeholder={t('Lieu (facultatif)')} aria-label={t('Lieu')} className="field h-10 w-full pl-9 text-[14px]" />
         </label>
 
         {canSpan &&
@@ -440,24 +478,7 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
 
         {canRepeat && !spanning && (
           <div className="mt-4">
-            <div className="grid grid-cols-1 gap-x-2 gap-y-4 sm:grid-cols-2">
-              <div>
-                <span className="mb-1.5 block text-[12px] font-medium text-stone-600">{t('Répéter')}</span>
-                <SelectField<Repeat | ''>
-                  className="w-full"
-                  label={t('Répéter')}
-                  value={repeat}
-                  options={[{ value: '', label: t('Ne se répète pas') }, ...REPEATS.map(r => ({ value: r.key, label: r.label }))]}
-                  onChange={v => ((touched.current.repeat = true), setRepeat(v))}
-                />
-              </div>
-              {repeat && (
-                <div>
-                  <span className="mb-1.5 block text-[12px] font-medium text-stone-600">{t('Jusqu’au')}</span>
-                  <DateField value={lastDay} onChange={v => v && setUntil(v)} min={day || undefined} label={t('Dernier jour de la répétition')} className="w-full" />
-                </div>
-              )}
-            </div>
+            <RepeatPicker value={repeat} onChange={r => ((touched.current.repeat = true), setRepeat(r))} from={day} />
             {around.length > 0 && (
               <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[12px] text-stone-600">
                 <span>{t('Pas pendant :')}</span>
@@ -482,6 +503,10 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
               <p className={cx('mt-1.5 text-[12px]', series.days.length ? 'text-stone-500' : 'font-medium text-red-600 dark:text-red-400')} aria-live="polite">
                 {!series.days.length
                   ? t('Aucun jour entre ces dates.')
+                  : !repeat?.until
+                    ? into || shared
+                      ? t('Sans fin : {n} fois prévues, jusqu’au {day}. Tu pourras prolonger depuis l’événement.', { n: series.days.length, day: fmtDay(fromKey(series.days.at(-1)!), 'd MMMM') })
+                      : t('Sans fin : {n} fois prévues jusqu’au {day}, la suite s’ajoute toute seule.', { n: series.days.length, day: fmtDay(fromKey(series.days.at(-1)!), 'd MMMM') })
                   : series.capped
                     ? t('{n} fois au plus : jusqu’au {day}.', { n: series.days.length, day: fmtDay(fromKey(series.days.at(-1)!), 'd MMMM') })
                     : t('{n} fois, jusqu’au {day}.', { n: series.days.length, day: fmtDay(fromKey(series.days.at(-1)!), 'd MMMM') })}
@@ -490,7 +515,7 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
           </div>
         )}
 
-        <ReminderPicker value={reminders} onChange={setChosen} timed={!!start} date={day || undefined} time={start || undefined} />
+        <ReminderPicker value={reminders} onChange={v => ((touched.current.reminders = true), setChosen(v))} timed={!!start} date={day || undefined} time={start || undefined} />
         {shared && reminders.length > 0 && (
           <p className="mt-1.5 text-[12px] text-stone-500">{people.length ? t('Envoyé à chaque personne choisie ci-dessous.') : t('Envoyé à chaque membre de l’agenda.')}</p>
         )}
