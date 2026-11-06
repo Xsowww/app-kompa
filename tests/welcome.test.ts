@@ -37,7 +37,7 @@ describe('welcome questionnaire draft (in the account, any device)', () => {
   it('ignores broken or out-of-range values', () => {
     expect(readWelcomeDraft({ step: 42, answers: { usages: ['pirate', 'travail', 'travail'], year: 3, needs: 'ia', persona: 'robot' } })).toEqual({
       step: WELCOME_STEPS - 1,
-      answers: { usage: 'travail', usages: ['travail'], year: '', needs: [], persona: 'pote' },
+      answers: { usage: 'travail', usages: ['travail'], year: '', needs: [], persona: 'neutre' },
     });
     expect(readWelcomeDraft('{oops')).toBeNull();
     expect(readWelcomeDraft(null)).toBeNull();
