@@ -1,19 +1,48 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
+import { DAILY_QUESTIONS, DAILY_RECORDING_HOURS } from '../../lib/limits';
 import Logo from '../../components/Logo';
 import { LEGAL_LINKS } from './links';
 import { lang, locale, t } from '../../i18n';
 
 // Pages légales, lisibles sans compte. Les sous-traitants cités ici doivent rester à jour (registre des traitements).
 
-export type LegalDoc = 'mentions' | 'confidentialite' | 'conditions';
+export type LegalDoc = 'mentions' | 'confidentialite' | 'conditions' | 'tarifs';
 
-const UPDATED = new Date(2026, 10, 5).toLocaleDateString(locale(), { day: 'numeric', month: 'long', year: 'numeric' });
+const UPDATED = new Date(2026, 10, 6).toLocaleDateString(locale(), { day: 'numeric', month: 'long', year: 'numeric' });
 const CONTACT = 'contact@kompaly.com';
 
 type Section = { title: string; body: string[] };
 
 const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
+  // The same numbers as the FAQ and the conditions (lib/limits, the server's defaults).
+  tarifs: {
+    title: t('Tarifs'),
+    sections: [
+      {
+        title: t('Kompaly est gratuit'),
+        body: [
+          t('Tout est gratuit, sans publicité et sans carte bancaire : agenda, tâches, notes, fichiers, rappels, groupes et agendas partagés, enregistrement de cours, et l’assistant Kompaly.'),
+          t('Il n’y a pas d’offre payante pour l’instant. Rien ne peut t’être facturé : Kompaly ne te demande jamais de moyen de paiement.'),
+        ],
+      },
+      {
+        title: t('Les limites du gratuit'),
+        body: [
+          t('Kompaly en mode intelligent : {n} questions par jour. Le mode simple (les commandes courantes, sans IA) n’a pas de limite.', { n: DAILY_QUESTIONS }),
+          t('Enregistrer un cours ou une réunion : {n} h d’enregistrement écrites en texte par jour.', { n: DAILY_RECORDING_HOURS }),
+          t('Fichiers : 1 Go d’espace par compte, et jusqu’à 50 Mo par fichier.'),
+          t('Les compteurs repartent à zéro chaque jour.'),
+        ],
+      },
+      {
+        title: t('C’est pour qui\u00a0?'),
+        body: [
+          t('Pour un usage personnel : tes études, ton travail ou ta famille. Pas de facturation, ni de prise de rendez-vous par des clients, ni d’offre pour une équipe ou une entreprise pour l’instant.'),
+        ],
+      },
+    ],
+  },
   mentions: {
     title: t('Mentions légales'),
     sections: [
@@ -149,7 +178,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
           t('Une vérification anti-robot peut être demandée à l’inscription et à la connexion.'),
           t('Tu es responsable de ton mot de passe et, si tu l’actives, de ton téléphone de double authentification. Garde ta clé de secours en lieu sûr : sans elle, un téléphone perdu peut bloquer l’accès au compte.'),
           t('Si tu te connectes avec Google, Apple, Face ID ou ton empreinte, la sécurité de ton compte Kompaly dépend aussi de ce compte ou de cet appareil : protège-les comme ton mot de passe.'),
-          t('Limites actuelles : 50 Mo par fichier, 1 Go d’espace par compte, un nombre limité de questions par jour à Kompaly en mode intelligent et de minutes d’enregistrement écrites par jour.'),
+          t('Limites actuelles : 50 Mo par fichier, 1 Go d’espace par compte, {questions} questions par jour à Kompaly en mode intelligent et {hours} h d’enregistrement écrites par jour (page Tarifs).', { questions: DAILY_QUESTIONS, hours: DAILY_RECORDING_HOURS }),
         ],
       },
       {
@@ -233,6 +262,11 @@ export default function LegalPage({ doc }: { doc: LegalDoc }) {
             ))}
           </section>
         ))}
+        {doc === 'tarifs' && (
+          <Link to="/inscription" className="btn-primary mt-8 h-11 px-5 text-[15px]">
+            {t('Créer mon compte gratuit')}
+          </Link>
+        )}
         <nav aria-label={t('Informations légales')} className="mt-12 flex flex-wrap gap-x-4 border-t border-stone-200 pt-2 text-[13px] text-stone-500">
           {LEGAL_LINKS.map(l => (
             // NavLink: the page being read is marked (aria-current) and not underlined.

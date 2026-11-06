@@ -147,7 +147,7 @@ type Field = 'name' | 'email' | 'password' | 'code' | 'agreed' | 'age';
 
 const COPY: Record<Mode, { title: string; subtitle?: string; submit: string }> = {
   login: { title: t('Connexion'), submit: t('Se connecter') },
-  register: { title: t('Créer un compte'), subtitle: t('Gratuit, prêt en quelques secondes.'), submit: t('Créer mon compte') },
+  register: { title: t('Créer un compte'), subtitle: t('Gratuit. Tu reçois un e-mail pour confirmer ton adresse.'), submit: t('Créer mon compte') },
   forgot: { title: t('Mot de passe oublié'), subtitle: t('On t’envoie un lien pour le changer.'), submit: t('Envoyer le lien') },
   reset: { title: t('Nouveau mot de passe'), submit: t('Enregistrer||sauver') },
 };

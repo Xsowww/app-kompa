@@ -212,6 +212,9 @@ function authMessage(e: AuthError | Error): string {
   if (code === 'insufficient_aal' || msg.includes('aal2')) return AUTH_MSG.needCode;
   if (code === 'session_not_found' || msg.includes('session missing')) return t('Ce lien a expiré ou a déjà servi : redemande un e-mail de réinitialisation.');
   if (msg.includes('fetch') || msg.includes('network')) return t('Connexion impossible : vérifie ton accès à internet.');
+  // The e-mail service refused the address (or is down): trying again changes nothing, another way in does.
+  if (msg.includes('sending confirmation')) return t('On n’a pas pu t’envoyer l’e-mail de confirmation. Vérifie ton adresse, ou continue avec Google.');
+  if (msg.includes('error sending')) return t('On n’a pas pu t’envoyer l’e-mail. Vérifie ton adresse, puis réessaie.');
   return t('Une erreur est survenue : réessaie dans un instant.');
 }
 

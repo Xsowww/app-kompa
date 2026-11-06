@@ -110,6 +110,7 @@ const TITLES: Record<string, string> = {
   '/mentions-legales': t('Mentions légales'),
   '/confidentialite': t('Confidentialité'),
   '/conditions': t('Conditions d’utilisation'),
+  '/tarifs': t('Tarifs'),
 };
 
 /** Pages offered to search engines (the sitemap's, server/seo.mjs), with their title and description. */
@@ -329,6 +330,9 @@ export default function App() {
         <Route path="/mentions-legales" element={<Suspense fallback={<Loading full />}><LegalPage doc="mentions" /></Suspense>} />
         <Route path="/confidentialite" element={<Suspense fallback={<Loading full />}><LegalPage doc="confidentialite" /></Suspense>} />
         <Route path="/conditions" element={<Suspense fallback={<Loading full />}><LegalPage doc="conditions" /></Suspense>} />
+        <Route path="/tarifs" element={<Suspense fallback={<Loading full />}><LegalPage key="tarifs" doc="tarifs" /></Suspense>} />
+        {/* Typed by hand by visitors looking for the price. */}
+        <Route path="/prix" element={<Navigate to="/tarifs" replace />} />
         <Route element={<RequireAuth><Suspense fallback={<Loading full />}><AppShell /></Suspense></RequireAuth>}>
           <Route index element={<Suspense fallback={<Loading />}><Dashboard /></Suspense>} />
           <Route path="drive" element={<Suspense fallback={<Loading />}><DrivePage /></Suspense>} />

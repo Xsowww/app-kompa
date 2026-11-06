@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { Bell, Briefcase, CornerDownLeft, Download, FileSearch, Flame, GraduationCap, House, Lock, Mic, Server, ShieldCheck, Sparkles, Sunrise, Timer, UserRound, Users } from 'lucide-react';
+import { Bell, Briefcase, CornerDownLeft, Download, FileSearch, Flame, GraduationCap, House, Lock, Menu, Mic, Server, ShieldCheck, Sparkles, Sunrise, Timer, UserRound, Users, X } from 'lucide-react';
+import { DAILY_QUESTIONS, DAILY_RECORDING_HOURS } from '../lib/limits';
 import Logo from '../components/Logo';
 import LanguagePicker from '../components/LanguagePicker';
 import FileIcon from '../components/FileIcon';
@@ -442,8 +443,8 @@ function Usages() {
 }
 
 const TRUST = [
-  { icon: Server, text: t('Tes données sont hébergées dans l’Union européenne (Irlande, Allemagne). Quand tu utilises le mode intelligent, ta question part chez Anthropic (Claude, États-Unis), qui ne s’en sert pas pour entraîner ses modèles.') },
-  { icon: Lock, text: t('Tes fichiers sont protégés : transferts chiffrés (HTTPS), disques chiffrés sur les serveurs. Personne d’autre que toi ne peut les ouvrir, sauf les membres d’un groupe pour ce que tu y partages.') },
+  { icon: Server, text: t('Tes données sont hébergées dans l’Union européenne (Irlande, Allemagne). Seul ce que tu demandes à une IA en sort, aux États-Unis : ta question en mode intelligent chez Anthropic (Claude), qui ne s’en sert pas pour entraîner ses modèles ; le son d’un enregistrement chez Groq pour l’écrire en texte, puis effacé ; la photo d’une fiche chez Google (Gemini) pour la lire.') },
+  { icon: Lock, text: t('Tes fichiers sont protégés : transferts chiffrés (HTTPS), disques chiffrés sur les serveurs. Ils ne sont ouverts que par ton compte, et par les membres d’un groupe pour ce que tu y partages. Kompaly ne lit un fichier que pour répondre à une de tes demandes.') },
   { icon: ShieldCheck, text: t('Double authentification au choix : un code de ton téléphone en plus du mot de passe.') },
   { icon: Download, text: t('Ni publicité, ni revente de données. Exporte tout ou supprime ton compte en un clic.') },
 ] as const;
@@ -453,7 +454,7 @@ const FAQ = [
   { q: t('C’est pour qui ?'), a: t('Pour tes études, ton travail ou ta famille : lycée, fac, salariés, indépendants, parents, assos. Pas de facturation, ni de prise de rendez-vous clients, ni d’offre équipe pour l’instant.') },
   { q: t('Faut-il télécharger une appli ?'), a: t('Non. Kompaly marche dans le navigateur, sur ordinateur et sur téléphone. Tu peux l’ajouter à ton écran d’accueil (iPhone : Partager › Sur l’écran d’accueil ; Android : Installer l’application) : il s’ouvre alors comme une appli, et l’essentiel marche hors connexion.') },
   { q: t('Combien d’espace j’ai ?'), a: t('1 Go pour tes fichiers, et jusqu’à 50 Mo par fichier. La jauge est en haut de tes fichiers.') },
-  { q: t('C’est gratuit ?'), a: t('Oui, et sans publicité. Limites : un nombre de questions par jour à Kompaly en mode intelligent et quelques heures d’enregistrement par jour.') },
+  { q: t('C’est gratuit ?'), a: t('Oui, sans publicité ni carte bancaire. Limites par jour : {questions} questions à Kompaly en mode intelligent et {hours} h d’enregistrement de cours ; 1 Go pour tes fichiers. Tout est sur la page Tarifs.', { questions: DAILY_QUESTIONS, hours: DAILY_RECORDING_HOURS }) },
   { q: t('Ça marche avec Google Agenda ou mon emploi du temps ?'), a: t('Oui. Colle le lien .ics de ton école ou de ton agenda (Google Agenda, Outlook…) : il se met à jour tout seul. Tu peux aussi importer un fichier .ics, et exporter ton calendrier en .ics.') },
   {
     q: t('Je viens de Notion ou d’une autre appli : je peux importer ?'),
@@ -470,7 +471,7 @@ const FAQ = [
     q: t('Je peux y ranger mes papiers d’identité ?'),
     a: t('Oui, tu peux ranger tes documents dans Fichiers : ils sont chiffrés pendant l’envoi et sur les serveurs, et toi seul y as accès. La fonction « fiche depuis une photo » n’est pas faite pour eux : elle sert à tes cours et à tes notes, et envoie la photo à une IA pour la lire.'),
   },
-  { q: t('Que devient ce que je demande à Kompaly ?'), a: t('En mode intelligent, ta question est envoyée à Anthropic (Claude), qui ne s’en sert pas pour entraîner ses modèles. Le mode simple fonctionne sans rien envoyer.') },
+  { q: t('Que devient ce que je demande à Kompaly ?'), a: t('En mode intelligent, ta question est envoyée à Anthropic (Claude), qui ne s’en sert pas pour entraîner ses modèles. Le son d’un enregistrement part chez Groq pour être écrit en texte, puis il est effacé ; la photo d’une fiche part chez Google (Gemini) pour être lue. Le mode simple fonctionne sans rien envoyer.') },
   { q: t('Le son de mes enregistrements est-il gardé ?'), a: t('Non. Le son est envoyé par petits morceaux pour être écrit en texte, puis effacé : seuls le texte et les documents restent. Demande l’accord des personnes que tu enregistres.') },
   { q: t('J’ai un compte perso et un compte travail.'), a: t('Ajoute les deux sur ton appareil et passe de l’un à l’autre en un clic.') },
   {
@@ -479,31 +480,91 @@ const FAQ = [
   },
 ];
 
+const SECTIONS = [
+  { href: '#assistant', label: t('Assistant IA') },
+  { href: '#fonctions', label: t('Fonctions') },
+  { href: '#usages', label: t('Usages') },
+  { href: '#confiance', label: t('Vie privée') },
+  { href: '#questions', label: t('Questions') },
+];
+
+/** Under 1280 px, where the bar has no room for the links: a ☰ button and a panel with them, the prices and sign-up. */
+function LandingMenu() {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => !box.current?.contains(e.target as Node) && setOpen(false);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      setOpen(false);
+      box.current?.querySelector('button')?.focus();
+    };
+    window.addEventListener('pointerdown', onDown, true);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('pointerdown', onDown, true);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+  const close = () => setOpen(false);
+  const row = 'flex h-12 items-center rounded-xl px-3 text-[15px] font-medium hover:bg-stone-100';
+  return (
+    <div ref={box} className="xl:hidden">
+      <button type="button" className="icon-btn h-10 w-10" aria-expanded={open} aria-controls="menu-accueil" aria-label={open ? t('Fermer le menu') : t('Menu')} onClick={() => setOpen(o => !o)}>
+        {open ? <X size={20} /> : <Menu size={20} />}
+      </button>
+      {open && (
+        <nav id="menu-accueil" aria-label={t('Menu')} className="enter absolute inset-x-3 top-[60px] z-40 rounded-[22px] border border-stone-200 bg-surface p-2 shadow-pop sm:left-auto sm:right-5 sm:w-[300px]">
+          {SECTIONS.map(s => (
+            <a key={s.href} href={s.href} onClick={close} className={row}>
+              {s.label}
+            </a>
+          ))}
+          <Link to="/tarifs" onClick={close} className={row}>
+            {t('Tarifs')}
+          </Link>
+          <div className="mt-1 flex flex-wrap items-center gap-2 border-t border-stone-100 px-1 pt-3 pb-1">
+            <Link to="/inscription" onClick={close} className="btn-primary h-11 flex-1 px-4 text-[15px]">
+              {t('Créer mon compte gratuit')}
+            </Link>
+            <LanguagePicker className="h-11 sm:hidden" />
+          </div>
+        </nav>
+      )}
+    </div>
+  );
+}
+
 export default function LandingPage() {
   return (
     // The page scrolls itself: the app keeps <body> fixed (overflow hidden), so the wheel and the finger did nothing here.
     <div className="h-full overflow-y-auto overflow-x-clip scroll-pt-16 bg-paper text-ink">
-      <header className="sticky top-0 z-30 border-b border-transparent bg-paper/85 backdrop-blur supports-[backdrop-filter]:bg-paper/70">
+      <header className="sticky top-0 z-30 border-b border-transparent bg-paper/95 backdrop-blur supports-[backdrop-filter]:bg-paper/90">
         <div className="mx-auto flex h-16 max-w-[1120px] items-center gap-3 px-5 sm:gap-6 md:px-8">
           <Link to="/" aria-label={t('Kompaly, accueil')} className="shrink-0">
             <Logo />
           </Link>
           <nav aria-label={t('Sur cette page')} className="hidden items-center gap-5 text-[13.5px] text-stone-600 xl:flex">
-            <a href="#assistant" className="inline-flex h-9 items-center hover:text-ink">{t('Assistant IA')}</a>
-            <a href="#fonctions" className="inline-flex h-9 items-center hover:text-ink">{t('Fonctions')}</a>
-            <a href="#usages" className="inline-flex h-9 items-center hover:text-ink">{t('Usages')}</a>
-            <a href="#confiance" className="inline-flex h-9 items-center hover:text-ink">{t('Vie privée')}</a>
-            <a href="#questions" className="inline-flex h-9 items-center hover:text-ink">{t('Questions')}</a>
+            {SECTIONS.map(s => (
+              <a key={s.href} href={s.href} className="inline-flex h-9 items-center hover:text-ink">
+                {s.label}
+              </a>
+            ))}
+            <Link to="/tarifs" className="inline-flex h-9 items-center hover:text-ink">
+              {t('Tarifs')}
+            </Link>
           </nav>
           <div className="ml-auto flex items-center gap-2">
-            {/* Phones: the globe alone (its name is read out), « Se connecter » kept in the bar. */}
-            <LanguagePicker className="h-9 sm:mr-1 max-sm:[&>span]:sr-only" />
+            {/* Phones: the language goes in the menu, « Se connecter » stays in the bar. */}
+            <LanguagePicker className="h-9 max-sm:hidden sm:mr-1" />
             <Link to="/connexion" className="btn-secondary h-9 max-sm:px-3">
               {t('Se connecter')}
             </Link>
             <Link to="/inscription" className="btn-primary hidden h-9 sm:inline-flex">
               {t('Créer un compte')}
             </Link>
+            <LandingMenu />
           </div>
         </div>
       </header>
@@ -544,6 +605,12 @@ export default function LandingPage() {
               </Link>
             </div>
             <p className="mt-4 text-[13px] text-stone-500">{t('1 minute · sans appli à installer · sans pub')}</p>
+            <p className="mt-1.5 text-[13px] text-stone-500">
+              {t('Gratuit, pour un usage perso : pas de facturation ni d’offre équipe pour l’instant.')}{' '}
+              <Link to="/tarifs" className="font-medium text-ink underline decoration-stone-300 underline-offset-2 hover:decoration-ink">
+                {t('Voir les limites')}
+              </Link>
+            </p>
           </div>
           <HeroDemo />
         </section>
