@@ -96,13 +96,24 @@ export async function fetchFeed(raw) {
   for (let i = 0; i <= MAX_REDIRECTS; i++) {
     const r = await getOnce(u);
     if (r.text !== undefined) {
-      if (!/BEGIN:VCALENDAR/i.test(r.text.slice(0, 2000))) throw Object.assign(new Error('not ics'), { code: 'not_ics' });
+      // A web page (the calendar's page, a sign-in page…) rather than the subscription link: said as such.
+      if (!/BEGIN:VCALENDAR/i.test(r.text.slice(0, 2000))) throw Object.assign(new Error('not ics'), { code: /<(!doctype html|html|head|body)\b/i.test(r.text.slice(0, 2000)) ? 'web_page' : 'not_ics' });
       return r.text;
     }
     u = feedUrl(r.redirect.href);
     if (!u) throw Object.assign(new Error('bad redirect'), { code: 'bad_url' });
   }
   throw Object.assign(new Error('redirects'), { code: 'bad_url' });
+}
+
+/**
+ * The answer's status: the link itself is wrong (not a calendar, a page, unknown, refused): 422, said as « ce lien ne
+ * donne pas un agenda »; the calendar's site is down or too slow: 502 (« ne répond pas »).
+ */
+export function feedStatus(code) {
+  if (code === 'bad_url') return 400;
+  if (code === 'unreachable' || code === 'timeout' || /^http_5\d\d$/.test(code)) return 502;
+  return 422;
 }
 
 /** Node-style handler for /api/ics. Returns false if the URL isn't ours. */
@@ -120,9 +131,10 @@ export async function handleIcs(req, res, env = process.env) {
     res.writeHead(200, { 'Content-Type': 'text/calendar; charset=utf-8', 'Cache-Control': 'no-store' });
     res.end(text);
   } catch (e) {
-    const code = String(e?.code ?? '');
-    const known = ['bad_url', 'not_ics', 'too_large', 'timeout'].includes(code) || code.startsWith('http_');
-    send(res, code === 'EBLOCKED' ? 400 : 502, { error: code === 'EBLOCKED' ? 'bad_url' : known ? code : code === 'ENOTFOUND' ? 'not_found' : 'unreachable' });
+    const raw = String(e?.code ?? '');
+    const known = ['bad_url', 'not_ics', 'web_page', 'too_large', 'timeout'].includes(raw) || raw.startsWith('http_');
+    const code = raw === 'EBLOCKED' ? 'bad_url' : known ? raw : raw === 'ENOTFOUND' ? 'not_found' : 'unreachable';
+    send(res, feedStatus(code), { error: code });
   }
   return true;
 }
