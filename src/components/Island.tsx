@@ -838,6 +838,8 @@ export default function Island() {
       <div
         ref={wrap}
         className="isl-wrap"
+        // Kompaly's panel open on a phone or a short screen: it takes the top of the screen, the island steps aside.
+        data-yield={panelOpen || undefined}
         onPointerEnter={e => e.pointerType === 'mouse' && setHover(true)}
         onPointerLeave={() => setHover(false)}
         onPointerDown={() => setKeyboard(false)}

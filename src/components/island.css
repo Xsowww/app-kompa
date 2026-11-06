@@ -728,3 +728,14 @@ button.isl-text {
 .reduce-motion .isl-face[data-leave] {
   display: none;
 }
+
+/* Kompaly's panel open where it fills the screen (phones, phones sideways, tablets): the island makes way for its
+   header (components/Island › data-yield) and comes back when it closes. */
+@media (max-width: 1023px), (max-height: 500px) {
+  .isl-wrap[data-yield] {
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s, visibility 0s 0.15s;
+  }
+}

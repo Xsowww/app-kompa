@@ -19,4 +19,9 @@ describe('sober (Affichage Pro: no emoji)', () => {
     expect(sober(text)).toBe(text);
     expect(sober('Rien à enlever.')).toBe('Rien à enlever.');
   });
+  // The assistant's warning after a refused save (copilot/claudeBrain): no emoji in Affichage Pro.
+  it('strips the warning sign before « Pas enregistré en ligne »', () => {
+    expect(sober('C’est noté.\n\n⚠️ Pas enregistré en ligne : le serveur l’a refusé.')).toBe('C’est noté.\n\nPas enregistré en ligne : le serveur l’a refusé.');
+    expect(sober('⚠ Pas enregistré en ligne.')).toBe('Pas enregistré en ligne.');
+  });
 });
