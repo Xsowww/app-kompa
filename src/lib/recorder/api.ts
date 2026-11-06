@@ -59,7 +59,8 @@ export const listPoints = (body: { title: string; text: string }) => call<{ poin
 export const writeDoc = (task: 'fiche' | 'examen', body: { title: string; points: string[]; parts?: string[]; moments?: string[] }) =>
   call<{ text: string }>('rediger', json({ task, usage: getSettings().usage, ...body }), 120_000).then(r => r.text);
 export const alertOtherDevices = (body: { title: string; body: string; except?: string }) => call<{ ok: boolean }>('alerte', json(body), 15_000).catch(() => null);
-export const serverState = () => call<{ transcription: boolean; redaction: boolean; photo?: boolean }>('etat', { method: 'GET' }, 10_000);
+/** `audioLeft` / `audioMax`: seconds of recording left today and allowed a day (signed in). */
+export const serverState = () => call<{ transcription: boolean; redaction: boolean; photo?: boolean; audioLeft?: number; audioMax?: number }>('etat', { method: 'GET' }, 10_000);
 /** Photos (JPEG data URLs) → the sheet they hold, in Markdown (server/photo.mjs). */
 export const readPhotoSheet = (photos: string[], stop?: AbortSignal) => call<{ text: string }>('photo', json({ photos }), 110_000, stop).then(r => r.text);
 

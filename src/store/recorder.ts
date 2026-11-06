@@ -40,6 +40,8 @@ export interface Session {
   /** Paused since then (« Pause »); `paused`: ms of the pauses before. Both left out of the time recorded. */
   pausedAt?: number;
   paused?: number;
+  /** Last moment a tab was hearing the class (every 5 s): a closed tab's time stops there, not at the reload. */
+  aliveAt?: number;
   phase: 'running' | 'finishing' | 'done';
   segments: Segment[];
   /** What the browser heard (quick lane), kept to fill a passage the server couldn't write. */
@@ -157,8 +159,17 @@ let warned = { sound: false, silence: false };
 let silenceProblem = '';
 const lastAlert = new Map<string, number>();
 
-/** Seconds recorded since the start of the class (pauses left out). */
-export const elapsed = (s: Session | null = session()) => (s ? recordedSeconds(s) : 0);
+/**
+ * Since when the class isn't heard any more because its tab was closed or reloaded (no tab hears it, it isn't paused):
+ * its last moment alive. Its time stops there, as for a pause, until « Reprendre l'écoute » (Hugo's « 2 min » for 10 s).
+ */
+export function stoppedSince(s: Session | null = session()): number | null {
+  if (!s || s.phase !== 'running' || s.pausedAt || capture || useRecLive.getState().hearing || recordingElsewhere()) return null;
+  return Math.min(Date.now(), Math.max(s.startedAt, s.aliveAt ?? s.startedAt));
+}
+
+/** Seconds recorded since the start of the class (pauses, and the time no tab was hearing it, left out). */
+export const elapsed = (s: Session | null = session()) => (s ? recordedSeconds(s, stoppedSince(s) ?? Date.now()) : 0);
 
 // Length of a piece of sound sent to be written: short, so the text follows closely (~10 s); longer when the
 // browser already shows the words as they're said (the micro in Chrome, Edge, Safari), to spare the day's allowance.
@@ -374,7 +385,9 @@ function check() {
   if (!s || !capture) return;
   beat();
   if (s.pausedAt) return; // paused: no sound expected
+  // Saved with the session (every 15 s, not at each check: a long class is a big session to save).
   const now = Date.now();
+  if (now - (s.aliveAt ?? 0) >= 15_000) patch(() => ({ aliveAt: now }));
   if (s.source === 'onglet' && now - lastAudible > 60_000) {
     if (!warned.sound) {
       warned.sound = true;
@@ -523,17 +536,40 @@ if (typeof window !== 'undefined')
   addEventListener('pagehide', () => {
     try {
       if ((localStorage.getItem(beatKey()) ?? '').startsWith(`${TAB} `)) localStorage.removeItem(beatKey());
+      // Its last moment heard, if this tab was hearing it (and not paused).
+      const s = session();
+      if (capture && s?.phase === 'running' && !s.pausedAt) patch(() => ({ aliveAt: Date.now() }));
     } catch {
       /* blocked */
     }
   });
 
-/** True when another tab of this browser is recording right now. */
+// The tab that records answers the others (a closed tab's last beat no longer hid the buttons for 15 s).
+const channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('kompaly-cours') : null;
+let answeredAt = 0;
+let askedAt = 0;
+// The tab whose beat was seen, and when it was first asked: one second to answer, once.
+let seen = { tab: '', at: 0 };
+channel?.addEventListener('message', (e: MessageEvent<{ ask?: string; here?: string }>) => {
+  if (e.data?.ask && capture) channel.postMessage({ here: TAB });
+  else if (e.data?.here && e.data.here !== TAB) answeredAt = Date.now();
+});
+
+/** True when another tab of this browser is recording right now (its beat is recent and it answers). */
 export function recordingElsewhere() {
   if (useRecLive.getState().hearing) return false;
   try {
     const [tab, time] = (localStorage.getItem(beatKey()) ?? '').split(' ');
-    return tab !== TAB && Date.now() - Number(time) < 15_000;
+    if (tab === TAB || Date.now() - Number(time) >= 15_000) return false;
+    if (!channel) return true;
+    const now = Date.now();
+    if (seen.tab !== tab) seen = { tab, at: now };
+    if (now - askedAt > 2000) {
+      askedAt = now;
+      channel.postMessage({ ask: TAB });
+    }
+    // Waiting for its first answer (a second at most): counted as recording, so that no second recording starts meanwhile.
+    return now - answeredAt < 6000 || now - seen.at < 1200;
   } catch {
     return false;
   }
@@ -605,7 +641,14 @@ export async function resumeListening() {
     if (s.source === 'micro') hearLive();
   } else {
     markLostSound();
+    // The tab was closed (or reloaded) without a pause: the time it wasn't heard is a pause, left out.
+    const stopped = stoppedSince(s);
     await listen(s.source, elapsed(s)); // the offset is taken while still paused: the time doesn't move
+    if (stopped !== null && !session()?.pausedAt) {
+      patch(x => ({ paused: (x.paused ?? 0) + Date.now() - stopped, aliveAt: Date.now() }));
+      toast(t('Enregistrement repris'), 'info');
+      return;
+    }
   }
   if (!session()?.pausedAt) return;
   patch(x => ({ paused: (x.paused ?? 0) + Date.now() - x.pausedAt!, pausedAt: undefined }));
@@ -633,7 +676,8 @@ export async function finishRecording() {
   const s = session();
   if (!s || s.phase !== 'running' || recordingElsewhere()) return; // the tab that hears finishes it
   markLostSound();
-  const now = Date.now();
+  // Finished from a page that wasn't hearing it (its tab was closed): it ended when it was last heard.
+  const now = stoppedSince(s) ?? Date.now();
   // Finished while paused: that pause is left out too.
   patch(x => ({ phase: 'finishing', endedAt: now, ...(x.pausedAt && { pausedAt: undefined, paused: (x.paused ?? 0) + now - x.pausedAt }) }));
   capture?.stop(true);
