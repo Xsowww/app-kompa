@@ -22,6 +22,13 @@ const gone = () => (studying() ? t('Je ne retrouve plus cet examen.') : t('Je ne
 /** Set by claudeBrain: makes a change the AI asked for once the student clicked (see confirm_change there). */
 export const pendingChanges: { apply?: (name: string, input: Record<string, unknown>) => OfferResult } = {};
 
+/**
+ * Buttons whose work waits for a server (saving checked, a shared calendar, a photo's slots): set by the modules that
+ * know how (claudeBrain, photoSlots). From a click or a « oui », acceptOffer runs them and says the outcome after.
+ */
+export const asyncOffers: Partial<Record<CopilotOffer['kind'], (payload: Record<string, string>) => Promise<OfferResult>>> = {};
+export const isAsyncOffer = (o: CopilotOffer) => !!asyncOffers[o.kind];
+
 /** What the student did with buttons since the AI last spoke (it doesn't see the clicks otherwise). */
 export const offerLog: string[] = [];
 
@@ -161,6 +168,9 @@ function run(offer: CopilotOffer): OfferResult {
       const res = restoreFromTrash((p.ids ?? '').split(',').filter(Boolean));
       return res.restored.length ? { text: tn(res.restored.length, 'Annulé : {n} élément remis à sa place.', 'Annulé : {n} éléments remis à leur place.') } : { text: t('Déjà remis à sa place.') };
     }
+    default:
+      // A button that needs a server (asyncOffers), reached without it: never a silent « done ».
+      return { text: t('Je ne peux plus le faire, redemande-le-moi.') };
   }
 }
 
@@ -173,9 +183,26 @@ export function acceptOffer(offer: CopilotOffer, rest: CopilotOffer[] = []) {
     return { text: '' };
   }
   cop.push('user', offer.label);
+  const answer = (reply: OfferResult) => {
+    const offers = [...(reply.offers ?? []), ...rest];
+    if (useCopilot.getState().pose === 'open') useCopilot.getState().push('bot', reply.text, { links: reply.links, ...(offers.length && { offers }) });
+    else useCopilot.getState().say({ text: reply.text, links: reply.links, mood: 'happy', ...(offers.length && { offers }) });
+  };
+  const slow = asyncOffers[offer.kind];
+  if (slow) {
+    // The outcome once the server answered (« dots » meanwhile): what is said is what was saved.
+    cop.setThinking(true);
+    void slow(offer.payload ?? {})
+      .catch((e: unknown): OfferResult => ({ text: t('Ça n’a pas marché : {reason}', { reason: (e as Error)?.message ?? String(e) }) }))
+      .then(reply => {
+        useCopilot.getState().setThinking(false);
+        offerLog.push(`« ${offer.label} » → ${reply.text}`);
+        if (offerLog.length > 5) offerLog.shift();
+        answer(reply);
+      });
+    return { text: '' };
+  }
   const reply = runOffer(offer);
-  const offers = [...(reply.offers ?? []), ...rest];
-  if (useCopilot.getState().pose === 'open') cop.push('bot', reply.text, { links: reply.links, ...(offers.length && { offers }) });
-  else cop.say({ text: reply.text, links: reply.links, mood: 'happy', ...(offers.length && { offers }) });
+  answer(reply);
   return reply;
 }

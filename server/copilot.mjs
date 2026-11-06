@@ -7,7 +7,7 @@
 import { BlockList, isIPv6 } from 'node:net';
 import Anthropic from '@anthropic-ai/sdk';
 import { resolveProvider, openAiChat, ProviderError } from './aiProviders.mjs';
-import { chatSystem, TOOLS } from './copilotPrompt.mjs';
+import { chatSystem, chatSystemBlocks, toolsFor } from './copilotPrompt.mjs';
 
 const MAX_BODY = 1_500_000; // bytes (file contents read by Kompaly travel in the history)
 const RATE_WINDOW_MS = 60_000;
@@ -35,6 +35,20 @@ function getClient(apiKey) {
 /** Server-side refusal fallback, for the models that accept the « default » form. */
 const hasFallback = model => /^claude-(opus-5-5|opus-5|fable-5-1|sonnet-5-5)$/.test(model);
 
+/**
+ * Claude reads again at a tenth of the price, and sooner, what it read in the last minutes: the tools and the rules
+ * (marked in chatSystemBlocks), and here the conversation up to its last message, which the next step of the same
+ * question (after its tools ran) starts with.
+ */
+export function withCacheMark(messages) {
+  const last = messages.at(-1);
+  if (!last || last.role !== 'user') return messages;
+  const content = typeof last.content === 'string' ? [{ type: 'text', text: last.content }] : last.content;
+  const i = content.length - 1;
+  if (!['text', 'tool_result'].includes(content[i]?.type)) return messages;
+  return [...messages.slice(0, -1), { ...last, content: content.map((b, j) => (j === i ? { ...b, cache_control: { type: 'ephemeral' } } : b)) }];
+}
+
 async function anthropicChat(p, { system, messages, tools, maxTokens }) {
   const response = await getClient(p.apiKey).beta.messages.create({
     model: p.model,
@@ -47,7 +61,7 @@ async function anthropicChat(p, { system, messages, tools, maxTokens }) {
     ...(hasFallback(p.model) ? { fallbacks: 'default' } : {}),
     system,
     ...(tools ? { tools } : {}),
-    messages,
+    messages: withCacheMark(messages),
   });
   return { content: response.content, stop_reason: response.stop_reason };
 }
@@ -161,6 +175,31 @@ export function quotaOf(who, env) {
   return { used: quotaDay === parisDay() ? Math.min(max, usage.get(who)?.questions ?? 0) : 0, max };
 }
 
+/**
+ * Gives back a question that got no answer (the AI failed, or said nothing): the student sees an error with
+ * « Réessayer », that try must not cost one of their questions.
+ */
+export function refundQuestion(who) {
+  const u = usage.get(who);
+  if (!u || u.questions <= 0) return;
+  u.questions--;
+  month.questions = Math.max(0, month.questions - 1);
+}
+
+/** « Je suis là », « merci », « salut »: small talk, answered but not counted as one of the day's questions. */
+const SMALL_TALK = /^(?:je suis (?:la|ici)|(?:merci|thanks?|thank you)(?: beaucoup| bien| a toi| kompaly)?|ok(?:ay)?|d'?accord|dac|super|cool|top|parfait|genial|nickel|(?:salut|coucou|bonjour|bonsoir|hello|hey|yo)(?: kompaly)?|ca va|(?:a|bonne) (?:plus|demain|soiree|journee|nuit)|bye|au revoir)$/;
+export function isSmallTalk(text) {
+  const q = String(text ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[’‘]/g, "'")
+    .replace(/[^a-z' ]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return !!q && SMALL_TALK.test(q);
+}
+
 /** Counts one call. Returns the error code when a limit is reached, else null. */
 export function overQuota(who, question, provider, env) {
   if (quotaDay !== parisDay()) {
@@ -242,6 +281,13 @@ export async function adminCheck(req, env) {
 // ── Conversation size ───────────────────────────────────────────────────────
 
 const isQuestion = m => m.role === 'user' && (typeof m.content === 'string' || m.content.some(b => b.type === 'text'));
+/** What the person typed: the last text of the turn (the first one is the page's [Contexte]). */
+const typedText = m => (typeof m.content === 'string' ? m.content : (m.content.filter(b => b.type === 'text').at(-1)?.text ?? ''));
+
+// Questions counted and still being answered (their tools run in the page between two calls), by the page's id of the
+// turn: when a later step fails, the question is given back. shortcut: in memory, like the quota.
+const openTurns = new Map();
+const OPEN_TURNS_MAX = 5000;
 const validMessage = m =>
   (m?.role === 'user' || m?.role === 'assistant') &&
   (typeof m.content === 'string' || (Array.isArray(m.content) && m.content.length > 0 && m.content.every(b => BLOCK_TYPES.has(b?.type))));
@@ -372,6 +418,8 @@ export async function handleCopilot(req, res, env = process.env) {
     return true;
   }
 
+  /** Gives the question back when its answer fails (set once it is counted). */
+  let refund = null;
   try {
     const body = await readJson(req);
 
@@ -390,14 +438,35 @@ export async function handleCopilot(req, res, env = process.env) {
       send(res, 400, { error: 'bad_messages' });
       return true;
     }
-    const limit = overQuota(who, messages.at(-1) && isQuestion(messages.at(-1)), provider, env);
+    const last = messages.at(-1);
+    const counted = !!last && isQuestion(last) && !isSmallTalk(typedText(last));
+    const turn = typeof body.turn === 'string' ? body.turn.slice(0, 64) : '';
+    const limit = overQuota(who, counted, provider, env);
     if (limit) {
       send(res, 429, { error: limit, retryAfter: secondsToParisMidnight(), quota: quotaOf(who, env) });
       return true;
     }
-    const response = await chat(provider, { system: chatSystem(body, { provider, env }), tools: TOOLS, messages, maxTokens: provider.id === 'anthropic' ? 16000 : 8000 });
+    const key = `${who}|${turn}`;
+    if (counted) {
+      refund = () => (openTurns.delete(key), refundQuestion(who));
+      if (turn) {
+        if (openTurns.size >= OPEN_TURNS_MAX) openTurns.delete(openTurns.keys().next().value);
+        openTurns.set(key, true);
+      }
+    } else if (turn && openTurns.has(key)) {
+      // A later step of a counted question: if it fails, the question had no answer.
+      refund = () => openTurns.delete(key) && refundQuestion(who);
+    }
+    const facts = { provider, env };
+    const response = await chat(provider, { system: provider.id === 'anthropic' ? chatSystemBlocks(body, facts) : chatSystem(body, facts), tools: toolsFor(body), messages, maxTokens: provider.id === 'anthropic' ? 16000 : 8000 });
+    const said = response.content?.some(b => (b.type === 'text' && b.text?.trim()) || b.type === 'tool_use');
+    if (!said && response.stop_reason !== 'pause_turn') refund?.();
+    // Answered (no more tools to run): nothing left to give back.
+    else if (turn && !response.content?.some(b => b.type === 'tool_use')) openTurns.delete(key);
+    refund = null;
     send(res, 200, { ...response, quota: quotaOf(who, env) });
   } catch (e) {
+    refund?.();
     if (e instanceof ProviderError) send(res, { timeout: 504, rate_limited: 429, too_large: 413 }[e.code] ?? 502, { error: e.code, status: e.status, retryAfter: e.retryAfter });
     else if (e instanceof Anthropic.AuthenticationError || e instanceof Anthropic.PermissionDeniedError) send(res, 502, { error: 'bad_key' });
     else if (e instanceof Anthropic.RateLimitError) send(res, 429, { error: 'rate_limited' });

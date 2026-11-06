@@ -1,79 +1,123 @@
-// « Déplacer vers… » an event (and its next ones): from my calendar to a shared calendar or a team, back, or from one
-// to another. The one function for it: the event's window (calendar/EventForm) and Kompaly's tool use it.
-// Written in the target first; only once the server said yes is it taken out of where it was — never lost,
-// never in two places without saying so. The result says exactly what happened (for Kompaly to repeat, not invent).
+// « Déplacer vers… »: an event (and the rest of its series) from one calendar to another — my own (« perso »), a
+// shared calendar or a group. One function for the event sheet and for Kompaly's move_event tool. The copy is made
+// in the target first and read back from there; only then is the original removed (if that fails, the copy is taken
+// back): an event is never lost on the way, nor left twice.
 
-import { useCalendar, nextInSeries, CATEGORIES, type CalendarEvent, type NewEvent } from './calendar';
+import { useCalendar, CATEGORIES, type CalendarEvent, type NewEvent } from './calendar';
 import { useGroups } from './groups';
-import { useAuth } from './auth';
-import { createEvents, deleteEvents, groupError, type Group, type GroupEvent } from '../lib/groups';
-import { agendaTargets, toAgendaRows } from '../pages/groups/agendaTarget';
+import * as api from '../lib/groups';
+import type { GroupEvent } from '../lib/groups';
+import { toAgendaRows } from '../pages/groups/agendaTarget';
+import { isSpan } from '../lib/repeat';
 import { newSeries } from '../lib/seriesId';
 import { t } from '../i18n';
 
-/** Where an event can go: my calendar (`null`), a shared calendar I can add to, or one of my teams. */
-export function moveTargets(groups = useGroups.getState().groups, myRoles = useGroups.getState().myRoles, me = useAuth.getState().user?.id): Group[] {
-  return [...agendaTargets(groups, myRoles, me), ...groups.filter(g => g.kind !== 'agenda')];
+/** Where an event lives: my calendar, or a shared calendar / group by its id. */
+export type AgendaRef = { kind: 'perso' } | { kind: 'group'; groupId: string };
+
+export const PERSO: AgendaRef = { kind: 'perso' };
+
+/** The event as the target holds it once moved (its first occurrence) and how many moved. */
+export interface MoveResult {
+  /** The occurrences now in the target, read back from it, by date. */
+  moved: (CalendarEvent | GroupEvent)[];
+  to: AgendaRef;
 }
 
-export type MoveResult = { ok: true; moved: number; to: string; title: string; date: string } | { ok: false; error: string };
+const sameRef = (a: AgendaRef, b: AgendaRef) => a.kind === b.kind && (a.kind === 'perso' || a.groupId === (b as { groupId: string }).groupId);
 
-/** A shared calendar's or a team's event as one of mine (its built-in category kept, my usual reminders only when it had none chosen). */
-const asMine = (e: GroupEvent, series?: string): NewEvent => ({
+/** A shared calendar's events: as read on its page, else read now (from a year back, like its page). */
+async function groupEvents(groupId: string): Promise<GroupEvent[]> {
+  const known = useGroups.getState().events[groupId];
+  if (known) return known;
+  const from = new Date(Date.now() - 366 * 864e5).toISOString().slice(0, 10);
+  return (await api.fetchEvents(groupId, from)).events;
+}
+
+/** The occurrences to move: this one, and with `series` the next ones (all the days of an event over several days). */
+function pick<T extends { id: string; date: string; series?: string | null }>(all: T[], ev: T, series: boolean): T[] {
+  if (!ev.series) return [ev];
+  if (isSpan(ev.series)) return all.filter(e => e.series === ev.series).sort((a, b) => a.date.localeCompare(b.date));
+  return series ? [ev, ...all.filter(e => e.series === ev.series && e.date > ev.date && e.id !== ev.id)].sort((a, b) => a.date.localeCompare(b.date)) : [ev];
+}
+
+/** A shared calendar's event as one of mine: its built-in category, else « perso » (its own categories are its own). */
+const asMine = (e: GroupEvent, series: string | undefined): NewEvent => ({
   title: e.title,
   date: e.date,
-  ...(e.start && { start: e.start }),
-  ...(e.end && { end: e.end }),
-  ...(e.place && { place: e.place }),
-  ...(e.details && { details: e.details }),
-  ...(e.reminders.length && { reminders: e.reminders }),
-  ...(series && { series }),
+  start: e.start ?? undefined,
+  end: e.end ?? undefined,
+  place: e.place ?? undefined,
+  details: e.details ?? undefined,
   category: e.category && e.category in CATEGORIES ? (e.category as NewEvent['category']) : 'perso',
+  reminders: e.reminders,
+  ...(series && { series }),
 });
 
 /**
- * Moves an event (`from`: the group it is in; none: my calendar) to `to` (a group's id; null: my calendar).
- * `withNext`: its next occurrences too (a series). Nothing changes when the target refuses.
+ * Moves the event `eventId` from `from` to `to`. `series`: its next occurrences too (an event over several days always
+ * moves whole). Throws an Error with a sentence to show when it can't (rights, network…), nothing changed then.
  */
-export async function moveEventToAgenda(eventId: string, from: string | null, to: string | null, withNext = false): Promise<MoveResult> {
-  if (from === to) return { ok: false, error: t('C’est déjà dans cet agenda.') };
-  const target = to ? (useGroups.getState().groups.find(g => g.id === to) ?? null) : null;
-  if (to && !target) return { ok: false, error: t('Agenda introuvable.') };
-  const toName = target?.name ?? t('Mon agenda');
-  try {
-    if (!from) {
-      // From my calendar.
-      const all = useCalendar.getState().events;
-      const ev = all.find(e => e.id === eventId);
-      if (!ev) return { ok: false, error: t('Événement introuvable.') };
-      const list: CalendarEvent[] = [ev, ...(withNext ? nextInSeries(ev, all) : [])];
-      // A new series id there (≤ 40 characters), the same for all the pieces moved.
-      const series = ev.series ? newSeries(ev.series.startsWith('span-')) : undefined;
-      await createEvents(to!, toAgendaRows(list.map(e => ({ ...e, ...(series && { series }) })), target!));
-      const ids = list.map(e => e.id);
-      useCalendar.getState().removeMany(ids);
-      useCalendar.getState().purge(ids);
-      void useGroups.getState().refresh(to!, ['events']);
-      return { ok: true, moved: list.length, to: toName, title: ev.title, date: ev.date };
-    }
-    // From a shared calendar or a team.
-    const all = useGroups.getState().events[from] ?? [];
+export async function moveEventToAgenda(eventId: string, from: AgendaRef, to: AgendaRef, { series = false } = {}): Promise<MoveResult> {
+  if (sameRef(from, to)) throw new Error(t('Il est déjà dans cet agenda.'));
+  // What moves.
+  let mine: CalendarEvent[] = [];
+  let theirs: GroupEvent[] = [];
+  if (from.kind === 'perso') {
+    const all = useCalendar.getState().events;
     const ev = all.find(e => e.id === eventId);
-    if (!ev) return { ok: false, error: t('Événement introuvable.') };
-    const list = [ev, ...(withNext && ev.series ? all.filter(e => e.series === ev.series && e.date > ev.date) : [])];
-    const series = ev.series && list.length > 1 ? newSeries(ev.series.startsWith('span-')) : undefined;
-    if (to) await createEvents(to, toAgendaRows(list.map(e => asMine(e, series)), target!));
-    else useCalendar.getState().addMany(list.map(e => asMine(e, series)));
-    try {
-      await deleteEvents(list.map(e => e.id));
-    } catch (e) {
-      // Copied but not taken out of the old one (no right to delete there): said as it is.
-      return { ok: false, error: t('Copié dans « {to} », mais pas retiré de l’ancien agenda : {why}', { to: toName, why: groupError(e) }) };
-    }
-    void useGroups.getState().refresh(from, ['events']);
-    if (to) void useGroups.getState().refresh(to, ['events']);
-    return { ok: true, moved: list.length, to: toName, title: ev.title, date: ev.date };
-  } catch (e) {
-    return { ok: false, error: groupError(e) };
+    if (!ev) throw new Error(t('Je ne retrouve plus cet événement.'));
+    mine = pick(all, ev, series);
+  } else {
+    const all = await groupEvents(from.groupId);
+    const ev = all.find(e => e.id === eventId);
+    if (!ev) throw new Error(t('Je ne retrouve plus cet événement.'));
+    theirs = pick(all, ev, series);
   }
+  const count = mine.length || theirs.length;
+  // A new series id in the target (the old one belongs to the original's calendar).
+  const linked = count > 1 ? newSeries(isSpan((mine[0] ?? theirs[0]).series ?? undefined)) : undefined;
+
+  // 1. The copy, read back from where it is now.
+  let moved: (CalendarEvent | GroupEvent)[];
+  let takeBack: () => Promise<void>;
+  if (to.kind === 'perso') {
+    const list = theirs.map(e => asMine(e, linked));
+    const before = new Set(useCalendar.getState().events.map(e => e.id));
+    useCalendar.getState().addMany(list);
+    moved = useCalendar.getState().events.filter(e => !before.has(e.id));
+    const ids = new Set(moved.map(e => e.id));
+    takeBack = async () => void useCalendar.setState(s => ({ events: s.events.filter(e => !ids.has(e.id)) }));
+  } else {
+    const g = useGroups.getState().groups.find(x => x.id === to.groupId);
+    const source: NewEvent[] = mine.length ? mine.map(e => ({ ...e, series: linked })) : theirs.map(e => asMine(e, linked));
+    const rows = toAgendaRows(source, { categories: g?.categories ?? [] });
+    try {
+      moved = rows.length > 1 ? await api.createEvents(to.groupId, rows) : [await api.createEvent(to.groupId, rows[0])];
+    } catch (e) {
+      throw new Error(api.groupError(e));
+    }
+    const ids = moved.map(e => e.id);
+    takeBack = async () => void (await api.deleteEvents(ids).catch(() => undefined));
+  }
+  if (moved.length !== count) {
+    await takeBack();
+    throw new Error(t('Le déplacement n’a pas pu être fait en entier : rien n’a changé.'));
+  }
+
+  // 2. The original goes (not to the trash: it lives on in the other calendar).
+  if (from.kind === 'perso') {
+    const ids = new Set(mine.map(e => e.id));
+    useCalendar.setState(s => ({ events: s.events.filter(e => !ids.has(e.id)) }));
+  } else {
+    try {
+      await api.deleteEvents(theirs.map(e => e.id));
+    } catch (e) {
+      await takeBack();
+      throw new Error(api.groupError(e));
+    }
+    void useGroups.getState().refresh(from.groupId, ['events']);
+  }
+  if (to.kind === 'group') void useGroups.getState().refresh(to.groupId, ['events']);
+  return { moved: [...moved].sort((a, b) => a.date.localeCompare(b.date)), to };
 }

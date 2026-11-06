@@ -9,9 +9,10 @@ import { callOnce, mapStatus, resolveProvider, ProviderError } from './aiProvide
 import { languageLine } from './copilotPrompt.mjs';
 
 const GEMINI_NATIVE = 'https://generativelanguage.googleapis.com/v1beta/models/';
-// Tried in order (a model Google has retired answers 404, an overloaded or silent one gives way: the next one is used).
-// 2.5 Flash first, without its « thinking »; the newer ones with as little as they accept; the « lite » ones, quick, last.
-const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.5-flash-lite', 'gemini-flash-lite-latest'];
+// Tried in order (a model Google has retired answers 404, an overloaded or silent one gives way: the next one is used,
+// and one silent for a while gets the next one beside it). 2.5 Flash first, without its « thinking »; then the quick
+// « lite » one (the one that starts beside it); the newer ones with as little thinking as they accept.
+const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-flash-latest', 'gemini-flash-lite-latest'];
 
 export const MAX_PHOTOS = 4;
 const MAX_PHOTO = 2_800_000; // characters of one data URL (the page sends ~0.5 Mo JPEGs)
@@ -141,7 +142,7 @@ const finishOf = data => data?.candidates?.[0]?.finishReason ?? data?.promptFeed
  * at `stopAt` (ms since epoch) what was read so far is kept, a loop is cut, no first words by `firstBy` gives up.
  * Also accepts a plain JSON body (one answer). Returns { text, partial, finish }.
  */
-export async function readGeminiStream(res, { stopAt, firstBy, abort }) {
+export async function readGeminiStream(res, { stopAt, firstBy, abort, onFirst }) {
   const reader = res.body?.getReader?.();
   if (!reader) {
     const data = await res.json().catch(() => null);
@@ -192,6 +193,10 @@ export async function readGeminiStream(res, { stopAt, firstBy, abort }) {
     const lines = (pending + piece).split(/\r?\n/);
     pending = lines.pop() ?? '';
     for (const line of lines) if (line.startsWith('data:')) take(line);
+    if (text && onFirst) {
+      onFirst();
+      onFirst = null;
+    }
     const loop = text.length > 600 ? cutLoop(text) : null;
     if (loop !== null) {
       stop();
@@ -202,77 +207,203 @@ export async function readGeminiStream(res, { stopAt, firstBy, abort }) {
 
 /**
  * Gemini's own API (not the OpenAI-compatible one): it lets the « thinking » of 2.5 models be turned off.
- * The answer is read as it comes: a model that doesn't start writing within FIRST_WORDS_MS, or is overloaded, gives
- * way to the next one; what is read by the end of the time is kept (with PARTIAL_NOTE) instead of a timeout.
+ * The answer is read as it comes. A model that hasn't written a word after HEDGE_MS gets company: the next model starts
+ * beside it and the first to finish wins (test n°3: « Fiche depuis une photo » ended in a 504 after 85 s, each model
+ * in turn waited for in vain). An overloaded one gives way at once; one silent for FIRST_WORDS_MS gives up; what is read
+ * by the end of the time is kept (with PARTIAL_NOTE) instead of a timeout. `json`: an answer in JSON (no partial one).
  */
-async function geminiRead(vision, photos, system, ask) {
+async function geminiRead(vision, photos, system, ask, { json = false, maxOutput = MAX_OUTPUT } = {}) {
   const deadline = Date.now() + TIMEOUT_MS;
-  let last = null;
   const tried = [];
   const out = model => tried.some(x => x.model === model && (x.gone || x.slow));
   // How little the model may think: 2.5 models take a budget (0 = none); later ones a level (« minimal », else « low »);
   // a model that refuses the setting is asked again without it.
   const thinking = model => (/2\.5/.test(model) ? [{ thinkingBudget: 0 }, null] : [{ thinkingLevel: 'minimal' }, { thinkingLevel: 'low' }, null]);
   const attempts = vision.models.flatMap(model => thinking(model).map(config => ({ model, config })));
-  const timeout = note => {
-    last = new ProviderError('timeout', 504, [...tried.map(x => x.note), note].join(' · '));
-  };
-  for (const { model, config } of attempts) {
-    if (out(model)) continue;
-    const left = deadline - Date.now();
-    if (left < 8000) break;
+  const notes = extra => [...tried.map(x => x.note), ...(extra ? [extra] : [])].join(' · ');
+  let last = null;
+
+  /** One model, one setting: its text, or a ProviderError (`next`: another attempt may do better). */
+  async function attempt({ model, config }, ctrl, onFirst, lastChance) {
+    const started = Date.now();
     const body = {
       systemInstruction: { parts: [{ text: system }] },
       contents: [{ role: 'user', parts: [{ text: ask }, ...photos.map(p => ({ inline_data: { mime_type: p.mime, data: p.data } }))] }],
-      generationConfig: { maxOutputTokens: MAX_OUTPUT, temperature: 0.2, ...(config && { thinkingConfig: config }) },
+      generationConfig: { maxOutputTokens: maxOutput, temperature: 0.2, ...(json && { responseMimeType: 'application/json' }), ...(config && { thinkingConfig: config }) },
     };
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), left);
-    const started = Date.now();
-    // The last model that may still be tried uses all the time left; an earlier one gives way when it doesn't start writing.
-    const lastChance = attempts.filter(a => !out(a.model)).at(-1)?.model === model;
+    let res;
     try {
-      let res;
+      res = await fetch(`${GEMINI_NATIVE}${encodeURIComponent(model)}:streamGenerateContent?alt=sse`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': vision.apiKey },
+        body: JSON.stringify(body),
+        signal: ctrl.signal,
+      });
+    } catch (e) {
+      if (e?.name !== 'AbortError' && e?.name !== 'TimeoutError') throw Object.assign(new ProviderError('upstream', 502, notes(`${model}: ${e?.message ?? 'réseau'}`)), { fatal: true });
+      tried.push({ model, slow: true, note: `${model}: pas de réponse` });
+      throw new ProviderError('timeout', 504, notes('plus de temps'));
+    }
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      const message = String(data?.error?.message ?? res.statusText).slice(0, 120);
+      // 404: Google no longer has this model (the next one is tried); 400 on the thinking setting: tried without it;
+      // 429 or 5xx: this model is busy or overloaded, the next one may not be.
+      const busy = res.status === 429 || res.status >= 500;
+      tried.push({ model, gone: res.status === 404, slow: busy, note: `${model} ${res.status}${config ? ` (${Object.values(config)[0]})` : ''}` });
+      const err = new ProviderError(res.status === 400 && /api[ _]?key/i.test(message) ? 'bad_key' : mapStatus(res.status), res.status, notes(message));
+      if (!(tryNext(res.status, message) || busy)) err.fatal = true;
+      throw err;
+    }
+    const got = await readGeminiStream(res, { stopAt: deadline - 2000, firstBy: lastChance() ? deadline : started + FIRST_WORDS_MS, abort: () => ctrl.abort(), onFirst });
+    let text = got.text.trim();
+    const cut = got.partial || got.finish === 'MAX_TOKENS';
+    if (!text || (cut && (json || (text.length < KEEP_PARTIAL_AFTER && got.finish !== 'LOOP')))) {
+      if (!cut) throw Object.assign(new ProviderError('upstream', 502, `${model}: réponse vide (${got.finish ?? '?'})`), { fatal: !json });
+      tried.push({ model, slow: true, note: `${model}: trop lent (${Math.round((Date.now() - started) / 1000)} s)` });
+      throw new ProviderError('timeout', 504, notes('plus de temps'));
+    }
+    // Stopped before the end (time, length, a loop): what was read is kept, and said at the bottom of the sheet.
+    if (cut) text = `${text.replace(/^```(?:markdown|md)?\s*\n/i, '')}\n\n*${PARTIAL_NOTE}*`;
+    photoStatus.model = `${model}${config ? ` (${Object.values(config)[0]})` : ''}${cut ? ` · coupée (${got.finish ?? 'temps'})` : ''}`;
+    return text.replace(/^```(?:markdown|md|json)?\s*\n([\s\S]*?)\n```$/i, '$1').trim();
+  }
+
+  return new Promise((resolve, reject) => {
+    /** attempt → { ctrl, wrote } for those under way (two at most). */
+    const running = new Map();
+    let settled = false;
+    let hedge;
+    const end = fn => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(hedge);
+      for (const r of running.values()) r.ctrl.abort();
+      fn();
+    };
+    // The next setting worth a try: not a model already out, nor one under way (its other settings wait for it).
+    const pick = () => attempts.find(a => !a.done && !out(a.model) && ![...running.keys()].some(r => r.model === a.model));
+    const launch = () => {
+      const a = pick();
+      if (!a || deadline - Date.now() < 8000) {
+        if (!running.size) end(() => reject(last ?? new ProviderError('timeout', 504, 'plus de temps')));
+        return;
+      }
+      a.done = true;
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), deadline - Date.now());
+      const r = { ctrl, wrote: false };
+      running.set(a, r);
+      // The last setting that may still be tried uses all the time left; an earlier one gives way when it doesn't write.
+      const lastChance = () => !attempts.some(b => !b.done && !out(b.model) && b.model !== a.model);
+      attempt(a, ctrl, () => (r.wrote = true), lastChance)
+        .then(
+          text => end(() => resolve(text)),
+          e => {
+            running.delete(a);
+            if (settled) return;
+            last = e;
+            if (e?.fatal) return end(() => reject(e));
+            launch();
+            if (!running.size) end(() => reject(last));
+          },
+        )
+        .finally(() => clearTimeout(timer));
+      // Nothing written yet after a while: a second model starts beside it.
+      clearTimeout(hedge);
+      hedge = setTimeout(() => {
+        if (!settled && running.size === 1 && ![...running.values()].some(x => x.wrote)) launch();
+      }, vision.hedgeMs ?? HEDGE_MS);
+    };
+    launch();
+  });
+}
+
+/** Waiting this long without a word from the model: a second one starts beside it. */
+const HEDGE_MS = 12_000;
+
+// ── A photo of a planning → slots to add (Kompaly's panel) ───────────────────
+
+export const PLANNING_SYSTEM = `Tu reçois la photo d'un planning, d'un emploi du temps, d'un tableau de service ou d'un calendrier (imprimé, à l'écran ou écrit à la main).
+Ton travail : relever chaque créneau qui y figure, fidèlement, pour l'ajouter à l'agenda de la personne.
+Réponds uniquement avec un objet JSON : {"slots":[{"title":"…","date":"AAAA-MM-JJ","start":"HH:MM","end":"HH:MM","place":"…"}],"note":"…"}
+- title : le nom du créneau tel qu'écrit (« Garde de nuit », « Maths », « Poste matin », un code comme « N » devient « Nuit » si la légende le dit), court.
+- date : le jour exact. L'année et le mois manquants se déduisent de la date d'aujourd'hui donnée plus bas et de l'en-tête du planning (prends le plus proche à venir). Un jour introuvable : ne mets pas le créneau.
+- start et end : les heures écrites (« 21h-7h » → "21:00" et "07:00", une fin le lendemain se garde telle quelle). Sans heure : laisse "".
+- place : la salle ou le lieu écrit à côté, sinon "".
+- Plusieurs personnes sur le planning : seulement la ligne ou la colonne dont le nom est donné plus bas ; sans nom donné et s'il y a plusieurs personnes, mets "note" pour demander laquelle et aucun créneau.
+- N'invente rien : un créneau illisible ou incertain est laissé de côté et signalé en une phrase dans "note". Rien de lisible : "slots" vide et une phrase dans "note".`;
+
+const HM = /^([01]\d|2[0-3]):[0-5]\d$/;
+const YMD = /^\d{4}-\d{2}-\d{2}$/;
+/** A day that exists (« 2026-02-30 » doesn't). */
+const realDay = d => {
+  const x = new Date(`${d}T12:00:00Z`);
+  return !Number.isNaN(x.getTime()) && x.toISOString().slice(0, 10) === d;
+};
+
+/** The slots of the model's answer, cleaned: real days and hours, short titles, 60 at most. */
+export function cleanSlots(raw) {
+  let data = raw;
+  if (typeof raw === 'string') {
+    const s = raw.trim().replace(/^```(?:json)?\s*\n?|\n?```$/g, '');
+    try {
+      data = JSON.parse(s);
+    } catch {
+      const m = s.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
       try {
-        res = await fetch(`${GEMINI_NATIVE}${encodeURIComponent(model)}:streamGenerateContent?alt=sse`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': vision.apiKey },
-          body: JSON.stringify(body),
-          signal: ctrl.signal,
-        });
-      } catch (e) {
-        if (e?.name !== 'AbortError' && e?.name !== 'TimeoutError') throw new ProviderError('upstream', 502, [...tried.map(x => x.note), `${model}: ${e?.message ?? 'réseau'}`].join(' · '));
-        tried.push({ model, slow: true, note: `${model}: pas de réponse` });
-        timeout('plus de temps');
-        continue;
+        data = m ? JSON.parse(m[0]) : null;
+      } catch {
+        data = null;
       }
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        const message = String(data?.error?.message ?? res.statusText).slice(0, 120);
-        // 404: Google no longer has this model (the next one is tried); 400 on the thinking setting: tried without it;
-        // 429 or 5xx: this model is busy or overloaded, the next one may not be.
-        const busy = res.status === 429 || res.status >= 500;
-        tried.push({ model, gone: res.status === 404, slow: busy, note: `${model} ${res.status}${config ? ` (${Object.values(config)[0]})` : ''}` });
-        last = new ProviderError(res.status === 400 && /api[ _]?key/i.test(message) ? 'bad_key' : mapStatus(res.status), res.status, [...tried.map(x => x.note), message].join(' · '));
-        if (tryNext(res.status, message) || busy) continue;
-        throw last;
-      }
-      const got = await readGeminiStream(res, { stopAt: deadline - 2000, firstBy: lastChance ? deadline : started + FIRST_WORDS_MS, abort: () => ctrl.abort() });
-      let text = got.text.trim();
-      const cut = got.partial || got.finish === 'MAX_TOKENS';
-      if (!text || (cut && text.length < KEEP_PARTIAL_AFTER && got.finish !== 'LOOP')) {
-        if (!cut) throw new ProviderError('upstream', 502, `${model}: réponse vide (${got.finish ?? '?'})`);
-        tried.push({ model, slow: true, note: `${model}: trop lent (${Math.round((Date.now() - started) / 1000)} s)` });
-        timeout('plus de temps');
-        continue;
-      }
-      // Stopped before the end (time, length, a loop): what was read is kept, and said at the bottom of the sheet.
-      if (cut) text = `${text.replace(/^```(?:markdown|md)?\s*\n/i, '')}\n\n*${PARTIAL_NOTE}*`;
-      photoStatus.model = `${model}${config ? ` (${Object.values(config)[0]})` : ''}${cut ? ` · coupée (${got.finish ?? 'temps'})` : ''}`;
-      return text.replace(/^```(?:markdown|md)?\s*\n([\s\S]*?)\n```$/i, '$1').trim();
-    } finally {
-      clearTimeout(timer);
     }
   }
-  throw last ?? new ProviderError('timeout', 504, 'plus de temps');
+  const list = Array.isArray(data) ? data : Array.isArray(data?.slots) ? data.slots : [];
+  const hm = v => {
+    const m = String(v ?? '').trim().match(/^(\d{1,2})(?:\s*[:hH]\s*(\d{2})?)?$/);
+    const t = m ? `${m[1].padStart(2, '0')}:${m[2] ?? '00'}` : '';
+    return HM.test(t) ? t : '';
+  };
+  const slots = [];
+  for (const x of list) {
+    if (!x || typeof x !== 'object') continue;
+    const date = String(x.date ?? '').trim();
+    const title = String(x.title ?? '').replace(/\s+/g, ' ').trim().slice(0, 80);
+    if (!YMD.test(date) || !realDay(date) || !title) continue;
+    const start = hm(x.start);
+    const end = start ? hm(x.end) : '';
+    const place = String(x.place ?? '').replace(/\s+/g, ' ').trim().slice(0, 80);
+    slots.push({ title, date, ...(start && { start }), ...(end && { end }), ...(place && { place }) });
+    if (slots.length >= 60) break;
+  }
+  const note = typeof data?.note === 'string' ? data.note.replace(/\s+/g, ' ').trim().slice(0, 300) : '';
+  return { slots, ...(note && { note }) };
+}
+
+/** Reads a planning's photo(s): the slots it holds. `today` (YYYY-MM-DD) and `name` (whose line) from the page. */
+export async function readPlanning(vision, photos, { today, name, lang } = {}) {
+  const t0 = Date.now();
+  const day = YMD.test(String(today ?? '')) ? today : new Date().toISOString().slice(0, 10);
+  const who = String(name ?? '').replace(/[\r\n<>"]+/g, ' ').trim().slice(0, 40);
+  const system = `${PLANNING_SYSTEM}\nAujourd'hui : ${day}.${who ? ` La personne s'appelle ${who}.` : ''}${languageLine(lang)}`;
+  const ask = photos.length > 1 ? `Voici ${photos.length} photos du planning, dans l'ordre.` : 'Voici la photo du planning.';
+  try {
+    let text;
+    if (vision.kind === 'gemini') text = await geminiRead(vision, photos, system, ask, { json: true, maxOutput: 4096 });
+    else if (vision.kind === 'anthropic') {
+      const r = await new Anthropic({ apiKey: vision.apiKey }).messages.create(
+        { model: vision.model, max_tokens: 4000, system, messages: [{ role: 'user', content: [...photos.map(p => ({ type: 'image', source: { type: 'base64', media_type: p.mime, data: p.data } })), { type: 'text', text: ask }] }] },
+        { timeout: TIMEOUT_MS },
+      );
+      text = r.content.filter(b => b.type === 'text').map(b => b.text).join('\n');
+    } else {
+      const data = await callOnce(vision, { model: vision.model, max_tokens: 4000, messages: [{ role: 'system', content: system }, { role: 'user', content: [{ type: 'text', text: ask }, ...photos.map(p => ({ type: 'image_url', image_url: { url: p.url } }))] }] }, TIMEOUT_MS);
+      text = String(data.choices[0]?.message?.content ?? '');
+    }
+    Object.assign(photoStatus, { lastOk: new Date().toISOString(), lastError: null, detail: null, seconds: Math.round((Date.now() - t0) / 1000) });
+    return cleanSlots(text);
+  } catch (e) {
+    Object.assign(photoStatus, { lastError: `${e?.code ?? e?.status ?? 'erreur'} ${e?.status ?? ''}`.trim(), detail: String(e?.detail ?? e?.message ?? '').slice(0, 200), seconds: Math.round((Date.now() - t0) / 1000) });
+    throw e;
+  }
 }

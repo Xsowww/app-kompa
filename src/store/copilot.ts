@@ -5,6 +5,7 @@ import { userStorage } from '../lib/userStorage';
 import { toKompa } from '../lib/kompaName';
 import type { CopilotMood } from '../copilot/Character';
 import { getSettings, useSettings } from './settings';
+import { t } from '../i18n';
 
 export interface CopilotLink {
   label: string;
@@ -19,7 +20,10 @@ export interface CopilotOffer {
     // Kompaly's initiatives (proactive.ts): done on the click, without the AI, except « ask » (a question sent to the AI).
     | 'add_todo' | 'create_note' | 'add_reminder' | 'rehearse' | 'spread_todos' | 'start_focus' | 'ack' | 'ask'
     // « Annuler » after a deletion made from the chat: back from the trash.
-    | 'undo_trash';
+    | 'undo_trash'
+    // Waiting for a server (offers.ts › asyncOffers): « Réessayer l'enregistrement », a change of a shared calendar
+    // confirmed after a reading, the slots read on a photo of a planning.
+    | 'retry_save' | 'confirm_shared' | 'add_slots';
   payload?: Record<string, string>;
 }
 
@@ -34,6 +38,10 @@ export interface CopilotMessage {
   brief?: boolean;
   /** The AI failed on this question (not a limit): « Réessayer » sends it again. */
   retry?: string;
+  /** Typed and answered on the device (simple mode): never sent to an AI, not even later as a reminder of the conversation. */
+  local?: boolean;
+  /** A welcome line (« Bonjour Léa ! … »): one a day, never a second one above or below it. */
+  hello?: boolean;
   at: string;
 }
 
@@ -46,6 +54,8 @@ export interface Bubble {
   offers?: CopilotOffer[];
   mood?: CopilotMood;
   brief?: boolean;
+  /** A greeting: not said when the conversation already greeted today. */
+  hello?: boolean;
 }
 
 interface CopilotState {
@@ -69,7 +79,7 @@ interface CopilotState {
   /** A remark said while the panel was closed and not read yet: a dot on Kompaly until it is opened. */
   unread: boolean;
   askKompaly: (question: string | null, quiet?: boolean) => void;
-  push: (role: CopilotMessage['role'], text: string, extra?: Partial<Pick<CopilotMessage, 'links' | 'offers' | 'proactive' | 'brief' | 'retry'>>) => void;
+  push: (role: CopilotMessage['role'], text: string, extra?: Partial<Pick<CopilotMessage, 'links' | 'offers' | 'proactive' | 'brief' | 'retry' | 'local' | 'hello'>>) => void;
   setPose: (pose: CopilotPose) => void;
   say: (bubble: Bubble) => void;
   /** Shows a message already in the conversation (an answer that came while the panel was closed), unread. */
@@ -86,6 +96,13 @@ interface CopilotState {
 }
 
 const MAX_MESSAGES = 80;
+
+const dayOf = (iso: string) => {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+};
+/** A hello (the welcome line, his greeting, the morning brief) is already in today's conversation. */
+export const greetedToday = (messages: CopilotMessage[], now = new Date()) => messages.some(m => (m.hello || m.brief) && dayOf(m.at) === dayOf(now.toISOString()));
 let bubbleTimer: ReturnType<typeof setTimeout> | undefined;
 
 export const useCopilot = create<CopilotState>()(
@@ -118,7 +135,9 @@ export const useCopilot = create<CopilotState>()(
       say(bubble) {
         // In the middle of a conversation, a suggestion with buttons would hijack the next « oui ».
         if (get().pose === 'open' && bubble.offers?.length) return;
-        get().push('bot', bubble.text, { links: bubble.links, offers: bubble.offers, proactive: true, brief: bubble.brief });
+        // Already greeted today (the panel opened first and said its welcome line): never a second hello.
+        if (bubble.hello && greetedToday(get().messages)) return;
+        get().push('bot', bubble.text, { links: bubble.links, offers: bubble.offers, proactive: true, brief: bubble.brief, hello: bubble.hello });
         get().show(bubble);
       },
 
@@ -142,7 +161,7 @@ export const useCopilot = create<CopilotState>()(
       remember: key => set(s => ({ memory: { ...s.memory, [key]: Date.now() } })),
       clearHistory: () => set({ messages: [], pendingOffer: null }),
       greet: text =>
-        set(s => (s.messages.some(m => !m.proactive) ? s : { messages: [{ id: uid(), role: 'bot' as const, text, at: nowIso() }, ...s.messages].slice(-MAX_MESSAGES) })),
+        set(s => (s.messages.some(m => !m.proactive) || greetedToday(s.messages) ? s : { messages: [{ id: uid(), role: 'bot' as const, text, at: nowIso(), hello: true }, ...s.messages].slice(-MAX_MESSAGES) })),
       reset: () => set({ messages: [], pose: 'hidden', bubble: null, thinking: false, offsetY: 0.62, memory: {}, pendingOffer: null, unread: false }),
     }),
     {
@@ -165,6 +184,17 @@ export const useCopilot = create<CopilotState>()(
 useSettings.subscribe((st, prev) => {
   if (st.simpleOnly !== prev.simpleOnly) useCopilot.setState(c => ({ aiEnabled: c.aiServer && !st.simpleOnly }));
 });
+
+/**
+ * The last question has no answer and nothing is coming (the page was closed or reloaded while he thought): said, with
+ * « Réessayer », instead of a question left hanging (test n°3: « des messages restent sans réponse »).
+ */
+export function answerOrphan() {
+  const s = useCopilot.getState();
+  const last = s.messages.at(-1);
+  if (!last || last.role !== 'user' || s.thinking) return;
+  s.push('bot', t('Je n’ai pas pu répondre à ta dernière question (la page s’est fermée pendant que je réfléchissais).'), { retry: last.text, ...(last.local && { local: true }) });
+}
 
 /** Opens or closes the conversation, from anywhere (menu entry, Ctrl+J), even while the character is hidden. */
 export function toggleKompaly(open = useCopilot.getState().pose !== 'open') {

@@ -8,10 +8,15 @@ import { useGroups } from '../../store/groups';
 import { useAuth } from '../../store/auth';
 import { cloudEnabled } from '../../lib/supabase';
 import { toast } from '../../store/ui';
-import { moveEventToAgenda, moveTargets } from '../../store/moveEvent';
+import { moveEventToAgenda, PERSO } from '../../store/moveEvent';
+import { agendaTargets } from '../groups/agendaTarget';
+import type { Group, GroupRole } from '../../lib/groups';
 import { askSeriesScope, type CalendarSource } from './source';
 import type { CalendarEvent } from '../../store/calendar';
 import { t, tn } from '../../i18n';
+
+/** Where an event can go: a shared calendar I can add to, or one of my teams. */
+const moveTargets = (groups: Group[], roles: Record<string, GroupRole>, me: string | undefined): Group[] => [...agendaTargets(groups, roles, me), ...groups.filter(g => g.kind !== 'agenda')];
 
 export default function MoveTo({ event, source, onMoved }: { event: CalendarEvent; source: CalendarSource; onMoved: () => void }) {
   const from = source.shared?.group.id ?? null;
@@ -32,12 +37,16 @@ export default function MoveTo({ event, source, onMoved }: { event: CalendarEven
     const scope = await askSeriesScope(event, 'edit', source.events);
     if (!scope) return;
     setBusy(true);
+    const agenda = to ? (groups.find(g => g.id === to)?.name ?? '') : t('Mon agenda');
     const run = async () => {
-      const r = await moveEventToAgenda(event.id, from, to, scope === 'next');
-      if (r.ok) {
-        toast(r.moved > 1 ? tn(r.moved, '{n} événement déplacé vers « {agenda} »', '{n} événements déplacés vers « {agenda} »', { agenda: r.to }) : t('Déplacé vers « {agenda} » : {title}', { agenda: r.to, title: r.title }), 'success');
+      try {
+        const r = await moveEventToAgenda(event.id, from ? { kind: 'group', groupId: from } : PERSO, to ? { kind: 'group', groupId: to } : PERSO, { series: scope === 'next' });
+        const n = r.moved.length;
+        toast(n > 1 ? tn(n, '{n} événement déplacé vers « {agenda} »', '{n} événements déplacés vers « {agenda} »', { agenda }) : t('Déplacé vers « {agenda} » : {title}', { agenda, title: event.title }), 'success');
         onMoved();
-      } else toast(t('Pas déplacé : {why}', { why: r.error }), 'error', { label: t('Réessayer'), run: () => void run() });
+      } catch (e) {
+        toast(t('Pas déplacé : {why}', { why: e instanceof Error ? e.message : String(e) }), 'error', { label: t('Réessayer'), run: () => void run() });
+      }
     };
     await run();
     setBusy(false);

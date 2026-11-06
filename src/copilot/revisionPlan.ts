@@ -49,6 +49,34 @@ export function noteFor(exam: CalendarEvent, notes: Note[], events: CalendarEven
   return !owner || owner.id === exam.id ? old : undefined;
 }
 
+// ── Days without a session ──────────────────────────────────────────────────
+
+/** Easter Sunday of a year (Meeus/Jones/Butcher), as [month 1-12, day]. */
+function easter(y: number): [number, number] {
+  const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+  return [Math.floor((h + l - 7 * m + 114) / 31), ((h + l - 7 * m + 114) % 31) + 1];
+}
+
+/** A public holiday in France (YYYY-MM-DD): the fixed ones, Easter Monday, Ascension, Whit Monday. */
+export function isPublicHoliday(key: string): boolean {
+  const [y, m, d] = key.split('-').map(Number);
+  if (['01-01', '05-01', '05-08', '07-14', '08-15', '11-01', '11-11', '12-25'].includes(key.slice(5))) return true;
+  const [em, ed] = easter(y);
+  const day = (n: number) => {
+    const x = new Date(y, em - 1, ed + n);
+    return x.getMonth() + 1 === m && x.getDate() === d;
+  };
+  return day(1) || day(39) || day(50);
+}
+
+/**
+ * No session Kompaly chooses on this day: a public holiday, or the evening of the 24th or the 31st of December (test n°3:
+ * « il met une séance le soir du réveillon »).
+ */
+export const restDay = (key: string) => isPublicHoliday(key) || /-12-(?:24|31)$/.test(key);
+
 /** Another exam has the same title (« Contrôle de maths » twice): the day tells them apart. */
 export const hasTwin = (exam: CalendarEvent, events: CalendarEvent[]) => twinsOf(exam, events).length > 1;
 
