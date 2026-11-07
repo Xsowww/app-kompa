@@ -1,4 +1,4 @@
-import { Fragment, createElement, useEffect, useRef, useState, type FormEvent } from 'react';
+import { createElement, useEffect, useRef, useState, type FormEvent } from 'react';
 import { SelectField, TimeField } from '../../components/Pickers';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -191,11 +191,13 @@ function ProfileTab() {
 
   return (
     <div className="space-y-5">
-      {/* Here rather than in a corner of every page (the « + » button's). « Nouveautés »: in the sidebar on computers. */}
+      {/* Here rather than in a corner of every page (the « + » button's). « Nouveautés »: in the sidebar on computers.
+          One card, its rows split by fine lines (as a phone's settings), not three cards. */}
+      <div className="card divide-y divide-stone-100 overflow-hidden">
       <button
         type="button"
         onClick={() => openFeedback()}
-        className="card flex h-12 w-full items-center gap-3 px-4 text-left text-[14px] font-medium text-stone-700 transition-colors hover:bg-stone-50"
+        className="flex h-12 w-full items-center gap-3 px-4 text-left text-[14px] font-medium text-stone-700 transition-colors hover:bg-stone-50"
       >
         <MessageSquareText size={18} strokeWidth={1.9} className="text-stone-500" aria-hidden />
         <span className="flex-1">{t('Donner mon avis ou signaler un bug')}</span>
@@ -204,7 +206,7 @@ function ProfileTab() {
       <button
         type="button"
         onClick={() => openNews()}
-        className="card flex h-12 w-full items-center gap-3 px-4 text-left text-[14px] font-medium text-stone-700 transition-colors hover:bg-stone-50 lg:hidden"
+        className="flex h-12 w-full items-center gap-3 px-4 text-left text-[14px] font-medium text-stone-700 transition-colors hover:bg-stone-50 lg:hidden"
       >
         {createElement(settings.pro ? Megaphone : Sparkles, { size: 18, strokeWidth: 1.9, className: 'text-stone-500', 'aria-hidden': true })}
         <span className="flex-1">{t('Nouveautés')}</span>
@@ -214,12 +216,13 @@ function ProfileTab() {
       <button
         type="button"
         onClick={startTour}
-        className="card flex h-12 w-full items-center gap-3 px-4 text-left text-[14px] font-medium text-stone-700 transition-colors hover:bg-stone-50"
+        className="flex h-12 w-full items-center gap-3 px-4 text-left text-[14px] font-medium text-stone-700 transition-colors hover:bg-stone-50"
       >
         <Compass size={18} strokeWidth={1.9} className="text-stone-500" aria-hidden />
         <span className="flex-1">{t('Revoir la visite guidée')}</span>
         <ChevronRight size={16} className="text-stone-400" aria-hidden />
       </button>
+      </div>
       <Section label={t('Profil')}>
         <div className="flex flex-wrap items-center gap-5 px-5 py-5">
           <div className="relative">
@@ -237,21 +240,22 @@ function ProfileTab() {
               {user.email}<span className="max-sm:hidden">{'\u00a0'}· </span>
               <span className="max-sm:block max-sm:first-letter:uppercase">{t('inscription le {date}', { date: fmt(new Date(user.createdAt), 'd MMMM yyyy').replace(/ /g, '\u00a0') })}</span>
             </p>
-            {/* Touch: 36 px dots 8 px apart, each with a 44 px tap zone (.hit). */}
-            <div className="mt-3 flex flex-wrap items-center gap-1.5 pointer-coarse:gap-2">
+            {/* Touch: up to 36 px dots 6 px apart, the eight on one line (a grid: on a small phone they get smaller rather
+                than leaving the last one alone on a second line), each with a 44 px tap zone (.hit). */}
+            <div className="mt-3 flex flex-wrap items-center gap-1.5 pointer-coarse:grid pointer-coarse:max-w-[330px] pointer-coarse:grid-cols-8">
               {AVATAR_COLORS.map((c, i) => (
                 <button
                   key={c}
                   aria-label={t('Couleur de l’avatar {n}', { n: i + 1 })}
                   aria-pressed={!settings.avatarImage && settings.avatarColor === c}
                   onClick={() => settings.set({ avatarColor: c, avatarImage: null })}
-                  className="hit flex h-6 w-6 items-center justify-center rounded-full ring-offset-2 transition-transform hover:scale-110 pointer-coarse:h-9 pointer-coarse:w-9"
+                  className="hit flex h-6 w-6 items-center justify-center rounded-full ring-offset-2 transition-transform hover:scale-110 pointer-coarse:aspect-square pointer-coarse:h-auto pointer-coarse:w-full pointer-coarse:max-w-9"
                   style={{ background: c, boxShadow: !settings.avatarImage && settings.avatarColor === c ? `0 0 0 2px var(--color-surface), 0 0 0 4px ${c}` : undefined }}
                   title={t('Couleur de l’avatar')}
                 />
               ))}
               {settings.avatarImage && (
-                <button className="hit ml-2 text-[12px] text-stone-500 underline underline-offset-2 hover:text-ink" onClick={async () => (await confirmAction(t('Retirer ta photo ?'), undefined, t('Retirer'))) && settings.set({ avatarImage: null })}>
+                <button className="hit ml-2 text-[12px] text-stone-500 underline pointer-coarse:col-span-full pointer-coarse:ml-0 pointer-coarse:justify-self-start underline-offset-2 hover:text-ink" onClick={async () => (await confirmAction(t('Retirer ta photo ?'), undefined, t('Retirer'))) && settings.set({ avatarImage: null })}>
                   {t('Retirer la photo')}
                 </button>
               )}
@@ -423,11 +427,11 @@ function ProSection() {
                 type="button"
                 onClick={() => setWall(k)}
                 aria-pressed={settings.proWall === k}
-                className={cx('rounded-[16px] p-1.5 text-left ring-1 transition-colors', settings.proWall === k ? 'ring-2 ring-brand-500' : 'ring-stone-200 hover:ring-stone-300')}
+                className={cx('rounded-[18px] p-1.5 text-left ring-1 transition-colors', settings.proWall === k ? 'bg-white/10 ring-2 ring-white/90' : 'ring-white/10 hover:ring-white/25')}
               >
-                <span aria-hidden className="block aspect-[4/3] rounded-[11px]" style={{ background: PRO_WALL_PREVIEW[k] }} />
+                <span aria-hidden className="block aspect-[4/3] rounded-[12px]" style={{ background: PRO_WALL_PREVIEW[k] }} />
                 <span className="mt-1.5 flex items-center gap-1.5 px-1 text-[13px] font-semibold">
-                  {settings.proWall === k && <Check size={13} strokeWidth={3} className="text-brand-600" aria-hidden />}
+                  {settings.proWall === k && <Check size={13} strokeWidth={3} aria-hidden />}
                   {PRO_WALL_LABELS[k]}
                 </span>
               </button>
@@ -1460,7 +1464,7 @@ export default function ProfilePage() {
                 aria-current={tab === tb.key ? 'page' : undefined}
                 onClick={() => setParams(tb.key === 'profil' ? {} : { onglet: tb.key })}
                 className={cx(
-                  'flex h-8 min-w-0 shrink-0 items-center gap-2.5 rounded-md px-2.5 text-[13px] font-medium transition-colors pointer-coarse:h-9',
+                  'profile-nav-item flex h-8 min-w-0 shrink-0 items-center gap-2.5 rounded-md px-2.5 text-[13px] font-medium transition-colors pointer-coarse:h-9',
                   tab === tb.key ? 'bg-surface font-semibold text-ink shadow-card ring-1 ring-stone-200' : 'text-stone-600 hover:bg-stone-100 hover:text-ink',
                 )}
               >
@@ -1482,20 +1486,18 @@ export default function ProfilePage() {
           </div>
         </div>
         {/* What a visitor finds at the foot of the home page, reachable once signed in too. */}
-        <footer className="mt-10 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 pb-2 text-[12px] text-stone-500 md:ml-[13.5rem]">
+        {/* No « · » between the links: wrapped on a phone, one was left hanging at the end of a line. Their spacing
+            says they are apart; the version on its own line. */}
+        <footer className="mt-10 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 pb-2 text-[12px] text-stone-500 md:ml-[13.5rem]">
           {LEGAL_LINKS.map(l => (
-            <Fragment key={l.to}>
-              <Link to={l.to} className="hit underline-offset-2 hover:text-ink hover:underline">
-                {l.label}
-              </Link>
-              <span aria-hidden>·</span>
-            </Fragment>
+            <Link key={l.to} to={l.to} className="hit underline-offset-2 hover:text-ink hover:underline">
+              {l.label}
+            </Link>
           ))}
           <a href={`mailto:${CONTACT}`} className="hit underline-offset-2 hover:text-ink hover:underline">
             {t('Nous contacter')}
           </a>
-          <span aria-hidden>·</span>
-          <span className="tabular">
+          <span className="tabular basis-full text-center">
             {t('Version du {date}', { date: fmt(fromKey(latestRelease.id), 'd MMMM yyyy') })}
             {__BUILD__ && ` (${__BUILD__})`}
           </span>
