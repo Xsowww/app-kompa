@@ -32,6 +32,7 @@ import { takeContentBuffer, takeTitleBuffer } from './titleBuffer';
 import { useCreateActions } from '../../store/create';
 import type { Editor } from '@tiptap/react';
 import { t, tn, locale } from '../../i18n';
+import './notes.css';
 
 // The editor (Tiptap) is heavy: load it when a note opens, and ahead of time once the list is idle.
 const loadEditor = () => import('./NoteEditor');
@@ -629,7 +630,7 @@ export default function NotesPage() {
           {...dropProps(f.id, f.id)}
           onContextMenu={e => { e.preventDefault(); setMenu({ ...menuPoint(e), items: folderMenu(f) }); }}
           className={cx(
-            'group flex h-8 items-center gap-0.5 rounded-md pr-1 text-[13px] font-medium transition-colors pointer-coarse:h-9',
+            'note-folder group flex h-8 items-center gap-0.5 rounded-md pr-1 text-[13px] font-medium transition-colors pointer-coarse:h-9',
             dropOn === f.id ? 'bg-brand-50 ring-1 ring-brand-500' : focusFolder === f.id ? 'bg-stone-100 text-ink' : 'text-stone-700 hover:bg-stone-50',
           )}
         >
@@ -797,7 +798,7 @@ export default function NotesPage() {
           </div>
         )}
         <div
-          className={cx('min-h-0 flex-1 overflow-y-auto rounded-lg p-1 pb-room', dropOn === 'root' && 'ring-1 ring-brand-500')}
+          className={cx('notes-list min-h-0 flex-1 overflow-y-auto rounded-lg p-1 pb-room', dropOn === 'root' && 'ring-1 ring-brand-500')}
           {...dropProps(null, 'root')}
           onClick={() => setFocusFolder(null)}
         >
@@ -831,7 +832,7 @@ export default function NotesPage() {
       </aside>
 
       {/* Editor */}
-      <section className={cx('card @container min-w-0 flex-1 flex-col overflow-hidden [@media(min-width:768px)_and_(min-height:501px),(min-width:1024px)]:mt-2', mainOpen ? 'flex' : 'hidden [@media(min-width:768px)_and_(min-height:501px),(min-width:1024px)]:flex')} onScrollCapture={onTextScroll}>
+      <section className={cx('notes-editor card @container min-w-0 flex-1 flex-col overflow-hidden [@media(min-width:768px)_and_(min-height:501px),(min-width:1024px)]:mt-2', mainOpen ? 'flex' : 'hidden [@media(min-width:768px)_and_(min-height:501px),(min-width:1024px)]:flex')} onScrollCapture={onTextScroll}>
         {active ? (
           <>
             {/* A narrow editor (phones, tablets, a laptop with the menu and the list): the actions sit above the title, which gets
@@ -949,11 +950,11 @@ const NoteRow = memo(function NoteRow({ note: n, depth, active, selected, select
         )}
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-1.5">
-            <span className={cx('flex-1 truncate', active && 'font-medium')}>{n.title}</span>
+            <span className={cx('note-row-title flex-1 truncate', active && 'font-medium')}>{n.title}</span>
             {n.pinned && <Pin size={11} className="shrink-0 text-stone-400" aria-label={t('Épinglée')} />}
-            <span className="tabular shrink-0 text-[11px] text-stone-500">{listDate(created ? n.createdAt : n.updatedAt)}</span>
+            <span className="note-row-date tabular shrink-0 text-[11px] text-stone-500">{listDate(created ? n.createdAt : n.updatedAt)}</span>
           </span>
-          <span className="block truncate text-[12px] leading-snug text-stone-500">{noteText(n) || t('Note vide')}</span>
+          <span className="note-row-text block truncate text-[12px] leading-snug text-stone-500">{noteText(n) || t('Note vide')}</span>
         </span>
       </div>
       <button
