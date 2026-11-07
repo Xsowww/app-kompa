@@ -5,7 +5,7 @@
 import { create } from 'zustand';
 import { t, tn } from '../i18n';
 
-export type NewsIcon = 'repeat' | 'span' | 'link' | 'bell' | 'photo' | 'zip' | 'drone';
+export type NewsIcon = 'repeat' | 'span' | 'link' | 'bell' | 'photo' | 'zip' | 'drone' | 'pro' | 'island' | 'dash';
 
 export interface NewsItem {
   icon: NewsIcon;
@@ -13,15 +13,29 @@ export interface NewsItem {
   text: string;
   /** Where « Essayer » leads (?importer=1: the calendar opens its « Ajouter un emploi du temps » window). */
   to?: string;
+  /** « pro »: the page ends with « Activer l'Affichage Pro » (when it isn't on yet). */
+  action?: 'pro';
 }
 
 export interface Release {
   /** Also its date (yyyy-MM-dd): an account created after it has nothing new to read. */
   id: string;
   items: NewsItem[];
+  /** Shown by itself once to every account, even one created after the release (a new look to discover). */
+  everyone?: boolean;
 }
 
 export const RELEASES: Release[] = [
+  {
+    id: '2026-11-07',
+    everyone: true,
+    items: [
+      { icon: 'pro', title: t('Découvre l’Affichage Pro'), text: t('Un nouveau look pour Kompaly : un fond d’écran, des cartes en verre et des couleurs qui disent d’un coup d’œil ce qui compte.') },
+      { icon: 'island', title: t('Tout passe par l’île, en haut'), text: t('Rappels, messages, Kompaly et ta séance de concentration s’affichent dans une petite pastille en haut de l’écran. Touche-la : tes prochains événements, tes tâches et des raccourcis s’ouvrent.') },
+      { icon: 'dash', title: t('Un accueil qui montre l’essentiel'), text: t('Ton prochain grand jour, tes tâches (en retard en premier), ce qui arrive, et les anneaux de ta journée, dans cet ordre.') },
+      { icon: 'pro', title: t('Essaie-le maintenant'), text: t('Tu peux l’activer ici ou plus tard dans Profil › Apparence, et revenir à l’affichage actuel quand tu veux.'), action: 'pro' },
+    ],
+  },
   {
     id: '2026-10-25',
     items: [
@@ -43,8 +57,8 @@ export const useNews = create<{ open: string | null }>(() => ({ open: null }));
 export const openNews = (id = latestRelease.id) => useNews.setState({ open: id });
 
 /** Shown by itself? Only to an account that existed before the release and hasn't seen it. */
-export const newsToShow = (seen: string, accountCreated: string | undefined) =>
-  !!latestRelease && seen !== latestRelease.id && seen < latestRelease.id && !!accountCreated && accountCreated.slice(0, 10) < latestRelease.id;
+export const newsToShow = (seen: string, accountCreated: string | undefined, release: Release = latestRelease) =>
+  !!release && seen !== release.id && seen < release.id && (!!release.everyone || (!!accountCreated && accountCreated.slice(0, 10) < release.id));
 
 /** « Nouveautés, 7 à découvrir »: the name of a button that opens them, with how many are unread (Affichage Pro). */
 export const newsName = (unread: number) => (unread ? tn(unread, 'Nouveautés, {n} à découvrir', 'Nouveautés, {n} à découvrir') : t('Nouveautés'));

@@ -1,16 +1,17 @@
 import { useRef, useState, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BellRing, CalendarRange, ChevronLeft, ChevronRight, FolderDown, Link2, Repeat, Megaphone, ScanText, Sparkles } from 'lucide-react';
+import { BellRing, CalendarRange, ChevronLeft, ChevronRight, FolderDown, LayoutDashboard, Layers, Link2, PanelTop, Repeat, Megaphone, ScanText, Sparkles } from 'lucide-react';
 import { Modal } from './Overlays';
 import KompalyMark from './KompalyMark';
 import { DroneStill } from '../copilot/Character';
 import { RELEASES, useNews, type NewsIcon } from '../lib/news';
-import { useSettings } from '../store/settings';
+import { applyAppearance, useSettings } from '../store/settings';
+import { toast } from '../store/ui';
 import { fmtDay, fromKey } from '../lib/dates';
 import { cx } from '../lib/utils';
 import { t } from '../i18n';
 
-const ICONS = { repeat: Repeat, span: CalendarRange, link: Link2, bell: BellRing, photo: ScanText, zip: FolderDown } as const;
+const ICONS = { repeat: Repeat, span: CalendarRange, link: Link2, bell: BellRing, photo: ScanText, zip: FolderDown, pro: Layers, island: PanelTop, dash: LayoutDashboard } as const;
 // One colour per page, from the folder colours (light and dark).
 const TINTS: Record<NewsIcon, string> = {
   link: 'from-sky-500/25 to-sky-500/5 text-sky-600 dark:text-sky-300',
@@ -20,9 +21,12 @@ const TINTS: Record<NewsIcon, string> = {
   photo: 'from-rose-500/25 to-rose-500/5 text-rose-600 dark:text-rose-300',
   zip: 'from-teal-500/25 to-teal-500/5 text-teal-600 dark:text-teal-300',
   drone: 'from-stone-500/25 to-stone-500/5 text-stone-600 dark:text-stone-300',
+  pro: 'from-indigo-500/30 to-fuchsia-500/10 text-indigo-600 dark:text-indigo-300',
+  island: 'from-stone-900/40 to-stone-900/10 text-stone-800 dark:text-stone-200',
+  dash: 'from-orange-500/25 to-rose-500/10 text-orange-600 dark:text-orange-300',
 };
 // Affichage Pro: the same colour per page, as one solid tile (themes.css › news-pro-tile).
-const PRO_TINTS: Record<NewsIcon, string> = { link: '#40c8e0', repeat: '#8e6cff', span: '#30d158', bell: '#f5a524', photo: '#ff5c8a', zip: '#2bb3a0', drone: '#3a3f52' };
+const PRO_TINTS: Record<NewsIcon, string> = { link: '#40c8e0', repeat: '#8e6cff', span: '#30d158', bell: '#f5a524', photo: '#ff5c8a', zip: '#2bb3a0', drone: '#3a3f52', pro: '#5b5cf0', island: '#1c1d22', dash: '#ff7a45' };
 
 /** « Nouveautés » : one page per novelty, read in order; closing marks the release as seen on every device. */
 export default function NewsDialog() {
@@ -113,6 +117,11 @@ export default function NewsDialog() {
               {t('Passer')}
             </button>
           )}
+          {item.action === 'pro' && !pro && (
+            <button type="button" className="btn-secondary h-10 max-[359px]:px-3" onClick={close}>
+              {t('Plus tard')}
+            </button>
+          )}
           {item.to && (
             <button
               type="button"
@@ -125,9 +134,27 @@ export default function NewsDialog() {
               {t('Essayer')}
             </button>
           )}
+          {item.action === 'pro' && !pro ? (
+            // The presentation's last page: switched on right here (theme and style come back when it is turned off).
+            <button
+              type="button"
+              className="btn-primary h-10 max-[359px]:px-3"
+              autoFocus
+              onClick={() => {
+                const s = useSettings.getState();
+                s.set({ pro: true });
+                applyAppearance({ ...useSettings.getState(), pro: true });
+                close();
+                toast(t('Affichage Pro activé. Tu peux le couper dans Profil › Apparence.'), 'success');
+              }}
+            >
+              {t('Activer l’Affichage Pro')}
+            </button>
+          ) : (
           <button type="button" className="btn-primary h-10 max-[359px]:px-3" onClick={() => (last ? close() : setPage(p => p + 1))} autoFocus>
             {last ? t('C’est parti') : t('Suivant')} {!last && <ChevronRight size={16} className="max-[359px]:hidden" />}
           </button>
+          )}
         </div>
       </div>
     </Modal>
