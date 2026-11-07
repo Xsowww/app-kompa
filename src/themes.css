@@ -1285,3 +1285,7 @@
 :root[data-pro][data-style][data-theme] :is(.profile-nav-item[aria-current='page'], .seg-item[data-active], .seg-item[aria-pressed='true']) .text-brand-600 {
   color: var(--color-brand-solid);
 }
+/* Its filters' row: the chosen capsule's edge in line with the title (the plain look's -4 px let the text align). */
+:root[data-pro][data-style][data-theme] [role='group']:has(> .trash-chip) {
+  margin-inline: 0;
+}
