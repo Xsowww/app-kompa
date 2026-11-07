@@ -306,10 +306,17 @@ export default function DashboardPro() {
               <small> / {tasks.total}</small>
             </b>
           </Link>
-          <Link to="/taches" className="dpro-stat" style={{ '--c': 'var(--pro-focus)' } as CSSProperties}>
+          {/* The timer lives in the island: its « Concentration » view opens, the page stays. */}
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('kompaly:hub', { detail: 'minuteur' }))}
+            className="dpro-stat text-left"
+            style={{ '--c': 'var(--pro-focus)' } as CSSProperties}
+            aria-label={t('Concentration : {time}. Ouvrir le minuteur', { time: formatMinutes(focusToday) })}
+          >
             <span>{t('Concentration')}</span>
             <b className="tabular">{formatMinutes(focusToday)}</b>
-          </Link>
+          </button>
           <Link
             to={firstLate ? `/taches?tache=${firstLate.id}` : '/taches'}
             className={cx('dpro-stat is-late', tasks.late.length > 0 && 'is-alert')}

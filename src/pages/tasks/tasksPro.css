@@ -111,3 +111,14 @@
 :root[data-pro] [data-due-new] {
   border-radius: 999px;
 }
+
+/* « Reporter » beside the pencil of a late task: a readable red capsule on the dark glass. */
+:root[data-pro] [data-postpone] {
+  background: color-mix(in srgb, var(--pro-urgent) 24%, transparent);
+  color: #ffd6d0;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pro-urgent) 45%, transparent);
+}
+:root[data-pro] [data-postpone]:hover {
+  background: color-mix(in srgb, var(--pro-urgent) 36%, transparent);
+  color: #fff;
+}

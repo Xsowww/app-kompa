@@ -299,18 +299,6 @@ const TodoRow = memo(function TodoRow({ t: todo, editable, preview, now = 0, gro
         )}
         {meta && !editing && (
           <span className="ml-auto flex shrink-0 items-center gap-2 max-sm:-ml-1 max-sm:mr-auto sm:gap-3">
-            {late && (
-              <button
-                type="button"
-                aria-haspopup="menu"
-                onClick={e => setMenu({ ...menuPoint(e), postpone: true })}
-                className="hit flex h-6 shrink-0 items-center gap-1 rounded-[10px] px-1.5 text-[12px] font-medium text-stone-600 hover:bg-stone-100 hover:text-ink"
-                title={t('Reporter')}
-                aria-label={t('Reporter « {title} »', { title: todo.title })}
-              >
-                <CalendarClock size={13} /> <span className="max-sm:hidden">{t('Reporter')}</span>
-              </button>
-            )}
             {/* The bell only when a reminder is set (it says so): to add one, the pencil opens the same dialog. */}
             {canEdit && hasReminder && !tour && (
               <button
@@ -369,6 +357,20 @@ const TodoRow = memo(function TodoRow({ t: todo, editable, preview, now = 0, gro
           }
         >
           <CalendarPlus size={13} />
+        </button>
+      )}
+      {/* Late: « Reporter » right beside the pencil, always shown (its menu: today, tomorrow, another day). */}
+      {late && !editing && (
+        <button
+          type="button"
+          aria-haspopup="menu"
+          data-postpone
+          onClick={e => setMenu({ ...menuPoint(e), postpone: true })}
+          className="hit flex h-7 shrink-0 items-center gap-1 rounded-full bg-red-50 px-2.5 text-[12px] font-semibold text-red-700 hover:bg-red-100 pointer-coarse:h-8 dark:bg-red-500/15 dark:text-red-300"
+          title={t('Reporter')}
+          aria-label={t('Reporter « {title} »', { title: todo.title })}
+        >
+          <CalendarClock size={13} aria-hidden /> {t('Reporter')}
         </button>
       )}
       {canEdit && !tour && (

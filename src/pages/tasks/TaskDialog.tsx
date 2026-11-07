@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState, type FormEvent } from 'react';
-import { CalendarClock, CalendarPlus, Trash2 } from 'lucide-react';
+import { CalendarClock, CalendarDays, CalendarPlus, Trash2 } from 'lucide-react';
 import { DateField, SelectField, TimeField } from '../../components/Pickers';
 import { softKeyboard } from '../../lib/keyboard';
 import { Modal } from '../../components/Overlays';
@@ -87,6 +87,10 @@ export default function TaskDialog({ todo, onClose, remind, onDelete }: { todo?:
               <button type="button" className="btn-secondary h-9 flex-1 px-3 text-[13px]" onClick={() => postpone(tomorrowKey())} aria-label={t('Reporter à demain')}>
                 <CalendarPlus size={14} aria-hidden className="shrink-0" /> {t('Demain')}
               </button>
+              {/* Another day: the form's own date picker opens (its reminders follow, as with Aujourd'hui / Demain). */}
+              <button type="button" className="btn-secondary h-9 flex-1 px-3 text-[13px]" onClick={() => document.querySelector<HTMLElement>('[data-due-field] button')?.click()} aria-label={t('Reporter à un autre jour')}>
+                <CalendarDays size={14} aria-hidden className="shrink-0" /> {t('Autre jour')}
+              </button>
             </div>
           </div>
         )}
@@ -104,7 +108,7 @@ export default function TaskDialog({ todo, onClose, remind, onDelete }: { todo?:
         </Field>
         {/* One under the other below 390 px, where « Lun. 19 oct. » and « Dans la journée » were cut. */}
         <div className="mt-4 grid grid-cols-1 gap-x-2 gap-y-4 min-[390px]:grid-cols-2">
-          <div>
+          <div data-due-field>
             <span className="mb-1.5 block text-[12px] font-medium text-stone-600">{t('Échéance')}</span>
             <DateField
               value={due}

@@ -18,7 +18,7 @@ import { useCalendar } from '../store/calendar';
 import { useTodos } from '../store/todos';
 import { dayTasks } from '../lib/proDashboard';
 import { share, upcoming, useIslandLog } from './islandHub';
-import { Lights, type HubView } from './IslandHub';
+import { HUB_VIEWS, Lights, type HubView } from './IslandHub';
 import { locale, t, tn } from '../i18n';
 import './island.css';
 import './islandHub.css';
@@ -668,6 +668,15 @@ export default function Island() {
     setLastView(view);
     toHub.current = true;
   };
+  // Another part of the app asks for a view of the hub (the dashboard's « Concentration » tile → the timer).
+  useEffect(() => {
+    const onAsk = (e: Event) => {
+      const view = (e as CustomEvent<HubView>).detail;
+      if (HUB_VIEWS.includes(view)) openHub(view);
+    };
+    window.addEventListener('kompaly:hub', onAsk);
+    return () => window.removeEventListener('kompaly:hub', onAsk);
+  });
   const closeHub = () => {
     const inside = !!wrap.current?.contains(document.activeElement);
     setHub(null);

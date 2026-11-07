@@ -58,7 +58,7 @@ const NAME: () => Record<HubView, string> = () => ({
   agenda: t('Agenda'),
   taches: t('Tâches'),
   kompaly: t('Assistant'),
-  minuteur: t('Minuteur'),
+  minuteur: t('Concentration'),
   notifs: t('Notifications'),
 });
 
