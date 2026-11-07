@@ -501,7 +501,7 @@
     overscroll-behavior: contain;
     padding: 8px;
     border-radius: 28px;
-    background: rgb(20 22 32 / 0.8);
+    background: rgb(20 22 32 / 0.9);
     -webkit-backdrop-filter: blur(28px) saturate(170%);
     backdrop-filter: blur(28px) saturate(170%);
     box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.13), inset 0 1px 0 rgb(255 255 255 / 0.1), 0 28px 60px -18px rgb(0 0 0 / 0.75);
@@ -716,9 +716,9 @@
   outline: 2px solid #fff;
   outline-offset: 2px;
 }
-@media (max-width: 359px) {
-  .pro-kbtn { width: 36px; padding: 0; justify-content: center; }
-}
+/* Its name is already in the island beside it (« Kompaly » at rest): the mark alone, a round button like the bin's. */
+.pro-kbtn { width: 40px; height: 40px; padding: 0; justify-content: center; }
+.pro-kbtn-name { display: none; }
 /* Phones: the island takes the middle of the bar; Kompaly is in it (its hub's « Assistant »). */
 @media (max-width: 639px) {
   .pro-kbtn { display: none; }
@@ -851,7 +851,12 @@
   font-size: 14px;
   font-weight: 600;
   color: var(--color-ink);
-  border-color: rgb(255 255 255 / 0.18);
+  border-style: solid;
+  border-color: transparent;
+  background-color: var(--pro-fill-1);
+}
+.pro-more-focus [data-focus-start]:hover {
+  background-color: var(--pro-fill-2);
 }
 .pro-more-focus .rounded-lg {
   border-radius: 20px;

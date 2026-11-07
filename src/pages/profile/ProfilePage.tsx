@@ -1,4 +1,4 @@
-import { Fragment, createElement, useEffect, useRef, useState, type FormEvent } from 'react';
+import { createElement, useEffect, useRef, useState, type FormEvent } from 'react';
 import { SelectField, TimeField } from '../../components/Pickers';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -1486,20 +1486,18 @@ export default function ProfilePage() {
           </div>
         </div>
         {/* What a visitor finds at the foot of the home page, reachable once signed in too. */}
-        <footer className="mt-10 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 pb-2 text-[12px] text-stone-500 md:ml-[13.5rem]">
+        {/* No « · » between the links: wrapped on a phone, one was left hanging at the end of a line. Their spacing
+            says they are apart; the version on its own line. */}
+        <footer className="mt-10 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 pb-2 text-[12px] text-stone-500 md:ml-[13.5rem]">
           {LEGAL_LINKS.map(l => (
-            <Fragment key={l.to}>
-              <Link to={l.to} className="hit underline-offset-2 hover:text-ink hover:underline">
-                {l.label}
-              </Link>
-              <span aria-hidden>·</span>
-            </Fragment>
+            <Link key={l.to} to={l.to} className="hit underline-offset-2 hover:text-ink hover:underline">
+              {l.label}
+            </Link>
           ))}
           <a href={`mailto:${CONTACT}`} className="hit underline-offset-2 hover:text-ink hover:underline">
             {t('Nous contacter')}
           </a>
-          <span aria-hidden>·</span>
-          <span className="tabular">
+          <span className="tabular basis-full text-center">
             {t('Version du {date}', { date: fmt(fromKey(latestRelease.id), 'd MMMM yyyy') })}
             {__BUILD__ && ` (${__BUILD__})`}
           </span>

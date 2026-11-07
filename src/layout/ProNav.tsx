@@ -287,7 +287,7 @@ export function ProKompalyButton() {
       className="pro-kbtn lg:hidden"
     >
       <KompalyMark size={22} alert={unread} />
-      <span className="max-[359px]:hidden" aria-hidden>
+      <span className="pro-kbtn-name" aria-hidden>
         {t('Kompaly')}
       </span>
     </button>
