@@ -6,22 +6,12 @@ import { ContextMenu } from './Overlays';
 import { cx } from '../lib/utils';
 import { t } from '../i18n';
 
-/** Controls the button may sit over: buttons, links, fields, ticks (and what a page marks with data-fab-avoid). */
-const CONTROL = '[data-fab-avoid], button, a[href], input, textarea, select, [role="checkbox"], [role="button"], [role="switch"], [contenteditable="true"]';
-const FIELD = 'input, textarea, select, [role="checkbox"], [role="switch"], [contenteditable="true"]';
-
 /**
- * What it must not cover: a field, a tick, a named button (« Lancer »), what is marked (the focus timer's « Arrêter »).
- * A small icon beside a row (↗, a day's +, a pencil), a day number, a calendar grid (data-fab-ignore) do not count:
- * the « + » stays in sight for those.
- */
-const matters = (el: HTMLElement) =>
-  !el.closest('[data-fab-ignore]') && (el.matches(FIELD) || !!el.closest('[data-fab-avoid]') || /\p{L}{2}/u.test(el.textContent ?? ''));
-
-/**
- * A control of the page under the « + » button at rest (Lancer, Arrêter, a pencil, a tick…): a few points of its round
- * area are looked at. Rows as wide as the screen don't count (they can be tapped anywhere else), nor what floats over
- * the page (Kompaly, the tab bar, the REC pill: outside #contenu or fixed).
+ * What a page marked as never to be covered (data-fab-avoid: the focus timer's « Arrêter »…) under the « + » button at
+ * rest: a few points of its round area are looked at. Only what is marked: stepping aside for any link, tick or field it
+ * passed over (« Toutes les tâches », a note's text on a tablet) made it come and go as the page scrolled, as if it were
+ * broken. The pages end with room under their last line (pb-room): scrolled to the end, nothing is under it. What
+ * floats over the page (Kompaly, the tab bar, a dialog) doesn't count.
  */
 function coversControl(button: HTMLElement): boolean {
   const r = button.getBoundingClientRect();
@@ -31,10 +21,8 @@ function coversControl(button: HTMLElement): boolean {
     for (const fy of [0.2, 0.5, 0.8]) {
       // The page's own element there (not the button, nor what floats over the page).
       const under = document.elementsFromPoint(r.left + r.width * fx, r.top + r.height * fy).find(el => el !== button && !button.contains(el) && !!page?.contains(el));
-      const control = under?.closest<HTMLElement>(CONTROL);
-      if (!control || control.closest('[aria-modal="true"], [role="menu"], [role="dialog"]')) continue;
-      if (getComputedStyle(control).position === 'fixed' || !matters(control)) continue;
-      if (control.getBoundingClientRect().width < window.innerWidth * 0.6) return true;
+      const marked = under?.closest<HTMLElement>('[data-fab-avoid]');
+      if (marked && !marked.closest('[aria-modal="true"], [role="menu"], [role="dialog"]') && getComputedStyle(marked).position !== 'fixed') return true;
     }
   }
   return false;
@@ -51,8 +39,8 @@ export default function CreateButton() {
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const ref = useRef<HTMLButtonElement>(null);
   const shown = actions.length > 0;
-  // Out of the way while it would cover a control of the page (looked at once the page stops scrolling) or while a
-  // field is being typed in on a touch screen (the keyboard is up, the field near it): it comes back once clear.
+  // Out of the way while it would cover what a page marked (looked at once the page stops scrolling) or while a field is
+  // being typed in on a touch screen (the keyboard is up, the field near it): it comes back once clear.
   const [tucked, setTucked] = useState(false);
   useEffect(() => {
     if (!shown) return;

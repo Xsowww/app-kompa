@@ -1,6 +1,6 @@
 /* The « Affichage Pro » home page (pages/DashboardPro): glass panels on the wallpaper, rings, bars, chips.
    Colours from the --pro-* tokens (themes.css), one colour = one meaning everywhere:
-   tasks --pro-tasks · concentration --pro-focus · events --pro-meet · the timer --pro-timer · late / big day --pro-urgent
+   tasks --pro-tasks · concentration --pro-focus · events --pro-meet · late / big day --pro-urgent
    · spaces --pro-etudes / --pro-travail / --pro-perso. Only loaded with Pro on, and every rule is under .dpro.
    No backdrop-filter here: Safari on iPhone draws black squares for scrolling cards that have one. */
 
@@ -85,7 +85,13 @@
 .dpro-btn:hover { background: rgb(255 255 255 / 0.16); }
 .dpro-btn:active { transform: scale(0.96); }
 .dpro-btn.is-meet,
-.dpro-btn.is-timer,
+.dpro-btn.is-white { border-color: transparent; }
+.dpro-btn.is-meet {
+  background: var(--pro-meet);
+  color: #062a33;
+  box-shadow: 0 8px 24px -8px var(--pro-meet);
+}
+.dpro-btn.is-meet:hover { background: color-mix(in srgb, var(--pro-meet) 82%, white); }
 .dpro-btn.is-white { border-color: transparent; }
 .dpro-btn.is-meet {
   background: var(--pro-meet);
@@ -105,11 +111,6 @@
   color: #14151c;
 }
 .dpro-btn.is-white:hover { background: rgb(255 255 255 / 0.88); }
-.dpro-btn.is-round {
-  width: 38px;
-  padding: 0;
-}
-.dpro-btn.is-round:hover { color: var(--pro-urgent); }
 .dpro-btn.is-small {
   height: 30px;
   padding: 0 12px;
@@ -118,7 +119,7 @@
 }
 /* A bigger target for a finger, the drawn shape unchanged. */
 @media (pointer: coarse) {
-  .dpro :is(.dpro-btn, .dpro-mini, .dpro-link, .dpro-check, .dpro-seg button)::after {
+  .dpro :is(.dpro-btn, .dpro-link, .dpro-check, .dpro-seg button)::after {
     content: '';
     position: absolute;
     inset: -6px;
@@ -226,14 +227,24 @@
   grid-template-columns: minmax(0, 1fr);
   gap: 14px;
 }
+/* The order is the same on every width, read left to right then down: the big day, the tasks, what comes next, the
+   rings and the week, the notes (a phone's single column is that order). */
 @container (min-width: 660px) {
   .dpro-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .dpro-grid .dpro-tasks { grid-row: span 2; }
+  .dpro-grid .dpro-notes { grid-column: 1 / -1; }
 }
 @container (min-width: 980px) {
   .dpro-grid { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+  .dpro-grid .dpro-tasks { grid-row: auto; }
   .dpro-grid .dpro-week { grid-column: span 2; }
+  /* The notes across the page: two columns of rows. */
+  .dpro-grid .dpro-notes .dpro-note-list { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 16px; }
 }
+/* Lists of rows: one column that never grows past its card (a long title is cut with « … » inside it; an `auto`
+   column took the title's whole width and pushed the date, then the page, past the screen). */
+.dpro :is(.dpro-note-list, .dpro-agenda, .dpro-task-list, .dpro-big-later) { grid-template-columns: minmax(0, 1fr); }
+.dpro :is(.dpro-note-list, .dpro-agenda, .dpro-task-list, .dpro-big-later) > li { min-width: 0; }
 
 .dpro-panel {
   display: flex;
@@ -298,6 +309,10 @@
   color: var(--ink-3);
   font-size: 12px;
 }
+
+/* The shortcuts (Importer, Enregistrer…) under the cards. */
+.dpro-shortcuts { margin-top: 16px; }
+.dpro-shortcuts > nav { margin-bottom: 0; }
 
 /* ── Rings ── */
 .dpro-rings-row {
@@ -476,92 +491,6 @@
   flex: none;
   color: var(--ink-3);
   font-size: 12px;
-}
-
-/* ── Focus timer ── */
-.dpro-timer-body {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  min-width: 0;
-}
-.dpro-dial {
-  --t: var(--pro-timer);
-  position: relative;
-  width: 104px;
-  height: 104px;
-  flex: none;
-}
-.dpro-timer.is-break .dpro-dial { --t: rgb(235 240 255 / 0.9); }
-.dpro-dial svg { width: 100%; height: 100%; overflow: visible; }
-.dpro-dial circle { fill: none; stroke-width: 6; }
-.dpro-dial-bg { stroke: var(--t); opacity: 0.85; transition: opacity 0.4s; }
-.dpro-timer.is-on .dpro-dial-bg { opacity: 0.2; }
-.dpro-dial-fg {
-  stroke: var(--t);
-  stroke-linecap: round;
-  transition: stroke-dashoffset 1s linear, opacity 0.3s;
-}
-.dpro-timer.is-on:not(.is-paused) .dpro-dial svg { filter: drop-shadow(0 0 10px color-mix(in srgb, var(--t) 45%, transparent)); }
-.dpro-timer.is-paused .dpro-dial-fg { opacity: 0.55; }
-.dpro-dial-text {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-content: center;
-  text-align: center;
-}
-.dpro-dial-text b {
-  color: var(--t);
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
-}
-.dpro-dial-text span {
-  color: var(--ink-3);
-  font-size: 10.5px;
-  font-weight: 600;
-}
-.dpro-timer.is-on { outline: 1.5px solid color-mix(in srgb, var(--pro-timer) 42%, transparent); outline-offset: -1.5px; }
-.dpro-timer.is-break { outline-color: rgb(255 255 255 / 0.22); }
-.dpro-timer-actions {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 10px;
-  min-width: 0;
-}
-.dpro-subjects {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.dpro-mini {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  max-width: 100%;
-  height: 28px;
-  padding: 0 11px;
-  overflow: hidden;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: var(--soft);
-  color: var(--ink-2);
-  font-size: 12px;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  transition: background-color 0.2s, color 0.2s;
-}
-.dpro-mini:hover { background: rgb(255 255 255 / 0.14); color: var(--ink); }
-@container (max-width: 340px) {
-  .dpro-dial { width: 92px; height: 92px; }
-  .dpro-dial-text b { font-size: 19px; }
-  .dpro-timer-body { gap: 14px; }
 }
 
 /* ── Tasks ── */
@@ -806,8 +735,39 @@
   font-size: 12.5px;
   line-height: 1.5;
 }
-.dpro-cheer a { color: var(--ink); font-weight: 600; }
-.dpro-cheer a:hover { text-decoration: underline; }
+/* « Ensuite » and the next task, on one line of its own (cut with « … »), its late chip at the end. */
+.dpro-cheer-next {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 36px;
+  margin: 8px -6px 0;
+  padding: 6px;
+  border-radius: 12px;
+  transition: background-color 0.2s;
+}
+.dpro-cheer-next:hover { background: var(--soft); }
+.dpro-cheer-next > span:first-child {
+  flex: none;
+  color: var(--ink-3);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.dpro-cheer-next b {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dpro-cheer-next .dpro-chip { margin-top: 0; }
 
 /* ── The next big day ── */
 .dpro-big.is-set {
@@ -867,6 +827,7 @@
 }
 .dpro-big-later a {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1px;
   min-height: 32px;
   padding: 5px 0;

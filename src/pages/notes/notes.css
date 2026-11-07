@@ -18,3 +18,93 @@
   box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--color-brand-500) 45%, transparent);
   border-radius: 3px;
 }
+
+/* ── Affichage Pro: the notes like the island — a list in its own dark glass card, rows that read at a glance (the title
+   bright, the date and the start of the text quieter), the note open lit as a pill, the text on a calm, roomy page. ── */
+:root[data-pro][data-style][data-theme] .notes-list {
+  padding: 6px;
+  border-radius: 22px;
+  background: var(--color-surface);
+  box-shadow: inset 0 0 0 1px var(--glass-edge), inset 0 1px 0 var(--glass-shine), var(--shadow-card);
+}
+/* With the tab bar (phones, tablets): the card ends above it, its last rows still clear of the « + ». */
+@media (width < 64rem) {
+  :root[data-pro][data-style][data-theme] .notes-list {
+    margin-bottom: calc(5.25rem + env(safe-area-inset-bottom));
+    padding-bottom: 4.5rem;
+  }
+}
+:root[data-pro][data-style][data-theme] .notes-list .list-row {
+  border-radius: 14px;
+  background: none;
+  color: rgb(255 255 255 / 0.92);
+}
+:root[data-pro][data-style][data-theme] .notes-list .list-row + .list-row {
+  /* A straight hairline between two rows, inside their rounded corners. */
+  background: linear-gradient(rgb(255 255 255 / 0.07), rgb(255 255 255 / 0.07)) top center / calc(100% - 24px) 1px no-repeat;
+}
+:root[data-pro][data-style][data-theme] .notes-list .list-row:hover { background: rgb(255 255 255 / 0.06); }
+:root[data-pro][data-style][data-theme] .notes-list .list-row:has([aria-current='page']) {
+  background: rgb(255 255 255 / 0.13);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.14);
+}
+:root[data-pro][data-style][data-theme] .notes-list .list-row:has([aria-current='page']) + .list-row { background: none; }
+/* Chosen for a group action (several notes): the accent, as everywhere. */
+:root[data-pro][data-style][data-theme] .notes-list .list-row:has([aria-pressed='true']) {
+  background: color-mix(in srgb, var(--color-brand-500) 26%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-brand-500) 55%, transparent);
+}
+:root[data-pro][data-style][data-theme] .notes-list [data-note-open] { padding-block: 9px; }
+:root[data-pro][data-style][data-theme] .note-row-title {
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+:root[data-pro][data-style][data-theme] .note-row-date {
+  color: rgb(255 255 255 / 0.5);
+  font-size: 11.5px;
+  font-weight: 550;
+}
+:root[data-pro][data-style][data-theme] .note-row-text {
+  margin-top: 2px;
+  color: rgb(255 255 255 / 0.6);
+  font-size: 12.5px;
+}
+:root[data-pro][data-style][data-theme] .notes-list [data-note-open] svg { color: rgb(255 255 255 / 0.55); }
+:root[data-pro][data-style][data-theme] .note-folder {
+  height: 40px;
+  border-radius: 14px;
+  color: rgb(255 255 255 / 0.9);
+  font-size: 13.5px;
+  font-weight: 650;
+}
+:root[data-pro][data-style][data-theme] .note-folder:hover { background: rgb(255 255 255 / 0.06); }
+:root[data-pro][data-style][data-theme] .notes-list p { color: rgb(255 255 255 / 0.5); }
+
+/* The note open: the big card, a strong title, the text larger and well spaced. */
+:root[data-pro][data-style][data-theme] .notes-editor { border-radius: 24px; }
+:root[data-pro][data-style][data-theme] .notes-editor #note-title {
+  color: #fff;
+  font-weight: 750;
+  letter-spacing: -0.025em;
+}
+:root[data-pro][data-style][data-theme] .notes-editor .prose-note {
+  color: rgb(255 255 255 / 0.9);
+  font-size: 16px;
+  line-height: 1.65;
+}
+:root[data-pro][data-style][data-theme] .notes-editor .prose-note li::marker { color: rgb(255 255 255 / 0.5); }
+:root[data-pro][data-style][data-theme] .notes-editor .prose-note :is(h1, h2, h3, strong) { color: #fff; }
+:root[data-pro][data-style][data-theme] .notes-editor .border-stone-100 { border-color: rgb(255 255 255 / 0.08); }
+
+/* The note's title at its size on touch screens too: index.css gives every field max(16px, 1em) under a finger (no iPhone
+   zoom), and 1em is the parent's size, so the 22–26 px title shrank to 16 px on phones and tablets. */
+#note-title { font-size: 22px; }
+@media (width >= 48rem) {
+  #note-title { font-size: 26px; }
+}
+/* With the tab bar (phones, tablets), the note's card ends above it like the list. */
+@media (width < 64rem) {
+  :root[data-pro][data-style][data-theme] .notes-editor { margin-bottom: calc(5.25rem + env(safe-area-inset-bottom)); }
+}
