@@ -206,7 +206,8 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
   .dpro-stat { min-width: 0; padding: 9px 11px 8px; }
-  .dpro-stat > span { font-size: 11px; white-space: normal; line-height: 1.2; min-height: 2.4em; align-items: flex-start; }
+  /* A bigger « Taille du texte »: a long word (« Concentration ») breaks inside its tile rather than past it. */
+  .dpro-stat > span { font-size: 11px; white-space: normal; line-height: 1.2; min-height: 2.4em; align-items: flex-start; overflow-wrap: anywhere; hyphens: auto; }
   .dpro-stat > span::before { margin-top: 4px; flex: none; }
   .dpro-stat b { font-size: 19px; }
   .dpro-period { grid-column: 1 / -1; justify-self: start; }
