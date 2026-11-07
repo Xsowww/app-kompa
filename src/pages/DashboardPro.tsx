@@ -168,7 +168,8 @@ export default function DashboardPro() {
   const withShared = overlay.length ? [...events, ...overlay] : events;
   const todayEvents = withShared.filter(e => e.date === today).sort(sortEvents);
   const timed = todayEvents.filter(e => e.start);
-  const meetDone = timed.filter(e => isOver(e, now)).length;
+  // The ring counts every event of the day: a timed one once it is over, a whole-day one counts as lived.
+  const meetDone = timed.filter(e => isOver(e, now)).length + todayEvents.filter(e => !e.start).length;
   const laterToday = timed.filter(e => (e.end ?? e.start)! > nowTime);
   const allDay = todayEvents.filter(e => !e.start);
   const coming = firstOfSpans(withShared.filter(e => e.date > today).sort(sortEvents));
@@ -248,15 +249,14 @@ export default function DashboardPro() {
   const recentNotes = [...notes].sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned) || b.updatedAt.localeCompare(a.updatedAt)).slice(0, 4);
   const nowPeriods = periodsOn(periods, today);
 
-  // ── Header line: « jeudi 5 novembre · 2 rendez-vous et 3 tâches aujourd’hui » ──
-  // Timed ones, like the ring (a birthday or an open day is no « rendez-vous »), else the day's events.
-  const dayEvents = timed.length || todayEvents.length;
+  // ── Header line: « jeudi 5 novembre · 2 événements et 3 tâches aujourd’hui » (all the day's events, like the ring) ──
+  const dayEvents = todayEvents.length;
   const dayTodo = open.length;
   const summary =
     dayEvents && dayTodo
-      ? t('{events} et {tasks} aujourd’hui', { events: tn(dayEvents, '{n} rendez-vous', '{n} rendez-vous||pluriel'), tasks: tn(dayTodo, '{n} tâche', '{n} tâches') })
+      ? t('{events} et {tasks} aujourd’hui', { events: tn(dayEvents, '{n} événement', '{n} événements'), tasks: tn(dayTodo, '{n} tâche', '{n} tâches') })
       : dayEvents
-        ? tn(dayEvents, '{n} rendez-vous aujourd’hui', '{n} rendez-vous aujourd’hui||pluriel')
+        ? tn(dayEvents, '{n} événement aujourd’hui', '{n} événements aujourd’hui')
         : dayTodo
           ? tn(dayTodo, '{n} tâche aujourd’hui', '{n} tâches aujourd’hui')
           : t('Rien de prévu aujourd’hui');
@@ -511,7 +511,7 @@ export default function DashboardPro() {
             {/* ── Today: three rings to close ── */}
             <Panel i={n++} title={t('Aujourd’hui')} sub={t('Ferme tes anneaux')} className="dpro-today">
               <div className="dpro-rings-row">
-                <Rings values={[ringRatio(tasks.done.length, tasks.total), ringRatio(focusToday, goal), ringRatio(meetDone, timed.length)]} />
+                <Rings values={[ringRatio(tasks.done.length, tasks.total), ringRatio(focusToday, goal), ringRatio(meetDone, todayEvents.length)]} />
                 <ul className="dpro-legend">
                   <li style={{ '--c': 'var(--pro-tasks)' } as CSSProperties}>
                     <span>{t('Tâches')}</span>
@@ -528,10 +528,10 @@ export default function DashboardPro() {
                     </b>
                   </li>
                   <li style={{ '--c': 'var(--pro-meet)' } as CSSProperties}>
-                    <span>{t('Rendez-vous')}</span>
+                    <span>{t('Événements')}</span>
                     <b className="tabular">
                       {meetDone}
-                      <small> / {timed.length}</small>
+                      <small> / {todayEvents.length}</small>
                     </b>
                   </li>
                 </ul>
