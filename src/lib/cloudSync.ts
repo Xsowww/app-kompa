@@ -210,6 +210,8 @@ let currentUser: string | null = null;
 /** Bumped by every local change: a refresh that raced with one is thrown away. */
 let changes = 0;
 let lastPull = 0;
+/** When the cloud copy was last read (ms; 0: not yet in this visit), shown by Administration › Tests. */
+export const lastPullAt = () => lastPull;
 
 /**
  * Rows the server refused for good (a rule of the database, not the network): kept on this device and in the saved

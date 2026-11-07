@@ -159,6 +159,14 @@ export function markJumpSaid() {
     // (private browsing: said again next time)
   }
 }
+/** Said again at the next opening (Administration › Tests). */
+export function forgetJumpSaid() {
+  try {
+    sessionStorage.removeItem(JUMP_KEY);
+  } catch {
+    // (private browsing: nothing kept anyway)
+  }
+}
 
 /**
  * The day the calendar opens on: today; or, when nothing is left from today to Sunday (events, dated tasks not done),
