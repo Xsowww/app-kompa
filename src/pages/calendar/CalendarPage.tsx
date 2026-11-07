@@ -942,7 +942,7 @@ export default function CalendarPage() {
             <span className="cal-notice-icon hidden" aria-hidden>
               <CalendarClock size={16} />
             </span>
-            <span className="min-w-0 flex-1 basis-[14rem]">{t('Rien de prévu d’ici dimanche : voici ton prochain rendez-vous, {day}.', { day: fmt(fromKey(opening.day), 'EEEE d MMMM') })}</span>
+            <span className="min-w-0 flex-1 basis-[12rem]">{t('Rien de prévu d’ici dimanche : voici ton prochain rendez-vous, {day}.', { day: fmt(fromKey(opening.day), 'EEEE d MMMM') })}</span>
             <button type="button" className="cal-notice-btn btn-ghost h-9 shrink-0 px-2.5 text-[13px] font-medium" onClick={() => (setJumpNote(false), selectDay(today))}>
               {t('Revenir à aujourd’hui')}
             </button>

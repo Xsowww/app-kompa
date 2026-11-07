@@ -3,7 +3,8 @@
    show through the hours and the minutes (« Lieu », « Notes » read behind « 10 h »). Nothing here without data-pro. */
 :root[data-pro][data-style][data-theme] .pick-pop:is(.shadow-pop, #specificity-of-the-glass) {
   border-radius: 22px;
-  background-color: rgb(8 9 14 / 0.96);
+  /* Opaque, as the island: the least see-through let the fields behind show (« Ajouter un rappel » under « 12 h »). */
+  background-color: #0b0c12;
   background-image: none;
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
