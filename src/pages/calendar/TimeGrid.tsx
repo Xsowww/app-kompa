@@ -4,7 +4,7 @@ import type { CalendarEvent } from '../../store/calendar';
 // The colours of the categories, vivid in the Affichage Pro.
 import { catOf } from './proColors';
 import type { Todo } from '../../store/todos';
-import { fmt, fromKey, fromMinutes, toMinutes } from '../../lib/dates';
+import { fmt, fromKey, fromMinutes, isOver, toMinutes } from '../../lib/dates';
 import { cx } from '../../lib/utils';
 import { periodsFill, periodsOn, type Period } from '../../lib/periods';
 import { eventTitle, useCalendarSource } from './source';
@@ -119,7 +119,7 @@ export default function TimeGrid({ days, today, selected, events, todos, periods
           'flex max-w-full shrink-0 touch-manipulation select-none gap-1.5 rounded-md text-left font-medium [-webkit-touch-callout:none]',
           // A week's narrow column: two lines of title (« Anniversaire de Léa », not « Annivers… »).
           week ? 'min-h-6 items-start py-1 pl-2 pr-1 text-[11.5px] leading-4 pointer-coarse:min-h-9 pointer-coarse:items-center' : 'h-6 items-center truncate pl-2.5 pr-2 text-[12px] pointer-coarse:h-9',
-          dragged?.id === ev.id && 'opacity-40',
+          dragged?.id === ev.id ? 'opacity-40' : isOver(ev) && 'opacity-55 line-through',
         )}
         // An event: a solid chip with its colour bar, as the blocks of the hours (a task: a dashed outline and a square box).
         style={{ background: c.soft, color: c.text, boxShadow: `inset 3px 0 0 ${c.color}` }}
@@ -187,7 +187,7 @@ export default function TimeGrid({ days, today, selected, events, todos, periods
             data-event={ev.id}
             onClick={() => onEdit(ev)}
             onContextMenu={onMenu && (e => onMenu(ev, e))}
-            className={cx('relative z-10 mt-1 flex h-6 min-w-0 items-center gap-1.5 truncate px-2 text-left text-[12px] font-medium pointer-coarse:h-8', before ? 'ml-0 rounded-l-none' : 'ml-1 rounded-l-md', after ? 'mr-0 rounded-r-none' : 'mr-1 rounded-r-md', drag && 'pointer-events-none')}
+            className={cx('relative z-10 mt-1 flex h-6 min-w-0 items-center gap-1.5 truncate px-2 text-left text-[12px] font-medium pointer-coarse:h-8', before ? 'ml-0 rounded-l-none' : 'ml-1 rounded-l-md', after ? 'mr-0 rounded-r-none' : 'mr-1 rounded-r-md', drag && 'pointer-events-none', !after && isOver(events.find(e => e.series === ev.series && e.date === days[to]) ?? ev) && 'opacity-55 line-through')}
             style={{ gridColumn: `${from + 2} / ${to + 3}`, gridRow: lane + 1, background: c.soft, color: c.text, boxShadow: `inset 3px 0 0 ${c.color}` }}
             title={eventTitle(ev, shared)}
           >
@@ -315,7 +315,8 @@ export default function TimeGrid({ days, today, selected, events, todos, periods
                   return (
                     <div
                       key={ev.id}
-                      className={cx('group/ev absolute', dragged?.id === ev.id && drag?.mode === 'move' && 'opacity-35', resizing?.ev.id === ev.id && 'z-10 shadow-pop', col > 0 && 'rounded-md shadow-[0_0_0_1.5px_var(--color-surface)]')}
+                      // Over: still there, lighter and struck through (what is left of the day stands out).
+                      className={cx('group/ev absolute', dragged?.id === ev.id && drag?.mode === 'move' ? 'opacity-35' : isOver(ev) && 'opacity-55', isOver(ev) && 'line-through decoration-1', resizing?.ev.id === ev.id && 'z-10 shadow-pop', col > 0 && 'rounded-md shadow-[0_0_0_1.5px_var(--color-surface)]')}
                       style={{ top: y(start) + 1, height, left: `calc(${left}% + 2px)`, width: `calc(${100 - left}% - 4px)`, zIndex: resizing?.ev.id === ev.id ? undefined : col || undefined }}
                       onMouseMove={e => e.stopPropagation()}
                       onMouseEnter={() => setHover(null)}

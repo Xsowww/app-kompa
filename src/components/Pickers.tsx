@@ -6,8 +6,12 @@ import { addDays, addMonths, isSameMonth, startOfMonth } from 'date-fns';
 import { CalendarDays, ChevronLeft, ChevronRight, Clock, X } from 'lucide-react';
 import { fmt, fmtDay, fromKey, parseTime, toKey, todayKey, validKey, weekStart } from '../lib/dates';
 import { cx } from '../lib/utils';
+import { softKeyboard } from '../lib/keyboard';
+import { typeTime } from '../lib/timeTyping';
 import { locale, t } from '../i18n';
 import { Popover } from './SelectField';
+// The Affichage Pro's look of the date and time panels (the island's black).
+import './pickers.css';
 
 // The panel and the list picker live in SelectField.tsx (the home page's language menu needs them alone).
 export { Popover, SelectField, type Choice } from './SelectField';
@@ -144,7 +148,7 @@ export function DatePopover({ anchor, value, onPick, onClose, min, max, label, c
   const today = todayKey();
   const tomorrow = toKey(addDays(new Date(), 1));
   return (
-    <Popover anchor={anchor} onClose={onClose} label={label}>
+    <Popover anchor={anchor} onClose={onClose} label={label} className="pick-pop">
       <MonthGrid value={value} min={min} max={max} onPick={onPick} />
       <div className="mt-1 flex flex-wrap gap-1.5 border-t border-stone-100 px-1 pt-2">
         {[
@@ -211,12 +215,13 @@ function TimePanel({ value, onPick, clearable }: { value: string; onPick: (v: st
   const [h, m] = value ? value.split(':') : ['', ''];
   const lists = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
-    // The chosen hour and minute in view (else 8:00, the start of a usual day).
+    // The chosen hour and minute in view (else 8:00, the start of a usual day), and again as a time is typed: the
+    // lists follow it (only these lists scroll, never the page).
     for (const col of lists.current?.querySelectorAll<HTMLElement>('[data-col]') ?? []) {
       const on = col.querySelector<HTMLElement>('[aria-pressed="true"]') ?? col.querySelector<HTMLElement>('[data-v="08"]');
       if (on) col.scrollTop = on.offsetTop - col.clientHeight / 2 + on.clientHeight / 2;
     }
-  }, []);
+  }, [h, m]);
   const typed = parseTime(text);
   // A time typed counts at once (the form's « Ajouter » pressed right after it got none: Nadia's meeting without a
   // time); Échap puts back the one there was. A pick made after typing (a minute in the list, « OK », « Sans heure »)
@@ -257,14 +262,18 @@ function TimePanel({ value, onPick, clearable }: { value: string; onPick: (v: st
         }}
       >
         <input
-          autoFocus
+          // A computer types at once; a phone keeps its keyboard closed until the box is touched (the lists are there).
+          autoFocus={!softKeyboard()}
           value={text}
           onChange={e => {
             leave.current.typing = true;
-            setText(e.target.value);
-            const v = parseTime(e.target.value);
+            // « 14 » → « 14h », then the minutes; pasted « 09:30 » → « 09h30 » (lib/timeTyping).
+            const next = typeTime(e.target.value, text);
+            setText(next);
+            const v = parseTime(next);
             if (v) onPick(v, false);
           }}
+          enterKeyHint="done"
           inputMode="numeric"
           spellCheck={false}
           autoComplete="off"
@@ -331,7 +340,7 @@ export function TimeField({ value, onChange, label, placeholder = t('Heure'), cl
         {value ? <span className="tabular">{value}</span> : undefined}
       </FieldButton>
       {anchor && (
-        <Popover anchor={anchor} onClose={() => setOpen(false)} label={label}>
+        <Popover anchor={anchor} onClose={() => setOpen(false)} label={label} className="pick-pop">
           <TimePanel
             value={value}
             clearable={clearable}

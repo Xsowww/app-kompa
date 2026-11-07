@@ -22,3 +22,49 @@
 :root[data-pro] .cal-page li[data-big] + li[data-big] {
   margin-top: 2px;
 }
+
+/* A notice of the calendar (« Rien de prévu d'ici dimanche… », « Agenda en lecture seule. »): drawn as the island
+   draws a message (components/island.css): a black rounded shape, its icon in a soft tile, the words in white, the
+   way out as a white pill. */
+:root[data-pro] .cal-page .cal-notice {
+  gap: 10px 12px;
+  padding: 12px 12px 12px 14px;
+  border-radius: var(--pro-radius-card, 22px);
+  background: rgb(0 0 0 / 0.72);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  backdrop-filter: blur(22px) saturate(160%);
+  color: #fff;
+  font-size: 13.5px;
+  line-height: 1.4;
+  box-shadow:
+    0 0 0 0.5px rgb(255 255 255 / 0.14),
+    0 18px 40px -20px rgb(0 0 0 / 0.8);
+}
+:root[data-pro] .cal-page .cal-notice-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--pro-meet, #40c8e0) 22%, transparent);
+  color: var(--pro-meet, #40c8e0);
+}
+:root[data-pro] .cal-page .cal-notice-btn {
+  height: 32px;
+  margin-left: auto;
+  padding-inline: 14px;
+  border-radius: 999px;
+  background: #fff;
+  color: #000;
+  font-weight: 600;
+}
+:root[data-pro] .cal-page .cal-notice-btn:hover {
+  background: rgb(255 255 255 / 0.86);
+  color: #000;
+}
+:root[data-pro] .cal-page .cal-notice-btn:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}

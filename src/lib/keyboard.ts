@@ -24,3 +24,10 @@ export function watchKeyboard() {
   vv.addEventListener('resize', later(100));
   document.addEventListener('focusin', later(350));
 }
+
+/**
+ * A screen keyboard opens when a field gets the focus (a phone, a tablet without its keyboard): a field is focused at
+ * once only when typing is the one thing to do there, never on opening a window where one may only change a day, a
+ * reminder… (the keyboard covered half the screen at once and moved the page).
+ */
+export const softKeyboard = () => typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches;

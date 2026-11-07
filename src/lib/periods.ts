@@ -122,19 +122,22 @@ export function periodRange(p: Pick<Period, 'start' | 'end'>, fmtDay: (d: Date, 
 }
 
 /**
- * The fill of a day covered by one period or more: one band of each colour, top to bottom
- * (two periods overlapping both show from their own first day, neither waits for the other to end).
+ * The fill of a day covered by one period or more: each one's tint over the whole day, one over the other. A period
+ * fills its days the same way whether or not another one overlaps it on some of them (cut in bands, its colour went
+ * from the whole day to its top half and back); its band at the top of the day says which one is which.
  */
 export function periodsFill(list: Pick<Period, 'color'>[], strength = 14): string | undefined {
   if (!list.length) return undefined;
-  const step = 100 / list.length;
-  const stops = list.flatMap((p, i) => [`${periodTint(p, strength)} ${i * step}%`, `${periodTint(p, strength)} ${(i + 1) * step}%`]);
-  return `linear-gradient(to bottom, ${stops.join(', ')})`;
+  // Two or more: each a little lighter, so that their mix isn't much darker than one alone.
+  const each = list.length > 1 ? Math.max(6, Math.round(strength * 0.7)) : strength;
+  return list.map(p => `linear-gradient(${periodTint(p, each)}, ${periodTint(p, each)})`).join(', ');
 }
 
 /**
- * Bands of a week: each period on the first row where it fits, from its own first day to its last (one band
- * per piece when days are skipped in between).
+ * Bands of a week (or of any row of days): each piece of a period on the first row where it fits, from its own first
+ * day to its last (one band per piece when days are skipped in between). The pieces are placed in the order of their
+ * days: periods that don't overlap share the top row (a period begun long before, back on a Thursday after skipped
+ * days, pushed a period of Monday to Wednesday down to a second row).
  */
 export function weekLanes(list: Period[], keys: string[]): { period: Period; from: number; to: number; lane: number }[] {
   const ends: number[] = [];
@@ -149,12 +152,42 @@ export function weekLanes(list: Period[], keys: string[]): { period: Period; fro
       });
       return pieces;
     })
+    // The earliest first; from the same day, the longest on top (a week of classes above a day of exam).
+    .sort((a, b) => a.from - b.from || b.to - a.to)
     .map(b => {
       let lane = ends.findIndex(end => end < b.from);
       if (lane < 0) lane = ends.length;
       ends[lane] = b.to;
       return { ...b, lane };
     });
+}
+
+export interface DayLane {
+  period: Period;
+  /** Its row, the same on all its days in a row (0: the top one). */
+  lane: number;
+  /** The first / last day of its piece in the row (where its band starts and ends). */
+  first: boolean;
+  last: boolean;
+}
+
+/**
+ * The periods of each day of a row of days (a week, a month), each on its row as `weekLanes` places them: a period
+ * keeps its height from one day to the next, and periods that don't overlap sit at the same height. `lanes`: how
+ * many rows in all.
+ */
+export function dayLanes(list: Period[], keys: string[]): { byDay: Map<string, DayLane[]>; lanes: number } {
+  const byDay = new Map<string, DayLane[]>();
+  let lanes = 0;
+  for (const b of weekLanes(list, keys)) {
+    lanes = Math.max(lanes, b.lane + 1);
+    for (let i = b.from; i <= b.to; i++) {
+      const day = byDay.get(keys[i]) ?? [];
+      day.push({ period: b.period, lane: b.lane, first: i === b.from, last: i === b.to });
+      byDay.set(keys[i], day.sort((x, y) => x.lane - y.lane));
+    }
+  }
+  return { byDay, lanes };
 }
 
 /** How many days the period really has (skipped ones left out). */
