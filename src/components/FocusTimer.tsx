@@ -4,7 +4,6 @@ import { useFocus, focusLeft, focusTitle, mmss } from '../store/focus';
 import { useSettings } from '../store/settings';
 import { useFocusLog } from '../store/focusLog';
 import { useCalendar } from '../store/calendar';
-import { startBadgeWatcher } from '../lib/badges';
 import { subjectSuggestions } from '../pages/tasks/focusStats';
 import { cx } from '../lib/utils';
 import { toast } from '../store/ui';
@@ -84,9 +83,6 @@ export default function FocusTimer() {
   const { focusMinutes, breakMinutes } = useSettings(useShallow(s => ({ focusMinutes: s.focusMinutes, breakMinutes: s.breakMinutes })));
   const [, setNow] = useState(0);
   const [picking, setPicking] = useState(false);
-
-  // The timer lives in the app shell for the whole session: a good place to watch for new badges.
-  useEffect(() => startBadgeWatcher(), []);
 
   useEffect(() => {
     if (!focus.phase) return;

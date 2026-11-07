@@ -1,4 +1,16 @@
-import { useEffect, useLayoutEffect, useState, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type RefObject } from 'react';
+
+/** Whether a media query matches, kept current (a part only one screen size shows is not built on the others). */
+export function useMedia(query: string): boolean {
+  return useSyncExternalStore(
+    change => {
+      const mq = matchMedia(query);
+      mq.addEventListener('change', change);
+      return () => mq.removeEventListener('change', change);
+    },
+    () => matchMedia(query).matches,
+  );
+}
 
 export type BubbleAt = { x: number; y: number; w: number; h: number; moved: boolean } | null;
 
@@ -8,12 +20,17 @@ export type BubbleAt = { x: number; y: number; w: number; h: number; moved: bool
  */
 export function useBubble(box: RefObject<HTMLElement | null>, selector: string, deps: unknown[]): BubbleAt {
   const [at, setAt] = useState<BubbleAt>(null);
+  const placed = useRef(false);
   useLayoutEffect(() => {
     const place = () => {
       const el = box.current?.querySelector<HTMLElement>(selector);
+      placed.current = !!el;
       setAt(prev => (el ? { x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight, moved: !!prev } : null));
     };
-    place();
+    // The first time, at once (it is simply there). After that (another page…), the observer's first call says where, once
+    // the browser has laid the new page out anyway: measuring here forced that whole layout in the middle of the change,
+    // then a second one; the bubble starts sliding one frame later, which nobody sees.
+    if (!placed.current) place();
     const seen = new ResizeObserver(place);
     if (box.current) seen.observe(box.current);
     return () => seen.disconnect();
