@@ -278,7 +278,7 @@ export default function DashboardPro() {
   return (
     <div className="h-full overflow-y-auto overflow-x-hidden px-4 pb-room md:px-8">
       <div className="dpro mx-auto max-w-[1240px]">
-        {/* ── Greeting, the day in one line, two actions ── */}
+        {/* ── Greeting, the day in one line, the next meeting ── */}
         <div className="dpro-top">
           <div className="min-w-0">
             <h1 className="text-balance break-words">{t('{hello}, {name}', { hello, name: firstName(user.name) })}</h1>
@@ -288,16 +288,14 @@ export default function DashboardPro() {
               {summary}
             </p>
           </div>
-          <div className="dpro-actions">
-            <Link to="/taches?ajout=1" className="dpro-btn">
-              <Plus size={15} aria-hidden /> {t('Nouvelle tâche')}
-            </Link>
-            {next && next.date === today && next.start && minutesTo! > 0 && (
+          {/* No « Nouvelle tâche » here: the « + », the island and Tâches already make one. */}
+          {next && next.date === today && next.start && minutesTo! > 0 && (
+            <div className="dpro-actions">
               <Link to={eventLink(next)} className="dpro-btn is-meet" aria-label={t('Prochain : {title} à {time}', { title: next.title, time: next.start })}>
                 <AlarmClock size={15} aria-hidden /> {t('Prochain : {time}', { time: next.start })}
               </Link>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* ── The day in three numbers ── */}

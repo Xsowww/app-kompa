@@ -10,6 +10,7 @@ import { Modal } from '../../components/Overlays';
 import FileIcon from '../../components/FileIcon';
 import { cx, normalize } from '../../lib/utils';
 import { eventHref, fileHref } from './noteUtils';
+import { softKeyboard } from '../../lib/keyboard';
 import { t, tn } from '../../i18n';
 
 const todayKey = () => format(new Date(), 'yyyy-MM-dd');
@@ -143,7 +144,8 @@ function PickerBody({ note, onClose }: { note: Note; onClose: () => void }) {
       </div>
       <div className="relative mt-4">
         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
-        <input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder={t('Rechercher')} aria-label={t('Rechercher un fichier ou un événement')} className="field w-full pl-8" />
+        {/* A phone: the list first (a tap is enough), the keyboard only when one taps the search. */}
+        <input autoFocus={!softKeyboard()} value={query} onChange={e => setQuery(e.target.value)} placeholder={t('Rechercher')} aria-label={t('Rechercher un fichier ou un événement')} className="field w-full pl-8" />
       </div>
       <div className="mt-3 flex gap-1" role="group" aria-label={t('Afficher')}>
         {(

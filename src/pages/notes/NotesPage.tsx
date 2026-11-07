@@ -719,10 +719,28 @@ export default function NotesPage() {
     else if (y < lastY.current - 6 || y < 8) setScrolledDown(false);
     lastY.current = y;
   };
+  // The header folding as the keyboard opens moved the text up under the finger: the line being typed in stays where
+  // it was on the screen (its height before the fold, the text scrolled back by as much just after).
+  const caretTop = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    const before = caretTop.current;
+    caretTop.current = null;
+    const now = selectionTop();
+    const box = document.querySelector<HTMLElement>('[data-note-scroll]');
+    if (before === null || now === null || !box) return;
+    box.scrollTop += now - before;
+    lastY.current = box.scrollTop; // not a scroll of the reader's: the header doesn't unfold for it
+  }, [typing]);
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv || !activeId) return;
-    const check = () => setTyping(matchMedia(ONE_PANE).matches && !!document.activeElement?.closest('.prose-note') && vv.height < window.innerHeight * 0.8);
+    const check = () => {
+      const next = matchMedia(ONE_PANE).matches && !!document.activeElement?.closest('.prose-note') && vv.height < window.innerHeight * 0.8;
+      setTyping(was => {
+        if (was !== next) caretTop.current = selectionTop();
+        return next;
+      });
+    };
     vv.addEventListener('resize', check);
     document.addEventListener('focusin', check);
     document.addEventListener('focusout', check);
@@ -1014,6 +1032,16 @@ function NoteTitle({ note }: { note: Note }) {
       className="block w-full resize-none overflow-hidden bg-transparent hyphens-auto pointer-coarse:py-1 text-[22px] font-semibold md:text-[26px] leading-[1.25] tracking-[-0.02em] outline-none placeholder:text-stone-500"
     />
   );
+}
+
+/** Where the caret of the note being typed in is on the screen (null: not in the note). */
+function selectionTop(): number | null {
+  const sel = window.getSelection();
+  const node = sel?.rangeCount ? sel.focusNode : null;
+  const el = node instanceof HTMLElement ? node : node?.parentElement;
+  if (!sel || !el?.closest('.prose-note')) return null;
+  const r = sel.getRangeAt(0).getClientRects()[0];
+  return r && r.height > 0 ? r.top : el.getBoundingClientRect().top;
 }
 
 /** Phones, upright or sideways: the list and the note open take turns on the screen. */
