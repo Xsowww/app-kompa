@@ -13,7 +13,7 @@ import { useSettings } from '../../store/settings';
 import { AGENDA_EXAMPLES, WORDS, groupWords } from '../../lib/usage';
 import CategoriesDialog from './CategoriesDialog';
 import PeriodsDialog from './PeriodsDialog';
-import { covers, periodColor, periodUntil, periodLabel, periodsFill, weekLanes, periodRange, periodText, periodTint, periodsBetween, periodsOn, type Period } from '../../lib/periods';
+import { periodColor, periodUntil, periodLabel, periodsFill, weekLanes, dayLanes, periodRange, periodText, periodTint, periodsBetween, periodsOn, type Period } from '../../lib/periods';
 import { cx } from '../../lib/utils';
 import { newSeries } from '../../lib/seriesId';
 import EventForm from './EventForm';
@@ -112,8 +112,8 @@ function EventItem({ ev, onEdit, dragging, onDragStart, onMenu }: EventItemProps
   // A reader of a shared calendar, or a shared calendar's event shown in mine: nothing to change here.
   const agenda = fromAgenda(ev);
   const readOnly = (!!shared && !shared.canEdit) || agenda;
-  // Today's events already over: lighter, what is left of the day stands out.
-  const past = ev.date === todayKey() && isOver(ev);
+  // Events already over (a past day, or today's ended): still there, lighter and struck through; what is left stands out.
+  const past = isOver(ev);
   const c = catOf(ev.category);
   const defaults = useSettings(s => s.defaultReminders);
   // A shared calendar's reminders are the ones chosen on it (no usual reminder of mine there).
@@ -121,7 +121,7 @@ function EventItem({ ev, onEdit, dragging, onDragStart, onMenu }: EventItemProps
   // From a timetable followed by link: its name, so it is never mixed up with what was added by hand.
   const feed = feedOf(ev, useSettings(s => s.icsFeeds));
   return (
-    <div className="group enter flex items-stretch gap-2 sm:gap-4">
+    <div className="group flex items-stretch gap-2 sm:gap-4">
       <div className="tabular w-10 shrink-0 pt-3 text-right text-[12px] sm:w-12">
         {/* A night (an event over two days): « 21:00 » the evening, « → 07:00 » the next morning, not 23:59 and 00:00. */}
         {ev.start && isSpan(ev.series) && ev.start === '00:00' && ev.end ? (
@@ -148,13 +148,15 @@ function EventItem({ ev, onEdit, dragging, onDragStart, onMenu }: EventItemProps
         onContextMenu={e => (e.preventDefault(), onMenu(e))}
         onKeyDown={e => isMenuKey(e) && (e.preventDefault(), onMenu(e))}
         title={readOnly ? undefined : t('Glisse sur un autre jour pour déplacer')}
-        className={cx('flex min-w-0 flex-1 touch-manipulation items-start gap-3 rounded-[16px] bg-stone-50 py-3 pl-3 pr-2 transition-colors [-webkit-touch-callout:none] hover:bg-stone-100', past && 'opacity-60', dragging && 'opacity-40')}
+        data-past={past || undefined}
+        className={cx('flex min-w-0 flex-1 touch-manipulation items-start gap-3 rounded-[16px] bg-stone-50 py-3 pl-3 pr-2 transition-colors [-webkit-touch-callout:none] hover:bg-stone-100', past && 'cal-past', dragging && 'opacity-40')}
       >
         {/* An event: its colour bar, no box (only tasks are ticked, with their square box). */}
         <span className="mt-0.5 w-[3px] self-stretch rounded-full" style={{ background: c.color }} />
         {/* A reader opens it too: the whole event, read-only (EventForm). */}
         <button className="min-w-0 flex-1 text-left pointer-coarse:py-2" onClick={onEdit}>
           <p className="text-[14px] font-medium leading-snug hyphens-auto [overflow-wrap:anywhere]">
+            {past && <span className="sr-only">{t('Passé :')} </span>}
             {ev.important && <Flag size={12} className="mr-1 inline-block -translate-y-px fill-amber-500 text-amber-500" aria-label={t('Important')} />}
             {ev.title}
           </p>
@@ -710,14 +712,13 @@ export default function CalendarPage() {
   // « Rien à afficher » only when a hidden category holds something this block would list (not a hidden « Sport »).
   // Anything still to come (not over): after the important ones, the next things, whatever they are.
   const isComing = (e: CalendarEvent) => e.date >= today && !isOver(e);
-  // Not the day shown below the calendar: its events are already listed there (the week shows all its days).
-  const away = (e: CalendarEvent) => mode === 'week' || e.date !== selected;
+  // From now on, whatever day is shown: « À venir » is what comes next, not what follows the day looked at (it
+  // used to leave out the day shown, so today's next class was missing from it on opening).
   // Sorted once per change of the events (and once a minute, for « over »), not at each key typed in the quick add.
   const minute = Math.floor(Date.now() / 60_000);
   const { upcomingHidden, upcoming } = useMemo(() => {
-    const upcomingHidden = filtering && events.some(e => !passes(e) && away(e) && (isComing(e) || isHomeworkSoon(e)));
-    // An event over several days once, at its first day (not « J-3, J-4, J-5 »); none when that day is the one shown
-    // (its next day, J-4, would say the wrong day).
+    const upcomingHidden = filtering && events.some(e => !passes(e) && (isComing(e) || isHomeworkSoon(e)));
+    // An event over several days once, at its first day still to come (not « J-3, J-4, J-5 »).
     // Only what is from today on can be listed: the sorted list from its first event of today (a binary search).
     let lo = 0;
     for (let hi = sorted.length; lo < hi; ) {
@@ -725,12 +726,12 @@ export default function CalendarPage() {
       if (sorted[mid].date < today) lo = mid + 1;
       else hi = mid;
     }
-    const pool = firstOfSpans(sorted.slice(lo).filter(e => isUpcomingExam(e) || isHomeworkSoon(e) || isComing(e))).filter(away);
+    const pool = firstOfSpans(sorted.slice(lo).filter(e => isUpcomingExam(e) || isHomeworkSoon(e) || isComing(e)));
     // One list in date order: the important ones (marked, one per repeat) among homework to hand in and the next events.
     const upcoming = upcomingList(pool, e => (isUpcomingExam(e) ? 'big' : isHomeworkSoon(e) ? 'homework' : 'other'));
     return { upcomingHidden, upcoming };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the helpers above only read these values
-  }, [events, sorted, passes, filtering, shared, today, minute, selected, mode]);
+  }, [events, sorted, passes, filtering, shared, today, minute]);
   const upcomingRows = allUpcoming ? [...upcoming.shown, ...upcoming.more].sort(sortEvents) : upcoming.shown;
 
   const monthDays = useMemo(() => {
@@ -761,7 +762,7 @@ export default function CalendarPage() {
   // Quick add. Keyboard focus: a brand ring (the shadow alone was invisible on the dark theme).
   const quickAdd = (
     readOnly ? (
-          <p className="card px-4 py-3 text-[13px] text-stone-500">{t('Agenda en lecture seule.')}</p>
+          <p className="cal-notice card px-4 py-3 text-[13px] text-stone-500">{t('Agenda en lecture seule.')}</p>
         ) : (
         <form onSubmit={submitQuick} className="card flex flex-col px-3 transition-shadow focus-within:border-stone-300 focus-within:shadow-pop has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-focus">
           <div className="flex h-12 items-center gap-2.5">
@@ -815,6 +816,16 @@ export default function CalendarPage() {
   );
 
   const monthBands = mode === 'month' && monthDays.length ? periodsBetween(periods, toKey(monthDays[0]), toKey(monthDays[monthDays.length - 1])) : [];
+  // A phone's week (its days one under the other): the periods' rows over its seven days.
+  // The days it lists: this week, from today on, plus the days already past that still hold something (it opened on a
+  // Monday's « Rien de prévu. » rows, today's plans far down the page); another week, all its days.
+  const phoneWeekKeys = useMemo(
+    () => (weekKeys.includes(today) ? weekKeys.filter(k => k >= today || byDay.has(k) || tasksOn(todos, k).length > 0) : weekKeys),
+    [weekKeys, today, byDay, todos],
+  );
+  const phoneWeekLanes = useMemo(() => dayLanes(mode === 'week' && !weekGrid ? periods : [], phoneWeekKeys), [mode, weekGrid, periods, phoneWeekKeys]);
+  // The rows of the periods over the whole month shown (a period keeps its height across the weeks too).
+  const monthLanes = useMemo(() => dayLanes(mode === 'month' ? periods : [], monthDays.map(toKey)), [mode, periods, monthDays]);
 
   return (
     <div
@@ -932,16 +943,22 @@ export default function CalendarPage() {
             The week's seven columns need all the width: its list goes under it (titles were cut to « Payer l… »). */}
         {/* Opened on the next thing planned (nothing left this week): said, with the way back to today. */}
         {jumpNote && selected === opening.day && (
-          <p role="status" className="cal-jump mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl bg-brand-50 px-4 py-2.5 text-[13.5px] text-ink">
-            <span className="min-w-[16rem] flex-1">{t('Rien de prévu d’ici dimanche : voici ton prochain rendez-vous, {day}.', { day: fmt(fromKey(opening.day), 'EEEE d MMMM') })}</span>
-            <button type="button" className="btn-ghost h-9 shrink-0 px-2.5 text-[13px] font-medium" onClick={() => (setJumpNote(false), selectDay(today))}>
+          // The Affichage Pro draws it as the island draws a message (calPro.css): black, its icon, a white pill.
+          <p role="status" className="cal-jump cal-notice mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl bg-brand-50 px-4 py-2.5 text-[13.5px] text-ink">
+            <span className="cal-notice-icon hidden" aria-hidden>
+              <CalendarClock size={16} />
+            </span>
+            <span className="min-w-0 flex-1 basis-[12rem]">{t('Rien de prévu d’ici dimanche : voici ton prochain rendez-vous, {day}.', { day: fmt(fromKey(opening.day), 'EEEE d MMMM') })}</span>
+            <button type="button" className="cal-notice-btn btn-ghost h-9 shrink-0 px-2.5 text-[13px] font-medium" onClick={() => (setJumpNote(false), selectDay(today))}>
               {t('Revenir à aujourd’hui')}
             </button>
           </p>
         )}
         <div className={cx('mt-4 grid grid-cols-1 items-start gap-4', mode !== 'week' && 'xl:grid-cols-[minmax(0,1fr)_300px]')}>
           <section className="card min-w-0 p-4 md:p-5">
-            {weekBands.length > 0 && mode !== 'month' && (
+            {/* Over the days side by side (the week's grid, the day view's strip of seven days). A phone's week, its days
+                one under the other, draws them down the days instead (phoneWeekLanes). */}
+            {weekBands.length > 0 && mode !== 'month' && (mode === 'day' || weekGrid) && (
               // Over the week grid, the bands start after the hours column, as its days do.
               <div className={cx('mb-1 grid gap-1', mode === 'week' && weekGrid && 'overflow-y-hidden px-px [scrollbar-gutter:stable]')} style={{ gridTemplateColumns: mode === 'week' && weekGrid ? '48px repeat(7, minmax(0, 1fr))' : 'repeat(7, minmax(0, 1fr))' }} role="group" aria-label={t('Périodes de la semaine')}>
                 {weekLanes(weekBands, weekKeys).filter(b => b.lane < 3).map(({ period: p, from, to, lane }) => {
@@ -984,12 +1001,29 @@ export default function CalendarPage() {
               ) : (
                 // A phone: the seven days one under the other, each with its events and tasks (a day opens in the day view).
                 <div className="-mt-1 space-y-4">
-                  {weekKeys.map(key => {
+                  {phoneWeekKeys.map(key => {
                     const evs = byDay.get(key) ?? [];
                     const tasks = tasksOn(todos, key);
-                    const dayPeriods = periodsOn(periods, key);
+                    const dayPeriods = phoneWeekLanes.byDay.get(key) ?? [];
                     return (
-                      <section key={key} data-drop-day={key} aria-label={fmt(fromKey(key), 'EEEE d MMMM')} className={cx('rounded-xl transition-colors', dropDay === key && 'bg-brand-50 ring-2 ring-brand-500/40')}>
+                      <section
+                        key={key}
+                        data-drop-day={key}
+                        aria-label={fmt(fromKey(key), 'EEEE d MMMM')}
+                        className={cx('relative rounded-xl transition-colors', dropDay === key && 'bg-brand-50 ring-2 ring-brand-500/40')}
+                        // Room at the left for the periods' strips (one per row of periods).
+                        style={phoneWeekLanes.lanes ? { paddingLeft: Math.min(phoneWeekLanes.lanes, 3) * 6 + 8 } : undefined}
+                      >
+                        {/* The periods down the days, as the week goes: one coloured strip per period at the left, on its
+                            row, unbroken from its first day to its last (over the space between two days). */}
+                        {dayPeriods.filter(l => l.lane < 3).map(l => (
+                          <span
+                            key={l.period.id}
+                            aria-hidden
+                            className={cx('absolute w-[3px]', l.first ? 'top-1 rounded-t-full' : 'top-0', l.last ? 'bottom-1 rounded-b-full' : '-bottom-4')}
+                            style={{ left: l.lane * 6, background: periodColor(l.period) }}
+                          />
+                        ))}
                         <div className="mb-2 flex items-center gap-2 border-b border-stone-100 pb-1.5">
                           <button
                             type="button"
@@ -1000,8 +1034,9 @@ export default function CalendarPage() {
                             <span className="first-letter:uppercase">{fmt(fromKey(key), 'EEEE d')}</span>
                             {key === today && <span className="text-[12px] font-medium">{t('Aujourd’hui')}</span>}
                           </button>
-                          {dayPeriods.slice(0, 2).map(p => (
-                            <span key={p.id} className="flex h-5 min-w-0 max-w-[9rem] items-center rounded-full px-2 text-[11px] font-semibold" style={{ background: periodTint(p, 18), color: periodText(p) }}>
+                          {/* Its name where it starts (and at the top of the week); its strip says the days that follow. */}
+                          {dayPeriods.filter(l => l.first).slice(0, 2).map(({ period: p }) => (
+                            <span key={p.id} title={`${label(p)} · ${periodRange(p, fmtDay)}`} className="flex h-5 min-w-0 max-w-[9rem] items-center rounded-full px-2 text-[11px] font-semibold" style={{ background: periodTint(p, 18), color: periodText(p) }}>
                               <span className="truncate">{label(p)}</span>
                             </span>
                           ))}
@@ -1083,10 +1118,9 @@ export default function CalendarPage() {
                 </div>
                 {/* data-fab-ignore: days and events fill the grid, the « + » button may sit over its corner (components/CreateButton). */}
                 <div data-fab-ignore className="flex flex-col overflow-hidden rounded-lg border border-stone-200 bg-stone-200 [gap:1px]">
-                  {monthRows.map((row, r) => (
+                  {monthRows.map(row => (
                     <div key={row.keys[0]} className="relative grid grid-cols-7 [gap:1px]" style={{ '--lanes': row.lanes } as React.CSSProperties}>
                       {row.days.map((d, c) => {
-                        const i = r * 7 + c;
                         const key = row.keys[c];
                         const all = byDay.get(key) ?? [];
                         const evs = all.filter(e => !row.barred.has(e.id));
@@ -1095,7 +1129,7 @@ export default function CalendarPage() {
                         const dayPeriods = periodsOn(periods, key);
                         const tint = dayPeriods[0];
                         // Each name where its period starts (or starts again after skipped days), and at the start of each week row.
-                        const named = dayPeriods.filter(p => i % 7 === 0 || !covers(p, toKey(addDays(d, -1))));
+                        const named = (monthLanes.byDay.get(key) ?? []).filter(l => l.first || c === 0).map(l => l.period);
                         const items = [...evs.map(ev => ({ ev })), ...tasks.map(todo => ({ todo }))];
                         return (
                           <button
@@ -1113,11 +1147,11 @@ export default function CalendarPage() {
                             // Tint over the cell's own background (white or grey), so the grid lines stay.
                             style={tint && dropDay !== key ? { backgroundImage: fillOf(key, isSel ? 24 : 13) } : undefined}
                           >
-                            {dayPeriods.length > 0 && (
-                              <span className="absolute inset-x-0 top-0 flex flex-col" aria-hidden>
-                                {dayPeriods.slice(0, 3).map(p => <span key={p.id} className="h-[3px]" style={{ background: periodColor(p) }} />)}
-                              </span>
-                            )}
+                            {/* Each period's band on its own row (monthLanes): the same height on all its days, and periods that
+                                don't overlap at the same height. */}
+                            {(monthLanes.byDay.get(key) ?? []).filter(l => l.lane < 3).map(l => (
+                              <span key={l.period.id} aria-hidden className="absolute inset-x-0 h-[3px]" style={{ top: l.lane * 4, background: periodColor(l.period) }} />
+                            ))}
                             <span
                               className={cx(
                                 'tabular mb-0.5 flex h-6 w-6 shrink-0 items-center justify-center self-center rounded-full text-[12px] font-medium @md:self-start',
@@ -1144,7 +1178,7 @@ export default function CalendarPage() {
                                     openEvent(it.ev);
                                   }}
                                   title={!canChange(it.ev) ? eventTitle(it.ev, shared) : t('{title} · double-clic pour modifier', { title: eventTitle(it.ev, shared) })}
-                                  className={cx('mb-0.5 hidden select-none items-center gap-1 truncate rounded px-1 text-[11px] text-stone-700 hover:bg-stone-100 @md:flex', canChange(it.ev) && 'cursor-grab', drag?.ev.id === it.ev.id && 'opacity-40')}
+                                  className={cx('mb-0.5 hidden select-none items-center gap-1 truncate rounded px-1 text-[11px] text-stone-700 hover:bg-stone-100 @md:flex', canChange(it.ev) && 'cursor-grab', drag?.ev.id === it.ev.id ? 'opacity-40' : isOver(it.ev) && 'cal-past')}
                                 >
                                   <Bar color={catOf(it.ev.category).color} />
                                   <span className="truncate">{eventTitle(it.ev, shared)}</span>
@@ -1164,7 +1198,7 @@ export default function CalendarPage() {
                               <span
                                 key={'ev' in it ? it.ev.id : it.todo.id}
                                 aria-hidden
-                                className={cx('flex min-w-0 items-center gap-[3px] overflow-hidden whitespace-nowrap text-[10px] leading-[14px] text-stone-700 @md:hidden', 'todo' in it && 'text-stone-500', 'todo' in it && it.todo.done && 'line-through')}
+                                className={cx('flex min-w-0 items-center gap-[3px] overflow-hidden whitespace-nowrap text-[10px] leading-[14px] text-stone-700 @md:hidden', 'todo' in it && 'text-stone-500', 'todo' in it ? it.todo.done && 'line-through' : isOver(it.ev) && 'cal-past')}
                               >
                                 {'ev' in it ? <span className="h-[10px] w-[2px] shrink-0 rounded-full" style={{ background: catOf(it.ev.category).color }} /> : <span className="h-[6px] w-[6px] shrink-0 rounded-[1.5px] border border-stone-400" />}
                                 <span className="min-w-0 truncate">{'ev' in it ? eventTitle(it.ev, shared) : it.todo.title}</span>
@@ -1201,6 +1235,8 @@ export default function CalendarPage() {
                               'top-[calc(30px+var(--lane)*15px)] @md:top-[calc(30px+var(--lane)*20px)]',
                               before ? 'rounded-l-none' : 'rounded-l',
                               after ? 'rounded-r-none' : 'rounded-r',
+                              // Over (its last day of the row is past, and it doesn't go on after it): lighter, struck through.
+                              !after && isOver(byDay.get(row.keys[to])?.find(e => e.series === ev.series) ?? ev) && 'cal-past',
                               drag && '@md:pointer-events-none',
                             )}
                             style={{

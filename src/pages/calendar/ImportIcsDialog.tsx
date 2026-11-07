@@ -13,6 +13,9 @@ import { WORDS } from '../../lib/usage';
 import { cx } from '../../lib/utils';
 import { t, tn } from '../../i18n';
 
+/** French spacing kept on one line: « and » with their word, « : » with the one before (a lone « » » began a line). */
+const keep = (s: string) => s.replace(/« /g, '«\u00a0').replace(/ (»|[:;?!])/g, '\u00a0$1');
+
 export interface IcsSource {
   name: string;
   text: string;
@@ -97,7 +100,7 @@ function Feeds({ onAdded }: { onAdded: (firstDate: string) => void }) {
           {study ? t('Ajouter quand même ses cours passés') : t('Ajouter quand même ses événements passés')}
         </button>
       )}
-      <p className="mt-1.5 text-[12px] text-stone-500">{study ? t('Le lien « iCal » de ton ENT ou de Google Agenda. Mis à jour toutes les 3 h.') : t('Le lien « iCal » de ton agenda (Google Agenda, Outlook…). Mis à jour toutes les 3 h.')}</p>
+      <p className="mt-1.5 text-[12px] text-stone-500">{study ? keep(t('Le lien « iCal » de ton ENT ou de Google Agenda. Mis à jour toutes les 3 h.')) : keep(t('Le lien « iCal » de ton agenda (Google Agenda, Outlook…). Mis à jour toutes les 3 h.'))}</p>
 
       {feeds.length > 0 && (
         <div className="mt-3 rounded-xl border border-stone-200">
@@ -238,8 +241,8 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
         <>
           {/* Where the link is: the first thing asked by those who never did it. */}
           <ol className="mt-2 list-decimal space-y-1 rounded-xl bg-stone-50 py-2.5 pl-8 pr-3 text-[12.5px] leading-snug text-stone-600" aria-label={t('Où trouver le lien')}>
-            <li>{t('Google Agenda (sur ordinateur) : Paramètres › ton agenda › « Adresse secrète au format iCal ».')}</li>
-            <li>{t('Pronote ou ton ENT : Emploi du temps › bouton iCal ou « S’abonner », puis copie le lien.')}</li>
+            <li>{keep(t('Google Agenda (sur ordinateur) : Paramètres › ton agenda › « Adresse secrète au format iCal ».'))}</li>
+            <li>{keep(t('Pronote ou ton ENT : Emploi du temps › bouton iCal ou « S’abonner », puis copie le lien.'))}</li>
             <li>{t('Outlook : Paramètres › Calendrier › Calendriers partagés › Publier. Colle le lien ici, ou choisis un fichier .ics.')}</li>
           </ol>
           <Feeds

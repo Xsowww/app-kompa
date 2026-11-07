@@ -1,6 +1,7 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { Trash2 } from 'lucide-react';
 import { DateField, SelectField, TimeField } from '../../components/Pickers';
+import { softKeyboard } from '../../lib/keyboard';
 import { Modal } from '../../components/Overlays';
 import Field from '../../components/Field';
 import ReminderPicker from '../../components/ReminderPicker';
@@ -26,6 +27,14 @@ export default function TaskDialog({ todo, onClose, remind, onDelete }: { todo?:
   // The title is required: said when it is emptied and left, or at the submit (the focus goes back to it).
   const [titleError, setTitleError] = useState('');
   const titleRef = useRef<HTMLInputElement>(null);
+  // The title is focused (the keyboard opened) for a new task, or on a computer; a task opened to be changed on a
+  // phone keeps the keyboard closed (often it is for its day or a reminder): the window's title gets the focus,
+  // before the window gives it to its first field (layout effects run before Modal's effect).
+  const [focusTitle] = useState(() => !remind && (!todo || !softKeyboard()));
+  const headRef = useRef<HTMLHeadingElement>(null);
+  useLayoutEffect(() => {
+    if (!focusTitle) headRef.current?.focus({ preventScroll: true });
+  }, [focusTitle]);
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
@@ -42,11 +51,11 @@ export default function TaskDialog({ todo, onClose, remind, onDelete }: { todo?:
   return (
     <Modal open onClose={onClose} width={420}>
       <form onSubmit={submit}>
-        <h3 className="text-[18px]">{todo ? t('Modifier la tâche') : t('Nouvelle tâche')}</h3>
+        <h3 ref={headRef} tabIndex={-1} className="text-[18px] outline-none">{todo ? t('Modifier la tâche') : t('Nouvelle tâche')}</h3>
         <Field className="mt-4" label={t('Tâche')} error={titleError}>
           <input
             ref={titleRef}
-            autoFocus={!remind}
+            autoFocus={focusTitle}
             value={title}
             maxLength={160}
             onChange={e => (setTitle(e.target.value), e.target.value.trim() && setTitleError(''))}

@@ -5,7 +5,7 @@ Object.assign(globalThis, {
   location: new URL('http://localhost/'),
   localStorage: { getItem: (k: string) => memory.get(k) ?? null, setItem: (k: string, v: string) => memory.set(k, v), removeItem: (k: string) => memory.delete(k) },
 });
-const { cleanPeriod, cleanPeriods, periodsOn, periodsBetween, repeatPeriod, periodLabel, periodsFill, weekLanes, MAX_REPEATS } = await import('../src/lib/periods');
+const { cleanPeriod, cleanPeriods, periodsOn, periodsBetween, repeatPeriod, periodLabel, periodsFill, weekLanes, dayLanes, MAX_REPEATS } = await import('../src/lib/periods');
 
 const p = (id: string, start: string, end: string, title = id) => ({ id, title, start, end, color: 'bleu' });
 
@@ -84,13 +84,29 @@ describe('periods that overlap', () => {
     const lanes = weekLanes([p('a', '2026-10-12', '2026-10-14'), p('b', '2026-10-15', '2026-10-18')], week);
     expect(lanes.map(b => b.lane)).toEqual([0, 0]);
   });
-  it('a day in both shows both colours', () => {
+  it('a day in both shows both colours, each over the whole day', () => {
     expect(periodsFill([])).toBeUndefined();
     const fill = periodsFill([{ color: 'bleu' }, { color: 'orange' }])!;
-    expect(fill).toContain('0%');
-    expect(fill).toContain('50%');
-    expect(fill).toContain('100%');
+    expect(fill.match(/linear-gradient\(/g)).toHaveLength(2);
+    expect(fill).not.toContain('50%');
     expect(fill).toContain('#3b6fd8');
     expect(fill).toContain('#e8613c');
+  });
+  it('periods that don’t overlap share the top row, whatever their order', () => {
+    // « Cours » began long before and is back on Thursday (days skipped); « Entreprise » is Monday to Wednesday.
+    const cours = { ...p('cours', '2026-09-01', '2026-10-18'), skip: ['2026-10-12', '2026-10-13', '2026-10-14'] };
+    const lanes = weekLanes([cours, p('entreprise', '2026-10-12', '2026-10-14')], week);
+    expect(lanes.map(b => [b.period.id, b.lane])).toEqual([
+      ['entreprise', 0],
+      ['cours', 0],
+    ]);
+  });
+  it('each day knows its periods’ rows', () => {
+    const { byDay, lanes } = dayLanes([p('a', '2026-10-12', '2026-10-16'), p('b', '2026-10-14', '2026-10-15'), p('c', '2026-10-17', '2026-10-18')], week);
+    expect(lanes).toBe(2);
+    expect(byDay.get('2026-10-12')!.map(d => [d.period.id, d.lane, d.first])).toEqual([['a', 0, true]]);
+    expect(byDay.get('2026-10-14')!.map(d => [d.period.id, d.lane])).toEqual([['a', 0], ['b', 1]]);
+    expect(byDay.get('2026-10-17')!.map(d => [d.period.id, d.lane, d.first, d.last])).toEqual([['c', 0, true, false]]);
+    expect(byDay.get('2026-10-16')!.map(d => d.last)).toEqual([true]);
   });
 });

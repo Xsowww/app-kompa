@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { Bell, CalendarPlus, Check, Copy, FileText, Flag, Link2, MapPin, Plus, Trash2 } from 'lucide-react';
 import SeriesIcon from './SeriesIcon';
@@ -18,6 +18,7 @@ import { cx } from '../../lib/utils';
 import { NewCategory } from './CategoriesDialog';
 import ReminderPicker from '../../components/ReminderPicker';
 import { DateField, TimeField } from '../../components/Pickers';
+import { softKeyboard } from '../../lib/keyboard';
 import { FieldError } from '../../components/Field';
 import { fmtDay, fromKey, fromMinutes, parseQuickAdd, remindMinutes, todayKey, toMinutes } from '../../lib/dates';
 import { cleanReminders, earlyReminders, eventReminders, followMoments, remindersText } from '../../lib/reminders';
@@ -218,6 +219,14 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
   // The title is required: said when leaving it empty after typing, or at the submit (the focus goes back to it).
   const [titleError, setTitleError] = useState('');
   const titleRef = useRef<HTMLInputElement>(null);
+  // The title is focused (the keyboard opened) for a new event, or on a computer; an event opened to be changed on a
+  // phone keeps the keyboard closed (often it is for its time or a reminder): the window's title gets the focus,
+  // before the window gives it to its first field (layout effects run before Modal's effect).
+  const [focusTitle] = useState(() => !event || !softKeyboard());
+  const headRef = useRef<HTMLHeadingElement>(null);
+  useLayoutEffect(() => {
+    if (!focusTitle) headRef.current?.focus({ preventScroll: true });
+  }, [focusTitle]);
   const timeMsg = end && !start && !spanning ? t('Indique le début, ou efface la fin.') : timeError ? t('La fin est avant le début.') : '';
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -283,7 +292,7 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
   return (
     <Modal open onClose={onClose} width={460}>
       <form onSubmit={submit}>
-        <h3 className="text-[15px] font-semibold">{event ? t('Modifier l’événement') : t('Nouvel événement')}</h3>
+        <h3 ref={headRef} tabIndex={-1} className="text-[15px] font-semibold outline-none">{event ? t('Modifier l’événement') : t('Nouvel événement')}</h3>
         {/* A shared calendar: who changed it last (pages/groups/SharedCalendar). */}
         {event && shared?.changed(event.id) && <p className="mt-1 text-[12px] text-stone-500">{shared.changed(event.id)}</p>}
         {event && !shared && (f => f && (
@@ -313,7 +322,7 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
         )}
         <input
           ref={titleRef}
-          autoFocus
+          autoFocus={focusTitle}
           value={title}
           onChange={e => onTitle(e.target.value)}
           onBlur={() => title && !title.trim() && setTitleError(t('Donne un titre.'))}
