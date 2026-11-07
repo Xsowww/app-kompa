@@ -121,7 +121,8 @@
     0 0 0 0.5px var(--glass-line),
     var(--shadow-card);
 }
-:root[data-style='liquide'] :is(.bg-tile-blue, .bg-tile-dark):not(nav) {
+:root[data-style='liquide'] .bg-tile-blue:not(nav),
+:root[data-style='liquide'] .bg-tile-dark:not(nav) {
   /* No sheen on the coloured tiles: it washed out their white text (:not(nav): as specific as the rule above, which
      gave them the sheen all the same; the phone's tab bar keeps it). */
   background-image: none;
@@ -135,7 +136,8 @@
 :root[data-style='liquide'] :is(.btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-danger, .icon-btn, input.field, select.field, button.field) {
   border-radius: 999px;
 }
-:root[data-style='liquide'] :is(.btn-primary, .btn-secondary) {
+:root[data-style='liquide'] .btn-primary,
+:root[data-style='liquide'] .btn-secondary {
   box-shadow: inset 1px 1px 0 var(--glass-lo), 0 0 0 0.5px var(--glass-line);
 }
 /* The rows of the side bar are capsules too, at rest, hovered and chosen (a rounded square hover under a capsule
@@ -243,15 +245,18 @@
   box-shadow: var(--nm-pressed), 0 0 0 2px var(--color-focus);
 }
 /* Buttons stand out of the page, and sink when pressed. */
-:root[data-style='relief'] :is(.btn-primary, .btn-secondary) {
+:root[data-style='relief'] .btn-primary,
+:root[data-style='relief'] .btn-secondary {
   background-color: var(--color-surface);
   box-shadow: var(--nm-raised-sm);
 }
 :root[data-style='relief'] .btn-primary {
   color: var(--color-brand-600);
 }
-:root[data-style='relief'] :is(.btn-primary, .btn-secondary):active,
-:root[data-style='relief'] :is(.btn-ghost, .icon-btn):hover {
+:root[data-style='relief'] .btn-primary:active,
+:root[data-style='relief'] .btn-secondary:active,
+:root[data-style='relief'] .btn-ghost:hover,
+:root[data-style='relief'] .icon-btn:hover {
   background-color: transparent;
   box-shadow: var(--nm-pressed);
 }
@@ -290,7 +295,8 @@
 
 /* Segmented controls (index.css › seg): Liquid Glass makes them capsules in a capsule; Relief hollows the frame out and
    raises the chosen choice, with small shadows that stay within the frame's 3 px (the hovered one: half of them). */
-:root[data-style='liquide'] :is(.seg, .seg-item) {
+:root[data-style='liquide'] .seg,
+:root[data-style='liquide'] .seg-item {
   border-radius: 999px;
 }
 :root[data-style='relief'] .seg {
@@ -308,7 +314,12 @@
 }
 
 /* Keyboard focus on buttons whose ring the styles above replaced: an outline instead. */
-:root[data-style] :is(.btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-danger, .icon-btn):focus-visible {
+:root[data-style] .btn:focus-visible,
+:root[data-style] .btn-primary:focus-visible,
+:root[data-style] .btn-secondary:focus-visible,
+:root[data-style] .btn-ghost:focus-visible,
+:root[data-style] .btn-danger:focus-visible,
+:root[data-style] .icon-btn:focus-visible {
   outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
@@ -930,7 +941,11 @@
 }
 /* Buttons as the island's: the main one white with black words (components/island.css › isl-primary), the others
    light glass with white words, all the same weight. */
-:root[data-pro][data-style][data-theme] :is(.btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-danger) {
+:root[data-pro][data-style][data-theme] .btn,
+:root[data-pro][data-style][data-theme] .btn-primary,
+:root[data-pro][data-style][data-theme] .btn-secondary,
+:root[data-pro][data-style][data-theme] .btn-ghost,
+:root[data-pro][data-style][data-theme] .btn-danger {
   font-weight: 650;
   letter-spacing: var(--pro-track);
 }
@@ -949,7 +964,8 @@
 :root[data-pro][data-style][data-theme] .btn-secondary:hover {
   background-color: var(--pro-fill-hover);
 }
-:root[data-pro][data-style][data-theme] :is(.btn-ghost, .icon-btn):hover {
+:root[data-pro][data-style][data-theme] .btn-ghost:hover,
+:root[data-pro][data-style][data-theme] .icon-btn:hover {
   background-color: var(--pro-fill-2);
 }
 :root[data-pro][data-style][data-theme] .btn-danger {
@@ -960,10 +976,20 @@
 :root[data-pro][data-style][data-theme] .btn-danger:hover {
   background-color: color-mix(in srgb, var(--pro-red) 86%, white);
 }
-:root[data-pro][data-style][data-theme] :is(.btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-danger, .icon-btn) {
+:root[data-pro][data-style][data-theme] .btn,
+:root[data-pro][data-style][data-theme] .btn-primary,
+:root[data-pro][data-style][data-theme] .btn-secondary,
+:root[data-pro][data-style][data-theme] .btn-ghost,
+:root[data-pro][data-style][data-theme] .btn-danger,
+:root[data-pro][data-style][data-theme] .icon-btn {
   transition: background-color var(--pro-t-fast) ease, color var(--pro-t-fast) ease, box-shadow var(--pro-t) ease, scale 200ms var(--pro-spring-calm);
 }
-:root[data-pro][data-style][data-theme] :is(.btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-danger, .icon-btn):active:not(:disabled) {
+:root[data-pro][data-style][data-theme] .btn:active:not(:disabled),
+:root[data-pro][data-style][data-theme] .btn-primary:active:not(:disabled),
+:root[data-pro][data-style][data-theme] .btn-secondary:active:not(:disabled),
+:root[data-pro][data-style][data-theme] .btn-ghost:active:not(:disabled),
+:root[data-pro][data-style][data-theme] .btn-danger:active:not(:disabled),
+:root[data-pro][data-style][data-theme] .icon-btn:active:not(:disabled) {
   scale: 0.95;
 }
 /* Fields: light glass, a fine edge, white words; the ring of the keyboard white (--color-focus). */
@@ -1195,11 +1221,13 @@
 :root[data-pro] #contenu .overflow-y-auto:not(.overflow-x-auto, .overflow-auto, .overflow-x-scroll) {
   overflow-x: hidden;
 }
-:root[data-pro] #contenu :is(.card, .grid > *) {
+:root[data-pro] #contenu .card,
+:root[data-pro] #contenu .grid > * {
   min-width: 0;
 }
 /* The lines inside a card (settings rows, a list's rows): the island's hair of light, not a dark seam in the glass. */
-:root[data-pro][data-style][data-theme] .card :is(.border-stone-100, .border-stone-200),
+:root[data-pro][data-style][data-theme] .card .border-stone-100,
+:root[data-pro][data-style][data-theme] .card .border-stone-200,
 :root[data-pro][data-style][data-theme] :is(.card.divide-stone-100, .card .divide-stone-100, .card.divide-stone-200, .card .divide-stone-200) > * {
   border-color: var(--pro-hair);
 }
@@ -1211,15 +1239,23 @@
 }
 /* A block or a choice drawn in the surface colour inside a card (a recording's source, a chip): light glass, as inside
    a dialog, not a dark hole in the card's glass. Its fine edge a hair of light. */
-:root[data-pro][data-style][data-theme] .card :is(.bg-surface, .bg-paper, .bg-stone-50):not(.shadow-pop, .card) {
+:root[data-pro][data-style][data-theme] .card .bg-surface:not(.shadow-pop, .card),
+:root[data-pro][data-style][data-theme] .card .bg-paper:not(.shadow-pop, .card),
+:root[data-pro][data-style][data-theme] .card .bg-stone-50:not(.shadow-pop, .card) {
   background-color: var(--pro-fill-1);
 }
-:root[data-pro][data-style][data-theme] .card :is(.ring-stone-200, .ring-stone-100) {
+:root[data-pro][data-style][data-theme] .card .ring-stone-200,
+:root[data-pro][data-style][data-theme] .card .ring-stone-100 {
   --tw-ring-color: rgb(255 255 255 / 0.1);
 }
 /* Kompaly's conversation (copilot/Copilot): its buttons as the island's, capsules and round send / stop buttons, not
    the square corners of the plain themes. */
-:root[data-pro][data-style][data-theme] #copilot-panel :is(button, a):is(.rounded-lg, .rounded-md, .rounded) {
+:root[data-pro][data-style][data-theme] #copilot-panel button.rounded-lg,
+:root[data-pro][data-style][data-theme] #copilot-panel button.rounded-md,
+:root[data-pro][data-style][data-theme] #copilot-panel button.rounded,
+:root[data-pro][data-style][data-theme] #copilot-panel a.rounded-lg,
+:root[data-pro][data-style][data-theme] #copilot-panel a.rounded-md,
+:root[data-pro][data-style][data-theme] #copilot-panel a.rounded {
   border-radius: var(--pro-r-pill);
 }
 :root[data-pro][data-style][data-theme] #copilot-panel button.border-stone-200 {

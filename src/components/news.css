@@ -20,13 +20,15 @@
   background: radial-gradient(50% 70% at 50% 50%, color-mix(in srgb, var(--c) 22%, transparent), transparent 75%), rgb(255 255 255 / 0.05);
   box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08);
 }
-.news-isl :is(.btn-ghost, .btn-secondary) {
+.news-isl .btn-ghost,
+.news-isl .btn-secondary {
   border: 0;
   border-radius: 999px;
   background: rgb(255 255 255 / 0.14);
   color: #fff;
 }
-.news-isl :is(.btn-ghost, .btn-secondary):hover {
+.news-isl .btn-ghost:hover,
+.news-isl .btn-secondary:hover {
   background: rgb(255 255 255 / 0.24);
 }
 .news-isl .btn-primary {
@@ -37,7 +39,9 @@
 .news-isl .btn-primary:hover {
   background: rgb(255 255 255 / 0.84);
 }
-.news-isl :is(.btn-ghost, .btn-secondary, .btn-primary) {
+.news-isl .btn-ghost,
+.news-isl .btn-secondary,
+.news-isl .btn-primary {
   box-shadow: none;
 }
 .news-isl :focus-visible {
