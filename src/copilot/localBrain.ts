@@ -781,7 +781,7 @@ export function localReply(raw: string): BotReply {
   if (/(ouvre|va|aller|emmene|montre).*(calendrier|agenda|planning)/.test(q)) return { text: t('Direction le calendrier.'), links: [{ label: t('Calendrier'), to: '/calendrier' }] };
   if (/(ouvre|va|aller|emmene|montre).*notes/.test(q)) return { text: t('Tes notes t’attendent.'), links: [{ label: t('Notes'), to: '/notes' }] };
   if (/(ouvre|va|aller|emmene|montre).*(taches|todo|to-do|a faire|progression|temps de travail)/.test(q)) return { text: t('Voilà ta liste.'), links: [{ label: t('Tâches'), to: '/taches' }] };
-  if (/(ouvre|va|aller|emmene|montre).*badges?/.test(q)) return { text: t('Tes badges sont dans ton profil.'), links: [{ label: t('Mes badges'), to: '/profil#badges' }] };
+  if (/(ouvre|va|aller|emmene|montre).*badges?/.test(q)) return { text: t('Tes récompenses sont dans ton profil.'), links: [{ label: t('Mes récompenses'), to: '/profil#badges' }] };
   if (/(ouvre|va|aller|emmene|montre).*(groupes?|equipes?)/.test(q)) {
     const w = groupWords(getSettings().usage);
     return { text: t('Tes {groups}, c’est par ici.', { groups: w.groups }), links: [{ label: w.Groups, to: '/groupes' }] };

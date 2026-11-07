@@ -456,8 +456,8 @@ function otherNudges(now: Date, events: CalendarEvent[]): Nudge[] {
       key: `focus-nudge:${today}`,
       every: 2 * DAY,
       situation: { evenement: 'un grand jour approche et aucune session focus depuis plusieurs jours : propose d’en lancer une', titre: soon.title, jours_restants: daysUntil(soon.date) },
-      fallback: t('« {title} » {when}. Une session focus de {n} min maintenant ?', { title: soon.title, when: inDays(daysUntil(soon.date)), n: getSettings().focusMinutes }),
-      offers: [{ label: t('Lancer une session focus'), kind: 'start_focus', payload: { subject: soon.title } }],
+      fallback: t('« {title} » {when}. Une séance de concentration de {n} min maintenant ?', { title: soon.title, when: inDays(daysUntil(soon.date)), n: getSettings().focusMinutes }),
+      offers: [{ label: t('Lancer une séance de concentration'), kind: 'start_focus', payload: { subject: soon.title } }],
     });
   }
 
@@ -623,7 +623,7 @@ function weeklyReview(): boolean {
       ? top.length
         ? t('Concentration : {time} ({details}).', { time: hours(focusMin), details: top.map(([s, m]) => `${s} ${hours(m)}`).join(', ') })
         : t('Concentration : {time}.', { time: hours(focusMin) })
-      : t('Concentration : aucune session focus.'),
+      : t('Concentration : aucune séance cette semaine.'),
     next.length
       ? nextExams.length
         ? t('Semaine prochaine : {events}, dont {list}.', { events: nextCount, list: nextExams.map(e => e.title).join(', ') })

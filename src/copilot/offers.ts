@@ -134,7 +134,7 @@ function run(offer: CopilotOffer): OfferResult {
     }
     case 'start_focus': {
       const res = startFocus(p.subject ?? '');
-      return { text: t('Session focus de {n} min lancée. Je ne te dérange plus.', { n: res.minutes }) };
+      return { text: t('Séance de concentration de {n} min lancée. Je ne te dérange plus.', { n: res.minutes }) };
     }
     case 'ack':
       return { text: p.text || t('Parfait.') };
