@@ -446,6 +446,7 @@ function ProSection() {
 function AppearanceTab() {
   const settings = useSettings();
   const dark = resolveDark(settings.theme);
+  const look = settings.pro ? null : (settings.style ?? 'classique');
   const setAccent = (accent: AccentKey) => {
     settings.set({ accent });
     applyAppearance({ ...settings, accent });
@@ -481,11 +482,13 @@ function AppearanceTab() {
     </Section>
     <ProSection />
     <Section label={t('Apparence')}>
-      {settings.pro && <p className="px-5 py-3 text-[12.5px] text-stone-500">{t('L’affichage Pro est actif : le thème et le style ci-dessous reviendront quand tu le couperas.')}</p>}
+      {settings.pro && <p className="px-5 py-3 text-[12.5px] text-stone-500">{t('L’Affichage Pro est actif : il remplace le thème et le style. Coupe-le pour en choisir un autre.')}</p>}
+      {/* Pro on: the other looks are off (nothing chosen, nothing to tap); they come back as they were when it is turned off. */}
+      <fieldset disabled={!!settings.pro} className={cx('min-w-0 border-0 p-0', settings.pro && 'pointer-events-none opacity-40')}>
       <Row label={t('Thème')}>
         <Segmented
           label={t('Thème')}
-          value={settings.theme}
+          value={settings.pro ? ('' as ThemeMode) : settings.theme}
           onChange={setTheme}
           options={[
             { value: 'clair', label: t('Clair') },
@@ -502,21 +505,22 @@ function AppearanceTab() {
               key={k}
               type="button"
               onClick={() => setStyle(k)}
-              aria-pressed={(settings.style ?? 'classique') === k}
-              className={cx('rounded-[16px] p-1.5 text-left ring-1 transition-colors', (settings.style ?? 'classique') === k ? 'ring-2 ring-brand-500' : 'ring-stone-200 hover:ring-stone-300')}
+              aria-pressed={look === k}
+              className={cx('rounded-[16px] p-1.5 text-left ring-1 transition-colors', look === k ? 'ring-2 ring-brand-500' : 'ring-stone-200 hover:ring-stone-300')}
             >
               <StylePreview look={k} dark={dark} />
               <span className="mt-1.5 flex items-center gap-1.5 px-1 text-[13px] font-semibold">
-                {(settings.style ?? 'classique') === k && <Check size={13} strokeWidth={3} className="text-brand-600" aria-hidden />}
+                {look === k && <Check size={13} strokeWidth={3} className="text-brand-600" aria-hidden />}
                 {STYLE_LABELS[k]}
               </span>
             </button>
           ))}
         </div>
         <p className="mt-2.5 text-[12px] leading-relaxed text-stone-500" aria-live="polite">
-          {t('{style}\u00a0: {hint}', { style: STYLE_LABELS[settings.style ?? 'classique'], hint: STYLE_HINTS[settings.style ?? 'classique'] })}
+          {look && t('{style}\u00a0: {hint}', { style: STYLE_LABELS[look], hint: STYLE_HINTS[look] })}
         </p>
       </div>
+      </fieldset>
       <Row label={t('Langue')}>
         <LanguagePicker />
       </Row>
