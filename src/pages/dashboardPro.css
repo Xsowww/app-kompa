@@ -28,7 +28,9 @@
     transform: translateY(14px) scale(0.985);
   }
 }
-.dpro :is(.dpro-top, .dpro-stats, .dpro-panel) {
+.dpro .dpro-top,
+.dpro .dpro-stats,
+.dpro .dpro-panel {
   animation: dpro-in 0.6s var(--ease) backwards;
   animation-delay: calc(var(--i, 0) * 55ms + 110ms);
 }
@@ -327,6 +329,10 @@
   width: 148px;
   height: 148px;
   flex: none;
+  /* The rings fill as the page comes in (their stroke is redrawn at each frame): on their own layer, nothing else
+     is redrawn with them. */
+  will-change: transform;
+  contain: strict;
 }
 .dpro-rings circle {
   fill: none;
@@ -657,6 +663,10 @@
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 8px;
   height: 100%;
+  /* The bars grow as the page comes in: what changes in here is laid out here alone, not the whole page at each frame
+     (its size is its parent's, never its bars'), and drawn on its own layer. */
+  contain: size layout style;
+  will-change: transform;
 }
 /* The marks' lines, behind the bars. */
 .dpro-cols::before {

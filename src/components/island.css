@@ -59,6 +59,9 @@
     box-shadow var(--isl-t) ease,
     scale 260ms var(--isl-close-ease);
   transform-origin: 50% 0;
+  /* Its own layer: as it springs (its size changes at each frame), only the island is redrawn, not the page and the
+     wallpaper under it (the hub opening: about half the drawing per frame). */
+  will-change: transform;
 }
 .isl[data-dir='grow'] {
   --isl-t: var(--isl-open-t);
@@ -532,7 +535,8 @@ button.isl-text {
   line-height: 1;
   color: var(--fi-accent);
 }
-.fi-face[data-paused] :is(.fi-time, .fi-mini-time) {
+.fi-face[data-paused] .fi-time,
+.fi-face[data-paused] .fi-mini-time {
   animation: fi-breathe 2.4s ease-in-out infinite;
 }
 .fi-ring {
