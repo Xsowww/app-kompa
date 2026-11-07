@@ -274,7 +274,7 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
         // A card-like field (border + surface): the grey tint alone barely stood out from the page, light or dark.
         className={cx(
           'h-10 w-full border border-transparent bg-surface pl-9 pr-14 text-[13.5px] text-ink outline-none transition placeholder:text-stone-500 hover:border-stone-200 focus:border-focus focus:ring-1 focus:ring-focus',
-          pro ? 'rounded-full' : 'rounded-[14px]',
+          pro ? 'rounded-full focus:border-white/40! focus:ring-white/25!' : 'rounded-[14px]',
         )}
       />
       <span aria-hidden className={cx('kbd pointer-events-none absolute top-1/2 hidden -translate-y-1/2 sm:inline-flex', pro ? 'right-3 rounded-full' : 'right-2')}>{isMac ? '⌘' : t('Ctrl')} K</span>

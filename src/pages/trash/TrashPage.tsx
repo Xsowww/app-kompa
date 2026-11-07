@@ -37,7 +37,7 @@ function EntryIcon({ entry, size = 28 }: { entry: TrashEntry; size?: number }) {
     const it = entry.item;
     return <FileIcon category={categoryOf(it)} size={size} ext={it.kind === 'file' ? it.name.split('.').pop() : undefined} color={folderColor(it)} />;
   }
-  const box = 'flex shrink-0 items-center justify-center rounded-md bg-stone-100 text-stone-500';
+  const box = 'trash-icon flex shrink-0 items-center justify-center rounded-md bg-stone-100 text-stone-500';
   // As in the calendar: an event is a solid coloured bar, a task its square tick box.
   if (entry.kind === 'event' || entry.kind === 'task') {
     return (
@@ -338,12 +338,12 @@ export default function TrashPage() {
       onClick={() => setFilter(key)}
       aria-pressed={filter === key}
       className={cx(
-        'flex h-7 items-center gap-1.5 rounded-full border px-2 text-[12px] font-medium transition-colors sm:px-3 pointer-coarse:h-9',
+        'trash-chip flex h-7 items-center gap-1.5 rounded-full border px-2 text-[12px] font-medium transition-colors sm:px-3 pointer-coarse:h-9',
         filter === key ? 'border-stone-300 bg-surface text-ink shadow-card' : 'border-transparent text-stone-500 hover:bg-stone-100 hover:text-ink',
       )}
     >
       {label}
-      {n > 0 && <span className="tabular text-stone-500">{n}</span>}
+      {n > 0 && <span className="trash-chip-n tabular text-stone-500">{n}</span>}
     </button>
   );
 
@@ -354,7 +354,7 @@ export default function TrashPage() {
             button took three lines. Kept in view with the filters and the selection bar (page-head) down a long trash;
             on a phone the 30 days stay out of it (under it), so that it stays small. */}
         <div className="page-head -mx-4 px-4 pb-3 md:-mx-8 md:px-8">
-          <div className="pb-2 sm:pb-3">
+          <div className="pb-1 sm:pb-3">
             <div className="flex items-center gap-3">
               <h1 ref={titleRef} tabIndex={-1} className="mr-auto text-[24px] font-semibold tracking-[-0.02em] outline-none">
                 {t('Corbeille')}
@@ -376,7 +376,7 @@ export default function TrashPage() {
           )}
 
           {selectedIds.length > 0 && (
-            <div className="enter mt-2 flex h-10 items-center gap-0.5 rounded-lg bg-inverse px-1.5 text-[13px] text-on-inverse shadow-pop">
+            <div className="trash-selbar enter mt-2 flex h-10 items-center gap-0.5 rounded-lg bg-inverse px-1.5 text-[13px] text-on-inverse shadow-pop">
               <button className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md hover:bg-on-inverse/10 sm:h-8 sm:w-8" onClick={() => setSelected(new Set())} title={t('Désélectionner (Échap)')} aria-label={t('Désélectionner')}>
                 <X size={15} />
               </button>

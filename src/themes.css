@@ -375,6 +375,62 @@
   --pro-meet: #40c8e0;
   --pro-timer: #ffb547;
   --pro-urgent: #ff6b5e;
+
+  /* ── The island's grammar (components/island.css, islandHub.css), as named values: every Pro surface uses these, so
+     a card, a dialog, a menu, a button and the island read as the same object. ── */
+  /* Corners: a tooltip, a small tile, a row, a card or tile, a dialog or panel, a capsule. */
+  --pro-r-xs: 10px;
+  --pro-r-sm: 14px;
+  --pro-r-md: 18px;
+  --pro-r-lg: 24px;
+  --pro-r-xl: 30px;
+  --pro-r-pill: 999px;
+  /* Room: inside a row, inside a card, between cards, between rows of controls. */
+  --pro-pad-row: 7px 10px;
+  --pro-pad-card: 18px;
+  --pro-gap: 12px;
+  --pro-gap-sm: 8px;
+  /* Type: small muted labels, the body, titles, the big tabular numbers. */
+  --pro-fs-micro: 11.5px;
+  --pro-fs-caption: 12px;
+  --pro-fs-label: 13px;
+  --pro-fs-body: 14px;
+  --pro-fs-title: 15.5px;
+  --pro-fs-head: 17px;
+  --pro-fs-num: clamp(22px, 6.4vw, 32px);
+  --pro-w-text: 500;
+  --pro-w-label: 620;
+  --pro-w-title: 750;
+  --pro-track: -0.01em;
+  --pro-track-num: -0.035em;
+  /* Ink and light on the dark: white, and white made quieter (never grey on grey). */
+  --pro-ink: #fff;
+  --pro-ink-2: rgb(255 255 255 / 0.78);
+  --pro-ink-3: rgb(255 255 255 / 0.6);
+  --pro-ink-4: rgb(255 255 255 / 0.42);
+  --pro-fill-1: rgb(255 255 255 / 0.06);
+  --pro-fill-2: rgb(255 255 255 / 0.1);
+  --pro-fill-3: rgb(255 255 255 / 0.14);
+  --pro-fill-hover: rgb(255 255 255 / 0.2);
+  --pro-hair: rgb(255 255 255 / 0.09);
+  --pro-edge: inset 0 0 0 1px rgb(255 255 255 / 0.08), inset 0 1px 0 rgb(255 255 255 / 0.12);
+  --pro-black: #000;
+  --pro-red: #ff3b30;
+  --pro-green: #30d158;
+  --pro-amber: #ffb340;
+  /* Shadows: a small lifted thing (a bubble, a white button), a pill, a big floating panel. */
+  --pro-shadow-sm: 0 6px 16px -6px rgb(0 0 0 / 0.6);
+  --pro-shadow-md: 0 12px 30px -12px rgb(0 0 0 / 0.8);
+  --pro-shadow-lg: 0 34px 80px -24px rgb(0 0 0 / 0.95), 0 12px 30px -16px rgb(0 0 0 / 0.7);
+  /* Motion: the island's springs (grows with a little bounce, comes back calmer) and its quick fades. */
+  --pro-spring: linear(0, 0.039, 0.136, 0.267, 0.411, 0.554, 0.686, 0.8, 0.893, 0.966, 1.019, 1.054, 1.074, 1.083, 1.082, 1.076, 1.067, 1.055, 1.043, 1.031, 1.021, 1.012, 1.005, 1, 0.997, 0.994, 0.993, 0.993, 0.993, 0.994, 0.995, 0.996, 1);
+  --pro-spring-calm: linear(0, 0.024, 0.085, 0.17, 0.268, 0.371, 0.472, 0.569, 0.657, 0.735, 0.803, 0.86, 0.907, 0.945, 0.975, 0.997, 1.013, 1.023, 1.03, 1.033, 1.034, 1.033, 1.031, 1.028, 1.025, 1.021, 1.018, 1.015, 1.012, 1.009, 1.007, 1.005, 1);
+  --pro-t-spring: 600ms;
+  --pro-t-calm: 440ms;
+  --pro-t-fast: 150ms;
+  --pro-t: 250ms;
+  /* The keyboard's ring: white, as in the island (the accent's ring hardly showed on the dark glass). */
+  --color-focus: rgb(255 255 255 / 0.92);
 }
 :root[data-pro='nuit'][data-style][data-theme] {
   --wallpaper: linear-gradient(180deg, rgb(6 8 18 / 0.2), rgb(6 8 18 / 0.55)), url('/pro/nuit.webp') center / cover no-repeat, #080d1f;
@@ -445,7 +501,7 @@
     overscroll-behavior: contain;
     padding: 8px;
     border-radius: 28px;
-    background: rgb(20 22 32 / 0.8);
+    background: rgb(20 22 32 / 0.9);
     -webkit-backdrop-filter: blur(28px) saturate(170%);
     backdrop-filter: blur(28px) saturate(170%);
     box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.13), inset 0 1px 0 rgb(255 255 255 / 0.1), 0 28px 60px -18px rgb(0 0 0 / 0.75);
@@ -660,9 +716,9 @@
   outline: 2px solid #fff;
   outline-offset: 2px;
 }
-@media (max-width: 359px) {
-  .pro-kbtn { width: 36px; padding: 0; justify-content: center; }
-}
+/* Its name is already in the island beside it (« Kompaly » at rest): the mark alone, a round button like the bin's. */
+.pro-kbtn { width: 40px; height: 40px; padding: 0; justify-content: center; }
+.pro-kbtn-name { display: none; }
 /* Phones: the island takes the middle of the bar; Kompaly is in it (its hub's « Assistant »). */
 @media (max-width: 639px) {
   .pro-kbtn { display: none; }
@@ -795,7 +851,12 @@
   font-size: 14px;
   font-weight: 600;
   color: var(--color-ink);
-  border-color: rgb(255 255 255 / 0.18);
+  border-style: solid;
+  border-color: transparent;
+  background-color: var(--pro-fill-1);
+}
+.pro-more-focus [data-focus-start]:hover {
+  background-color: var(--pro-fill-2);
 }
 .pro-more-focus .rounded-lg {
   border-radius: 20px;
@@ -812,7 +873,7 @@
   border-radius: 999px;
 }
 :root[data-pro][data-style][data-theme] nav.pro-tabbar {
-  background-color: rgb(16 18 26 / 0.55);
+  background-color: rgb(14 16 24 / 0.74);
   box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.12), inset 0 1px 0 rgb(255 255 255 / 0.1), 0 20px 40px -14px rgb(0 0 0 / 0.7);
 }
 .pro-tab {
@@ -865,47 +926,146 @@
 /* ── Affichage Pro: one designed world on the wallpaper ── */
 /* Capsules: buttons and one-line fields are fully round (as on an iPhone). */
 :root[data-pro][data-style][data-theme] :is(.btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-danger, .icon-btn, input.field, select.field, button.field) {
-  border-radius: 999px;
+  border-radius: var(--pro-r-pill);
 }
-/* The main button in the accent, glowing a little; the others light glass. */
+/* Buttons as the island's: the main one white with black words (components/island.css › isl-primary), the others
+   light glass with white words, all the same weight. */
+:root[data-pro][data-style][data-theme] :is(.btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-danger) {
+  font-weight: 650;
+  letter-spacing: var(--pro-track);
+}
 :root[data-pro][data-style][data-theme] .btn-primary {
-  background-color: var(--color-brand-solid);
-  color: var(--color-on-brand);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.2), 0 8px 22px -8px var(--color-brand-500);
+  background-color: var(--pro-ink);
+  color: var(--pro-black);
+  box-shadow: var(--pro-shadow-sm);
 }
 :root[data-pro][data-style][data-theme] .btn-primary:hover {
-  background-color: color-mix(in srgb, var(--color-brand-solid) 84%, white);
+  background-color: rgb(255 255 255 / 0.84);
 }
 :root[data-pro][data-style][data-theme] .btn-secondary {
-  background-color: rgb(255 255 255 / 0.08);
-  --tw-ring-color: rgb(255 255 255 / 0.14);
+  background-color: var(--pro-fill-3);
+  --tw-ring-color: transparent;
 }
 :root[data-pro][data-style][data-theme] .btn-secondary:hover {
-  background-color: rgb(255 255 255 / 0.15);
+  background-color: var(--pro-fill-hover);
 }
-:root[data-pro][data-style][data-theme] :is(.btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-danger) {
-  transition: background-color 0.2s, color 0.2s, box-shadow 0.2s, transform 0.2s;
+:root[data-pro][data-style][data-theme] :is(.btn-ghost, .icon-btn):hover {
+  background-color: var(--pro-fill-2);
 }
-:root[data-pro][data-style][data-theme] :is(.btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-danger):active {
-  transform: scale(0.96);
+:root[data-pro][data-style][data-theme] .btn-danger {
+  background-color: var(--pro-red);
+  color: #fff;
+  box-shadow: 0 6px 16px -6px rgb(255 59 48 / 0.55);
 }
-/* Segmented controls: a capsule, the chosen choice white (dark text). */
+:root[data-pro][data-style][data-theme] .btn-danger:hover {
+  background-color: color-mix(in srgb, var(--pro-red) 86%, white);
+}
+:root[data-pro][data-style][data-theme] :is(.btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-danger, .icon-btn) {
+  transition: background-color var(--pro-t-fast) ease, color var(--pro-t-fast) ease, box-shadow var(--pro-t) ease, scale 200ms var(--pro-spring-calm);
+}
+:root[data-pro][data-style][data-theme] :is(.btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-danger, .icon-btn):active:not(:disabled) {
+  scale: 0.95;
+}
+/* Fields: light glass, a fine edge, white words; the ring of the keyboard white (--color-focus). */
+:root[data-pro][data-style][data-theme] .field {
+  border-color: rgb(255 255 255 / 0.1);
+  background-color: var(--pro-fill-1);
+  color: var(--pro-ink);
+}
+:root[data-pro][data-style][data-theme] .field:hover:not(:focus, :disabled) {
+  border-color: rgb(255 255 255 / 0.2);
+}
+:root[data-pro][data-style][data-theme] .field:focus {
+  border-color: rgb(255 255 255 / 0.42);
+  --tw-ring-color: rgb(255 255 255 / 0.3);
+  background-color: var(--pro-fill-2);
+}
+:root[data-pro][data-style][data-theme] .field::placeholder {
+  color: var(--pro-ink-4);
+}
+/* Several lines (a textarea, a field as a block): the row's corners, not a capsule. */
+:root[data-pro][data-style][data-theme] textarea.field {
+  border-radius: var(--pro-r-md);
+}
+/* Segmented controls: a capsule, the chosen choice white (dark text). On two rows (Profil's sections on a phone): the
+   corners of a card, its choices those of a row (a capsule twice as high looked like a pill gone wrong). */
 :root[data-pro][data-style][data-theme] .seg {
-  border-radius: 999px;
-  background-color: rgb(255 255 255 / 0.08);
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1);
+  border-radius: var(--pro-r-pill);
+  background-color: var(--pro-fill-1);
+  box-shadow: inset 0 0 0 1px var(--pro-hair);
 }
 :root[data-pro][data-style][data-theme] .seg-item {
-  border-radius: 999px;
+  border-radius: var(--pro-r-pill);
+  color: var(--pro-ink-3);
+  font-weight: 600;
+}
+:root[data-pro][data-style][data-theme] .seg-item:hover {
+  color: var(--pro-ink);
+  background-color: var(--pro-fill-1);
+}
+:root[data-pro][data-style][data-theme] .seg.grid {
+  border-radius: var(--pro-r-lg);
+  padding: 5px;
+  gap: 4px;
+}
+:root[data-pro][data-style][data-theme] .seg.grid > .seg-item {
+  border-radius: calc(var(--pro-r-lg) - 5px);
 }
 :root[data-pro][data-style][data-theme] .seg-item:is([aria-pressed='true'], [aria-checked='true'], [aria-selected='true'], [data-active]) {
-  background-color: rgb(255 255 255 / 0.92);
+  background-color: rgb(255 255 255 / 0.94);
   color: #14161f;
-  box-shadow: 0 4px 12px -6px rgb(0 0 0 / 0.5);
+  box-shadow: var(--pro-shadow-sm);
 }
 /* Switches turned on: green, as on an iPhone. */
 :root[data-pro][data-style][data-theme] [role='switch'][aria-checked='true'] {
-  background-color: #30d158;
+  background-color: var(--pro-green);
+}
+:root[data-pro][data-style][data-theme] [role='switch'][aria-checked='false'] {
+  background-color: rgb(255 255 255 / 0.18);
+}
+/* Small labels over a group (« eyebrow »), the keys of a shortcut: the island's quiet captions. */
+:root[data-pro][data-style][data-theme] .eyebrow {
+  font-weight: 600;
+  color: var(--pro-ink-3);
+}
+:root[data-pro][data-style][data-theme] .kbd {
+  border-color: transparent;
+  border-radius: 6px;
+  background-color: var(--pro-fill-2);
+  color: var(--pro-ink-2);
+}
+/* Checkboxes: rounder, white when ticked (the task's own circle is the island's: pages/tasks). */
+:root[data-pro][data-style][data-theme] input[type='checkbox'] {
+  border-radius: 6px;
+  border-color: rgb(255 255 255 / 0.4);
+  background-color: transparent;
+}
+:root[data-pro][data-style][data-theme] input:is([type='checkbox'], [type='radio']):checked {
+  border-color: #fff;
+  background-color: #fff;
+}
+:root[data-pro][data-style][data-theme] input[type='radio']:checked {
+  box-shadow: inset 0 0 0 3px #1a1c28;
+}
+/* An empty list (components/EmptyState): the island's empty view, a round glass icon, a white title, a quiet line. */
+:root[data-pro][data-style][data-theme] .empty-state-icon:not(.bg-red-50) {
+  background-color: var(--pro-fill-2);
+  color: var(--pro-ink-3);
+  box-shadow: inset 0 0 0 1px var(--pro-hair);
+}
+:root[data-pro][data-style][data-theme] .empty-state-title {
+  font-weight: 650;
+  letter-spacing: var(--pro-track);
+  text-wrap: balance;
+}
+:root[data-pro][data-style][data-theme] .empty-state-text {
+  color: var(--pro-ink-3);
+  text-wrap: balance;
+}
+/* Page titles: the island's heavy, tight type; the line under a title quiet. */
+:root[data-pro][data-style][data-theme] .page-head h1 {
+  font-weight: 800;
+  letter-spacing: -0.035em;
 }
 /* Cards: a light edge that brightens under the mouse; those you open (and those marked .pro-lift) rise a little. */
 :root[data-pro][data-style][data-theme] .card {
@@ -943,7 +1103,7 @@
 /* Menus, pickers, search results a little more opaque: small, over anything (a dialog, a busy page), their words stay clear.
    (Phones' « Plus »: inside the tab bar, whose own blur leaves its blur nothing to see.) */
 :root[data-pro][data-style][data-theme] :is([role='menu'].shadow-pop, .shadow-pop.bg-surface.fixed, #recherche-resultats, #nav-more-panel, #specificity-of-the-glass) {
-  background-color: rgb(24 26 40 / 0.86);
+  background-color: rgb(24 26 40 / 0.94);
 }
 :root[data-pro][data-style][data-theme] [role='menu'].shadow-pop {
   border-radius: 20px;
@@ -1024,4 +1184,108 @@
 :root[data-pro] [aria-modal='true'].fixed.inset-0.flex-col > header {
   background-color: rgb(16 18 28 / 0.55);
   box-shadow: inset 0 -1px 0 rgb(255 255 255 / 0.08);
+}
+
+/* ── Affichage Pro: a page never moves sideways ──
+   A phone's page scrolled left-right as soon as one thing was wider than the screen (a long title without an ellipsis,
+   a row of buttons that doesn't wrap): the page's scroll area took that width and the finger dragged it sideways. The
+   pages' vertical scroll areas never scroll across (their rows and chip bars that do scroll across say so with
+   overflow-x-auto), and what is too wide is cut at the edge rather than moving the whole page; each page truncates its
+   own texts inside their cards. Cards and their grid cells can always shrink to the screen (min-width: 0). */
+:root[data-pro] #contenu .overflow-y-auto:not(.overflow-x-auto, .overflow-auto, .overflow-x-scroll) {
+  overflow-x: hidden;
+}
+:root[data-pro] #contenu :is(.card, .grid > *) {
+  min-width: 0;
+}
+/* The lines inside a card (settings rows, a list's rows): the island's hair of light, not a dark seam in the glass. */
+:root[data-pro][data-style][data-theme] .card :is(.border-stone-100, .border-stone-200),
+:root[data-pro][data-style][data-theme] :is(.card.divide-stone-100, .card .divide-stone-100, .card.divide-stone-200, .card .divide-stone-200) > * {
+  border-color: var(--pro-hair);
+}
+/* A page's own « add » button in the blue tile colour (pages/tasks › TodoList): the main button, so white, as the others. */
+:root[data-pro][data-style][data-theme] .btn.bg-tile-blue {
+  background-color: var(--pro-ink);
+  color: var(--pro-black);
+  box-shadow: var(--pro-shadow-sm);
+}
+/* A block or a choice drawn in the surface colour inside a card (a recording's source, a chip): light glass, as inside
+   a dialog, not a dark hole in the card's glass. Its fine edge a hair of light. */
+:root[data-pro][data-style][data-theme] .card :is(.bg-surface, .bg-paper, .bg-stone-50):not(.shadow-pop, .card) {
+  background-color: var(--pro-fill-1);
+}
+:root[data-pro][data-style][data-theme] .card :is(.ring-stone-200, .ring-stone-100) {
+  --tw-ring-color: rgb(255 255 255 / 0.1);
+}
+/* Kompaly's conversation (copilot/Copilot): its buttons as the island's, capsules and round send / stop buttons, not
+   the square corners of the plain themes. */
+:root[data-pro][data-style][data-theme] #copilot-panel :is(button, a):is(.rounded-lg, .rounded-md, .rounded) {
+  border-radius: var(--pro-r-pill);
+}
+:root[data-pro][data-style][data-theme] #copilot-panel button.border-stone-200 {
+  border-color: transparent;
+  background-color: var(--pro-fill-2);
+}
+:root[data-pro][data-style][data-theme] #copilot-panel button.border-stone-200:hover {
+  background-color: var(--pro-fill-hover);
+}
+/* The recording's pill over every page (pages/record/RecPill): black like the island, its fine edge. */
+:root[data-pro][data-style][data-theme] .rec-pill {
+  background-color: var(--pro-black);
+  box-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.13), var(--pro-shadow-md);
+  --tw-ring-color: transparent;
+}
+/* Corbeille (pages/trash): its filters a segmented row (the chosen one white), the icons of its rows light glass tiles,
+   the bar of a selection a black capsule like the island. */
+:root[data-pro][data-style][data-theme] .trash-chip[aria-pressed='true'] {
+  border-color: transparent;
+  background-color: rgb(255 255 255 / 0.94);
+  color: #14161f;
+  box-shadow: var(--pro-shadow-sm);
+}
+:root[data-pro][data-style][data-theme] .trash-chip[aria-pressed='true'] .trash-chip-n {
+  color: rgb(20 22 31 / 0.6);
+}
+:root[data-pro][data-style][data-theme] .trash-chip[aria-pressed='false']:hover {
+  background-color: var(--pro-fill-2);
+}
+:root[data-pro][data-style][data-theme] .trash-icon {
+  border-radius: 9px;
+  background-color: var(--pro-fill-2);
+  color: var(--pro-ink-2);
+}
+:root[data-pro][data-style][data-theme] .trash-selbar {
+  border-radius: var(--pro-r-pill);
+  padding-inline: 4px 8px;
+  background-color: var(--pro-black);
+  color: #fff;
+  box-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.13), var(--pro-shadow-md);
+}
+:root[data-pro][data-style][data-theme] .trash-selbar > button {
+  border-radius: var(--pro-r-pill);
+}
+/* Profil's sections on a computer (pages/profile): rows of the island's lists, capsules; the open one lit as « Plus »'s. */
+:root[data-pro][data-style][data-theme] .profile-nav-item {
+  height: 36px;
+  padding-inline: 12px;
+  border-radius: var(--pro-r-pill);
+  color: var(--pro-ink-2);
+}
+:root[data-pro][data-style][data-theme] .profile-nav-item:hover {
+  background-color: var(--pro-fill-2);
+  color: var(--pro-ink);
+}
+:root[data-pro][data-style][data-theme] .profile-nav-item[aria-current='page'] {
+  background-color: rgb(255 255 255 / 0.94);
+  color: #14161f;
+  box-shadow: var(--pro-shadow-sm);
+  --tw-ring-color: transparent;
+}
+/* On a white chosen capsule, the accent's light shade (made for the dark) is pale: its deep shade instead. */
+:root[data-pro][data-style][data-theme] :is(.profile-nav-item[aria-current='page'], .seg-item[data-active], .seg-item[aria-pressed='true']) .text-brand-600 {
+  color: var(--color-brand-solid);
+}
+/* Its filters' row: the chosen capsule's edge in line with the title (the plain look's -4 px let the text align). */
+:root[data-pro][data-style][data-theme] [role='group']:has(> .trash-chip) {
+  margin-inline: 0;
 }

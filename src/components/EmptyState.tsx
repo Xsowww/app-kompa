@@ -97,12 +97,12 @@ export function EmptyState({
   return (
     <div role={tone === 'error' ? 'alert' : undefined} className={cx('flex flex-col items-center text-center', sm ? 'px-2 py-4' : 'px-4 py-10', className)}>
       {Icon && (
-        <span className={cx('flex shrink-0 items-center justify-center rounded-full', sm ? 'h-10 w-10' : 'h-12 w-12', tone === 'error' ? 'bg-red-50 text-red-600' : 'bg-stone-200/60 text-stone-500')} aria-hidden>
+        <span className={cx('empty-state-icon flex shrink-0 items-center justify-center rounded-full', sm ? 'h-10 w-10' : 'h-12 w-12', tone === 'error' ? 'bg-red-50 text-red-600' : 'bg-stone-200/60 text-stone-500')} aria-hidden>
           <Icon size={sm ? 18 : 21} strokeWidth={1.8} />
         </span>
       )}
-      <p className={cx('mt-3 max-w-sm font-semibold text-ink [overflow-wrap:anywhere]', sm ? 'text-[13.5px]' : 'text-[15px]')}>{title}</p>
-      {text && <div className="mt-1 max-w-xs text-[13px] text-stone-500">{text}</div>}
+      <p className={cx('empty-state-title mt-3 max-w-sm font-semibold text-ink [overflow-wrap:anywhere]', sm ? 'text-[13.5px]' : 'text-[15px]')}>{title}</p>
+      {text && <div className="empty-state-text mt-1 max-w-xs text-[13px] text-stone-500">{text}</div>}
       {(main || secondary) && (
         <div className={cx('flex flex-wrap justify-center gap-2', sm ? 'mt-3' : 'mt-4')}>
           {main && (
