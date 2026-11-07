@@ -198,10 +198,10 @@ export const useDrive = create<DriveState>()(
           const big = files.find(f => f.size > MAX_FILE);
           if (big) throw Object.assign(new StorageError(t('« {name} » est trop lourd : 50 Mo maximum par fichier.', { name: big.name })), { reason: t('Plus de 50 Mo') });
           if (cloudEnabled && QUOTA) {
-            const used = [...get().items, ...get().trash].reduce((s, i) => s + (i.kind === 'file' ? (i.size ?? 0) : 0), 0);
+            const used = driveUsed(get().items, get().trash);
             const adding = files.reduce((s, f) => s + f.size, 0);
             if (used + adding > QUOTA)
-              throw Object.assign(new StorageError(t('Plus assez de place : {free} Mo libres sur {total} Mo. Vide la corbeille ou supprime des fichiers.', { free: Math.max(0, Math.floor((QUOTA - used) / 1048576)), total: Math.round(QUOTA / 1048576) })), { reason: t('Plus de place') });
+              throw Object.assign(new StorageError(t('Plus assez de place : {free} Mo libres sur {total} Mo. Vide la corbeille ou supprime des fichiers.', { free: Math.max(0, Math.floor((QUOTA - used) / 1e6)), total: Math.round(QUOTA / 1e6) })), { reason: t('Plus de place') });
           }
           const created: (DriveItem | null)[] = [];
           for (const [n, file] of files.entries()) {
@@ -381,6 +381,13 @@ export const useDrive = create<DriveState>()(
     { name: 'drive', storage: userStorage, skipHydration: true, partialize: s => ({ items: s.items, trash: s.trash }) },
   ),
 );
+
+/**
+ * Space the Drive takes: its files, those in the trash too (they still take room until it is emptied). Folders take
+ * none, and there are no versions of a file kept apart (a copy is a file of its own, counted once).
+ */
+export const driveUsed = (items: DriveItem[], trash: DriveItem[]) =>
+  [...items, ...trash].reduce((s, i) => s + (i.kind === 'file' ? Math.max(0, i.size ?? 0) : 0), 0);
 
 /** Trashed items shown at the top level of the trash (their folder wasn't deleted together with them). */
 export const trashRoots = (trash: DriveItem[]) =>

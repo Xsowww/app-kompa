@@ -19,18 +19,22 @@ export function normalize(s: string): string {
 }
 
 let decimalMark: string | undefined;
+/**
+ * A size, in decimal units like phones and computers show them (1 Go = 1000 Mo, 1 Mo = 1000 Ko): with 1024, 25 Mo
+ * used out of 1 Go left « 999 Mo libres », which looked like a mistake.
+ */
 export function formatBytes(bytes = 0): string {
-  if (bytes < 1024) return t('{n} o', { n: bytes });
+  if (bytes < 1000) return t('{n} o', { n: bytes });
   const units = [t('Ko'), t('Mo'), t('Go'), t('To')];
-  let v = bytes / 1024;
+  let v = bytes / 1000;
   let i = 0;
-  while (v >= 1024 && i < units.length - 1) {
-    v /= 1024;
+  while (v >= 1000 && i < units.length - 1) {
+    v /= 1000;
     i++;
   }
-  // 1023,99 Mo would round to « 1024 Mo »: that's « 1 Go ».
-  if (Number(v.toFixed(v < 10 ? 1 : 0)) >= 1024 && i < units.length - 1) {
-    v /= 1024;
+  // 999,99 Mo would round to « 1000 Mo »: that's « 1 Go ».
+  if (Number(v.toFixed(v < 10 ? 1 : 0)) >= 1000 && i < units.length - 1) {
+    v /= 1000;
     i++;
   }
   // The language's decimal mark (« 1,5 Mo », « 1.5 MB »), looked up once.

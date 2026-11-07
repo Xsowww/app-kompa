@@ -55,15 +55,16 @@ export function localSaveError(e: unknown): StorageError {
 }
 
 /** Limits also enforced by Supabase (bucket size limit and storage policy, see supabase/schema.sql). */
-export const MAX_FILE = 50 * 1024 * 1024;
+export const MAX_FILE = 50 * 1000 * 1000; // « 50 Mo » as shown (decimal, formatBytes); Supabase allows a little more
 /** Space per account (Drive + group files), or null for no limit. Keep in step with storage_quota() in SQL. */
 export const QUOTA: number | null = null; // personal use for now: to set before opening to the public (e.g. 50 Mo)
 /**
  * Space shown in the Drive gauge: the per-account quota when there is one, otherwise the 1 GB of files that
- * Supabase's free plan gives the whole project (with one account today, that is the real ceiling).
+ * Supabase's free plan gives the whole project (with one account today, that is the real ceiling). Decimal, like
+ * every size shown (formatBytes): « 25 Mo utilisés sur 1 Go · 975 Mo libres ».
  */
-export const SPACE = QUOTA ?? 1024 * 1024 * 1024;
-export const quotaLabel = () => (QUOTA ? t('{size} Mo', { size: Math.round(QUOTA / 1048576) }) : '');
+export const SPACE = QUOTA ?? 1000 * 1000 * 1000;
+export const quotaLabel = () => (QUOTA ? t('{size} Mo', { size: Math.round(QUOTA / 1e6) }) : '');
 
 /** A failure the student can act on: its message is meant to be shown as is. */
 export class StorageError extends Error {}

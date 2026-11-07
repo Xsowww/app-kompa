@@ -44,6 +44,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { driveWhere, isUploadAbort, notOver, useUploads } from '../../store/uploads';
 import { useCreateActions } from '../../store/create';
 import { t, tn, locale } from '../../i18n';
+import { useTouchDrag } from './touchGestures';
 import './drive.css';
 
 type Tab = 'all' | 'starred' | 'recent';
@@ -59,7 +60,38 @@ const MOD = isMac ? '⌘' : `${t('Ctrl')} + `;
 /** The trash key: Suppr, or ⌘⌫ on a Mac (⌫ alone goes up to the parent folder). */
 const DEL = isMac ? '⌘⌫' : t('Suppr');
 
+/** Two taps on the same item within this time: a double tap (it opens). */
+const DOUBLE_TAP = 400;
+
 const folderColor = (item: DriveItem) => (item.color ? FOLDER_COLORS[item.color]?.color : undefined);
+
+/**
+ * The picture under the pointer or the finger while dragging: a small opaque chip (its icon, its name, how many), round,
+ * nothing see-through. A copy of the tile itself was see-through (glass colours, the page behind its corners) and, placed
+ * off screen, came out as a black square in Safari and on phones.
+ */
+function dragGhost(tile: HTMLElement | null, name: string, n: number): HTMLElement {
+  const ghost = document.createElement('div');
+  ghost.className = 'drive-ghost';
+  // The item's own picture (not the tick of selection mode, nor « ⋯ »).
+  const icon = tile?.querySelector('[data-thumb] img, [data-thumb] svg');
+  if (icon) {
+    const pic = icon.cloneNode(true) as HTMLElement;
+    pic.removeAttribute('class');
+    pic.setAttribute('width', '22');
+    pic.setAttribute('height', '22');
+    ghost.appendChild(pic);
+  }
+  const label = document.createElement('span');
+  label.textContent = name;
+  ghost.appendChild(label);
+  if (n > 1) {
+    const count = document.createElement('b');
+    count.textContent = String(n);
+    ghost.appendChild(count);
+  }
+  return ghost;
+}
 
 function Highlighted({ text, query }: { text: string; query: string }) {
   return (
@@ -137,11 +169,20 @@ export default function DrivePage() {
   const [groupShare, setGroupShare] = useState<DriveItem[] | null>(null);
   // Item holding the list's single Tab stop (arrows move it).
   const [focusId, setFocusId] = useState<string | null>(null);
-  // Last pointer was a finger: a tap adds to the selection instead of replacing it. A phone or a tablet starts so (its
-  // first tap must already follow the finger's rules, and its items aren't draggable: a long press opens the menu).
+  // Last pointer was a finger. A phone or a tablet starts so (its first tap must already follow the finger's rules): a
+  // tap only points at an item, a double tap opens it, a long press selects it (selection mode, where each tap adds or
+  // removes one), a long press then a move drags it (touchGestures). Its menu is under « ⋯ ».
   const [touchMode, setTouchMode] = useState(() => typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches);
   // An item is being dragged: keep the breadcrumb (drop targets) instead of the selection bar.
   const [dragging, setDragging] = useState(false);
+  // What a finger drags (dimmed in place), and the item a finger's tap points at outside selection mode.
+  const [dragged, setDragged] = useState<Set<string>>(new Set());
+  const [tapped, setTapped] = useState<string | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const touchRef = useRef(touchMode);
+  useEffect(() => {
+    touchRef.current = touchMode;
+  });
   const fileInput = useRef<HTMLInputElement>(null);
   const folderInput = useRef<HTMLInputElement>(null);
   const dragDepth = useRef(0);
@@ -276,6 +317,8 @@ export default function DrivePage() {
   // trash goes to its preview there, like notes (checked when the link changes only).
   useEffect(() => {
     if (previewId && isTrashedDriveItem(previewId)) navigate(`/corbeille?type=drive&apercu=${previewId}`, { replace: true });
+    // A finger: pointed at only (a selection would put the page in selection mode once the preview is closed).
+    else if (previewId && touchRef.current) setTapped(previewId);
     else if (previewId) setSelected(new Set([previewId]));
   }, [previewId, navigate]);
 
@@ -513,12 +556,16 @@ export default function DrivePage() {
   };
 
   // ── Selection ─────────────────────────────────────────────────────────────
+  const toggle = (id: string) =>
+    setSelected(s => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  const lastTap = useRef<{ id: string; at: number; before: Set<string> } | null>(null);
   const onItemClick = (e: React.MouseEvent, item: DriveItem) => {
     e.stopPropagation();
-    if (press.current?.fired && press.current.id === item.id) {
-      press.current = null;
-      return;
-    }
     if (e.shiftKey && anchor) {
       const a = visible.findIndex(i => i.id === anchor);
       const b = visible.findIndex(i => i.id === item.id);
@@ -526,72 +573,62 @@ export default function DrivePage() {
       setSelected(new Set(visible.slice(from, to + 1).map(i => i.id)));
       return;
     }
-    // A finger has no double-click: a tap on the one item already selected opens it (the second tap of a double tap
-    // used to remove it from the selection: one tap selected, the next unselected, nothing ever opened).
-    if (touchMode && !e.metaKey && !e.ctrlKey && selectedIds.length === 1 && selectedIds[0] === item.id) {
-      openItem(item);
+    if (touchMode && !e.metaKey && !e.ctrlKey) {
+      const now = performance.now();
+      const prev = lastTap.current;
+      // A double tap opens, in selection mode too (what its first tap changed is put back).
+      if (prev && prev.id === item.id && now - prev.at < DOUBLE_TAP) {
+        lastTap.current = null;
+        setSelected(prev.before);
+        openItem(item);
+        return;
+      }
+      lastTap.current = { id: item.id, at: now, before: selected };
+      // Selection mode: each tap adds or removes one. Otherwise a tap only points at the item.
+      if (selectedIds.length > 0) toggle(item.id);
+      else setTapped(item.id);
+      setAnchor(item.id);
       return;
     }
-    // On a phone, once something is selected, each tap adds or removes an item (selection mode).
-    if (e.metaKey || e.ctrlKey || (touchMode && selectedIds.length > 0)) {
-      setSelected(s => {
-        const n = new Set(s);
-        if (n.has(item.id)) n.delete(item.id);
-        else n.add(item.id);
-        return n;
-      });
-    } else {
-      setSelected(new Set([item.id]));
-    }
+    if (e.metaKey || e.ctrlKey) toggle(item.id);
+    else setSelected(new Set([item.id]));
     setAnchor(item.id);
   };
 
-  // A finger's long press: the item's menu (an iPhone sends no right click; Android does, at about the same moment:
-  // whichever comes first opens it, once). The click that ends the press does nothing more.
-  const press = useRef<{ id: string; x: number; y: number; timer?: ReturnType<typeof setTimeout>; fired: boolean } | null>(null);
-  const onItemPressStart = (e: React.PointerEvent, item: DriveItem) => {
-    clearTimeout(press.current?.timer);
-    if (e.pointerType !== 'touch' || e.button !== 0) return void (press.current = null);
-    const at = { id: item.id, x: e.clientX, y: e.clientY, fired: false };
-    press.current = {
-      ...at,
-      timer: setTimeout(() => {
-        if (press.current?.id !== item.id || press.current.fired) return;
-        press.current.fired = true;
-        swallowNextClick();
-        setSelected(s => (s.has(item.id) ? s : new Set([item.id])));
-        setMenu({ x: Math.round(at.x), y: Math.round(at.y), target: item.id });
-      }, 500),
-    };
-  };
-  const onItemPressMove = (e: React.PointerEvent) => {
-    const p = press.current;
-    if (p && !p.fired && Math.hypot(e.clientX - p.x, e.clientY - p.y) > 10) clearTimeout(p.timer);
-  };
-  const onItemPressEnd = () => clearTimeout(press.current?.timer);
-  /** The click that ends a long press (if the browser sends one): nothing more, wherever it lands. */
-  const swallowNextClick = () => {
-    const stop = (ev: Event) => {
-      ev.stopPropagation();
-      ev.preventDefault();
-    };
-    window.addEventListener('click', stop, { capture: true, once: true });
-    // None comes (iPhone): gone before the next tap. Up to 1.5 s: the finger may stay a moment after the menu opened.
-    const off = () => setTimeout(() => window.removeEventListener('click', stop, true), 300);
-    window.addEventListener('pointerup', off, { once: true });
-    setTimeout(() => window.removeEventListener('click', stop, true), 1500);
-  };
+  // A finger: long press = selection mode, long press then move = drag and drop (touchGestures).
+  // `entered`: this press started selection mode, which ends with its drag.
+  const entered = useRef(false);
+  const startTouch = useTouchDrag(listRef, {
+    onLongPress: id => {
+      entered.current = selectedIds.length === 0;
+      lastTap.current = null;
+      setTapped(null);
+      setSelected(s => (s.has(id) ? s : new Set([...(selectedIds.length ? s : []), id])));
+      setAnchor(id);
+    },
+    dragIds: id => (selected.has(id) ? selectedIds : [id]),
+    ghost: (id, ids) => dragGhost(document.querySelector(`main [role="option"][data-id="${CSS.escape(id)}"]`), items.find(i => i.id === id)?.name ?? '', ids.length),
+    onDragStart: ids => {
+      setDragging(true);
+      setDragged(new Set(ids));
+    },
+    onOver: key => setDropTarget(key),
+    onDrop: (ids, target) => {
+      moveTo(ids, target);
+      setSelected(new Set());
+    },
+    onDragEnd: () => {
+      setDragging(false);
+      setDropTarget(null);
+      setDragged(new Set());
+      if (entered.current) setSelected(new Set());
+    },
+  });
 
+  // Right click, Maj+F10, the menu key (a finger's long press never gets here: see touchGestures).
   const onItemContext = (e: React.MouseEvent | React.KeyboardEvent, item: DriveItem) => {
     e.preventDefault();
     e.stopPropagation();
-    const p = press.current;
-    if (p?.id === item.id) {
-      clearTimeout(p.timer);
-      if (p.fired) return;
-      p.fired = true;
-      swallowNextClick();
-    }
     if (!selected.has(item.id)) setSelected(new Set([item.id]));
     setMenu({ ...menuPoint(e), target: item.id });
   };
@@ -710,29 +747,9 @@ export default function DrivePage() {
     if (!selected.has(item.id)) setSelected(new Set([item.id]));
     e.dataTransfer.setData(DRAG_MIME, JSON.stringify(ids));
     e.dataTransfer.effectAllowed = 'copyMove';
-    // The picture under the pointer: a small opaque chip (its icon, its name, how many), round, nothing see-through.
-    // A copy of the tile itself was see-through (glass colours, the page behind its corners) and, placed off screen,
-    // came out as a black square in Safari and on phones. Placed under the pointer (where the tile already is), for the
-    // browser to take its picture, then removed before anything is painted.
-    const tile = e.currentTarget as HTMLElement;
-    const ghost = document.createElement('div');
-    ghost.className = 'drive-ghost';
-    const icon = tile.querySelector('img, svg');
-    if (icon) {
-      const pic = icon.cloneNode(true) as HTMLElement;
-      pic.removeAttribute('class');
-      pic.setAttribute('width', '22');
-      pic.setAttribute('height', '22');
-      ghost.appendChild(pic);
-    }
-    const name = document.createElement('span');
-    name.textContent = item.name;
-    ghost.appendChild(name);
-    if (ids.length > 1) {
-      const n = document.createElement('b');
-      n.textContent = String(ids.length);
-      ghost.appendChild(n);
-    }
+    // The picture under the pointer, placed where the tile already is for the browser to take its picture, then removed
+    // before anything is painted.
+    const ghost = dragGhost(e.currentTarget as HTMLElement, item.name, ids.length);
     Object.assign(ghost.style, { left: `${e.clientX - 14}px`, top: `${e.clientY - 14}px` });
     document.body.appendChild(ghost);
     e.dataTransfer.setDragImage(ghost, 14, 14);
@@ -789,7 +806,8 @@ export default function DrivePage() {
 
   const tabAll = tab === 'all' && !filtering;
   // Inside a folder everything sits in the same place: the « Emplacement » column only helps search, favorites and recents.
-  const listCols = tabAll ? 'md:grid-cols-[minmax(0,1fr)_130px_90px]' : 'md:grid-cols-[minmax(0,1fr)_200px_130px_90px]';
+  // The last one: « ⋯ ».
+  const listCols = tabAll ? 'md:grid-cols-[minmax(0,1fr)_130px_90px_36px]' : 'md:grid-cols-[minmax(0,1fr)_200px_130px_90px_36px]';
 
   // ── Context menu definitions ──────────────────────────────────────────────
   /** « 3 éléments » under a folder, nothing when it is empty. */
@@ -812,7 +830,8 @@ export default function DrivePage() {
         ...(items.length ? [{ label: t('Tout télécharger (.zip)'), icon: <FolderDown size={15} />, onClick: () => void downloadZip(items, items.filter(i => !i.parentId).map(i => i.id), 'Kompaly Drive') }] : []),
       ];
     }
-    const ids = selectedIds.length ? selectedIds : [menu.target];
+    // « ⋯ » of an item outside the selection: that item alone (the selection stays as it is).
+    const ids = menu.bar || selectedIds.includes(menu.target) ? selectedIds : [menu.target];
     const item = items.find(i => i.id === menu.target);
     // Everything but what the phone selection bar shows next to « Plus d’actions ».
     const full = !menu.bar;
@@ -882,7 +901,7 @@ export default function DrivePage() {
   const cutIds = clipboard?.mode === 'cut' ? new Set(clipboard.ids) : new Set<string>();
 
   const itemProps = (item: DriveItem) => ({
-    // Fingers: no drag (a long press opens the menu, « Déplacer » moves; the phone's drag picture was a black square).
+    // Fingers: their own drag (touchGestures; the browser's drag picture was a black square on phones).
     draggable: !touchMode,
     onDragStart: (e: React.DragEvent) => onDragStart(e, item),
     // Dropped outside any target (or cancelled): no highlight left behind.
@@ -892,11 +911,8 @@ export default function DrivePage() {
       dragDepth.current = 0;
     },
     onClick: (e: React.MouseEvent) => onItemClick(e, item),
-    onPointerDown: (e: React.PointerEvent) => onItemPressStart(e, item),
-    onPointerMove: onItemPressMove,
-    onPointerUp: onItemPressEnd,
-    onPointerCancel: onItemPressEnd,
-    // (A finger's double tap: its second tap already opened the item, see onItemClick.)
+    onPointerDown: (e: React.PointerEvent) => startTouch(e, item.id),
+    // (A finger's double tap: its second tap opens the item, see onItemClick.)
     onDoubleClick: () => !touchMode && openItem(item),
     onContextMenu: (e: React.MouseEvent) => onItemContext(e, item),
     onKeyDown: (e: React.KeyboardEvent<HTMLElement>) => onItemKey(e, item),
@@ -905,8 +921,11 @@ export default function DrivePage() {
     'aria-selected': selected.has(item.id),
     'data-id': item.id,
     'data-drop': dropTarget === item.id || undefined,
+    'data-tapped': (tapped === item.id && touchMode && !selectedIds.length) || undefined,
+    // Its menu (« ⋯ » for the pointer and the finger).
+    'aria-keyshortcuts': 'Shift+F10',
     role: 'option',
-    ...(item.kind === 'folder' ? folderDropProps(item.id, item.id) : {}),
+    ...(item.kind === 'folder' ? { ...folderDropProps(item.id, item.id), 'data-drop-key': item.id, 'data-drop-target': item.id } : {}),
   });
 
   const sortBtn = (key: SortKey) => {
@@ -930,6 +949,34 @@ export default function DrivePage() {
         {sel && <Check size={12} strokeWidth={3} />}
       </span>
     ) : null;
+
+  /**
+   * « ⋯ » of an item: its menu. Always there for a finger; with a mouse, under the pointer, the focus or the selection.
+   * Not a button inside the item (an option holds no control): the keyboard opens the same menu with Maj+F10 or the
+   * menu key, and screen readers hear that from the item (aria-keyshortcuts).
+   */
+  const moreButton = (item: DriveItem, sel: boolean, className?: string) => (
+    <span
+      aria-hidden
+      data-more
+      className={cx(
+        'drive-more flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-stone-500 transition-opacity hover:bg-stone-200/70 hover:text-ink pointer-coarse:h-9 pointer-coarse:w-9 pointer-coarse:opacity-100',
+        touchMode || sel ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100',
+        className,
+      )}
+      title={t('Plus d’actions')}
+      // Not a press on the item (no long press, no drag), not a click on it either.
+      onPointerDown={e => e.stopPropagation()}
+      onDoubleClick={e => e.stopPropagation()}
+      onClick={e => {
+        e.stopPropagation();
+        const r = e.currentTarget.getBoundingClientRect();
+        setMenu({ x: Math.round(r.right), y: Math.round(r.bottom + 4), target: item.id });
+      }}
+    >
+      <MoreHorizontal size={17} />
+    </span>
+  );
 
   // Content matches only (a name match speaks for itself).
   const snippetOf = (item: DriveItem) => (q && !fold(item.name).includes(fold(q)) ? contentHits.get(item.id)?.snippet : undefined);
@@ -1066,65 +1113,64 @@ export default function DrivePage() {
       {/* Breadcrumb / selection bar. The row always keeps its height, so that the selection bar showing up moves nothing
           (on a phone it pushed the files down under the finger: the end of a long press then hit the item above). Phones
           at the root: the space used fills it meanwhile. */}
-      <div className={cx('flex min-h-10 items-center gap-1 text-[13px] pointer-coarse:min-h-11', !bar && rowEmpty && 'short:min-h-0')}>
+      <div className={cx('flex min-h-10 items-center gap-1 text-[13px] pointer-coarse:min-h-12', !bar && rowEmpty && 'short:min-h-0')}>
         {bar ? (
-          <div className="drive-selbar enter flex h-10 w-full min-w-0 items-center gap-0.5 overflow-hidden rounded-lg bg-inverse px-1.5 pointer-coarse:h-11 text-on-inverse shadow-pop">
-            <button className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md hover:bg-on-inverse/10 sm:h-8 sm:w-8 pointer-coarse:h-9 pointer-coarse:w-9" onClick={() => setSelected(new Set())} title={t('Désélectionner (Échap)')} aria-label={t('Désélectionner (Échap)')}>
-              <X size={15} />
+          <div className="drive-selbar enter flex h-10 w-full min-w-0 items-center gap-0.5 overflow-hidden rounded-lg bg-inverse px-1 text-on-inverse shadow-pop pointer-coarse:h-12">
+            <button className="flex h-9 w-8 shrink-0 items-center justify-center rounded-md hover:bg-on-inverse/10 sm:h-8 sm:w-8 pointer-coarse:h-10 sm:pointer-coarse:w-10" onClick={() => setSelected(new Set())} title={t('Désélectionner (Échap)')} aria-label={t('Désélectionner (Échap)')}>
+              <X size={16} />
             </button>
-            <span className="mr-2 whitespace-nowrap px-1 font-medium">
+            <span className="shrink-0 whitespace-nowrap pr-1 font-semibold">
               {selectedIds.length}
               <span className="max-sm:sr-only"> {tn(selectedIds.length, 'sélectionné', 'sélectionnés')}</span>
             </span>
-            <span className="mr-1 h-4 w-px bg-on-inverse/20" />
-            {/* One item: « Ouvrir », named, first (a finger has no double-click; a second tap on the item opens it too). */}
-            {single && (
+            <span className="mx-1 h-5 w-px shrink-0 bg-on-inverse/20 max-sm:hidden" />
+            {/* The actions share the rest of the bar evenly. Phones and tablets: the icon over a short word. */}
+            <div className="flex h-full min-w-0 flex-1 items-center justify-evenly py-1 sm:gap-0.5">
+              {(
+                [
+                  // One item: « Ouvrir », first (a double tap on the item opens it too).
+                  ...(single ? [{ icon: single.kind === 'folder' ? FolderOpen : Eye, label: t('Ouvrir'), title: single.kind === 'folder' ? t('Ouvrir') : t('Ouvrir l’aperçu'), fn: () => openItem(single), open: true }] : []),
+                  // Phones: the less frequent ones go in « Plus » (9 buttons overflowed the bar).
+                  { icon: Copy, label: t('Copier'), fn: () => copy(selectedIds), more: true },
+                  { icon: Scissors, label: t('Couper'), fn: () => cut(selectedIds), more: true },
+                  { icon: CopyPlus, label: t('Dupliquer'), fn: () => void duplicate(selectedIds), more: true },
+                  { icon: FolderInput, label: t('Déplacer'), fn: () => setMoveIds(selectedIds) },
+                  ...(single ? [{ icon: Pencil, label: t('Renommer'), fn: () => void rename(single), phoneMore: true }] : []),
+                  single?.kind === 'file'
+                    ? { icon: Download, label: t('Télécharger'), fn: () => downloadItem(single), more: true }
+                    : { icon: FolderDown, label: t('Télécharger'), title: t('Télécharger (.zip)'), fn: () => void downloadZip(items, selectedIds, single?.name ?? 'Kompaly Drive'), more: true },
+                  { icon: Tag, label: t('Étiquettes'), fn: () => setTagIds(selectedIds), ...(single && { phoneMore: true }) },
+                  ...(selectedFolders.length === selectedIds.length ? [{ icon: Palette, label: t('Couleur'), fn: (e: React.MouseEvent) => setColorMenu(under(e)), phoneMore: true }] : []),
+                  { icon: Trash2, label: t('Corbeille||barre de sélection'), title: t('Mettre à la corbeille'), fn: () => void remove(selectedIds) },
+                ] as { icon: typeof Copy; label: string; title?: string; fn: (e: React.MouseEvent) => void; more?: boolean; phoneMore?: boolean; open?: boolean }[]
+              ).map(a => (
+                <button
+                  key={a.label + (a.title ?? '')}
+                  onClick={a.fn}
+                  className={cx(
+                    'flex h-full min-w-0 flex-1 basis-0 flex-col items-center justify-center gap-[3px] rounded-md hover:bg-on-inverse/10 sm:flex-auto sm:basis-auto sm:px-1 lg:flex-row lg:gap-1.5 lg:px-2',
+                    a.open ? 'drive-open bg-on-inverse font-semibold text-inverse hover:bg-on-inverse hover:opacity-90' : 'text-on-inverse/85 hover:text-on-inverse',
+                    (a.more || a.phoneMore) && 'max-sm:hidden',
+                  )}
+                  title={a.title ?? a.label}
+                  aria-label={a.title ?? a.label}
+                >
+                  <a.icon size={16} className="shrink-0" aria-hidden />
+                  {/* Computers: the less frequent ones show their icon alone below 1536 px (German labels overflowed the bar at 1280). */}
+                  <span className={cx('max-w-full truncate text-[10.5px] font-medium leading-[1.2] tracking-[-0.01em] lg:text-[13px] lg:leading-normal lg:tracking-normal', a.more && 'lg:max-2xl:hidden')}>{a.label}</span>
+                </button>
+              ))}
               <button
-                className="drive-open mr-1 flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md bg-on-inverse px-2.5 font-semibold text-inverse pointer-coarse:h-9 hover:opacity-90"
-                onClick={() => openItem(single)}
-                title={single.kind === 'folder' ? t('Ouvrir') : t('Ouvrir l’aperçu')}
+                onClick={e => setMenu({ ...under(e), target: selectedIds[0], bar: true })}
+                className="flex h-full min-w-0 flex-1 basis-0 flex-col items-center justify-center gap-[3px] rounded-md text-on-inverse/85 hover:bg-on-inverse/10 sm:hidden"
+                title={t('Plus d’actions')}
+                aria-label={t('Plus d’actions')}
+                aria-haspopup="menu"
               >
-                {single.kind === 'folder' ? <FolderOpen size={14} aria-hidden /> : <Eye size={14} aria-hidden />} {t('Ouvrir')}
+                <MoreHorizontal size={16} aria-hidden />
+                <span className="max-w-full truncate text-[10.5px] font-medium leading-[1.2] tracking-[-0.01em]">{t('Plus')}</span>
               </button>
-            )}
-            {[
-              // Phones: the less frequent ones go in « Plus d’actions » (9 buttons overflowed the bar).
-              { icon: Copy, label: t('Copier'), fn: () => copy(selectedIds), more: true },
-              { icon: Scissors, label: t('Couper'), fn: () => cut(selectedIds), more: true },
-              { icon: CopyPlus, label: t('Dupliquer'), fn: () => void duplicate(selectedIds), more: true },
-              { icon: FolderInput, label: t('Déplacer'), fn: () => setMoveIds(selectedIds) },
-              ...(single ? [{ icon: Pencil, label: t('Renommer'), fn: () => void rename(single), phoneMore: true }] : []),
-              single?.kind === 'file'
-                ? { icon: Download, label: t('Télécharger'), fn: () => downloadItem(single), more: true }
-                : { icon: FolderDown, label: t('Télécharger (.zip)'), fn: () => void downloadZip(items, selectedIds, single?.name ?? 'Kompaly Drive'), more: true },
-              { icon: Tag, label: t('Étiquettes'), fn: () => setTagIds(selectedIds), ...(single && { phoneMore: true }) },
-              // Phones: in « Plus d’actions » (a 320 px wide bar couldn't hold it).
-              ...(selectedFolders.length === selectedIds.length ? [{ icon: Palette, label: t('Couleur'), fn: (e: React.MouseEvent) => setColorMenu(under(e)), phoneMore: true }] : []),
-              { icon: Trash2, label: t('Corbeille||barre de sélection'), fn: () => void remove(selectedIds) },
-            ].map(a => (
-              <button
-                key={a.label}
-                onClick={a.fn}
-                className={cx(
-                  'flex h-8 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2 text-on-inverse/85 pointer-coarse:h-9 pointer-coarse:min-w-9 hover:bg-on-inverse/10 hover:text-on-inverse',
-                  ('more' in a || 'phoneMore' in a) && 'max-sm:hidden',
-                )}
-                title={a.label}
-                aria-label={a.label}
-              >
-                {/* The less frequent ones: their icon alone below 1536 px (German labels overflowed the bar at 1280). */}
-                <a.icon size={14} /> <span className={'more' in a ? 'hidden 2xl:inline' : 'hidden lg:inline'}>{a.label}</span>
-              </button>
-            ))}
-            <button
-              onClick={e => setMenu({ ...under(e), target: selectedIds[0], bar: true })}
-              className="flex h-9 min-w-9 shrink-0 items-center justify-center rounded-md text-on-inverse/85 hover:bg-on-inverse/10 sm:hidden"
-              title={t('Plus d’actions')}
-              aria-label={t('Plus d’actions')}
-              aria-haspopup="menu"
-            >
-              <MoreHorizontal size={15} />
-            </button>
+            </div>
           </div>
         ) : filtering ? (
           // No result: the empty state below says it (once).
@@ -1140,6 +1186,8 @@ export default function DrivePage() {
               <button
                 onClick={() => openFolder(null)}
                 {...folderDropProps(null, 'crumb-root')}
+                data-drop-key="crumb-root"
+                data-drop-target=""
                 className={cx('rounded-md px-1.5 py-1 font-medium text-stone-500 transition-colors hover:bg-stone-100 pointer-coarse:py-3', dropTarget === 'crumb-root' && 'bg-brand-50 text-brand-700')}
               >
                 {t('Mes fichiers')}
@@ -1151,6 +1199,8 @@ export default function DrivePage() {
                 <button
                   onClick={() => openFolder(b.id)}
                   {...folderDropProps(b.id, `crumb-${b.id}`)}
+                  data-drop-key={`crumb-${b.id}`}
+                  data-drop-target={b.id}
                   className={cx(
                     'max-w-48 truncate rounded-md px-1.5 py-1 font-medium transition-colors hover:bg-stone-100 pointer-coarse:py-3',
                     b.id === parentId ? 'text-ink' : 'text-stone-500',
@@ -1185,6 +1235,7 @@ export default function DrivePage() {
 
       {/* Content */}
       <div
+        ref={listRef}
         className={cx(
           'relative -mx-[9px] mt-2 min-h-0 flex-1 overflow-y-auto rounded-xl border p-2 pb-room transition-colors',
           dropTarget === 'here' ? 'drive-drop-here border-dashed border-brand-500 bg-brand-50/50' : 'border-transparent',
@@ -1215,9 +1266,9 @@ export default function DrivePage() {
               title={t('Aucun favori')}
               text={
                 <>
-                  {/* Fingers can't right-click (a long press opens the menu). */}
+                  {/* Fingers can't right-click: the « ⋯ » of each item. */}
                   <span className="pointer-coarse:hidden">{t('Ajoute un favori avec un clic droit sur un élément.')}</span>
-                  <span className="hidden pointer-coarse:inline">{t('Ajoute un favori en appuyant longuement sur un élément.')}</span>
+                  <span className="hidden pointer-coarse:inline">{t('Ajoute un favori avec le bouton ⋯ d’un élément.')}</span>
                 </>
               }
               preview={view === 'grid' ? 'tiles' : 'list'}
@@ -1248,17 +1299,18 @@ export default function DrivePage() {
                     'group relative flex cursor-default select-none flex-col items-center rounded-lg px-2 pb-2.5 pt-3.5 text-center transition-colors',
                     sel ? 'bg-brand-50 ring-1 ring-brand-200' : 'hover:bg-stone-100/70',
                     dropTarget === item.id && 'bg-brand-50 ring-2 ring-brand-500',
-                    cutIds.has(item.id) && 'opacity-40',
+                    (cutIds.has(item.id) || dragged.has(item.id)) && 'opacity-40',
                   )}
                   title={item.name}
                 >
-                  {item.starred && <Star size={11} className="absolute right-2.5 top-2.5 fill-amber-400 text-amber-400" />}
                   {touchMode && selectedIds.length > 0 && <span className="absolute left-2 top-2">{tick(sel)}</span>}
-                  <span className="flex h-16 w-full items-center justify-center">
+                  {moreButton(item, sel, 'absolute right-1 top-1')}
+                  <span data-thumb className="flex h-16 w-full items-center justify-center">
                     <FileThumb key={thumbKey(item)} item={item} className="h-16 w-24" icon={<FileIcon category={categoryOf(item)} size={56} ext={extOf(item)} color={folderColor(item)} />} />
                   </span>
                   <p className="mt-2 line-clamp-2 w-full break-words text-[12.5px] font-medium leading-tight">{item.name}</p>
-                  <p className="tabular mt-0.5 text-[11px] text-stone-500">
+                  <p className="tabular mt-0.5 flex items-center gap-1 text-[11px] text-stone-500">
+                    {item.starred && <Star size={11} className="shrink-0 fill-amber-400 text-amber-400" aria-label={t('Favori')} />}
                     {item.kind === 'folder' ? childCount(item.id) : formatBytes(item.size)}
                   </p>
                   {item.tags?.length ? (
@@ -1273,11 +1325,12 @@ export default function DrivePage() {
           </div>
         ) : (
           <div className="card overflow-hidden">
-            <div className={cx('grid grid-cols-[minmax(0,1fr)_64px] gap-3 border-b border-stone-100 px-4 py-2 text-[12px] font-medium text-stone-500 sm:grid-cols-[minmax(0,1fr)_110px_80px]', listCols)}>
+            <div className={cx('grid grid-cols-[minmax(0,1fr)_64px_36px] gap-3 border-b border-stone-100 py-2 pl-4 pr-1.5 text-[12px] font-medium text-stone-500 sm:grid-cols-[minmax(0,1fr)_110px_80px_36px]', listCols)}>
               {sortBtn('name')}
               {!tabAll && <span className="hidden md:block">{t('Emplacement')}</span>}
               <span className="hidden sm:block">{sortBtn('date')}</span>
               {sortBtn('size')}
+              <span />
             </div>
             <div role="listbox" aria-label={t('Contenu du dossier')} aria-multiselectable="true">
             {visible.slice(0, shown).map(item => {
@@ -1287,17 +1340,19 @@ export default function DrivePage() {
                   key={item.id}
                   {...itemProps(item)}
                   className={cx(
-                    'grid min-h-11 cursor-default select-none grid-cols-[minmax(0,1fr)_64px] items-center gap-3 border-b border-stone-100 px-4 text-[13px] transition-colors last:border-0 sm:grid-cols-[minmax(0,1fr)_110px_80px]',
+                    'group grid min-h-11 cursor-default select-none grid-cols-[minmax(0,1fr)_64px_36px] items-center gap-3 border-b border-stone-100 pl-4 pr-1.5 text-[13px] transition-colors last:border-0 sm:grid-cols-[minmax(0,1fr)_110px_80px_36px]',
                     listCols,
                     snippetOf(item) && 'py-2',
                     sel ? 'bg-brand-50' : 'hover:bg-stone-50',
                     dropTarget === item.id && 'bg-brand-50 ring-2 ring-inset ring-brand-500',
-                    cutIds.has(item.id) && 'opacity-40',
+                    (cutIds.has(item.id) || dragged.has(item.id)) && 'opacity-40',
                   )}
                 >
                   <span className="flex min-w-0 items-center gap-2.5">
                     {tick(sel)}
-                    <FileThumb key={thumbKey(item)} item={item} className="h-[26px] w-[26px] rounded-[5px]" icon={<FileIcon category={categoryOf(item)} size={26} ext={extOf(item)} color={folderColor(item)} />} />
+                    <span data-thumb className="flex shrink-0">
+                      <FileThumb key={thumbKey(item)} item={item} className="h-[26px] w-[26px] rounded-[5px]" icon={<FileIcon category={categoryOf(item)} size={26} ext={extOf(item)} color={folderColor(item)} />} />
+                    </span>
                     <span className="min-w-0">
                       <span className="flex min-w-0 items-center gap-1.5">
                         <span className="max-w-full shrink-0 truncate font-medium">{q ? <Highlighted text={item.name} query={q} /> : item.name}</span>
@@ -1316,6 +1371,7 @@ export default function DrivePage() {
                   {!tabAll && <span className="hidden truncate text-[12px] text-stone-500 md:block">{[t('Mes fichiers'), ...pathOf(items, item.parentId).map(p => p.name)].join(' / ')}</span>}
                   <span className="hidden text-[12px] text-stone-500 sm:block">{relativeTime(item.updatedAt)}</span>
                   <span className="tabular text-[12px] text-stone-500">{item.kind === 'folder' ? (folderSize(items, item.id) ? formatBytes(folderSize(items, item.id)) : '') : formatBytes(item.size)}</span>
+                  {moreButton(item, sel)}
                 </div>
               );
             })}

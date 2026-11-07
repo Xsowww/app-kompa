@@ -1,12 +1,9 @@
-import { useDrive } from '../../store/drive';
+import { useDrive, driveUsed } from '../../store/drive';
 import { QUOTA, SPACE } from '../../lib/blobStore';
 import { cloudEnabled } from '../../lib/supabase';
 import { formatBytes, cx } from '../../lib/utils';
 import { t, tn } from '../../i18n';
 
-const fileBytes = (list: { kind: string; size?: number }[]) => list.reduce((s, i) => s + (i.kind === 'file' ? (i.size ?? 0) : 0), 0);
-
-/** How much of the Drive space is used (the trash counts until it is emptied). */
 /** The number shown (« 1,5 » for « 1,5 Go »), for the singular or plural of « 1 Go libre », « 12 Ko utilisés ». */
 const amount = (bytes: number) => parseFloat(formatBytes(bytes).replace(',', '.'));
 
@@ -14,8 +11,8 @@ const amount = (bytes: number) => parseFloat(formatBytes(bytes).replace(',', '.'
 export default function StorageGauge({ inline = false }: { inline?: boolean }) {
   const items = useDrive(s => s.items);
   const trash = useDrive(s => s.trash);
-  const inTrash = fileBytes(trash);
-  const used = fileBytes(items) + inTrash;
+  const inTrash = driveUsed([], trash);
+  const used = driveUsed(items, trash);
   const share = Math.min(1, used / SPACE);
   const left = Math.max(0, SPACE - used);
   const tone = share >= 0.95 ? 'bg-red-500' : share >= 0.8 ? 'bg-amber-500' : 'bg-brand-500';
