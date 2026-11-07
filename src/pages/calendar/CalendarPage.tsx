@@ -149,13 +149,13 @@ function EventItem({ ev, onEdit, dragging, onDragStart, onMenu }: EventItemProps
         onKeyDown={e => isMenuKey(e) && (e.preventDefault(), onMenu(e))}
         title={readOnly ? undefined : t('Glisse sur un autre jour pour déplacer')}
         data-past={past || undefined}
-        className={cx('flex min-w-0 flex-1 touch-manipulation items-start gap-3 rounded-[16px] bg-stone-50 py-3 pl-3 pr-2 transition-colors [-webkit-touch-callout:none] hover:bg-stone-100', past && 'opacity-55', dragging && 'opacity-40')}
+        className={cx('flex min-w-0 flex-1 touch-manipulation items-start gap-3 rounded-[16px] bg-stone-50 py-3 pl-3 pr-2 transition-colors [-webkit-touch-callout:none] hover:bg-stone-100', past && 'cal-past', dragging && 'opacity-40')}
       >
         {/* An event: its colour bar, no box (only tasks are ticked, with their square box). */}
         <span className="mt-0.5 w-[3px] self-stretch rounded-full" style={{ background: c.color }} />
         {/* A reader opens it too: the whole event, read-only (EventForm). */}
         <button className="min-w-0 flex-1 text-left pointer-coarse:py-2" onClick={onEdit}>
-          <p className={cx('text-[14px] font-medium leading-snug hyphens-auto [overflow-wrap:anywhere]', past && 'line-through decoration-1')}>
+          <p className="text-[14px] font-medium leading-snug hyphens-auto [overflow-wrap:anywhere]">
             {past && <span className="sr-only">{t('Passé :')} </span>}
             {ev.important && <Flag size={12} className="mr-1 inline-block -translate-y-px fill-amber-500 text-amber-500" aria-label={t('Important')} />}
             {ev.title}
@@ -817,7 +817,13 @@ export default function CalendarPage() {
 
   const monthBands = mode === 'month' && monthDays.length ? periodsBetween(periods, toKey(monthDays[0]), toKey(monthDays[monthDays.length - 1])) : [];
   // A phone's week (its days one under the other): the periods' rows over its seven days.
-  const phoneWeekLanes = useMemo(() => dayLanes(mode === 'week' && !weekGrid ? periods : [], weekKeys), [mode, weekGrid, periods, weekKeys]);
+  // The days it lists: this week, from today on, plus the days already past that still hold something (it opened on a
+  // Monday's « Rien de prévu. » rows, today's plans far down the page); another week, all its days.
+  const phoneWeekKeys = useMemo(
+    () => (weekKeys.includes(today) ? weekKeys.filter(k => k >= today || byDay.has(k) || tasksOn(todos, k).length > 0) : weekKeys),
+    [weekKeys, today, byDay, todos],
+  );
+  const phoneWeekLanes = useMemo(() => dayLanes(mode === 'week' && !weekGrid ? periods : [], phoneWeekKeys), [mode, weekGrid, periods, phoneWeekKeys]);
   // The rows of the periods over the whole month shown (a period keeps its height across the weeks too).
   const monthLanes = useMemo(() => dayLanes(mode === 'month' ? periods : [], monthDays.map(toKey)), [mode, periods, monthDays]);
 
@@ -995,7 +1001,7 @@ export default function CalendarPage() {
               ) : (
                 // A phone: the seven days one under the other, each with its events and tasks (a day opens in the day view).
                 <div className="-mt-1 space-y-4">
-                  {weekKeys.map(key => {
+                  {phoneWeekKeys.map(key => {
                     const evs = byDay.get(key) ?? [];
                     const tasks = tasksOn(todos, key);
                     const dayPeriods = phoneWeekLanes.byDay.get(key) ?? [];
@@ -1172,7 +1178,7 @@ export default function CalendarPage() {
                                     openEvent(it.ev);
                                   }}
                                   title={!canChange(it.ev) ? eventTitle(it.ev, shared) : t('{title} · double-clic pour modifier', { title: eventTitle(it.ev, shared) })}
-                                  className={cx('mb-0.5 hidden select-none items-center gap-1 truncate rounded px-1 text-[11px] text-stone-700 hover:bg-stone-100 @md:flex', canChange(it.ev) && 'cursor-grab', drag?.ev.id === it.ev.id ? 'opacity-40' : isOver(it.ev) && 'opacity-55 line-through')}
+                                  className={cx('mb-0.5 hidden select-none items-center gap-1 truncate rounded px-1 text-[11px] text-stone-700 hover:bg-stone-100 @md:flex', canChange(it.ev) && 'cursor-grab', drag?.ev.id === it.ev.id ? 'opacity-40' : isOver(it.ev) && 'cal-past')}
                                 >
                                   <Bar color={catOf(it.ev.category).color} />
                                   <span className="truncate">{eventTitle(it.ev, shared)}</span>
@@ -1192,7 +1198,7 @@ export default function CalendarPage() {
                               <span
                                 key={'ev' in it ? it.ev.id : it.todo.id}
                                 aria-hidden
-                                className={cx('flex min-w-0 items-center gap-[3px] overflow-hidden whitespace-nowrap text-[10px] leading-[14px] text-stone-700 @md:hidden', 'todo' in it && 'text-stone-500', 'todo' in it ? it.todo.done && 'line-through' : isOver(it.ev) && 'opacity-55 line-through')}
+                                className={cx('flex min-w-0 items-center gap-[3px] overflow-hidden whitespace-nowrap text-[10px] leading-[14px] text-stone-700 @md:hidden', 'todo' in it && 'text-stone-500', 'todo' in it ? it.todo.done && 'line-through' : isOver(it.ev) && 'cal-past')}
                               >
                                 {'ev' in it ? <span className="h-[10px] w-[2px] shrink-0 rounded-full" style={{ background: catOf(it.ev.category).color }} /> : <span className="h-[6px] w-[6px] shrink-0 rounded-[1.5px] border border-stone-400" />}
                                 <span className="min-w-0 truncate">{'ev' in it ? eventTitle(it.ev, shared) : it.todo.title}</span>
@@ -1230,7 +1236,7 @@ export default function CalendarPage() {
                               before ? 'rounded-l-none' : 'rounded-l',
                               after ? 'rounded-r-none' : 'rounded-r',
                               // Over (its last day of the row is past, and it doesn't go on after it): lighter, struck through.
-                              !after && isOver(byDay.get(row.keys[to])?.find(e => e.series === ev.series) ?? ev) && 'opacity-55 line-through',
+                              !after && isOver(byDay.get(row.keys[to])?.find(e => e.series === ev.series) ?? ev) && 'cal-past',
                               drag && '@md:pointer-events-none',
                             )}
                             style={{

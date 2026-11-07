@@ -1,5 +1,5 @@
 /* Affichage Pro, Calendrier (CalendarPage; the categories' vivid colours come from proColors.ts): what is important
-   stands out at a glance. Nothing here without data-pro. */
+   stands out at a glance. Only data-pro rules, except « .cal-past » at the end (every look). */
 
 /* An event marked important, in the day's list: an amber edge and glow. */
 :root[data-pro] .cal-page [data-important] {
@@ -67,4 +67,17 @@
 :root[data-pro] .cal-page .cal-notice-btn:focus-visible {
   outline: 2px solid #fff;
   outline-offset: 2px;
+}
+
+/* In every look (not only Pro): an event already over, wherever it is listed (day, week, month, hourly grid) stays
+   shown, struck through, its words grey and its colours faded. Grey words rather than a see-through event: the
+   words keep a readable contrast (an event at 55 % failed it). */
+.cal-past {
+  text-decoration-line: line-through;
+  text-decoration-thickness: 1px;
+  filter: saturate(0.35);
+}
+.cal-past,
+.cal-past * {
+  color: var(--color-stone-500) !important;
 }
