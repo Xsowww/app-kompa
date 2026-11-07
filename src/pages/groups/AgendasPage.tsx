@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { CalendarRange, CloudOff, Link2, LogIn, Settings2, Users } from 'lucide-react';
+import { CalendarRange, ChevronDown, CloudOff, Link2, LogIn, Settings2, Users } from 'lucide-react';
 import GroupMuteButton from '../../components/GroupMuteButton';
 import { useAuth } from '../../store/auth';
 import { prefetchGroup, useGroups, watchFocus } from '../../store/groups';
-import { Modal } from '../../components/Overlays';
+import { ContextMenu, Modal } from '../../components/Overlays';
 import { cloudEnabled } from '../../lib/supabase';
 import { setGroupSpace, shareInvite } from '../../lib/groups';
 import { cx } from '../../lib/utils';
@@ -17,6 +17,7 @@ import SharedCalendar from './SharedCalendar';
 import { setViewingAgenda, useAgendaNews } from '../../store/agendaNews';
 import { useCreateActions } from '../../store/create';
 import SpaceHint from './SpaceHint';
+import './groups.css';
 import { PlusHint } from '../../components/CreateButton';
 import { t, tn, locale } from '../../i18n';
 
@@ -50,6 +51,9 @@ function Agendas() {
   const { groups: all, loaded, failed } = useGroups();
   const agendas = all.filter(g => g.kind === 'agenda').sort((a, b) => a.name.localeCompare(b.name, locale()));
   const [dialog, setDialog] = useState<'create' | 'settings' | 'members' | 'join' | null>(null);
+  // Phones: the shared calendars in a menu opened from the one open (beside the title), not on rows of their own above
+  // the calendar (with the explanation, they took the room of the calendar).
+  const [picker, setPicker] = useState<{ x: number; y: number } | null>(null);
 
   // Which one: ?g=…, else the last one opened here, else the first.
   const wanted = params.get('g') ?? (() => {
@@ -111,14 +115,29 @@ function Agendas() {
 
   return (
     <div className="mx-auto w-full max-w-[1244px] flex h-full flex-col">
-      {/* Title, the shared calendars (on as many lines as they need: none hidden in a row scrolling sideways);
+      {/* Title, the shared calendars (on as many lines as they need: none hidden in a row scrolling sideways; phones:
+          in a menu beside the title);
           creating one: the « + » button */}
       <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 px-4 pb-3 pt-2 md:px-8">
-        <h1 className="text-[24px] font-semibold tracking-[-0.02em]">{t('Agendas partagés')}</h1>
-        {/* What it is, beside the groups (they were mixed up), with the way to the other one. */}
-        <SpaceHint here="agendas" className="order-last w-full" />
+        <h1 className="min-w-0 shrink-0 text-[24px] font-semibold tracking-[-0.02em] max-sm:text-[22px] max-[359px]:text-[20px]">{t('Agendas partagés')}</h1>
+        {active && (
+          <button
+            className="agenda-pick ml-auto flex h-9 min-w-[88px] max-w-fit flex-1 basis-0 items-center gap-1.5 rounded-full border border-stone-300 bg-surface pl-1 pr-2.5 text-[13px] font-medium shadow-card sm:hidden"
+            onClick={e => {
+              const r = e.currentTarget.getBoundingClientRect();
+              setPicker({ x: Math.round(r.right - 220), y: Math.round(r.bottom + 6) });
+            }}
+            aria-haspopup="menu"
+            aria-label={t('Changer d’agenda partagé : {name}', { name: active.name })}
+          >
+            <GroupBadge group={active} size={26} />
+            <span className="min-w-0 truncate">{active.name}</span>
+            {agendas.some(g => g.id !== active.id && (news[g.id] ?? 0) > 0) && <span className="h-2 w-2 shrink-0 rounded-full bg-brand-solid" aria-label={t('nouveau')} />}
+            <ChevronDown size={14} className="shrink-0 text-stone-400" aria-hidden />
+          </button>
+        )}
         {agendas.length > 0 && (
-          <div className="flex w-full min-w-0 flex-wrap gap-1.5 md:w-auto md:flex-1" role="tablist" aria-label={t('Agendas partagés')}>
+          <div className="agenda-tabs flex w-full min-w-0 flex-wrap gap-1.5 max-sm:hidden md:w-auto md:flex-1" role="tablist" aria-label={t('Agendas partagés')}>
             {agendas.map(g => (
               <button
                 key={g.id}
@@ -161,6 +180,9 @@ function Agendas() {
             text={
               <>
                 {t('Un calendrier commun, séparé du tien. On le rejoint avec son lien d’invitation.')} <PlusHint />
+                {/* What it is, beside the groups (they were mixed up), with the way to the other one: here only, where
+                    there is room (above the calendar it took the room of the list). */}
+                <SpaceHint here="agendas" className="mt-3" />
               </>
             }
             preview="slots"
@@ -172,7 +194,8 @@ function Agendas() {
           <div className="flex shrink-0 items-center gap-1.5 px-4 pb-1 sm:gap-2 md:px-8">
             <p className="mr-auto min-w-0 truncate text-[13px] text-stone-500">
               {members ? tn(members.length, '{n} membre', '{n} membres') : ' '}
-              {active.ownerId === userId ? ` · ${t('tu l’as créé')}` : ''}
+              {/* (Phones: the count alone, else cut in half by the buttons.) */}
+              {active.ownerId === userId && <span className="max-sm:hidden">{` · ${t('tu l’as créé')}`}</span>}
             </p>
             {/* Phones: « Membres » as an icon, the row stays on one line; « Inviter » always named (it was not found). */}
             <button className="btn-secondary h-8 px-2.5 pointer-coarse:h-9 sm:px-3" onClick={() => setDialog('members')} title={t('Membres')}>
@@ -196,6 +219,19 @@ function Agendas() {
         </>
       )}
 
+      {picker && (
+        <ContextMenu
+          x={picker.x}
+          y={picker.y}
+          label={t('Agendas partagés')}
+          onClose={() => setPicker(null)}
+          items={agendas.map(g => ({
+            label: (news[g.id] ?? 0) > 0 && g.id !== active?.id ? `${g.name} (${news[g.id]})` : g.name,
+            icon: <GroupBadge group={g} size={22} />,
+            onClick: () => open(g.id),
+          }))}
+        />
+      )}
       <Modal open={dialog === 'create' || dialog === 'settings'} onClose={() => setDialog(null)}>
         {(dialog === 'create' || dialog === 'settings') && (
           <GroupForm
