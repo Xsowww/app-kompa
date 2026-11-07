@@ -28,6 +28,7 @@ import { useUi } from '../store/ui';
 import { useGroupActivity, totalUnread } from '../store/groupActivity';
 import { useTrashCount } from '../lib/trash';
 import { useSettings } from '../store/settings';
+import { useScrollMemory } from './scrollMemory';
 import { groupWords } from '../lib/usage';
 import { PHONE_TABS, type SpaceKey } from '../lib/navOrder';
 import { HOME, SPACES, useNavOrder, useSpaceLabel } from './spaces';
@@ -217,7 +218,7 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
   const before = useRef<HTMLElement | null>(null);
   const leave = (to: HTMLElement | null) => {
     inputRef.current?.blur();
-    if (!onDone) setTimeout(() => (to?.isConnected ? to : document.getElementById('contenu'))?.focus(), 0);
+    if (!onDone) setTimeout(() => (to?.isConnected ? to : document.getElementById('contenu'))?.focus({ preventScroll: true }), 0);
   };
 
   useEffect(() => {
@@ -524,6 +525,8 @@ export default function AppShell() {
   }, []);
   // Affichage Pro: another space's cards come in one after the other (layout/proMotion).
   useProEntrance(pro, pathname);
+  // « Retour »: the page comes back where it was read (layout/scrollMemory).
+  useScrollMemory();
   // ?, /, N, G then a letter, Ctrl+J (layout/shortcuts).
   useGlobalShortcuts(navigate);
   // Invitation links: joined, then a window says so (pages/groups/Joined). One opened before signing in
@@ -780,7 +783,7 @@ export default function AppShell() {
                 // Échap: back to the magnifier, not to the top of the page.
                 if (cancelled) searchBtn.current?.focus();
                 // A result opened: on the page content, not on <body>.
-                else setTimeout(() => document.getElementById('contenu')?.focus(), 0);
+                else setTimeout(() => document.getElementById('contenu')?.focus({ preventScroll: true }), 0);
               }}
             />
           </div>

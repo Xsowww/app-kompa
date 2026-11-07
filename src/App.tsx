@@ -11,6 +11,7 @@ import { t } from './i18n';
 import { PUBLIC_PAGES, pageHeads } from './lib/seoPages.mjs';
 import { quietly } from './page';
 import { keepInvite, readInvite } from './pages/groups/invitePending';
+import { rememberLegalFrom } from './pages/legal/back';
 
 /**
  * A page's code, loaded the first time it opens. Offline, a page not opened yet can't arrive: rather than the
@@ -124,7 +125,9 @@ const HEADS = pageHeads(t);
 
 /** The tab says where you are (history, several tabs open). */
 function PageTitle() {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
+  // The page left for the legal pages: their « Retour » goes straight back to it (pages/legal/back).
+  useEffect(() => rememberLegalFrom(pathname, search, window.history.state?.idx), [pathname, search]);
   const guest = useAuth(s => !s.user);
   useEffect(() => {
     const page = TITLES[pathname.replace(/(.)\/+$/, '$1').toLowerCase()]; // « /taches/ » and « /Taches » too

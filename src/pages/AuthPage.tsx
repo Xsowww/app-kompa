@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { CheckCircle2, Fingerprint, Loader2, MailCheck } from 'lucide-react';
 import { AUTH_MSG, awaitConfirmation, useAuth } from '../store/auth';
@@ -671,15 +671,19 @@ export default function AuthPage({ mode }: { mode: Mode }) {
           )}
         </div>
         {/* Phones: the sentence, then the three links on their own line (never a « · » left at the end of a line). */}
-        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-stone-500">
+        {/* Fingers: each link taller (py-2), no margin of its own around it: those of a line overlapped the line above
+            (a tap on « Mentions légales » opened « Qui fait Kompaly ? »). */}
+        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-stone-500 max-sm:gap-x-4 pointer-coarse:gap-y-0">
           <span className="max-sm:w-full">{cloudEnabled ? t('Tes données sont chiffrées et protégées.') : t('Tes données restent sur cet appareil.')}</span>
           {LEGAL_LINKS.map((l, i) => (
-            <Fragment key={l.to}>
-              <span aria-hidden className={i === 0 ? 'max-sm:hidden' : undefined}>·</span>
-              <Link to={l.to} className="hit whitespace-nowrap underline decoration-stone-300 underline-offset-2 hover:text-ink">
+            // The « · » goes with its link (alone, it was left at the end of a line); none on phones, where the links wrap:
+            // their spacing says they are apart (as in Profil).
+            <span key={l.to} className="inline-flex items-center gap-x-1.5">
+              {i > 0 && <span aria-hidden className="max-sm:hidden">·</span>}
+              <Link to={l.to} className="inline-block whitespace-nowrap underline decoration-stone-300 underline-offset-2 hover:text-ink pointer-coarse:py-2">
                 {l.label}
               </Link>
-            </Fragment>
+            </span>
           ))}
         </div>
       </main>

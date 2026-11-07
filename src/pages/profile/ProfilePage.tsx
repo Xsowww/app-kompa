@@ -1488,13 +1488,13 @@ export default function ProfilePage() {
         {/* What a visitor finds at the foot of the home page, reachable once signed in too. */}
         {/* No « · » between the links: wrapped on a phone, one was left hanging at the end of a line. Their spacing
             says they are apart; the version on its own line. */}
-        <footer className="mt-10 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 pb-2 text-[12px] text-stone-500 md:ml-[13.5rem]">
+        <footer className="mt-10 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 pb-2 text-[12px] text-stone-500 md:ml-[13.5rem] pointer-coarse:gap-y-0">
           {LEGAL_LINKS.map(l => (
-            <Link key={l.to} to={l.to} className="hit underline-offset-2 hover:text-ink hover:underline">
+            <Link key={l.to} to={l.to} className="inline-block underline-offset-2 hover:text-ink hover:underline pointer-coarse:py-2">
               {l.label}
             </Link>
           ))}
-          <a href={`mailto:${CONTACT}`} className="hit underline-offset-2 hover:text-ink hover:underline">
+          <a href={`mailto:${CONTACT}`} className="inline-block underline-offset-2 hover:text-ink hover:underline pointer-coarse:py-2">
             {t('Nous contacter')}
           </a>
           <span className="tabular basis-full text-center">

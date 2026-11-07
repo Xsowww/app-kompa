@@ -14,6 +14,7 @@ import { cloudEnabled } from '../../lib/supabase';
 import { GROUP_COLORS, copyCode, createGroup, groupError, joinAgenda, joinGroup, shareInvite, updateGroup, type Group, type GroupRole } from '../../lib/groups';
 import { parseInvite } from '../../lib/groupInvite';
 import { cx } from '../../lib/utils';
+import { softKeyboard } from '../../lib/keyboard';
 import { ColorPicker, GroupBadge } from './shared';
 import { KindContext, groupColor, groupWordsNow, useFinitions, useGroupWords, useRights } from './util';
 import GroupNotes from './GroupNotes';
@@ -135,7 +136,8 @@ export function GroupForm({ group, onDone, onLeft }: { group?: Group; onDone: (g
       <input
         ref={nameRef}
         id="group-name"
-        autoFocus
+        // Its settings opened on a phone: no keyboard over the colour and the rest (the name is typed first only when creating).
+        autoFocus={!group || !softKeyboard()}
         value={name}
         maxLength={60}
         onChange={e => (setName(e.target.value), e.target.value.trim() && setNameError(''))}

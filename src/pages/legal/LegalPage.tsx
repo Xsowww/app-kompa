@@ -3,6 +3,8 @@ import { ArrowLeft } from 'lucide-react';
 import { DAILY_QUESTIONS, DAILY_RECORDING_HOURS } from '../../lib/limits';
 import Logo from '../../components/Logo';
 import { LEGAL_LINKS } from './links';
+import { legalBack, legalFrom } from './back';
+import { useAuth } from '../../store/auth';
 import { lang, locale, t } from '../../i18n';
 
 // Pages légales, lisibles sans compte. Les sous-traitants cités ici doivent rester à jour (registre des traitements).
@@ -270,17 +272,23 @@ const frenchSpaces = (text: string) =>
 export default function LegalPage({ doc }: { doc: LegalDoc }) {
   const { title, sections } = DOCS[doc];
   const navigate = useNavigate();
-  // Back where the reader came from (sign-up, the app, the home page); straight to the home page when opened directly.
-  const back = () => ((window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/'));
+  const signedIn = useAuth(s => !!s.user);
+  // Straight back to the page left for the legal pages (the app, the sign-up, the home page), however many legal pages
+  // were read meanwhile (it stepped back through each one); the home page when opened directly.
+  const back = () => {
+    const to = legalBack(legalFrom(), window.history.state?.idx);
+    if ('delta' in to) void navigate(to.delta);
+    else void navigate(to.to, { replace: true });
+  };
   return (
     <div className="h-full overflow-y-auto bg-paper px-6 py-6 sm:px-10">
-      <header className="flex items-center justify-between gap-3">
+      <header className="legal-head flex items-center justify-between gap-3">
         {/* inline-flex: around a block child, the focus outline of an inline link was drawn on an empty box. */}
         <Link to="/" aria-label={t('Accueil')} className="inline-flex rounded-md pointer-coarse:py-1">
           <Logo />
         </Link>
         <button type="button" onClick={back} className="btn-secondary h-9 px-3">
-          <ArrowLeft size={15} /> {t('Retour')}
+          <ArrowLeft size={15} aria-hidden /> {signedIn ? t('Retour à l’app') : t('Retour')}
         </button>
       </header>
       <main>
@@ -315,8 +323,9 @@ export default function LegalPage({ doc }: { doc: LegalDoc }) {
         )}
         <nav aria-label={t('Informations légales')} className="mt-12 flex flex-wrap gap-x-4 border-t border-stone-200 pt-2 text-[13px] text-stone-500">
           {LEGAL_LINKS.map(l => (
-            // NavLink: the page being read is marked (aria-current) and not underlined.
-            <NavLink key={l.to} to={l.to} className="inline-block py-2 underline decoration-stone-300 underline-offset-4 hover:text-ink aria-[current=page]:font-medium aria-[current=page]:text-ink aria-[current=page]:no-underline">
+            // NavLink: the page being read is marked (aria-current) and not underlined. `replace`: from one legal page to
+            // another without piling them up, the phone's « back » too returns to the app at once.
+            <NavLink key={l.to} to={l.to} replace className="inline-block py-2 underline decoration-stone-300 underline-offset-4 hover:text-ink aria-[current=page]:font-medium aria-[current=page]:text-ink aria-[current=page]:no-underline">
               {l.label}
             </NavLink>
           ))}

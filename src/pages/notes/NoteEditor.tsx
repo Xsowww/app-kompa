@@ -358,6 +358,17 @@ function MoreTools({ tools, btnClass }: { tools: Tool[]; btnClass: string }) {
   );
 }
 
+/**
+ * A tap beside the text (its margins, under its last line): the caret at the nearest place of the text, the note not
+ * moved (it went to the very end of the note and scrolled there, far from the finger).
+ */
+function focusAt(editor: Editor, x: number, y: number) {
+  const r = editor.view.dom.getBoundingClientRect();
+  const at = editor.view.posAtCoords({ left: Math.min(Math.max(x, r.left + 1), r.right - 1), top: Math.min(Math.max(y, r.top + 1), r.bottom - 1) });
+  if (at) editor.chain().setTextSelection(at.pos).focus(undefined, { scrollIntoView: false }).run();
+  else editor.commands.focus('end', { scrollIntoView: false });
+}
+
 /** The same note, give or take the empty line the editor adds at the end. */
 const sameContent = (a: string, b: string) => a.replace(/(<p><\/p>)+$/, '') === b.replace(/(<p><\/p>)+$/, '');
 
@@ -509,7 +520,7 @@ export default function NoteEditor({ note, readOnly = false, inset = 'px-4 pb-ro
           <Toolbar editor={editor} />
         </div>
       )}
-      <div data-note-scroll className={cx('min-h-0 flex-1 overflow-y-auto', inset, !readOnly && 'cursor-text')} onClick={() => !readOnly && !editor.isFocused && editor.commands.focus('end')}>
+      <div data-note-scroll className={cx('min-h-0 flex-1 overflow-y-auto', inset, !readOnly && 'cursor-text')} onClick={e => !readOnly && !editor.isFocused && focusAt(editor, e.clientX, e.clientY)}>
         <EditorContent editor={editor} onClick={e => e.stopPropagation()} />
       </div>
     </div>
