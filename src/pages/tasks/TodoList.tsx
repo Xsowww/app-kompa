@@ -16,6 +16,8 @@ import { isTourTodo, startTour } from '../../store/tour';
 import { useProgressive } from '../../lib/useProgressive';
 import { toast } from '../../store/ui';
 import TaskDialog from './TaskDialog';
+import { LateBadge } from './LateBadge';
+import { postponeItems } from './postpone';
 import { DatePopover } from '../../components/Pickers';
 import { t, tn } from '../../i18n';
 
@@ -42,11 +44,13 @@ function dueText(due: string, inOverdueGroup?: boolean) {
 /** The due day (none under the « Aujourd’hui » heading: `noDay`), and its hour as in the lists (« 18:00 »); ⟳ when it repeats. */
 function DueLabel({ due, time, short, noDay, repeat }: { due: string; time?: string; short?: boolean; noDay?: boolean; repeat?: TaskRepeat }) {
   const n = daysUntil(due);
+  // Late: the red badge (« En retard · depuis 3 jours »), as everywhere a late task shows.
+  if (n < 0) return <LateBadge due={due} />;
   const label = [!noDay && dueText(due, short), time].filter(Boolean).join(' · ');
   return (
     // inline-block: ::first-letter only works on a block (« Mar. 20 »).
     // data-when: the Affichage Pro draws it as a coloured chip (tasksPro.css).
-    <span data-when={n < 0 ? 'late' : n === 0 ? 'today' : 'soon'} className={cx('due-label tabular inline-block shrink-0 text-[12px] first-letter:uppercase', n < 0 ? 'font-medium' : n === 0 ? 'text-ink' : 'text-stone-500')} style={n < 0 ? { color: OVERDUE } : undefined}>
+    <span data-when={n === 0 ? 'today' : 'soon'} className={cx('due-label tabular inline-block shrink-0 text-[12px] first-letter:uppercase', n === 0 ? 'text-ink' : 'text-stone-500')}>
       {repeat && <Repeat size={11} className="mr-1 inline align-[-1px]" aria-hidden />}
       {label}
     </span>
@@ -105,32 +109,6 @@ function trashTodos(ids: string[]) {
     },
   });
 }
-
-const tomorrowKey = () => toKey(addDays(new Date(), 1));
-
-/** « Reporter »: late tasks to today or tomorrow; « Annuler » gives them their days back. */
-function postponeTodos(list: Todo[], day: string) {
-  if (!list.length) return;
-  const { update } = useTodos.getState();
-  const before = list.map(x => [x.id, x.due] as const);
-  list.forEach(x => update(x.id, { due: day }));
-  const today = day === todayKey();
-  const text =
-    list.length === 1
-      ? today
-        ? t('«\u00a0{title}\u00a0» reportée à aujourd’hui', { title: list[0].title })
-        : t('«\u00a0{title}\u00a0» reportée à demain', { title: list[0].title })
-      : today
-        ? tn(list.length, '{n} tâche reportée à aujourd’hui', '{n} tâches reportées à aujourd’hui')
-        : tn(list.length, '{n} tâche reportée à demain', '{n} tâches reportées à demain');
-  toast(text, 'success', { label: t('Annuler||l’action'), run: () => before.forEach(([id, due]) => useTodos.getState().update(id, { due })) });
-}
-
-/** The two days a late task can be put off to, in a menu (a row's « Reporter », « Tout reporter »). */
-const postponeItems = (list: Todo[], all?: boolean): MenuItem[] => [
-  { label: all ? t('Tout reporter à aujourd’hui') : t('Reporter à aujourd’hui'), icon: <CalendarClock />, onClick: () => postponeTodos(list, todayKey()) },
-  { label: all ? t('Tout reporter à demain') : t('Reporter à demain'), icon: <CalendarPlus />, onClick: () => postponeTodos(list, tomorrowKey()) },
-];
 
 /** Under a ticked task: when it leaves the list. */
 const GoesIn = ({ minutes }: { minutes: number }) => (

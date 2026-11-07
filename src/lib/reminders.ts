@@ -84,6 +84,15 @@ export function remindersText(list: number[], date: string, time?: string): stri
 }
 
 /**
+ * The reminders in a few words, for a list's small chip: the one reminder (« 1 h avant », « La veille à 18:00 »), else
+ * how many (« 2 rappels »). The whole list is remindersText (the chip's tooltip, the event's form).
+ */
+export function remindersShort(list: number[], date: string, time?: string): string {
+  if (list.length === 1) return reminderLabel(list[0], !!time, date, time);
+  return tn(list.length, '{n} rappel', '{n} rappels');
+}
+
+/**
  * A new dated task's reminders: those chosen in Profil › Notifications (the day before at 18:00 and/or that day at 9:00),
  * or an hour before a task with a time (none when « Aucun » is chosen); those already past are left out (a task for
  * today, made in the afternoon, gets none rather than one in the past).

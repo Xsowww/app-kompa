@@ -81,3 +81,9 @@
 .cal-past * {
   color: var(--color-stone-500) !important;
 }
+
+/* An event's reminders (ReminderChip): the island's amber, on a soft tint. */
+:root[data-pro] .rem-chip {
+  background: color-mix(in srgb, var(--pro-amber, #ffb340) 16%, transparent);
+  color: var(--pro-amber, #ffb340);
+}

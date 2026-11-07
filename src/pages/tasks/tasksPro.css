@@ -93,18 +93,13 @@
   background: linear-gradient(90deg, color-mix(in srgb, var(--tp-late) 24%, transparent), rgb(255 255 255 / 0.04) 70%);
 }
 
-/* Days as chips: late red, today amber, the others quiet. */
+/* Days as chips: today amber, the others quiet (late ones: the red LateBadge, late.css). */
 :root[data-pro] .tasks-page .due-label {
   padding: 1px 8px;
   border-radius: 999px;
   line-height: 18px;
   background: rgb(255 255 255 / 0.08);
   color: rgb(255 255 255 / 0.72);
-}
-:root[data-pro] .tasks-page .due-label[data-when='late'] {
-  color: var(--tp-late) !important;
-  background: color-mix(in srgb, var(--tp-late) 18%, transparent);
-  font-weight: 650;
 }
 :root[data-pro] .tasks-page .due-label[data-when='today'] {
   color: var(--tp-today);

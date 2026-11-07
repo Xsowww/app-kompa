@@ -2,7 +2,7 @@ import { useToday } from '../../lib/useToday';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { addDays, addMonths, endOfMonth, startOfMonth, isSameMonth } from 'date-fns';
-import { Bell, Copy, ExternalLink, Flag, Link2, ListFilter, ListTodo, MapPin, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, CornerDownLeft, CalendarArrowDown, CalendarArrowUp, CalendarRange, CalendarPlus, CalendarClock } from 'lucide-react';
+import { Copy, ExternalLink, Flag, Link2, ListFilter, ListTodo, MapPin, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, CornerDownLeft, CalendarArrowDown, CalendarArrowUp, CalendarRange, CalendarPlus, CalendarClock } from 'lucide-react';
 import { EmptyState, Skeleton } from '../../components/EmptyState';
 import { allCategories, guessCategory, isDeliverable, isBigEvent, sortEvents, type CalendarEvent, type EventCategory } from '../../store/calendar';
 // The colours of the categories, vivid in the Affichage Pro.
@@ -28,12 +28,13 @@ import { isIcsFile } from '../../lib/ics';
 import { useEventDrag, type DragMode, type DropTarget } from './useEventDrag';
 import { exportIcs } from '../../lib/backup';
 import { flashWhenReady } from '../../lib/flash';
-import { followMoments, remindersText, shownReminders } from '../../lib/reminders';
+import { followMoments, shownReminders } from '../../lib/reminders';
+import { ReminderChip } from './ReminderChip';
 import { feedLabel, feedOf } from '../../lib/icsFeeds';
 import { useTodos, type Todo } from '../../store/todos';
 import TaskDialog from '../tasks/TaskDialog';
 import { TaskRow } from './TaskItem';
-import { byStartTime, isFor, openingDay, spanBars, sweptRange, tasksOn, upcomingList } from './layout';
+import { byStartTime, isFor, jumpSaid, markJumpSaid, openingDay, spanBars, sweptRange, tasksOn, upcomingList } from './layout';
 import { agendaLink, copyToMyCalendar, fromAgenda, useAgendaOverlay } from './agendas';
 import { ContextMenu, type MenuItem } from '../../components/Overlays';
 import { isMenuKey, menuPoint } from '../../lib/a11y';
@@ -177,13 +178,8 @@ function EventItem({ ev, onEdit, dragging, onDragStart, onMenu }: EventItemProps
             {shared && ev.people?.length ? ` · ${t('pour {names}', { names: ev.people.map(shared.nameFor).join(', ') })}` : ''}
             {shared && ` · ${t('par {name}', { name: shared.author(ev.id) })}`}
             {isBigEvent(ev) && ` · ${countdownLabel(ev.date)}`}
-            {reminders.length > 0 && (
-              // Every reminder, in the words of the event's form (only the soonest, « 15 min avant +1 », hid a « 1 h avant »).
-              <span className="ml-2 inline-flex max-w-full items-center gap-1 align-bottom" title={remindersText(reminders, ev.date, ev.start)}>
-                <Bell size={11} className="shrink-0" aria-label={t('Rappels')} />
-                <span className="truncate">{remindersText(reminders, ev.date, ev.start)}</span>
-              </span>
-            )}
+            {/* Its reminders as a small chip (« 1 h avant », « 2 rappels »), whole: the full list in its tooltip. */}
+            {reminders.length > 0 && <ReminderChip reminders={reminders} date={ev.date} time={ev.start} className="ml-2 align-[1px]" />}
           </p>
           {/* Two lines at most here; the whole notes in the event's window. */}
           {ev.details && <p className="mt-1.5 line-clamp-2 whitespace-pre-line text-[13px] text-stone-600 [overflow-wrap:anywhere]">{ev.details}</p>}
@@ -379,10 +375,14 @@ export default function CalendarPage() {
     if (asked) return { day: asked, jumped: false };
     const now = new Date();
     const items = [...events, ...(shared ? [] : allTodos.filter(x => x.due).map(x => ({ date: x.due!, done: x.done })))];
-    return openingDay(todayKey(), toKey(addDays(weekStart(now), 6)), items, toKey(addDays(now, 60)));
+    return openingDay(todayKey(), toKey(addDays(weekStart(now), 6)), items, toKey(addDays(now, 60)), jumpSaid());
   });
   const [selected, setSelected] = useState(opening.day);
   const [jumpNote, setJumpNote] = useState(opening.jumped);
+  // Once per session: the next visit opens on today, without the line.
+  useEffect(() => {
+    if (opening.jumped) markJumpSaid();
+  }, [opening.jumped]);
   const [mode, setModeState] = useState<Mode>(savedMode);
   const [quick, setQuick] = useState('');
   // Filter: nothing ticked shows everything; ticked categories (and/or « Importants », « Tâches ») show only those.

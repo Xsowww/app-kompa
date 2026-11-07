@@ -485,6 +485,19 @@ function IdleFace({ onOpen }: { onOpen: (keyboard: boolean) => void }) {
   );
 }
 
+/**
+ * The hub closed over a dialog (the island is over dialogs, island.css): the keyboard goes back into the dialog, where
+ * it was (Échap then closes the dialog, Tab goes round its fields), not to the island's pill. False: no dialog.
+ */
+function backToDialog(): boolean {
+  const dialogs = document.querySelectorAll<HTMLElement>('[aria-modal="true"]:not(.isl-face)');
+  const dialog = dialogs[dialogs.length - 1];
+  if (!dialog) return false;
+  // The dialog itself (tabIndex -1), not its first field: no keyboard popping up on a phone.
+  dialog.focus({ preventScroll: true });
+  return true;
+}
+
 export default function Island() {
   const phase = useFocus(s => s.phase);
   const toasts = useUi(s => s.toasts);
@@ -619,7 +632,7 @@ export default function Island() {
         e.stopPropagation();
         e.preventDefault();
         setHub(null);
-        toMain.current = inside;
+        toMain.current = inside && !backToDialog();
         return;
       }
       if (inside) {
@@ -658,7 +671,7 @@ export default function Island() {
   const closeHub = () => {
     const inside = !!wrap.current?.contains(document.activeElement);
     setHub(null);
-    toMain.current = inside;
+    toMain.current = inside && !backToDialog();
   };
 
   const full = (kind: Kind): Face => {
