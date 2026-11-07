@@ -1,0 +1,101 @@
+/* Groupes and Agendas partagés (GroupsPage, AgendasPage) in the Affichage Pro: the island's language — capsules, the
+   chosen one white with dark words, rows on rounded glass. Nothing here without data-pro. */
+
+/* The list of groups: each one a rounded glass row, the open one lit. */
+:root[data-pro] .grp-list > button {
+  margin-bottom: 6px;
+  padding: 10px 12px;
+  border-radius: 20px;
+  border-color: transparent;
+  background-color: rgb(255 255 255 / 0.055);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08);
+  transition: background-color 0.2s, box-shadow 0.2s;
+}
+@media (hover: hover) {
+  :root[data-pro] .grp-list > button:hover {
+    background-color: rgb(255 255 255 / 0.1);
+  }
+}
+:root[data-pro] .grp-list > button.shadow-card {
+  background-color: rgb(255 255 255 / 0.14);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.22);
+}
+
+/* A group's tabs: one capsule, the chosen tab white (as the segmented controls and the island's tabs). */
+:root[data-pro] .grp-tabs {
+  gap: 2px;
+  padding: 3px;
+  border: 0;
+  border-radius: 999px;
+  background-color: rgb(255 255 255 / 0.08);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1);
+}
+:root[data-pro] .grp-tabs > [role='tab'] {
+  margin: 0;
+  height: 34px;
+  border: 0;
+  border-radius: 999px;
+  padding-inline: 12px;
+  transition: background-color 0.2s, color 0.2s;
+}
+:root[data-pro] .grp-tabs > [role='tab'][aria-selected='true'] {
+  background-color: rgb(255 255 255 / 0.92);
+  color: #14161f;
+  box-shadow: 0 4px 12px -6px rgb(0 0 0 / 0.5);
+}
+@media (hover: hover) {
+  :root[data-pro] .grp-tabs > [role='tab'][aria-selected='false']:hover {
+    background-color: rgb(255 255 255 / 0.08);
+  }
+}
+@media (width < 40rem) {
+  :root[data-pro] .grp-tabs > [role='tab'] {
+    padding-inline: 4px;
+  }
+}
+
+/* The shared calendars above the calendar: capsules, the open one white. */
+:root[data-pro] .agenda-tabs > [role='tab'] {
+  border-color: transparent;
+  background-color: rgb(255 255 255 / 0.07);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1);
+  color: rgb(255 255 255 / 0.82);
+  transition: background-color 0.2s, color 0.2s;
+}
+@media (hover: hover) {
+  :root[data-pro] .agenda-tabs > [role='tab']:hover {
+    background-color: rgb(255 255 255 / 0.13);
+  }
+}
+:root[data-pro] .agenda-tabs > [role='tab'][aria-selected='true'] {
+  background-color: rgb(255 255 255 / 0.92);
+  color: #14161f;
+  box-shadow: 0 4px 12px -6px rgb(0 0 0 / 0.5);
+}
+
+/* Phones: the shared calendar open, beside the title (opens the list of the others). */
+:root[data-pro] .agenda-pick {
+  border-color: transparent;
+  background-color: rgb(255 255 255 / 0.1);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.14);
+}
+:root[data-pro] .agenda-pick:active {
+  background-color: rgb(255 255 255 / 0.16);
+}
+
+/* Above a group's notes or files: the search, a capsule of glass like the island's fields. */
+:root[data-pro] .list-tools input.field {
+  background-color: rgb(255 255 255 / 0.07);
+  border-color: rgb(255 255 255 / 0.12);
+}
+/* Computers: the capsule as wide as its tabs, not the whole column. */
+@media (width >= 40rem) {
+  :root[data-pro] .grp-tabs {
+    width: fit-content;
+  }
+}
+@media (width < 22.5rem) {
+  :root[data-pro] .grp-tabs > [role='tab'] {
+    font-size: 12.5px;
+  }
+}

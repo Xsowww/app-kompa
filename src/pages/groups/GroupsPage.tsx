@@ -23,6 +23,7 @@ import GroupFiles from './GroupFiles';
 import ShareActions from './GroupShare';
 import { useCreateActions, useNarrow } from '../../store/create';
 import SpaceHint from './SpaceHint';
+import './groups.css';
 import { PlusHint } from '../../components/CreateButton';
 import { showJoined } from './join';
 import { EmptyState, Skeleton } from '../../components/EmptyState';
@@ -370,8 +371,9 @@ function Groups() {
           <h1 className="text-[24px] font-semibold tracking-[-0.02em]">{w.Groups}</h1>
         </div>
         {/* What a group is, beside the shared calendars (phones: over the list; computers: in the panel beside it). */}
-        <SpaceHint here="groupes" className="-mt-2 pb-3 md:hidden" />
-        <div className="shadow-room min-h-0 flex-1 overflow-y-auto pb-room">
+        {/* (Only before the first one: then the list needs the room.) */}
+        {loaded && groups.length === 0 && <SpaceHint here="groupes" className="-mt-2 pb-3 md:hidden" />}
+        <div className="grp-list shadow-room min-h-0 flex-1 overflow-y-auto pb-room">
           {!loaded && <Skeleton shape="people" className="p-1" />}
           {loaded && failed && (
             <EmptyState size="sm" tone="error" title={t('Impossible de charger tes {groups}.', { groups: w.groups })} onRetry={() => void useGroups.getState().loadGroups()} />
@@ -466,7 +468,7 @@ function Groups() {
               />
             </div>
             {/* Phones: the tabs share the width (no row scrolling sideways, none hidden past the edge). */}
-            <div className="flex gap-1 border-b border-stone-200" role="tablist">
+            <div className="grp-tabs flex gap-1 border-b border-stone-200" role="tablist">
               {tabs.map(x => (
                 <button
                   key={x.id}
