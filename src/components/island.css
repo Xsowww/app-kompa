@@ -760,3 +760,60 @@ body:has([aria-modal='true']:not(.isl-face):not([data-modal])) .isl[data-mode='i
   opacity: 0;
   pointer-events: none;
 }
+
+/* ── Waking ── before a notification: the eyes light up, a line of light draws under the pill, a blink, then it opens. */
+.isl-wake {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 128px;
+  height: var(--isl-mini-h);
+}
+.isl-wake .isl-lights {
+  scale: 1.25;
+}
+.isl-wake .isl-lights > i {
+  animation: isl-wake-eyes 1100ms ease-out both;
+}
+.isl-wake::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: calc(var(--isl-mini-h) / 2);
+  box-shadow:
+    inset 0 -2px 0 #7a7dff,
+    inset 0 -10px 14px -10px rgb(139 92 246 / 0.9);
+  animation: isl-wake-line 1100ms cubic-bezier(0.3, 0.7, 0.2, 1) both;
+}
+@keyframes isl-wake-eyes {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  28%,
+  64% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  72% {
+    transform: scaleY(0.15);
+  }
+  82%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes isl-wake-line {
+  0%,
+  22% {
+    opacity: 0;
+    clip-path: inset(0 50% 0 50%);
+  }
+  60%,
+  100% {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+  }
+}

@@ -532,6 +532,8 @@ export default function Island() {
   const [hub, setHub] = useState<HubView | null>(null);
   const [expanded, setExpanded] = useState<Kind | null>(null);
   const [poke, setPoke] = useState(0);
+  const [wake, setWake] = useState(0);
+  const [woke, setWoke] = useState(0);
   const news = { timer: phase, reminder: alert?.key ?? null, notice: notice?.id ?? null, service, kompaly: bubble };
   const [seen, setSeen] = useState(news);
   if (news.timer !== seen.timer || news.reminder !== seen.reminder || news.notice !== seen.notice || news.service !== seen.service || news.kompaly !== seen.kompaly) {
@@ -546,8 +548,15 @@ export default function Island() {
     if (fresh && !hub) {
       setExpanded(fresh);
       setPoke(p => p + 1);
+      // A notification first wakes the island (its eyes light up, a glow under it, a blink), then it opens on it.
+      if (fresh !== 'timer' && !(useSettings.getState().reduceMotion || matchMedia('(prefers-reduced-motion: reduce)').matches)) setWake(w => w + 1);
     }
   }
+  useEffect(() => {
+    if (wake === woke) return;
+    const timer = setTimeout(() => setWoke(wake), WAKE_MS);
+    return () => clearTimeout(timer);
+  }, [wake, woke]);
   const open = expanded && present.includes(expanded) ? expanded : null;
 
   const [lastView, setLastView] = useState<HubView>('accueil');
@@ -741,13 +750,15 @@ export default function Island() {
       }
     : passing
       ? { key: `toast-${passing.id}`, mode: 'toast', el: <ToastFace toast={passing} />, say: sober(passing.text) }
-      : open
+      : open && wake !== woke
+        ? { key: 'wake', mode: 'mini', el: <WakeFace /> }
+        : open
         ? full(open)
         : present[0]
           ? mini(present[0])
           : { key: 'idle', mode: 'idle', el: <IdleFace onOpen={() => openHub(lastView === 'minuteur' && !phase ? 'accueil' : lastView)} /> };
   // A second thing going on: its circle beside the pill.
-  const second = face?.mode === 'mini' ? present[1] : undefined;
+  const second = face?.mode === 'mini' && face.key !== 'wake' ? present[1] : undefined;
   const [lastSecond, setLastSecond] = useState(second);
   if (second && second !== lastSecond) setLastSecond(second);
 
@@ -917,6 +928,16 @@ export default function Island() {
 }
 
 /** The timer as the second thing going on: its ring alone. */
+const WAKE_MS = 1100;
+/** The island waking before a notification: its eyes, a line of light under it, a blink (island.css › isl-wake). */
+function WakeFace() {
+  return (
+    <div className="isl-wake" aria-hidden>
+      <Lights />
+    </div>
+  );
+}
+
 function SatelliteRing({ phase }: { phase: FocusPhase | null }) {
   useSecond(!!phase);
   const s = useFocus.getState();
