@@ -18,14 +18,17 @@ export function ListTools<T extends string>({ count, query, onQuery, placeholder
   sorts: { value: T; label: string }[];
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pb-3">
-      {/* Phones: the count on its own line, the search and the order side by side under it. */}
-      <p className="eyebrow mr-auto max-sm:w-full">{count}</p>
-      <div className="relative min-w-0 flex-1 basis-40 sm:max-w-[260px]">
-        <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" aria-hidden />
-        <input type="search" value={query} onChange={e => onQuery(e.target.value)} placeholder={placeholder} aria-label={placeholder} className="field h-9 w-full pl-8 text-[13px]" />
+    <div className="list-tools flex flex-wrap items-center gap-x-3 gap-y-2 pb-3">
+      {/* Phones: the count and the order on one line, the search under them from edge to edge (beside the order, its
+          words were cut: the phone writes fields in 16 px). Computers: count, search, order on one line. */}
+      <div className="flex min-w-0 items-center gap-3 max-sm:w-full sm:contents">
+        <p className="eyebrow mr-auto min-w-0 truncate">{count}</p>
+        <SelectField<T> className="h-9 min-w-0 max-w-[54%] text-[13px] sm:order-last sm:w-48 sm:max-w-none sm:shrink-0" label={t('Trier')} value={sort} onChange={onSort} options={sorts} />
       </div>
-      <SelectField<T> className="h-9 w-40 shrink-0 text-[13px] sm:w-48" label={t('Trier')} value={sort} onChange={onSort} options={sorts} />
+      <div className="relative min-w-0 max-sm:basis-full sm:w-[260px] sm:shrink">
+        <Search size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" aria-hidden />
+        <input type="search" value={query} onChange={e => onQuery(e.target.value)} placeholder={placeholder} aria-label={placeholder} className="field h-9 w-full min-w-0 pl-9 pr-3 text-[13px] text-ellipsis" />
+      </div>
     </div>
   );
 }
