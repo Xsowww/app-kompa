@@ -2,14 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../store/auth';
 import { rememberAfterLogin } from '../../lib/afterLogin';
-import { RefreshCw, Search, ShieldCheck, Users, Activity, HardDrive, NotebookText, CalendarDays, FolderClosed, Loader2, LayoutDashboard, Inbox, X, Sparkles, Mic, Gauge, FlaskConical } from 'lucide-react';
+import { RefreshCw, Search, ShieldCheck, Users, Activity, HardDrive, NotebookText, CalendarDays, FolderClosed, Loader2, LayoutDashboard, Inbox, X, Sparkles, Mic, Gauge } from 'lucide-react';
 import { EmptyState } from '../../components/EmptyState';
 import { supabase, cloudEnabled, checkIsAdmin, accessToken } from '../../lib/supabase';
 import { CATEGORIES, type BuiltinCategory } from '../../store/calendar';
 import { formatBytes, relativeTime, cx } from '../../lib/utils';
 import { fmt, fromKey } from '../../lib/dates';
 import AdminInbox from './AdminInbox';
-import AdminTests from './AdminTests';
 import { fetchInbox, openCount, type Inbox as InboxData } from './inbox';
 import { useUi } from '../../store/ui';
 import { t, tn, locale } from '../../i18n';
@@ -152,24 +151,16 @@ function DailyColumns({ data, valueKey, label, unit, color }: { data: Stats['day
   );
 }
 
-type View = 'apercu' | 'traiter' | 'comptes' | 'contenus' | 'tests';
+type View = 'apercu' | 'traiter' | 'comptes' | 'contenus';
 const VIEWS: { key: View; label: string; short?: string; icon: typeof Users }[] = [
   { key: 'apercu', label: t('Vue d’ensemble'), short: t('Aperçu'), icon: LayoutDashboard },
   { key: 'traiter', label: t('À traiter'), icon: Inbox },
   { key: 'comptes', label: t('Comptes'), icon: Users },
   { key: 'contenus', label: t('Contenus'), icon: CalendarDays },
-  { key: 'tests', label: t('Tests'), icon: FlaskConical },
 ];
 
-/**
- * Local mode in development (COP_LOCAL=1: no cloud, no accounts but this browser's): the « Tests » tab alone, to try
- * its tools. Never in a build (DEV is false there), and never with the cloud, where the server says who is admin.
- */
-const localTests = import.meta.env.DEV && !cloudEnabled;
-const SHOWN = localTests ? VIEWS.filter(v => v.key === 'tests') : VIEWS;
-
 export default function AdminPage() {
-  const [allowed, setAllowed] = useState<boolean | null>(localTests ? true : null);
+  const [allowed, setAllowed] = useState<boolean | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
   const [usage, setUsage] = useState<Usage | null>(null);
   const [inbox, setInbox] = useState<InboxData | null>(null);
@@ -180,7 +171,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState('');
   const [params, setParams] = useSearchParams();
-  const view = (localTests ? 'tests' : (VIEWS.find(v => v.key === params.get('vue'))?.key ?? 'apercu')) as View;
+  const view = (VIEWS.find(v => v.key === params.get('vue'))?.key ?? 'apercu') as View;
   const show = (v: View) => setParams(v === 'apercu' ? {} : { vue: v }, { replace: true });
 
   const load = useCallback(async () => {
@@ -207,7 +198,7 @@ export default function AdminPage() {
   }, []);
 
   useEffect(() => {
-    if (!localTests) void checkIsAdmin().then(setAllowed);
+    void checkIsAdmin().then(setAllowed);
   }, []);
 
   // Live view: refresh every 20 s and when coming back to the tab.
@@ -234,7 +225,7 @@ export default function AdminPage() {
     if (inbox) useUi.setState({ adminPending: openCount(inbox) });
   }, [inbox]);
 
-  if ((!cloudEnabled && !localTests) || allowed === false) return <Navigate to="/" replace />;
+  if (!cloudEnabled || allowed === false) return <Navigate to="/" replace />;
 
   const u = stats?.users;
   const c = stats?.content;
@@ -250,39 +241,33 @@ export default function AdminPage() {
         <div className="flex flex-wrap items-center gap-3 pb-4 pt-2">
           <div className="mr-auto">
             <h1 className="text-[24px] font-semibold tracking-[-0.02em]">{t('Administration')}</h1>
-            {localTests ? (
-              <p className="mt-0.5 text-[12px] text-stone-500">{t('Mode local : seulement les outils de test.')}</p>
-            ) : (
-              <p className="mt-0.5 flex items-center gap-1.5 text-[12px] text-stone-500">
-                {/* Green and pulsing only while the figures are fresh. */}
-                <span className="relative flex h-2 w-2">
-                  {!error && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />}
-                  <span className={cx('relative inline-flex h-2 w-2 rounded-full', error ? 'bg-stone-400' : 'bg-emerald-500')} />
-                </span>
-                {error ? t('Pas à jour') : t('En direct')}
-                {/* Not read at all: no « chargement… » left on screen (the error below says it). */}
-                {stats ? ` · ${t('mis à jour à {time}', { time: fmt(new Date(stats.generated_at), 'HH:mm:ss') })}` : !error && ` · ${t('chargement…')}`}
-              </p>
-            )}
+            <p className="mt-0.5 flex items-center gap-1.5 text-[12px] text-stone-500">
+              {/* Green and pulsing only while the figures are fresh. */}
+              <span className="relative flex h-2 w-2">
+                {!error && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />}
+                <span className={cx('relative inline-flex h-2 w-2 rounded-full', error ? 'bg-stone-400' : 'bg-emerald-500')} />
+              </span>
+              {error ? t('Pas à jour') : t('En direct')}
+              {/* Not read at all: no « chargement… » left on screen (the error below says it). */}
+              {stats ? ` · ${t('mis à jour à {time}', { time: fmt(new Date(stats.generated_at), 'HH:mm:ss') })}` : !error && ` · ${t('chargement…')}`}
+            </p>
           </div>
-          {!localTests && (
-            <button className="btn-secondary h-8" onClick={() => void load()} disabled={loading}>
-              {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />} {t('Actualiser')}
-            </button>
-          )}
+          <button className="btn-secondary h-8" onClick={() => void load()} disabled={loading}>
+            {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />} {t('Actualiser')}
+          </button>
         </div>
 
-        {/* The five parts always in sight: shared out over the width on phones (short names, no icon), no row to swipe. */}
+        {/* The four parts always in sight: shared out over the width on phones (short names, no icon), no row to swipe. */}
         <nav aria-label={t('Parties de l’administration')} className="mb-5 border-b border-stone-200">
-          <div className="flex gap-1 max-[379px]:gap-0">
-            {SHOWN.map(v => (
+          <div className="flex gap-1">
+            {VIEWS.map(v => (
               <button
                 key={v.key}
                 type="button"
                 aria-current={view === v.key ? 'page' : undefined}
                 onClick={() => show(v.key)}
                 className={cx(
-                  '-mb-px flex h-10 items-center justify-center gap-1.5 whitespace-nowrap border-b-2 px-1 text-[13px] transition-colors max-sm:flex-auto max-[379px]:gap-1 max-[379px]:px-0.5 max-[379px]:text-[12px] sm:gap-2 sm:px-3 sm:text-[13.5px]',
+                  '-mb-px flex h-10 items-center justify-center gap-1.5 whitespace-nowrap border-b-2 px-1 text-[13px] transition-colors max-sm:flex-auto sm:gap-2 sm:px-3 sm:text-[13.5px]',
                   view === v.key ? 'border-ink font-medium text-ink' : 'border-transparent text-stone-500 hover:text-ink',
                 )}
               >
@@ -330,15 +315,7 @@ export default function AdminPage() {
           </div>
         )}
 
-        {view === 'tests' ? (
-          allowed ? (
-            <AdminTests />
-          ) : (
-            <div className="flex justify-center py-20" role="status" aria-label={t('Chargement')}>
-              <Loader2 className="animate-spin text-stone-400 motion-reduce:animate-none" />
-            </div>
-          )
-        ) : inboxShown ? (
+        {inboxShown ? (
           <AdminInbox inbox={inbox} missing={inboxMissing} reload={() => void load()} />
         ) : !stats ? (
           !error ? (
