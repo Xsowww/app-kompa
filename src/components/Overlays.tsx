@@ -155,7 +155,7 @@ function primaryButton(dialog: HTMLElement): HTMLButtonElement | null {
  * Modal dialog: keeps Tab inside, closes on Escape, submits with Ctrl+Entrée, gives the focus back to whatever had
  * it before, and takes its accessible name from its first heading.
  */
-export function Modal({ open, onClose, children, width = 420, label }: { open: boolean; onClose: () => void; children: React.ReactNode; width?: number; label?: string }) {
+export function Modal({ open, onClose, children, width = 420, label, className }: { open: boolean; onClose: () => void; children: React.ReactNode; width?: number; label?: string; className?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onClose);
   const headingId = useId();
@@ -214,7 +214,7 @@ export function Modal({ open, onClose, children, width = 420, label }: { open: b
         tabIndex={-1}
         // Taller than the screen (event form on a phone): it scrolls inside instead of being cut off.
         // Never sideways: what is too wide wraps (index.css › modal-foot for the buttons), it isn't scrolled.
-        className="pop max-h-full w-full overflow-y-auto overflow-x-hidden overscroll-contain rounded-[26px] bg-surface p-6 shadow-pop outline-none dark:ring-1 dark:ring-stone-200"
+        className={cx('pop max-h-full w-full overflow-y-auto overflow-x-hidden overscroll-contain rounded-[26px] bg-surface p-6 shadow-pop outline-none dark:ring-1 dark:ring-stone-200', className)}
         style={{ maxWidth: width }}
         onMouseDown={e => e.stopPropagation()}
       >

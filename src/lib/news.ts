@@ -23,12 +23,15 @@ export interface Release {
   items: NewsItem[];
   /** Shown by itself once to every account, even one created after the release (a new look to discover). */
   everyone?: boolean;
+  /** Drawn like the island (black, white pills, one colour per tile): the Affichage Pro presentation. */
+  look?: 'island';
 }
 
 export const RELEASES: Release[] = [
   {
     id: '2026-11-07',
     everyone: true,
+    look: 'island',
     items: [
       { icon: 'pro', title: t('Découvre l’Affichage Pro'), text: t('Un nouveau look pour Kompaly : un fond d’écran, des cartes en verre et des couleurs qui disent d’un coup d’œil ce qui compte.') },
       { icon: 'island', title: t('Tout passe par l’île, en haut'), text: t('Rappels, messages, Kompaly et ta séance de concentration s’affichent dans une petite pastille en haut de l’écran. Touche-la : tes prochains événements, tes tâches et des raccourcis s’ouvrent.') },

@@ -1,0 +1,76 @@
+/* « Nouveautés » drawn like the island (Island.tsx › island.css): black, white text, white pill buttons. */
+[data-modal].news-isl {
+  background: #000;
+  color: #fff;
+  box-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.13), 0 24px 60px -20px rgb(0 0 0 / 0.8);
+}
+.news-isl :is(p, .text-stone-500, .text-stone-600) {
+  color: rgb(255 255 255 / 0.62);
+}
+.news-isl h3 {
+  color: #fff;
+}
+.news-isl [aria-current='step'] > span {
+  background: #fff;
+}
+.news-isl button:not([aria-current]) > span.bg-stone-300 {
+  background: rgb(255 255 255 / 0.25);
+}
+.news-isl .news-pro-pic {
+  background: radial-gradient(50% 70% at 50% 50%, color-mix(in srgb, var(--c) 22%, transparent), transparent 75%), rgb(255 255 255 / 0.05);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08);
+}
+.news-isl :is(.btn-ghost, .btn-secondary) {
+  border: 0;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.14);
+  color: #fff;
+}
+.news-isl :is(.btn-ghost, .btn-secondary):hover {
+  background: rgb(255 255 255 / 0.24);
+}
+.news-isl .btn-primary {
+  border-radius: 999px;
+  background: #fff;
+  color: #000;
+}
+.news-isl .btn-primary:hover {
+  background: rgb(255 255 255 / 0.84);
+}
+.news-isl :is(.btn-ghost, .btn-secondary, .btn-primary) {
+  box-shadow: none;
+}
+.news-isl :focus-visible {
+  box-shadow: none;
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+/* The island as it sits at the top of the screen: a black capsule, a coloured dot, a line of text. */
+.nisl-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 170px;
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 19px;
+  background: #000;
+  box-shadow: 0 0 0 0.5px rgb(255 255 255 / 0.18), 0 14px 30px -12px rgb(0 0 0 / 0.9);
+}
+.nisl-pill i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #30d158;
+  box-shadow: 0 0 10px #30d158;
+}
+.nisl-pill b {
+  flex: 1;
+  height: 7px;
+  border-radius: 4px;
+  background: rgb(255 255 255 / 0.55);
+}
+/* The buttons share the row as in the island (narrow phone: one per line, full width). */
+.news-isl .modal-foot > :not(.mr-auto) {
+  flex: 1 1 auto;
+}

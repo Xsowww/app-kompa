@@ -10,6 +10,7 @@ import { toast } from '../store/ui';
 import { fmtDay, fromKey } from '../lib/dates';
 import { cx } from '../lib/utils';
 import { t } from '../i18n';
+import './news.css';
 
 const ICONS = { repeat: Repeat, span: CalendarRange, link: Link2, bell: BellRing, photo: ScanText, zip: FolderDown, pro: Layers, island: PanelTop, dash: LayoutDashboard } as const;
 // One colour per page, from the folder colours (light and dark).
@@ -26,7 +27,7 @@ const TINTS: Record<NewsIcon, string> = {
   dash: 'from-orange-500/25 to-rose-500/10 text-orange-600 dark:text-orange-300',
 };
 // Affichage Pro: the same colour per page, as one solid tile (themes.css › news-pro-tile).
-const PRO_TINTS: Record<NewsIcon, string> = { link: '#40c8e0', repeat: '#8e6cff', span: '#30d158', bell: '#f5a524', photo: '#ff5c8a', zip: '#2bb3a0', drone: '#3a3f52', pro: '#5b5cf0', island: '#1c1d22', dash: '#ff7a45' };
+const PRO_TINTS: Record<NewsIcon, string> = { link: '#40c8e0', repeat: '#8e6cff', span: '#30d158', bell: '#f5a524', photo: '#ff5c8a', zip: '#2bb3a0', drone: '#3a3f52', pro: '#5b5cf0', island: '#30d158', dash: '#ff7a45' };
 
 /** « Nouveautés » : one page per novelty, read in order; closing marks the release as seen on every device. */
 export default function NewsDialog() {
@@ -46,9 +47,11 @@ export default function NewsDialog() {
     if (useSettings.getState().newsSeen < release.id) useSettings.getState().set({ newsSeen: release.id });
   };
   const Icon = item.icon === 'drone' ? null : ICONS[item.icon];
+  // The Affichage Pro presentation is drawn like the island, whatever the current look.
+  const isl = release.look === 'island';
 
   return (
-    <Modal open onClose={close} width={440} label={t('Nouveautés')}>
+    <Modal open onClose={close} width={440} label={t('Nouveautés')} className={isl ? 'news-isl' : undefined}>
       {/* ← → turn the pages, and so does a finger swiping across the window. */}
       <div
         onKeyDown={e => {
@@ -68,13 +71,27 @@ export default function NewsDialog() {
         className="touch-pan-y"
       >
         <p className="flex items-center gap-1.5 text-[12px] font-medium text-stone-500">
-          {pro ? <Megaphone size={13} aria-hidden /> : <Sparkles size={13} aria-hidden />} {t('Nouveautés du {day}', { day: fmtDay(fromKey(release.id), 'd MMMM') })}
+          {isl ? null : pro ? <Megaphone size={13} aria-hidden /> : <Sparkles size={13} aria-hidden />} {t('Nouveautés du {day}', { day: fmtDay(fromKey(release.id), 'd MMMM') })}
           <span className="tabular ml-auto">
             {page + 1} / {release.items.length}
           </span>
         </p>
         {/* A phone held sideways: a smaller picture, the whole page fits without scrolling. */}
-        {pro ? (
+        {isl ? (
+          // The island itself on its page; elsewhere one tile of one colour, as in the hub.
+          <div key={page} className="news-pro-pic enter mt-3" style={{ '--c': PRO_TINTS[item.icon] } as CSSProperties}>
+            {item.icon === 'island' ? (
+              <span className="nisl-pill" aria-hidden>
+                <i />
+                <b />
+              </span>
+            ) : (
+              <span className="news-pro-tile" aria-hidden>
+                {Icon && <Icon size={34} strokeWidth={1.8} className="short:size-6" />}
+              </span>
+            )}
+          </div>
+        ) : pro ? (
           // Affichage Pro: a quiet glass panel, the novelty's icon on a tile of its colour (as « Plus » shows the spaces);
           // Kompaly's own page has his mark, not the drone.
           <div key={page} className="news-pro-pic enter mt-3" style={{ '--c': PRO_TINTS[item.icon] } as CSSProperties}>
@@ -108,7 +125,7 @@ export default function NewsDialog() {
 
         {/* 320 px: the three buttons on one line (no arrow on « Suivant »), and never wider than the window. */}
         <div className="modal-foot mt-5 short:mt-2">
-          {page > 0 ? (
+          {item.action === 'pro' && !pro ? null : page > 0 ? (
             <button type="button" className="btn-ghost mr-auto h-10 px-2.5" onClick={() => setPage(p => p - 1)} aria-label={t('Précédent')}>
               <ChevronLeft size={16} />
             </button>
