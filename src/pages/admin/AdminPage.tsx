@@ -7,10 +7,11 @@ import { EmptyState } from '../../components/EmptyState';
 import { supabase, cloudEnabled, checkIsAdmin, accessToken } from '../../lib/supabase';
 import { CATEGORIES, type BuiltinCategory } from '../../store/calendar';
 import { formatBytes, relativeTime, cx } from '../../lib/utils';
-import { fmt, fromKey } from '../../lib/dates';
+import { fmt, fromKey, toKey } from '../../lib/dates';
 import AdminInbox from './AdminInbox';
 import { fetchInbox, openCount, type Inbox as InboxData } from './inbox';
 import { useUi } from '../../store/ui';
+import { useTodos } from '../../store/todos';
 import { t, tn, locale } from '../../i18n';
 
 interface Account {
@@ -345,6 +346,26 @@ export default function AdminPage() {
                 <span className="font-medium">{t('Voir')}</span>
               </button>
             )}
+
+            {/* For testing what a late task looks like (the app doesn't let anyone create one in the past). Admin only:
+                this page is. The task lands in the admin's own account, through the normal store and sync. */}
+            <section aria-labelledby="admin-test" className="card flex flex-wrap items-center gap-3 px-4 py-3">
+              <h2 id="admin-test" className="eyebrow mr-auto">{t('Outils de test')}</h2>
+              <button
+                type="button"
+                className="btn-secondary h-9"
+                onClick={() => {
+                  const st = useTodos.getState();
+                  const late = new Date();
+                  late.setDate(late.getDate() - 3);
+                  const id = st.add(t('Tâche de test en retard'), toKey(late)).id;
+                  st.update(id, { due: toKey(late) });
+                  useUi.getState().toast(t('Tâche en retard créée (il y a 3 jours) : regarde dans Tâches.'), 'success');
+                }}
+              >
+                {t('Créer une tâche en retard')}
+              </button>
+            </section>
 
             <section aria-labelledby="admin-users">
               <h2 id="admin-users" className="eyebrow mb-2">{t('Utilisateurs')}</h2>
