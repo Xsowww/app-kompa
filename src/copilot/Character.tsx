@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { CopilotPose } from '../store/copilot';
 
 export type CopilotMood = 'idle' | 'happy' | 'talk' | 'think' | 'alert' | 'sleep';
@@ -86,8 +87,8 @@ export default function Character({ pose, look = { x: -1, y: 0 }, blink = false,
   );
 }
 
-/** Small head used as an avatar in the conversation panel. */
-export function CopilotAvatar({ size = 28 }: { size?: number }) {
+/** Small head used as an avatar in the conversation panel (memo: one beside each of his messages, drawn again with them). */
+export const CopilotAvatar = memo(function CopilotAvatar({ size = 28 }: { size?: number }) {
   return (
     <span className="relative inline-block shrink-0" style={{ width: size, height: (size * 77) / 96 }} aria-hidden>
       <img src="/kompaly/drone-head.webp" alt="" width={96} height={77} className="block h-full w-full" />
@@ -96,7 +97,7 @@ export function CopilotAvatar({ size = 28 }: { size?: number }) {
       </svg>
     </span>
   );
-}
+});
 
 /** The drone standing still with its face on, for a picture (« Nouveautés »). */
 export function DroneStill({ mood = 'happy', className }: { mood?: CopilotMood; className?: string }) {

@@ -55,11 +55,20 @@ function readSort(): NoteSort {
 }
 
 /** The date in the list: the time today, « 3 oct. » this year, « 3 oct. 2025 » before. */
+// The formats made once (toLocale…String made a new one for each row, on each render of the list).
+const formats = new Map<string, Intl.DateTimeFormat>();
+const format = (key: string, options: Intl.DateTimeFormatOptions) => {
+  const id = `${locale()}|${key}`;
+  let f = formats.get(id);
+  if (!f) formats.set(id, (f = new Intl.DateTimeFormat(locale(), options)));
+  return f;
+};
+
 function listDate(iso: string) {
   const d = new Date(iso);
   const now = new Date();
-  if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' });
-  return d.toLocaleDateString(locale(), d.getFullYear() === now.getFullYear() ? { day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short', year: 'numeric' });
+  if (d.toDateString() === now.toDateString()) return format('time', { hour: '2-digit', minute: '2-digit' }).format(d);
+  return d.getFullYear() === now.getFullYear() ? format('day', { day: 'numeric', month: 'short' }).format(d) : format('year', { day: 'numeric', month: 'short', year: 'numeric' }).format(d);
 }
 
 /** The words searched for, marked in a result's extract. */
@@ -725,9 +734,11 @@ export default function NotesPage() {
   useLayoutEffect(() => {
     const before = caretTop.current;
     caretTop.current = null;
+    // Nothing kept (the page opening…): no measure (it forced the page's layout in the middle of its first render).
+    if (before === null) return;
     const now = selectionTop();
     const box = document.querySelector<HTMLElement>('[data-note-scroll]');
-    if (before === null || now === null || !box) return;
+    if (now === null || !box) return;
     box.scrollTop += now - before;
     lastY.current = box.scrollTop; // not a scroll of the reader's: the header doesn't unfold for it
   }, [typing]);

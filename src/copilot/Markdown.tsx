@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import { frenchSpacing, parseMarkdown, type Inline } from './markdown';
 
 function Inlines({ nodes }: { nodes: Inline[] }) {
@@ -34,8 +34,11 @@ function Inlines({ nodes }: { nodes: Inline[] }) {
   );
 }
 
-/** Kompaly's answers with light formatting. Everything is rendered as React text: no HTML injection possible. */
-export default function Markdown({ text }: { text: string }) {
+/**
+ * Kompaly's answers with light formatting. Everything is rendered as React text: no HTML injection possible.
+ * memo: the conversation is drawn again on each change of page; its messages are not.
+ */
+export default memo(function Markdown({ text }: { text: string }) {
   const blocks = useMemo(() => parseMarkdown(text), [text]);
   return (
     <div className="space-y-2 break-words">
@@ -89,4 +92,4 @@ export default function Markdown({ text }: { text: string }) {
       })}
     </div>
   );
-}
+});
