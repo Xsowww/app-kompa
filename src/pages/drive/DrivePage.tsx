@@ -44,6 +44,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { driveWhere, isUploadAbort, notOver, useUploads } from '../../store/uploads';
 import { useCreateActions } from '../../store/create';
 import { t, tn, locale } from '../../i18n';
+import './drive.css';
 
 type Tab = 'all' | 'starred' | 'recent';
 type SortKey = 'name' | 'date' | 'size';
@@ -136,8 +137,9 @@ export default function DrivePage() {
   const [groupShare, setGroupShare] = useState<DriveItem[] | null>(null);
   // Item holding the list's single Tab stop (arrows move it).
   const [focusId, setFocusId] = useState<string | null>(null);
-  // Last pointer was a finger: a tap adds to the selection instead of replacing it.
-  const [touchMode, setTouchMode] = useState(false);
+  // Last pointer was a finger: a tap adds to the selection instead of replacing it. A phone or a tablet starts so (its
+  // first tap must already follow the finger's rules, and its items aren't draggable: a long press opens the menu).
+  const [touchMode, setTouchMode] = useState(() => typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches);
   // An item is being dragged: keep the breadcrumb (drop targets) instead of the selection bar.
   const [dragging, setDragging] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -513,11 +515,21 @@ export default function DrivePage() {
   // ── Selection ─────────────────────────────────────────────────────────────
   const onItemClick = (e: React.MouseEvent, item: DriveItem) => {
     e.stopPropagation();
+    if (press.current?.fired && press.current.id === item.id) {
+      press.current = null;
+      return;
+    }
     if (e.shiftKey && anchor) {
       const a = visible.findIndex(i => i.id === anchor);
       const b = visible.findIndex(i => i.id === item.id);
       const [from, to] = a < b ? [a, b] : [b, a];
       setSelected(new Set(visible.slice(from, to + 1).map(i => i.id)));
+      return;
+    }
+    // A finger has no double-click: a tap on the one item already selected opens it (the second tap of a double tap
+    // used to remove it from the selection: one tap selected, the next unselected, nothing ever opened).
+    if (touchMode && !e.metaKey && !e.ctrlKey && selectedIds.length === 1 && selectedIds[0] === item.id) {
+      openItem(item);
       return;
     }
     // On a phone, once something is selected, each tap adds or removes an item (selection mode).
@@ -534,9 +546,52 @@ export default function DrivePage() {
     setAnchor(item.id);
   };
 
+  // A finger's long press: the item's menu (an iPhone sends no right click; Android does, at about the same moment:
+  // whichever comes first opens it, once). The click that ends the press does nothing more.
+  const press = useRef<{ id: string; x: number; y: number; timer?: ReturnType<typeof setTimeout>; fired: boolean } | null>(null);
+  const onItemPressStart = (e: React.PointerEvent, item: DriveItem) => {
+    clearTimeout(press.current?.timer);
+    if (e.pointerType !== 'touch' || e.button !== 0) return void (press.current = null);
+    const at = { id: item.id, x: e.clientX, y: e.clientY, fired: false };
+    press.current = {
+      ...at,
+      timer: setTimeout(() => {
+        if (press.current?.id !== item.id || press.current.fired) return;
+        press.current.fired = true;
+        swallowNextClick();
+        setSelected(s => (s.has(item.id) ? s : new Set([item.id])));
+        setMenu({ x: Math.round(at.x), y: Math.round(at.y), target: item.id });
+      }, 500),
+    };
+  };
+  const onItemPressMove = (e: React.PointerEvent) => {
+    const p = press.current;
+    if (p && !p.fired && Math.hypot(e.clientX - p.x, e.clientY - p.y) > 10) clearTimeout(p.timer);
+  };
+  const onItemPressEnd = () => clearTimeout(press.current?.timer);
+  /** The click that ends a long press (if the browser sends one): nothing more, wherever it lands. */
+  const swallowNextClick = () => {
+    const stop = (ev: Event) => {
+      ev.stopPropagation();
+      ev.preventDefault();
+    };
+    window.addEventListener('click', stop, { capture: true, once: true });
+    // None comes (iPhone): gone before the next tap. Up to 1.5 s: the finger may stay a moment after the menu opened.
+    const off = () => setTimeout(() => window.removeEventListener('click', stop, true), 300);
+    window.addEventListener('pointerup', off, { once: true });
+    setTimeout(() => window.removeEventListener('click', stop, true), 1500);
+  };
+
   const onItemContext = (e: React.MouseEvent | React.KeyboardEvent, item: DriveItem) => {
     e.preventDefault();
     e.stopPropagation();
+    const p = press.current;
+    if (p?.id === item.id) {
+      clearTimeout(p.timer);
+      if (p.fired) return;
+      p.fired = true;
+      swallowNextClick();
+    }
     if (!selected.has(item.id)) setSelected(new Set([item.id]));
     setMenu({ ...menuPoint(e), target: item.id });
   };
@@ -655,15 +710,33 @@ export default function DrivePage() {
     if (!selected.has(item.id)) setSelected(new Set([item.id]));
     e.dataTransfer.setData(DRAG_MIME, JSON.stringify(ids));
     e.dataTransfer.effectAllowed = 'copyMove';
-    // The browser's picture of the tile shows the page behind its rounded corners (square corners):
-    // a copy placed off screen, with nothing behind it, keeps them round.
+    // The picture under the pointer: a small opaque chip (its icon, its name, how many), round, nothing see-through.
+    // A copy of the tile itself was see-through (glass colours, the page behind its corners) and, placed off screen,
+    // came out as a black square in Safari and on phones. Placed under the pointer (where the tile already is), for the
+    // browser to take its picture, then removed before anything is painted.
     const tile = e.currentTarget as HTMLElement;
-    const box = tile.getBoundingClientRect();
-    const ghost = tile.cloneNode(true) as HTMLElement;
-    Object.assign(ghost.style, { position: 'fixed', top: '-10000px', left: '-10000px', width: `${box.width}px`, height: `${box.height}px`, pointerEvents: 'none' });
+    const ghost = document.createElement('div');
+    ghost.className = 'drive-ghost';
+    const icon = tile.querySelector('img, svg');
+    if (icon) {
+      const pic = icon.cloneNode(true) as HTMLElement;
+      pic.removeAttribute('class');
+      pic.setAttribute('width', '22');
+      pic.setAttribute('height', '22');
+      ghost.appendChild(pic);
+    }
+    const name = document.createElement('span');
+    name.textContent = item.name;
+    ghost.appendChild(name);
+    if (ids.length > 1) {
+      const n = document.createElement('b');
+      n.textContent = String(ids.length);
+      ghost.appendChild(n);
+    }
+    Object.assign(ghost.style, { left: `${e.clientX - 14}px`, top: `${e.clientY - 14}px` });
     document.body.appendChild(ghost);
-    e.dataTransfer.setDragImage(ghost, e.clientX - box.left, e.clientY - box.top);
-    setTimeout(() => ghost.remove(), 0);
+    e.dataTransfer.setDragImage(ghost, 14, 14);
+    requestAnimationFrame(() => ghost.remove());
     setDragging(true);
   };
 
@@ -766,7 +839,7 @@ export default function DrivePage() {
         ]
       : [];
     const list: MenuItem[] = [
-      ...(one ? [{ label: item.kind === 'folder' ? t('Ouvrir') : t('Aperçu||d’un fichier'), icon: <Eye size={15} />, shortcut: t('Entrée'), onClick: () => openItem(item) }] : []),
+      ...(one && full ? [{ label: item.kind === 'folder' ? t('Ouvrir') : t('Aperçu||d’un fichier'), icon: <Eye size={15} />, shortcut: t('Entrée'), onClick: () => openItem(item) }] : []),
       ...(one && canOpenAsNote(item) ? [{ label: t('Ouvrir comme note'), icon: <NotebookPen size={15} />, onClick: () => void openAsNote(item) }] : []),
       ...(one && item.kind === 'file'
         ? [{ label: t('Télécharger'), icon: <Download size={15} />, onClick: () => downloadItem(item) }]
@@ -777,9 +850,9 @@ export default function DrivePage() {
       ...(one && item.kind === 'folder' ? [{ label: t('Coller dans ce dossier'), icon: <ClipboardPaste size={15} />, disabled: !clipboard?.ids.length, onClick: () => void paste(item.id) }] : []),
       { label: t('Dupliquer'), icon: <CopyPlus size={15} />, shortcut: `${MOD}D`, onClick: () => void duplicate(ids) },
       ...(full ? [{ label: t('Déplacer vers…'), icon: <FolderInput size={15} />, onClick: () => setMoveIds(ids) }] : []),
-      ...(one && full ? [{ label: t('Renommer'), icon: <Pencil size={15} />, shortcut: 'F2', onClick: () => void rename(item) }] : []),
+      ...(one ? [{ label: t('Renommer'), icon: <Pencil size={15} />, shortcut: 'F2', onClick: () => void rename(item) }] : []),
       ...(one ? [{ label: item.starred ? t('Retirer des favoris') : t('Ajouter aux favoris'), icon: <Star size={15} />, onClick: () => useDrive.getState().toggleStar(item.id) }] : []),
-      ...(full ? [{ label: t('Étiquettes…'), icon: <Tag size={15} />, onClick: () => setTagIds(ids) }] : []),
+      ...(full || one ? [{ label: t('Étiquettes…'), icon: <Tag size={15} />, onClick: () => setTagIds(ids) }] : []),
       // Links only exist online: no dead-end entry in the local version.
       ...(one && item.kind === 'file' && cloudEnabled ? [{ label: t('Partager le lien…'), icon: <Link2 size={15} />, onClick: () => setShareItem(item) }] : []),
       // A copy of the files in a group (as « Partager dans un groupe… » of a note), for whoever is in one.
@@ -809,7 +882,8 @@ export default function DrivePage() {
   const cutIds = clipboard?.mode === 'cut' ? new Set(clipboard.ids) : new Set<string>();
 
   const itemProps = (item: DriveItem) => ({
-    draggable: true,
+    // Fingers: no drag (a long press opens the menu, « Déplacer » moves; the phone's drag picture was a black square).
+    draggable: !touchMode,
     onDragStart: (e: React.DragEvent) => onDragStart(e, item),
     // Dropped outside any target (or cancelled): no highlight left behind.
     onDragEnd: () => {
@@ -818,13 +892,19 @@ export default function DrivePage() {
       dragDepth.current = 0;
     },
     onClick: (e: React.MouseEvent) => onItemClick(e, item),
-    onDoubleClick: () => openItem(item),
+    onPointerDown: (e: React.PointerEvent) => onItemPressStart(e, item),
+    onPointerMove: onItemPressMove,
+    onPointerUp: onItemPressEnd,
+    onPointerCancel: onItemPressEnd,
+    // (A finger's double tap: its second tap already opened the item, see onItemClick.)
+    onDoubleClick: () => !touchMode && openItem(item),
     onContextMenu: (e: React.MouseEvent) => onItemContext(e, item),
     onKeyDown: (e: React.KeyboardEvent<HTMLElement>) => onItemKey(e, item),
     onFocus: () => setFocusId(item.id),
     tabIndex: item.id === activeId ? 0 : -1,
     'aria-selected': selected.has(item.id),
     'data-id': item.id,
+    'data-drop': dropTarget === item.id || undefined,
     role: 'option',
     ...(item.kind === 'folder' ? folderDropProps(item.id, item.id) : {}),
   });
@@ -856,10 +936,12 @@ export default function DrivePage() {
 
   const extOf = (item: DriveItem) => (item.kind === 'file' ? item.name.split('.').pop() : undefined);
   const bar = !dragging && (selectedIds.length > 1 || (selectedIds.length === 1 && !previewItem));
+  // Nothing in the breadcrumb row but the selection bar when there is one (the root, Favoris, Récents).
+  const rowEmpty = !filtering && (!tabAll || (!breadcrumb.length && !clipboard?.ids.length));
 
   return (
     <div
-      className="mx-auto w-full max-w-[1244px] flex h-full flex-col px-4 pb-4 md:px-8"
+      className="drive-page mx-auto w-full max-w-[1244px] flex h-full flex-col px-4 pb-4 md:px-8"
       onPointerDownCapture={e => {
         const touch = e.pointerType === 'touch';
         if (touch !== touchMode) setTouchMode(touch);
@@ -919,9 +1001,10 @@ export default function DrivePage() {
             </button>
           ))}
         </div>
-        {/* Phones: the search fills its own row under the title, the views and the tools, from margin to margin.
+        {/* Phones: the search fills its own row under the title, the views and the tools, from margin to margin (under
+            360 px the tools no longer fit beside the title: on the search's row, at its right).
             Computers: at the right of the row, before sort and view, as high as them. */}
-        <label className="relative order-last w-full sm:order-none sm:ml-auto sm:w-auto">
+        <label className="relative order-last w-full max-[359px]:w-auto max-[359px]:min-w-0 max-[359px]:flex-1 sm:order-none sm:ml-auto sm:w-auto">
           <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400" />
           <input
             value={query}
@@ -942,7 +1025,7 @@ export default function DrivePage() {
             </button>
           )}
         </label>
-        <div className="ml-auto flex items-center gap-1.5 pointer-coarse:gap-3 sm:ml-0">
+        <div className="ml-auto flex items-center gap-1.5 pointer-coarse:gap-3 max-[359px]:order-last max-[359px]:ml-0 max-[359px]:gap-1 sm:ml-0">
           {/* List view: its column headers sort on a computer; a phone hides the date column, so the button stays. */}
           {!q && (
             <button
@@ -972,16 +1055,20 @@ export default function DrivePage() {
         </div>
       </div>
 
-      {/* Phones: the space used above the files (on a computer it sits at the end of the row below). */}
-      <div className="sm:hidden">
-        <StorageGauge />
-      </div>
+      {/* Phones: the space used above the files (on a computer it sits at the end of the row below); in that row when
+          it has nothing else to show. */}
+      {!rowEmpty && (
+        <div className="sm:hidden">
+          <StorageGauge />
+        </div>
+      )}
 
-      {/* Breadcrumb / selection bar. Empty at the root of the Drive: on a phone it would only leave a hole above the files.
-          On a computer the row stays (with the space used), so that the selection bar showing up moves nothing. */}
-      <div className={cx('flex h-10 items-center gap-1 text-[13px]', !bar && !filtering && (!tabAll || (!breadcrumb.length && !clipboard?.ids.length)) && 'max-sm:h-0 short:h-0')}>
+      {/* Breadcrumb / selection bar. The row always keeps its height, so that the selection bar showing up moves nothing
+          (on a phone it pushed the files down under the finger: the end of a long press then hit the item above). Phones
+          at the root: the space used fills it meanwhile. */}
+      <div className={cx('flex min-h-10 items-center gap-1 text-[13px] pointer-coarse:min-h-11', !bar && rowEmpty && 'short:min-h-0')}>
         {bar ? (
-          <div className="enter flex h-10 w-full min-w-0 items-center gap-0.5 overflow-hidden rounded-lg bg-inverse px-1.5 pointer-coarse:h-11 text-on-inverse shadow-pop">
+          <div className="drive-selbar enter flex h-10 w-full min-w-0 items-center gap-0.5 overflow-hidden rounded-lg bg-inverse px-1.5 pointer-coarse:h-11 text-on-inverse shadow-pop">
             <button className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md hover:bg-on-inverse/10 sm:h-8 sm:w-8 pointer-coarse:h-9 pointer-coarse:w-9" onClick={() => setSelected(new Set())} title={t('Désélectionner (Échap)')} aria-label={t('Désélectionner (Échap)')}>
               <X size={15} />
             </button>
@@ -990,17 +1077,27 @@ export default function DrivePage() {
               <span className="max-sm:sr-only"> {tn(selectedIds.length, 'sélectionné', 'sélectionnés')}</span>
             </span>
             <span className="mr-1 h-4 w-px bg-on-inverse/20" />
+            {/* One item: « Ouvrir », named, first (a finger has no double-click; a second tap on the item opens it too). */}
+            {single && (
+              <button
+                className="drive-open mr-1 flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md bg-on-inverse px-2.5 font-semibold text-inverse pointer-coarse:h-9 hover:opacity-90"
+                onClick={() => openItem(single)}
+                title={single.kind === 'folder' ? t('Ouvrir') : t('Ouvrir l’aperçu')}
+              >
+                {single.kind === 'folder' ? <FolderOpen size={14} aria-hidden /> : <Eye size={14} aria-hidden />} {t('Ouvrir')}
+              </button>
+            )}
             {[
               // Phones: the less frequent ones go in « Plus d’actions » (9 buttons overflowed the bar).
               { icon: Copy, label: t('Copier'), fn: () => copy(selectedIds), more: true },
               { icon: Scissors, label: t('Couper'), fn: () => cut(selectedIds), more: true },
               { icon: CopyPlus, label: t('Dupliquer'), fn: () => void duplicate(selectedIds), more: true },
               { icon: FolderInput, label: t('Déplacer'), fn: () => setMoveIds(selectedIds) },
-              ...(single ? [{ icon: Pencil, label: t('Renommer'), fn: () => void rename(single) }] : []),
+              ...(single ? [{ icon: Pencil, label: t('Renommer'), fn: () => void rename(single), phoneMore: true }] : []),
               single?.kind === 'file'
                 ? { icon: Download, label: t('Télécharger'), fn: () => downloadItem(single), more: true }
                 : { icon: FolderDown, label: t('Télécharger (.zip)'), fn: () => void downloadZip(items, selectedIds, single?.name ?? 'Kompaly Drive'), more: true },
-              { icon: Tag, label: t('Étiquettes'), fn: () => setTagIds(selectedIds) },
+              { icon: Tag, label: t('Étiquettes'), fn: () => setTagIds(selectedIds), ...(single && { phoneMore: true }) },
               // Phones: in « Plus d’actions » (a 320 px wide bar couldn't hold it).
               ...(selectedFolders.length === selectedIds.length ? [{ icon: Palette, label: t('Couleur'), fn: (e: React.MouseEvent) => setColorMenu(under(e)), phoneMore: true }] : []),
               { icon: Trash2, label: t('Corbeille||barre de sélection'), fn: () => void remove(selectedIds) },
@@ -1071,6 +1168,11 @@ export default function DrivePage() {
             ) : null}
           </>
         ) : null}
+        {!bar && rowEmpty && (
+          <div className="min-w-0 sm:hidden short:hidden [&>*]:mb-0">
+            <StorageGauge />
+          </div>
+        )}
         {!bar && (
           <div className={cx('hidden min-w-0 shrink-0 sm:block short:hidden', !(tabAll && clipboard?.ids.length) && 'ml-auto')}>
             <StorageGauge inline />
@@ -1085,7 +1187,7 @@ export default function DrivePage() {
       <div
         className={cx(
           'relative -mx-[9px] mt-2 min-h-0 flex-1 overflow-y-auto rounded-xl border p-2 pb-room transition-colors',
-          dropTarget === 'here' ? 'border-dashed border-brand-500 bg-brand-50/50' : 'border-transparent',
+          dropTarget === 'here' ? 'drive-drop-here border-dashed border-brand-500 bg-brand-50/50' : 'border-transparent',
         )}
         onClick={() => setSelected(new Set())}
         onContextMenu={e => {
@@ -1222,7 +1324,7 @@ export default function DrivePage() {
         )}
 
         {dropTarget === 'here' && (
-          <div className="pointer-events-none sticky bottom-4 mx-auto mt-4 w-fit rounded-lg bg-inverse px-3.5 py-2 text-[13px] font-medium text-on-inverse shadow-pop">
+          <div className="drive-drop-label pointer-events-none sticky bottom-4 mx-auto mt-4 w-fit rounded-lg bg-inverse px-3.5 py-2 text-[13px] font-medium text-on-inverse shadow-pop">
             {t('Déposer dans « {name} »', { name: current?.name ?? t('Mes fichiers') })}
           </div>
         )}
