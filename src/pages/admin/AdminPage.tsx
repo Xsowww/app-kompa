@@ -2,16 +2,16 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../store/auth';
 import { rememberAfterLogin } from '../../lib/afterLogin';
-import { RefreshCw, Search, ShieldCheck, Users, Activity, HardDrive, NotebookText, CalendarDays, FolderClosed, Loader2, LayoutDashboard, Inbox, X, Sparkles, Mic, Gauge } from 'lucide-react';
+import { RefreshCw, Search, ShieldCheck, Users, Activity, HardDrive, NotebookText, CalendarDays, FolderClosed, Loader2, LayoutDashboard, Inbox, X, Sparkles, Mic, Gauge, FlaskConical } from 'lucide-react';
 import { EmptyState } from '../../components/EmptyState';
 import { supabase, cloudEnabled, checkIsAdmin, accessToken } from '../../lib/supabase';
 import { CATEGORIES, type BuiltinCategory } from '../../store/calendar';
 import { formatBytes, relativeTime, cx } from '../../lib/utils';
-import { fmt, fromKey, toKey } from '../../lib/dates';
+import { fmt, fromKey } from '../../lib/dates';
 import AdminInbox from './AdminInbox';
+import AdminTests from './AdminTests';
 import { fetchInbox, openCount, type Inbox as InboxData } from './inbox';
 import { useUi } from '../../store/ui';
-import { useTodos } from '../../store/todos';
 import { t, tn, locale } from '../../i18n';
 
 interface Account {
@@ -152,16 +152,24 @@ function DailyColumns({ data, valueKey, label, unit, color }: { data: Stats['day
   );
 }
 
-type View = 'apercu' | 'traiter' | 'comptes' | 'contenus';
+type View = 'apercu' | 'traiter' | 'comptes' | 'contenus' | 'tests';
 const VIEWS: { key: View; label: string; short?: string; icon: typeof Users }[] = [
   { key: 'apercu', label: t('Vue d’ensemble'), short: t('Aperçu'), icon: LayoutDashboard },
   { key: 'traiter', label: t('À traiter'), icon: Inbox },
   { key: 'comptes', label: t('Comptes'), icon: Users },
   { key: 'contenus', label: t('Contenus'), icon: CalendarDays },
+  { key: 'tests', label: t('Tests'), icon: FlaskConical },
 ];
 
+/**
+ * Local mode in development (COP_LOCAL=1: no cloud, no accounts but this browser's): the « Tests » tab alone, to try
+ * its tools. Never in a build (DEV is false there), and never with the cloud, where the server says who is admin.
+ */
+const localTests = import.meta.env.DEV && !cloudEnabled;
+const SHOWN = localTests ? VIEWS.filter(v => v.key === 'tests') : VIEWS;
+
 export default function AdminPage() {
-  const [allowed, setAllowed] = useState<boolean | null>(null);
+  const [allowed, setAllowed] = useState<boolean | null>(localTests ? true : null);
   const [stats, setStats] = useState<Stats | null>(null);
   const [usage, setUsage] = useState<Usage | null>(null);
   const [inbox, setInbox] = useState<InboxData | null>(null);
@@ -172,7 +180,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState('');
   const [params, setParams] = useSearchParams();
-  const view = (VIEWS.find(v => v.key === params.get('vue'))?.key ?? 'apercu') as View;
+  const view = (localTests ? 'tests' : (VIEWS.find(v => v.key === params.get('vue'))?.key ?? 'apercu')) as View;
   const show = (v: View) => setParams(v === 'apercu' ? {} : { vue: v }, { replace: true });
 
   const load = useCallback(async () => {
@@ -199,7 +207,7 @@ export default function AdminPage() {
   }, []);
 
   useEffect(() => {
-    void checkIsAdmin().then(setAllowed);
+    if (!localTests) void checkIsAdmin().then(setAllowed);
   }, []);
 
   // Live view: refresh every 20 s and when coming back to the tab.
@@ -226,7 +234,7 @@ export default function AdminPage() {
     if (inbox) useUi.setState({ adminPending: openCount(inbox) });
   }, [inbox]);
 
-  if (!cloudEnabled || allowed === false) return <Navigate to="/" replace />;
+  if ((!cloudEnabled && !localTests) || allowed === false) return <Navigate to="/" replace />;
 
   const u = stats?.users;
   const c = stats?.content;
@@ -242,33 +250,39 @@ export default function AdminPage() {
         <div className="flex flex-wrap items-center gap-3 pb-4 pt-2">
           <div className="mr-auto">
             <h1 className="text-[24px] font-semibold tracking-[-0.02em]">{t('Administration')}</h1>
-            <p className="mt-0.5 flex items-center gap-1.5 text-[12px] text-stone-500">
-              {/* Green and pulsing only while the figures are fresh. */}
-              <span className="relative flex h-2 w-2">
-                {!error && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />}
-                <span className={cx('relative inline-flex h-2 w-2 rounded-full', error ? 'bg-stone-400' : 'bg-emerald-500')} />
-              </span>
-              {error ? t('Pas à jour') : t('En direct')}
-              {/* Not read at all: no « chargement… » left on screen (the error below says it). */}
-              {stats ? ` · ${t('mis à jour à {time}', { time: fmt(new Date(stats.generated_at), 'HH:mm:ss') })}` : !error && ` · ${t('chargement…')}`}
-            </p>
+            {localTests ? (
+              <p className="mt-0.5 text-[12px] text-stone-500">{t('Mode local : seulement les outils de test.')}</p>
+            ) : (
+              <p className="mt-0.5 flex items-center gap-1.5 text-[12px] text-stone-500">
+                {/* Green and pulsing only while the figures are fresh. */}
+                <span className="relative flex h-2 w-2">
+                  {!error && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />}
+                  <span className={cx('relative inline-flex h-2 w-2 rounded-full', error ? 'bg-stone-400' : 'bg-emerald-500')} />
+                </span>
+                {error ? t('Pas à jour') : t('En direct')}
+                {/* Not read at all: no « chargement… » left on screen (the error below says it). */}
+                {stats ? ` · ${t('mis à jour à {time}', { time: fmt(new Date(stats.generated_at), 'HH:mm:ss') })}` : !error && ` · ${t('chargement…')}`}
+              </p>
+            )}
           </div>
-          <button className="btn-secondary h-8" onClick={() => void load()} disabled={loading}>
-            {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />} {t('Actualiser')}
-          </button>
+          {!localTests && (
+            <button className="btn-secondary h-8" onClick={() => void load()} disabled={loading}>
+              {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />} {t('Actualiser')}
+            </button>
+          )}
         </div>
 
-        {/* The four parts always in sight: shared out over the width on phones (short names, no icon), no row to swipe. */}
+        {/* The five parts always in sight: shared out over the width on phones (short names, no icon), no row to swipe. */}
         <nav aria-label={t('Parties de l’administration')} className="mb-5 border-b border-stone-200">
-          <div className="flex gap-1">
-            {VIEWS.map(v => (
+          <div className="flex gap-1 max-[379px]:gap-0">
+            {SHOWN.map(v => (
               <button
                 key={v.key}
                 type="button"
                 aria-current={view === v.key ? 'page' : undefined}
                 onClick={() => show(v.key)}
                 className={cx(
-                  '-mb-px flex h-10 items-center justify-center gap-1.5 whitespace-nowrap border-b-2 px-1 text-[13px] transition-colors max-sm:flex-auto sm:gap-2 sm:px-3 sm:text-[13.5px]',
+                  '-mb-px flex h-10 items-center justify-center gap-1.5 whitespace-nowrap border-b-2 px-1 text-[13px] transition-colors max-sm:flex-auto max-[379px]:gap-1 max-[379px]:px-0.5 max-[379px]:text-[12px] sm:gap-2 sm:px-3 sm:text-[13.5px]',
                   view === v.key ? 'border-ink font-medium text-ink' : 'border-transparent text-stone-500 hover:text-ink',
                 )}
               >
@@ -316,7 +330,15 @@ export default function AdminPage() {
           </div>
         )}
 
-        {inboxShown ? (
+        {view === 'tests' ? (
+          allowed ? (
+            <AdminTests />
+          ) : (
+            <div className="flex justify-center py-20" role="status" aria-label={t('Chargement')}>
+              <Loader2 className="animate-spin text-stone-400 motion-reduce:animate-none" />
+            </div>
+          )
+        ) : inboxShown ? (
           <AdminInbox inbox={inbox} missing={inboxMissing} reload={() => void load()} />
         ) : !stats ? (
           !error ? (
@@ -346,26 +368,6 @@ export default function AdminPage() {
                 <span className="font-medium">{t('Voir')}</span>
               </button>
             )}
-
-            {/* For testing what a late task looks like (the app doesn't let anyone create one in the past). Admin only:
-                this page is. The task lands in the admin's own account, through the normal store and sync. */}
-            <section aria-labelledby="admin-test" className="card flex flex-wrap items-center gap-3 px-4 py-3">
-              <h2 id="admin-test" className="eyebrow mr-auto">{t('Outils de test')}</h2>
-              <button
-                type="button"
-                className="btn-secondary h-9"
-                onClick={() => {
-                  const st = useTodos.getState();
-                  const late = new Date();
-                  late.setDate(late.getDate() - 3);
-                  const id = st.add(t('Tâche de test en retard'), toKey(late)).id;
-                  st.update(id, { due: toKey(late) });
-                  useUi.getState().toast(t('Tâche en retard créée (il y a 3 jours) : regarde dans Tâches.'), 'success');
-                }}
-              >
-                {t('Créer une tâche en retard')}
-              </button>
-            </section>
 
             <section aria-labelledby="admin-users">
               <h2 id="admin-users" className="eyebrow mb-2">{t('Utilisateurs')}</h2>
