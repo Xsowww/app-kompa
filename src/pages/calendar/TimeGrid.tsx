@@ -308,16 +308,19 @@ export default function TimeGrid({ days, today, selected, events, todos, periods
                   // One line of title when two wouldn't leave room for the hour (a 1 h block is 50 px).
                   const oneLine = height < 66;
                   const movable = canChange(ev);
-                  // Overlapping events: each one reaches the right edge, the next one drawn over it a little further right
-                  // (side by side, a narrow week column left « Ré d.. 0… »: now the earlier one reads whole above the later
-                  // one, and the later one keeps two thirds of the width).
-                  const left = (col / n) * 70;
+                  // Overlapping events side by side, each its share of the width: drawn one over the other, the later one
+                  // hid the earlier one's hour and the end of its title (« 12:00 – 1… » under « Appel banque », « Soirée
+                  // anniversaire chez… » under « Révision »). Narrow, a block says its hour on a line, then its title on
+                  // as many lines as it has room for (no « Ré d.. 0… » either).
+                  const left = (col / n) * 100;
+                  const narrow = week && n > 1;
+                  const titleLines = Math.max(1, Math.floor((height - 8 - 14) / 15));
                   return (
                     <div
                       key={ev.id}
                       // Over: still there, lighter and struck through (what is left of the day stands out).
                       className={cx('group/ev absolute', dragged?.id === ev.id && drag?.mode === 'move' ? 'opacity-35' : isOver(ev) && 'cal-past', resizing?.ev.id === ev.id && 'z-10 shadow-pop', col > 0 && 'rounded-md shadow-[0_0_0_1.5px_var(--color-surface)]')}
-                      style={{ top: y(start) + 1, height, left: `calc(${left}% + 2px)`, width: `calc(${100 - left}% - 4px)`, zIndex: resizing?.ev.id === ev.id ? undefined : col || undefined }}
+                      style={{ top: y(start) + 1, height, left: `calc(${left}% + 2px)`, width: `calc(${100 / n}% - 4px)`, zIndex: resizing?.ev.id === ev.id ? undefined : col || undefined }}
                       onMouseMove={e => e.stopPropagation()}
                       onMouseEnter={() => setHover(null)}
                     >
@@ -338,7 +341,16 @@ export default function TimeGrid({ days, today, selected, events, todos, periods
                         )}
                         style={{ background: c.soft, borderColor: c.color }}
                       >
-                        {compact ? (
+                        {narrow && !oneLine ? (
+                          <>
+                            <span className="tabular shrink-0 truncate text-[11px] leading-[14px]" style={{ color: c.text }}>
+                              {nights.has(ev.id) && ev.start === '00:00' ? `→ ${ev.end}` : ev.start}
+                            </span>
+                            <span className="text-[12px] font-medium leading-[15px] text-ink hyphens-auto [overflow-wrap:break-word]" style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: titleLines, overflow: 'hidden' }}>
+                              {eventTitle(ev, shared)}
+                            </span>
+                          </>
+                        ) : compact ? (
                           <span className="truncate text-[12px] leading-tight">
                             <span className="font-medium text-ink">{eventTitle(ev, shared)}</span>
                             <SeriesIcon series={ev.series} size={10} className="ml-1 inline-block -translate-y-px text-stone-500" />

@@ -485,6 +485,8 @@ export function QuickAdd() {
         aria-haspopup="dialog"
         aria-expanded={!!dueMenu}
         onClick={e => setDueMenu(dueMenu ? null : e.currentTarget)}
+        // The Affichage Pro draws it as a capsule, as the field and « Ajouter » beside it (tasksPro.css).
+        data-due-new
         className={cx('flex h-10 shrink-0 items-center gap-1.5 rounded-[14px] px-3 text-[12.5px] font-semibold transition-colors pointer-coarse:h-11 max-sm:aspect-square max-sm:justify-center max-sm:px-0', due ? 'bg-brand-50 text-brand-700 hover:bg-brand-100' : 'bg-surface text-stone-600 ring-1 ring-inset ring-stone-200 hover:bg-stone-50 hover:text-ink')}
         title={due ? t('Changer l’échéance') : t('Ajouter une échéance')}
         aria-label={due ? t('Échéance : {day}', { day: fmtDay(fromKey(due), 'EEEE d MMMM') }) : t('Ajouter une échéance')}

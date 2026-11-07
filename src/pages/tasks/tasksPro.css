@@ -111,3 +111,8 @@
   background: color-mix(in srgb, var(--tp-today) 18%, transparent);
   font-weight: 650;
 }
+
+/* The new task's due date, beside the field and « Ajouter »: a capsule as they are (it was the only square one). */
+:root[data-pro] [data-due-new] {
+  border-radius: 999px;
+}
