@@ -119,6 +119,11 @@ describe('le jour où s’ouvre le calendrier', () => {
   it('the next planned day, when the rest of the week is empty (what is past or done doesn’t count)', () => {
     expect(open([{ date: '2026-11-02' }, { date: '2026-11-07', done: true }, { date: '2026-11-12' }, { date: '2026-11-10' }])).toEqual({ day: '2026-11-10', jumped: true });
   });
+  it('once per session: already said, it opens on today (back after « Revenir à aujourd’hui »)', () => {
+    const items = [{ date: '2026-11-10' }];
+    expect(openingDay('2026-11-06', '2026-11-08', items, '2027-01-05')).toEqual({ day: '2026-11-10', jumped: true });
+    expect(openingDay('2026-11-06', '2026-11-08', items, '2027-01-05', true)).toEqual({ day: '2026-11-06', jumped: false });
+  });
   it('today when nothing is planned at all, or only far away', () => {
     expect(open([])).toEqual({ day: '2026-11-06', jumped: false });
     expect(open([{ date: '2027-03-01' }])).toEqual({ day: '2026-11-06', jumped: false });

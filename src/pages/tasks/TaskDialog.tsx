@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState, type FormEvent } from 'react';
-import { Trash2 } from 'lucide-react';
+import { CalendarClock, CalendarPlus, Trash2 } from 'lucide-react';
 import { DateField, SelectField, TimeField } from '../../components/Pickers';
 import { softKeyboard } from '../../lib/keyboard';
 import { Modal } from '../../components/Overlays';
@@ -10,6 +10,9 @@ import { useTodos, type Todo } from '../../store/todos';
 import { getSettings } from '../../store/settings';
 import { TASK_REPEATS, type TaskRepeat } from '../../lib/taskRepeat';
 import { toast } from '../../store/ui';
+import { fmtDay, fromKey, todayKey } from '../../lib/dates';
+import { LateBadge } from './LateBadge';
+import { postponedToast, tomorrowKey } from './postpone';
 import { t } from '../../i18n';
 
 /**
@@ -48,10 +51,45 @@ export default function TaskDialog({ todo, onClose, remind, onDelete }: { todo?:
     onClose();
   };
 
+  // Late (its day, as in the form, is past): said at the top, with the two ways to put it off.
+  const late = !!todo && !todo.done && !!due && due < todayKey();
+  /** « Reporter à aujourd'hui / demain »: what is in the form, saved on that day (its reminders follow it), then closed. */
+  const postpone = (day: string) => {
+    if (!todo) return;
+    if (!title.trim()) {
+      setTitleError(t('Donne un titre.'));
+      return titleRef.current?.focus();
+    }
+    const before = { due: todo.due, time: todo.time, reminders: todo.reminders };
+    const moved = followMoments(reminders, { date: due, time: time || undefined }, { date: day, time: time || undefined }, reminders);
+    useTodos.getState().update(todo.id, { title: title.trim(), due: day, time: time || undefined, reminders: moved, repeat: repeat || undefined });
+    postponedToast([{ title: title.trim() }], day, () => useTodos.getState().update(todo.id, before));
+    onClose();
+  };
+
   return (
     <Modal open onClose={onClose} width={420}>
       <form onSubmit={submit}>
         <h3 ref={headRef} tabIndex={-1} className="text-[18px] outline-none">{todo ? t('Modifier la tâche') : t('Nouvelle tâche')}</h3>
+        {late && (
+          <div data-late-banner className="late-banner mt-3 rounded-2xl p-3">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <LateBadge due={due} size="md" />
+              <span className="late-when text-[12.5px] font-medium">{t('Prévue le {day}', { day: fmtDay(fromKey(due), 'EEEE d MMMM') })}</span>
+            </div>
+            <div className="mt-2.5 flex flex-wrap items-center gap-2" role="group" aria-label={t('Reporter')}>
+              <span className="late-when text-[12.5px] font-medium" aria-hidden>
+                {t('Reporter à')}
+              </span>
+              <button type="button" className="btn-secondary h-9 flex-1 px-3 text-[13px]" onClick={() => postpone(todayKey())} aria-label={t('Reporter à aujourd’hui')}>
+                <CalendarClock size={14} aria-hidden className="shrink-0" /> {t('Aujourd’hui')}
+              </button>
+              <button type="button" className="btn-secondary h-9 flex-1 px-3 text-[13px]" onClick={() => postpone(tomorrowKey())} aria-label={t('Reporter à demain')}>
+                <CalendarPlus size={14} aria-hidden className="shrink-0" /> {t('Demain')}
+              </button>
+            </div>
+          </div>
+        )}
         <Field className="mt-4" label={t('Tâche')} error={titleError}>
           <input
             ref={titleRef}

@@ -1,0 +1,39 @@
+/* A late task (LateBadge): red and strong in every look, in the lists, the calendar, the home page and its window. */
+.late-badge {
+  background: #c42b1c;
+  color: #fff;
+}
+.late-banner {
+  background: var(--cat-examen-soft);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #c42b1c 35%, transparent);
+}
+.late-banner .late-when {
+  color: var(--cat-examen-text);
+}
+/* Its row in Tâches and on the home page: a red tint from the left (the Affichage Pro has its own, tasksPro.css). */
+:root:not([data-pro]) .list-row[data-late] {
+  background: linear-gradient(90deg, var(--cat-examen-soft), transparent 75%);
+}
+/* In the calendar: its dashed edge in red. */
+.cal-late {
+  border-color: color-mix(in srgb, #c42b1c 55%, transparent) !important;
+}
+
+/* Affichage Pro: the urgent red of the Pro look, lit on the dark glass. */
+:root[data-pro] .late-badge {
+  background: color-mix(in srgb, var(--pro-urgent, #ff6b5e) 24%, transparent);
+  color: var(--pro-urgent, #ff6b5e);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--pro-urgent, #ff6b5e) 55%, transparent),
+    0 0 14px -4px color-mix(in srgb, var(--pro-urgent, #ff6b5e) 70%, transparent);
+}
+:root[data-pro] .late-banner {
+  background: linear-gradient(100deg, color-mix(in srgb, var(--pro-urgent, #ff6b5e) 20%, transparent), rgb(255 255 255 / 0.04) 80%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pro-urgent, #ff6b5e) 45%, transparent);
+}
+:root[data-pro] .late-banner .late-when {
+  color: rgb(255 255 255 / 0.78);
+}
+:root[data-pro] .cal-late {
+  border-color: color-mix(in srgb, var(--pro-urgent, #ff6b5e) 60%, transparent) !important;
+}

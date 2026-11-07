@@ -143,12 +143,31 @@ export const isFor = (e: Pick<CalendarEvent, 'people'>, who: string | null) => !
 export const tasksOn = (todos: Todo[], day: string) =>
   todos.filter(x => x.due === day && !(x as { deletedAt?: string }).deletedAt).sort((a, b) => (a.time ?? '').localeCompare(b.time ?? '') || a.title.localeCompare(b.title));
 
+const JUMP_KEY = 'cop-cal-jump-said';
+/** Whether the calendar already opened on a later day in this session (« Rien de prévu d'ici dimanche… », once). */
+export function jumpSaid(): boolean {
+  try {
+    return sessionStorage.getItem(JUMP_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+export function markJumpSaid() {
+  try {
+    sessionStorage.setItem(JUMP_KEY, '1');
+  } catch {
+    // (private browsing: said again next time)
+  }
+}
+
 /**
  * The day the calendar opens on: today; or, when nothing is left from today to Sunday (events, dated tasks not done),
  * the next day something is planned, within `ahead` days (Lina's calendar opened on an empty week). `weekEnd`: this
- * week's Sunday (YYYY-MM-DD).
+ * week's Sunday (YYYY-MM-DD). `saidBefore`: the jump was already shown in this session (jumpSaid).
  */
-export function openingDay(today: string, weekEnd: string, items: { date: string; done?: boolean }[], lastDay: string): { day: string; jumped: boolean } {
+export function openingDay(today: string, weekEnd: string, items: { date: string; done?: boolean }[], lastDay: string, saidBefore = false): { day: string; jumped: boolean } {
+  // Said once per session: back on the calendar after « Revenir à aujourd'hui » (or anywhere else), it opens on today.
+  if (saidBefore) return { day: today, jumped: false };
   const coming = items.filter(x => !x.done && x.date >= today && x.date <= lastDay).map(x => x.date).sort();
   if (!coming.length || coming[0] <= weekEnd) return { day: today, jumped: false };
   return { day: coming[0], jumped: true };

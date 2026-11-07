@@ -19,8 +19,7 @@
   --isl-top: calc(env(safe-area-inset-top) + 11px);
 
   position: fixed;
-  /* Above the page, its bars and Kompaly's panel; always under menus (55+) and dialogs (60), its messages too: a dialog
-     is never covered (they wait in the hub's Notifications). */
+  /* Above the page, its bars and Kompaly's panel; under menus (55+). Over a dialog while one is open (below). */
   z-index: 52;
   left: 50%;
   /* In the middle of the top bar (56 px, AppShell's header; on phones it keeps its centre free for it), under the notch. */
@@ -738,4 +737,26 @@ button.isl-text {
     pointer-events: none;
     transition: opacity 0.15s, visibility 0s 0.15s;
   }
+}
+
+/* A dialog open (an event, a task, a confirmation, a file's preview…): the island comes over it, its messages read at
+   the top centre (« Envoyer un rappel test » rang under the event's dialog), its hub usable. Still under the menus
+   opened from the dialog (65) and the guide (Tour). A press on the dialog shrinks an open message, and goes on to it. */
+body:has([aria-modal='true']:not(.isl-face)) .isl-wrap {
+  z-index: 62;
+}
+/* The dialogs (components/Overlays › Modal) start under the pill: it never covers their title or their buttons. */
+body:has(.isl-wrap) .modal-backdrop {
+  padding-top: calc(env(safe-area-inset-top) + 56px);
+}
+@media (max-height: 500px) and (width < 64rem) {
+  body:has(.isl-wrap) .modal-backdrop {
+    padding-top: calc(env(safe-area-inset-top) + 48px);
+  }
+}
+/* A file's preview (full screen) has its bar where the pill sits: the pill with nothing to say steps aside meanwhile;
+   a message, a reminder, the timer still come over it. */
+body:has([aria-modal='true']:not(.isl-face):not([data-modal])) .isl[data-mode='idle'] {
+  opacity: 0;
+  pointer-events: none;
 }

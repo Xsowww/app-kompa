@@ -23,6 +23,7 @@ import { hasRevisionPlan, revisionNote, revisionSessions, linkToDay, linkToNote 
 import { runOffer } from '../copilot/offers';
 import { formatMinutes } from './tasks/focusStats';
 import { agendaLink, fromAgenda, useAgendaOverlay } from './calendar/agendas';
+import { LateBadge } from './tasks/LateBadge';
 import HomeShortcuts from './HomeShortcuts';
 import { t, tn } from '../i18n';
 import './dashboardPro.css';
@@ -113,12 +114,14 @@ function TaskRow({ x, today, subject, bigDay }: { x: Todo; today: string; subjec
         </Link>
         {(subject || when) && (
           <div className="dpro-meta">
+            {/* « En retard · depuis 3 jours », as in Tâches and the calendar (under the title: it keeps its width). */}
+            {late && <LateBadge due={x.due!} />}
             {subject && (
               <span className="dpro-tag" style={{ '--c': `var(--pro-${subject.space})` } as CSSProperties}>
                 {subject.name}
               </span>
             )}
-            {when && <span className={cx('dpro-when tabular inline-block first-letter:uppercase', late && 'is-late')}>{when}</span>}
+            {when && !late && <span className="dpro-when tabular inline-block first-letter:uppercase">{when}</span>}
           </div>
         )}
       </div>
@@ -126,11 +129,7 @@ function TaskRow({ x, today, subject, bigDay }: { x: Todo; today: string; subjec
         <button type="button" onClick={startTour} className="dpro-btn is-small">
           {t('Lancer')}
         </button>
-      ) : late ? (
-        <span className="dpro-chip">
-          <Flag size={11} aria-hidden /> {t('En retard')}
-        </span>
-      ) : (
+      ) : late ? null : (
         bigDay &&
         !x.done && (
           <span className="dpro-chip" title={t('Pour « {title} », {when}', { title: bigDay.title, when: countdownLabel(bigDay.date).toLowerCase() })}>
@@ -592,11 +591,7 @@ export default function DashboardPro() {
                   <Link to={`/taches?tache=${nextWeek.id}`} className="dpro-cheer-next">
                     <span>{t('Ensuite')}</span>
                     <b>{nextWeek.title}</b>
-                    {nextWeekLate && (
-                      <span className="dpro-chip">
-                        <Flag size={11} aria-hidden /> {t('En retard')}
-                      </span>
-                    )}
+                    {nextWeekLate && <LateBadge due={nextWeek.due!} />}
                   </Link>
                 )}
               </div>

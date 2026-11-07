@@ -177,6 +177,9 @@ export function Modal({ open, onClose, children, width = 420, label }: { open: b
       // Dialog over dialog (a confirmation over « Mes catégories »): only the one on top reacts.
       const dialogs = document.querySelectorAll('[aria-modal="true"]');
       if (dialogs[dialogs.length - 1] !== el) return;
+      // Affichage Pro: the island is over the dialog (island.css); its message or its hub, used from the keyboard, keeps
+      // its own keys (Tab in the hub, Échap) instead of being sent back into the dialog.
+      if ((document.activeElement as HTMLElement | null)?.closest?.('.isl-wrap')) return;
       if (e.key === 'Escape') {
         e.stopPropagation();
         closeRef.current();
@@ -200,9 +203,11 @@ export function Modal({ open, onClose, children, width = 420, label }: { open: b
   // On <body>: a dialog opened from a page that is itself a stacking context (entrance animation) would
   // otherwise end up under Kompaly and the toasts.
   return createPortal(
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#14161f]/40 p-4 backdrop-blur-[2px] dark:bg-black/70" onMouseDown={onClose}>
+    // modal-backdrop: in the Affichage Pro it leaves the island its room at the top (island.css).
+    <div className="modal-backdrop fixed inset-0 z-[60] flex items-center justify-center bg-[#14161f]/40 p-4 backdrop-blur-[2px] dark:bg-black/70" onMouseDown={onClose}>
       <div
         ref={ref}
+        data-modal
         role="dialog"
         aria-modal="true"
         aria-label={label}
