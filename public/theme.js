@@ -18,6 +18,17 @@ try {
     document.documentElement.dataset.style = 'verre';
     document.documentElement.dataset.pro = pro;
     paper = ['#0c0d12', '#0c0d12'];
+    // Its picture asked for now, first, rather than once the styles are read (themes.css › data-pro: « nuit » has
+    // its own, the colour ones none, any other the mountain).
+    var wall = pro === 'nuit' ? 'nuit' : /^(aurore|maree|braise)$/.test(pro) ? '' : 'montagne';
+    if (wall) {
+      var l = document.createElement('link');
+      l.rel = 'preload';
+      l.as = 'image';
+      l.href = '/pro/' + wall + '.webp';
+      l.setAttribute('fetchpriority', 'high');
+      document.head.appendChild(l);
+    }
   }
   document.querySelector('meta[name="theme-color"]').setAttribute('content', paper[dark ? 1 : 0]);
 } catch (e) {}
