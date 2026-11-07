@@ -8,6 +8,7 @@ import tailwindcss from '@tailwindcss/vite';
 import { handleCopilot } from './server/copilot.mjs';
 import { loadPublicEnv } from './server/publicEnv.mjs';
 import { guestHome, hasSession } from './src/lib/guestHome.mjs';
+import { remText } from './scripts/remText.mjs';
 
 // Public Supabase settings committed in .env.supabase.public (values in .env win).
 loadPublicEnv();
@@ -31,7 +32,7 @@ function copilotApi(env: Record<string, string>): Plugin {
  * the styles at once, and a small preload.js (no inline script: the CSP forbids them) that adds, before
  * anything runs, the dictionary of the visitor's language and the code of the first page they will see:
  * the home page alone for a visitor on « / » (lib/guestHome), else the app (boot), with its shell when a
- * session is kept on this device.
+ * session is kept on this device, or the sign-in page on its addresses.
  */
 function preloadPlugin(): Plugin {
   return {
@@ -67,13 +68,14 @@ function preloadPlugin(): Plugin {
         dict: Object.fromEntries((['en', 'es', 'de', 'it'] as const).map(l => [l, [...withDeps(`/src/i18n/${l}.json`), ...withDeps(`/date-fns/locale/${l === 'en' ? 'en-GB' : l}.js`)]])),
         app: [...withDeps('/src/layout/AppShell.tsx'), ...withDeps('/src/pages/Dashboard.tsx')],
         boot: withDeps('/src/boot.tsx'),
+        auth: withDeps('/src/pages/AuthPage.tsx'),
         home: withDeps('/src/pages/LandingPage.tsx'),
         landing: withDeps('/src/landing.tsx'),
       };
       const code = `(function(){var m=${JSON.stringify(map)},d=document;function p(a){for(var i=0;i<a.length;i++){var l=d.createElement('link');l.rel='modulepreload';l.href=a[i];d.head.appendChild(l)}}
 var g=(/[?&]lang=([a-z]{2})/.exec(location.search)||[])[1];if(!g||!m.dict[g]&&g!=='fr'){g=void 0;try{g=localStorage.getItem('cop-lang')}catch(e){}}if(!g){var n=navigator.languages||[navigator.language];for(var i=0;i<n.length;i++){var c=String(n[i]||'').slice(0,2).toLowerCase();if(c==='fr'||m.dict[c]){g=c;break}}}if(g&&m.dict[g])p(m.dict[g]);
 ${hasSession}${guestHome}var s=hasSession();
-p(guestHome()?m.landing:m.boot.concat(s?m.app:location.pathname==='/'?m.home:[]))})();`;
+p(guestHome()?m.landing:m.boot.concat(s?m.app:location.pathname==='/'?m.home:/^\\/(connexion|inscription|mot-de-passe-oublie|reinitialisation)\\/?$/.test(location.pathname)?m.auth:[]))})();`;
       const file = this.getFileName(this.emitFile({ type: 'asset', name: 'preload.js', source: code }));
       const tags = [
         `<script src="/${file}"></script>`,
@@ -101,10 +103,18 @@ function swVersion(): Plugin {
   };
 }
 
+/**
+ * The small pieces the public pages share (home page, sign-in, legal pages: the logo, a select, Kompaly's face, the
+ * demo…): one file. Left to themselves they became nine tiny ones on the home page, each a request.
+ */
+const PUBLIC_UI = /\/src\/(components\/(FileIcon|Logo|SelectField|LanguagePicker)\.tsx|copilot\/Character\.tsx|pages\/landingDemo\.ts|pages\/legal\/links\.ts|lib\/(limits|usage)\.ts)$/;
+
 export default defineConfig(({ mode }) => {
   const env = { ...process.env, ...loadEnv(mode, process.cwd(), '') } as Record<string, string>;
   return {
     plugins: [tailwindcss(), react(), copilotApi(env), preloadPlugin(), swVersion()],
+    // « Taille du texte »: the text in rem (scripts/remText).
+    css: { postcss: { plugins: [remText] } },
     // The commit being deployed (lib/freshness: an old tab on a public page reloads to the new version).
     define: { __BUILD__: JSON.stringify((process.env.RENDER_GIT_COMMIT ?? '').slice(0, 7)) },
     // Fewer, bigger files: all the icons (with React, which they need) in one instead of ~35 tiny ones,
@@ -113,7 +123,16 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         output: {
           manualChunks: (id: string) =>
-            id.includes('/node_modules/lucide-react/') ? 'icons' : id.includes('/node_modules/date-fns/') && !/\/locale\/(?!fr\b)/.test(id) ? 'date' : undefined,
+            id.includes('/node_modules/lucide-react/')
+              ? 'icons'
+              : id.includes('/node_modules/date-fns/') && !/\/locale\/(?!fr\b)/.test(id)
+                ? 'date'
+                : PUBLIC_UI.test(id)
+                  ? 'public'
+                  : // Its own small file: else the public pieces would take it, and the first script would wait for them.
+                    id.endsWith('/src/i18n/index.ts')
+                    ? 'i18n'
+                    : undefined,
         },
       },
     },

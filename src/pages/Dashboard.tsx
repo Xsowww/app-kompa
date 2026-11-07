@@ -26,6 +26,9 @@ import { useTodos } from '../store/todos';
 import { weekItems } from '../lib/weekProgress';
 import { agendaLink, fromAgenda, useAgendaOverlay } from './calendar/agendas';
 import { t, tn } from '../i18n';
+import { firstName } from '../lib/firstName';
+import { untilLabel } from '../lib/until';
+import { useShallow } from 'zustand/react/shallow';
 
 /** A bento tile: white by default, `dark` for the big day (the strongest tile of the page). */
 function Widget({ title, to, linkLabel, className, dark, children }: { title: string; to?: string; linkLabel?: string; className?: string; dark?: boolean; children: React.ReactNode }) {
@@ -103,7 +106,7 @@ function DashboardClassic() {
   const periods = useSettings(st => st.periods);
   const navigate = useNavigate();
   const user = useAuth(s => s.user)!;
-  const { notes, folders } = useNotes();
+  const { notes, folders } = useNotes(useShallow(s => ({ notes: s.notes, folders: s.folders })));
   const events = useCalendar(s => s.events);
   // My shared calendars' events among mine for the day (read-only here: they open in their agenda).
   const overlay = useAgendaOverlay().events;
@@ -191,8 +194,9 @@ function DashboardClassic() {
         <div className="flex flex-wrap items-end gap-2 pb-4 pt-2">
           <div className="mr-auto">
             <p className="eyebrow first-letter:uppercase">{fmt(now, 'EEEE d MMMM')}</p>
-            <h1 className="mt-0.5 text-[32px] font-extrabold tracking-[-0.035em]">
-              {t('{hello}, {name}', { hello, name: user.name })}
+            {/* The first name only (« Prénom » may hold a full name), never cut in the middle of a line. */}
+            <h1 className="mt-0.5 text-[32px] font-extrabold tracking-[-0.035em] text-balance break-words">
+              {t('{hello}, {name}', { hello, name: firstName(user.name) })}
             </h1>
             {/* Only tasks are late (events are not ticked). */}
             {lateTodos > 0 && (
@@ -272,8 +276,9 @@ function DashboardClassic() {
                     </>
                   )}
                 </span>
+                {/* The time: never under the floating « + » (it steps aside, components/CreateButton). */}
                 <span className="sr-only">{t('Il est {time}', { time: nowTime })}</span>
-                <span aria-hidden className="tabular shrink-0 text-[40px] font-extrabold leading-[0.9] tracking-[-0.045em] sm:text-[56px]">{nowTime}</span>
+                <span aria-hidden data-fab-avoid className="tabular shrink-0 text-[40px] font-extrabold leading-[0.9] tracking-[-0.045em] sm:text-[56px]">{nowTime}</span>
               </span>
               <DayLine events={todayEvents} now={now} />
             </Link>
@@ -342,12 +347,14 @@ function DashboardClassic() {
                           const d = daysUntil(e.date);
                           return (
                             <li key={e.id}>
-                              <Link to={linkToDay(e.date, e.id)} className="group flex items-center gap-2 rounded-md py-1 text-[12.5px] pointer-coarse:py-2">
-                                <span className={cx('tabular w-9 shrink-0 font-bold', d <= 3 ? 'text-[#ffa27c]' : 'text-white/75')}>{d === 0 ? t('Auj.') : t('J-{n}', { n: d })}</span>
-                                <span className="min-w-0 truncate group-hover:underline">{e.title}</span>
-                                <span className="ml-auto shrink-0 text-[12px] text-white/75">
-                                  {/* The week day is enough within 7 days (the column is narrow on a 1024 px screen). */}
-                                  {fmtDay(fromKey(e.date), d < 7 ? 'EEE d' : 'EEE d MMM').replace(/^./, c => c.toUpperCase())}
+                              {/* « dans 13 jours » in words (« J-13 » wasn't understood), under the title. */}
+                              <Link to={linkToDay(e.date, e.id)} className="group block rounded-md py-1 text-[12.5px] pointer-coarse:py-1.5">
+                                <span className="block truncate group-hover:underline">{e.title}</span>
+                                <span className="block truncate text-[12px] text-white/75">
+                                  <span className={cx('font-semibold', d <= 3 && 'text-[#ffa27c]')}>{untilLabel(d).replace(/^./, c => c.toUpperCase())}</span>
+                                  {' · '}
+                                  {/* The week day is enough within 7 days. */}
+                                  {fmtDay(fromKey(e.date), d < 7 ? 'EEE d' : 'EEE d MMM')}
                                   {e.start && ` · ${e.start}`}
                                 </span>
                               </Link>

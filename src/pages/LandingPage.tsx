@@ -10,7 +10,7 @@ import { USAGES, WORDS, type Usage } from '../lib/usage';
 import { LEGAL_LINKS } from './legal/links';
 import { DEMO_KEY, dateOf, dayAfter, demoKept, demoMonday, demoPlace, exampleBase, keyOf, mondayOf, rowsFor, splitSentence, weekOf, weeksAhead, type DemoItem } from './landingDemo';
 import { cx } from '../lib/utils';
-import { t } from '../i18n';
+import { t, tn } from '../i18n';
 
 // Kompaly's own accounts; also listed in index.html (sameAs) for Google.
 const SOCIAL_LINKS = [
@@ -286,14 +286,12 @@ function HeroDemo({ demo }: { demo: Demo }) {
           <div className="flex flex-col rounded-2xl bg-tile-dark p-3.5 text-white max-sm:flex-row max-sm:items-center max-sm:gap-3" role="img" aria-label={t('Prochain grand jour : {title}, dans {n} jours', { title: big.title, n: big.days })}>
             <p className="text-[12.5px] font-semibold text-white/70 max-sm:order-2 max-sm:min-w-0 max-sm:flex-1" aria-hidden>
               {t('Prochain grand jour')}
-              <span className="whitespace-nowrap font-normal sm:hidden"> · {t('dans {n} jours', { n: big.days })}</span>
               <span className="mt-0.5 block text-[13px] text-white sm:hidden">{big.title}</span>
             </p>
             <p className="tabular mt-auto pt-4 text-[40px] font-extrabold leading-none tracking-[-0.05em] text-urgent max-sm:order-1 max-sm:pt-0 max-sm:text-[30px]" aria-hidden>
-              {t('J-{n}', { n: big.days })}
-            </p>
-            <p className="mt-1 text-[12.5px] text-white/70 max-sm:hidden" aria-hidden>
-              {t('dans {n} jours', { n: big.days })}
+              {/* In words (« J-13 » wasn't understood): the number big, « jours » beside it. */}
+              {big.days}
+              <span className="ml-1 text-[0.45em] font-bold tracking-normal">{tn(big.days, 'jour', 'jours')}</span>
             </p>
             <p className="mt-1 text-[13px] font-semibold leading-snug max-sm:hidden" aria-hidden>
               {big.title}
@@ -411,7 +409,7 @@ function FocusBadges() {
     { icon: Sunrise, title: t('Lève-tôt'), color: 'bg-[#d48a17]' },
   ];
   return (
-    <div className="card space-y-4 p-5 sm:p-6" role="img" aria-label={t('Exemple : le minuteur de concentration (25 minutes) en cours, et trois badges gagnés : Première session, Semaine pleine, Lève-tôt.')}>
+    <div className="card space-y-4 p-5 sm:p-6" role="img" aria-label={t('Exemple : le minuteur de concentration (25 minutes) en cours, et trois récompenses gagnées : Première session, Semaine pleine, Lève-tôt.')}>
       <div className="rounded-2xl bg-stone-100 p-4" aria-hidden>
         <p className="flex items-center gap-2 text-[13px] font-semibold">
           <Timer size={15} className="text-brand-600" /> {t('Concentration')}
@@ -627,7 +625,7 @@ function Usages({ chosen }: { chosen: Usage | null }) {
   }, [picked]);
 
   return (
-    <section ref={ref} id="usages" aria-labelledby="usages-title" className="mx-auto max-w-[1120px] px-5 py-20 md:px-8" onPointerDown={() => setPicked(true)} onFocus={() => setPicked(true)}>
+    <section ref={ref} id="usages" aria-labelledby="usages-title" className="cv-auto mx-auto max-w-[1120px] px-5 py-20 md:px-8" onPointerDown={() => setPicked(true)} onFocus={() => setPicked(true)}>
       <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,420px)_1fr]">
         <div className="min-w-0">
           <h2 id="usages-title" className="text-[30px] font-extrabold leading-[1.05] tracking-[-0.025em] md:text-[36px]">
@@ -659,8 +657,10 @@ function Usages({ chosen }: { chosen: Usage | null }) {
           </div>
           <div className="card flex flex-col bg-tile-dark p-4 text-white">
             <p className="text-[12px] font-semibold text-white/65">{WORDS[usage].nextBig}</p>
-            <p className="tabular mt-5 text-[44px] font-extrabold leading-none tracking-[-0.05em] text-urgent">{t('J-{n}', { n: ex.days })}</p>
-            <p className="mt-1 text-[12.5px] text-white/70">{t('dans {n} jours', { n: ex.days })}</p>
+            <p className="tabular mt-5 text-[44px] font-extrabold leading-none tracking-[-0.05em] text-urgent">
+              {ex.days}
+              <span className="ml-1 text-[0.45em] font-bold tracking-normal">{tn(ex.days, 'jour', 'jours')}</span>
+            </p>
             <p className="mt-1.5 text-[13.5px] font-semibold">{ex.big}</p>
           </div>
           {/* The shared space as it looks in the app: « Équipes » for work (lib/usage), « Groupes » otherwise. */}
@@ -874,6 +874,8 @@ export default function LandingPage() {
               </div>
               <p className="min-w-0 max-w-[50ch] text-[16px] leading-relaxed text-stone-600 max-sm:text-[15px] max-sm:leading-snug sm:text-[16.5px]">
                 {t('Écris-le en une phrase ou enregistre un cours, une réunion : Kompaly le range et te prévient sur ton téléphone.')}
+                {/* Test n°3: a retiree, a night nurse, a school head didn't see themselves in « études ». */}
+                <span className="mt-1.5 block text-stone-700">{t('Pour les cours, les gardes de nuit, les rendez-vous médicaux ou l’agenda des enfants.')}</span>
               </p>
             </div>
             <div className="mt-6 flex flex-wrap items-center gap-3 sm:mt-7">
@@ -887,7 +889,7 @@ export default function LandingPage() {
             {/* What reassures, readable by everyone (15 px, dark enough): free for good, what it is for, what it is not. */}
             <p className="mt-4 text-[15px] leading-snug text-stone-700">{t('1 minute · sans appli à installer · sans pub')}</p>
             <p className="mt-1.5 text-[15px] leading-snug text-stone-700">
-              {t('Gratuit, rien ne te sera facturé · usage perso, groupes et équipes inclus · pas de devis ni de factures.')}{' '}
+              {t('Gratuit, rien ne te sera facturé · usage perso, groupes et équipes inclus · pas de devis ni de factures, ni prise de rendez-vous par des clients, ni gestion RH.')}{' '}
               <Link to="/tarifs" className="whitespace-nowrap font-semibold text-ink underline decoration-stone-400 underline-offset-2 hover:decoration-ink pointer-coarse:py-3">
                 {t('Voir les limites')}
               </Link>
@@ -916,12 +918,13 @@ export default function LandingPage() {
           </figure>
         </section>
 
-        <div className="border-y border-stone-200 bg-surface">
+        {/* cv-auto (index.css): the sections below the first screen are laid out and drawn only when they come near. */}
+        <div className="cv-auto border-y border-stone-200 bg-surface">
           <Assistant />
         </div>
 
         {/* What it does */}
-        <section id="fonctions" aria-labelledby="fonctions-title" className="mx-auto max-w-[1120px] px-5 py-20 md:px-8">
+        <section id="fonctions" aria-labelledby="fonctions-title" className="cv-auto mx-auto max-w-[1120px] px-5 py-20 md:px-8">
           <h2 id="fonctions-title" className="max-w-[22ch] text-[30px] font-extrabold leading-[1.05] tracking-[-0.025em] md:text-[36px]">
             {t('Ce que Kompaly fait pour toi.')}
           </h2>
@@ -962,7 +965,7 @@ export default function LandingPage() {
             </Feature>
             <Feature
               icon={Timer}
-              title={t('Un minuteur de concentration, et des badges')}
+              title={t('Un minuteur de concentration, et des récompenses')}
               text={t('Lance le minuteur : 25 minutes de travail, 5 de pause, sur une matière ou un dossier. Chaque séance terminée, chaque tâche cochée, chaque jour où tu reviens te fait gagner des badges, de petites récompenses à collectionner.')}
             >
               <FocusBadges />
@@ -975,7 +978,7 @@ export default function LandingPage() {
         </div>
 
         {/* Privacy */}
-        <section id="confiance" aria-labelledby="confiance-title" className="bg-ink text-paper">
+        <section id="confiance" aria-labelledby="confiance-title" className="cv-auto bg-ink text-paper">
           <div className="mx-auto grid max-w-[1120px] gap-10 px-5 py-20 md:px-8 lg:grid-cols-[minmax(0,420px)_1fr]">
             <div className="min-w-0">
               <h2 id="confiance-title" className="text-[30px] font-extrabold leading-[1.05] tracking-[-0.025em] md:text-[36px]">
@@ -1007,7 +1010,7 @@ export default function LandingPage() {
         </section>
 
         {/* FAQ */}
-        <section id="questions" aria-labelledby="questions-title" className="mx-auto max-w-[760px] px-5 py-20 md:px-8">
+        <section id="questions" aria-labelledby="questions-title" className="cv-auto mx-auto max-w-[760px] px-5 py-20 md:px-8">
           <h2 id="questions-title" className="text-[30px] font-extrabold leading-[1.05] tracking-[-0.025em] md:text-[36px]">
             {t('Questions fréquentes')}
           </h2>
@@ -1027,7 +1030,7 @@ export default function LandingPage() {
         </section>
 
         {/* Last call */}
-        <section className="mx-auto max-w-[1120px] px-5 pb-24 md:px-8">
+        <section className="cv-auto mx-auto max-w-[1120px] px-5 pb-24 md:px-8">
           <div className="flex flex-col items-start gap-6 rounded-3xl border border-stone-200 bg-surface p-7 sm:p-8 md:flex-row md:items-center md:p-12">
             <div className="min-w-0 flex-1">
               <h2 className="text-[26px] font-extrabold leading-tight tracking-[-0.03em] md:text-[30px]">{t('Range tout au même endroit, dès aujourd’hui.')}</h2>
@@ -1040,7 +1043,7 @@ export default function LandingPage() {
         </section>
       </main>
 
-      <footer className="border-t border-stone-200">
+      <footer className="cv-auto border-t border-stone-200">
         <div className="mx-auto flex max-w-[1120px] flex-wrap items-center gap-x-6 gap-y-3 px-5 py-8 text-[13px] text-stone-500 md:px-8">
           <Logo />
           <nav aria-label={t('Informations légales')} className="flex flex-wrap gap-x-4 gap-y-2 pointer-coarse:gap-y-0">

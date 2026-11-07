@@ -39,6 +39,7 @@ import { ContextMenu, type MenuItem } from '../../components/Overlays';
 import { isMenuKey, menuPoint } from '../../lib/a11y';
 import { GROUP_COLORS, type Group } from '../../lib/groups';
 import { t, tn } from '../../i18n';
+import { untilLabel } from '../../lib/until';
 
 type Mode = 'week' | 'month' | 'day';
 const MODES: { id: Mode; label: string }[] = [
@@ -838,7 +839,7 @@ export default function CalendarPage() {
         <div ref={headRef} className={cx('page-head', compactHead ? 'pb-3 pt-1' : 'pb-4 pt-2')}>
           <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
           {!compactHead && title}
-          <div className={cx('flex items-center gap-2', !shared && 'sm:ml-auto')}>
+          <div className={cx('flex flex-wrap items-center gap-2', !shared && 'sm:ml-auto')}>
             <div className="flex items-center gap-1">
               <button className="icon-btn pointer-coarse:h-9 pointer-coarse:w-9" onClick={() => shift(-1)} title={mode === 'day' ? t('Jour précédent') : t('Précédent')} aria-label={mode === 'day' ? t('Jour précédent') : t('Précédent')}>
                 <ChevronLeft size={17} />
@@ -993,7 +994,7 @@ export default function CalendarPage() {
                           <button
                             type="button"
                             onClick={() => (selectDay(key), setMode('day'))}
-                            className={cx('flex min-h-9 items-center gap-1.5 rounded-md text-left text-[14px] font-semibold', key === today && 'text-brand-600')}
+                            className={cx('flex min-h-9 items-center gap-1.5 rounded-md text-left pointer-coarse:min-h-11 text-[14px] font-semibold', key === today && 'text-brand-600')}
                             title={t('Voir la journée')}
                           >
                             <span className="first-letter:uppercase">{fmt(fromKey(key), 'EEEE d')}</span>
@@ -1277,6 +1278,9 @@ export default function CalendarPage() {
                     size="sm"
                     icon={CalendarPlus}
                     title={selected === today ? t('Rien de prévu aujourd’hui.') : t('Rien de prévu ce jour-là.')}
+                    // « Périodes » was found late (shared custody: one week out of two): named here while none is set.
+                    text={!readOnly && !periods.length ? t('Des semaines à part (garde alternée, vacances, stage…) ? Colore-les avec « Périodes ».') : undefined}
+                    action={!readOnly && !periods.length ? { label: t('Ajouter une période'), icon: CalendarRange, onClick: () => setPeriodsOpen(true) } : undefined}
                     preview="slots"
                   />
                 )
@@ -1319,8 +1323,9 @@ export default function CalendarPage() {
                   return (
                     <li key={e.id} data-big={big || undefined} className="flex min-w-0">
                       <button onClick={() => showEvent(e)} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1.5 py-1.5 text-left transition-colors hover:bg-stone-50">
-                        <span className={cx('tabular w-9 shrink-0 font-semibold', big ? 'text-[13px]' : 'text-[12px]', big && n <= 3 ? 'font-extrabold text-urgent-text' : big ? 'text-ink' : 'text-stone-500')}>
-                          {n === 0 ? t('Auj.') : n === 1 ? t('Dem.') : t('J-{n}', { n })}
+                        {/* « dans 13 jours » in words (« J-13 » wasn't understood), on two short lines. */}
+                        <span className={cx('tabular w-[3.75rem] shrink-0 font-semibold leading-tight', big ? 'text-[13px]' : 'text-[12px]', big && n <= 3 ? 'font-extrabold text-urgent-text' : big ? 'text-ink' : 'text-stone-500')}>
+                          {n === 0 ? t('Auj.') : n === 1 ? t('Dem.') : untilLabel(n)}
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="flex min-w-0 items-center gap-1.5 text-[13px] font-medium">

@@ -206,7 +206,8 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
   .dpro-stat { min-width: 0; padding: 9px 11px 8px; }
-  .dpro-stat > span { font-size: 11px; white-space: normal; line-height: 1.2; min-height: 2.4em; align-items: flex-start; }
+  /* A bigger « Taille du texte »: a long word (« Concentration ») breaks inside its tile rather than past it. */
+  .dpro-stat > span { font-size: 11px; white-space: normal; line-height: 1.2; min-height: 2.4em; align-items: flex-start; overflow-wrap: anywhere; hyphens: auto; }
   .dpro-stat > span::before { margin-top: 4px; flex: none; }
   .dpro-stat b { font-size: 19px; }
   .dpro-period { grid-column: 1 / -1; justify-self: start; }
@@ -865,22 +866,18 @@
   border-top: 1px solid rgb(255 255 255 / 0.08);
 }
 .dpro-big-later a {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  display: grid;
+  gap: 1px;
   min-height: 32px;
+  padding: 5px 0;
   font-size: 12.5px;
 }
-.dpro-big-later a:hover span { text-decoration: underline; }
+.dpro-big-later a:hover > span:first-child { text-decoration: underline; }
 .dpro-big-later b {
-  width: 38px;
-  flex: none;
   color: var(--ink-2);
-  font-weight: 750;
+  font-weight: 650;
 }
 .dpro-big-later-date {
-  margin-left: auto;
-  flex: none;
   color: var(--ink-3);
   font-size: 12px;
 }

@@ -16,6 +16,9 @@ export type ThemeMode = 'clair' | 'sombre' | 'auto';
 export type UiStyle = 'classique' | 'verre' | 'liquide' | 'relief';
 export const UI_STYLES: UiStyle[] = ['classique', 'verre', 'liquide', 'relief'];
 /** The wallpapers of the « Affichage Pro » (themes.css › data-pro): two painted landscapes, three colour fields. */
+/** « Taille du texte » (Profil › Apparence): the font size of <html>, every text in rem follows (index.css). */
+export type TextSize = 'normal' | 'grand' | 'tresgrand';
+export const TEXT_SIZES: TextSize[] = ['normal', 'grand', 'tresgrand'];
 export type ProWall = 'montagne' | 'nuit' | 'aurore' | 'maree' | 'braise';
 export const PRO_WALLS: ProWall[] = ['montagne', 'nuit', 'aurore', 'maree', 'braise'];
 export type Language = Lang;
@@ -53,6 +56,7 @@ export interface Settings {
   // appearance
   accent: AccentKey;
   reduceMotion: boolean;
+  textSize: TextSize;
   theme: ThemeMode;
   style: UiStyle;
   /** « Affichage Pro » (Profil › Apparence): a dark world on a wallpaper, the floating icon bar, the dashboard of
@@ -131,6 +135,7 @@ export const DEFAULT_SETTINGS: Settings = {
   year: '',
   accent: 'bleu',
   reduceMotion: false,
+  textSize: 'normal',
   theme: 'auto', // follows the device until the student picks one
   style: 'classique',
   pro: false,
@@ -204,6 +209,7 @@ const DARK_ACCENT_OVERRIDES: Partial<Record<AccentKey, Record<'50' | '100' | '20
 export const THEME_KEY = 'cop-theme';
 export const STYLE_KEY = 'cop-style';
 export const PRO_KEY = 'cop-pro';
+export const TEXT_KEY = 'cop-text';
 
 /** Theme last used on this device, or null (logged-out pages then follow the system). */
 export function storedTheme(): ThemeMode | null {
@@ -225,6 +231,16 @@ export function storedStyle(): UiStyle | null {
   }
 }
 
+/** Text size last used on this device: signed out, the pages keep it (like the theme). */
+export function storedTextSize(): TextSize | null {
+  try {
+    const s = localStorage.getItem(TEXT_KEY) as TextSize | null;
+    return s && TEXT_SIZES.includes(s) ? s : null;
+  } catch {
+    return null;
+  }
+}
+
 /** The page colour of each style (light, dark): the phone's status bar takes it. Same values in public/theme.js. */
 const PAPER: Record<UiStyle, [string, string]> = {
   classique: ['#eceef3', '#0c0d12'],
@@ -233,7 +249,7 @@ const PAPER: Record<UiStyle, [string, string]> = {
   relief: ['#e4e9f2', '#1e2126'],
 };
 
-type Appearance = Pick<Settings, 'accent' | 'reduceMotion' | 'theme'> & { style?: UiStyle; pro?: boolean; proWall?: ProWall };
+type Appearance = Pick<Settings, 'accent' | 'reduceMotion' | 'theme'> & { style?: UiStyle; pro?: boolean; proWall?: ProWall; textSize?: TextSize };
 const darkQuery = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 let lastAppearance: Appearance | null = null;
 darkQuery?.addEventListener('change', () => {
@@ -244,7 +260,7 @@ export const resolveDark = (theme: ThemeMode) => theme === 'sombre' || (theme ==
 
 /** Push the theme, accent colour and motion preference into CSS. */
 export function applyAppearance(s: Appearance, remember = true) {
-  lastAppearance = { accent: s.accent, reduceMotion: s.reduceMotion, theme: s.theme, style: s.style, pro: s.pro, proWall: s.proWall };
+  lastAppearance = { accent: s.accent, reduceMotion: s.reduceMotion, theme: s.theme, style: s.style, pro: s.pro, proWall: s.proWall, textSize: s.textSize };
   const root = document.documentElement;
   // Pro: always dark, on the glass of Verre (its cards, menus, fields), with its own wallpaper and layout (data-pro).
   const pro = !!s.pro;
@@ -259,8 +275,14 @@ export function applyAppearance(s: Appearance, remember = true) {
   if (pro) root.dataset.pro = wall;
   else delete root.dataset.pro;
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', pro ? '#0c0d12' : PAPER[style][dark ? 1 : 0]);
+  // Signed out (remember false): the size last chosen on this device, like the theme.
+  const text = (remember ? s.textSize : (storedTextSize() ?? s.textSize)) ?? 'normal';
+  if (text === 'normal' || !TEXT_SIZES.includes(text)) delete root.dataset.text;
+  else root.dataset.text = text;
   if (remember) {
     try {
+      if (text === 'normal') localStorage.removeItem(TEXT_KEY);
+      else localStorage.setItem(TEXT_KEY, text);
       localStorage.setItem(THEME_KEY, s.theme);
       localStorage.setItem(STYLE_KEY, own);
       if (pro) localStorage.setItem(PRO_KEY, wall);

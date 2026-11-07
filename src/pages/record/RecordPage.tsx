@@ -185,7 +185,7 @@ function Setup() {
             type="button"
             aria-pressed={make[k]}
             onClick={() => useSettings.getState().set({ courseMake: { ...make, [k]: !make[k] } })}
-            className={cx('flex h-8 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium ring-1 ring-inset transition-colors pointer-coarse:h-9', make[k] ? 'bg-ink text-paper ring-ink' : 'bg-surface text-stone-600 ring-stone-200 hover:text-ink')}
+            className={cx('flex h-8 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium ring-1 ring-inset transition-colors pointer-coarse:h-11', make[k] ? 'bg-ink text-paper ring-ink' : 'bg-surface text-stone-600 ring-stone-200 hover:text-ink')}
           >
             {make[k] ? <Check size={13} strokeWidth={3} aria-hidden /> : k === 'fiche' ? <ClipboardList size={14} aria-hidden /> : <BookOpenCheck size={14} aria-hidden />}
             {w.short[k]}

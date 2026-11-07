@@ -1,6 +1,6 @@
 import { addDays, format, isValid, parseISO, startOfWeek, differenceInCalendarDays } from 'date-fns';
 import { fr } from 'date-fns/locale/fr';
-import { dateLocale, lang, t, type Lang } from '../i18n';
+import { dateLocale, lang, t, tn, type Lang } from '../i18n';
 import { parseQuickAddIn } from './quickAddOther';
 import type { Repeat, RepeatRule } from './repeat';
 import { minutesBefore } from './reminders';
@@ -45,8 +45,8 @@ export function countdownLabel(key: string): string {
   if (n === 0) return t('Aujourd’hui');
   if (n === 1) return t('Demain');
   if (n === -1) return t('Hier');
-  if (n < 0) return t('Il y a {n} j', { n: -n });
-  return t('J-{n}', { n });
+  if (n < 0) return tn(-n, 'Il y a {n} jour', 'Il y a {n} jours');
+  return tn(n, 'Dans {n} jour', 'Dans {n} jours'); // in words: « J-13 » wasn't understood
 }
 
 const WEEKDAYS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];

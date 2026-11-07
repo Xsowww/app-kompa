@@ -12,7 +12,7 @@ import { t } from '../../i18n';
 export default function SpaceHint({ here, className }: { here: 'groupes' | 'agendas'; className?: string }) {
   const usage = useSettings(s => s.usage);
   const w = groupWords(usage);
-  const link = 'inline-flex items-center gap-1 whitespace-nowrap font-semibold text-ink underline-offset-2 hover:underline pointer-coarse:py-1';
+  const link = 'inline-flex items-center gap-1 whitespace-nowrap font-semibold text-ink underline-offset-2 hover:underline hit';
   return here === 'agendas' ? (
     <p className={cx('text-[13px] leading-relaxed text-stone-500', className)}>
       {t('Un agenda partagé = un calendrier commun (famille, coloc, couple). Pour les notes, fichiers et {meet} d’un projet :', { meet: w.meet.many })}{' '}

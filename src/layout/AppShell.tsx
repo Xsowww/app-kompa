@@ -1,14 +1,13 @@
-import { Fragment, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import { Fragment, lazy, Suspense, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { LayoutGrid, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn, ListChecks, Trash2, ArrowLeftRight, UserRound, UserPlus, LogOut, Megaphone, Sparkles, CornerDownLeft, X } from 'lucide-react';
 import { EmptyState } from '../components/EmptyState';
 import { FeedbackDialog } from '../components/FeedbackDialogs';
 import { confirmLogout, useAuth } from '../store/auth';
 import { loadUserData } from '../store/session';
-import Copilot, { KompalyEntry } from '../copilot/Copilot';
+import { KompalyEntry } from '../components/KompalyEntry';
 import { FirstReminderOffer } from '../components/PhoneReminders';
 import Tour from '../components/Tour';
-import { startProactive } from '../copilot/proactive';
 import { HIT_LABEL, linkToDriveFile, registerNavigate, search, type SearchHit } from '../copilot/actions';
 import { recentHits, rememberHit, searchCommands, suggestions } from '../copilot/commands';
 import { useDrive } from '../store/drive';
@@ -48,6 +47,28 @@ import { watchAppBadge } from '../lib/appBadge';
 import { watchBackOnline } from '../lib/backOnline';
 import { Bubble, ProKompalyButton, ProRail, ProTopActions, type Extra } from './ProNav';
 import { useBubble, useProEntrance } from './proMotion';
+
+// Kompaly's conversation (the panel, the character at the edge, his simple mode): about 40 KB of code the page
+// itself doesn't need to appear. Asked once the page has been drawn, so it no longer delays the first screen;
+// « Demander à Kompaly » is there from the start (components/KompalyEntry) and opens it as soon as it is in.
+// Offline before it ever came: nothing rather than a broken page (it comes at the next start).
+const Copilot = lazy(() => import('../copilot/Copilot').catch(() => ({ default: () => null })));
+function LateCopilot() {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const frame = requestAnimationFrame(() => (timer = setTimeout(() => setOn(true))));
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(timer);
+    };
+  }, []);
+  return on ? (
+    <Suspense fallback={null}>
+      <Copilot />
+    </Suspense>
+  ) : null;
+}
 
 const SHARED: SpaceKey[] = ['groupes', 'agendas'];
 
@@ -510,7 +531,18 @@ export default function AppShell() {
   const [pendingInvite] = useState(() => keptInvitation());
   useEffect(() => void takeInvite(), []);
   useInvitations(pendingInvite);
-  useEffect(() => startProactive(), []);
+  // Kompaly's remarks: their code comes with the conversation's, once the page is on screen (LateCopilot).
+  useEffect(() => {
+    let stop: (() => void) | undefined;
+    let gone = false;
+    void import('../copilot/proactive').then(m => {
+      if (!gone) stop = m.startProactive();
+    }, () => {}); // offline before it came: at the next start
+    return () => {
+      gone = true;
+      stop?.();
+    };
+  }, []);
   // Shared spaces read in the background once the page is up: their pages open at once.
   useEffect(() => {
     if (!cloudEnabled) return;
@@ -783,7 +815,7 @@ export default function AppShell() {
         pro={pro}
       />
 
-      <Copilot />
+      <LateCopilot />
       <FirstReminderOffer />
       <Tour />
     </div>
@@ -893,7 +925,9 @@ function PhoneTabBar({ order, news, label, extra, pro }: { order: SpaceKey[]; ne
   const tab = (active: boolean) =>
     pro
       ? cx('pro-tab', active ? 'text-[#14161f]' : 'text-white/65 hover:text-white')
-      : cx('flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-[17px] py-1.5 text-[10px] font-semibold tracking-[-0.01em] transition-colors max-[339px]:text-[9px] short:flex-row short:justify-center short:gap-1.5 short:py-2 short:text-[12px] [&_svg]:shrink-0', active ? 'bg-white text-[#14161f]' : 'text-white/60 hover:text-white');
+      // Names in 12 px at least (13–14 px with a bigger « Taille du texte » where the bar has room): each tab as wide
+      // as its name, the room left shared out, so « Calendrier » or « Enregistrer » fit whole down to 320 px.
+      : cx('flex min-w-0 flex-auto flex-col items-center gap-0.5 rounded-[17px] px-0.5 py-1.5 text-fix-12 font-semibold tracking-[-0.03em] transition-colors min-[400px]:text-[min(0.75rem,14px)] min-[400px]:tracking-[-0.01em] short:flex-row short:justify-center short:gap-1.5 short:py-2 short:text-[12px] [&_svg]:shrink-0', active ? 'bg-white text-[#14161f]' : 'text-white/60 hover:text-white');
   const Shown = current?.icon ?? LayoutGrid;
   const bubble = useBubble(bar, '[aria-current="page"], [data-here]', [pathname, open, pro, order.join()]);
 

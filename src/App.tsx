@@ -6,7 +6,6 @@ import { peekAfterLogin, rememberAfterLogin } from './lib/afterLogin';
 import { useWelcome } from './store/welcome';
 import { applyAppearance, storedStyle, storedTheme, useSettings } from './store/settings';
 import { toast } from './store/ui';
-import AuthPage from './pages/AuthPage';
 import { DialogHost, ServiceBanner, Toasts } from './components/Overlays';
 import { t } from './i18n';
 import { PUBLIC_PAGES, pageHeads } from './lib/seoPages.mjs';
@@ -51,6 +50,9 @@ function lazyPage(load: () => Promise<{ default: React.ComponentType }>) {
 // The app itself loads after the sign-in page: someone on /connexion doesn't wait for Kompaly and the editor.
 // Two-step sign-in: only the few accounts that turned it on need this page.
 const MfaPage = lazy(() => import('./pages/MfaPage'));
+// Sign-in and sign-up: their own code, out of the app's start (preloaded by index.html on those addresses,
+// vite.config › preloadPlugin), so someone signed in doesn't download it at every start.
+const AuthPage = lazy(() => import('./pages/AuthPage'));
 const AppShell = lazy(() => import('./layout/AppShell'));
 const Dashboard = lazyPage(() => import('./pages/Dashboard'));
 const DrivePage = lazyPage(() => import('./pages/drive/DrivePage'));
@@ -324,10 +326,10 @@ export default function App() {
     <BrowserRouter>
       <PageTitle />
       <Routes>
-        <Route path="/connexion" element={<GuestOnly><AuthPage key="login" mode="login" /></GuestOnly>} />
-        <Route path="/inscription" element={<GuestOnly><AuthPage key="register" mode="register" /></GuestOnly>} />
-        <Route path="/mot-de-passe-oublie" element={<GuestOnly><AuthPage key="forgot" mode="forgot" /></GuestOnly>} />
-        <Route path="/reinitialisation" element={<ResetOnly><AuthPage key="reset" mode="reset" /></ResetOnly>} />
+        <Route path="/connexion" element={<GuestOnly><Suspense fallback={<Loading full />}><AuthPage key="login" mode="login" /></Suspense></GuestOnly>} />
+        <Route path="/inscription" element={<GuestOnly><Suspense fallback={<Loading full />}><AuthPage key="register" mode="register" /></Suspense></GuestOnly>} />
+        <Route path="/mot-de-passe-oublie" element={<GuestOnly><Suspense fallback={<Loading full />}><AuthPage key="forgot" mode="forgot" /></Suspense></GuestOnly>} />
+        <Route path="/reinitialisation" element={<ResetOnly><Suspense fallback={<Loading full />}><AuthPage key="reset" mode="reset" /></Suspense></ResetOnly>} />
         {/* The links of our e-mails (lib/emailLink): signed in or not, the code in the address decides. */}
         <Route path="/confirmer" element={<Suspense fallback={<Loading full />}><ConfirmPage /></Suspense>} />
         <Route path="/securite" element={<Suspense fallback={<Loading full />}><MfaPage /></Suspense>} />
@@ -338,6 +340,8 @@ export default function App() {
         <Route path="/tarifs" element={<Suspense fallback={<Loading full />}><LegalPage key="tarifs" doc="tarifs" /></Suspense>} />
         {/* Typed by hand by visitors looking for the price. */}
         <Route path="/prix" element={<Navigate to="/tarifs" replace />} />
+        {/* « Fichiers » is the Drive's name in the app: its address typed by hand. */}
+        <Route path="/fichiers" element={<Navigate to="/drive" replace />} />
         <Route path="/a-propos" element={<Suspense fallback={<Loading full />}><LegalPage key="apropos" doc="apropos" /></Suspense>} />
         <Route path="/contact" element={<Navigate to="/a-propos" replace />} />
         <Route path="/presse" element={<Navigate to="/a-propos" replace />} />

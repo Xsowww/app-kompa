@@ -15,8 +15,8 @@ const chip =
   'hit-sm flex min-h-11 w-full items-center gap-2 rounded-2xl border border-stone-200 bg-surface px-3 py-1.5 text-left text-[12.5px] font-semibold leading-tight text-ink shadow-card transition-colors hover:bg-stone-50 [&_svg]:shrink-0 sm:inline-flex sm:min-h-9 sm:w-auto sm:whitespace-nowrap sm:rounded-full sm:px-3.5 sm:py-0 sm:text-[13px] sm:leading-normal pointer-coarse:sm:min-h-10';
 
 /**
- * Home page: one row of shortcuts to what the questionnaire says the person came for (Enregistrer un cours, Session
- * focus, Agenda partagé, Importer mon emploi du temps…), and their badges.
+ * Home page: one row of shortcuts to what the questionnaire says the person came for (Enregistrer un cours, Concentration,
+ * Agenda partagé, Importer mon emploi du temps…), and their rewards (« récompenses »).
  */
 export default function HomeShortcuts() {
   const usage = useSettings(s => s.usage);
@@ -40,11 +40,11 @@ export default function HomeShortcuts() {
           : [
               {
                 key: k,
-                label: t('Session focus'),
+                label: t('Concentration'),
                 node: <Timer {...icon} className="text-[#2f9e6b]" />,
                 run: () => {
                   const res = startFocus('');
-                  toast(t('Session focus de {n} min lancée.', { n: res.minutes }), 'success');
+                  toast(t('Concentration lancée : {n} min.', { n: res.minutes }), 'success');
                 },
               },
             ];
@@ -60,7 +60,8 @@ export default function HomeShortcuts() {
   return (
     // None cut at the edge. Phones: three shortcuts and the badges, in two columns; larger screens: one row of pills.
     <nav aria-label={t('Raccourcis')} className="mb-5">
-      <ul className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+      {/* A bigger text on a narrow phone: one shortcut a row (two would cut « Concentration »). */}
+      <ul className="grid grid-cols-2 gap-2 big-text:max-[389px]:grid-cols-1 sm:flex sm:flex-wrap">
         {items.map((i, n) => (
           <li key={i.key} className={cx('min-w-0 max-w-full', n === 3 && 'max-sm:hidden')}>
             {i.run ? (
@@ -77,11 +78,15 @@ export default function HomeShortcuts() {
           </li>
         ))}
         <li className="min-w-0 max-w-full">
-          <Link to="/profil#badges" className={chip} aria-label={t('Mes badges : {n} sur {total}', { n: earned, total: badges.length })}>
+          <Link to="/profil#badges" className={chip} aria-label={t('Mes récompenses : {n} sur {total}', { n: earned, total: badges.length })}>
             <Award {...icon} className="text-[#d48a17]" />
-            {t('Mes badges')}
-            <span className="tabular font-medium text-stone-500">
-              {earned}/{badges.length}
+            {/* Phones: the count under the name (beside it, it went past the tile at 320 px). */}
+            <span className="min-w-0">
+              <span className="sm:hidden">{t('Récompenses')}</span>
+              <span className="max-sm:hidden">{t('Mes récompenses')}</span>{' '}
+              <span className="tabular font-medium text-stone-500 max-sm:block">
+                {earned}/{badges.length}
+              </span>
             </span>
           </Link>
         </li>

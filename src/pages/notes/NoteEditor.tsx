@@ -151,7 +151,8 @@ function Toolbar({ editor }: { editor: Editor }) {
           ]
         : []),
       { key: 'rule', label: t('Séparateur'), Icon: Minus, run: () => c().setHorizontalRule().run(), rank: 17 },
-      { key: 'image', label: t('Image (ou colle-la dans la note)'), Icon: ImagePlus, run: () => imageInput?.click(), short: t('Image||outil de la note'), rank: 14 },
+      // Kept in the row even on a phone (rank: just after bold and italic): in « … », it wasn't found.
+      { key: 'image', label: t('Ajouter une image (ou colle-la dans la note)'), Icon: ImagePlus, run: () => imageInput?.click(), short: t('Image||outil de la note'), rank: 2.5 },
     ],
     [
       { key: 'undo', label: t('Annuler la frappe'), Icon: Undo2, run: () => c().undo().run(), shortcut: keys('mod', 'Z'), disabled: !state.undo, short: t('Annuler||la frappe'), rank: 6 },

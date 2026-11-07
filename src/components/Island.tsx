@@ -150,7 +150,7 @@ function TimerFull({ phase, onUsed }: { phase: FocusPhase; onUsed: () => void })
     if (n) toast(tn(n, '{n} minute de concentration comptée', '{n} minutes de concentration comptées'), 'success');
   };
   return (
-    <div className="isl-full fi-full fi-face" data-phase={phase} data-paused={paused || undefined} role="group" aria-label={t('Session focus')}>
+    <div className="isl-full fi-full fi-face" data-phase={phase} data-paused={paused || undefined} role="group" aria-label={t('Concentration')}>
       <div className="fi-head">
         <Ring left={rest} size={44}>
           {focusing ? <Timer size={16} strokeWidth={2.4} /> : <Coffee size={16} strokeWidth={2.4} />}
@@ -838,6 +838,8 @@ export default function Island() {
       <div
         ref={wrap}
         className="isl-wrap"
+        // Kompaly's panel open on a phone or a short screen: it takes the top of the screen, the island steps aside.
+        data-yield={panelOpen || undefined}
         onPointerEnter={e => e.pointerType === 'mouse' && setHover(true)}
         onPointerLeave={() => setHover(false)}
         onPointerDown={() => setKeyboard(false)}
@@ -880,7 +882,7 @@ export default function Island() {
             data-hidden={!second || stage !== 'on' || undefined}
             tabIndex={second ? undefined : -1}
             aria-hidden={!second || undefined}
-            aria-label={!second ? undefined : second === 'timer' ? t('Session focus. Ouvrir le minuteur') : miniLabel(second)}
+            aria-label={!second ? undefined : second === 'timer' ? t('Concentration. Ouvrir le minuteur') : miniLabel(second)}
             onClick={e => (second === 'timer' ? openHub('minuteur') : second && expand(second, e.detail === 0))}
           >
             {lastSecond === 'timer' ? <SatelliteRing phase={phase} /> : present.includes(lastSecond) && icon(lastSecond)}

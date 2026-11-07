@@ -98,7 +98,7 @@ export const TASK_DEFAULTS: { value: string; minutes: number[]; label: string }[
   { value: 'aucun', minutes: [], label: t('Aucun') },
   { value: 'veille', minutes: [900], label: t('La veille à 18:00') },
   { value: 'jour', minutes: [0], label: t('Le jour même à 09:00') },
-  { value: 'les-deux', minutes: [900, 0], label: t('Les deux') },
+  { value: 'les-deux', minutes: [900, 0], label: t('La veille à 18:00 et le jour même à 09:00') },
 ];
 
 /** « 45 min avant », « 3 h 30 avant », « 2 j 4 h avant ». */
