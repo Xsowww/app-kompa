@@ -100,9 +100,10 @@ self.addEventListener('fetch', e => {
     );
     return;
   }
-  // The site's other files (theme.js, icons, Kompaly's pictures…): the kept copy at once, refreshed behind. Only those
-  // at the top (and Kompaly's folder): in development the sources are files too, and must never come from a cache.
-  if (/^\/(kompaly\/)?[^/]+\.(js|css|png|svg|webp|ico|woff2|webmanifest)$/.test(url.pathname) && url.pathname !== '/sw.js') {
+  // The site's other files (theme.js, icons, Kompaly's pictures, the Pro wallpapers…): the kept copy at once, refreshed
+  // behind. Only those at the top (and the folders of pictures): in development the sources are files too, and must
+  // never come from a cache.
+  if (/^\/((kompaly|pro|landing)\/)?[^/]+\.(js|css|png|svg|webp|ico|woff2|webmanifest)$/.test(url.pathname) && url.pathname !== '/sw.js') {
     const fresh = fetch(req).then(res => {
       if (keepable(res)) e.waitUntil(store(req, res.clone()));
       return res;

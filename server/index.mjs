@@ -1,6 +1,7 @@
 // Production server: serves the built app (dist/) and Kompaly's API.
 // Usage: npm run build && npm start   (reads the AI settings — AI_PROVIDER, AI_API_KEY… — from the environment or .env)
 
+import { createHash } from 'node:crypto';
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { brotliCompress, constants as zlibConst, gzipSync } from 'node:zlib';
@@ -134,7 +135,8 @@ async function serveStatic(req, res) {
       if (BEACON) html = html.replace('</body>', `${BEACON}\n  </body>`);
       raw = Buffer.from(html);
     }
-    entry = { raw, gzip: COMPRESSIBLE.has(extname(file)) && raw.length > 1024 ? gzipSync(raw) : null, br: null };
+    // `etag`: the content's fingerprint, so a file kept by the browser is checked with a short « 304 » instead of downloaded again.
+    entry = { raw, gzip: COMPRESSIBLE.has(extname(file)) && raw.length > 1024 ? gzipSync(raw) : null, br: null, etag: `W/"${createHash('sha1').update(raw).digest('base64url').slice(0, 20)}"` };
     files.set(key, entry);
     // Brotli is ~15 % smaller than gzip but slow at its best level: made in the background,
     // gzip is served until it is ready.
@@ -148,10 +150,16 @@ async function serveStatic(req, res) {
   res.setHeader('Content-Type', TYPES[extname(file)] ?? 'application/octet-stream');
   // Hashed file names change with each build; the page itself must always be checked again.
   res.setHeader('Cache-Control', file.includes('/assets/') ? 'public, max-age=31536000, immutable' : 'no-cache');
+  // The page, theme.js, the wallpapers, the icons… (no-cache): unchanged since the browser's copy, nothing to send.
+  res.setHeader('ETag', entry.etag);
+  if (entry.gzip) res.setHeader('Vary', 'Accept-Encoding');
+  if (String(req.headers['if-none-match'] ?? '').split(/\s*,\s*/).some(t => t.replace(/^W\//, '') === entry.etag.slice(2)) && res.statusCode === 200) {
+    res.statusCode = 304;
+    return res.end();
+  }
   const accept = String(req.headers['accept-encoding'] ?? '');
   const br = entry.br && /\bbr\b/.test(accept);
   const gzip = !br && entry.gzip && /\bgzip\b/.test(accept);
-  if (entry.gzip) res.setHeader('Vary', 'Accept-Encoding');
   if (br || gzip) res.setHeader('Content-Encoding', br ? 'br' : 'gzip');
   res.end(br ? entry.br : gzip ? entry.gzip : entry.raw);
 }

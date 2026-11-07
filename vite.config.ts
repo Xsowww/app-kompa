@@ -64,21 +64,34 @@ function preloadPlugin(): Plugin {
         return c?.type === 'chunk' ? [...(c.viteMetadata?.importedCss ?? [])] : [];
       };
       const css = [...new Set([...withDeps('/src/boot.tsx'), ...withDeps('/src/landing.tsx')].flatMap(cssOf))].map(f => `/${f}`);
+      // Code loaded on demand with its own styles (Vite adds them once the code is there): both asked for at once.
+      const withCss = (...ends: string[]) => {
+        const js = [...new Set(ends.flatMap(withDeps))];
+        return { js, css: [...new Set(js.flatMap(cssOf))].map(f => `/${f}`).filter(u => !css.includes(u)) };
+      };
       const map = {
         dict: Object.fromEntries((['en', 'es', 'de', 'it'] as const).map(l => [l, [...withDeps(`/src/i18n/${l}.json`), ...withDeps(`/date-fns/locale/${l === 'en' ? 'en-GB' : l}.js`)]])),
-        app: [...withDeps('/src/layout/AppShell.tsx'), ...withDeps('/src/pages/Dashboard.tsx')],
+        app: withCss('/src/layout/AppShell.tsx', '/src/pages/Dashboard.tsx'),
         boot: withDeps('/src/boot.tsx'),
         auth: withDeps('/src/pages/AuthPage.tsx'),
         home: withDeps('/src/pages/LandingPage.tsx'),
         landing: withDeps('/src/landing.tsx'),
+        // « Affichage Pro » (cop-pro on this device, public/theme.js): the island on every page, and its home page.
+        island: withCss('/src/components/Island.tsx'),
+        dpro: withCss('/src/pages/DashboardPro.tsx'),
       };
-      const code = `(function(){var m=${JSON.stringify(map)},d=document;function p(a){for(var i=0;i<a.length;i++){var l=d.createElement('link');l.rel='modulepreload';l.href=a[i];d.head.appendChild(l)}}
+      // The site's font (fonts.css), needed by every page's first words: asked for at once, not once the styles are read.
+      const font = Object.keys(bundle).find(f => /\/plus-jakarta-sans-latin-wght-normal-[\w-]+\.woff2$/.test(f));
+      // CSS preloaded with crossorigin as Vite's own links (its __vitePreload) so the same request serves both.
+      const code = `(function(){var m=${JSON.stringify(map)},d=document;function p(a,y){for(var i=0;i<a.length;i++){var l=d.createElement('link');l.rel=y?'preload':'modulepreload';if(y){l.as='style';l.crossOrigin=''}l.href=a[i];d.head.appendChild(l)}}
 var g=(/[?&]lang=([a-z]{2})/.exec(location.search)||[])[1];if(!g||!m.dict[g]&&g!=='fr'){g=void 0;try{g=localStorage.getItem('cop-lang')}catch(e){}}if(!g){var n=navigator.languages||[navigator.language];for(var i=0;i<n.length;i++){var c=String(n[i]||'').slice(0,2).toLowerCase();if(c==='fr'||m.dict[c]){g=c;break}}}if(g&&m.dict[g])p(m.dict[g]);
 ${hasSession}${guestHome}var s=hasSession();
-p(guestHome()?m.landing:m.boot.concat(s?m.app:location.pathname==='/'?m.home:/^\\/(connexion|inscription|mot-de-passe-oublie|reinitialisation)\\/?$/.test(location.pathname)?m.auth:[]))})();`;
+p(guestHome()?m.landing:m.boot.concat(s?m.app.js:location.pathname==='/'?m.home:/^\\/(connexion|inscription|mot-de-passe-oublie|reinitialisation)\\/?$/.test(location.pathname)?m.auth:[]));
+var o=s?[m.app]:[];try{if(s&&localStorage.getItem('cop-pro')){o.push(m.island);if(/^\\/(accueil)?\\/?$/.test(location.pathname))o.push(m.dpro)}}catch(e){}for(var j=0;j<o.length;j++){p(o[j].css,1);if(j)p(o[j].js)}})();`;
       const file = this.getFileName(this.emitFile({ type: 'asset', name: 'preload.js', source: code }));
       const tags = [
         `<script src="/${file}"></script>`,
+        ...(font ? [`<link rel="preload" as="font" type="font/woff2" crossorigin href="/${font}">`] : []),
         ...css.map(u => `<link rel="stylesheet" crossorigin href="${u}">`),
       ].join('\n    ');
       html.source = String(html.source).replace('</head>', `    ${tags}\n  </head>`);
