@@ -45,9 +45,10 @@ import { t, tn } from '../i18n';
 import { useGlobalShortcuts } from './shortcuts';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { watchAppBadge } from '../lib/appBadge';
+import { startBadgeWatcher } from '../lib/badges';
 import { watchBackOnline } from '../lib/backOnline';
 import { Bubble, ProKompalyButton, ProRail, ProTopActions, type Extra } from './ProNav';
-import { useBubble, useProEntrance } from './proMotion';
+import { useBubble, useMedia, useProEntrance } from './proMotion';
 
 // Kompaly's conversation (the panel, the character at the edge, his simple mode): about 40 KB of code the page
 // itself doesn't need to appear. Asked once the page has been drawn, so it no longer delays the first screen;
@@ -454,6 +455,8 @@ export default function AppShell() {
   const usage = useSettings(st => st.usage);
   // Affichage Pro (Profil › Apparence): the floating pill of icons instead of the side bar, the top right cluster.
   const pro = useSettings(st => st.pro);
+  // The pill exists on computers only (themes.css › pro-rail, 64rem): not built, nor kept up to date, on phones.
+  const wide = useMedia('(min-width: 64rem)');
   const label = useSpaceLabel();
   const order = useNavOrder();
   const navigate = useNavigate();
@@ -486,12 +489,17 @@ export default function AppShell() {
   const trashLabel = trashCount ? tn(trashCount, 'Corbeille, {n} élément', 'Corbeille, {n} éléments') : t('Corbeille');
 
   useEffect(() => registerNavigate(navigate), [navigate]);
+  // New badges, watched for the whole session (lib/badges).
+  useEffect(() => startBadgeWatcher(), []);
   // A page's fixed head (index.css › page-head) draws the piece of the wallpaper behind it (Verre, Liquid Glass): where
   // it is against the page, kept up to date as its page scrolls, changes or the window is resized.
   useEffect(() => {
     let frame = 0;
     const place = () => {
       frame = 0;
+      const heads = document.querySelectorAll<HTMLElement>('.page-head');
+      // No such bar on this page (home, calendar…): nothing to measure (a measure forces the page's layout early).
+      if (!heads.length) return;
       const page = document.body.getBoundingClientRect();
       // A picture (Affichage Pro) is drawn « cover », centred: the same size and offset here.
       const ratio = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--wp-ratio'));
@@ -500,12 +508,14 @@ export default function AppShell() {
         [w, h] = page.width / page.height > ratio ? [page.width, page.width / ratio] : [page.height * ratio, page.height];
         [x, y] = [page.left + (page.width - w) / 2, page.top + (page.height - h) / 2];
       }
-      document.querySelectorAll<HTMLElement>('.page-head').forEach(head => {
+      heads.forEach(head => {
         const r = head.getBoundingClientRect();
-        head.style.setProperty('--wp-size', `${w}px ${h}px`);
-        head.style.setProperty('--wp-pos', `${x - r.left}px ${y - r.top}px`);
+        // Only what changed (a bar stuck at the top keeps its values as the page scrolls): no new style pass each frame.
+        set(head, '--wp-size', `${w}px ${h}px`);
+        set(head, '--wp-pos', `${x - r.left}px ${y - r.top}px`);
       });
     };
+    const set = (el: HTMLElement, name: string, value: string) => el.style.getPropertyValue(name) !== value && el.style.setProperty(name, value);
     const later = () => {
       if (!frame) frame = requestAnimationFrame(place);
     };
@@ -639,7 +649,7 @@ export default function AppShell() {
       </a>
       {/* Sidebar (desktop); Affichage Pro: a floating pill of icons (layout/ProNav). */}
       {pro ? (
-        <ProRail order={order} news={news} newsLabel={newsLabel} label={label} extra={extra} />
+        wide ? <ProRail order={order} news={news} newsLabel={newsLabel} label={label} extra={extra} /> : null
       ) : (
       <aside aria-label={t('Barre latérale')} className="m-3 mr-0 hidden w-[244px] shrink-0 flex-col rounded-[24px] bg-surface px-3 pb-3 pt-4 lg:flex">
         <div className="mb-6 px-2">

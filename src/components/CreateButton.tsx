@@ -14,9 +14,12 @@ import { t } from '../i18n';
  * floats over the page (Kompaly, the tab bar, a dialog) doesn't count.
  */
 function coversControl(button: HTMLElement): boolean {
+  const page = document.getElementById('contenu');
+  // Nothing marked on the page (almost always): no hit test (each one is a style and layout pass, every 1.5 s and on
+  // every scroll).
+  if (!page?.querySelector('[data-fab-avoid]')) return false;
   const r = button.getBoundingClientRect();
   if (!r.width) return false;
-  const page = document.getElementById('contenu');
   for (const fx of [0.2, 0.5, 0.8]) {
     for (const fy of [0.2, 0.5, 0.8]) {
       // The page's own element there (not the button, nor what floats over the page).

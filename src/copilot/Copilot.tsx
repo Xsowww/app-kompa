@@ -55,7 +55,33 @@ const PHOTO_RETRY = '\u0000photo';
  * (before, the whole chat did, on every frame: hovering the page lagged), and his place is computed,
  * not measured, so the page is never asked for its layout in the middle of a hover.
  */
-const WatchingCharacter = memo(function WatchingCharacter({ offsetY, ...props }: Omit<ComponentProps<typeof Character>, 'look'> & { offsetY: number }) {
+/**
+ * His blink, every few seconds. Kept in the character drawn: in Kompaly himself, each blink re-rendered all of him (his
+ * whole conversation included) twice, every 2 to 6 seconds, even when he wasn't drawn.
+ */
+function useBlink() {
+  const [blink, setBlink] = useState(false);
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    let open: ReturnType<typeof setTimeout>;
+    const loop = () => {
+      timer = setTimeout(() => {
+        setBlink(true);
+        open = setTimeout(() => setBlink(false), 120);
+        loop();
+      }, 2400 + Math.random() * 3600);
+    };
+    loop();
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(open);
+    };
+  }, []);
+  return blink;
+}
+
+const WatchingCharacter = memo(function WatchingCharacter({ offsetY, ...props }: Omit<ComponentProps<typeof Character>, 'look' | 'blink'> & { offsetY: number }) {
+  const blink = useBlink();
   const [look, setLook] = useState({ x: -1, y: 0 });
   useEffect(() => {
     let frame = 0;
@@ -81,7 +107,7 @@ const WatchingCharacter = memo(function WatchingCharacter({ offsetY, ...props }:
       cancelAnimationFrame(frame);
     };
   }, [offsetY]);
-  return <Character {...props} look={look} />;
+  return <Character {...props} look={look} blink={blink} />;
 });
 
 function Extras({ links, offers, onGo, onOffer, disabled }: { links?: CopilotLink[]; offers?: CopilotOffer[]; onGo: (to: string) => void; onOffer: (o: CopilotOffer, rest: CopilotOffer[]) => void; disabled?: boolean }) {
@@ -140,13 +166,12 @@ function CopyButton({ text }: { text: string }) {
  * nothing is hidden), and on phones and tablets elsewhere, a card over the tab bar, left of the « + ». He is drawn whole
  * in it (never cut by the edge of the screen). « Réduire » keeps one line; ✕ puts it away (it stays in the conversation).
  */
-function Note({ bubble, docked, folded, mood, blink, onFold, onClose, onAnswer, onGo, onOffer, onUse, noteRef }: {
+function Note({ bubble, docked, folded, mood, onFold, onClose, onAnswer, onGo, onOffer, onUse, noteRef }: {
   bubble: Bubble;
   /** Over the page, at the bottom (phones and tablets), rather than in the home page's flow. */
   docked: boolean;
   folded: boolean;
   mood: CopilotMood;
-  blink: boolean;
   onFold: () => void;
   onClose: () => void;
   onAnswer: () => void;
@@ -155,6 +180,7 @@ function Note({ bubble, docked, folded, mood, blink, onFold, onClose, onAnswer, 
   onUse: () => void;
   noteRef: React.Ref<HTMLElement>;
 }) {
+  const blink = useBlink();
   return (
     <section
       ref={noteRef}
@@ -235,7 +261,6 @@ export default function Copilot() {
         : t('{hello} {name} ! Je peux retrouver tes fichiers, organiser ton agenda, créer des notes… Dis-moi.', { hello: dayHello(), name: user?.name ?? '' }),
     );
 
-  const [blink, setBlink] = useState(false);
   const [talking, setTalking] = useState(false);
   const [asleep, setAsleep] = useState(false);
   const [input, setInput] = useState('');
@@ -320,20 +345,6 @@ export default function Copilot() {
       window.removeEventListener('keydown', wake);
       clearTimeout(sleepTimer);
     };
-  }, []);
-
-  // Blinking.
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>;
-    const loop = () => {
-      timer = setTimeout(() => {
-        setBlink(true);
-        setTimeout(() => setBlink(false), 120);
-        loop();
-      }, 2400 + Math.random() * 3600);
-    };
-    loop();
-    return () => clearTimeout(timer);
   }, []);
 
   // Curious little peeks while hidden.
@@ -740,7 +751,6 @@ export default function Copilot() {
       docked={!note.slot}
       folded={folded}
       mood={mood}
-      blink={blink}
       onFold={() => setFolded(f => !f)}
       onClose={closeNote}
       onAnswer={open}
@@ -1007,7 +1017,7 @@ export default function Copilot() {
             }}
           >
             <div className={cx('transition-opacity duration-300', away && 'opacity-0')}>
-              <WatchingCharacter offsetY={offsetY} pose={shownPose} blink={blink} mood={mood} size={104} badge={badge} />
+              <WatchingCharacter offsetY={offsetY} pose={shownPose} mood={mood} size={104} badge={badge} />
             </div>
             {/* Tablets (fingers): hidden at the edge, too small to tap; a wider invisible pad along the edge. */}
             {!isOpen && !away && <span aria-hidden className="pointer-events-auto absolute inset-y-1 right-0 hidden w-8 pointer-coarse:block" />}
