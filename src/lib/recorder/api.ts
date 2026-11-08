@@ -79,7 +79,7 @@ export interface PlanningSlot {
   place?: string;
 }
 /** Photo(s) of a planning → the slots it holds (nothing is added: the page shows them first). `name`: whose line. */
-export const readPlanningPhoto = (photos: string[], body: { today: string; name?: string }, stop?: AbortSignal) =>
+export const readPlanningPhoto = (photos: string[], body: { today: string; name?: string; hint?: string }, stop?: AbortSignal) =>
   call<{ slots?: PlanningSlot[]; note?: string }>('planning', json({ photos, ...body }), 110_000, stop).then(r => ({ slots: Array.isArray(r.slots) ? r.slots : [], note: r.note ?? '' }));
 
 function json(body: unknown): RequestInit {

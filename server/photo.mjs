@@ -332,7 +332,9 @@ Réponds uniquement avec un objet JSON : {"slots":[{"title":"…","date":"AAAA-M
 - start et end : les heures écrites (« 21h-7h » → "21:00" et "07:00", une fin le lendemain se garde telle quelle). Sans heure : laisse "".
 - place : la salle ou le lieu écrit à côté, sinon "".
 - Plusieurs personnes sur le planning : seulement la ligne ou la colonne dont le nom est donné plus bas ; sans nom donné et s'il y a plusieurs personnes, mets "note" pour demander laquelle et aucun créneau.
-- N'invente rien : un créneau illisible ou incertain est laissé de côté et signalé en une phrase dans "note". Rien de lisible : "slots" vide et une phrase dans "note".`;
+- N'invente rien : un créneau illisible ou incertain est laissé de côté et signalé en une phrase dans "note". Rien de lisible : "slots" vide et une phrase dans "note".
+- Ce n'est pas un planning ni un emploi du temps (une photo ordinaire, un document, un paysage…) : "slots" vide, et "note" dit en une phrase, en tutoyant, ce que montre la photo et que tu ne lis que les plannings et emplois du temps pour en ajouter les horaires.
+- La personne peut ajouter un message avec la photo (plus bas) : suis-le s'il précise quoi relever (une semaine, une ligne, un nom), sans rien inventer.`;
 
 const HM = /^([01]\d|2[0-3]):[0-5]\d$/;
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
@@ -381,12 +383,13 @@ export function cleanSlots(raw) {
 }
 
 /** Reads a planning's photo(s): the slots it holds. `today` (YYYY-MM-DD) and `name` (whose line) from the page. */
-export async function readPlanning(vision, photos, { today, name, lang } = {}) {
+export async function readPlanning(vision, photos, { today, name, lang, hint } = {}) {
   const t0 = Date.now();
   const day = YMD.test(String(today ?? '')) ? today : new Date().toISOString().slice(0, 10);
   const who = String(name ?? '').replace(/[\r\n<>"]+/g, ' ').trim().slice(0, 40);
   const system = `${PLANNING_SYSTEM}\nAujourd'hui : ${day}.${who ? ` La personne s'appelle ${who}.` : ''}${languageLine(lang)}`;
-  const ask = photos.length > 1 ? `Voici ${photos.length} photos du planning, dans l'ordre.` : 'Voici la photo du planning.';
+  const said = String(hint ?? '').replace(/[\r\n<>"«»]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 300);
+  const ask = `${photos.length > 1 ? `Voici ${photos.length} photos, dans l'ordre.` : 'Voici la photo.'}${said ? ` Message de la personne : « ${said} ».` : ''}`;
   try {
     let text;
     if (vision.kind === 'gemini') text = await geminiRead(vision, photos, system, ask, { json: true, maxOutput: 4096 });

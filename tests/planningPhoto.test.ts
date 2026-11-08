@@ -57,6 +57,18 @@ describe('photo d’un planning → créneaux', () => {
     expect(body!.generationConfig.responseMimeType).toBe('application/json');
     expect(body!.systemInstruction.parts[0].text).toContain("Aujourd'hui : 2026-11-06. La personne s'appelle Yanis.");
   });
+
+  it('passes the person’s message with the photo, and says what a photo that isn’t a planning shows', async () => {
+    let sent = '';
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (_u, init) => {
+      sent = String(init?.body);
+      return sse(['{"slots":[],"note":"C’est la photo d’un chat : je ne lis que les plannings et emplois du temps."}']);
+    });
+    const got = await readPlanning({ kind: 'gemini', apiKey: 'k', models: ['gemini-2.5-flash'] }, photo, { today: '2026-11-06', hint: 'seulement\nla semaine <prochaine>' });
+    expect(got).toEqual({ slots: [], note: 'C’est la photo d’un chat : je ne lis que les plannings et emplois du temps.' });
+    expect(sent).toContain('Message de la personne : « seulement la semaine prochaine ».');
+    expect(sent).toContain("Ce n'est pas un planning ni un emploi du temps");
+  });
 });
 
 describe('photo : plus de 504 après 85 s', () => {

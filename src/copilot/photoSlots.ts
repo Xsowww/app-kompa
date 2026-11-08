@@ -58,9 +58,9 @@ export function slotsReply(slots: PlanningSlot[], note: string): { text: string;
 }
 
 /** Reads the photo on the server. Throws a CoursError (photoFailure says it). */
-export async function readSlots(file: Blob, stop?: AbortSignal) {
+export async function readSlots(file: Blob, stop?: AbortSignal, hint = '') {
   const photo = await shrinkPhoto(file);
-  return readPlanningPhoto([photo], { today: todayKey(), name: useAuth.getState().user?.name ?? '' }, stop);
+  return readPlanningPhoto([photo], { today: todayKey(), name: useAuth.getState().user?.name ?? '', ...(hint && { hint }) }, stop);
 }
 
 /** « Ajouter ces N créneaux »: added to the calendar, then read back from the server before saying so. */

@@ -407,7 +407,7 @@ export async function handleCours(req, res, env = process.env) {
       if (!photos) return (send(res, 400, { error: 'bad_photo' }), true);
       const limit = overQuota(who, false, { id: 'vision' }, env);
       if (limit) return (send(res, 429, { error: limit, retryAfter: secondsToParisMidnight() }), true);
-      if (url === '/api/cours/planning') await sendSlowly(res, () => readPlanning(vision, photos, { today: body.today, name: body.name, lang: body.lang }));
+      if (url === '/api/cours/planning') await sendSlowly(res, () => readPlanning(vision, photos, { today: body.today, name: body.name, lang: body.lang, hint: body.hint }));
       else await sendSlowly(res, async () => ({ text: await readPhotos(vision, photos, body.lang) }));
       return true;
     }

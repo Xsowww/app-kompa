@@ -251,7 +251,14 @@ export default function Copilot() {
   // « Photo d'un planning »: only where the server reads photos (the same service as « Fiche depuis une photo »).
   const photoReady = usePhotoReady();
   const photoInput = useRef<HTMLInputElement>(null);
-  const lastPhoto = useRef<File | null>(null);
+  const lastPhoto = useRef<{ file: File; hint: string } | null>(null);
+  // The photo chosen, waiting above the field: a word can be added before it goes.
+  const [photo, setPhoto] = useState<{ file: File; url: string } | null>(null);
+  const dropPhoto = () =>
+    setPhoto(p => {
+      if (p) URL.revokeObjectURL(p.url);
+      return null;
+    });
   const hello = () =>
     // Today's morning brief already says hello (« Salut Léa ! Ta journée en 3 lignes »): not a second one above it.
     !useCopilot.getState().messages.some(m => m.brief && toKey(new Date(m.at)) === todayKey()) &&
@@ -524,16 +531,16 @@ export default function Copilot() {
   };
 
   /** A photo of a planning: read on the server, its slots listed with « Ajouter ces N créneaux » (nothing added before). */
-  async function sendPhoto(file: File, again = false) {
+  async function sendPhoto(file: File, hint: string, again = false) {
     if (useCopilot.getState().thinking) return;
-    lastPhoto.current = file;
-    if (!again) push('user', t('📷 Photo d’un planning'));
+    lastPhoto.current = { file, hint };
+    if (!again) push('user', hint ? `${t('Photo jointe')} · ${hint}` : t('Photo jointe'));
     setThinking(true);
     const stop = new AbortController();
     stopRef.current = stop;
     let reply: BotReply & { retry?: string };
     try {
-      const { slots, note } = await readSlots(file, stop.signal);
+      const { slots, note } = await readSlots(file, stop.signal, hint);
       reply = slotsReply(slots, note);
     } catch (e) {
       reply = stop.signal.aborted ? { text: t('J’arrête là.') } : { text: photoFailure(e), retry: PHOTO_RETRY };
@@ -632,7 +639,7 @@ export default function Copilot() {
     resumeAfterError();
     useCopilot.setState(s => ({ messages: s.messages.filter(m => m.id !== id) }));
     if (question === PHOTO_RETRY) {
-      if (lastPhoto.current) void sendPhoto(lastPhoto.current, true);
+      if (lastPhoto.current) void sendPhoto(lastPhoto.current.file, lastPhoto.current.hint, true);
       return;
     }
     void send(question, true);
@@ -667,6 +674,13 @@ export default function Copilot() {
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (dictation.listening) dictation.stop();
+    if (photo) {
+      if (thinking) return;
+      void sendPhoto(photo.file, input.trim());
+      setInput('');
+      dropPhoto();
+      return;
+    }
     void send(input);
   };
 
@@ -882,7 +896,20 @@ export default function Copilot() {
             </div>
           )}
 
-          <form onSubmit={onSubmit} className="flex items-end gap-2 border-t border-stone-100 p-2.5 max-[359px]:gap-1">
+          {photo && (
+            // The photo waits here: what Kompaly does with it is said, a word can be added, ✕ takes it back.
+            <div className="flex items-center gap-2.5 border-t border-stone-100 px-3.5 pt-2.5">
+              <img src={photo.url} alt="" className="h-11 w-11 shrink-0 rounded-lg object-cover ring-1 ring-stone-200" />
+              <p className="min-w-0 flex-1 text-[12px] leading-snug text-stone-600">
+                <span className="block font-semibold text-ink">{t('Photo d’un planning ou d’un emploi du temps')}</span>
+                {t('J’en relève les horaires pour ton agenda. Ajoute un mot si tu veux, puis envoie.')}
+              </p>
+              <button type="button" onClick={dropPhoto} className="icon-btn shrink-0 pointer-coarse:h-9 pointer-coarse:w-9" title={t('Retirer la photo')} aria-label={t('Retirer la photo')} tabIndex={isOpen ? 0 : -1}>
+                <X size={15} />
+              </button>
+            </div>
+          )}
+          <form onSubmit={onSubmit} className={cx('flex items-end gap-2 p-2.5 max-[359px]:gap-1', !photo && 'border-t border-stone-100')}>
             {photoReady && (
               <>
                 {/* No « capture »: the phone offers the camera or a photo already taken. */}
@@ -896,7 +923,15 @@ export default function Copilot() {
                   onChange={e => {
                     const file = e.target.files?.[0];
                     e.target.value = '';
-                    if (file) void sendPhoto(file);
+                    if (!file) return;
+                    // A video (or anything else a phone lets through): said, nothing sent.
+                    if (!file.type.startsWith('image/')) {
+                      push('bot', t('Je ne lis que les photos : prends en photo ton planning ou ton emploi du temps (pas de vidéo).'));
+                      return;
+                    }
+                    dropPhoto();
+                    setPhoto({ file, url: URL.createObjectURL(file) });
+                    inputRef.current?.focus({ preventScroll: true });
                   }}
                 />
                 <button
@@ -904,8 +939,8 @@ export default function Copilot() {
                   onClick={() => photoInput.current?.click()}
                   disabled={thinking}
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-stone-500 transition-colors hover:bg-stone-100 hover:text-ink disabled:opacity-30"
-                  title={t('Photo d’un planning : j’en tire les créneaux')}
-                  aria-label={t('Photo d’un planning')}
+                  title={t('Photo d’un planning ou d’un emploi du temps : j’en ajoute les horaires')}
+                  aria-label={t('Ajouter la photo d’un planning ou d’un emploi du temps')}
                   tabIndex={isOpen ? 0 : -1}
                 >
                   <Camera size={17} />
@@ -931,7 +966,7 @@ export default function Copilot() {
                 }
               }}
               enterKeyHint="send"
-              placeholder={dictation.listening ? t('Je t’écoute… ■ pour finir') : dictation.busy ? t('J’écris ce que tu as dit…') : t('Écris à Kompaly…')}
+              placeholder={dictation.listening ? t('Je t’écoute… ■ pour finir') : dictation.busy ? t('J’écris ce que tu as dit…') : photo ? t('Ajoute un mot…') : t('Écris à Kompaly…')}
               aria-label={t('Message pour Kompaly')}
               className={cx(
                 'block min-h-9 min-w-0 flex-1 resize-none overflow-y-auto rounded-lg bg-stone-50 px-3 py-[7px] text-[13px] leading-[1.55] outline-none placeholder:text-stone-500 focus:bg-stone-100 focus-visible:ring-2 focus-visible:ring-focus',
@@ -961,7 +996,7 @@ export default function Copilot() {
                 <Square size={12} fill="currentColor" />
               </button>
             ) : (
-              <button type="submit" disabled={!input.trim()} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-ink text-paper transition-colors hover:bg-stone-800 disabled:opacity-30" title={t('Envoyer (Entrée)')} aria-label={t('Envoyer')} tabIndex={isOpen ? 0 : -1}>
+              <button type="submit" disabled={!input.trim() && !photo} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-ink text-paper transition-colors hover:bg-stone-800 disabled:opacity-30" title={t('Envoyer (Entrée)')} aria-label={t('Envoyer')} tabIndex={isOpen ? 0 : -1}>
                 <ArrowUp size={16} />
               </button>
             )}
