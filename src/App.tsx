@@ -242,13 +242,21 @@ const BootMark = ({ size }: { size: number }) => (
 // The startup screen of index.html (#boot) stays while the first loadings follow one another (session, the shell,
 // the page), and goes once none is left: the very same element, so no jump and no restart of its motion.
 let bootHolds = 0;
+/** It fades out (index.html › .boot[data-out]) instead of vanishing; renamed at once, so nothing waits on it any more. */
+function fadeBoot() {
+  const el = document.getElementById('boot');
+  if (!el) return;
+  el.id = 'boot-out';
+  el.dataset.out = '';
+  setTimeout(() => el.remove(), 260);
+}
 function BootHold() {
   useLayoutEffect(() => {
     bootHolds++;
     return () => {
       bootHolds--;
       // After the commit: the next loading (if any) holds it before this runs, else the page is already there.
-      queueMicrotask(() => bootHolds || document.getElementById('boot')?.remove());
+      queueMicrotask(() => bootHolds || fadeBoot());
     };
   }, []);
   return null;

@@ -1,7 +1,7 @@
 import { Fragment, memo, useEffect, useLayoutEffect, useRef, useState, type ComponentProps, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ArrowUp, ArrowUpRight, Camera, Check, ChevronDown, ChevronUp, Copy, Maximize2, Mic, Minimize2, RefreshCw, RotateCcw, Square, X } from 'lucide-react';
+import { ArrowUp, ArrowUpRight, Camera, Check, ChevronDown, ChevronLeft, ChevronUp, Copy, Maximize2, Mic, Minimize2, RefreshCw, RotateCcw, Square, X } from 'lucide-react';
 import Character, { CopilotAvatar, type CopilotMood } from './Character';
 import KompalyMark from '../components/KompalyMark';
 import { sober } from '../lib/sober';
@@ -380,8 +380,13 @@ export default function Copilot() {
     };
   }, [bubble, pose, visible, clearBubble]);
 
+  // Opening: straight at the latest message (no ride through the whole history). Open: a new message glides in.
+  const wasOpen = useRef(false);
   useEffect(() => {
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: scrollMotion() });
+    const list = listRef.current;
+    const opening = pose === 'open' && !wasOpen.current;
+    wasOpen.current = pose === 'open';
+    list?.scrollTo({ top: list.scrollHeight, behavior: opening ? 'auto' : scrollMotion() });
   }, [messages.length, thinking, pose]);
 
   // The panel is centred on the character; slide it so that it always stays inside the window.
@@ -784,6 +789,22 @@ export default function Copilot() {
         >
           {/* Not a <header>: a banner landmark inside a dialog confuses the page's landmarks. */}
           <div className="flex items-center gap-2.5 border-b border-stone-100 px-3.5 py-2.5">
+            {pro && (
+              // Affichage Pro: back to where it was opened from, the island's Kompaly tab.
+              <button
+                type="button"
+                title={t('Retour à l’île')}
+                aria-label={t('Retour à l’île')}
+                onClick={() => {
+                  setPose('hidden');
+                  window.dispatchEvent(new CustomEvent('kompaly:hub', { detail: 'kompaly' }));
+                }}
+                className="icon-btn -ml-1 pointer-coarse:h-9 pointer-coarse:w-9"
+                tabIndex={isOpen ? 0 : -1}
+              >
+                <ChevronLeft size={18} />
+              </button>
+            )}
             {pro ? (
               <span className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-[#1c1c1f] text-white ring-1 ring-white/10">
                 <KompalyMark size={20} />

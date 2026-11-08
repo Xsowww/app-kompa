@@ -63,9 +63,10 @@ const NAME: () => Record<HubView, string> = () => ({
 });
 
 /** Kompaly's mark as two lights (you, the big one; your friend, the small blue one) that blink now and then. */
-export function Lights({ big }: { big?: boolean }) {
+/** Kompaly's two eyes. `still`: no blink (a list of messages would otherwise blink by the dozen). */
+export function Lights({ big, still }: { big?: boolean; still?: boolean }) {
   return (
-    <span className="isl-lights" data-big={big || undefined} aria-hidden>
+    <span className="isl-lights" data-big={big || undefined} data-still={still || undefined} aria-hidden>
       <i />
       <i />
     </span>
@@ -632,7 +633,7 @@ function NotifsView({ go }: { go: (to: string) => void }) {
   const entries = useIslandLog(s => s.entries);
   useEffect(() => useIslandLog.getState().markSeen(), [entries.length]);
   const icon = (e: IslandEntry) =>
-    e.kind === 'reminder' ? <BellRing size={14} strokeWidth={2.4} /> : e.kind === 'kompaly' ? <Lights /> : e.tone === 'success' ? <Check size={14} strokeWidth={3} /> : e.tone === 'error' ? <X size={14} strokeWidth={3} /> : <Info size={14} strokeWidth={2.4} />;
+    e.kind === 'reminder' ? <BellRing size={14} strokeWidth={2.4} /> : e.kind === 'kompaly' ? <Lights still /> : e.tone === 'success' ? <Check size={14} strokeWidth={3} /> : e.tone === 'error' ? <X size={14} strokeWidth={3} /> : <Info size={14} strokeWidth={2.4} />;
   return (
     <div className="hub-view">
       {entries.length ? (

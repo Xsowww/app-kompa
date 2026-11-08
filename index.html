@@ -14,7 +14,21 @@
       .boot svg { display: block; overflow: visible; }
       .boot-tile { fill: #14161f; }
       .boot-me { fill: #eceef3; }
-      .boot-friend { fill: #3d63dd; animation: boot-friend 1.8s ease-in-out infinite; }
+      .boot-friend { fill: #3d63dd; }
+      /* Launch: the tile springs in, its two eyes open, the name comes, a small line says it is loading; then a blink now and then. */
+      .boot svg { animation: boot-in 0.55s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+      .boot-me, .boot-friend { transform-box: fill-box; transform-origin: center; }
+      .boot-me { animation: boot-open 0.35s 0.25s cubic-bezier(0.2, 1.3, 0.4, 1) both, boot-blink 2.6s 1.3s ease-in-out infinite; }
+      .boot-friend { animation: boot-open 0.35s 0.4s cubic-bezier(0.2, 1.3, 0.4, 1) both, boot-blink 2.6s 1.3s ease-in-out infinite; }
+      .boot > span { animation: boot-rise 0.5s 0.45s ease-out both; }
+      .boot-bar { position: relative; width: 44px; height: 3px; overflow: hidden; border-radius: 3px; background: color-mix(in srgb, currentColor 14%, transparent); animation: boot-rise 0.4s 0.9s ease-out both; }
+      .boot-bar::after { content: ''; position: absolute; inset: 0; width: 40%; border-radius: inherit; background: #3d63dd; animation: boot-sweep 1.1s ease-in-out infinite; }
+      .boot[data-out] { opacity: 0; transition: opacity 0.22s ease-out; pointer-events: none; }
+      @keyframes boot-in { from { opacity: 0; transform: scale(0.6); } }
+      @keyframes boot-open { from { transform: scale(0); } }
+      @keyframes boot-blink { 0%, 88%, 100% { transform: scaleY(1); } 93% { transform: scaleY(0.12); } }
+      @keyframes boot-rise { from { opacity: 0; transform: translateY(6px); } }
+      @keyframes boot-sweep { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
       [data-theme='dark'] .boot { background: #0c0d12; color: #f1f2f6; }
       [data-theme='dark'] .boot-tile { fill: #f1f2f6; }
       [data-theme='dark'] .boot-me { fill: #0c0d12; }
@@ -35,9 +49,8 @@
       [data-pro][data-style][data-theme] .boot-me { fill: #14161f; }
       [data-pro][data-style][data-theme] .boot-tile { fill: #fff; }
       /* The small dot (the friend) leans towards the big one (you), and back. */
-      @keyframes boot-friend { 50% { transform: translate(-1.25px, 1.25px); } }
-      @media (prefers-reduced-motion: reduce) { .boot-friend { animation: none; } }
-      .reduce-motion .boot-friend { animation: none; }
+      @media (prefers-reduced-motion: reduce) { .boot *, .boot *::after { animation: none !important; } }
+      .reduce-motion .boot *, .reduce-motion .boot *::after { animation: none !important; }
     </style>
     <noscript><style>.boot { display: none; }</style></noscript>
     <title>Kompaly · Agenda, notes et fichiers au même endroit, avec une IA</title>
@@ -98,6 +111,7 @@
     <div id="boot" class="boot" role="status" aria-label="Chargement">
       <svg viewBox="0 0 32 32" width="56" height="56" aria-hidden="true"><rect class="boot-tile" width="32" height="32" rx="8" /><circle class="boot-me" cx="13.5" cy="16.5" r="5.5" /><circle class="boot-friend" cx="22" cy="12.5" r="2.75" /></svg>
       <span>kompaly</span>
+      <i class="boot-bar" aria-hidden="true"></i>
     </div>
     <div id="root"></div>
     <!-- For the rare robots and browsers without JavaScript: what Kompaly is, and where to go. -->

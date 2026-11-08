@@ -1005,3 +1005,6 @@ button.hub-tile:active {
     transition: opacity 160ms ease;
   }
 }
+.isl-lights[data-still] > i {
+  animation: none;
+}
