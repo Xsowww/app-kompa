@@ -13,6 +13,11 @@ const { ruleDays } = await import('../src/lib/repeat');
 const ev = (date: string, series = 's1', extra: Partial<CalendarEvent> = {}): CalendarEvent => ({ id: `${series}-${date}`, title: 'Yoga', date, start: '18:00', category: 'sport', done: false, createdAt: 'x', series, reminders: [15], ...extra });
 
 describe('série sans fin', () => {
+  it('a birthday every year: its next years are made before they are needed (it showed one or two years, then nothing)', () => {
+    const year = { unit: 'year' as const, interval: 1 };
+    const { add } = planEndless({ s2: saveRuleCode(year, '2026-12-12') }, [ev('2026-12-12', 's2'), ev('2027-12-12', 's2')], [], '2027-01-10');
+    expect(add.map(e => e.date)).toEqual(['2028-12-12', '2029-12-12', '2030-12-12', '2031-12-12', '2032-12-12', '2033-12-12', '2034-12-12', '2035-12-12', '2036-12-12']);
+  });
   const rule = { unit: 'week' as const, interval: 1, days: [1, 4] };
   const code = saveRuleCode(rule, '2026-11-02');
   it('the rule is saved and read back with its first day', () => {

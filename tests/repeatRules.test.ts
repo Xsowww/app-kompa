@@ -29,6 +29,12 @@ describe('règles de répétition', () => {
     expect(r.days.at(-1)).toBe('2027-11-01');
     expect(r.days).toHaveLength(53);
   });
+  it('every year without end: ten years ahead, refilled long before the last one (a birthday showed one or two years)', async () => {
+    const { endlessRefill } = await import('../src/lib/repeat');
+    const year = { unit: 'year', interval: 1 } as const;
+    expect(ruleDays('2026-12-12', year, endlessUntil(year, '2026-11-09')).days).toHaveLength(10);
+    expect(endlessRefill(year, '2026-11-09')).toBe('2035-11-09');
+  });
   it('saved as a short text and read back', () => {
     for (const rule of [{ unit: 'week', interval: 2, days: [1, 4] }, { unit: 'month', interval: 1, nth: -1 }, { unit: 'month', interval: 3, until: '2027-06-30' }, { unit: 'year', interval: 1 }] as const)
       expect(decodeRule(encodeRule({ ...rule, ...('days' in rule && { days: [...rule.days] }) }))).toEqual(rule);

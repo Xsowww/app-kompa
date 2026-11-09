@@ -465,16 +465,18 @@ export const isTourRequest = (typed: string) =>
 /** « dentiste mardi 17h30 » understood: the event made, said back, and « Me prévenir 1 h avant » offered (as on the home page). */
 function eventAdded(parsed: ParsedQuickAdd): BotReply {
   const date = parsed.date ?? todayKey();
-  const { first: ev, count, last } = addEvents({ title: parsed.title, date, start: parsed.start ?? undefined, end: parsed.end ?? undefined, important: parsed.important, endDate: parsed.endDate, repeat: parsed.every });
+  const { first: ev, count, last, endless } = addEvents({ title: parsed.title, date, start: parsed.start ?? undefined, end: parsed.end ?? undefined, important: parsed.important, endDate: parsed.endDate, repeat: parsed.every });
   // A night (« 21h-7h »): the evening and the next morning, said as one.
   const night = !!parsed.endDate && count === 2 && !!parsed.start && !!parsed.end && parsed.end < parsed.start;
   const more = night
     ? t('Jusqu’au lendemain {time}, sur les deux jours du calendrier.', { time: hourLabel(parsed.end!) })
-    : count > 1
-      ? parsed.endDate
-        ? t('Jusqu’au {day}.', { day: fmt(fromKey(last), 'EEEE d MMMM') })
-        : t('Répété {n} fois, jusqu’au {day}.', { n: count, day: fmt(fromKey(last), 'EEEE d MMMM') })
-      : '';
+    : endless
+      ? t('Chaque année, sans fin.')
+      : count > 1
+        ? parsed.endDate
+          ? t('Jusqu’au {day}.', { day: fmt(fromKey(last), 'EEEE d MMMM') })
+          : t('Répété {n} fois, jusqu’au {day}.', { n: count, day: fmt(fromKey(last), 'EEEE d MMMM') })
+        : '';
   const described = describeEvent(night ? { ...ev, end: undefined } : ev);
   // The hour before, when there is still time for it and it isn't already set.
   const offers: CopilotOffer[] =
@@ -674,9 +676,10 @@ export function localReply(raw: string): BotReply {
     if (parsed.title) {
       const date = parsed.date ?? todayKey();
       // « Ajoute congés du 22 au 26 décembre »: one event over several days; « yoga tous les mardis »: repeated (three months).
-      const { first: ev, count, last } = addEvents({ title: parsed.title, date, start: parsed.start ?? undefined, end: parsed.end ?? undefined, important: parsed.important, endDate: parsed.endDate, repeat: parsed.every });
-      const more =
-        count > 1
+      const { first: ev, count, last, endless } = addEvents({ title: parsed.title, date, start: parsed.start ?? undefined, end: parsed.end ?? undefined, important: parsed.important, endDate: parsed.endDate, repeat: parsed.every });
+      const more = endless
+        ? t('Chaque année, sans fin.')
+        : count > 1
           ? parsed.endDate
             ? t('Jusqu’au {day}.', { day: fmt(fromKey(last), 'EEEE d MMMM') })
             : t('Répété {n} fois, jusqu’au {day}.', { n: count, day: fmt(fromKey(last), 'EEEE d MMMM') })

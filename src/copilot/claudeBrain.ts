@@ -491,7 +491,7 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
       const guessed = guessCategory(str(input.title), !!str(input.start));
       const repeat = repeatKey;
       // Over several days (end_date) or repeated (repeat, until): one event a day or per time, linked (lib/repeat).
-      const { first: ev, count, last } = addEvents({
+      const { first: ev, count, last, endless } = addEvents({
         title: str(input.title),
         date: str(input.date),
         start: str(input.start) || undefined,
@@ -507,7 +507,7 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
       // Read back from the store: what is really there (title, day, place, reminders), then checked on the server.
       const saved = useCalendar.getState().events.find(e => e.id === ev.id) ?? ev;
       const ids = ev.series ? useCalendar.getState().events.filter(e => e.series === ev.series).map(e => e.id) : [ev.id];
-      return wrote('events', ids, { ...eventFacts(saved), ...(count > 1 && (repeat ? { occurrences: count, last_one: last } : { last_day: last })) });
+      return wrote('events', ids, { ...eventFacts(saved), ...(endless ? { chaque_annee_sans_fin: true } : count > 1 && (repeat ? { occurrences: count, last_one: last } : { last_day: last })) });
     }
     case 'delete_event': {
       // One call for several (event_ids): one button « Supprimer les N événements » (offerMerge also groups separate calls).

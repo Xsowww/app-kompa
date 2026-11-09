@@ -12,7 +12,8 @@ import { normalize, noteText, stripHtml, formatBytes, uid } from '../lib/utils';
 import { newSeries } from '../lib/seriesId';
 import { textSnippet } from '../lib/textFind';
 import { toKey, todayKey, daysUntil, fromKey, fmt, fmtDay, weekStart, countdownLabel, validKey } from '../lib/dates';
-import { defaultUntil, isSpan, repeatDays, shiftKey, spanDays, type Repeat } from '../lib/repeat';
+import { defaultUntil, endlessUntil, isSpan, repeatDays, ruleOf, shiftKey, spanDays, type Repeat } from '../lib/repeat';
+import { rememberRule } from '../lib/repeatSeries';
 import { cleanReminders, eventReminders, MAX_MINUTES, minutesBefore, reminderLabel, reminderMoment } from '../lib/reminders';
 import { isTaskRepeat } from '../lib/taskRepeat';
 import { canNotify } from '../lib/notify';
@@ -292,7 +293,7 @@ export function addEvent(input: { title: string; date: string; start?: string; e
  * else the usual three months): one event a day or per time, linked by a series, as the calendar's form makes them
  * (lib/repeat). The first day of an event over several days keeps the reminders, the others none.
  */
-export function addEvents(input: Parameters<typeof addEvent>[0] & { endDate?: string; repeat?: Repeat; until?: string }): { first: CalendarEvent; count: number; last: string } {
+export function addEvents(input: Parameters<typeof addEvent>[0] & { endDate?: string; repeat?: Repeat; until?: string }): { first: CalendarEvent; count: number; last: string; endless?: boolean } {
   // A night given without its next day (« 21:00 → 07:00 »): it ends the next morning.
   const overnight = !input.endDate && !input.repeat && !!input.start && !!input.end && input.end < input.start;
   const endDate = overnight ? shiftKey(input.date, 1) : validKey(input.endDate);
@@ -311,9 +312,15 @@ export function addEvents(input: Parameters<typeof addEvent>[0] & { endDate?: st
   if (spanning) {
     useCalendar.getState().addMany(spanDays(input.date, endDate!, input.start || undefined, input.end || undefined).map((p, i) => ({ ...base, ...p, series, ...(i > 0 && { reminders: [] }) })));
   } else {
-    const until = validKey(input.until) && input.until! >= input.date ? input.until! : defaultUntil(input.date, input.repeat);
+    const given = validKey(input.until) && input.until! >= input.date ? input.until! : '';
+    // Every year without an end (a birthday): without end, as the calendar's form makes it (the next years come by themselves).
+    const endless = !given && input.repeat === 'year';
+    const until = given || (endless ? endlessUntil(ruleOf('year'), input.date > todayKey() ? input.date : todayKey()) : defaultUntil(input.date, input.repeat));
     const days = repeatDays(input.date, input.repeat!, until).days;
     useCalendar.getState().addMany((days.length ? days : [input.date]).map(date => ({ ...base, date, start: input.start || undefined, end: input.end || undefined, series })));
+    if (endless) rememberRule(series, ruleOf('year'), input.date);
+    const made = useCalendar.getState().events.filter(e => e.series === series).sort(sortEvents);
+    return { first: made[0], count: made.length, last: made[made.length - 1].date, endless };
   }
   const made = useCalendar.getState().events.filter(e => e.series === series).sort(sortEvents);
   return { first: made[0], count: made.length, last: made[made.length - 1].date };

@@ -21,7 +21,7 @@ import { DateField, TimeField } from '../../components/Pickers';
 import { softKeyboard } from '../../lib/keyboard';
 import { FieldError } from '../../components/Field';
 import { fmtDay, fromKey, fromMinutes, parseQuickAdd, remindMinutes, todayKey, toMinutes } from '../../lib/dates';
-import { cleanReminders, earlyReminders, eventReminders, followMoments, remindersText } from '../../lib/reminders';
+import { anchorOf, cleanReminders, earlyReminders, eventReminders, followMoments, remindersText } from '../../lib/reminders';
 import { covers } from '../../lib/periods';
 import { MAX_SPAN_DAYS, dayShift, endlessUntil, guessRule, isSpan, ruleDays, ruleLabel, ruleOf, shiftKey, spanDays, spanTooLong, type RepeatRule } from '../../lib/repeat';
 import { planNewEnd, rememberRule, savedRule } from '../../lib/repeatSeries';
@@ -173,6 +173,11 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
   const inSeries = event?.series && !isSpan(event.series) ? allEvents.filter(e => e.series === event.series) : null;
   const saved = inSeries && !shared ? savedRule(event!.series!) : null;
   const seriesRule = inSeries ? (saved?.rule ?? guessRule(inSeries.map(e => e.date))) : null;
+  // A repeat whose day here is already past (a birthday added today, last year's one opened): the reminders are for
+  // the next time, so they are chosen from it (else « ce moment est passé » and no reminder at all).
+  const [openedAt] = useState(Date.now);
+  const nextDays = series?.days ?? inSeries?.map(e => e.date).sort() ?? [];
+  const reminderDay = day && anchorOf(day, start || undefined).getTime() <= openedAt ? (nextDays.find(d => anchorOf(d, start || undefined).getTime() > openedAt) ?? day) : day;
   const seriesEnd = inSeries ? (saved ? (saved.rule.until ?? null) : inSeries.reduce((a, e) => (e.date > a ? e.date : a), '')) : null;
   // undefined: not changed here.
   const [newEnd, setNewEnd] = useState<string | null | undefined>(undefined);
@@ -525,7 +530,7 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
           </div>
         )}
 
-        <ReminderPicker value={reminders} onChange={v => ((touched.current.reminders = true), setChosen(v))} timed={!!start} date={day || undefined} time={start || undefined} item={{ kind: 'event', id: event?.id, title: cleanTitle || title, end: end || undefined }} />
+        <ReminderPicker value={reminders} onChange={v => ((touched.current.reminders = true), setChosen(v))} timed={!!start} date={reminderDay || undefined} time={start || undefined} item={{ kind: 'event', id: event?.id, title: cleanTitle || title, end: end || undefined }} />
         {shared && reminders.length > 0 && (
           <p className="mt-1.5 text-[12px] text-stone-500">{people.length ? t('Envoyé à chaque personne choisie ci-dessous.') : t('Envoyé à chaque membre de l’agenda.')}</p>
         )}

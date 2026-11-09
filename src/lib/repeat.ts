@@ -109,11 +109,16 @@ export function ruleDays(from: string, rule: RepeatRule, until: string, skip: (k
 /** The ready-made choices (the assistant and the older callers). */
 export const repeatDays = (from: string, every: Repeat, until: string, skip?: (key: string) => boolean) => ruleDays(from, ruleOf(every), until, skip);
 
-/** How far ahead a series without end is made: a year (half a year for one every day or two: fewer events to keep). */
-export const endlessUntil = (rule: Pick<RepeatRule, 'unit' | 'interval'>, today: string) => toKey(addMonths(fromKey(today), rule.unit === 'day' && rule.interval < 7 ? 6 : 12));
+/**
+ * How far ahead a series without end is made: a year (half a year for one every day or two: fewer events to keep);
+ * yearly (a birthday): ten times ahead, so next years are there when one looks (a year would show one or two).
+ */
+export const endlessUntil = (rule: Pick<RepeatRule, 'unit' | 'interval'>, today: string) =>
+  toKey(rule.unit === 'year' ? addYears(fromKey(today), 10 * rule.interval) : addMonths(fromKey(today), rule.unit === 'day' && rule.interval < 7 ? 6 : 12));
 
 /** Once a series without end has less than this ahead, its next ones are made (lib/repeatSeries). */
-export const endlessRefill = (rule: Pick<RepeatRule, 'unit' | 'interval'>, today: string) => toKey(addMonths(fromKey(today), rule.unit === 'day' && rule.interval < 7 ? 4 : 9));
+export const endlessRefill = (rule: Pick<RepeatRule, 'unit' | 'interval'>, today: string) =>
+  toKey(rule.unit === 'year' ? addYears(fromKey(today), 9 * rule.interval) : addMonths(fromKey(today), rule.unit === 'day' && rule.interval < 7 ? 4 : 9));
 
 // ── Kept in the settings as a short text: « w2:1,4 », « m1:n-1 », « y1 », and « |2027-06-30 » for an end ─────────
 const UNIT_CODE: Record<RepeatUnit, string> = { day: 'd', week: 'w', month: 'm', year: 'y' };
