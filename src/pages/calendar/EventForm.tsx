@@ -280,7 +280,9 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
       event
         ? t('Enregistré : {title}', { title: data.title })
         : series
-          ? t('Ajouté {n} fois, jusqu’au {day}', { n: series.days.length, day: fmtDay(fromKey(series.days.at(-1)!), 'EEEE d MMMM') })
+          ? !repeat?.until && !into && !shared
+            ? t('Ajouté : {title}, se répète sans fin', { title: data.title }) // the next ones come by themselves: no count, no last day
+            : t('Ajouté {n} fois, jusqu’au {day}', { n: series.days.length, day: fmtDay(fromKey(series.days.at(-1)!), 'EEEE d MMMM') })
           : night
             ? t('Ajouté : {title}, jusqu’au lendemain {time}', { title: data.title, time: end })
           : spanning
@@ -314,6 +316,8 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
                 ? n
                   ? tn(n, 'Sur plusieurs jours : encore {n} jour après celui-ci', 'Sur plusieurs jours : encore {n} jours après celui-ci')
                   : t('Dernier jour de l’événement')
+                : saved && !saved.rule.until
+                  ? t('Se répète sans fin')
                 : n
                   ? tn(n, 'Se répète : encore {n} fois après celui-ci||une fois', 'Se répète : encore {n} fois après celui-ci')
                   : t('Dernier d’une répétition'))(nextInSeries(event, allEvents).length)}
@@ -521,7 +525,7 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
                   : !repeat?.until
                     ? into || shared
                       ? t('Sans fin : {n} fois prévues, jusqu’au {day}. Tu pourras prolonger depuis l’événement.', { n: series.days.length, day: fmtDay(fromKey(series.days.at(-1)!), 'd MMMM') })
-                      : t('Sans fin : {n} fois prévues jusqu’au {day}, la suite s’ajoute toute seule.', { n: series.days.length, day: fmtDay(fromKey(series.days.at(-1)!), 'd MMMM') })
+                      : t('Se répète sans fin.')
                   : series.capped
                     ? t('{n} fois au plus : jusqu’au {day}.', { n: series.days.length, day: fmtDay(fromKey(series.days.at(-1)!), 'd MMMM') })
                     : t('{n} fois, jusqu’au {day}.', { n: series.days.length, day: fmtDay(fromKey(series.days.at(-1)!), 'd MMMM') })}
