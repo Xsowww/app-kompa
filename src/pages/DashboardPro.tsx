@@ -586,9 +586,9 @@ export default function DashboardPro() {
                           <span className="sr-only">
                             {name} : {d.planned ? tn(d.planned, '{done} tâche sur {n} faite', '{done} tâches sur {n} faites', { done: d.plannedDone }) : t('aucune tâche')}
                           </span>
+                          {/* No « 2/4 » over it: the outline and its colour say it (the screen reader gets it above). */}
                           <i aria-hidden>
                             <b />
-                            {d.planned > 0 && <em className="tabular">{`${d.plannedDone}/${d.planned}`}</em>}
                           </i>
                           <span aria-hidden>{fmt(fromKey(d.day), 'EEEEE')}</span>
                         </li>
