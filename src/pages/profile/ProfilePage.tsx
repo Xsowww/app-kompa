@@ -3,7 +3,7 @@ import { SelectField, TimeField } from '../../components/Pickers';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   User, Palette, Sparkles, GraduationCap, Bell, Database, ShieldCheck, Camera, Check, Download, Upload, CalendarArrowUp, LogOut, Trash2, ChevronRight,
-  HardDrive, Smartphone, Keyboard, Briefcase, House, UserPlus, MessageSquareText, FolderDown, Compass, Mail, Megaphone,
+  HardDrive, Smartphone, Keyboard, Briefcase, House, UserPlus, MessageSquareText, FolderDown, Compass, Mail, Megaphone, Settings2, ChevronLeft,
 } from 'lucide-react';
 import { startTour } from '../../store/tour';
 import { GESTURES, IS_MAC, MARKDOWN, SHORTCUTS, keyChips } from './shortcuts';
@@ -17,7 +17,8 @@ import { needsCredentials, PROVIDER_NAMES, savedAccounts, STALE_DAYS } from '../
 import PasswordInput from '../../components/PasswordInput';
 import { LEGAL_LINKS } from '../legal/links';
 import { CONTACT } from '../../lib/feedback';
-import { latestRelease } from '../../lib/news';
+import { latestRelease, newsName, newsToShow } from '../../lib/news';
+import { useTrashCount } from '../../lib/trash';
 import { AUTH_MSG, confirmLogout, sameEmail, useAuth } from '../../store/auth';
 import { useFocusLog } from '../../store/focusLog';
 import { useSettings, ACCENTS, AVATAR_COLORS, applyAppearance, resolveDark, UI_STYLES, PRO_WALLS, type AccentKey, type ThemeMode, type Chattiness, type UiStyle, type ProWall, type TextSize } from '../../store/settings';
@@ -191,38 +192,6 @@ function ProfileTab() {
 
   return (
     <div className="space-y-5">
-      {/* Here rather than in a corner of every page (the « + » button's). « Nouveautés »: in the sidebar on computers.
-          One card, its rows split by fine lines (as a phone's settings), not three cards. */}
-      <div className="card divide-y divide-stone-100 overflow-hidden">
-      <button
-        type="button"
-        onClick={() => openFeedback()}
-        className="flex h-12 w-full items-center gap-3 px-4 text-left text-[14px] font-medium text-stone-700 transition-colors hover:bg-stone-50"
-      >
-        <MessageSquareText size={18} strokeWidth={1.9} className="text-stone-500" aria-hidden />
-        <span className="flex-1">{t('Donner mon avis ou signaler un bug')}</span>
-        <ChevronRight size={16} className="text-stone-400" aria-hidden />
-      </button>
-      <button
-        type="button"
-        onClick={() => openNews()}
-        className="flex h-12 w-full items-center gap-3 px-4 text-left text-[14px] font-medium text-stone-700 transition-colors hover:bg-stone-50 lg:hidden"
-      >
-        {createElement(settings.pro ? Megaphone : Sparkles, { size: 18, strokeWidth: 1.9, className: 'text-stone-500', 'aria-hidden': true })}
-        <span className="flex-1">{t('Nouveautés')}</span>
-        <ChevronRight size={16} className="text-stone-400" aria-hidden />
-      </button>
-      {/* Also asked to Kompaly (« fais-moi visiter »). It starts on the home page. */}
-      <button
-        type="button"
-        onClick={startTour}
-        className="flex h-12 w-full items-center gap-3 px-4 text-left text-[14px] font-medium text-stone-700 transition-colors hover:bg-stone-50"
-      >
-        <Compass size={18} strokeWidth={1.9} className="text-stone-500" aria-hidden />
-        <span className="flex-1">{t('Revoir la visite guidée')}</span>
-        <ChevronRight size={16} className="text-stone-400" aria-hidden />
-      </button>
-      </div>
       <Section label={t('Profil')}>
         <div className="flex flex-wrap items-center gap-5 px-5 py-5">
           <div className="relative">
@@ -1145,9 +1114,69 @@ function EmailSection() {
   );
 }
 
+/** The accounts of this device (switch, add) and « Se déconnecter »: on the profile (one tap from the avatar) and in Réglages › Compte. */
+function AccountsAndSession() {
+  const navigate = useNavigate();
+  const { logout } = useAuth.getState();
+  const userId = useAuth(s => s.user?.id);
+  const [switching, setSwitching] = useState<string | null>(null);
+  const leave = async () => {
+    sessionStorage.removeItem('cop:greeted');
+    await loadUserData();
+    navigate('/connexion');
+  };
+  return (
+    <>
+      <Section title={t('Comptes sur cet appareil')}>
+        <div className="space-y-3 px-5 py-4">
+          <p className="text-[12.5px] text-stone-500">
+            {t('Après {n}\u00a0jours sans utilisation, le mot de passe est redemandé.', { n: STALE_DAYS })}
+            {/* Local mode: the other tabs keep showing the old account until they are reloaded. */}
+            {!cloudEnabled && ` ${t('Tes autres onglets passent au nouveau compte une fois rechargés.')}`}
+          </p>
+          <AccountList
+            currentId={userId}
+            busy={switching}
+            onPick={a => {
+              if (needsCredentials(a)) return void useAuth.getState().addAccount(a.email);
+              setSwitching(a.id);
+              void useAuth.getState().switchAccount(a.id).then(r => {
+                setSwitching(null);
+                if (r === 'credentials') void useAuth.getState().addAccount(a.email);
+              });
+            }}
+          />
+          <button className="btn-secondary h-8" onClick={() => void useAuth.getState().addAccount()}>
+            <UserPlus size={14} /> {t('Ajouter un compte')}
+          </button>
+        </div>
+      </Section>
+
+      <Section title={t('Session')}>
+        <Row
+          label={t('Se déconnecter')}
+          hint={
+            !cloudEnabled
+              ? savedAccounts().some(a => a.id !== userId && !needsCredentials(a))
+                ? t('Tes données restent sur cet appareil. Tes autres comptes restent ouverts.')
+                : t('Tes données restent sur cet appareil.')
+              : remembered()
+                ? t('Ton compte se rouvrira en un clic sur cet appareil, sans mot de passe. Pour le fermer vraiment : la croix à côté de lui, sur la page de connexion.')
+                : undefined
+          }
+        >
+          <button className="btn-secondary h-8" onClick={async () => (await confirmLogout()) && void logout().then(leave)}>
+            <LogOut size={14} /> {t('Se déconnecter')}
+          </button>
+        </Row>
+      </Section>
+    </>
+  );
+}
+
 function AccountTab() {
   const navigate = useNavigate();
-  const { changePassword, deleteAccount, logout } = useAuth.getState();
+  const { changePassword, deleteAccount } = useAuth.getState();
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirmPw, setConfirmPw] = useState('');
@@ -1159,7 +1188,6 @@ function AccountTab() {
   type Pw = 'current' | 'next' | 'confirm';
   const [pwErr, setPwErr] = useState<Partial<Record<Pw, string>>>({});
   const pwRefs = useRef<Partial<Record<Pw, HTMLInputElement | null>>>({});
-  const userId = useAuth(s => s.user?.id);
   // Two-factor is optional: on or off, read from Supabase (null while loading).
   const [mfaOn, setMfaOn] = useState<boolean | null>(null);
   useEffect(() => {
@@ -1167,7 +1195,6 @@ function AccountTab() {
   }, []);
   // Signed up with Google or Apple: no password yet, so none to ask for.
   const noPassword = useAuth(s => !!s.user?.noPassword);
-  const [switching, setSwitching] = useState<string | null>(null);
 
   const values: Record<Pw, string> = { current, next, confirm: confirmPw };
   // What is wrong with a field ('' when nothing), with its value or the one being typed.
@@ -1328,49 +1355,7 @@ function AccountTab() {
         </form>
       </Section>
 
-      <Section title={t('Comptes sur cet appareil')}>
-        <div className="space-y-3 px-5 py-4">
-          <p className="text-[12.5px] text-stone-500">
-            {t('Après {n}\u00a0jours sans utilisation, le mot de passe est redemandé.', { n: STALE_DAYS })}
-            {/* Local mode: the other tabs keep showing the old account until they are reloaded. */}
-            {!cloudEnabled && ` ${t('Tes autres onglets passent au nouveau compte une fois rechargés.')}`}
-          </p>
-          <AccountList
-            currentId={userId}
-            busy={switching}
-            onPick={a => {
-              if (needsCredentials(a)) return void useAuth.getState().addAccount(a.email);
-              setSwitching(a.id);
-              void useAuth.getState().switchAccount(a.id).then(r => {
-                setSwitching(null);
-                if (r === 'credentials') void useAuth.getState().addAccount(a.email);
-              });
-            }}
-          />
-          <button className="btn-secondary h-8" onClick={() => void useAuth.getState().addAccount()}>
-            <UserPlus size={14} /> {t('Ajouter un compte')}
-          </button>
-        </div>
-      </Section>
-
-      <Section title={t('Session')}>
-        <Row
-          label={t('Se déconnecter')}
-          hint={
-            !cloudEnabled
-              ? savedAccounts().some(a => a.id !== userId && !needsCredentials(a))
-                ? t('Tes données restent sur cet appareil. Tes autres comptes restent ouverts.')
-                : t('Tes données restent sur cet appareil.')
-              : remembered()
-                ? t('Ton compte se rouvrira en un clic sur cet appareil, sans mot de passe. Pour le fermer vraiment : la croix à côté de lui, sur la page de connexion.')
-                : undefined
-          }
-        >
-          <button className="btn-secondary h-8" onClick={async () => (await confirmLogout()) && void logout().then(leave)}>
-            <LogOut size={14} /> {t('Se déconnecter')}
-          </button>
-        </Row>
-      </Section>
+      <AccountsAndSession />
 
       <Section title={t('Supprimer le compte')} danger>
         <Row
@@ -1426,73 +1411,123 @@ function AccountTab() {
 
 // ── Page ────────────────────────────────────────────────────────────────────
 
+/** A round icon of the profile's head (Réglages, avis, visite…), its name said and shown on hover; `count`: a red number. */
+function HeadIcon({ icon, label, onClick, count = 0 }: { icon: typeof User; label: string; onClick: () => void; count?: number }) {
+  return (
+    <button type="button" onClick={onClick} title={label} aria-label={label} className="icon-btn relative h-10 w-10 shrink-0 rounded-full">
+      {createElement(icon, { size: 18, strokeWidth: 1.9, 'aria-hidden': true })}
+      {count > 0 && (
+        <span aria-hidden className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-bold leading-none text-white">
+          {count}
+        </span>
+      )}
+    </button>
+  );
+}
+
 export default function ProfilePage() {
   const [params, setParams] = useSearchParams();
-  const tab = (TABS.find(x => x.key === params.get('onglet'))?.key ?? 'profil') as TabKey;
+  const navigate = useNavigate();
+  // Two views: the profile (the avatar leads here), and Réglages (the cog: the sections below, « ‹ » back).
+  const asked = TABS.find(x => x.key === params.get('onglet'))?.key;
+  const settingsView = !!asked && asked !== 'profil';
+  const tab = (settingsView ? asked : 'profil') as TabKey;
+  const sections = TABS.filter(x => x.key !== 'profil');
   const usage = useSettings(s => s.usage);
   // The « Études » tab is « Travail » or « Organisation » for other usages, its icon too.
   const tabLabel = (key: TabKey) => (key === 'etudes' ? (WORDS[usage] ?? WORDS.etudes).profileTab : TABS.find(x => x.key === key)!.label);
   // Affichage Pro: Kompaly's tab has his mark, not sparkles.
   const pro = useSettings(s => s.pro);
   const tabIcon = (key: TabKey) => (key === 'etudes' ? (USAGE_ICONS[usage] ?? GraduationCap) : pro && key === 'copilot' ? KompalyMark : TABS.find(x => x.key === key)!.icon);
+  const newsSeen = useSettings(s => s.newsSeen);
+  const createdAt = useAuth(s => s.user?.createdAt);
+  const unread = newsToShow(newsSeen, createdAt) ? latestRelease.items.length : 0;
+  const trash = useTrashCount();
+  const go = (key: TabKey) => setParams({ onglet: key });
 
   return (
     <div className="h-full overflow-y-auto px-4 pb-room md:px-8">
       <div className="mx-auto max-w-[1180px]">
         {/* The title stays in sight while the page scrolls (the page's own background, solid: nothing shows through; the
             same rule as the shell's sticky page heads). */}
-        <div className="page-head -mx-4 px-4 pb-3 md:-mx-8 md:px-8 md:pb-5">
-          <h1 className="text-[20px] font-semibold tracking-[-0.02em] md:text-[24px]">{t('Profil et réglages')}</h1>
-        </div>
-        {/* Phones and tablets: every section with its name under its icon (an icon alone wasn't understood: where are the
-            notifications?), four by row on a phone, one row on a tablet. Not sticky: it would take a third of the screen. */}
-        <nav aria-label={t('Sections du profil')} className="seg mb-4 grid w-full grid-cols-4 sm:flex md:hidden">
-          {TABS.map(tb => (
-            <button
-              key={tb.key}
-              aria-current={tab === tb.key ? 'page' : undefined}
-              onClick={() => setParams(tb.key === 'profil' ? {} : { onglet: tb.key })}
-              className="seg-item h-[52px] min-w-0 flex-col gap-1 px-0 sm:flex-1 sm:shrink"
-              data-active={tab === tb.key || undefined}
-            >
-              {createElement(tabIcon(tb.key), { size: 16, 'aria-hidden': true, className: cx('shrink-0', tab === tb.key && 'text-brand-600') })}
-              <span className="max-w-full whitespace-nowrap text-center text-fix-11 font-medium leading-[1.1] max-[359px]:text-fix-10 max-[359px]:tracking-[-0.02em] min-[400px]:text-[min(0.6875rem,13px)]">{tabLabel(tb.key)}</span>
+        <div className="page-head -mx-4 flex items-center gap-2 px-4 pb-3 md:-mx-8 md:px-8 md:pb-5">
+          {settingsView && (
+            <button type="button" onClick={() => setParams({})} className="icon-btn -ml-2 h-10 w-10 shrink-0 rounded-full" title={t('Retour au profil')} aria-label={t('Retour au profil')}>
+              <ChevronLeft size={20} aria-hidden />
             </button>
-          ))}
-        </nav>
-        <div className="flex flex-col gap-6 md:flex-row">
-          <nav aria-label={t('Sections du profil')} className="hidden shrink-0 md:sticky md:top-16 md:flex md:w-48 md:flex-col md:gap-0.5 md:self-start">
-            {TABS.map(tb => (
-              <button
-                key={tb.key}
-                aria-current={tab === tb.key ? 'page' : undefined}
-                onClick={() => setParams(tb.key === 'profil' ? {} : { onglet: tb.key })}
-                className={cx(
-                  'profile-nav-item flex h-8 min-w-0 shrink-0 items-center gap-2.5 rounded-md px-2.5 text-[13px] font-medium transition-colors pointer-coarse:h-9',
-                  tab === tb.key ? 'bg-surface font-semibold text-ink shadow-card ring-1 ring-stone-200' : 'text-stone-600 hover:bg-stone-100 hover:text-ink',
-                )}
-              >
-                {createElement(tabIcon(tb.key), { size: 15, 'aria-hidden': true, className: cx('shrink-0', tab === tb.key && 'text-brand-600') })}
-                <span className="max-w-full truncate">{tabLabel(tb.key)}</span>
-              </button>
-            ))}
-          </nav>
-          <div className="min-w-0 flex-1">
-            <h2 className="mb-3 text-[15px] font-semibold sm:hidden">{tabLabel(tab)}</h2>
-            {tab === 'profil' && <ProfileTab />}
-            {tab === 'apparence' && <AppearanceTab />}
-            {tab === 'copilot' && <CopilotTab />}
-            {tab === 'etudes' && <StudiesTab />}
-            {tab === 'notifications' && <NotificationsTab />}
-            {tab === 'donnees' && <DataTab />}
-            {tab === 'raccourcis' && <ShortcutsTab />}
-            {tab === 'compte' && <AccountTab />}
-          </div>
+          )}
+          <h1 className="min-w-0 flex-1 truncate text-[20px] font-semibold tracking-[-0.02em] md:text-[24px]">{settingsView ? t('Réglages') : t('Profil')}</h1>
+          {!settingsView && (
+            <div className="-mr-1.5 flex shrink-0 items-center gap-0.5">
+              {/* Computers: Nouveautés and the bin are in the bar beside the search. */}
+              <span className="contents lg:hidden">
+                <HeadIcon icon={pro ? Megaphone : Sparkles} label={newsName(unread)} count={unread} onClick={() => openNews()} />
+                {pro && <HeadIcon icon={Trash2} label={trash ? tn(trash, 'Corbeille, {n} élément', 'Corbeille, {n} éléments') : t('Corbeille')} onClick={() => navigate('/corbeille')} />}
+              </span>
+              <HeadIcon icon={MessageSquareText} label={t('Donner mon avis ou signaler un bug')} onClick={() => openFeedback()} />
+              {/* Also asked to Kompaly (« fais-moi visiter »). It starts on the home page. */}
+              <HeadIcon icon={Compass} label={t('Revoir la visite guidée')} onClick={startTour} />
+              <HeadIcon icon={Settings2} label={t('Réglages')} onClick={() => go('apparence')} />
+            </div>
+          )}
         </div>
+        {settingsView ? (
+          <>
+            {/* Phones and tablets: every section with its name under its icon (an icon alone wasn't understood: where are
+                the notifications?), four by row on a phone, one row on a tablet. Not sticky: it would take a third of the screen. */}
+            <nav aria-label={t('Sections des réglages')} className="seg mb-4 grid w-full grid-cols-4 sm:flex md:hidden">
+              {sections.map(tb => (
+                <button
+                  key={tb.key}
+                  aria-current={tab === tb.key ? 'page' : undefined}
+                  onClick={() => go(tb.key)}
+                  className="seg-item h-[52px] min-w-0 flex-col gap-1 px-0 sm:flex-1 sm:shrink"
+                  data-active={tab === tb.key || undefined}
+                >
+                  {createElement(tabIcon(tb.key), { size: 16, 'aria-hidden': true, className: cx('shrink-0', tab === tb.key && 'text-brand-600') })}
+                  <span className="max-w-full whitespace-nowrap text-center text-fix-11 font-medium leading-[1.1] max-[359px]:text-fix-10 max-[359px]:tracking-[-0.02em] min-[400px]:text-[min(0.6875rem,13px)]">{tabLabel(tb.key)}</span>
+                </button>
+              ))}
+            </nav>
+            <div className="flex flex-col gap-6 md:flex-row">
+              <nav aria-label={t('Sections des réglages')} className="hidden shrink-0 md:sticky md:top-16 md:flex md:w-48 md:flex-col md:gap-0.5 md:self-start">
+                {sections.map(tb => (
+                  <button
+                    key={tb.key}
+                    aria-current={tab === tb.key ? 'page' : undefined}
+                    onClick={() => go(tb.key)}
+                    className={cx(
+                      'profile-nav-item flex h-8 min-w-0 shrink-0 items-center gap-2.5 rounded-md px-2.5 text-[13px] font-medium transition-colors pointer-coarse:h-9',
+                      tab === tb.key ? 'bg-surface font-semibold text-ink shadow-card ring-1 ring-stone-200' : 'text-stone-600 hover:bg-stone-100 hover:text-ink',
+                    )}
+                  >
+                    {createElement(tabIcon(tb.key), { size: 15, 'aria-hidden': true, className: cx('shrink-0', tab === tb.key && 'text-brand-600') })}
+                    <span className="max-w-full truncate">{tabLabel(tb.key)}</span>
+                  </button>
+                ))}
+              </nav>
+              <div className="min-w-0 flex-1">
+                <h2 className="mb-3 text-[15px] font-semibold sm:hidden">{tabLabel(tab)}</h2>
+                {tab === 'apparence' && <AppearanceTab />}
+                {tab === 'copilot' && <CopilotTab />}
+                {tab === 'etudes' && <StudiesTab />}
+                {tab === 'notifications' && <NotificationsTab />}
+                {tab === 'donnees' && <DataTab />}
+                {tab === 'raccourcis' && <ShortcutsTab />}
+                {tab === 'compte' && <AccountTab />}
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="mx-auto max-w-[760px] space-y-5">
+            <ProfileTab />
+            <AccountsAndSession />
+          </div>
+        )}
         {/* What a visitor finds at the foot of the home page, reachable once signed in too. */}
         {/* No « · » between the links: wrapped on a phone, one was left hanging at the end of a line. Their spacing
             says they are apart; the version on its own line. */}
-        <footer className="mt-10 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 pb-2 text-[12px] text-stone-500 md:ml-[13.5rem] pointer-coarse:gap-y-0">
+        <footer className={cx('mt-10 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 pb-2 text-[12px] text-stone-500 pointer-coarse:gap-y-0', settingsView && 'md:ml-[13.5rem]')}>
           {LEGAL_LINKS.map(l => (
             <Link key={l.to} to={l.to} className="inline-block underline-offset-2 hover:text-ink hover:underline pointer-coarse:py-2">
               {l.label}

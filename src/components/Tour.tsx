@@ -95,7 +95,7 @@ const STEPS: Step[] = [
     text: (_, touch) => (touch ? t('Touche «\u00a0Kompaly\u00a0» pour lui parler\u00a0: il t’aide à t’organiser.') : t('Clique ici, ou sur lui au bord de l’écran, pour lui parler\u00a0: il t’aide à t’organiser.')),
   },
   {
-    // Phones: the avatar at the top opens the account menu (layout/AppShell › AccountSwitch).
+    // Phones: the avatar at the top leads to the profile (layout/AppShell › AccountSwitch).
     target: 'a[href="/profil"], [data-tour="profil"]',
     title: t('Ton profil'),
     text: () => t('Thème, couleur, ton de Kompaly, notifications\u00a0: tout se règle ici.'),

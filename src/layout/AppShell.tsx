@@ -1,6 +1,6 @@
-import { Fragment, lazy, Suspense, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import { Fragment, lazy, Suspense, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutGrid, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn, ListChecks, Trash2, ArrowLeftRight, UserRound, UserPlus, LogOut, Megaphone, Sparkles, CornerDownLeft, X } from 'lucide-react';
+import { LayoutGrid, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn, ListChecks, Trash2, ArrowLeftRight, UserRound, UserPlus, LogOut,  Sparkles, CornerDownLeft, X } from 'lucide-react';
 import { EmptyState } from '../components/EmptyState';
 import { FeedbackDialog } from '../components/FeedbackDialogs';
 import { confirmLogout, useAuth } from '../store/auth';
@@ -346,39 +346,13 @@ function GlobalSearch({ autoFocus, onDone }: { autoFocus?: boolean; onDone?: (ca
   );
 }
 
-/** Affichage Pro, phones and tablets: a row of the avatar's menu with a count at its end (Nouveautés, Corbeille). */
-function CountRow({ icon, label, aria, count, urgent, onClick }: { icon: ReactNode; label: string; aria: string; count: number; urgent?: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      role="menuitem"
-      tabIndex={-1}
-      aria-label={aria}
-      onClick={onClick}
-      // As ContextMenu's own rows (components/Overlays).
-      className="flex h-8 w-full items-center gap-2.5 rounded-[10px] px-2 text-left text-[13px] text-stone-700 outline-none transition-colors hover:bg-stone-100 focus-visible:bg-stone-100 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus pointer-coarse:h-10"
-    >
-      <span className="flex w-4 justify-center text-stone-400 [&>svg]:h-[15px] [&>svg]:w-[15px]" aria-hidden>
-        {icon}
-      </span>
-      <span className="flex-1">{label}</span>
-      {count > 0 && (
-        <span aria-hidden className={cx('pro-menu-count tabular', urgent && 'pro-menu-count-urgent')}>
-          {count > 99 ? '99+' : count}
-        </span>
-      )}
-    </button>
-  );
-}
-
 /**
- * Other accounts of this device in one click, or a new one (see lib/accounts). `avatar`: phones' top bar, the avatar opens
- * it (« Profil et réglages » first). Affichage Pro: also on computers; on phones and tablets it also holds Nouveautés
- * and Corbeille, with their counts (`news`, `trash`), and the avatar has a red dot while news are unread.
+ * Other accounts of this device in one click, or a new one (see lib/accounts). `avatar`: the top bar's avatar (phones;
+ * Affichage Pro: computers too), which leads to the profile; in Pro it has a red dot while news are unread.
  */
-function AccountSwitch({ currentId, avatar, pro, news = 0, trash = 0, trashLabel = '' }: { currentId: string; avatar?: boolean; pro?: boolean; news?: number; trash?: number; trashLabel?: string }) {
+function AccountSwitch({ currentId, avatar, pro, news = 0 }: { currentId: string; avatar?: boolean; pro?: boolean; news?: number }) {
   const navigate = useNavigate();
-  const [menu, setMenu] = useState<{ x: number; y: number; narrow: boolean } | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const dot = !!avatar && !!pro && news > 0;
   const others = menu ? savedAccounts().filter(a => a.id !== currentId) : [];
   const open = (a: SavedAccount) => {
@@ -403,14 +377,15 @@ function AccountSwitch({ currentId, avatar, pro, news = 0, trash = 0, trashLabel
         type="button"
         // Affichage Pro: also on a computer (no side bar there), at the end of the top right cluster.
         className={avatar ? cx('hit inline-flex h-9 w-9 items-center justify-center rounded-full', pro ? 'pro-avatar relative shrink-0 lg:h-10 lg:w-10' : 'lg:hidden') : 'icon-btn'}
-        title={avatar ? t('Profil et comptes') : t('Changer de compte')}
-        aria-label={avatar ? `${t('Profil et comptes')}${dot ? `, ${newsName(news)}` : ''}` : t('Changer de compte')}
-        aria-haspopup="menu"
+        title={avatar ? t('Profil') : t('Changer de compte')}
+        aria-label={avatar ? `${t('Profil')}${dot ? `, ${newsName(news)}` : ''}` : t('Changer de compte')}
+        aria-haspopup={avatar ? undefined : 'menu'}
         data-tour={avatar ? 'profil' : undefined}
         onClick={e => {
+          // The avatar: straight to the profile (Réglages, avis, visite, Nouveautés and the accounts are there).
+          if (avatar) return void navigate('/profil');
           const r = e.currentTarget.getBoundingClientRect();
-          const narrow = !window.matchMedia('(min-width: 1024px)').matches;
-          setMenu(avatar ? { x: r.right, y: r.bottom + 8, narrow } : { x: r.left, y: r.top - 8 - 44 * (savedAccounts().filter(a => a.id !== currentId).length + 2), narrow });
+          setMenu({ x: r.left, y: r.top - 8 - 44 * (savedAccounts().filter(a => a.id !== currentId).length + 2) });
         }}
       >
         {avatar ? <Avatar size={pro ? 34 : 30} /> : <ArrowLeftRight size={15} />}
@@ -423,23 +398,6 @@ function AccountSwitch({ currentId, avatar, pro, news = 0, trash = 0, trashLabel
           label={avatar ? t('Profil et comptes') : t('Changer de compte')}
           onClose={() => setMenu(null)}
           items={[
-            ...(avatar ? [{ label: t('Profil et réglages'), icon: <Settings2 size={15} />, onClick: () => navigate('/profil') }, { label: '', divider: true, onClick: () => {} }] : []),
-            // Affichage Pro, phones and tablets: Nouveautés and the bin (computers: beside the search).
-            ...(avatar && pro && menu.narrow
-              ? [
-                  {
-                    label: '',
-                    onClick: () => {},
-                    content: (
-                      <>
-                        <CountRow icon={<Megaphone />} label={t('Nouveautés')} aria={newsName(news)} count={news} urgent onClick={() => (setMenu(null), openNews())} />
-                        <CountRow icon={<Trash2 />} label={t('Corbeille')} aria={trashLabel} count={trash} onClick={() => (setMenu(null), navigate('/corbeille'))} />
-                      </>
-                    ),
-                  },
-                  { label: '', divider: true, onClick: () => {} },
-                ]
-              : []),
             ...others.map(a => ({ label: `${a.name || a.email} · ${a.email}${asks(a)}`, icon: <UserRound size={15} />, onClick: () => open(a) })),
             ...(others.length ? [{ label: '', divider: true, onClick: () => {} }] : []),
             { label: t('Ajouter un compte'), icon: <UserPlus size={15} />, onClick: () => void useAuth.getState().addAccount() },
@@ -781,7 +739,7 @@ export default function AppShell() {
             {trashCount > 0 && <span className="tabular absolute -right-0.5 -top-0.5 min-w-[16px] rounded-full bg-stone-500 px-1 text-center text-[10px] font-semibold leading-4 text-white" aria-hidden>{trashCount > 99 ? '99+' : trashCount}</span>}
           </NavLink>
           )}
-          <AccountSwitch currentId={user.id} avatar pro={pro} news={unreadNews} trash={trashCount} trashLabel={trashLabel} />
+          <AccountSwitch currentId={user.id} avatar pro={pro} news={unreadNews} />
         </header>
         <ServiceBanner inline />
         {searchOpen && (

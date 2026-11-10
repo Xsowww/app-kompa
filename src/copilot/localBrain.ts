@@ -274,7 +274,7 @@ function moreCommands(input: string, q: string): BotReply | null {
     const theme = /sombre|nuit|noir/.test(m[1]) ? 'sombre' : /clair|jour/.test(m[1]) ? 'clair' : 'auto';
     updateSettings({ theme });
     const done = theme === 'auto' ? t('Thème automatique (comme ton système) enregistré.') : theme === 'sombre' ? t('Thème sombre enregistré.') : t('Thème clair enregistré.');
-    return { text: done, links: [{ label: t('Réglages'), to: '/profil' }] };
+    return { text: done, links: [{ label: t('Réglages'), to: '/profil?onglet=apparence' }] };
   }
   m = q.match(/(?:couleur|accent).*?\b(orange|bleue?|verte?|violette?|rose|framboise|encre|noire?)\b/);
   if (m) {

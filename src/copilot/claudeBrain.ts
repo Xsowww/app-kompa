@@ -408,7 +408,7 @@ function change(name: string, input: Record<string, unknown>, links: CopilotLink
         chattiness: str(input.chattiness) || undefined,
       });
       if (!changed) throw new Error('aucun réglage valide fourni');
-      links.push({ label: t('Réglages'), to: '/profil' });
+      links.push({ label: t('Réglages'), to: '/profil?onglet=apparence' });
       return { changed };
     }
     default:
