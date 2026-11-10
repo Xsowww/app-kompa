@@ -1413,8 +1413,19 @@ function AccountTab() {
 
 /** A round icon of the profile's head (Réglages, avis, visite…), its name said and shown on hover; `count`: a red number. */
 function HeadIcon({ icon, label, onClick, count = 0 }: { icon: typeof User; label: string; onClick: () => void; count?: number }) {
+  const pro = useSettings(s => s.pro);
   return (
-    <button type="button" onClick={onClick} title={label} aria-label={label} className="icon-btn relative h-10 w-10 shrink-0 rounded-full">
+    <button
+      type="button"
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      // Plain to see (asked: they were missed): a round button with its own surface, as the top bar's (Pro: .pro-hbtn).
+      className={cx(
+        'relative grid h-10 w-10 shrink-0 place-items-center rounded-full transition-colors max-[359px]:h-9 max-[359px]:w-9',
+        pro ? 'pro-hbtn' : 'bg-surface text-stone-700 shadow-card ring-1 ring-stone-200 hover:bg-stone-50 hover:text-ink',
+      )}
+    >
       {createElement(icon, { size: 18, strokeWidth: 1.9, 'aria-hidden': true })}
       {count > 0 && (
         <span aria-hidden className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-bold leading-none text-white">
@@ -1458,7 +1469,7 @@ export default function ProfilePage() {
           )}
           <h1 className="min-w-0 flex-1 truncate text-[20px] font-semibold tracking-[-0.02em] md:text-[24px]">{settingsView ? t('Réglages') : t('Profil')}</h1>
           {!settingsView && (
-            <div className="-mr-1.5 flex shrink-0 items-center gap-0.5">
+            <div className="flex shrink-0 items-center gap-1.5 max-[359px]:gap-1">
               {/* Computers: Nouveautés and the bin are in the bar beside the search. */}
               <span className="contents lg:hidden">
                 <HeadIcon icon={pro ? Megaphone : Sparkles} label={newsName(unread)} count={unread} onClick={() => openNews()} />
