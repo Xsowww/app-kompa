@@ -52,7 +52,7 @@ interface Props {
  * length), drag an event to another time or day, its bottom edge to change its end (events are not ticked: only tasks).
  */
 export default function TimeGrid({ days, today, selected, events, todos, periods, drag, canChange, canCreate, onDragStart, onEdit, onCreate, onMenu, onSelectDay, onOpenTask }: Props) {
-  const { shared } = useCalendarSource();
+  const { shared, events: everyEvent } = useCalendarSource();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [now, setNow] = useState(nowMinutes);
   const [hover, setHover] = useState<{ day: string; min: number } | null>(null);
@@ -64,7 +64,8 @@ export default function TimeGrid({ days, today, selected, events, todos, periods
   // A week: an event over several days is one bar across its days, not a piece a day (nor a tall block per day).
   // A night (« Garde 21h-7h »: the evening, then the next morning) stays two blocks at their hours.
   const nights = useMemo(() => nightPieces(events, days), [events, days]);
-  const bars = useMemo(() => (week ? spanBars(events.filter(e => !nights.has(e.id)), days) : []), [week, events, days, nights]);
+  // Its ends only at its real first and last days (not at the edges of the week shown).
+  const bars = useMemo(() => (week ? spanBars(events.filter(e => !nights.has(e.id)), days, everyEvent) : []), [week, events, days, nights, everyEvent]);
   const barred = useMemo(() => new Set(bars.flatMap(b => events.filter(e => e.series === b.ev.series).map(e => e.id))), [bars, events]);
   const lanes = bars.length ? Math.max(...bars.map(b => b.lane)) + 1 : 0;
   const allDay = (day: string) => events.filter(e => e.date === day && !e.start && !barred.has(e.id));
@@ -122,7 +123,7 @@ export default function TimeGrid({ days, today, selected, events, todos, periods
           dragged?.id === ev.id ? 'opacity-40' : isOver(ev) && 'cal-past',
         )}
         // An event: a solid chip with its colour bar, as the blocks of the hours (a task: a dashed outline and a square box).
-        style={{ background: c.soft, color: c.text, boxShadow: spanEdge(ev, events) === 'end' ? `inset -3px 0 0 ${c.color}` : `inset 3px 0 0 ${c.color}` }}
+        style={{ background: c.soft, color: c.text, boxShadow: spanEdge(ev, everyEvent) === 'end' ? `inset -3px 0 0 ${c.color}` : `inset 3px 0 0 ${c.color}` }}
         title={eventTitle(ev, shared)}
       >
         <span className={week ? 'line-clamp-2 min-w-0 hyphens-auto [overflow-wrap:break-word]' : 'truncate'}>{eventTitle(ev, shared)}</span>

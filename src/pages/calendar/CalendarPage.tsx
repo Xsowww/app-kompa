@@ -753,11 +753,11 @@ export default function CalendarPage() {
       rows.push({ days, keys: days.map(toKey) });
     }
     return rows.map(r => {
-      const bars = spanBars(r.keys.flatMap(k => byDay.get(k) ?? []), r.keys);
+      const bars = spanBars(r.keys.flatMap(k => byDay.get(k) ?? []), r.keys, events);
       const barred = new Set(bars.flatMap(b => r.keys.flatMap(k => (byDay.get(k) ?? []).filter(e => e.series === b.ev.series).map(e => e.id))));
       return { ...r, bars, barred, lanes: bars.length ? Math.max(...bars.map(b => b.lane)) + 1 : 0 };
     });
-  }, [mode, monthDays, byDay]);
+  }, [mode, monthDays, byDay, events]);
 
   // A shared calendar has no title here (its page has one).
   const title = !shared && <h1 className="mr-3 flex items-center gap-2 text-[24px] font-semibold tracking-[-0.02em] max-sm:w-full max-sm:pb-1 max-sm:pt-2">{t('Calendrier')}</h1>;

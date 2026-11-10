@@ -154,3 +154,12 @@ describe('événement sur plusieurs jours : son début et sa fin', () => {
     expect(spanEdge(days[0], [days[0]])).toBeNull();
   });
 });
+
+describe('barre sur plusieurs jours coupée par la semaine', () => {
+  it('draws its ends only at the event’s real first and last days, not at the edges of the row', () => {
+    const trip = ['2026-11-07', '2026-11-08', '2026-11-09', '2026-11-10'].map(date => ({ date, series: 'span-t' }));
+    const week2 = ['2026-11-09', '2026-11-10', '2026-11-11'];
+    expect(spanBars(trip.slice(2), week2, trip)[0]).toMatchObject({ before: true, after: false });
+    expect(spanBars(trip.slice(0, 2), ['2026-11-07', '2026-11-08'], trip)[0]).toMatchObject({ before: false, after: true });
+  });
+});

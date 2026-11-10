@@ -81,7 +81,7 @@ export interface SpanBar<T> {
  * An event over several days (« span- » series, lib/repeat) as one bar across the days of a row of the month or
  * of the week, on the first lane free, like the periods. `keys`: the row's days in order.
  */
-export function spanBars<T extends Pick<CalendarEvent, 'date' | 'series'>>(events: T[], keys: string[]): SpanBar<T>[] {
+export function spanBars<T extends Pick<CalendarEvent, 'date' | 'series'>>(events: T[], keys: string[], all: Pick<CalendarEvent, 'date' | 'series'>[] = events): SpanBar<T>[] {
   const col = new Map(keys.map((k, i) => [k, i]));
   const bySeries = new Map<string, T[]>();
   for (const e of events) if (isSpan(e.series)) bySeries.set(e.series!, [...(bySeries.get(e.series!) ?? []), e]);
@@ -90,12 +90,16 @@ export function spanBars<T extends Pick<CalendarEvent, 'date' | 'series'>>(event
     const sorted = [...pieces].sort((a, b) => a.date.localeCompare(b.date));
     const here = sorted.filter(e => col.has(e.date));
     if (!here.length) continue;
+    // Its real first and last days (`all`: the whole calendar, not only this row): its ends drawn there only.
+    const days = all.filter(e => e.series === sorted[0].series).map(e => e.date);
+    const first = days.reduce((a, b) => (b < a ? b : a), sorted[0].date);
+    const last = days.reduce((a, b) => (b > a ? b : a), sorted[sorted.length - 1].date);
     bars.push({
       ev: here[0],
       from: col.get(here[0].date)!,
       to: col.get(here[here.length - 1].date)!,
-      before: sorted[0].date < keys[0],
-      after: sorted[sorted.length - 1].date > keys[keys.length - 1],
+      before: first < here[0].date,
+      after: last > here[here.length - 1].date,
     });
   }
   // Longest first on the top lanes (a week-long trip above a weekend), then by start.
