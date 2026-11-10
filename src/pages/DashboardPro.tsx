@@ -201,7 +201,9 @@ export default function DashboardPro() {
   week.find(d => d.when === 'today')!.focus += runningMinutes;
   const kind = metric ?? (week.some(d => d.focus) ? 'focus' : 'tasks');
   const values = week.map(d => d[kind]);
-  const marks = axisMarks(Math.max(...values), kind);
+  // Tasks: each bar as tall as the day's tasks, its colour up to those ticked (focus: the minutes, as they are).
+  const tasksChart = kind === 'tasks';
+  const marks = axisMarks(Math.max(...(tasksChart ? week.map(d => d.planned) : values)), kind);
   const top = marks[0];
   const weekTotal = values.reduce((a, b) => a + b, 0);
   const delta = weekDelta(todos, sessions, monday, today, kind);
@@ -574,6 +576,23 @@ export default function DashboardPro() {
                   {week.map((d, k) => {
                     const v = values[k];
                     const name = fmt(fromKey(d.day), 'EEEE');
+                    if (tasksChart)
+                      return (
+                        <li
+                          key={d.day}
+                          className={cx('dpro-col is-plan', `is-${d.when}`, !d.planned && 'is-empty')}
+                          style={{ '--h': top ? d.planned / top : 0, '--f': d.planned ? d.plannedDone / d.planned : 0, '--k': k } as CSSProperties}
+                        >
+                          <span className="sr-only">
+                            {name} : {d.planned ? tn(d.planned, '{done} tâche sur {n} faite', '{done} tâches sur {n} faites', { done: d.plannedDone }) : t('aucune tâche')}
+                          </span>
+                          <i aria-hidden>
+                            <b />
+                            {d.planned > 0 && <em className="tabular">{`${d.plannedDone}/${d.planned}`}</em>}
+                          </i>
+                          <span aria-hidden>{fmt(fromKey(d.day), 'EEEEE')}</span>
+                        </li>
+                      );
                     return (
                       <li key={d.day} className={cx('dpro-col', `is-${d.when}`)} style={{ '--h': d.when === 'future' ? 0.1 : top ? v / top : 0, '--k': k } as CSSProperties}>
                         <span className="sr-only">

@@ -36,6 +36,10 @@ export interface WeekDay {
   day: string;
   /** Tasks ticked that day. */
   tasks: number;
+  /** The day's tasks for the chart: those due that day (ticked or not) and those ticked that day without a due day… */
+  planned: number;
+  /** …and how many of them are ticked (the bar's colour fills up to it). */
+  plannedDone: number;
   /** Minutes of concentration that day. */
   focus: number;
   when: 'past' | 'today' | 'future';
@@ -45,9 +49,12 @@ export interface WeekDay {
 export function weekDays(todos: Todo[], sessions: FocusSession[], monday: string, today: string): WeekDay[] {
   return Array.from({ length: 7 }, (_, i) => {
     const day = toKey(addDays(fromKey(monday), i));
+    const mine = todos.filter(x => x.due === day || (!x.due && x.done && doneDay(x) === day));
     return {
       day,
       tasks: todos.filter(x => x.done && doneDay(x) === day).length,
+      planned: mine.length,
+      plannedDone: mine.filter(x => x.done).length,
       focus: focusOn(sessions, day),
       when: day < today ? 'past' : day === today ? 'today' : 'future',
     };

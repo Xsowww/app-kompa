@@ -57,6 +57,18 @@ describe('Pro home page: the week', () => {
     expect(w[3].focus).toBe(30);
   });
 
+  it('the tasks chart: a bar as tall as the day’s tasks, filled with those ticked', () => {
+    const list = [
+      todo('d1', { due: TODAY }),
+      todo('d2', { due: TODAY, done: true, doneAt: at('2026-11-02') }), // ticked early: still today's, filled
+      todo('d3', { due: '2026-11-07' }), // a day to come: its bar, empty
+      todo('d4', { done: true, doneAt: at(TODAY) }), // no day: counts where it was ticked
+    ];
+    const w = weekDays(list, [], MONDAY, TODAY);
+    expect(w.map(d => d.planned)).toEqual([0, 0, 0, 3, 0, 1, 0]);
+    expect(w.map(d => d.plannedDone)).toEqual([0, 0, 0, 2, 0, 0, 0]);
+  });
+
   it('compares with the same days of last week, none when last week was empty', () => {
     // Focus: 80 min Mon–Thu this week against 40 the week before.
     expect(weekDelta(todos, sessions, MONDAY, TODAY, 'focus')).toBe(100);
