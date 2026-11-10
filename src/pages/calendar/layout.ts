@@ -57,6 +57,14 @@ export function sweptRange(anchor: number, to: number) {
   return { from, to: anchor === to ? anchor + DEFAULT_LENGTH : Math.max(anchor, to) + 15 };
 }
 
+/** Where a day of an event over several days stands: its last day draws its colour bar at the right (the end). */
+export function spanEdge(ev: Pick<CalendarEvent, 'date' | 'series'>, events: Pick<CalendarEvent, 'date' | 'series'>[]): 'start' | 'middle' | 'end' | null {
+  if (!isSpan(ev.series)) return null;
+  const days = events.filter(e => e.series === ev.series).map(e => e.date);
+  if (days.length < 2) return null;
+  return ev.date === days.reduce((a, b) => (b < a ? b : a)) ? 'start' : ev.date === days.reduce((a, b) => (b > a ? b : a)) ? 'end' : 'middle';
+}
+
 export interface SpanBar<T> {
   /** The piece of the event on the bar's first day (the one opened). */
   ev: T;

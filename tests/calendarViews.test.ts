@@ -5,7 +5,7 @@ Object.assign(globalThis, {
   location: new URL('http://localhost/'),
   localStorage: { getItem: (k: string) => memory.get(k) ?? null, setItem: (k: string, v: string) => memory.set(k, v), removeItem: (k: string) => memory.delete(k) },
 });
-const { spanBars, upcomingList, sweptRange, isFor, tasksOn, layout, openingDay, nightPieces, byStartTime } = await import('../src/pages/calendar/layout');
+const { spanBars, spanEdge, upcomingList, sweptRange, isFor, tasksOn, layout, openingDay, nightPieces, byStartTime } = await import('../src/pages/calendar/layout');
 const { agendaEvents, fromAgenda, agendaLink } = await import('../src/pages/calendar/agendas');
 const { catOf, sortEvents } = await import('../src/store/calendar');
 
@@ -143,5 +143,14 @@ describe('les nuits et l’ordre de la journée', () => {
     const evs = [ev('e1', '2026-11-03', { start: '09:30' }), ev('e2', '2026-11-03', { start: '21:00' })];
     const todos = [{ id: 'x', title: 'Relancer', done: false, due: '2026-11-03', time: '10:00', createdAt: '' }, { id: 'y', title: 'Sans heure', done: false, due: '2026-11-03', createdAt: '' }];
     expect(byStartTime(evs, todos).map(it => ('ev' in it ? it.ev.id : it.todo.id))).toEqual(['y', 'e1', 'x', 'e2']);
+  });
+});
+
+describe('événement sur plusieurs jours : son début et sa fin', () => {
+  it('the first day starts it, the last one ends it (its colour bar at the right), alone or not a span: nothing', () => {
+    const days = ['2026-11-17', '2026-11-18', '2026-11-19'].map(date => ({ date, series: 'span-x' }));
+    expect(days.map(d => spanEdge(d, days))).toEqual(['start', 'middle', 'end']);
+    expect(spanEdge({ date: '2026-11-17', series: 's1' }, days)).toBeNull();
+    expect(spanEdge(days[0], [days[0]])).toBeNull();
   });
 });

@@ -2,7 +2,7 @@ import { useState, type CSSProperties, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { addDays } from 'date-fns';
 import { AlarmClock, Check, ChevronRight, Flag, MapPin, NotebookPen, Plus } from 'lucide-react';
-import { firstOfSeries, firstOfSpans } from '../lib/repeat';
+import { firstOfSeries, firstOfSpans, isSpan } from '../lib/repeat';
 import { useMinute, useToday } from '../lib/useToday';
 import { useAuth } from '../store/auth';
 import { useNotes } from '../store/notes';
@@ -268,6 +268,8 @@ export default function DashboardPro() {
       : daysUntil(next.date) <= 1
         ? countdownLabel(next.date)
         : fmtDay(fromKey(next.date), daysUntil(next.date) < 7 ? 'EEEE' : 'EEEE d MMMM');
+  // Its last day, when it lasts several days.
+  const nextLast = next && isSpan(next.series) ? events.filter(e => e.series === next.series).reduce<typeof next | null>((a, e) => (!a || e.date > a.date ? e : a), null) : null;
 
   let n = 0;
   return (
@@ -469,7 +471,12 @@ export default function DashboardPro() {
                       {next.title}
                     </span>
                     <span className="dpro-up-info">
-                      {next.start && <span className="tabular">{next.end ? `${next.start} – ${next.end}` : next.start}</span>}
+                      {/* Over several days: until its last day (not « 14:00 – 23:59 »). */}
+                      {nextLast ? (
+                        <span className="tabular">{t('{from} → {to}', { from: next.start ?? '', to: `${fmtDay(fromKey(nextLast.date), 'EEE d MMM')}${nextLast.start === '00:00' && nextLast.end ? ` ${nextLast.end}` : ''}` }).trim()}</span>
+                      ) : (
+                        next.start && <span className="tabular">{next.end ? `${next.start} – ${next.end}` : next.start}</span>
+                      )}
                       {next.place && (
                         <span className="inline-flex min-w-0 items-center gap-1">
                           <MapPin size={12} aria-hidden className="shrink-0" />

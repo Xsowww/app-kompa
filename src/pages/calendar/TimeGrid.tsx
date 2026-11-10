@@ -10,7 +10,7 @@ import { periodsFill, periodsOn, type Period } from '../../lib/periods';
 import { eventTitle, useCalendarSource } from './source';
 import SeriesIcon from './SeriesIcon';
 import type { DragMode, DragState } from './useEventDrag';
-import { DEFAULT_LENGTH, layout, nightPieces, spanBars, sweptRange, tasksOn } from './layout';
+import { DEFAULT_LENGTH, layout, nightPieces, spanBars, spanEdge, sweptRange, tasksOn } from './layout';
 import { TaskChip } from './TaskItem';
 import { t, tn } from '../../i18n';
 
@@ -122,7 +122,7 @@ export default function TimeGrid({ days, today, selected, events, todos, periods
           dragged?.id === ev.id ? 'opacity-40' : isOver(ev) && 'cal-past',
         )}
         // An event: a solid chip with its colour bar, as the blocks of the hours (a task: a dashed outline and a square box).
-        style={{ background: c.soft, color: c.text, boxShadow: `inset 3px 0 0 ${c.color}` }}
+        style={{ background: c.soft, color: c.text, boxShadow: spanEdge(ev, events) === 'end' ? `inset -3px 0 0 ${c.color}` : `inset 3px 0 0 ${c.color}` }}
         title={eventTitle(ev, shared)}
       >
         <span className={week ? 'line-clamp-2 min-w-0 hyphens-auto [overflow-wrap:break-word]' : 'truncate'}>{eventTitle(ev, shared)}</span>
@@ -188,7 +188,7 @@ export default function TimeGrid({ days, today, selected, events, todos, periods
             onClick={() => onEdit(ev)}
             onContextMenu={onMenu && (e => onMenu(ev, e))}
             className={cx('relative z-10 mt-1 flex h-6 min-w-0 items-center gap-1.5 truncate px-2 text-left text-[12px] font-medium pointer-coarse:h-8', before ? 'ml-0 rounded-l-none' : 'ml-1 rounded-l-md', after ? 'mr-0 rounded-r-none' : 'mr-1 rounded-r-md', drag && 'pointer-events-none', !after && isOver(events.find(e => e.series === ev.series && e.date === days[to]) ?? ev) && 'cal-past')}
-            style={{ gridColumn: `${from + 2} / ${to + 3}`, gridRow: lane + 1, background: c.soft, color: c.text, boxShadow: `inset 3px 0 0 ${c.color}` }}
+            style={{ gridColumn: `${from + 2} / ${to + 3}`, gridRow: lane + 1, background: c.soft, color: c.text, boxShadow: [!before && `inset 3px 0 0 ${c.color}`, !after && `inset -3px 0 0 ${c.color}`].filter(Boolean).join(', ') || undefined }}
             title={eventTitle(ev, shared)}
           >
             <span className="truncate">{eventTitle(ev, shared)}</span>

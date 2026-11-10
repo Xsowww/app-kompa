@@ -34,7 +34,7 @@ import { feedLabel, feedOf } from '../../lib/icsFeeds';
 import { useTodos, type Todo } from '../../store/todos';
 import TaskDialog from '../tasks/TaskDialog';
 import { TaskRow } from './TaskItem';
-import { byStartTime, isFor, jumpSaid, markJumpSaid, openingDay, spanBars, sweptRange, tasksOn, upcomingList } from './layout';
+import { byStartTime, isFor, jumpSaid, markJumpSaid, openingDay, spanBars, spanEdge, sweptRange, tasksOn, upcomingList } from './layout';
 import { agendaLink, copyToMyCalendar, fromAgenda, useAgendaOverlay } from './agendas';
 import { ContextMenu, type MenuItem } from '../../components/Overlays';
 import { isMenuKey, menuPoint } from '../../lib/a11y';
@@ -115,6 +115,7 @@ function EventItem({ ev, onEdit, dragging, onDragStart, onMenu }: EventItemProps
   const readOnly = (!!shared && !shared.canEdit) || agenda;
   // Events already over (a past day, or today's ended): still there, lighter and struck through; what is left stands out.
   const past = isOver(ev);
+  const edge = spanEdge(ev, source.events);
   const c = catOf(ev.category);
   const defaults = useSettings(s => s.defaultReminders);
   // A shared calendar's reminders are the ones chosen on it (no usual reminder of mine there).
@@ -152,8 +153,9 @@ function EventItem({ ev, onEdit, dragging, onDragStart, onMenu }: EventItemProps
         data-past={past || undefined}
         className={cx('flex min-w-0 flex-1 touch-manipulation items-start gap-3 rounded-[16px] bg-stone-50 py-3 pl-3 pr-2 transition-colors [-webkit-touch-callout:none] hover:bg-stone-100', past && 'cal-past', dragging && 'opacity-40')}
       >
-        {/* An event: its colour bar, no box (only tasks are ticked, with their square box). */}
-        <span className="mt-0.5 w-[3px] self-stretch rounded-full" style={{ background: c.color }} />
+        {/* An event: its colour bar, no box (only tasks are ticked, with their square box). The last day of one over
+            several days has it at the right: its end. */}
+        <span className={cx('mt-0.5 w-[3px] self-stretch rounded-full', edge === 'end' && 'order-last')} style={{ background: c.color }} />
         {/* A reader opens it too: the whole event, read-only (EventForm). */}
         <button className="min-w-0 flex-1 text-left pointer-coarse:py-2" onClick={onEdit}>
           <p className="text-[14px] font-medium leading-snug hyphens-auto [overflow-wrap:anywhere]">
@@ -1246,7 +1248,8 @@ export default function CalendarPage() {
                               left: `calc(${from} * (100% - 6px) / 7 + ${from}px + ${before ? 0 : 3}px)`,
                               width: `calc(${n} * (100% - 6px) / 7 + ${n - 1}px - ${(before ? 0 : 3) + (after ? 0 : 3)}px)`,
                               color: c.text,
-                              boxShadow: before ? undefined : `inset 3px 0 0 ${c.color}`,
+                              // Its colour bar where it starts, and at the right where it ends (asked: the end mirrored).
+                              boxShadow: [!before && `inset 3px 0 0 ${c.color}`, !after && `inset -3px 0 0 ${c.color}`].filter(Boolean).join(', ') || undefined,
                             } as React.CSSProperties}
                           >
                             <span className="truncate">{eventTitle(ev, shared)}</span>

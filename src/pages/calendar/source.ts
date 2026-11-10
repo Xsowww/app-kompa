@@ -12,6 +12,7 @@ import { askChoice } from '../../store/ui';
 import { useGroups } from '../../store/groups';
 import { t, tn } from '../../i18n';
 import { isSpan } from '../../lib/repeat';
+import { fmtDay, fromKey } from '../../lib/dates';
 
 /** Examples of periods that fit the account (« en cours, en entreprise » is for students): « congés, télétravail, déplacement ». */
 export const periodIdeas = (usage?: Usage) => (PERIOD_IDEAS[usage ?? 'etudes'] ?? PERIOD_IDEAS.etudes).slice(0, 3).map(i => i.title.toLowerCase()).join(', ');
@@ -131,6 +132,23 @@ export async function askSeriesScope(ev: Pick<CalendarEvent, 'id' | 'series' | '
  * the toast brings it back (a shared calendar's waits for it before leaving the server, pages/groups/SharedCalendar).
  */
 export async function removeEvent(ev: CalendarEvent, source: CalendarSource): Promise<boolean> {
+  // Over several days: the whole event (as its sheet edits it), or only the day it was opened on.
+  if (isSpan(ev.series)) {
+    const all = source.events.filter(e => e.series === ev.series).sort((a, b) => a.date.localeCompare(b.date));
+    if (all.length > 1) {
+      const answer = await askChoice(
+        t('Supprimer « {title} » ?', { title: ev.title }),
+        t('Il dure plusieurs jours : du {from} au {to}.', { from: fmtDay(fromKey(all[0].date), 'EEEE d MMMM'), to: fmtDay(fromKey(all.at(-1)!.date), 'EEEE d MMMM') }),
+        t('Tout l’événement'),
+        t('Seulement ce jour'),
+        true,
+      );
+      if (!answer) return false;
+      if (answer === 'confirm') source.removeMany(all.map(e => e.id));
+      else source.remove(ev.id);
+      return true;
+    }
+  }
   const scope = await askSeriesScope(ev, 'delete', source.events);
   if (!scope) return false;
   if (scope === 'next') source.removeMany([ev.id, ...nextInSeries(ev, source.events).map(e => e.id)]);

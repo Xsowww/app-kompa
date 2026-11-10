@@ -126,12 +126,17 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
   const targets = useAgendaTargets(!event && !shared);
   const [agendaId, setAgendaId] = useState('');
   const into = targets.find(g => g.id === agendaId) ?? null;
+  // An event over several days, whichever of its days was opened: edited as one, from its first day to its last.
+  const [span] = useState(() => (event && isSpan(event.series) ? allEvents.filter(e => e.series === event.series).sort((a, b) => a.date.localeCompare(b.date)) : null));
+  const spanFirst = span?.[0];
+  const spanLast = span?.at(-1);
   // An event changed, or the one duplicated (its times and all, on the day it is opened for).
-  const base = event ?? template;
+  const base = spanFirst ?? event ?? template;
   const [title, setTitle] = useState(base?.title ?? initialTitle ?? '');
-  const [day, setDay] = useState(event?.date ?? date);
-  const [start, setStart] = useState(base?.start ?? initialStart ?? '');
-  const [end, setEnd] = useState(base?.end ?? initialEnd ?? '');
+  const [day, setDay] = useState(spanFirst?.date ?? event?.date ?? date);
+  // Its start is the first day's; its end the last day's (the days between are whole days: lib/repeat › spanDays).
+  const [start, setStart] = useState(span ? (spanFirst!.start ?? '') : (base?.start ?? initialStart ?? ''));
+  const [end, setEnd] = useState(span ? (spanLast!.start === '00:00' && spanLast!.end ? spanLast!.end : '') : (base?.end ?? initialEnd ?? ''));
   const [category, setCategory] = useState<EventCategory | null>(base?.category ?? null);
   const [details, setDetails] = useState(base?.details ?? '');
   // What the calendar's bar typed (« Kiné mardi 14h chez le kiné rappel la veille »): read once for the fields below.
@@ -182,9 +187,9 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
   // undefined: not changed here.
   const [newEnd, setNewEnd] = useState<string | null | undefined>(undefined);
   // Over several days (a seminar, a trip): one event a day, linked (lib/repeat spanDays). Not with a repeat.
-  const canSpan = !event && !repeat;
+  const canSpan = (!event || !!span) && !repeat;
   // null: ends the same day. « Congés du 22 au 26 décembre » typed in the calendar's bar: the 26th.
-  const [endDay, setEndDay] = useState<string | null>(() => (canSpan && said ? (said.endDate ?? null) : null));
+  const [endDay, setEndDay] = useState<string | null>(() => (span ? spanLast!.date : canSpan && said ? (said.endDate ?? null) : null));
   // A night (a new event from 21:00 to 07:00): it ends the next morning, one piece on each day (as « 21h-7h » typed).
   const night = canSpan && !(endDay && day && endDay > day) && !!day && !!start && !!end && end < start;
   const spanning = (canSpan && !!endDay && !!day && endDay > day) || night;
@@ -244,7 +249,16 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
     const data = { title: cleanTitle, date: day, start: start || undefined, end: start && end ? end : undefined, category: effective, details: details.trim() || undefined, place: place.trim() || undefined, important: important || undefined, reminders: chosen, ...(shared && { people }) };
     // A shared calendar: only what was changed here, so that what another member changed meanwhile isn't undone.
     const changes: Partial<typeof data> = event && shared ? changedFields(data, event) : data;
-    if (event && !Object.keys(changes).length) {
+    if (span) {
+      // Over several days: its days made again from the form (same ids kept in order, those left over removed).
+      const pieces = spanning ? spanDays(day, night ? shiftKey(day, 1) : endDay!, start || undefined, end || undefined) : [{ date: day, start: data.start, end: data.end }];
+      pieces.forEach((p, i) => {
+        const patch = { ...data, ...p, start: p.start, end: p.end, reminders: i ? [] : data.reminders, ...(pieces.length === 1 && { series: undefined }) };
+        if (span[i]) update(span[i].id, shared ? changedFields(patch, span[i]) : patch);
+        else addMany([{ ...patch, series: span[0].series }]);
+      });
+      if (span.length > pieces.length) source.removeMany(span.slice(pieces.length).map(e => e.id));
+    } else if (event && !Object.keys(changes).length) {
       // Nothing changed: nothing to send.
     } else if (event?.series) {
       const scope = await askSeriesScope(event, 'edit', allEvents);
@@ -312,7 +326,9 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
           <p className="mt-1 flex items-center gap-1.5 text-[12px] text-stone-500">
             <SeriesIcon series={event.series} size={12} />
             {(n =>
-              isSpan(event.series)
+              isSpan(event.series) && span
+                ? t('Sur plusieurs jours : du {from} au {to}', { from: fmtDay(fromKey(spanFirst!.date), 'EEEE d MMMM'), to: fmtDay(fromKey(spanLast!.date), 'EEEE d MMMM') })
+                : isSpan(event.series)
                 ? n
                   ? tn(n, 'Sur plusieurs jours : encore {n} jour après celui-ci', 'Sur plusieurs jours : encore {n} jours après celui-ci')
                   : t('Dernier jour de l’événement')
