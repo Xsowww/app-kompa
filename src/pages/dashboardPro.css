@@ -138,6 +138,8 @@
 .dpro-stat {
   position: relative;
   min-width: 118px;
+  /* The label and the number centred in the chip (asked). */
+  text-align: center;
   padding: 10px 15px 9px;
   border-radius: 18px;
   background: var(--color-surface);
@@ -150,6 +152,7 @@
 .dpro-stat > span {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   color: var(--ink-2);
   font-size: 11.5px;
@@ -210,8 +213,8 @@
   }
   .dpro-stat { min-width: 0; padding: 9px 11px 8px; }
   /* A bigger « Taille du texte »: a long word (« Concentration ») breaks inside its tile rather than past it. */
-  .dpro-stat > span { font-size: 11px; white-space: normal; line-height: 1.2; min-height: 2.4em; align-items: flex-start; overflow-wrap: anywhere; hyphens: auto; }
-  .dpro-stat > span::before { margin-top: 4px; flex: none; }
+  .dpro-stat > span { font-size: 11px; white-space: normal; line-height: 1.2; min-height: 2.4em; overflow-wrap: anywhere; hyphens: auto; }
+  .dpro-stat > span::before { flex: none; }
   .dpro-stat b { font-size: 19px; }
   .dpro-period { grid-column: 1 / -1; justify-self: start; }
 }

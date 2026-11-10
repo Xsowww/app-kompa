@@ -306,7 +306,7 @@ export default function DashboardPro() {
           <button
             type="button"
             onClick={() => window.dispatchEvent(new CustomEvent('kompaly:hub', { detail: 'minuteur' }))}
-            className="dpro-stat text-left"
+            className="dpro-stat"
             style={{ '--c': 'var(--pro-focus)' } as CSSProperties}
             aria-label={t('Concentration : {time}. Ouvrir le minuteur', { time: formatMinutes(focusToday) })}
           >
