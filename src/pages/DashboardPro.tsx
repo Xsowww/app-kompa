@@ -17,7 +17,7 @@ import { fmt, fmtDay, toKey, fromKey, weekStart, daysUntil, hasStarted, isOver, 
 import { relativeTime, cx } from '../lib/utils';
 import { WORDS } from '../lib/usage';
 import { periodColor, periodText, periodTint, periodUntil, periodsOn } from '../lib/periods';
-import { weekItems, cheer } from '../lib/weekProgress';
+import { weekItems } from '../lib/weekProgress';
 import { axisMarks, dayTasks, focusOn, ringRatio, subjectsOf, taskBigDay, taskSubject, weekDays, weekDelta, type Subject } from '../lib/proDashboard';
 import { hasRevisionPlan, revisionNote, revisionSessions, linkToDay, linkToNote } from '../copilot/actions';
 import { runOffer } from '../copilot/offers';
@@ -208,15 +208,9 @@ export default function DashboardPro() {
   const weekTotal = values.reduce((a, b) => a + b, 0);
   const delta = weekDelta(todos, sessions, monday, today, kind);
   const { total: weekPlanned, done: weekDone, left: weekLeft } = weekItems(todos, monday, toKey(addDays(fromKey(monday), 6)));
-  // Late tasks count in the week as in « À faire »: said, and the first one to do.
-  const weekLate = weekLeft.filter(x => !!x.due && x.due < today).length;
+  // The first one to do (a late one first, as in « À faire »).
   const nextWeek = weekLeft[0];
   const nextWeekLate = !!nextWeek?.due && nextWeek.due < today;
-  const weekCheer = !weekLate
-    ? cheer(weekDone, weekPlanned)
-    : weekLeft.length === 1
-      ? t('Plus qu’une, en retard : à faire en premier.')
-      : tn(weekLate, 'Une en retard, à faire en premier.', '{n} en retard, à faire en premier.');
   const value = (v: number) => (kind === 'focus' ? formatMinutes(v) : String(v));
 
   // ── The big day (as on the usual home page) ──
@@ -546,7 +540,8 @@ export default function DashboardPro() {
               title={t('Ma semaine')}
               sub={
                 <>
-                  <span className="dpro-nowrap">{kind === 'focus' ? t('Concentration · {total}', { total: formatMinutes(weekTotal) }) : t('Tâches faites · {n}', { n: weekTotal })}</span>
+                  {/* Tasks: no « Tâches faites · 3 » here, the sentence under the chart says it. */}
+                  {kind === 'focus' && <span className="dpro-nowrap">{t('Concentration · {total}', { total: formatMinutes(weekTotal) })}</span>}
                   {delta !== null && (
                     <span className={cx('dpro-delta', delta >= 0 ? 'is-up' : 'is-down')}>
                       {delta >= 0 ? t('+{n} % sur la semaine dernière', { n: delta }) : t('{n} % sur la semaine dernière', { n: delta })}
@@ -608,7 +603,8 @@ export default function DashboardPro() {
               {/* What the usual « Ma semaine » said: the week's tasks, and the next one to tick. */}
               <div className="dpro-cheer">
                 <p>
-                  <span className="tabular">{tn(weekDone, '{n} tâche sur {total} faite cette semaine.', '{n} tâches sur {total} faites cette semaine.', { total: weekPlanned })}</span> {weekCheer}
+                  {/* Only the count (asked: the words after it repeated it). */}
+                  <span className="tabular">{tn(weekDone, '{n} tâche sur {total} faite cette semaine.', '{n} tâches sur {total} faites cette semaine.', { total: weekPlanned })}</span>
                 </p>
                 {/* The next one to tick, the most urgent first (a late one, as in « À faire »), on its own line: cut with « … ». */}
                 {nextWeek && (
