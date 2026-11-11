@@ -324,7 +324,10 @@ export async function wipeUserData() {
       if (error) throw new Error(t('L’effacement n’a pas pu se faire : réessaie dans un instant.'));
     }
     // Every file under the account's folder, even those this device doesn't know about.
-    await blobStore.removeFolder(user);
+    if (!(await blobStore.removeFolder(user).catch(() => false))) {
+      resetLocalData(); // the lists are gone online: not shown here any more; the files go at the next try
+      throw new Error(t('L’effacement n’a pas pu se faire : réessaie dans un instant.'));
+    }
   } else {
     await deleteLocalFiles();
   }
@@ -339,7 +342,8 @@ export async function clearBeforeAccountDeletion() {
   const user = getStorageUser();
   if (cloudEnabled && user) {
     await purgeSoleGroups().catch(() => undefined);
-    await blobStore.removeFolder(user);
+    // Files that could not be removed would stay online with no account left to remove them: the deletion waits.
+    if (!(await blobStore.removeFolder(user).catch(() => false))) throw new Error(t('La suppression a échoué : réessaie plus tard.'));
   } else {
     await deleteLocalFiles();
   }

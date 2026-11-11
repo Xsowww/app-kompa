@@ -16,7 +16,7 @@ vi.mock('../src/lib/supabase', async original => ({
   supabase: { auth: { getSession: async () => ({ data: { session: null } }) } },
   revokeSession: async () => undefined,
 }));
-const { accountKeys, wipeAccountCopy } = await import('../src/lib/wipeLocal');
+const { accountKeys, forgetInWorkerCache, wipeAccountCopy } = await import('../src/lib/wipeLocal');
 const { useAuth } = await import('../src/store/auth');
 const { rememberAccount } = await import('../src/lib/accounts');
 
@@ -44,6 +44,22 @@ describe('copie locale effacée', () => {
     await wipeAccountCopy('u2');
     expect([...memory.keys()].sort()).toEqual(['cop:accounts', 'cop:u1:notes']);
     expect(tab.size).toBe(0);
+  });
+
+  it('son prénom et ses rappels vus quittent aussi la mémoire des notifications (les autres comptes restent)', async () => {
+    const kept = new Map<string, string>([
+      ['/__kompaly/comptes', JSON.stringify([{ id: 'u1', label: 'Ana', line: 'Compte Ana' }, { id: 'u2', label: 'Léa', line: 'Compte Léa' }])],
+      ['/__kompaly/vus', JSON.stringify([{ user: 'u2', keys: ['task:1:0'] }, { user: 'u1', keys: ['event:2:15'] }])],
+      ['/__kompaly/mots', '{"lang":"fr"}'],
+    ]);
+    const cache = { match: async (k: string) => (kept.has(k) ? new Response(kept.get(k)) : undefined), put: async (k: string, r: Response) => void kept.set(k, await r.text()) };
+    const store = { has: async (n: string) => n === 'kompaly-meta', open: async () => cache } as unknown as CacheStorage;
+    await forgetInWorkerCache('u2', store);
+    expect(JSON.parse(kept.get('/__kompaly/comptes')!)).toEqual([{ id: 'u1', label: 'Ana', line: 'Compte Ana' }]);
+    expect(JSON.parse(kept.get('/__kompaly/vus')!)).toEqual([{ user: 'u1', keys: ['event:2:15'] }]);
+    expect(kept.get('/__kompaly/mots')).toBe('{"lang":"fr"}');
+    // No such memory on this device: nothing is created.
+    await forgetInWorkerCache('u2', { has: async () => false, open: async () => Promise.reject(new Error('created')) } as unknown as CacheStorage);
   });
 
   it('« Retirer de cet appareil » efface la copie du compte retiré (pas ses changements non envoyés)', async () => {

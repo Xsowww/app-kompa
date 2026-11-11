@@ -681,7 +681,8 @@ export async function deleteFile(f: GroupFile) {
 async function purgeFiles(groupId: string) {
   try {
     for (;;) {
-      const { data } = await db().storage.from(FILES).list(groupId, { limit: 1000 });
+      const { data, error: unread } = await db().storage.from(FILES).list(groupId, { limit: 1000 });
+      if (unread) return; // not read (network): tried again at the next opening, the group not forgotten with its files left
       if (!data?.length) break;
       const { error } = await db().storage.from(FILES).remove(data.map(o => `${groupId}/${o.name}`));
       if (error) return;
