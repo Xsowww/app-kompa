@@ -708,7 +708,7 @@ export const useAuth = create<AuthState>((set, get) => ({
       localStorage.setItem(SESSION_KEY, id);
       sessionStorage.setItem(OWN_SWITCH, '1');
     }
-    location.assign(to.startsWith('/') ? to : '/');
+    location.assign(/^\/(?![/\\])/.test(to) ? to : '/'); // a page of Kompaly only (« //ailleurs.example » would leave the site)
   },
 
   async addAccount(email) {

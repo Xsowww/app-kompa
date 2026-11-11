@@ -311,7 +311,8 @@ self.addEventListener('notificationclick', e => {
       }
       if (tab) {
         // The app goes to the page itself (no reload), in the notification's account: src/lib/reminderScheduler.ts.
-        tab.postMessage({ type: 'kompaly-open', url, user });
+        // Its path, not the whole address: the app's own navigation took « https://… » for a page name (« introuvable »).
+        tab.postMessage({ type: 'kompaly-open', url: target.origin === self.location.origin ? target.pathname + target.search + target.hash : '/', user });
         await tab.focus();
         return;
       }
