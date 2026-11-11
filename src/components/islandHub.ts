@@ -58,3 +58,16 @@ export const approach = (minutes: number | null, window = 120) => (minutes === n
 
 /** A share 0..1, safe with nothing to count. */
 export const share = (done: number, total: number) => (total > 0 ? Math.max(0, Math.min(1, done / total)) : 0);
+
+/**
+ * The tasks the hub lists (five rows): today's and the late ones, then the last ticked today when there is room
+ * (five open ones: no ticked one — « slice(-0) » gave them all). Everything ticked: the last ticked stay, to be
+ * unticked, before what comes next (they went at once, the next days' tasks shown as if they were today's).
+ */
+export function hubTasks<T>(day: { late: T[]; due: T[]; done: T[]; next: T[] }): T[] {
+  const open = [...day.late, ...day.due];
+  const last = (n: number) => (n > 0 ? day.done.slice(-n) : []);
+  if (open.length) return [...open.slice(0, 5), ...last(Math.min(2, 5 - open.length))];
+  const done = last(2);
+  return [...done, ...day.next.slice(0, 4 - done.length)];
+}

@@ -3,7 +3,8 @@
 import { recWords } from '../pages/record/words';
 import { normalize } from '../lib/utils';
 import { parseQuickAdd, todayKey, daysUntil, fmt, fromKey, type ParsedQuickAdd } from '../lib/dates';
-import { reminderMoment } from '../lib/reminders';
+import { cleanReminders, offsetLabel, reminderMoment } from '../lib/reminders';
+import { repeatIn, TASK_REPEATS, type TaskRepeat } from '../lib/taskRepeat';
 import { quickEvent } from './simpleIntent';
 import { useCalendar, isBigEvent } from '../store/calendar';
 import { buildQuiz, checkAnswer, type Quiz } from './quiz';
@@ -160,9 +161,14 @@ function moreCommands(input: string, q: string): BotReply | null {
   }
   g = grab(/^(?:ajoute|rajoute|note|cree|mets)\s+(?:moi\s+)?(?:une?\s+|la\s+)?(?:tache|todo|to-do|chose a faire)\s*:?\s+(.+)$/d) ?? grab(/^(?:a faire|todo)\s*:\s*(.+)$/d);
   if (g) {
-    const parsed = parseQuickAdd(g(1));
-    const todo = addTodo(parsed.title || g(1), parsed.date ?? undefined);
-    return { text: todo.due ? t('Ajouté à ta liste : « {title} » (pour {day}).', { title: todo.title, day: describeDue(todo.due) }) : t('Ajouté à ta liste : « {title} ».', { title: todo.title }) };
+    // As the add field of Tâches reads it: the hour and « tous les mois » are kept (they were dropped without a word).
+    const said = repeatIn(g(1), 'fr');
+    const parsed = parseQuickAdd(said.repeat && said.text ? said.text : g(1));
+    const repeat = said.repeat && said.text ? said.repeat : parsed.every && parsed.every !== '2weeks' ? parsed.every : undefined;
+    const todo = addTodo(parsed.title || g(1), parsed.date ?? undefined, parsed.start ?? undefined, repeat);
+    const day = todo.due && (todo.time ? t('{when} à {time}', { when: describeDue(todo.due), time: hourLabel(todo.time) }) : describeDue(todo.due));
+    const when = day && todo.repeat ? t('{near}, {date}', { near: day, date: repeatLabel(todo.repeat).toLowerCase() }) : day;
+    return { text: when ? t('Ajouté à ta liste : « {title} » (pour {day}).', { title: todo.title, day: when }) : t('Ajouté à ta liste : « {title} ».', { title: todo.title }) };
   }
   if (/(mes taches|ma liste|ma to-?do|liste (de|des) taches|qu'est-ce que j'ai a faire|qu'est-ce qu'il me reste a faire|il me reste quoi)/.test(q)) {
     const list = listTodos();
@@ -197,7 +203,10 @@ function moreCommands(input: string, q: string): BotReply | null {
   if (g && /^(supprime|efface|jette)|corbeille/.test(q)) {
     const term = g(1);
     const wantsEvent = /(evenement|rdv|rendez-vous)/.test(q);
-    const hit = search(term.replace(/^(l'|le |la )?(evenement|événement|rdv|rendez-vous)\s+/i, '')).find(h => (wantsEvent ? h.type === 'événement' : true));
+    const named = term.replace(/^(l'|le |la )?(evenement|événement|rdv|rendez-vous)\s+/i, '');
+    const pickHit = (x: string) => search(x).find(h => (wantsEvent ? h.type === 'événement' : true));
+    // « Supprime l'examen de maths », « supprime le dentiste »: found without its article too.
+    const hit = pickHit(named) ?? pickHit(named.replace(/^(?:l['’]|le |la |les |mon |ma |mes )/i, ''));
     if (!hit) return { text: t('Je ne trouve rien qui s’appelle « {term} ».', { term }) };
     if (hit.type === 'événement') {
       const ev = useCalendar.getState().events.find(e => e.id === hit.id)!;
@@ -258,13 +267,15 @@ function moreCommands(input: string, q: string): BotReply | null {
 
   // ── Focus ──
   // « stop » alone too (outside a quiz, which handles its own « stop » first).
-  if (/(arrete|stoppe|stop|termine|coupe)\s+(la |ma )?(session|pomodoro|focus|minuteur)|^(stop|stoppe|arrete)\s*!?$/.test(q)) {
+  if (/(arrete|stoppe|stop|termine|coupe)\s+(la |ma |le |mon )?(session|pomodoro|focus|minuteur|concentration)|^(stop|stoppe|arrete)\s*!?$/.test(q)) {
     const res = stopFocus();
     return { text: res ? t('Session arrêtée.') : t('Il n’y a pas de session en cours.') };
   }
-  g = grab(/(?:lance|demarre|commence|on fait)\s+(?:une\s+|la\s+)?(?:session(?:\s+(?:de\s+)?(?:focus|travail|revision))?|pomodoro|focus)(?:\s+(?:sur|en|de|pour)\s+(.+))?$/d);
+  // « Concentration » is the app's own word for it (« lance une session de concentration sur les maths » was started on « concentration sur les maths »).
+  g = grab(/(?:lance|demarre|commence|on fait)\s+(?:une?\s+|la\s+|le\s+)?(?:(?:session|seance)(?:\s+(?:de\s+)?(?:focus|concentration|travail|revision))?|pomodoro|focus|concentration|minuteur)(?:\s+(?:sur|en|de|pour)\s+(.+))?$/d);
   if (g) {
-    const res = startFocus(g(1).replace(/^(?:la |le |les |l'|l’|mes |ma |mon )/i, ''));
+    // « de 50 min » is a length, not a subject (the length is the one of Profil: said in the answer).
+    const res = startFocus(g(1).replace(/^\d+\s*(?:min|mn|minutes?|h|heures?)\b.*$/i, '').replace(/^(?:la |le |les |l'|l’|mes |ma |mon )/i, ''));
     return { text: res.subject ? t('C’est parti pour {minutes} minutes sur « {subject} ».', { minutes: res.minutes, subject: res.subject }) : t('C’est parti pour {minutes} minutes.', { minutes: res.minutes }) };
   }
 
@@ -274,6 +285,8 @@ function moreCommands(input: string, q: string): BotReply | null {
     const theme = /sombre|nuit|noir/.test(m[1]) ? 'sombre' : /clair|jour/.test(m[1]) ? 'clair' : 'auto';
     updateSettings({ theme });
     const done = theme === 'auto' ? t('Thème automatique (comme ton système) enregistré.') : theme === 'sombre' ? t('Thème sombre enregistré.') : t('Thème clair enregistré.');
+    // The Affichage Pro keeps its own look: said, rather than a change that can't be seen.
+    if (getSettings().pro) return { text: `${done} ${t('L’Affichage Pro est actif : il remplace le thème et le style. Coupe-le pour en choisir un autre.')}`, links: [{ label: t('Réglages'), to: '/profil?onglet=apparence' }] };
     return { text: done, links: [{ label: t('Réglages'), to: '/profil?onglet=apparence' }] };
   }
   m = q.match(/(?:couleur|accent).*?\b(orange|bleue?|verte?|violette?|rose|framboise|encre|noire?)\b/);
@@ -325,17 +338,17 @@ const JOKES: Record<Usage, string[]> = {
 const EXAMPLES: Record<Usage, string[]> = {
   etudes: [
     t('« Trouve le dossier Maths »'), t('« Analyse mon calendrier »'), t('« Crée une note Révisions histoire : chapitre 3 »'), t('« Ajoute Exam de physique vendredi 10h »'),
-    t('« Ajoute la tâche acheter une calculatrice demain »'), t('« Interroge-moi sur Histoire »'), t('« Lance une session focus sur les maths »'),
+    t('« Ajoute la tâche acheter une calculatrice demain »'), t('« Interroge-moi sur Histoire »'), t('« Lance une session de concentration sur les maths »'),
     t('« Renomme TD1 en TD1 corrigé », « Mets Brouillon à la corbeille »'), t('« Mode sombre », « Qu’est-ce que j’ai demain ? »'), t('« Comment enregistrer un cours ? »'),
   ],
   travail: [
     t('« Trouve le dossier Clients »'), t('« Analyse mon calendrier »'), t('« Crée une note Compte rendu : points clés »'), t('« Ajoute Réunion client vendredi 10h »'),
-    t('« Ajoute la tâche envoyer le devis demain »'), t('« Interroge-moi sur Procédure »'), t('« Lance une session focus sur le rapport »'),
+    t('« Ajoute la tâche envoyer le devis demain »'), t('« Interroge-moi sur Procédure »'), t('« Lance une session de concentration sur le rapport »'),
     t('« Renomme Devis v1 en Devis final », « Mets Brouillon à la corbeille »'), t('« Mode sombre », « Qu’est-ce que j’ai demain ? »'), t('« Comment enregistrer une réunion ? »'),
   ],
   perso: [
     t('« Trouve le dossier Papiers »'), t('« Analyse mon calendrier »'), t('« Crée une note Courses : pain, lait »'), t('« Ajoute Dentiste vendredi 10h »'),
-    t('« Ajoute la tâche appeler la banque demain »'), t('« Interroge-moi sur Espagnol »'), t('« Lance une session focus sur le rangement »'),
+    t('« Ajoute la tâche appeler la banque demain »'), t('« Interroge-moi sur Espagnol »'), t('« Lance une session de concentration sur le rangement »'),
     t('« Renomme Vacances en Vacances 2026 », « Mets Brouillon à la corbeille »'), t('« Mode sombre », « Qu’est-ce que j’ai demain ? »'), t('« Comment enregistrer une conférence ? »'),
   ],
 };
@@ -371,6 +384,8 @@ function sheetFromDocument(input: string, q: string): BotReply {
     links: [file ? { label: hitLabel(file.type, file.title), to: file.to } : { label: t('Ouvrir mes fichiers'), to: '/drive' }],
   };
 }
+
+const repeatLabel = (r: TaskRepeat) => TASK_REPEATS.find(x => x.key === r)?.label ?? '';
 
 const describeDue = (key: string) => {
   const d = daysUntil(key);
@@ -583,6 +598,20 @@ export function localReply(raw: string): BotReply {
     return { text: pick(JOKES[getSettings().usage] ?? JOKES.etudes) };
   }
 
+  // ── A reminder on an event already there: « mets un rappel 1h avant le dentiste » (it made an event « Rappel avant le dentiste » at 1:00) ──
+  const onEvent = q.match(/^(?:mets?|ajoute|rajoute|programme|cree)(?:[- ]moi)?\s+(?:un\s+)?rappel\s+(\d{1,3}|une?)\s?(min|mn|minutes?|h|heures?|j|jours?|semaines?)\s+avant\s+(?:le\s+|la\s+|les\s+|l'|mon\s+|ma\s+|mes\s+)?(?:rdv\s+|rendez-vous\s+)?(.+?)\s*[.!?]*$/);
+  if (onEvent) {
+    const k = /^une?$/.test(onEvent[1]) ? 1 : Number(onEvent[1]);
+    const minutes = k * (/^(min|mn)/.test(onEvent[2]) ? 1 : /^h/.test(onEvent[2]) ? 60 : /^j/.test(onEvent[2]) ? 1440 : 10080);
+    const ev = eventNamed(onEvent[3]);
+    if (!ev) return { text: t('Je ne trouve rien qui s’appelle « {term} ».', { term: onEvent[3] }), links: [{ label: t('Calendrier'), to: '/calendrier' }] };
+    const links = [{ label: t('Voir le jour'), to: linkToDay(ev.date, ev.id) }];
+    // Too late for it to ring: said, nothing promised.
+    if (reminderMoment(ev.date, ev.start, minutes) <= new Date()) return { text: t('Ce moment est déjà passé\u00a0: plus de rappel possible.'), links };
+    useCalendar.getState().update(ev.id, { reminders: cleanReminders([...(ev.reminders ?? []), minutes]) });
+    return { text: t('C’est noté : je te préviens {when} « {title} ».', { when: offsetLabel(minutes), title: ev.title }), links };
+  }
+
   // ── Reminder: « rappelle-moi ce soir 17h d'étendre le linge » ───────────────
   if (/(rappel|rappelle[- ]moi|fais[- ]moi penser|pense a me dire)/.test(q)) {
     const parsed = parseQuickAdd(input);
@@ -595,7 +624,14 @@ export function localReply(raw: string): BotReply {
     if (what) {
       const title = what.charAt(0).toUpperCase() + what.slice(1);
       const ev = addEvent({ title, date: parsed.date ?? todayKey(), start: parsed.start ?? undefined, category: 'perso' });
-      return { text: t('C’est noté : {event}. Je te le rappellerai.', { event: describeEvent(ev) }), links: [{ label: t('Voir le jour'), to: linkToDay(ev.date, ev.id) }] };
+      // « Je te le rappellerai » only when something will ring: an event without an hour had no reminder at all. One is
+      // set at its hour (9:00 that day without one) unless it already has one to come; that moment past: no promise.
+      const now = new Date();
+      const coming = (ev.reminders ?? []).some(min => reminderMoment(ev.date, ev.start, min) > now);
+      const canRing = coming || reminderMoment(ev.date, ev.start, 0) > now;
+      if (canRing && !coming) useCalendar.getState().update(ev.id, { reminders: cleanReminders([...(ev.reminders ?? []), 0]) });
+      const event = describeEvent(ev).replace(/\.$/, '');
+      return { text: canRing ? t('C’est noté : {event}. Je te le rappellerai.', { event }) : t('Ajouté au calendrier : {event}', { event }), links: [{ label: t('Voir le jour'), to: linkToDay(ev.date, ev.id) }] };
     }
   }
 
@@ -673,6 +709,8 @@ export function localReply(raw: string): BotReply {
   const vague = !!m && /^(?:(?:ma|mon|mes|la|cette|ce)\s+(?:semaine|journ[ée]e|soir[ée]e|week-?end|mois|matin[ée]e|planning|agenda)|de\s+l['’]ordre)\b/i.test(m[1]);
   if (m && !vague && !/\bnote\b/i.test(m[1].split(' ')[0])) {
     const parsed = parseQuickAdd(m[1]);
+    // « Ajoute rdv le 31/11 »: said, not put today under the name « 31/11 ».
+    if (parsed.impossible) return { text: t('Cette date n’existe pas : vérifie le jour.') };
     if (parsed.title) {
       const date = parsed.date ?? todayKey();
       // « Ajoute congés du 22 au 26 décembre »: one event over several days; « yoga tous les mardis »: repeated (three months).
@@ -815,7 +853,7 @@ export function localReply(raw: string): BotReply {
     return { text: t('Moi c’est Kompaly 🤖 Je retrouve tes fichiers, j’analyse ton calendrier, je crée notes, dossiers et événements. Demande-moi !') };
   }
   if (/(fatigue|stress|motivation|demotive|j'en peux plus|flemme)/.test(q)) {
-    return { text: pick([t('Respire 🌬️ Fais d’abord la plus petite tâche, le reste suivra.'), t('25 min de focus, 5 min de pause : dis « lance une session focus » pour commencer.')]) };
+    return { text: pick([t('Respire 🌬️ Fais d’abord la plus petite tâche, le reste suivra.'), t('25 min de concentration, 5 min de pause : dis « lance une session de concentration » pour commencer.')]) };
   }
 
   const ex = EXAMPLES[getSettings().usage] ?? EXAMPLES.etudes;

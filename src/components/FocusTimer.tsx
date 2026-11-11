@@ -211,7 +211,7 @@ export function FocusPill() {
   if (!phase) return null;
 
   const left = mmss(focusLeft(useFocus.getState()));
-  const label = phase === 'focus' ? t('Focus') : t('Pause||le temps de pause, pas le bouton');
+  const label = phase === 'focus' ? t('Concentration') : t('Pause||le temps de pause, pas le bouton');
   return (
     <div ref={box} className="relative lg:hidden">
       <button
