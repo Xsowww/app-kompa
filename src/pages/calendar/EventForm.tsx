@@ -24,7 +24,7 @@ import { fmtDay, fromKey, fromMinutes, parseQuickAdd, remindMinutes, todayKey, t
 import { anchorOf, cleanReminders, earlyReminders, eventReminders, followMoments, remindersText } from '../../lib/reminders';
 import { covers } from '../../lib/periods';
 import { MAX_SPAN_DAYS, dayShift, endlessUntil, guessRule, isSpan, ruleDays, ruleLabel, ruleOf, shiftKey, spanDays, spanTooLong, type RepeatRule } from '../../lib/repeat';
-import { planNewEnd, rememberRule, savedRule } from '../../lib/repeatSeries';
+import { moveSeriesRule, planNewEnd, rememberRule, savedRule } from '../../lib/repeatSeries';
 import RepeatPicker, { EndChoice } from './RepeatPicker';
 import { feedLabel, feedOf } from '../../lib/icsFeeds';
 import { newSeries } from '../../lib/seriesId';
@@ -258,8 +258,8 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
         else addMany([{ ...patch, series: span[0].series }]);
       });
       if (span.length > pieces.length) source.removeMany(span.slice(pieces.length).map(e => e.id));
-    } else if (event && !Object.keys(changes).length) {
-      // Nothing changed: nothing to send.
+    } else if (event && !Object.keys(changedFields(data, event)).length) {
+      // Nothing changed: nothing to send (nor to ask about a series whose end alone is changed, below).
     } else if (event?.series) {
       const scope = await askSeriesScope(event, 'edit', allEvents);
       if (!scope) return;
@@ -268,7 +268,13 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
         const { start: _s, end: _e, date: _d, reminders: _r, ...rest } = changes;
         if (Object.keys(rest).length) updateSeries(event.id, rest);
         if (Object.keys(rest).length < Object.keys(changes).length) update(event.id, changes);
-      } else if (scope === 'next') updateSeries(event.id, changes);
+      } else if (scope === 'next') {
+        // Only what was changed here goes to the next ones: each keeps its own notes, place or hour (a title changed
+        // « pour celui-ci et les suivants » wiped the notes of every next one).
+        updateSeries(event.id, changedFields(data, event));
+        // Another day: the series' rule is counted from it (my calendar keeps the rules).
+        if (!shared && changes.date && changes.date !== event.date) moveSeriesRule(event.series, event.date, changes.date);
+      }
       else update(event.id, changes);
     } else if (event) update(event.id, changes);
     else if (series) {
