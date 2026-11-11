@@ -200,11 +200,11 @@ export function computeBadges(d: BadgeData, seen: string[] = []): Badge[] {
     streakBadge(7, t('Semaine pleine'), t('Une série de 7 jours d’affilée.'), Flame),
     streakBadge(30, t('Inarrêtable'), t('Une série de 30 jours. Rien que ça.'), Mountain),
     focusBadge(1, t('Première session'), t('Terminer une première séance de concentration.'), Timer),
-    focusBadge(10, t('Dans le rythme'), t('10 sessions focus terminées.'), Hourglass),
-    focusBadge(50, t('Concentré'), t('50 sessions focus terminées.'), Brain),
-    focusBadge(100, t('Moine copiste'), t('100 sessions focus terminées.'), Gem),
+    focusBadge(10, t('Dans le rythme'), t('10 sessions de concentration terminées.'), Hourglass),
+    focusBadge(50, t('Concentré'), t('50 sessions de concentration terminées.'), Brain),
+    focusBadge(100, t('Moine copiste'), t('100 sessions de concentration terminées.'), Gem),
     {
-      id: 'heures-10', title: t('10 heures'), description: t('10 heures de travail cumulées en sessions focus.'), icon: Clock, family: 'focus',
+      id: 'heures-10', title: t('10 heures'), description: t('10 heures de travail cumulées en sessions de concentration.'), icon: Clock, family: 'focus',
       current: Math.floor(totalMinutes / 60), target: 10, earnedAt: minutesAt(600),
     },
     {

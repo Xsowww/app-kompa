@@ -258,11 +258,11 @@ function moreCommands(input: string, q: string): BotReply | null {
 
   // ── Focus ──
   // « stop » alone too (outside a quiz, which handles its own « stop » first).
-  if (/(arrete|stoppe|stop|termine|coupe)\s+(la |ma )?(session|pomodoro|focus|minuteur)|^(stop|stoppe|arrete)\s*!?$/.test(q)) {
+  if (/(arrete|stoppe|stop|termine|coupe)\s+(la |ma )?(session|seance|pomodoro|focus|concentration|minuteur)|^(stop|stoppe|arrete)\s*!?$/.test(q)) {
     const res = stopFocus();
     return { text: res ? t('Session arrêtée.') : t('Il n’y a pas de session en cours.') };
   }
-  g = grab(/(?:lance|demarre|commence|on fait)\s+(?:une\s+|la\s+)?(?:session(?:\s+(?:de\s+)?(?:focus|travail|revision))?|pomodoro|focus)(?:\s+(?:sur|en|de|pour)\s+(.+))?$/d);
+  g = grab(/(?:lance|demarre|commence|on fait)\s+(?:une\s+|la\s+)?(?:(?:session|seance)(?:\s+(?:de\s+)?(?:focus|concentration|travail|revision))?|pomodoro|focus|concentration)(?:\s+(?:sur|en|de|pour)\s+(.+))?$/d);
   if (g) {
     const res = startFocus(g(1).replace(/^(?:la |le |les |l'|l’|mes |ma |mon )/i, ''));
     return { text: res.subject ? t('C’est parti pour {minutes} minutes sur « {subject} ».', { minutes: res.minutes, subject: res.subject }) : t('C’est parti pour {minutes} minutes.', { minutes: res.minutes }) };
@@ -325,17 +325,17 @@ const JOKES: Record<Usage, string[]> = {
 const EXAMPLES: Record<Usage, string[]> = {
   etudes: [
     t('« Trouve le dossier Maths »'), t('« Analyse mon calendrier »'), t('« Crée une note Révisions histoire : chapitre 3 »'), t('« Ajoute Exam de physique vendredi 10h »'),
-    t('« Ajoute la tâche acheter une calculatrice demain »'), t('« Interroge-moi sur Histoire »'), t('« Lance une session focus sur les maths »'),
+    t('« Ajoute la tâche acheter une calculatrice demain »'), t('« Interroge-moi sur Histoire »'), t('« Lance une session de concentration sur les maths »'),
     t('« Renomme TD1 en TD1 corrigé », « Mets Brouillon à la corbeille »'), t('« Mode sombre », « Qu’est-ce que j’ai demain ? »'), t('« Comment enregistrer un cours ? »'),
   ],
   travail: [
     t('« Trouve le dossier Clients »'), t('« Analyse mon calendrier »'), t('« Crée une note Compte rendu : points clés »'), t('« Ajoute Réunion client vendredi 10h »'),
-    t('« Ajoute la tâche envoyer le devis demain »'), t('« Interroge-moi sur Procédure »'), t('« Lance une session focus sur le rapport »'),
+    t('« Ajoute la tâche envoyer le devis demain »'), t('« Interroge-moi sur Procédure »'), t('« Lance une session de concentration sur le rapport »'),
     t('« Renomme Devis v1 en Devis final », « Mets Brouillon à la corbeille »'), t('« Mode sombre », « Qu’est-ce que j’ai demain ? »'), t('« Comment enregistrer une réunion ? »'),
   ],
   perso: [
     t('« Trouve le dossier Papiers »'), t('« Analyse mon calendrier »'), t('« Crée une note Courses : pain, lait »'), t('« Ajoute Dentiste vendredi 10h »'),
-    t('« Ajoute la tâche appeler la banque demain »'), t('« Interroge-moi sur Espagnol »'), t('« Lance une session focus sur le rangement »'),
+    t('« Ajoute la tâche appeler la banque demain »'), t('« Interroge-moi sur Espagnol »'), t('« Lance une session de concentration sur le rangement »'),
     t('« Renomme Vacances en Vacances 2026 », « Mets Brouillon à la corbeille »'), t('« Mode sombre », « Qu’est-ce que j’ai demain ? »'), t('« Comment enregistrer une conférence ? »'),
   ],
 };
@@ -815,7 +815,7 @@ export function localReply(raw: string): BotReply {
     return { text: t('Moi c’est Kompaly 🤖 Je retrouve tes fichiers, j’analyse ton calendrier, je crée notes, dossiers et événements. Demande-moi !') };
   }
   if (/(fatigue|stress|motivation|demotive|j'en peux plus|flemme)/.test(q)) {
-    return { text: pick([t('Respire 🌬️ Fais d’abord la plus petite tâche, le reste suivra.'), t('25 min de focus, 5 min de pause : dis « lance une session focus » pour commencer.')]) };
+    return { text: pick([t('Respire 🌬️ Fais d’abord la plus petite tâche, le reste suivra.'), t('25 min de concentration, 5 min de pause : dis « lance une session de concentration » pour commencer.')]) };
   }
 
   const ex = EXAMPLES[getSettings().usage] ?? EXAMPLES.etudes;
