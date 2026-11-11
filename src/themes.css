@@ -376,6 +376,10 @@
   --glass-edge: rgb(255 255 255 / 0.14);
   --glass-shine: rgb(255 255 255 / 0.12);
   --color-tile-dark: rgb(12 13 20 / 0.62);
+  /* Secondary text and small grey marks: lighter than those of Verre sombre, made for its dark page; here they also sit
+     on the light places of the wallpaper and on glass that lets them through (a file's size, a help line: under 3:1). */
+  --color-stone-400: #a9aec0;
+  --color-stone-500: #c3c7d4;
   --shadow-card: 0 1px 0 rgb(255 255 255 / 0.08) inset, 0 18px 40px -18px rgb(0 0 0 / 0.6);
   /* Colours that say what is what at a glance (spaces, rings, states): the same everywhere in Pro. */
   --pro-etudes: #5b8cff;
@@ -448,19 +452,19 @@
 }
 :root[data-pro='aurore'][data-style][data-theme] {
   --wallpaper:
-    radial-gradient(60% 55% at 18% 22%, #1f7a6a, transparent 70%), radial-gradient(55% 60% at 85% 30%, #5b3fa8, transparent 70%),
+    linear-gradient(180deg, rgb(8 9 14 / 0.24), rgb(8 9 14 / 0.5)), radial-gradient(60% 55% at 18% 22%, #1f7a6a, transparent 70%), radial-gradient(55% 60% at 85% 30%, #5b3fa8, transparent 70%),
     radial-gradient(70% 60% at 50% 95%, #2a5fa8, transparent 70%), #0d1020;
   --wp-ratio: none;
 }
 :root[data-pro='maree'][data-style][data-theme] {
   --wallpaper:
-    radial-gradient(60% 55% at 18% 22%, #1f5fd1, transparent 70%), radial-gradient(55% 60% at 85% 30%, #2bb3d9, transparent 70%),
+    linear-gradient(180deg, rgb(8 9 14 / 0.24), rgb(8 9 14 / 0.5)), radial-gradient(60% 55% at 18% 22%, #1f5fd1, transparent 70%), radial-gradient(55% 60% at 85% 30%, #2bb3d9, transparent 70%),
     radial-gradient(70% 60% at 50% 95%, #1b3a8a, transparent 70%), #0a1022;
   --wp-ratio: none;
 }
 :root[data-pro='braise'][data-style][data-theme] {
   --wallpaper:
-    radial-gradient(60% 55% at 18% 22%, #d9542b, transparent 70%), radial-gradient(55% 60% at 85% 30%, #b8452a, transparent 70%),
+    linear-gradient(180deg, rgb(8 9 14 / 0.24), rgb(8 9 14 / 0.5)), radial-gradient(60% 55% at 18% 22%, #d9542b, transparent 70%), radial-gradient(55% 60% at 85% 30%, #b8452a, transparent 70%),
     radial-gradient(70% 60% at 50% 95%, #a8243a, transparent 70%), #1a0c0a;
   --wp-ratio: none;
 }
@@ -1022,7 +1026,7 @@
 }
 :root[data-pro][data-style][data-theme] .seg-item {
   border-radius: var(--pro-r-pill);
-  color: var(--pro-ink-3);
+  color: var(--pro-ink-2);
   font-weight: 600;
 }
 :root[data-pro][data-style][data-theme] .seg-item:hover {
