@@ -23,8 +23,9 @@ import { askText, toast } from '../../store/ui';
 import { supabase } from '../../lib/supabase';
 import { deleteNote, fetchNote, groupError, saveNote, summary, type GroupNote } from '../../lib/groups';
 import { cx, relativeTime } from '../../lib/utils';
-import { tablesToLines, withProtocol } from '../notes/noteUtils';
+import { cleanPastedHtml, pastedHtmlHasText, withProtocol } from '../notes/noteUtils';
 import { compressImage, imageFiles } from '../notes/images';
+import { caretAfterImage } from '../notes/imageCaret';
 import { downloadMarkdown, printNote } from '../notes/exportNote';
 import { groupWordsNow, useMemberName } from './util';
 import { removeWithUndo } from './pending';
@@ -46,7 +47,8 @@ async function insertImages(view: EditorView, files: File[], pos?: number) {
       const node = state.schema.nodes.image.create({ src });
       const at = pos ?? (state.selection instanceof NodeSelection ? state.selection.to : null);
       const tr = at == null ? state.tr.replaceSelectionWith(node) : state.tr.insert(Math.min(at, state.doc.content.size), node);
-      view.dispatch(tr.scrollIntoView());
+      // The caret after the picture: left selected, the next key typed replaced it.
+      view.dispatch(caretAfterImage(tr).scrollIntoView());
     } catch (e) {
       toast(e instanceof Error ? e.message : t('Impossible d’ajouter l’image'), 'error');
     }
@@ -351,10 +353,11 @@ function LoadedEditor({ initial, onClose, readOnly, typed }: { initial: GroupNot
         openLink(withProtocol(a.getAttribute('href') ?? ''));
         return true;
       },
-      transformPastedHTML: tablesToLines,
+      transformPastedHTML: cleanPastedHtml,
       handlePaste: (view, event) => {
         const files = imageFiles(event.clipboardData?.files);
-        if (!files.length || !view.editable) return false;
+        // Cells copied from Excel come with a picture of themselves: their text is pasted, not that picture.
+        if (!files.length || !view.editable || pastedHtmlHasText(event.clipboardData?.getData('text/html'))) return false;
         event.preventDefault();
         void insertImages(view, files);
         return true;
