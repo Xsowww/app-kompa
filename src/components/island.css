@@ -764,6 +764,16 @@ body:has([aria-modal='true']:not(.isl-face):not([data-modal])) .isl[data-mode='i
   opacity: 0;
   pointer-events: none;
 }
+/* The pill with something to show (a waiting message, the timer) stays: on a phone it sat on the name of the file and
+   on its buttons. The bar of the preview then starts under it, as the dialogs do. */
+@media (max-width: 639px) {
+  body:has(.isl-wrap) [aria-modal='true'].fixed.inset-0:not(.isl-face):not([data-modal]) {
+    transition: padding-top 0.2s ease-out;
+  }
+  body:has(.isl:not([data-mode='idle'])) [aria-modal='true'].fixed.inset-0:not(.isl-face):not([data-modal]) {
+    padding-top: calc(env(safe-area-inset-top) + 50px);
+  }
+}
 
 /* ── Waking ── before a notification: the eyes light up, a line of light draws under the pill, a blink, then it opens. */
 .isl-wake {
