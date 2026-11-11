@@ -89,7 +89,9 @@ const STEPS: Step[] = [
   },
   {
     // « Kompaly » in the phone's top bar, « Demander à Kompaly » in the computer's sidebar (he leans out too).
-    target: 'header button[aria-controls="copilot-panel"], aside button[aria-controls="copilot-panel"], .pro-rail button[aria-controls="copilot-panel"]',
+    // Affichage Pro on a phone: his button gives way to the island in the middle of the bar, where he lives
+    // (components/Island); without it the card pointed at nothing.
+    target: 'header button[aria-controls="copilot-panel"], aside button[aria-controls="copilot-panel"], .pro-rail button[aria-controls="copilot-panel"], .isl-wrap .isl',
     enter: () => useCopilot.getState().pose === 'hidden' && useCopilot.getState().setPose('peek'),
     title: t('Kompaly, ton assistant'),
     text: (_, touch) => (touch ? t('Touche «\u00a0Kompaly\u00a0» pour lui parler\u00a0: il t’aide à t’organiser.') : t('Clique ici, ou sur lui au bord de l’écran, pour lui parler\u00a0: il t’aide à t’organiser.')),

@@ -267,7 +267,7 @@ function moreCommands(input: string, q: string): BotReply | null {
 
   // ── Focus ──
   // « stop » alone too (outside a quiz, which handles its own « stop » first).
-  if (/(arrete|stoppe|stop|termine|coupe)\s+(la |ma |le |mon )?(session|pomodoro|focus|minuteur|concentration)|^(stop|stoppe|arrete)\s*!?$/.test(q)) {
+  if (/(arrete|stoppe|stop|termine|coupe)\s+(la |ma |le |mon )?(session|seance|pomodoro|focus|minuteur|concentration)|^(stop|stoppe|arrete)\s*!?$/.test(q)) {
     const res = stopFocus();
     return { text: res ? t('Session arrêtée.') : t('Il n’y a pas de session en cours.') };
   }

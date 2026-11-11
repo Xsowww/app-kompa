@@ -40,21 +40,33 @@ export function sharedNote({ title, text, url }: SharedText): { title: string; c
 export async function takeShared(params: URLSearchParams): Promise<{ text: SharedText; files: File[] }> {
   const text: SharedText = { title: params.get('title') ?? '', text: params.get('text') ?? '', url: params.get('url') ?? '' };
   const files: File[] = [];
-  if (!('caches' in globalThis) || !(await caches.has(CACHE))) return { text, files };
-  const cache = await caches.open(CACHE);
-  for (const req of await cache.keys()) {
-    const res = await cache.match(req);
-    if (!res) continue;
-    if (req.url.endsWith('/texte')) {
-      const kept = (await res.json().catch(() => ({}))) as Partial<SharedText>;
-      text.title ||= String(kept.title ?? '');
-      text.text ||= String(kept.text ?? '');
-      text.url ||= String(kept.url ?? '');
-    } else {
-      const blob = await res.blob();
-      files.push(new File([blob], decodeURIComponent(res.headers.get('X-Name') ?? 'fichier'), { type: blob.type }));
+  // The worker's store can be refused (private browsing) or hold a damaged entry: what the address carries still comes.
+  try {
+    if (!('caches' in globalThis) || !(await caches.has(CACHE))) return { text, files };
+    const cache = await caches.open(CACHE);
+    for (const req of await cache.keys()) {
+      const res = await cache.match(req);
+      if (!res) continue;
+      if (req.url.endsWith('/texte')) {
+        const kept = (await res.json().catch(() => ({}))) as Partial<SharedText>;
+        text.title ||= String(kept.title ?? '');
+        text.text ||= String(kept.text ?? '');
+        text.url ||= String(kept.url ?? '');
+      } else {
+        const blob = await res.blob();
+        const raw = res.headers.get('X-Name') ?? 'fichier';
+        let name = raw;
+        try {
+          name = decodeURIComponent(raw);
+        } catch {
+          /* a « % » of the name itself: kept as it is */
+        }
+        files.push(new File([blob], name, { type: blob.type }));
+      }
     }
+    await caches.delete(CACHE);
+  } catch {
+    /* nothing more than what was read so far */
   }
-  await caches.delete(CACHE);
   return { text, files };
 }

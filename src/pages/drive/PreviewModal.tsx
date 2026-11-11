@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Download, FileText, X, Loader2 } from 'lucide-react';
 import { categoryOf, getFileUrl, isPlainText, type DriveItem } from '../../store/drive';
 import { downloadItem } from './download';
-import { cx, formatBytes, relativeTime } from '../../lib/utils';
+import { cx, formatBytes, relativeWhen } from '../../lib/utils';
 import FileIcon from '../../components/FileIcon';
 import PdfView, { ZoomBar } from './PdfView';
 import { useZoom } from './zoom';
@@ -26,10 +26,7 @@ const PAGE =
   '[&_td]:border [&_td]:border-stone-200 [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-stone-200 [&_th]:bg-stone-50 [&_th]:px-2 [&_th]:py-1 [&_*:first-child]:mt-0';
 
 /** « modifié il y a 3 min », « modifié hier », « modifié le 3 oct. » */
-const modified = (iso: string) => {
-  const rel = relativeTime(iso);
-  return /^\d/.test(rel) ? t('modifié le {date}', { date: rel }) : t('modifié {time}', { time: rel });
-};
+const modified = (iso: string) => t('modifié {time}', { time: relativeWhen(iso) });
 
 const extOf = (name: string) => name.split('.').pop()?.toLowerCase() ?? '';
 

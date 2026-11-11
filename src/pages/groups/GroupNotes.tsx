@@ -8,7 +8,7 @@ import { FilePlus2, FileText } from 'lucide-react';
 import { useGroups } from '../../store/groups';
 import { toast } from '../../store/ui';
 import { createNote, groupError, summary, type Group, type GroupNote } from '../../lib/groups';
-import { cx, relativeTime } from '../../lib/utils';
+import { cx, relativeWhen } from '../../lib/utils';
 import { useMemberName, useRememberedSort, useRights } from './util';
 import { useCreateActions, useNarrow } from '../../store/create';
 import { PlusHint } from '../../components/CreateButton';
@@ -169,7 +169,7 @@ export default function GroupNotes({ group }: { group: Group }) {
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[14px] font-medium">{n.title}</span>
                   <span className="block truncate text-[12px] text-stone-500">
-                    {t('Modifiée par {name} {when}', { name: nameOf(n.updatedBy), when: relativeTime(n.updatedAt) })}
+                    {t('Modifiée par {name} {when}', { name: nameOf(n.updatedBy), when: relativeWhen(n.updatedAt) })}
                   </span>
                 </span>
               </button>

@@ -35,6 +35,35 @@ export function tablesToLines(html: string) {
   return doc.body.innerHTML;
 }
 
+/**
+ * Pictures of a pasted page that could never show in the note: a file of the computer it was copied on (Word:
+ * « file:///…/clip_image001.png »), a page-relative address, « cid: », a dead « blob: », plain http (blocked on our
+ * https pages). They stayed as broken-image icons; only web (https) and inline (data:) pictures are kept.
+ */
+export function dropDeadImages(html: string) {
+  return html.replace(/<img\b[^>]*>/gi, tag => {
+    const src = /\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(tag);
+    const url = (src?.[1] ?? src?.[2] ?? src?.[3] ?? '').trim();
+    return /^(https:\/\/|data:image\/)/i.test(url) ? tag : '';
+  });
+}
+
+/** What the editor does to a pasted page before reading it. */
+export const cleanPastedHtml = (html: string) => dropDeadImages(tablesToLines(html));
+
+/**
+ * Does the pasted page hold text? Excel (and Word, for a table or a chart) puts a picture of what was copied beside
+ * its text: the text is what is pasted then, not the picture (a picture copied alone has no text beside it).
+ */
+export function pastedHtmlHasText(html: string | undefined | null) {
+  if (!html) return false;
+  return !!html
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<(style|script|head|title|xml)\b[\s\S]*?<\/\1\s*>/gi, '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;|&#160;|\s/gi, '');
+}
+
 // ── Open editor bridge ─────────────────────────────────────────────
 let flushOpen: (() => void) | null = null;
 /** Called by NoteEditor with its flush function, and with (null, itself) when it unmounts. */

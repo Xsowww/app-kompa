@@ -18,7 +18,8 @@ import { askText, toast } from '../../store/ui';
 import { cx } from '../../lib/utils';
 import { findHits } from './searchHits';
 import { compressImage, imageFiles } from './images';
-import { registerEditorFlush, tablesToLines, withProtocol } from './noteUtils';
+import { caretAfterImage } from './imageCaret';
+import { cleanPastedHtml, pastedHtmlHasText, registerEditorFlush, withProtocol } from './noteUtils';
 import { localSavesFailing } from '../../lib/userStorage';
 import './notes.css';
 import { t } from '../../i18n';
@@ -36,7 +37,8 @@ async function insertImages(view: EditorView, files: File[], pos?: number) {
       // A selected image is kept: the new one goes right after it.
       const at = pos ?? (state.selection instanceof NodeSelection ? state.selection.to : null);
       const tr = at == null ? state.tr.replaceSelectionWith(node) : state.tr.insert(Math.min(at, state.doc.content.size), node);
-      view.dispatch(tr.scrollIntoView());
+      // The caret after the picture: left selected, the next key typed replaced it.
+      view.dispatch(caretAfterImage(tr).scrollIntoView());
     } catch (e) {
       toast(e instanceof Error ? e.message : t('Impossible d’ajouter l’image'), 'error');
     }
@@ -422,10 +424,11 @@ export default function NoteEditor({ note, readOnly = false, inset = 'px-4 pb-ro
         openLink(withProtocol(a.getAttribute('href') ?? ''));
         return true;
       },
-      transformPastedHTML: tablesToLines,
+      transformPastedHTML: cleanPastedHtml,
       handlePaste: (view, event) => {
         const files = imageFiles(event.clipboardData?.files);
-        if (!files.length) return false;
+        // Cells copied from Excel come with a picture of themselves: their text is pasted, not that picture.
+        if (!files.length || pastedHtmlHasText(event.clipboardData?.getData('text/html'))) return false;
         event.preventDefault();
         void insertImages(view, files);
         return true;

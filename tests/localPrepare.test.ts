@@ -29,4 +29,14 @@ describe('Kompaly en mode simple', () => {
     expect(r.text).toMatch(/Réunion client.*important/);
     expect(r.links?.[0].to).toMatch(/^\/calendrier\?jour=/);
   });
+  it('le minuteur se lance avec les mots de l’appli : « séance », « session de concentration »', async () => {
+    const { useFocus } = await import('../src/store/focus');
+    for (const phrase of ['Lance une séance de concentration sur les maths', 'lance une session de concentration sur les maths', 'démarre une concentration sur les maths', 'Lance une session focus sur les maths']) {
+      useFocus.getState().stop();
+      expect(localReply(phrase).text, phrase).toMatch(/C’est parti pour \d+ minutes sur « maths »/);
+      expect(useFocus.getState().phase, phrase).toBe('focus');
+    }
+    expect(localReply('arrête la séance').text).toBe('Session arrêtée.');
+    expect(useFocus.getState().phase).toBeFalsy();
+  });
 });

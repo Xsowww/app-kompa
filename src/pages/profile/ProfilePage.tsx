@@ -946,7 +946,7 @@ function DataTab() {
             disabled={!driveCount}
             onClick={() => {
               const items = useDrive.getState().items;
-              void downloadZip(items, items.filter(i => !i.parentId).map(i => i.id), 'Kompaly Drive');
+              void downloadZip(items, items.filter(i => !i.parentId).map(i => i.id), `Kompaly ${t('Fichiers')}`);
             }}
           >
             <FolderDown size={14} /> {t('Télécharger')}

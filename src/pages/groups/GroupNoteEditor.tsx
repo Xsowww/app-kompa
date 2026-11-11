@@ -22,9 +22,10 @@ import { useNotes, type Note } from '../../store/notes';
 import { askText, toast } from '../../store/ui';
 import { supabase } from '../../lib/supabase';
 import { deleteNote, fetchNote, groupError, saveNote, summary, type GroupNote } from '../../lib/groups';
-import { cx, relativeTime } from '../../lib/utils';
-import { tablesToLines, withProtocol } from '../notes/noteUtils';
+import { cx, relativeWhen } from '../../lib/utils';
+import { cleanPastedHtml, pastedHtmlHasText, withProtocol } from '../notes/noteUtils';
 import { compressImage, imageFiles } from '../notes/images';
+import { caretAfterImage } from '../notes/imageCaret';
 import { downloadMarkdown, printNote } from '../notes/exportNote';
 import { groupWordsNow, useMemberName } from './util';
 import { removeWithUndo } from './pending';
@@ -46,7 +47,8 @@ async function insertImages(view: EditorView, files: File[], pos?: number) {
       const node = state.schema.nodes.image.create({ src });
       const at = pos ?? (state.selection instanceof NodeSelection ? state.selection.to : null);
       const tr = at == null ? state.tr.replaceSelectionWith(node) : state.tr.insert(Math.min(at, state.doc.content.size), node);
-      view.dispatch(tr.scrollIntoView());
+      // The caret after the picture: left selected, the next key typed replaced it.
+      view.dispatch(caretAfterImage(tr).scrollIntoView());
     } catch (e) {
       toast(e instanceof Error ? e.message : t('Impossible d’ajouter l’image'), 'error');
     }
@@ -351,10 +353,11 @@ function LoadedEditor({ initial, onClose, readOnly, typed }: { initial: GroupNot
         openLink(withProtocol(a.getAttribute('href') ?? ''));
         return true;
       },
-      transformPastedHTML: tablesToLines,
+      transformPastedHTML: cleanPastedHtml,
       handlePaste: (view, event) => {
         const files = imageFiles(event.clipboardData?.files);
-        if (!files.length || !view.editable) return false;
+        // Cells copied from Excel come with a picture of themselves: their text is pasted, not that picture.
+        if (!files.length || !view.editable || pastedHtmlHasText(event.clipboardData?.getData('text/html'))) return false;
         event.preventDefault();
         void insertImages(view, files);
         return true;
@@ -515,7 +518,7 @@ function LoadedEditor({ initial, onClose, readOnly, typed }: { initial: GroupNot
 
   const statusText =
     readOnly && status === 'saved'
-      ? t('Lecture seule · modifiée par {name} {when}', { name: nameOf(meta.updatedBy), when: relativeTime(meta.updatedAt) })
+      ? t('Lecture seule · modifiée par {name} {when}', { name: nameOf(meta.updatedBy), when: relativeWhen(meta.updatedAt) })
       : conflict
         ? t('En attente : choisis la version à garder')
         : status === 'saving'
@@ -524,7 +527,7 @@ function LoadedEditor({ initial, onClose, readOnly, typed }: { initial: GroupNot
             ? t('Modifications non enregistrées')
             : status === 'error'
               ? t('Non enregistré')
-              : t('Modifiée par {name} {when}', { name: nameOf(meta.updatedBy), when: relativeTime(meta.updatedAt) });
+              : t('Modifiée par {name} {when}', { name: nameOf(meta.updatedBy), when: relativeWhen(meta.updatedAt) });
 
   if (!editor) return null;
   return (
@@ -589,8 +592,8 @@ function LoadedEditor({ initial, onClose, readOnly, typed }: { initial: GroupNot
           <AlertTriangle size={15} className="shrink-0" />
           <span className="min-w-0 flex-1">
             {conflict.updatedBy === me
-              ? t('Tu as modifié cette note ailleurs (autre onglet ou appareil) {when} pendant que tu écrivais. Rien n’a été écrasé.', { when: relativeTime(conflict.updatedAt) })
-              : t('{name} a modifié cette note {when} pendant que tu écrivais. Rien n’a été écrasé.', { name: nameOf(conflict.updatedBy), when: relativeTime(conflict.updatedAt) })}
+              ? t('Tu as modifié cette note ailleurs (autre onglet ou appareil) {when} pendant que tu écrivais. Rien n’a été écrasé.', { when: relativeWhen(conflict.updatedAt) })
+              : t('{name} a modifié cette note {when} pendant que tu écrivais. Rien n’a été écrasé.', { name: nameOf(conflict.updatedBy), when: relativeWhen(conflict.updatedAt) })}
           </span>
           <button className="btn-secondary h-7 px-2.5" onClick={() => loadRemote(conflict)}>{conflict.updatedBy === me ? t('Charger l’autre version') : t('Charger sa version')}</button>
           <button className="btn-primary h-7 px-2.5" onClick={() => void save(true)}>{conflict.updatedBy === me ? t('Garder celle-ci') : t('Garder la mienne')}</button>
