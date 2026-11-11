@@ -5,7 +5,7 @@ import { passkeyHereKey, useAuth } from '../../store/auth';
 import { confirmAction, toast } from '../../store/ui';
 import { passkeysAvailable } from '../../lib/supabase';
 import { fmt } from '../../lib/dates';
-import { relativeTime } from '../../lib/utils';
+import { relativeWhen } from '../../lib/utils';
 import { Section, Row } from './controls';
 import { t } from '../../i18n';
 
@@ -79,7 +79,7 @@ export default function PasskeySection() {
         <Row
           key={p.id}
           label={p.friendly_name || t('Clé d’accès')}
-          hint={p.last_used_at ? (/^\d/.test(relativeTime(p.last_used_at)) ? t('Utilisée le {date}', { date: relativeTime(p.last_used_at) }) : t('Utilisée {when}', { when: relativeTime(p.last_used_at) })) : t('Ajoutée le {date}', { date: fmt(new Date(p.created_at), 'd MMM yyyy') })}
+          hint={p.last_used_at ? t('Utilisée {when}', { when: relativeWhen(p.last_used_at) }) : t('Ajoutée le {date}', { date: fmt(new Date(p.created_at), 'd MMM yyyy') })}
         >
           <button className="icon-btn hit" title={t('Retirer')} aria-label={t('Retirer « {name} »', { name: p.friendly_name || t('Clé d’accès') })} onClick={() => void remove(p)}>
             <Trash2 size={15} />

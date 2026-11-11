@@ -17,7 +17,7 @@ import { ContextMenu, type MenuItem } from '../../components/Overlays';
 import { FolderColorPicker } from '../../components/FolderColorPicker';
 import { folderIconStyle } from '../../store/drive';
 import { useProgressive } from '../../lib/useProgressive';
-import { cx, normalize, noteSearchText, noteText, relativeTime } from '../../lib/utils';
+import { cx, normalize, noteSearchText, noteText, relativeWhen } from '../../lib/utils';
 import { LinkChips, LinkPicker } from './NoteLinks';
 import { noteTemplates, type NoteTemplate } from './templates';
 import { downloadMarkdown, exportNotesZip, printNote } from './exportNote';
@@ -880,7 +880,7 @@ export default function NotesPage() {
                 {/* A long folder name ends with « … », the time stays whole. */}
                 <p className="mt-1 flex min-w-0 text-[12px] text-stone-500">
                   <span className="min-w-12 truncate">{folders.find(f => f.id === active.folderId)?.name ?? t('Sans dossier')}</span>
-                  <span className="shrink-0 whitespace-nowrap">&nbsp;· {t('modifiée {time}', { time: relativeTime(active.updatedAt) })}</span>
+                  <span className="shrink-0 whitespace-nowrap">&nbsp;· {t('modifiée {time}', { time: relativeWhen(active.updatedAt) })}</span>
                   {/* Discreet: how long the note is (characters in a wide editor; nothing on the smallest phones). */}
                   <span className="shrink-0 whitespace-nowrap @max-[22rem]:hidden">
                     &nbsp;· {tn(words, '{n} mot', '{n} mots')}

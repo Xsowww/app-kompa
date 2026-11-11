@@ -827,7 +827,7 @@ export default function DrivePage() {
         { label: '', divider: true, onClick: () => {} },
         { label: t('Coller'), icon: <ClipboardPaste size={15} />, shortcut: `${MOD}V`, disabled: !clipboard?.ids.length || !tabAll, onClick: () => void paste(parentId) },
         { label: t('Tout sélectionner'), icon: <MousePointer2 size={15} />, shortcut: `${MOD}A`, onClick: () => setSelected(new Set(visible.map(i => i.id))) },
-        ...(items.length ? [{ label: t('Tout télécharger (.zip)'), icon: <FolderDown size={15} />, onClick: () => void downloadZip(items, items.filter(i => !i.parentId).map(i => i.id), 'Kompaly Drive') }] : []),
+        ...(items.length ? [{ label: t('Tout télécharger (.zip)'), icon: <FolderDown size={15} />, onClick: () => void downloadZip(items, items.filter(i => !i.parentId).map(i => i.id), `Kompaly ${t('Fichiers')}`) }] : []),
       ];
     }
     // « ⋯ » of an item outside the selection: that item alone (the selection stays as it is).
@@ -862,7 +862,7 @@ export default function DrivePage() {
       ...(one && canOpenAsNote(item) ? [{ label: t('Ouvrir comme note'), icon: <NotebookPen size={15} />, onClick: () => void openAsNote(item) }] : []),
       ...(one && item.kind === 'file'
         ? [{ label: t('Télécharger'), icon: <Download size={15} />, onClick: () => downloadItem(item) }]
-        : [{ label: t('Télécharger (.zip)'), icon: <FolderDown size={15} />, onClick: () => void downloadZip(items, ids, one ? item.name : 'Kompaly Drive') }]),
+        : [{ label: t('Télécharger (.zip)'), icon: <FolderDown size={15} />, onClick: () => void downloadZip(items, ids, one ? item.name : `Kompaly ${t('Fichiers')}`) }]),
       ...(one ? [{ label: '', divider: true, onClick: () => {} }] : []),
       { label: t('Copier'), icon: <Copy size={15} />, shortcut: `${MOD}C`, onClick: () => copy(ids) },
       { label: t('Couper'), icon: <Scissors size={15} />, shortcut: `${MOD}X`, onClick: () => cut(ids) },
@@ -1138,7 +1138,7 @@ export default function DrivePage() {
                   ...(single ? [{ icon: Pencil, label: t('Renommer'), fn: () => void rename(single), phoneMore: true }] : []),
                   single?.kind === 'file'
                     ? { icon: Download, label: t('Télécharger'), fn: () => downloadItem(single), more: true }
-                    : { icon: FolderDown, label: t('Télécharger'), title: t('Télécharger (.zip)'), fn: () => void downloadZip(items, selectedIds, single?.name ?? 'Kompaly Drive'), more: true },
+                    : { icon: FolderDown, label: t('Télécharger'), title: t('Télécharger (.zip)'), fn: () => void downloadZip(items, selectedIds, single?.name ?? `Kompaly ${t('Fichiers')}`), more: true },
                   { icon: Tag, label: t('Étiquettes'), fn: () => setTagIds(selectedIds), ...(single && { phoneMore: true }) },
                   ...(selectedFolders.length === selectedIds.length ? [{ icon: Palette, label: t('Couleur'), fn: (e: React.MouseEvent) => setColorMenu(under(e)), phoneMore: true }] : []),
                   { icon: Trash2, label: t('Corbeille||barre de sélection'), title: t('Mettre à la corbeille'), fn: () => void remove(selectedIds) },

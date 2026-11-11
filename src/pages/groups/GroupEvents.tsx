@@ -14,7 +14,7 @@ import { createEvent, createEvents, deleteEvent, deleteEvents, groupError, setAt
 import { countdownLabel, fmt, fromKey, todayKey } from '../../lib/dates';
 import { dayShift, endlessUntil, ruleDays, shiftKey, type RepeatRule } from '../../lib/repeat';
 import RepeatPicker from '../calendar/RepeatPicker';
-import { cx, relativeTime, uid } from '../../lib/utils';
+import { cx, uid, relativeWhen } from '../../lib/utils';
 import { askSeriesScope, changedFields } from '../calendar/source';
 import { MemberDot, LoadFailed } from './shared';
 import { EmptyState, Skeleton } from '../../components/EmptyState';
@@ -261,7 +261,7 @@ function EventCard({ group, ev, onEdit }: { group: Group; ev: GroupEvent; onEdit
         </div>
         <p className="mt-1 text-[11px] text-stone-500">
           {proposed}
-          {changedAfter(ev) && ` · ${(feminine ? t('modifiée par {name} {when}', { name: nameOf(ev.updatedBy), when: relativeTime(ev.updatedAt!) }) : t('modifié par {name} {when}', { name: nameOf(ev.updatedBy), when: relativeTime(ev.updatedAt!) }))}`}
+          {changedAfter(ev) && ` · ${(feminine ? t('modifiée par {name} {when}', { name: nameOf(ev.updatedBy), when: relativeWhen(ev.updatedAt!) }) : t('modifié par {name} {when}', { name: nameOf(ev.updatedBy), when: relativeWhen(ev.updatedAt!) }))}`}
         </p>
       </div>
       <div className="flex shrink-0 basis-full items-center gap-1.5 pl-[68px] sm:basis-auto sm:pl-0">

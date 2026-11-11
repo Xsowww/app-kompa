@@ -119,6 +119,9 @@ const TITLES: Record<string, string> = {
   '/a-propos': t('Qui fait Kompaly\u00a0?'),
 };
 
+/** The sections of Réglages (pages/profile/ProfilePage › TABS, all but « profil »). */
+const SETTINGS_TABS = /^(apparence|copilot|etudes|notifications|donnees|raccourcis|compte)$/;
+
 /** Pages offered to search engines (the sitemap's, server/seo.mjs), with their title and description. */
 const INDEXED = new Set(PUBLIC_PAGES);
 const HEADS = pageHeads(t);
@@ -130,7 +133,9 @@ function PageTitle() {
   useEffect(() => rememberLegalFrom(pathname, search, window.history.state?.idx), [pathname, search]);
   const guest = useAuth(s => !s.user);
   useEffect(() => {
-    const page = TITLES[pathname.replace(/(.)\/+$/, '$1').toLowerCase()]; // « /taches/ » and « /Taches » too
+    // Réglages (the profile's cog) is a view of /profil with its own heading: the tab is named after it too.
+    const settings = pathname === '/profil' && SETTINGS_TABS.test(new URLSearchParams(search).get('onglet') ?? '');
+    const page = settings ? t('Réglages') : TITLES[pathname.replace(/(.)\/+$/, '$1').toLowerCase()]; // « /taches/ » and « /Taches » too
     // A visitor on « / » sees the public home page: the full name, as in index.html (search results).
     document.title = guest && pathname === '/' ? t('Kompaly · Agenda, notes et fichiers au même endroit, avec une IA') : page ? `${page} · Kompaly` : t('Page introuvable · Kompaly');
     // Search engines: only the public pages (home, sign-in, sign-up, legal) belong in their results.
@@ -144,7 +149,7 @@ function PageTitle() {
     // In the page's language (the HTML's is French, or the one of ?lang=…).
     const description = HEADS[pathname]?.description;
     if (description) document.querySelector<HTMLMetaElement>('meta[name="description"]')?.setAttribute('content', description);
-  }, [pathname, guest]);
+  }, [pathname, search, guest]);
   return null;
 }
 

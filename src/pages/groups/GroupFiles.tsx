@@ -14,7 +14,7 @@ import { ContextMenu, type MenuItem } from '../../components/Overlays';
 import PreviewModal from '../drive/PreviewModal';
 import { downloadItem } from '../drive/download';
 import { deleteFile, downloadFile, groupError, renameFile, type Group, type GroupFile } from '../../lib/groups';
-import { cx, formatBytes, relativeTime } from '../../lib/utils';
+import { cx, formatBytes, relativeWhen } from '../../lib/utils';
 import { shareFiles, useFinitions, useMemberName, useRememberedSort, useRights } from './util';
 import { useCreateActions } from '../../store/create';
 import { PlusHint } from '../../components/CreateButton';
@@ -158,7 +158,7 @@ export default function GroupFiles({ group }: { group: Group }) {
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[14px] font-medium">{f.name}</span>
                     <span className="block truncate text-[12px] text-stone-500">
-                      {formatBytes(f.size)} · {t('partagé par {name} {when}', { name: nameOf(f.createdBy), when: relativeTime(f.createdAt) })}
+                      {formatBytes(f.size)} · {t('partagé par {name} {when}', { name: nameOf(f.createdBy), when: relativeWhen(f.createdAt) })}
                     </span>
                   </span>
                 </button>
@@ -216,7 +216,7 @@ export default function GroupFiles({ group }: { group: Group }) {
       />
       <ReportDialog target={reporting && { kind: 'file', id: reporting.id, title: reporting.name }} onClose={() => setReporting(null)} />
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
-      {preview && <PreviewModal item={asItem(preview)} getUrl={getUrl} when={t('partagé par {name} {when}', { name: nameOf(preview.createdBy), when: relativeTime(preview.createdAt) })} onClose={() => setPreview(null)} />}
+      {preview && <PreviewModal item={asItem(preview)} getUrl={getUrl} when={t('partagé par {name} {when}', { name: nameOf(preview.createdBy), when: relativeWhen(preview.createdAt) })} onClose={() => setPreview(null)} />}
     </div>
   );
 }

@@ -77,17 +77,31 @@ export function uniqueName(name: string, taken: string[], file = true): string {
   return `${base} (${i})${ext}`;
 }
 
-export function relativeTime(iso: string): string {
+function relative(iso: string): { text: string; date: boolean } {
   const diff = Date.now() - new Date(iso).getTime();
   const min = Math.round(diff / 60000);
-  if (min < 1) return t('à l’instant');
-  if (min < 60) return t('il y a {n} min', { n: min });
+  const said = (text: string) => ({ text, date: false });
+  if (min < 1) return said(t('à l’instant'));
+  if (min < 60) return said(t('il y a {n} min', { n: min }));
   const h = Math.round(min / 60);
-  if (h < 24) return t('il y a {n} h', { n: h });
+  if (h < 24) return said(t('il y a {n} h', { n: h }));
   const d = Math.round(h / 24);
-  if (d === 1) return t('hier');
-  if (d < 7) return t('il y a {n} jours', { n: d });
-  return new Date(iso).toLocaleDateString(locale(), { day: 'numeric', month: 'short' });
+  if (d === 1) return said(t('hier'));
+  if (d < 7) return said(t('il y a {n} jours', { n: d }));
+  return { text: new Date(iso).toLocaleDateString(locale(), { day: 'numeric', month: 'short' }), date: true };
+}
+
+/** « il y a 3 min », « hier », « 3 oct. » (after a week): on its own, in a list or a column. */
+export const relativeTime = (iso: string): string => relative(iso).text;
+
+/**
+ * The same inside a sentence (« modifiée {when} »): a date takes its « le » (« modifiée le 3 oct. », not « modifiée
+ * 3 oct. »). Asked of the moment itself, not guessed from the text: « 4 min ago » starts with a digit too, and read
+ * « modified on 4 min ago » in English and Italian.
+ */
+export function relativeWhen(iso: string): string {
+  const r = relative(iso);
+  return r.date ? t('le {date}||dans une phrase : modifiée le 3 oct.', { date: r.text }) : r.text;
 }
 
 // A note's plain text, prepared once per version of the note (a changed note is a new object):
