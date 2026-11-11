@@ -28,7 +28,9 @@ async function receive(params: URLSearchParams) {
 export default function SharePage() {
   const navigate = useNavigate();
   useEffect(() => {
-    receiving ??= receive(new URLSearchParams(location.search));
+    // What was kept can't be read (storage refused in private browsing, a damaged entry): said as « rien n’est arrivé »,
+    // rather than this page left on « Ajout… » for good.
+    receiving ??= receive(new URLSearchParams(location.search)).catch(() => ({ note: null, files: 0 }));
     let alive = true;
     void receiving.then(({ note, files }) => {
       receiving = null;
