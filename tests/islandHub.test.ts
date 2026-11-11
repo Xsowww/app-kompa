@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { approach, minutesUntil, pushEntry, share, upcoming, type IslandEntry } from '../src/components/islandHub';
+import { approach, hubTasks, minutesUntil, pushEntry, share, upcoming, type IslandEntry } from '../src/components/islandHub';
 import type { CalendarEvent } from '../src/store/calendar';
 
 const ev = (id: string, date: string, start?: string, end?: string, extra: Partial<CalendarEvent> = {}): CalendarEvent => ({
@@ -67,5 +67,27 @@ describe('what comes next', () => {
     expect(share(0, 0)).toBe(0);
     expect(share(3, 4)).toBe(0.75);
     expect(share(5, 4)).toBe(1);
+  });
+});
+
+describe('the tasks listed in the hub', () => {
+  const day = (late: number, due: number, done: number, next: number) => ({
+    late: Array.from({ length: late }, (_, i) => `retard${i}`),
+    due: Array.from({ length: due }, (_, i) => `jour${i}`),
+    done: Array.from({ length: done }, (_, i) => `fait${i}`),
+    next: Array.from({ length: next }, (_, i) => `suite${i}`),
+  });
+  it('five open tasks: no ticked one beside them (they were all added)', () => {
+    expect(hubTasks(day(2, 3, 4, 2))).toEqual(['retard0', 'retard1', 'jour0', 'jour1', 'jour2']);
+    expect(hubTasks(day(0, 8, 4, 0))).toHaveLength(5);
+  });
+  it('room left: the last ticked ones, two at most', () => {
+    expect(hubTasks(day(1, 2, 4, 2))).toEqual(['retard0', 'jour0', 'jour1', 'fait2', 'fait3']);
+    expect(hubTasks(day(0, 4, 4, 2))).toEqual(['jour0', 'jour1', 'jour2', 'jour3', 'fait3']);
+  });
+  it('everything ticked: the last ticked stay (to untick), then what comes next', () => {
+    expect(hubTasks(day(0, 0, 3, 5))).toEqual(['fait1', 'fait2', 'suite0', 'suite1']);
+    expect(hubTasks(day(0, 0, 0, 5))).toEqual(['suite0', 'suite1', 'suite2', 'suite3']);
+    expect(hubTasks(day(0, 0, 0, 0))).toEqual([]);
   });
 });

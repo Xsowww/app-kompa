@@ -218,6 +218,19 @@ export function spanDays(from: string, to: string, start?: string, end?: string)
   });
 }
 
+/**
+ * One day of an event over several days dragged to `day`: every day of the event, moved by as many days (sorted by
+ * day; none when it doesn't move).
+ */
+export function spanMove<T extends { id: string; date: string; series?: string }>(events: T[], piece: T, day: string): { id: string; from: string; to: string }[] {
+  const shift = dayShift(piece.date, day);
+  if (!shift) return [];
+  return events
+    .filter(e => e.series === piece.series)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map(e => ({ id: e.id, from: e.date, to: shiftKey(e.date, shift) }));
+}
+
 /** Lists of what is coming: an event over several days once, at its first day still listed (`list` sorted by date). */
 export function firstOfSpans<T extends { series?: string }>(list: T[]): T[] {
   const seen = new Set<string>();

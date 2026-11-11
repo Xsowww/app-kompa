@@ -36,7 +36,7 @@ import { sober } from '../lib/sober';
 import { stripMarkdown } from '../copilot/markdown';
 import { catOf } from '../pages/calendar/proColors';
 import { agendaLink, fromAgenda, useAgendaOverlay } from '../pages/calendar/agendas';
-import { approach, minutesUntil, share, upcoming, useIslandLog, type IslandEntry } from './islandHub';
+import { approach, hubTasks, minutesUntil, share, upcoming, useIslandLog, type IslandEntry } from './islandHub';
 import { locale, t, tn } from '../i18n';
 
 /** The hub's views, in the order of its tabs. */
@@ -399,7 +399,7 @@ function TasksView({ today, go }: { today: string; go: (to: string) => void }) {
   const todos = useTodos(s => s.todos);
   const day = dayTasks(todos, today);
   const open = [...day.late, ...day.due];
-  const shown = open.length ? [...open.slice(0, 5), ...day.done.slice(-Math.max(0, 5 - open.length)).slice(-2)] : day.next.slice(0, 4);
+  const shown = hubTasks(day);
   return (
     <div className="hub-view">
       {!open.length && !day.done.length && <p className="hub-kicker">{day.next.length ? t('Rien pour aujourd’hui. Ensuite :') : t('Rien à faire. Profite !')}</p>}

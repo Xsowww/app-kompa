@@ -3,7 +3,7 @@
 // (« jusqu’au », « sans fin ») in the event's window. Pure planning (planEndless, planNewEnd) is tested in
 // tests/repeatSeries.test.ts; the rest applies it to the stores.
 
-import { decodeRule, encodeRule, endlessRefill, endlessUntil, guessRule, ruleDays, type RepeatRule } from './repeat';
+import { dayShift, decodeRule, encodeRule, endlessRefill, endlessUntil, guessRule, nthOfMonth, ruleDays, shiftKey, type RepeatRule } from './repeat';
 import { todayKey } from './dates';
 import { useCalendar, type CalendarEvent, type NewEvent } from '../store/calendar';
 import { getSettings, useSettings } from '../store/settings';
@@ -89,6 +89,42 @@ export function planNewEnd(series: CalendarEvent[], until: string | null, saved:
 /** Keeps the rule of a new series of my calendar (a series without end is made further ahead with it). */
 export function rememberRule(series: string, rule: RepeatRule, from: string) {
   useSettings.getState().set({ repeatRules: { ...getSettings().repeatRules, [series]: saveRuleCode(rule, from) } });
+}
+
+/**
+ * « Celui-ci et les suivants » deleted from a series without end that keeps earlier days: the series ends at the
+ * last one kept (its next ones came back by themselves months later, made again by refillEndless). Called before
+ * they are removed. Returns how to undo it.
+ */
+export function endSeriesBefore(series: string, date: string): (() => void) | null {
+  const code = getSettings().repeatRules?.[series];
+  const saved = readRuleCode(code);
+  if (!saved || saved.rule.until || date <= saved.from) return null;
+  // « Jusqu’au » its last day kept (the day before, when none is left to read).
+  const kept = useCalendar.getState().events.filter(e => e.series === series && e.date < date).map(e => e.date).sort().at(-1);
+  rememberRule(series, { ...saved.rule, until: kept ?? shiftKey(date, -1) }, saved.from);
+  return () => useSettings.getState().set({ repeatRules: { ...getSettings().repeatRules, [series]: code! } });
+}
+
+/** The rule once « celui-ci et les suivants » moved from `from` to `to`: counted from the new day (its weekdays too). */
+export function movedRule(rule: RepeatRule, from: string, to: string): RepeatRule {
+  const shift = ((dayShift(from, to) % 7) + 7) % 7;
+  return {
+    ...rule,
+    ...(rule.unit === 'week' && rule.days?.length && { days: [...new Set(rule.days.map(d => (d + shift) % 7))].sort((a, b) => a - b) }),
+    ...(rule.unit === 'month' && rule.nth && { nth: nthOfMonth(to) }),
+    // Its last day moved with the others.
+    ...(rule.until && { until: shiftKey(rule.until, dayShift(from, to)) }),
+  };
+}
+
+/**
+ * « Celui-ci et les suivants » moved to another day: the saved rule follows (the next ones of a series without end,
+ * made later, and a new end chosen later, were still put on the old day).
+ */
+export function moveSeriesRule(series: string, from: string, to: string) {
+  const saved = savedRule(series);
+  if (saved && from !== to) rememberRule(series, movedRule(saved.rule, from, to), to);
 }
 
 /** The saved rule of a series of my calendar, if any. */

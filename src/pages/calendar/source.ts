@@ -8,7 +8,8 @@ import type { Group } from '../../lib/groups';
 import { useSettings } from '../../store/settings';
 import { PERIOD_IDEAS, sortPeriods, type Period } from '../../lib/periods';
 import type { Usage } from '../../lib/usage';
-import { askChoice } from '../../store/ui';
+import { askChoice, toast } from '../../store/ui';
+import { endSeriesBefore } from '../../lib/repeatSeries';
 import { useGroups } from '../../store/groups';
 import { t, tn } from '../../i18n';
 import { isSpan } from '../../lib/repeat';
@@ -151,7 +152,15 @@ export async function removeEvent(ev: CalendarEvent, source: CalendarSource): Pr
   }
   const scope = await askSeriesScope(ev, 'delete', source.events);
   if (!scope) return false;
-  if (scope === 'next') source.removeMany([ev.id, ...nextInSeries(ev, source.events).map(e => e.id)]);
+  if (scope === 'next') {
+    const ids = [ev.id, ...nextInSeries(ev, source.events).map(e => e.id)];
+    // My series without end: it stops there (else its next ones were made again months later); « Annuler » undoes both.
+    const undoEnd = !source.shared && ev.series ? endSeriesBefore(ev.series, ev.date) : null;
+    if (undoEnd) {
+      useCalendar.getState().removeMany(ids);
+      toast(t('{n} événements mis à la corbeille', { n: ids.length }), 'info', { label: t('Annuler||l’action'), run: () => (useCalendar.getState().restore(ids), undoEnd()) });
+    } else source.removeMany(ids);
+  }
   else source.remove(ev.id);
   return true;
 }

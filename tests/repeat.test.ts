@@ -76,3 +76,19 @@ describe('Prochain grand jour : un événement qui se répète une seule fois', 
     expect(firstOfSeries(list).map(e => e.id)).toEqual(['y1', 'x', 's1']);
   });
 });
+
+describe('un jour d’un événement sur plusieurs jours glissé ailleurs', () => {
+  it('tout l’événement suit, du même nombre de jours (le jour glissé partait seul)', async () => {
+    const { spanMove } = await import('../src/lib/repeat');
+    const days = ['2026-11-18', '2026-11-19', '2026-11-20'].map(date => ({ id: date, date, series: 'span-1' }));
+    const other = { id: 'x', date: '2026-11-19', series: 'span-2' };
+    expect(spanMove([...days, other], days[1], '2026-11-21')).toEqual([
+      { id: '2026-11-18', from: '2026-11-18', to: '2026-11-20' },
+      { id: '2026-11-19', from: '2026-11-19', to: '2026-11-21' },
+      { id: '2026-11-20', from: '2026-11-20', to: '2026-11-22' },
+    ]);
+    // Vers le mois d'avant, et sans bouger.
+    expect(spanMove(days, days[0], '2026-10-31').map(m => m.to)).toEqual(['2026-10-31', '2026-11-01', '2026-11-02']);
+    expect(spanMove(days, days[2], '2026-11-20')).toEqual([]);
+  });
+});
