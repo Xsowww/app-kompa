@@ -165,6 +165,9 @@ const YEARLY: Record<Exclude<Lang, 'fr'>, RegExp> = {
   it: /\s(?:ogni\sanno|tutti\sgli\sanni)(?=\s)/,
 };
 
+/** « Today » said as the evening (accents stripped). */
+const EVENING = /tonight|evening|noche|abend|stasera/;
+
 export function parseQuickAddIn(lang: Exclude<Lang, 'fr'>, input: string, base = new Date()): Parsed {
   const w = WORDS[lang];
   let text = ` ${input} `;
@@ -297,13 +300,22 @@ export function parseQuickAddIn(lang: Exclude<Lang, 'fr'>, input: string, base =
     if (said) every = said;
   }
 
+  let now: RegExpMatchArray | null = null;
   const rel = !date && cut(new RegExp(`\\s${w.inN[0]}\\s(\\d{1,3})\\s(${w.inN[1]}|${w.inN[2]})(?=\\s)`));
   if (rel) date = addDays(base, new RegExp(`^(?:${w.inN[2]})$`).test(rel[2]) ? Number(rel[1]) * 7 : Number(rel[1]));
   else if (date) {
     /* every … */
   } else if (cut(new RegExp(`\\s(?:${alt(w.afterTomorrow)})(?=\\s)`))) date = addDays(base, 2);
   // German « morgen früh » is tomorrow; « heute morgen » (this morning) was taken by `today` first.
-  else if (cut(new RegExp(`\\s(?:${alt(w.today)})(?=\\s)`))) date = base;
+  else if ((now = cut(new RegExp(`\\s(?:${alt(w.today)})(?=\\s)`)))) {
+    date = base;
+    // « tonight at 8 », « heute Abend um 8 », « stasera alle 8 »: the evening's hour.
+    if (EVENING.test(now[0]) && start && start >= '01:00' && start < '12:00') {
+      const later = (t: string) => `${Number(t.slice(0, 2)) + 12}${t.slice(2)}`;
+      start = later(start);
+      if (end && end < '12:00') end = later(end);
+    }
+  }
   else if (cut(new RegExp(`\\s(?:${alt(w.tomorrow)})(?:\\s(?:fruh|morning|por la manana|mattina))?(?=\\s)`))) date = addDays(base, 1);
   else if (cut(new RegExp(`\\s(?:${alt(w.nextWeek)})(?=\\s)`))) date = addDays(startOfWeek(base, { weekStartsOn: 1 }), 7);
 

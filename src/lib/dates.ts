@@ -85,6 +85,9 @@ export interface ParsedQuickAdd {
   rule?: RepeatRule;
 }
 
+// The verb before « à la … » / « au … » that speaks of a thing or a person, not of a place.
+const NOT_PLACE = /^(?:penser|pense|repenser|reflechir|repondre|reponse|dire|parler|ecrire|telephoner|demander|jouer|participer|inscrire|inscription|renoncer|merci|grace|suite|attention|rappeler|rappel)$/;
+
 const hm = (h: string | number, m?: string) => (Number(h) < 24 && Number(m ?? 0) < 60 ? `${String(h).padStart(2, '0')}:${m ?? '00'}` : null);
 
 /** The date, or null when it doesn't exist (31/02, month 16…). */
@@ -99,10 +102,31 @@ function realDate(y: number, month: number, day: number) {
  */
 /** `extras`: also the reminder (« rappel 1h avant ») and the place (« à la mairie ») — the calendar's bar and form, which save them. */
 export function parseQuickAdd(input: string, base = new Date(), language = lang, extras = false): ParsedQuickAdd {
+  // Punctuation glued to a word hid the day or the hour (« Rdv demain, 14h », « Dentiste demain 14h. »): commas and
+  // « ! » are set apart (and put back in the title), a last « . » or « ? » is dropped when the sentence then says more.
+  const read = (s: string) => tidyTitle(readQuickAdd(s.replace(/([,;!])(?=\s|$)/g, ' $1'), base, language, extras));
+  const typed = read(input);
+  const bare = input.replace(/([^\s.?])[.?](?=\s*$)/, '$1');
+  if (bare === input) return typed;
+  const other = read(bare);
+  const score = (r: ParsedQuickAdd) => Number(!!r.date) + Number(!!r.start) + Number(!!r.endDate) + Number(!!r.place);
+  return score(other) > score(typed) ? other : typed;
+}
+
+/** The title without the punctuation left alone once the day and hour are out (« Rdv , » → « Rdv », « : appeler » → « Appeler »). */
+function tidyTitle(r: ParsedQuickAdd): ParsedQuickAdd {
+  const title = r.title
+    .replace(/\s+([,;])/g, '$1')
+    .replace(/([,;])(?:\s*[,;])+/g, '$1')
+    .replace(/^[\s,;:.]+|[\s,;:]+$/g, '');
+  return title === r.title ? r : { ...r, title: title.charAt(0).toUpperCase() + title.slice(1) };
+}
+
+function readQuickAdd(input: string, base: Date, language: Lang, extras: boolean): ParsedQuickAdd {
   // Another language: its own words, unless the French reading understands more (« Dentiste demain 9h »).
   if (language !== 'fr') {
     const other = parseQuickAddIn(language, input, base);
-    const french = parseQuickAdd(input, base, 'fr', extras);
+    const french = readQuickAdd(input, base, 'fr', extras);
     const score = (r: ParsedQuickAdd) => Number(!!r.date) + Number(!!r.start);
     return score(french) > score(other) ? french : other;
   }
@@ -152,6 +176,15 @@ export function parseQuickAdd(input: string, base = new Date(), language = lang,
   } else if ((rm = cut(new RegExp(`${R}\\s(?:la\\s)?veille(?:\\s(?:a|vers)\\s${HOUR})?(?=\\s)`)))) remind = { eve: true, at: (rm[1] && hm(rm[1], rm[2])) || '18:00' };
   else if ((rm = cut(new RegExp(`${R}\\s(?:le\\sjour\\smeme\\s)?(?:a|vers)\\s${HOUR}(?=\\s)`)))) remind = rm[1] && hm(rm[1], rm[2]) ? { at: hm(rm[1], rm[2])! } : undefined;
 
+  // « dans 2 heures », « dans 30 min », « dans 1h30 »: that moment, counted from now (not « 2 h » of the morning).
+  const soon = cut(/\sdans\s(\d{1,3}|une|deux|trois)\s?(?:(?:heures?|h)\s?(\d{2})?|(minutes?|min|mn))(?=\s)/);
+  if (soon) {
+    const k = ({ une: 1, deux: 2, trois: 3 } as Record<string, number>)[soon[1]] ?? Number(soon[1]);
+    const at = new Date(base.getTime() + (soon[3] ? k : k * 60 + Number(soon[2] ?? 0)) * 60_000);
+    date = at;
+    start = `${pad(at.getHours())}:${pad(at.getMinutes())}`;
+  }
+
   // A length, not a time: « pendant 2h », « durant 30 min », « (1h) », « de 2h » when another hour gives the start
   // (« Réunion de 2h demain 10h »). It gives the end once the start is known.
   let length = 0;
@@ -159,7 +192,7 @@ export function parseQuickAdd(input: string, base = new Date(), language = lang,
   const lasting =
     find(/\s(?:pendant|durant)\s(\d{1,2}|une)\s?(?:heures?|h)\s?(\d{2})?(?=\s)|\s\((\d{1,2})\s?h\s?(\d{2})?\)(?=\s)/) ??
     find(/\s(?:pendant|durant|de)\s(\d{1,3})\s?(?:min|mn|minutes?)(?=\s)/) ??
-    find(/\sde\s(\d{1,2})\s?(?:heures?|h)\s?(\d{2})?(?=\s)(?!\s?(?:-|–|—|a|jusqu'a)\s?(?:\d|midi))/);
+    find(/\sde\s(\d{1,2})\s?(?:heures?|h)\s?(\d{2})?(?=\s)(?!\s?(?:-|–|—|a|jusqu'a)\s?(?:\d|midi|minuit))/);
   if (lasting) {
     const minutesOnly = /min|mn/.test(lasting[0]);
     const h = lasting[1] === 'une' ? 1 : Number(lasting[1] ?? lasting[3]);
@@ -173,10 +206,17 @@ export function parseQuickAdd(input: string, base = new Date(), language = lang,
   }
 
   // Times: "14h", "14h30", "14:30", "de 14h à 16h", "14h-16h", "14h–16h" (dash of the autocorrect), "midi", "10h à midi"
-  const range = find(/\s(?:de\s)?(\d{1,2})\s?(?:heures?|h|:)\s?(\d{2})?\s?(?:-|–|—|a|à|jusqu'a)\s?(?:(\d{1,2})\s?(?:heures?|h|:)\s?(\d{2})?|(midi)(\set\sdemie?)?)(?=\s)/);
+  // Also « midi-14h », « de 20h à minuit », « entre 9h et 10h ».
+  const HOURS = String.raw`(\d{1,2})\s?(?:heures?|h|:)\s?(\d{2})?`;
+  const NAMED = String.raw`(midi|minuit)(\set\sdemie?)?`;
+  const BOTH = (sep: string) => String.raw`(?:${HOURS}|${NAMED})\s?${sep}\s?(?:${HOURS}|${NAMED})(?=\s)`;
+  const range = soon ? null : (find(new RegExp(String.raw`\sentre\s${BOTH('et')}`)) ?? find(new RegExp(String.raw`\s(?:de\s)?${BOTH("(?:-|–|—|a|jusqu'a)")}`)));
   if (range) {
-    start = hm(range[1], range[2]);
-    end = range[5] ? (range[6] ? '12:30' : '12:00') : hm(range[3], range[4]);
+    const named = (word: string, half?: string) => `${word === 'midi' ? '12' : '00'}:${half ? '30' : '00'}`;
+    start = range[1] ? hm(range[1], range[2]) : named(range[3], range[4]);
+    end = range[5] ? hm(range[5], range[6]) : named(range[7], range[8]);
+    // « 20h-minuit »: until the end of that day (not a night that ends the next day at 0:00).
+    if (start && start > '00:00' && end === '00:00') end = '23:59';
     if (start) remove(range);
     // « Garde de nuit 21h-7h », « de 22h à 6h »: a night, it ends the next morning (an event over two days, below).
     if (start && end && end < start && start >= '17:00' && end <= '08:00') nightEnd = end;
@@ -403,13 +443,16 @@ export function parseQuickAdd(input: string, base = new Date(), language = lang,
   // Where (« à la mairie », « chez le kiné », « au CHU », « salle B12 »): the Lieu field, not the title. Up to the end
   // of what is left, or « avec … » / « pour … » / a comma. Not « au sujet de », « à la place », nor a title left empty.
   let place: string | undefined;
-  const where = extras && find(/\s((?:chez|en\ssalle|salle|a\sla|a\sl'|au|aux)\s?)(?!(?:sujet|plus|moins|cas|lieu|fait|revoir|place|fois|bout|cours|besoin|maximum|minimum|total)(?:\s|$))([^\s,()]+(?:\s(?!avec\s|pour\s|et\s|puis\s)[^\s,()]+){0,4})(?=\s*(?:$|,|\savec\s|\spour\s|\set\s|\spuis\s))/);
+  const where = extras && find(/\s((?:chez\s|en\ssalle\s|salle\s|a\sla\s|a\sl'|aux\s|au\s))(?!(?:sujet|plus|moins|cas|lieu|fait|revoir|place|fois|bout|cours|besoin|maximum|minimum|total)(?:\s|$))([^\s,()]+(?:\s(?!avec\s|pour\s|et\s|puis\s)[^\s,()]+){0,4})(?=\s*(?:$|,|\savec\s|\spour\s|\set\s|\spuis\s))/);
   if (where && where.index! > 1) {
     const word = where[1].trim();
     const raw = text.slice(where.index! + 1 + where[1].length, where.index! + where[0].length).trim();
     // « chez le kiné » reads as a place as said; « à la mairie » is « Mairie », « salle B12 » stays « Salle B12 ».
     const value = word === 'chez' || word.endsWith('salle') ? text.slice(where.index! + 1, where.index! + where[0].length).trim() : raw;
-    if (value && text.slice(0, where.index).trim()) {
+    // « Penser à la lessive », « Répondre à la prof », « Jouer au foot »: what is to do, not where. Nor a phone number.
+    const before = n().slice(0, where.index).trim().split(' ').pop() ?? '';
+    const about = word !== 'chez' && !word.endsWith('salle') && NOT_PLACE.test(before);
+    if (value && !about && !/^[\d\s.+-]+$/.test(value) && text.slice(0, where.index).trim()) {
       place = value.charAt(0).toUpperCase() + value.slice(1);
       remove(where);
     }
