@@ -69,6 +69,15 @@ export function resolveNavOrder(saved: readonly unknown[] | null | undefined, us
   return saved?.length ? cleanNavOrder(saved) : navFromAnswers(usage, needs);
 }
 
+/**
+ * True when the saved order is the person's own: the questionnaire also saves the order its answers give (store/session
+ * › finishWelcome), and that one is still « l’ordre conseillé » (the settings said « Ordre choisi par toi » to someone
+ * who never touched it, with a « Revenir à l’ordre conseillé » that changed nothing).
+ */
+export function isCustomNavOrder(saved: readonly unknown[] | null | undefined, usage: Usage | Usage[] | null | undefined, needs: readonly string[] | null | undefined): boolean {
+  return !!saved?.length && cleanNavOrder(saved).join() !== navFromAnswers(usage, needs).join();
+}
+
 /** `key` moved one place up (-1) or down (+1); the same order at the ends. */
 export function moveSpace(order: readonly SpaceKey[], key: SpaceKey, by: -1 | 1): SpaceKey[] {
   const i = order.indexOf(key);

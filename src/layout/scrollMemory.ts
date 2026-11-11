@@ -57,8 +57,16 @@ export function remember(list: Spot[], spot: Spot): Spot[] {
   return spot.top > 0 ? [...rest, spot] : rest;
 }
 
+/**
+ * What a place of the history is kept under. The page a tab opens on (or is reloaded on) is always « default » for the
+ * router: with its address beside it, another page loaded later in the same tab (a link typed, a reminder's, the
+ * language changed elsewhere…) no longer opened scrolled down where the first one had been left.
+ */
+export const entryKey = (key: string, path: string) => (key === 'default' ? `default ${path}` : key);
+
 export function useScrollMemory() {
-  const { key } = useLocation();
+  const { key: historyKey, pathname, search } = useLocation();
+  const key = entryKey(historyKey, pathname + search);
   const type = useNavigationType();
   const current = useRef(key);
   useLayoutEffect(() => {

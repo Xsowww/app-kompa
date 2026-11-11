@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cleanNavOrder, moveSpace, navFromAnswers, PHONE_TABS, resolveNavOrder, SPACE_KEYS } from '../src/lib/navOrder';
+import { cleanNavOrder, isCustomNavOrder, moveSpace, navFromAnswers, PHONE_TABS, resolveNavOrder, SPACE_KEYS } from '../src/lib/navOrder';
 
 const whole = (o: string[]) => expect([...o].sort()).toEqual([...SPACE_KEYS].sort());
 
@@ -69,5 +69,19 @@ describe('saved order', () => {
     expect(moveSpace(SPACE_KEYS, 'taches', -1).slice(0, 2)).toEqual(['taches', 'calendrier']);
     expect(moveSpace(SPACE_KEYS, 'calendrier', -1)).toEqual(SPACE_KEYS);
     expect(moveSpace(SPACE_KEYS, 'agendas', 1)).toEqual(SPACE_KEYS);
+  });
+});
+
+describe('isCustomNavOrder', () => {
+  it('l’ordre enregistré par le questionnaire reste « l’ordre conseillé »', () => {
+    const advised = navFromAnswers(['travail'], ['equipe', 'notes']);
+    expect(isCustomNavOrder(advised, ['travail'], ['equipe', 'notes'])).toBe(false);
+    expect(isCustomNavOrder(null, 'etudes', [])).toBe(false);
+    expect(isCustomNavOrder([], 'etudes', [])).toBe(false);
+  });
+
+  it('un espace déplacé à la main : « ordre choisi par toi »', () => {
+    const advised = navFromAnswers('etudes', ['reviser']);
+    expect(isCustomNavOrder(moveSpace(advised, advised[1], -1), 'etudes', ['reviser'])).toBe(true);
   });
 });

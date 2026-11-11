@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowUp, RotateCcw } from 'lucide-react';
 import { useSettings } from '../../store/settings';
-import { moveSpace, PHONE_TABS, type SpaceKey } from '../../lib/navOrder';
+import { isCustomNavOrder, moveSpace, PHONE_TABS, type SpaceKey } from '../../lib/navOrder';
 import { HOME, SPACES, useNavOrder, useSpaceLabel } from '../../layout/spaces';
 import { Section } from './controls';
 import { t } from '../../i18n';
@@ -13,7 +13,8 @@ import { t } from '../../i18n';
  */
 export default function NavOrderSection() {
   const order = useNavOrder();
-  const custom = useSettings(s => !!s.navOrder?.length);
+  // The questionnaire's own order, saved as it is, is not « choisi par toi ».
+  const custom = useSettings(s => isCustomNavOrder(s.navOrder, s.usages?.length ? s.usages : s.usage, s.needs));
   const label = useSpaceLabel();
   const [said, setSaid] = useState('');
   // The moved row's button keeps the focus (its row moved in the list).
