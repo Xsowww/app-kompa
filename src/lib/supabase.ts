@@ -94,15 +94,42 @@ export const remembered = keep;
 /** Where Supabase keeps the current session (its default key): emptied to add another account without signing out. */
 export const authStorageKey = url ? `sb-${new URL(url).hostname.split('.')[0]}-auth-token` : '';
 
-const authStorage = {
-  getItem: (k: string) => (keep() ? localStorage : sessionStorage).getItem(k),
+/**
+ * The session can't be written (browser storage full of pictures pasted in notes, or refused): it is kept in memory
+ * for this tab instead. Before, the error went up into Supabase's client: the hourly renewal of the session, or the
+ * sign-in itself, failed on a device whose storage was full.
+ */
+const unsaved = new Map<string, string>();
+export const authStorage = {
+  getItem: (k: string) => {
+    if (unsaved.has(k)) return unsaved.get(k)!;
+    try {
+      return (keep() ? localStorage : sessionStorage).getItem(k);
+    } catch {
+      return null;
+    }
+  },
   setItem: (k: string, v: string) => {
-    (keep() ? localStorage : sessionStorage).setItem(k, v);
-    (keep() ? sessionStorage : localStorage).removeItem(k);
+    try {
+      (keep() ? localStorage : sessionStorage).setItem(k, v);
+      unsaved.delete(k);
+    } catch {
+      unsaved.set(k, v);
+    }
+    try {
+      (keep() ? sessionStorage : localStorage).removeItem(k);
+    } catch {
+      /* storage blocked */
+    }
   },
   removeItem: (k: string) => {
-    localStorage.removeItem(k);
-    sessionStorage.removeItem(k);
+    unsaved.delete(k);
+    try {
+      localStorage.removeItem(k);
+      sessionStorage.removeItem(k);
+    } catch {
+      /* storage blocked */
+    }
   },
 };
 

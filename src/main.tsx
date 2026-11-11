@@ -1,3 +1,4 @@
+import './lib/storageShim'; // first: a browser that refuses site data must not stop the app at its start-up screen
 import { loadLang } from './i18n';
 import { guestHome } from './lib/guestHome.mjs';
 

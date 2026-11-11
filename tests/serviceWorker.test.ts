@@ -138,3 +138,35 @@ describe('service worker (public/sw.js)', () => {
     expect([...w.store.keys()].sort()).toEqual(['kompaly-share']);
   });
 });
+
+describe('une notification touchée, l’appli déjà ouverte', () => {
+  /** The worker with one open tab; returns what the tab is told when the notification is tapped. */
+  async function tap(url: unknown) {
+    const handlers: Record<string, ((e: unknown) => void)[]> = {};
+    const told: { type: string; url: string; user?: string }[] = [];
+    const tab = { url: `${ORIGIN}/taches`, postMessage: (m: (typeof told)[number]) => told.push(m), focus: async () => undefined };
+    const self = {
+      location: new URL(`${ORIGIN}/sw.js`),
+      navigator: { userAgent: 'Chrome/130' },
+      addEventListener: (t: string, f: (e: unknown) => void) => (handlers[t] ??= []).push(f),
+      skipWaiting: () => undefined,
+      registration: { navigationPreload: { enable: async () => undefined } },
+      clients: { claim: async () => undefined, matchAll: async () => [tab], openWindow: async () => undefined },
+    };
+    runInNewContext(code, { self, caches: {}, fetch: async () => new Response(''), Response, Headers, URL, MessageChannel, setTimeout, console });
+    const waits: Promise<unknown>[] = [];
+    handlers.notificationclick.forEach(f => f({ action: '', notification: { close: () => undefined, data: { url, user: 'u2' } }, waitUntil: (p: Promise<unknown>) => waits.push(p) }));
+    await Promise.all(waits);
+    return told[0];
+  }
+
+  it('la page est donnée par son chemin (l’adresse entière était prise pour un nom de page : « introuvable »)', async () => {
+    expect(await tap('/calendrier?jour=2026-11-12&evt=abc#x')).toEqual({ type: 'kompaly-open', url: '/calendrier?jour=2026-11-12&evt=abc#x', user: 'u2' });
+    expect((await tap(`${ORIGIN}/taches?tache=1`)).url).toBe('/taches?tache=1');
+    expect((await tap(undefined)).url).toBe('/');
+  });
+
+  it('jamais un autre site', async () => {
+    for (const bad of ['//ailleurs.example/x', 'https://ailleurs.example/x', '/\\ailleurs.example']) expect((await tap(bad)).url, bad).toBe('/');
+  });
+});

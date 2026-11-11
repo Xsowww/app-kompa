@@ -205,6 +205,8 @@ const profileKeys = new Set<string>();
 let pulling = false;
 let flushTimer: ReturnType<typeof setTimeout> | undefined;
 let warned = false;
+/** The last send failed for lack of network or server: tried again every 8 s, not at once (said or not: `warned`). */
+let down = false;
 let unsubscribers: (() => void)[] = [];
 let currentUser: string | null = null;
 /** Bumped by every local change: a refresh that raced with one is thrown away. */
@@ -273,7 +275,12 @@ function loadQueue(userId: string) {
         profileDirty?: boolean;
       };
       for (const t of ORDER) {
-        for (const r of saved.tables[t]?.upserts ?? []) pending[t].upserts.set(r.id as string, r);
+        for (const r of saved.tables[t]?.upserts ?? []) {
+          // The same thing changed in two tabs (both closed before sending): the later change goes, whatever the
+          // order the queues are read in. Before, the last queue read won: the older text could replace the newer.
+          const had = pending[t].upserts.get(r.id as string);
+          if (!had || !(String(had.updated_at ?? '') > String(r.updated_at ?? ''))) pending[t].upserts.set(r.id as string, r);
+        }
         for (const id of saved.tables[t]?.deletes ?? []) pending[t].deletes.add(id);
         for (const x of saved.tables[t]?.refused ?? []) if (x?.row?.id) refused[t].set(x.row.id as string, x);
       }
@@ -450,6 +457,11 @@ async function send() {
     const { data: s } = await supabase.auth.getSession();
     if (s.session?.user.id !== currentUser) {
       if (s.session) location.reload();
+      else {
+        // Signed out elsewhere, the page not told yet: looked at again in a while, not every 0,7 s.
+        down = true;
+        schedule(8000);
+      }
       return;
     }
     for (const table of ORDER) {
@@ -478,9 +490,11 @@ async function send() {
     }
     if (profileKeys.size) await sendSettings(currentUser);
     warned = false;
+    down = false;
     saveQueue();
   } catch (e) {
     console.error('[sync]', e);
+    down = true;
     // Lost network or a server down: the « Service perturbé » banner says it, if it lasts (lib/serviceStatus).
     if (!warned && !troubled()) {
       warned = true;
@@ -489,7 +503,8 @@ async function send() {
     schedule(8000);
   } finally {
     sayRefused();
-    if (hasPending() && !warned) schedule();
+    // Not after a failure: with the banner up (no toast, `warned` stays false) this tried again every 0,7 s, for hours.
+    if (hasPending() && !down) schedule();
   }
 }
 
@@ -558,6 +573,7 @@ function diff<T extends { id: string }>(table: Table, cur: T[], prev: T[], toRow
         found = true;
         pending[table].upserts.delete(id);
         pending[table].deletes.add(id);
+        refused[table].delete(id); // deleted for good here: not brought back by the next download, nor sent again
       }
     }
   }
@@ -646,7 +662,7 @@ function applySettings(profile: Profile) {
 }
 
 /** Timetable links (lib/icsFeeds) as saved with the profile: only well-formed ones, at most 10. */
-const cleanFeeds = (list: unknown): Settings['icsFeeds'] =>
+export const cleanFeeds = (list: unknown): Settings['icsFeeds'] =>
   (Array.isArray(list) ? list : [])
     .filter((f): f is Settings['icsFeeds'][number] => !!f && typeof f.id === 'string' && typeof f.url === 'string' && /^https?:\/\//.test(f.url) && typeof f.name === 'string')
     .slice(0, 10);
@@ -922,6 +938,7 @@ export function stopSync() {
   }
   profileKeys.clear();
   toSay = false;
+  warned = down = false;
 }
 
 /** Sends what is waiting (before signing out, for instance); true when nothing is left to send. */
@@ -948,7 +965,7 @@ export async function whenSaved(table: Table, ids: string[], waitMs = 8000): Pro
     clearTimeout(flushTimer);
     const left = end - Date.now();
     await Promise.race([flush(), new Promise(r => setTimeout(r, left))]);
-    if (waiting() && warned) break; // network trouble: retried later on its own
+    if (waiting() && down) break; // network trouble: retried later on its own
   }
   const no = ids.map(id => refused[table].get(id)).find(Boolean);
   if (no) return { state: 'refused', why: no.why };

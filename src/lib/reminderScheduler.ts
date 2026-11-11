@@ -211,7 +211,8 @@ function onWorkerMessage(e: MessageEvent) {
  * A notification was tapped: its page, in the account it belongs to (two accounts on one phone:
  * the « travail » account's news opens the « travail » account).
  */
-function openFor(url: string, user?: string) {
+function openFor(to: string, user?: string) {
+  const url = pagePath(to);
   if (!user || user === userId || !savedAccount(user)) return goTo(url);
   void useAuth
     .getState()
@@ -250,6 +251,19 @@ async function shareAccounts() {
     lang: locale(),
     buttons: { voir: t('Voir'), ok: t('OK'), later: t('Plus tard'), done: t('Fait||coché') },
   });
+}
+
+/**
+ * A page of Kompaly as the app's navigation takes it: its path. A whole address (an older service worker sends
+ * « https://kompaly.com/calendrier?… ») was read as a page name, hence « page introuvable »; another site's: the home.
+ */
+export function pagePath(url: string, origin = location.origin) {
+  try {
+    const u = new URL(url, origin);
+    return u.origin === origin ? u.pathname + u.search + u.hash : '/';
+  } catch {
+    return '/';
+  }
 }
 
 /** The address that does « Plus tard » or « Fait » once open (`action`, `cles`): read by followNotificationAction. */

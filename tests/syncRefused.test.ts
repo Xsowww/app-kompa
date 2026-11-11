@@ -91,6 +91,19 @@ describe('enregistrement en ligne : jamais « enregistré » quand ce n’est pa
     await vi.waitFor(() => expect(refusedCount()).toBe(0));
   });
 
+  it('une ligne refusée puis supprimée pour de bon ici : oubliée (plus gardée pour revenir au prochain téléchargement)', async () => {
+    refuse = r => r.title === 'Refusé';
+    const ev = useCalendar.getState().add({ title: 'Refusé', category: 'perso', date: '2026-11-20' });
+    expect((await whenSaved('events', [ev.id])).state).toBe('refused');
+    expect(refusedCount()).toBe(1);
+    useCalendar.setState({ events: [], trash: [] }); // deleted, trash emptied
+    expect(refusedCount()).toBe(0);
+    await whenSaved('events', [ev.id]);
+    await new Promise(r => setTimeout(r, 400)); // the saved queue is written a moment later
+    const queue = [...memory.entries()].find(([k]) => k.startsWith('cop:u1:sync-queue'));
+    expect(queue?.[1] ?? '').not.toContain(ev.id);
+  });
+
   it('pas de compte en ligne : « local », rien n’est annoncé comme envoyé', async () => {
     stopSync();
     expect(await whenSaved('events', ['x'])).toEqual({ state: 'local' });

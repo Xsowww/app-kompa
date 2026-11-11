@@ -1,7 +1,7 @@
 // An account's copy on this device, wiped as the privacy policy says (« Retirer de cet appareil », signing out without
 // « Rester connecté », account deleted): its saved stores (localStorage `cop:<id>:*`, this tab's too), the files kept in
 // this browser (IndexedDB), the pictures and the text read from its files, and what was shared to Kompaly and not
-// opened yet. Before, only the localStorage keys went, and « Retirer de cet appareil » left everything (test n°3).
+// opened yet, its name in the notifications' memory. Before, only the localStorage keys went, and « Retirer de cet appareil » left everything (test n°3).
 
 import { dropPendingStorage } from './userStorage';
 
@@ -40,6 +40,24 @@ function inStore(db: string, store: string, fn: (s: IDBObjectStore) => void): Pr
   });
 }
 
+/**
+ * What the service worker keeps about this device's accounts for the notifications (public/sw.js: their first name
+ * for « Compte Léa », the reminders already shown): this account taken out. Before, the first name and the id of a
+ * deleted or removed account stayed there.
+ */
+export async function forgetInWorkerCache(userId: string, store: CacheStorage | undefined = globalThis.caches) {
+  if (!store || !(await store.has('kompaly-meta'))) return;
+  const cache = await store.open('kompaly-meta');
+  for (const [path, of] of [
+    ['/__kompaly/comptes', (x: { id?: string }) => x?.id],
+    ['/__kompaly/vus', (x: { user?: string }) => x?.user],
+  ] as const) {
+    const list: unknown = await (await cache.match(path))?.json().catch(() => null);
+    if (!Array.isArray(list) || !list.some(x => of(x) === userId)) continue;
+    await cache.put(path, new Response(JSON.stringify(list.filter(x => of(x) !== userId)), { headers: { 'Content-Type': 'application/json' } }));
+  }
+}
+
 /** The keys this account owns on this device (`keepUnsent`: not its changes still to send). */
 export function accountKeys(keys: string[], userId: string, keepUnsent = false) {
   const prefix = `cop:${userId}:`;
@@ -64,5 +82,7 @@ export async function wipeAccountCopy(userId: string, { keepUnsent = false } = {
     import('./textIndex').then(m => m.forgetTextIndex()),
     // Shared to Kompaly from another app and not opened yet.
     typeof caches !== 'undefined' ? caches.delete('kompaly-share') : undefined,
+    // Its first name and the reminders shown, kept by the service worker for the notifications.
+    forgetInWorkerCache(userId),
   ].map(p => Promise.resolve(p).catch(() => undefined)));
 }

@@ -147,17 +147,23 @@ export const blobStore = {
   async move(from: string, to: string) {
     if (supabase) await supabase.storage.from(BUCKET).move(path(from), path(to)).catch(() => undefined);
   },
-  /** Cloud: every object under a folder of the bucket (account deletion). */
-  async removeFolder(folder: string) {
-    if (!supabase) return;
+  /**
+   * Cloud: every object under a folder of the bucket (data wiped, account deleted). False when the list or a removal
+   * failed (network): files are still there. Before, it stopped without a word: « Données effacées » or the account
+   * deleted, with files left online for good.
+   */
+  async removeFolder(folder: string): Promise<boolean> {
+    if (!supabase) return true;
     for (const dir of [folder, `${folder}/trash`]) {
       for (;;) {
-        const { data } = await supabase.storage.from(BUCKET).list(dir, { limit: 1000 });
+        const { data, error: unread } = await supabase.storage.from(BUCKET).list(dir, { limit: 1000 });
+        if (unread) return false;
         const files = (data ?? []).filter(o => o.id); // entries without id are sub-folders
         if (!files.length) break;
         const { error } = await supabase.storage.from(BUCKET).remove(files.map(o => `${dir}/${o.name}`));
-        if (error) break;
+        if (error) return false;
       }
     }
+    return true;
   },
 };
