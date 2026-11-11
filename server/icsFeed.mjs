@@ -15,6 +15,7 @@ import { authenticate, ipOf, rateLimited, send } from './copilot.mjs';
 const MAX_BYTES = 5_000_000; // a school year of a big timetable is ~1-2 Mo
 const TIMEOUT_MS = 15_000;
 const MAX_REDIRECTS = 4;
+const TOTAL_MS = 30_000; // TIMEOUT_MS only counts the silence: a site sending a few bytes every 10 s held a request for hours
 
 // Addresses that are not the public internet.
 const PRIVATE = new BlockList();
@@ -86,6 +87,13 @@ function getOnce(u) {
     });
     req.on('timeout', () => req.destroy(Object.assign(new Error('timeout'), { code: 'timeout' })));
     req.on('error', reject);
+    // The whole download, however slowly it comes.
+    const whole = setTimeout(() => {
+      const late = Object.assign(new Error('timeout'), { code: 'timeout' });
+      reject(late); // first: the cut connection then says « reset », not why
+      req.destroy(late);
+    }, TOTAL_MS);
+    req.on('close', () => clearTimeout(whole));
   });
 }
 

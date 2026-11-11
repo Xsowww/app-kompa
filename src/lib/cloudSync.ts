@@ -275,7 +275,12 @@ function loadQueue(userId: string) {
         profileDirty?: boolean;
       };
       for (const t of ORDER) {
-        for (const r of saved.tables[t]?.upserts ?? []) pending[t].upserts.set(r.id as string, r);
+        for (const r of saved.tables[t]?.upserts ?? []) {
+          // The same thing changed in two tabs (both closed before sending): the later change goes, whatever the
+          // order the queues are read in. Before, the last queue read won: the older text could replace the newer.
+          const had = pending[t].upserts.get(r.id as string);
+          if (!had || !(String(had.updated_at ?? '') > String(r.updated_at ?? ''))) pending[t].upserts.set(r.id as string, r);
+        }
         for (const id of saved.tables[t]?.deletes ?? []) pending[t].deletes.add(id);
         for (const x of saved.tables[t]?.refused ?? []) if (x?.row?.id) refused[t].set(x.row.id as string, x);
       }
@@ -452,6 +457,11 @@ async function send() {
     const { data: s } = await supabase.auth.getSession();
     if (s.session?.user.id !== currentUser) {
       if (s.session) location.reload();
+      else {
+        // Signed out elsewhere, the page not told yet: looked at again in a while, not every 0,7 s.
+        down = true;
+        schedule(8000);
+      }
       return;
     }
     for (const table of ORDER) {
