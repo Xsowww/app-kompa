@@ -20,7 +20,7 @@ import EventForm from './EventForm';
 import { eventTitle, periodIdeas, removeEvent, useCalendarSource } from './source';
 import TimeGrid from './TimeGrid';
 import SeriesIcon from './SeriesIcon';
-import { firstOfSpans, isSpan, spanDays, spanTooLong } from '../../lib/repeat';
+import { firstOfSpans, isSpan, spanDays, spanMove, spanTooLong } from '../../lib/repeat';
 import { refillEndless } from '../../lib/repeatSeries';
 import ImportIcsDialog, { type IcsSource } from './ImportIcsDialog';
 import { useCreateActions } from '../../store/create';
@@ -662,6 +662,15 @@ export default function CalendarPage() {
       if (end === ev.end) return;
       source.update(ev.id, { end });
       return toast(t('Finit à {time}', { time: end }), 'success', { label: t('Annuler||l’action'), run: () => source.update(ev.id, { end: ev.end }) });
+    }
+    // One day of an event over several days: the whole event moves by as many days (that day alone left the others
+    // behind, and its window then showed an event from its first day to that one). Its hours stay as they are.
+    if (isSpan(ev.series)) {
+      const moved = spanMove(source.events, ev, target.day);
+      if (!moved.length) return;
+      const { update } = source;
+      moved.forEach(m => update(m.id, { date: m.to }));
+      return toast(t('Déplacé au {day}', { day: fmt(fromKey(moved[0].to), 'EEEE d MMM') }), 'success', { label: t('Annuler||l’action'), run: () => moved.forEach(m => update(m.id, { date: m.from })) });
     }
     const patch: Partial<CalendarEvent> = { date: target.day };
     if (target.minutes !== undefined) {
