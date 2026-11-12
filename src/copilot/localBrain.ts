@@ -573,7 +573,8 @@ export function localReply(raw: string): BotReply {
   // ── Not Kompaly's job: invoices and quotes, a team's planning, accounting ──
   const out = outOfScope(input);
   if (out) {
-    const instead = t('Je peux te mettre un rappel, ajouter une tâche ou garder une note : par exemple « Rappelle-moi d’envoyer la facture demain 9h ».');
+    const example = out === 'facture' ? t('Rappelle-moi d’envoyer la facture demain 9h') : out === 'equipe' ? t('Rappelle-moi d’envoyer le planning à l’équipe lundi 9h') : t('Rappelle-moi d’appeler le comptable lundi 9h');
+    const instead = t('Je peux te mettre un rappel, ajouter une tâche ou garder une note : par exemple « {example} ».', { example });
     const what = out === 'facture' ? t('Kompaly ne fait pas de factures ni de devis.') : out === 'equipe' ? t('Kompaly ne fait pas le planning d’une équipe ni la gestion du personnel : c’est ton agenda à toi, que tu peux partager.') : t('Kompaly ne fait pas de comptabilité.');
     return { text: `${what} ${instead}` };
   }
