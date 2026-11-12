@@ -28,7 +28,7 @@ import {
 } from '../../store/recorder';
 import { canShareComputer, canUseMic, onPhone, type SourceKind } from '../../lib/recorder/capture';
 import { serverState } from '../../lib/recorder/api';
-import { clock, courseMarkdown, duration } from '../../lib/recorder/course';
+import { clock, courseMarkdown, duration, momentLines } from '../../lib/recorder/course';
 import { keywordsFor, normalize } from '../../lib/keywords';
 import { cx } from '../../lib/utils';
 import { Toggle } from '../profile/controls';
@@ -97,6 +97,8 @@ function Setup() {
   const titles = useMemo(() => [...new Set(history.map(h => h.title))].slice(0, 30), [history]);
 
   const start = async () => {
+    // Said before, not found out after an hour of class.
+    if (server && !server.transcription && !(await confirmAction(t('La transcription est indisponible'), t('Si tu enregistres maintenant, le texte risque de ne pas être écrit : dans ce cas, aucun document ne sera créé. Réessaie plutôt dans quelques minutes.'), t('Enregistrer quand même'), false))) return;
     setError('');
     setBusy(true);
     askNotifications();
@@ -199,7 +201,10 @@ function Setup() {
           <Link to="/profil?onglet=copilot" className="font-semibold underline underline-offset-2">{t('Réglages › Kompaly')}</Link>.
         </p>
       ) : server && !server.transcription ? (
-        <p className="text-[13px] text-amber-800">{t('La transcription est indisponible pour le moment.')}</p>
+        <p role="status" className="flex gap-2 rounded-xl bg-amber-50 px-3 py-2.5 text-[13px] text-amber-900">
+          <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden />
+          <span>{t('La transcription est indisponible pour le moment. Si tu enregistres quand même, le texte risque de ne pas être écrit : dans ce cas, aucun document ne sera créé.')}</span>
+        </p>
       ) : (
         server?.audioLeft !== undefined && <AudioLeft left={server.audioLeft} max={server.audioMax} />
       )}
@@ -456,6 +461,32 @@ function Done({ s }: { s: Session }) {
   useEffect(() => {
     void import('../../lib/docx').then(m => setHtml(m.markdownToHtml(md)));
   }, [md]);
+  if (s.empty) {
+    const moments = momentLines(s.alerts);
+    return (
+      <section className="card max-w-[620px] space-y-4 p-5 sm:p-7" aria-label={t('Rien n’a pu être transcrit')}>
+        <div role="status">
+          <p className="flex items-center gap-2 text-[16px] font-semibold">
+            <AlertTriangle size={18} className="shrink-0 text-amber-600" aria-hidden />
+            {t('Rien n’a pu être transcrit')}
+          </p>
+          <p className="mt-1.5 text-[13.5px] text-stone-600">
+            {t('Aucun document n’a été créé : il aurait été vide. Tes autres fichiers n’ont pas bougé.')} {s.transcriptionOff ?? t('Vérifie que le micro entend bien la voix, puis réessaie.')}
+          </p>
+          <p className="mt-1 text-[12.5px] text-stone-500">{t('{duration} d’enregistrement', { duration: duration(elapsed(s)) })}</p>
+        </div>
+        {moments.length > 0 && (
+          <div>
+            <p className="text-[13px] font-semibold">{t('Moments signalés')}</p>
+            <ul className="mt-1 list-disc space-y-0.5 pl-5 text-[13px] text-stone-600">{moments.map(m => <li key={m}>{m}</li>)}</ul>
+          </div>
+        )}
+        <button type="button" className="btn-primary h-11 w-full" onClick={() => useRecorder.getState().discard()}>
+          <Mic size={15} /> {t('Nouvel enregistrement')}
+        </button>
+      </section>
+    );
+  }
   return (
     <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,8fr)_minmax(0,4fr)]">
       <section className="card p-5 sm:p-7" aria-label={w.docDone}>

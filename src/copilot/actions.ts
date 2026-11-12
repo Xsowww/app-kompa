@@ -21,7 +21,7 @@ import type { CopilotLink } from '../store/copilot';
 import type { Group, GroupEvent, GroupNoteSummary } from '../lib/groups';
 import { getSettings, useSettings, applyAppearance, ACCENTS, type Settings, type AccentKey, type ThemeMode, type Chattiness } from '../store/settings';
 import { usageWords } from '../lib/usage';
-import { hasTwin, noteFor, noteTitle, notePrefix, pickExam, planTag, restDay, sessionPrefix, sessionsFor } from './revisionPlan';
+import { hasTwin, noteFor, noteTitle, notePrefix, pickExam, planTag, revisionDays, sessionPrefix, sessionsFor } from './revisionPlan';
 import { lang, t, tn } from '../i18n';
 
 // Studies: revision sessions and a revision sheet; work and personal life: time to prepare and a checklist.
@@ -183,6 +183,15 @@ export function eventsBetween(from: string, to: string) {
     .events.filter(e => e.date >= from && e.date <= to)
     .sort(sortEvents);
 }
+
+/**
+ * The chip that offers a reminder an hour (or half an hour) before: « Me prévenir 1 h avant », and « Me prévenir
+ * aussi 1 h avant » when the event already has one (it read as if there was none).
+ */
+export const remindOfferLabel = (ev: { reminders?: number[] }, minutes: 60 | 30) =>
+  ev.reminders?.length
+    ? minutes === 60 ? t('Me prévenir aussi 1 h avant') : t('Me prévenir aussi 30 min avant')
+    : minutes === 60 ? t('Me prévenir 1 h avant') : t('Me prévenir 30 min avant');
 
 /** « 9h », « 14h30 » in French; the other languages keep « 09:00 » (« um 9h » read wrong). */
 export const hourLabel = (hm: string) => (lang === 'fr' ? hm.replace(':', 'h').replace(/h00$/, 'h').replace(/^0(?=\d)/, '') : hm);
@@ -530,25 +539,15 @@ function revisionSlot(date: string, at: string, examStart: string | undefined, n
   return { start: at, end: toHm(Math.min(23 * 60 + 59, toMin(at) + 90)) };
 }
 
-/** Spreads revision sessions over the days before an exam, at the usual revision time. None for a past exam. */
-export function planRevisions(examId: string, sessions = getSettings().revisionSessions) {
+/**
+ * Spreads revision sessions over the days before an exam, at the usual revision time (revisionPlan › revisionDays says
+ * how many and which days). None for a past exam. `sessions`: a number asked for, else it grows with the time left.
+ */
+export function planRevisions(examId: string, sessions?: number) {
   const exam = useCalendar.getState().events.find(e => e.id === examId);
   if (!exam) return null;
-  const n = Math.min(6, Math.max(1, Math.round(sessions)));
-  const until = daysUntil(exam.date);
   const today = new Date();
-  const candidates: string[] = [];
-  // Prefer J-1, J-3, J-5… then fill remaining days, never in the past.
-  const order = [1, 3, 5, 2, 4, 6, 7, 9, 11, 13, 8, 10, 12, 14];
-  for (const d of order) {
-    if (d < until || (d === until && until === 0)) {
-      const key = toKey(addDays(fromKey(exam.date), -d));
-      // Never a session on a public holiday nor on the evening of the 24th or the 31st of December.
-      if (key >= toKey(today) && !restDay(key)) candidates.push(key);
-    }
-  }
-  if (candidates.length === 0 && !restDay(todayKey())) candidates.push(todayKey());
-  const chosen = until < 0 ? [] : [...new Set(candidates)].slice(0, n).sort();
+  const chosen = revisionDays(exam.date, toKey(today), getSettings().revisionSessions, sessions);
   const at = getSettings().revisionTime || '18:00';
   const created = chosen.flatMap(date => {
     const slot = revisionSlot(date, at, exam.date === date ? exam.start : undefined, today);
@@ -772,7 +771,7 @@ export function listTodos(includeDone = false) {
   return useTodos
     .getState()
     .todos.filter(t => includeDone || !t.done)
-    .map(t => ({ id: t.id, title: t.title, done: t.done, due: t.due, late: !t.done && !!t.due && t.due < today }));
+    .map(t => ({ id: t.id, title: t.title, done: t.done, due: t.due, ...(t.time && { time: t.time }), late: !t.done && !!t.due && t.due < today }));
 }
 
 export function findTodo(ref: string) {

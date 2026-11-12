@@ -42,7 +42,7 @@ describe('les exemples de la page d’accueil', () => {
         expect(reply.text, sentence).toContain('Ajouté au calendrier');
         const made = useCalendar.getState().events;
         expect(made[0], sentence).toMatchObject({ title: want.title, date: want.date, start: want.start });
-        expect(reply.offers?.[0], sentence).toMatchObject({ kind: 'add_reminder', label: 'Me prévenir 1 h avant' });
+        expect(reply.offers?.[0], sentence).toMatchObject({ kind: 'add_reminder', label: 'Me prévenir aussi 1 h avant' });
       }
     } finally {
       vi.useRealTimers();

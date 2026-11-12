@@ -185,6 +185,29 @@ export function openingDay(today: string, weekEnd: string, items: { date: string
   return { day: coming[0], jumped: true };
 }
 
+/**
+ * The day a new event is proposed for (« + », « Nouvel événement », the bar without a day): the day shown when the
+ * user chose it (a tap on a day, a link to a day), else today. The calendar that opened by itself on next week's
+ * first appointment (openingDay) proposed that day: « le 17 » for something typed on the 12th.
+ */
+export const newEventDay = (selected: string, today: string, chosen: boolean) => (chosen ? selected : today);
+
+/**
+ * Where the hourly grid scrolls to after an event was added: null when the event is already whole in sight, else the
+ * hour line just above it (the grid stayed on 16 h–22 h after an event added at 10 h). In pixels; `hourPx`: an hour.
+ */
+export function scrollToShow(scrollTop: number, viewHeight: number, top: number, bottom: number, hourPx: number): number | null {
+  if (top >= scrollTop && bottom <= scrollTop + viewHeight) return null;
+  return Math.max(0, Math.floor(top / hourPx - 0.5) * hourPx);
+}
+
+/**
+ * The round mark of a day's number (week strip, week grid, month): today is the filled one, always; another day
+ * selected gets a ring. The selected day was the filled one and today only a coloured number: one looked for today.
+ */
+export const dayMark = (isToday: boolean, isSelected: boolean) =>
+  isToday ? 'bg-tile-blue text-white' : isSelected ? 'ring-2 ring-inset ring-tile-blue' : '';
+
 /** A day's events and dated tasks in one list, in the order of the day: what has no time first, then by time. */
 export function byStartTime<E extends Pick<CalendarEvent, 'start'>>(events: E[], todos: Todo[]): ({ ev: E } | { todo: Todo })[] {
   const at = (it: { ev: E } | { todo: Todo }) => ('ev' in it ? it.ev.start : it.todo.time) ?? '';

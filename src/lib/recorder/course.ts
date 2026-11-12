@@ -141,6 +141,12 @@ export function momentLines(alerts: readonly Alert[]): string[] {
   return groups.map(g => (g.excerpt ? t('{time} · {words} : {excerpt}', { time: clock(g.time), words: g.words.join(', '), excerpt: g.excerpt }) : `${clock(g.time)} · ${g.words.join(', ')}`));
 }
 
+/**
+ * Nothing was written down at all (transcription out of reach, a silent room): there is no document to make. An empty
+ * one, « enregistré et rédigé avec Kompaly », was filed in the Drive.
+ */
+export const nothingWritten = (segments: readonly Pick<Segment, 'text'>[]) => !segments.some(s => s.text.trim());
+
 /** The course document, in the Markdown that lib/docx turns into Word. */
 export function courseMarkdown(c: CourseInfo): string {
   const out = [`# ${c.title}`, `*${t('{date} · {duration} · enregistré et rédigé avec Kompaly', { date: c.date, duration: duration(c.seconds) })}*`];

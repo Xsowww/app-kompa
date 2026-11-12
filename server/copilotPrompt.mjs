@@ -324,7 +324,7 @@ export const TOOLS = [
     description: "Planifie des séances de révision avant un examen (créneaux dans le calendrier) et crée une fiche de révision. Donne l'id de l'examen si tu l'as, sinon un mot de son titre.",
     input_schema: {
       type: 'object',
-      properties: { exam: { type: 'string', description: "id ou titre de l'examen" }, sessions: { type: 'integer', description: 'nombre de séances (1 à 6), 3 par défaut' } },
+      properties: { exam: { type: 'string', description: "id ou titre de l'examen" }, sessions: { type: 'integer', description: "nombre de séances (1 à 10), seulement s'il en demande un : sinon il est choisi selon le temps qui reste" } },
       required: ['exam'],
     },
   },

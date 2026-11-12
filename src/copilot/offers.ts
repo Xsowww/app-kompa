@@ -56,7 +56,7 @@ function run(offer: CopilotOffer): OfferResult {
       const exam = useCalendar.getState().events.find(e => e.id === p.eventId);
       if (!exam) return { text: gone() };
       if (hasRevisionPlan(exam)) return alreadyPlanned(exam);
-      const res = planRevisions(exam.id, Number(p.sessions) || getSettings().revisionSessions);
+      const res = planRevisions(exam.id, Number(p.sessions) || undefined);
       if (!res) return { text: gone() };
       if (!res.created.length) return tooLate(res.note);
       const days = res.created.map(e => fmt(fromKey(e.date), 'EEEE d')).join(', ');

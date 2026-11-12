@@ -317,8 +317,11 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
   };
 
   return (
-    <Modal open onClose={onClose} width={460}>
-      <form onSubmit={submit}>
+    // A short window (a 1366×800 computer): the fields scroll, « Annuler » and « Ajouter » stay in sight under them
+    // (the whole dialog scrolled, its buttons cut at the bottom of the window).
+    <Modal open onClose={onClose} width={460} className="flex flex-col overflow-y-hidden!">
+      <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
+        <div className="-mx-6 min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-1">
         <h3 ref={headRef} tabIndex={-1} className="text-[15px] font-semibold outline-none">{event ? t('Modifier l’événement') : t('Nouvel événement')}</h3>
         {/* A shared calendar: who changed it last (pages/groups/SharedCalendar). */}
         {event && shared?.changed(event.id) && <p className="mt-1 text-[12px] text-stone-500">{shared.changed(event.id)}</p>}
@@ -580,6 +583,7 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
           </div>
         )}
 
+        </div>
         {/* The secondary actions as icons (their names on hover): « Supprimer Dupliquer Annuler Enregistrer » cut the last
             one off the window. Square buttons of the same height and corners as « Annuler ». Too narrow for all of them
             (a shared calendar adds two): « Annuler Enregistrer » go whole on a row of their own, at the right (modal-foot). */}

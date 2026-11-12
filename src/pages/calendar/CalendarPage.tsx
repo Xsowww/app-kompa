@@ -17,6 +17,7 @@ import { periodColor, periodUntil, periodLabel, periodsFill, weekLanes, dayLanes
 import { cx } from '../../lib/utils';
 import { newSeries } from '../../lib/seriesId';
 import EventForm from './EventForm';
+import { usePanelInset } from './usePanelInset';
 import { eventTitle, periodIdeas, removeEvent, useCalendarSource } from './source';
 import TimeGrid from './TimeGrid';
 import SeriesIcon from './SeriesIcon';
@@ -34,7 +35,7 @@ import { feedLabel, feedOf } from '../../lib/icsFeeds';
 import { useTodos, type Todo } from '../../store/todos';
 import TaskDialog from '../tasks/TaskDialog';
 import { TaskRow } from './TaskItem';
-import { byStartTime, isFor, jumpSaid, markJumpSaid, openingDay, spanBars, spanEdge, sweptRange, tasksOn, upcomingList } from './layout';
+import { byStartTime, dayMark, isFor, jumpSaid, markJumpSaid, openingDay, newEventDay, spanBars, spanEdge, sweptRange, tasksOn, upcomingList } from './layout';
 import { agendaLink, copyToMyCalendar, fromAgenda, useAgendaOverlay } from './agendas';
 import { ContextMenu, type MenuItem } from '../../components/Overlays';
 import { isMenuKey, menuPoint } from '../../lib/a11y';
@@ -379,7 +380,14 @@ export default function CalendarPage() {
     const items = [...events, ...(shared ? [] : allTodos.filter(x => x.due).map(x => ({ date: x.due!, done: x.done })))];
     return openingDay(todayKey(), toKey(addDays(weekStart(now), 6)), items, toKey(addDays(now, 60)), jumpSaid());
   });
-  const [selected, setSelected] = useState(opening.day);
+  const [selected, setSelectedDay] = useState(opening.day);
+  // False while the day shown is the one the calendar jumped to by itself: a new event is then proposed for today.
+  const [dayChosen, setDayChosen] = useState(!opening.jumped);
+  const setSelected = (key: string) => {
+    setSelectedDay(key);
+    setDayChosen(true);
+  };
+  const newDay = newEventDay(selected, todayKey(), dayChosen);
   const [jumpNote, setJumpNote] = useState(opening.jumped);
   // Once per session: the next visit opens on today, without the line.
   useEffect(() => {
@@ -421,6 +429,8 @@ export default function CalendarPage() {
     ro.observe(head);
     return () => ro.disconnect();
   }, []);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const panelRoom = usePanelInset(gridRef, mode === 'week' && weekGrid);
   const [allUpcoming, setAllUpcoming] = useState(false);
   const [managing, setManaging] = useState(false);
   const [periodsOpen, setPeriodsOpen] = useState(false);
@@ -438,7 +448,7 @@ export default function CalendarPage() {
     readOnly
       ? []
       : [
-          { label: t('Nouvel événement'), icon: <CalendarPlus />, onClick: () => setForm({ date: selected }) },
+          { label: t('Nouvel événement'), icon: <CalendarPlus />, onClick: () => setForm({ date: newDay }) },
           ...(shared ? [] : [{ label: t('Ajouter un {timetable} (lien ou fichier .ics)', { timetable: words.timetable }), icon: <CalendarArrowDown />, onClick: () => setImporting({}) }]),
         ],
   );
@@ -473,7 +483,7 @@ export default function CalendarPage() {
   useEffect(() => {
     // ?ajout=1 (« + » of the home page): the new event's window, open on the day shown.
     if (params.get('ajout')) {
-      if (!readOnly) setFormState({ date: selected });
+      if (!readOnly) setFormState({ date: newDay });
       setParams(p => (p.delete('ajout'), p), { replace: true });
     }
     // ?importer=1 (« Essayer » in Nouveautés): the window to follow a timetable by its link or a .ics file.
@@ -486,7 +496,7 @@ export default function CalendarPage() {
       if (!shared) setImportantOnly(true);
       setParams(p => (p.delete('filtre'), p), { replace: true });
     }
-  }, [params, setParams, readOnly, selected, shared]);
+  }, [params, setParams, readOnly, newDay, shared]);
 
   /** An event opened: its window, or, a shared calendar's event shown in mine, its day in that agenda. */
   const openEvent = (ev: CalendarEvent) => (fromAgenda(ev) ? navigate(agendaLink(ev)) : setForm({ event: ev, date: ev.date }));
@@ -564,7 +574,7 @@ export default function CalendarPage() {
   const parsed = quick.trim() ? parseQuickAdd(quick, undefined, undefined, true) : null;
   const parsedCat = parsed ? guessCategory(parsed.title || quick, !!parsed.start, custom) : null;
   // No day in the sentence: the day shown, unless it is past (an event typed while looking back lands today).
-  const quickDate = parsed?.date ?? (selected < today ? today : selected);
+  const quickDate = parsed?.date ?? (newDay < today ? today : newDay);
 
   // The form, with what the sentence already gives (« demain 14h » has a day and an hour but no title).
   const openForm = () => setForm({ date: quickDate, start: parsed?.start ?? undefined, end: parsed?.end ?? undefined, fromQuick: !!quick.trim() });
@@ -965,7 +975,8 @@ export default function CalendarPage() {
             </button>
           </p>
         )}
-        <div className={cx('mt-4 grid grid-cols-1 items-start gap-4', mode !== 'week' && 'xl:grid-cols-[minmax(0,1fr)_300px]')}>
+        {/* Kompaly's panel open beside the week (computer): its seven days share the width left, none under the panel. */}
+        <div ref={gridRef} className={cx('mt-4 grid grid-cols-1 items-start gap-4', mode !== 'week' && 'xl:grid-cols-[minmax(0,1fr)_300px]')} style={panelRoom ? { paddingRight: panelRoom } : undefined}>
           <section className="card min-w-0 p-4 md:p-5">
             {/* Over the days side by side (the week's grid, the day view's strip of seven days). A phone's week, its days
                 one under the other, draws them down the days instead (phoneWeekLanes). */}
@@ -1104,7 +1115,7 @@ export default function CalendarPage() {
                       <span
                         className={cx(
                           'tabular mt-1 flex h-8 w-8 items-center justify-center rounded-full text-[15px] font-semibold',
-                          isSel ? 'bg-tile-blue text-white' : isToday ? 'text-brand-600' : '',
+                          dayMark(isToday, isSel),
                         )}
                       >
                         {fmt(d, 'd')}
@@ -1166,7 +1177,7 @@ export default function CalendarPage() {
                             <span
                               className={cx(
                                 'tabular mb-0.5 flex h-6 w-6 shrink-0 items-center justify-center self-center rounded-full text-[12px] font-medium @md:self-start',
-                                isSel ? 'bg-tile-blue text-white' : key === today && 'text-brand-600',
+                                dayMark(key === today, isSel),
                               )}
                             >
                               {fmt(d, 'd')}

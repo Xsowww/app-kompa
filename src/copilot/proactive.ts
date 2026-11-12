@@ -13,7 +13,7 @@ import { useFocus } from '../store/focus';
 import { toKey, todayKey, daysUntil, fmt, fromKey, weekStart, countdownLabel, isOver, hasStarted } from '../lib/dates';
 
 export { isOver };
-import { hasRevisionPlan, hourLabel, linkToDay, linkToNote } from './actions';
+import { hasRevisionPlan, hourLabel, remindOfferLabel, linkToDay, linkToNote } from './actions';
 import { getSettings } from '../store/settings';
 import { notify } from '../lib/notify';
 import { usageWords } from '../lib/usage';
@@ -173,8 +173,8 @@ function onOrdinaryEventAdded(e: CalendarEvent) {
       situation: { evenement: "l'utilisateur vient d'ajouter un rendez-vous à une adresse : demande-lui s'il veut être prévenu à l'heure de partir", titre: e.title, quand: when(e) },
       fallback: t('« {title} » {when} : je te préviens à l’heure de partir ?', { title: e.title, when: when(e) }),
       offers: [
-        { label: t('Me prévenir 1 h avant'), kind: 'add_reminder', payload: { eventId: e.id, minutes: '60' } },
-        { label: t('Me prévenir 30 min avant'), kind: 'add_reminder', payload: { eventId: e.id, minutes: '30' } },
+        { label: remindOfferLabel(e, 60), kind: 'add_reminder', payload: { eventId: e.id, minutes: '60' } },
+        ...((e.reminders ?? []).includes(30) ? [] : [{ label: remindOfferLabel(e, 30), kind: 'add_reminder' as const, payload: { eventId: e.id, minutes: '30' } }]),
       ],
     });
     return;

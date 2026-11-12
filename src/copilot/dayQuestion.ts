@@ -24,9 +24,21 @@ export function askedDay(input: string, base = new Date()): string | null {
  * The period a « what do I have » question is about: the weekend (this one, or the next week's one with
  * « prochain », like « jeudi prochain »), this week, or next week. Null when it is not one.
  */
-export function askedPeriod(input: string, base = new Date()): { kind: 'weekend' | 'week' | 'next-week'; from: string; to: string } | null {
+export function askedPeriod(input: string, base = new Date()): Period | null {
   const q = clean(input);
   if (!ASKING.test(q) && !BARE_PERIOD.test(q)) return null;
+  return periodIn(input, base);
+}
+
+export interface Period {
+  kind: 'weekend' | 'week' | 'next-week';
+  from: string;
+  to: string;
+}
+
+/** The period a sentence names, whatever it asks (« mes tâches cette semaine », « à faire ce week-end »), or null. */
+export function periodIn(input: string, base = new Date()): Period | null {
+  const q = clean(input);
   // « jeudi de la semaine prochaine », « le 12 »: a day, not a period.
   if (/\b(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\b|\d/.test(q)) return null;
   const monday = weekStart(base);
