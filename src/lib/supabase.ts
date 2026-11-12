@@ -13,7 +13,7 @@ export const arrivedWithLink = typeof location !== 'undefined' && /(?:^|[#&?])(?
 
 /**
  * The new-password page is for whoever came by a real reset e-mail, in this tab: an open session alone (or an
- * address with a made-up « ?code=x ») must not change the password without the current one (that is Profil › Compte).
+ * address with a made-up « ?code=x ») must not change the password without the current one (that is Réglages › Compte).
  * Only Supabase's own PASSWORD_RECOVERY event, after it checked the link, opens it.
  */
 const RECOVERY_KEY = 'cop-recovery';

@@ -846,7 +846,7 @@ export function setReminders(p: { eventId?: string; todoId?: string; minutesBefo
     ...(refused.length > 0 && { refuses: refused }),
     notifications: canNotify()
       ? 'activées sur cet appareil'
-      : "pas activées sur cet appareil : le rappel s'affiche quand l'appli est ouverte ; pour le recevoir appli fermée, Profil › Notifications",
+      : "pas activées sur cet appareil : le rappel s'affiche quand l'appli est ouverte ; pour le recevoir appli fermée, Réglages › Notifications",
   };
 }
 

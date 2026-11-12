@@ -58,7 +58,7 @@ export function earlyReminders(date: string, time?: string, now?: Date): number[
 }
 
 /**
- * An event's reminders: its own, else, when it was made here, the usual ones (Profil › Notifications) if it has a time,
+ * An event's reminders: its own, else, when it was made here, the usual ones (Réglages › Notifications) if it has a time,
  * plus the early ones of a big day (category « examen » or marked important: isBigEvent in store/calendar).
  */
 export function eventReminders(e: { reminders?: number[]; date?: string; start?: string; externalId?: string; category?: string; important?: boolean }, defaults: number[], now?: Date): number[] {
@@ -72,7 +72,7 @@ export function eventReminders(e: { reminders?: number[]; date?: string; start?:
 /**
  * The one answer to « which reminders will ring for this event »: what the event sheet, the lists, Kompaly and the
  * scheduler (notifications) all show. A shared calendar's: the ones chosen on it (no usual reminder of mine there).
- * The usual ones of an event never given any are those of Profil › Notifications — the same ones the scheduler sends.
+ * The usual ones of an event never given any are those of Réglages › Notifications — the same ones the scheduler sends.
  */
 export function shownReminders(e: { reminders?: number[]; date?: string; start?: string; externalId?: string; category?: string; important?: boolean }, defaults: number[], shared = false): number[] {
   return shared ? (e.reminders ?? []) : eventReminders(e, defaults);
@@ -93,7 +93,7 @@ export function remindersShort(list: number[], date: string, time?: string): str
 }
 
 /**
- * A new dated task's reminders: those chosen in Profil › Notifications (the day before at 18:00 and/or that day at 9:00),
+ * A new dated task's reminders: those chosen in Réglages › Notifications (the day before at 18:00 and/or that day at 9:00),
  * or an hour before a task with a time (none when « Aucun » is chosen); those already past are left out (a task for
  * today, made in the afternoon, gets none rather than one in the past).
  */
@@ -102,7 +102,7 @@ export function taskReminders(due: string, time?: string, now = new Date(), chos
   return all.filter(min => reminderMoment(due, time, min) > now);
 }
 
-/** « Rappel par défaut des tâches » (Profil › Notifications): its four choices. */
+/** « Rappel par défaut des tâches » (Réglages › Notifications): its four choices. */
 export const TASK_DEFAULTS: { value: string; minutes: number[]; label: string }[] = [
   { value: 'aucun', minutes: [], label: t('Aucun') },
   { value: 'veille', minutes: [900], label: t('La veille à 18:00') },

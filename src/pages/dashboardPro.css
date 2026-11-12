@@ -900,7 +900,7 @@
   font-size: 11px;
 }
 
-/* No motion when the device or the app asks for it (Profil › Apparence › Réduire les animations). */
+/* No motion when the device or the app asks for it (Réglages › Apparence › Réduire les animations). */
 @media (prefers-reduced-motion: reduce) {
   .dpro *,
   .dpro *::before,

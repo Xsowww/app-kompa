@@ -44,7 +44,7 @@ interface TodosState {
   purgeExpired: () => void;
 }
 
-/** The usual reminders of a new dated task (Profil › Notifications › « Rappel par défaut des tâches »). */
+/** The usual reminders of a new dated task (Réglages › Notifications › « Rappel par défaut des tâches »). */
 const usualReminders = (due: string, time?: string) => taskReminders(due, time, new Date(), getSettings().defaultTaskReminders);
 
 /** The next one of a repeating task just ticked: same title, hour, reminders and repeat, made at the tick (`at`). */

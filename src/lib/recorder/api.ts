@@ -23,7 +23,7 @@ async function call<T>(path: string, init: RequestInit, timeoutMs: number, stop?
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   stop?.addEventListener('abort', () => ctrl.abort());
   try {
-    // « Mode simple uniquement » (Profil › Kompaly): the sound, the text and the photos go to an AI, so nothing leaves.
+    // « Mode simple uniquement » (Réglages › Kompaly): the sound, the text and the photos go to an AI, so nothing leaves.
     if (getSettings().simpleOnly && path !== 'etat' && path !== 'alerte') throw new CoursError('simple_only');
     const token = await accessToken();
     const res = await fetch(`/api/cours/${path}`, { ...init, headers: { ...init.headers, ...(token ? { Authorization: `Bearer ${token}` } : {}) }, signal: ctrl.signal });

@@ -115,7 +115,7 @@ export default function TaskDialog({ todo, onClose, remind, onDelete }: { todo?:
               onChange={v => {
                 // « La veille à 9h » follows the task to its new day.
                 if (due && v) setReminders(r => followMoments(r, { date: due, time: time || undefined }, { date: v, time: time || undefined }, r));
-                // A first due day: the usual reminders of a task (Profil › Notifications), shown here to change.
+                // A first due day: the usual reminders of a task (Réglages › Notifications), shown here to change.
                 else if (!due && v && !reminders.length) setReminders(taskReminders(v, time || undefined, new Date(), getSettings().defaultTaskReminders));
                 setDue(v);
               }}

@@ -74,7 +74,7 @@ function EventRow({ e, showDay, muted }: { e: CalendarEvent; showDay?: boolean; 
   );
 }
 
-// « Affichage Pro » (Profil › Apparence): its own home page, loaded only when it is on.
+// « Affichage Pro » (Réglages › Apparence): its own home page, loaded only when it is on.
 const DashboardPro = lazy(() => import('./DashboardPro'));
 
 export default function Dashboard() {

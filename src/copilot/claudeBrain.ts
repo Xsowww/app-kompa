@@ -770,7 +770,7 @@ export function describeApiError(e: unknown): string {
   }
   if (code === 'daily_limit') return t('Tu as utilisé tes questions à l’IA du jour : je passe en mode simple jusqu’à minuit.');
   if (code === 'site_limit') return t('L’IA gratuite a atteint sa limite du jour : je passe en mode simple jusqu’à minuit.');
-  if (code === 'simple_only') return t('Le mode simple uniquement est activé (Profil › Kompaly) : je réponds sans IA.');
+  if (code === 'simple_only') return t('Le mode simple uniquement est activé (Réglages › Kompaly) : je réponds sans IA.');
   if (code === 'too_large') return t('C’est trop long pour l’IA d’un coup : demande une partie précise ou ouvre une nouvelle conversation.');
   // The AI doesn't answer: simple mode for a while instead of the same apology at every message.
   if (code === 'bad_key') {

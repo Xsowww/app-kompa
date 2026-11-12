@@ -423,7 +423,7 @@ export async function handleCopilot(req, res, env = process.env) {
   try {
     const body = await readJson(req);
 
-    // « Mode simple uniquement » (Profil › Kompaly): the page doesn't ask, and an old tab that still would is refused here.
+    // « Mode simple uniquement » (Réglages › Kompaly): the page doesn't ask, and an old tab that still would is refused here.
     if (body.simpleOnly === true) {
       send(res, 403, { error: 'simple_only' });
       return true;

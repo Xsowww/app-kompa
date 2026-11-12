@@ -55,7 +55,7 @@ export function exportBackup() {
     todos: useTodos.getState().todos,
     notes: { folders: useNotes.getState().folders, notes: useNotes.getState().notes },
     driveFolders: useDrive.getState().items.filter(i => i.kind === 'folder'),
-    // Also what the privacy policy lists (Profil › Données › Exporter): not restored by importBackup.
+    // Also what the privacy policy lists (Réglages › Données › Exporter): not restored by importBackup.
     focusSessions: useFocusLog.getState().sessions,
     kompaly: { conversation: messages, memory },
     recordings: useRecorder.getState().history, // titles, key points and parts; the documents made are in the Drive
@@ -258,7 +258,7 @@ const nextDay = (date: string) => toKey(addDays(fromKey(date), 1));
 
 /** .ics file that Google Agenda, Apple Calendrier or Outlook can import (`name`: a shared calendar's, in the file name). */
 /**
- * My calendar as an .ics file (text). Not the events of the calendars I follow by link (Profil › agendas suivis, lib/icsFeeds):
+ * My calendar as an .ics file (text). Not the events of the calendars I follow by link (Réglages › agendas suivis, lib/icsFeeds):
  * they are someone else's, and imported again elsewhere (Google) they would come twice.
  */
 export function calendarIcs(events: CalendarEvent[], at = new Date()): string {

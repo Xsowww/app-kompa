@@ -27,7 +27,7 @@ export interface User {
   noPassword?: boolean;
   /** Which of the two, for such an account (signed in again with it). */
   provider?: OAuthProvider;
-  /** A new address asked for in Profil › Compte, until its link is clicked (Supabase's « new_email »). */
+  /** A new address asked for in Réglages › Compte, until its link is clicked (Supabase's « new_email »). */
   pendingEmail?: string;
 }
 
@@ -240,7 +240,7 @@ function passkeyMessage(e: PasskeyError): string {
   if (e.name === 'AuthApiError' || e.name === 'AuthRetryableFetchError' || (e as AuthError).status) return authMessage(e);
   return t('Face ID ou l’empreinte n’a pas marché. Réessaie, ou utilise ton mot de passe.');
 }
-/** A name the person recognises in Profile › Account (« iPhone », « Mac »…). */
+/** A name the person recognises in Settings › Account (« iPhone », « Mac »…). */
 function deviceName(): string {
   const ua = navigator.userAgent;
   const name = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android' : /Mac/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : /CrOS/.test(ua) ? 'Chromebook' : /Linux/.test(ua) ? 'Linux' : '';
@@ -268,7 +268,7 @@ async function nextMfaStep(): Promise<MfaStep> {
   if (data.currentLevel === 'aal2') return null;
   // Face ID or a fingerprint already checks two things (the device and the person): no code on top (the base agrees, mfa_ok).
   if (await signedInWithPasskey()) return null;
-  // A phone is paired: its code is asked at each sign-in. Without one, nothing to do (two-factor is optional, Profile › Account).
+  // A phone is paired: its code is asked at each sign-in. Without one, nothing to do (two-factor is optional, Settings › Account).
   return data.nextLevel === 'aal2' ? 'verify' : null;
 }
 
@@ -298,7 +298,7 @@ async function leaveSession(user: User) {
 
 const OWN_SWITCH = 'cop-own-switch';
 
-/** This device has a passkey of the account (its id when known, else '1'): Profile › Account then offers no second one. */
+/** This device has a passkey of the account (its id when known, else '1'): Settings › Account then offers no second one. */
 export const passkeyHereKey = (userId: string) => `cop-passkey-here:${userId}`;
 function markPasskeyHere(userId: string | undefined, id = '1') {
   try {
@@ -484,7 +484,7 @@ export const useAuth = create<AuthState>((set, get) => ({
         const msg = passkeyMessage(error);
         const status = (error as AuthError).status ?? 0;
         // Refused by the server without a known reason (not too many tries, not the anti-robot check): a key removed from the account.
-        if (status >= 400 && status < 500 && msg === t('Une erreur est survenue : réessaie dans un instant.')) throw new Error(t('Cette clé n’est plus liée à ton compte. Connecte-toi avec ton mot de passe, puis réactive Face ID dans Profil › Compte.'));
+        if (status >= 400 && status < 500 && msg === t('Une erreur est survenue : réessaie dans un instant.')) throw new Error(t('Cette clé n’est plus liée à ton compte. Connecte-toi avec ton mot de passe, puis réactive Face ID dans Réglages › Compte.'));
         throw new Error(msg);
       }
       if (!data.user) throw new Error(passkeyMessage(new Error('no user')));
@@ -642,7 +642,7 @@ export const useAuth = create<AuthState>((set, get) => ({
     if (sameEmail(mail, user.email)) throw new Error(t('C’est déjà l’adresse de ton compte.'));
     // Like deleting the account: someone at an unlocked computer can't take the account over by its address.
     await get().verifyPassword(password);
-    // The link comes back to Profil › Compte (lib/supabase reads it, like the other e-mail links).
+    // The link comes back to Réglages › Compte (lib/supabase reads it, like the other e-mail links).
     const data = await cloud(supabase.auth.updateUser({ email: mail }, { emailRedirectTo: `${location.origin}/profil?onglet=compte` }));
     if (data.user) set({ user: fromSupabase(data.user) });
   },

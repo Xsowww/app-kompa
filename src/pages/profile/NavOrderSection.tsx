@@ -7,7 +7,7 @@ import { Section } from './controls';
 import { t } from '../../i18n';
 
 /**
- * Profil › Apparence: the order of the spaces in the navigation (the phone's bar: the first ones, the others under
+ * Réglages › Apparence: the order of the spaces in the navigation (the phone's bar: the first ones, the others under
  * « Plus »; the computer's sidebar: all of them). Up and down buttons (keyboard and screen readers alike), and back to
  * the order the questionnaire gives.
  */

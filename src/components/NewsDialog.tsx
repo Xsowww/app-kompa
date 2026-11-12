@@ -5,8 +5,7 @@ import { Modal } from './Overlays';
 import KompalyMark from './KompalyMark';
 import { DroneStill } from '../copilot/Character';
 import { RELEASES, useNews, type NewsIcon } from '../lib/news';
-import { applyAppearance, useSettings } from '../store/settings';
-import { toast } from '../store/ui';
+import { useSettings } from '../store/settings';
 import { fmtDay, fromKey } from '../lib/dates';
 import { cx } from '../lib/utils';
 import { t } from '../i18n';
@@ -77,7 +76,10 @@ export default function NewsDialog() {
           </span>
         </p>
         {/* A phone held sideways: a smaller picture, the whole page fits without scrolling. */}
-        {isl ? (
+        {item.img ? (
+          // A real picture of the app (its top, never squeezed), on the tile's colour while it loads.
+          <img key={page} src={item.img} alt="" className="news-shot enter mt-3" style={{ '--c': PRO_TINTS[item.icon] } as CSSProperties} />
+        ) : isl ? (
           // The island itself on its page; elsewhere one tile of one colour, as in the hub.
           <div key={page} className="news-pro-pic enter mt-3" style={{ '--c': PRO_TINTS[item.icon] } as CSSProperties}>
             {item.icon === 'island' ? (
@@ -125,18 +127,13 @@ export default function NewsDialog() {
 
         {/* 320 px: the three buttons on one line (no arrow on « Suivant »), and never wider than the window. */}
         <div className="modal-foot mt-5 short:mt-2">
-          {item.action === 'pro' && !pro ? null : page > 0 ? (
+          {page > 0 ? (
             <button type="button" className="btn-ghost mr-auto h-10 px-2.5" onClick={() => setPage(p => p - 1)} aria-label={t('Précédent')}>
               <ChevronLeft size={16} />
             </button>
           ) : (
             <button type="button" className="btn-ghost mr-auto h-10 px-2 text-[13px]" onClick={close}>
               {t('Passer')}
-            </button>
-          )}
-          {item.action === 'pro' && !pro && (
-            <button type="button" className="btn-secondary h-10 max-[359px]:px-3" onClick={close}>
-              {t('Plus tard')}
             </button>
           )}
           {item.to && (
@@ -151,27 +148,9 @@ export default function NewsDialog() {
               {t('Essayer')}
             </button>
           )}
-          {item.action === 'pro' && !pro ? (
-            // The presentation's last page: switched on right here (theme and style come back when it is turned off).
-            <button
-              type="button"
-              className="btn-primary h-10 max-[359px]:px-3"
-              autoFocus
-              onClick={() => {
-                const s = useSettings.getState();
-                s.set({ pro: true });
-                applyAppearance({ ...useSettings.getState(), pro: true });
-                close();
-                toast(t('Affichage Pro activé. Tu peux le couper dans Profil › Apparence.'), 'success');
-              }}
-            >
-              {t('Activer l’Affichage Pro')}
-            </button>
-          ) : (
           <button type="button" className="btn-primary h-10 max-[359px]:px-3" onClick={() => (last ? close() : setPage(p => p + 1))} autoFocus>
             {last ? t('C’est parti') : t('Suivant')} {!last && <ChevronRight size={16} className="max-[359px]:hidden" />}
           </button>
-          )}
         </div>
       </div>
     </Modal>

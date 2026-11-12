@@ -13,8 +13,8 @@ export interface NewsItem {
   text: string;
   /** Where « Essayer » leads (?importer=1: the calendar opens its « Ajouter un emploi du temps » window). */
   to?: string;
-  /** « pro »: the page ends with « Activer l'Affichage Pro » (when it isn't on yet). */
-  action?: 'pro';
+  /** A real picture of the app (public/news), shown in place of the icon. */
+  img?: string;
 }
 
 export interface Release {
@@ -29,14 +29,14 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
-    id: '2026-11-07',
+    id: '2026-11-12',
     everyone: true,
     look: 'island',
     items: [
-      { icon: 'pro', title: t('Découvre l’Affichage Pro'), text: t('Un nouveau look pour Kompaly : un fond d’écran, des cartes en verre et des couleurs qui disent d’un coup d’œil ce qui compte.') },
-      { icon: 'island', title: t('Tout passe par l’île, en haut'), text: t('Rappels, messages, Kompaly et ta séance de concentration s’affichent dans une petite pastille en haut de l’écran. Touche-la : tes prochains événements, tes tâches et des raccourcis s’ouvrent.') },
-      { icon: 'dash', title: t('Un accueil qui montre l’essentiel'), text: t('Ton prochain grand jour, tes tâches (en retard en premier), ce qui arrive, et les anneaux de ta journée, dans cet ordre.') },
-      { icon: 'pro', title: t('Essaie-le maintenant'), text: t('Tu peux l’activer ici ou plus tard dans Profil › Apparence, et revenir à l’affichage actuel quand tu veux.'), action: 'pro' },
+      { icon: 'pro', img: '/news/pro-look.jpg', title: t('Kompaly change de look'), text: t('Voici l’Affichage Pro : un fond d’écran, des cartes en verre et des couleurs qui disent d’un coup d’œil ce qui compte. C’est maintenant l’affichage de Kompaly.') },
+      { icon: 'island', img: '/news/pro-ile.jpg', title: t('Tout passe par l’île, en haut'), text: t('Rappels, messages, Kompaly et ta séance de concentration s’affichent dans une petite pastille en haut de l’écran. Touche-la : tes prochains événements, tes tâches et des raccourcis s’ouvrent.') },
+      { icon: 'dash', img: '/news/pro-accueil.jpg', title: t('Un accueil qui montre l’essentiel'), text: t('Ton prochain grand jour, tes tâches (en retard en premier), ce qui arrive, et les anneaux de ta journée, dans cet ordre.') },
+      { icon: 'pro', img: '/news/pro-reglages.jpg', title: t('Tu préfères l’ancien look ?'), text: t('Tes thèmes d’avant sont toujours là : ouvre ton profil, puis Réglages › Apparence, et coupe « Affichage Pro ». Tu peux le remettre quand tu veux.') },
     ],
   },
   {

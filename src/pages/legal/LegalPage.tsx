@@ -139,7 +139,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
           t('Messages « Avis ou bug » : ton message, la page ouverte et le type d’appareil (navigateur, système, taille d’écran).'),
           t('Signalements dans un groupe : la raison choisie, ta précision éventuelle et une copie du contenu signalé (titre et début du texte, ou nom du fichier).'),
           t('Rappels : l’heure et le texte de tes prochains rappels (titre de l’événement ou de la tâche). Si tu actives les notifications, pour chaque appareil : l’adresse d’envoi fournie par ton navigateur avec ses clés de chiffrement et le type d’appareil (par exemple « iPhone · Safari »).'),
-          t('E-mails : un e-mail de bienvenue après l’inscription, puis un seul e-mail de conseils quelques jours plus tard (désactivable dans Profil › Notifications), envoyés par Resend.'),
+          t('E-mails : un e-mail de bienvenue après l’inscription, puis un seul e-mail de conseils quelques jours plus tard (désactivable dans Réglages › Notifications), envoyés par Resend.'),
         ],
       },
       {
@@ -148,7 +148,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
           t('Fournir le service que tu demandes en créant ton compte (exécution du contrat) : stocker et synchroniser tes contenus, les partager dans les groupes que tu rejoins, sécuriser ton compte.'),
           t('Garder le service sûr et fiable (intérêt légitime) : limites anti-abus, vérification anti-robot à l’inscription et à la connexion, journaux d’erreurs, traitement des signalements.'),
           t('Améliorer Kompaly (intérêt légitime) : lire les avis et corriger les bugs que tu nous envoies, et compter les visites de façon anonyme (voir « Stockage sur ton appareil »).'),
-          t('T’aider à prendre Kompaly en main (intérêt légitime) : un e-mail de bienvenue, puis un seul e-mail de conseils, désactivable dans Profil › Notifications.'),
+          t('T’aider à prendre Kompaly en main (intérêt légitime) : un e-mail de bienvenue, puis un seul e-mail de conseils, désactivable dans Réglages › Notifications.'),
         ],
       },
       {
@@ -186,7 +186,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
         title: t('Durée de conservation'),
         body: [
           t('Tant que ton compte existe. Ce que tu mets à la corbeille est supprimé définitivement au bout de 30 jours.'),
-          t('« Supprimer définitivement mon compte » (Profil › Compte) efface immédiatement ton compte, tes contenus et tes fichiers en ligne. Un rappel est effacé de nos serveurs une semaine après son envoi ; un appareil cesse d’en recevoir dès que tu désactives les notifications, que tu te déconnectes sans « Rester connecté » ou que tu le retires. Les journaux d’erreurs sont gardés au plus 12 mois, les messages « Avis ou bug » et les signalements au plus 2 ans (sans ton nom ni ton e-mail une fois ton compte supprimé).'),
+          t('« Supprimer définitivement mon compte » (Réglages › Compte) efface immédiatement ton compte, tes contenus et tes fichiers en ligne. Un rappel est effacé de nos serveurs une semaine après son envoi ; un appareil cesse d’en recevoir dès que tu désactives les notifications, que tu te déconnectes sans « Rester connecté » ou que tu le retires. Les journaux d’erreurs sont gardés au plus 12 mois, les messages « Avis ou bug » et les signalements au plus 2 ans (sans ton nom ni ton e-mail une fois ton compte supprimé).'),
         ],
       },
       {
@@ -201,7 +201,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
       {
         title: t('Tes droits'),
         body: [
-          t('Tu peux accéder à tes données, les corriger, les exporter (Profil › Données › Exporter) et les supprimer (Profil › Compte). Tu peux aussi t’opposer à un traitement ou en demander la limitation en écrivant à {email}.', { email: CONTACT }),
+          t('Tu peux accéder à tes données, les corriger, les exporter (Réglages › Données › Exporter) et les supprimer (Réglages › Compte). Tu peux aussi t’opposer à un traitement ou en demander la limitation en écrivant à {email}.', { email: CONTACT }),
           t('Si tu estimes que tes droits ne sont pas respectés, tu peux saisir la CNIL (cnil.fr).'),
           t('Si tu as moins de 15 ans, demande à un parent de lire cette page avec toi.'),
         ],

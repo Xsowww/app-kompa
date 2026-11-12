@@ -154,8 +154,14 @@ async function loadAccount(userId: string | null) {
   settleFocus();
   renameToKompa();
   applyUsage(useSettings.getState().usage);
+  proByDefault();
   applyAppearance(useSettings.getState());
   keepLanguage();
+}
+
+/** The Affichage Pro is the default look: an account from before is moved to it once (the old themes stay in Réglages › Apparence). */
+function proByDefault() {
+  if (!useSettings.getState().proDefault) useSettings.getState().set({ pro: true, proDefault: true });
 }
 
 /** The site's language goes on the account too: the server writes its e-mails in it. */
@@ -171,6 +177,7 @@ async function catchUp(userId: string, left: Promise<void>) {
     if (!profile || getStorageUser() !== userId) return;
     settleWelcome(profile.onboarded, 'done');
     applyUsage(useSettings.getState().usage);
+    proByDefault();
     applyAppearance(useSettings.getState());
     keepLanguage();
   } catch (e) {

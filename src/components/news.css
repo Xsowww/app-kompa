@@ -78,3 +78,20 @@
 .news-isl .modal-foot > :not(.mr-auto) {
   flex: 1 1 auto;
 }
+
+/* A real picture of the app: wide, its top in sight, the corners of the tiles. */
+.news-shot {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  object-position: top;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--c) 30%, #14151c);
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.1);
+}
+@media (max-height: 500px) {
+  .news-shot {
+    aspect-ratio: 16 / 5;
+  }
+}

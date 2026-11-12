@@ -1,4 +1,4 @@
-// Profil › Raccourcis: every keyboard shortcut of the app and the touch gestures (pages/profile/ProfilePage).
+// Réglages › Raccourcis: every keyboard shortcut of the app and the touch gestures (pages/profile/ProfilePage).
 import { t } from '../../i18n';
 
 export const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);

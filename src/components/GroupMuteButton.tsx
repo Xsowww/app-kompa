@@ -18,7 +18,7 @@ export function useGroupMute(group: MutedGroup) {
   const toggle = () => {
     const s = useSettings.getState();
     if (allOff) {
-      // All of this kind were off (Profil › Notifications): on for this one only.
+      // All of this kind were off (Réglages › Notifications): on for this one only.
       const others = useGroups.getState().groups.filter(g => g.kind === group.kind && g.id !== group.id).map(g => g.id);
       s.set({ ...(agenda ? { calendarNews: true } : { groupNews: true }), mutedGroups: [...new Set([...s.mutedGroups.filter(id => id !== group.id), ...others])] });
     } else s.set({ mutedGroups: muted ? s.mutedGroups.filter(id => id !== group.id) : [...s.mutedGroups, group.id] });

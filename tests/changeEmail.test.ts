@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Profil › Compte › « Changer d’adresse » (store/auth › changeEmail), Supabase replaced by a fake client.
+// Réglages › Compte › « Changer d’adresse » (store/auth › changeEmail), Supabase replaced by a fake client.
 const memory = new Map<string, string>();
 const storage = { getItem: (k: string) => memory.get(k) ?? null, setItem: (k: string, v: string) => memory.set(k, v), removeItem: (k: string) => memory.delete(k) };
 Object.assign(globalThis, { location: new URL('https://kompaly.test/profil'), localStorage: storage, sessionStorage: storage });
@@ -23,7 +23,7 @@ beforeEach(() => {
 });
 
 describe('changing the account’s e-mail address', () => {
-  it('asks Supabase to send its links, back to Profil › Compte, and shows the address waiting', async () => {
+  it('asks Supabase to send its links, back to Réglages › Compte, and shows the address waiting', async () => {
     updateUser.mockResolvedValue({ data: { user: { id: 'u1', email: 'lea@exemple.fr', new_email: 'lea.nouvelle@exemple.fr', created_at: lea.createdAt, user_metadata: { name: 'Léa' }, app_metadata: {} } }, error: null });
     await useAuth.getState().changeEmail(' Lea.Nouvelle@exemple.fr ', 'secret');
     expect(updateUser).toHaveBeenCalledWith({ email: 'lea.nouvelle@exemple.fr' }, { emailRedirectTo: 'https://kompaly.test/profil?onglet=compte' });

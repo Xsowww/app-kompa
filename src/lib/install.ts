@@ -1,5 +1,5 @@
 // « Installer Kompaly » on a computer or an Android phone: the browser's install offer (Chrome, Edge), kept for the
-// button in Profil › Notifications. Installed, Kompaly opens in its own window and its notifications carry its
+// button in Réglages › Notifications. Installed, Kompaly opens in its own window and its notifications carry its
 // name and logo instead of the browser's.
 
 import { useSyncExternalStore } from 'react';

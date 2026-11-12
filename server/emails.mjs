@@ -2,7 +2,7 @@
 //
 // Every 15 minutes the server asks the database who is due (public.mail_queue(), migration 2026-11-01), sends the
 // e-mail through Resend and notes it (public.mail_sent()), so each one goes once. Only accounts created in the last
-// days: existing accounts get nothing. The tips e-mail can be turned off (Profil › Notifications, « emailTips »).
+// days: existing accounts get nothing. The tips e-mail can be turned off (Réglages › Notifications, « emailTips »).
 //
 // Settings (Render › Environment), never in the code:
 //   RESEND_API_KEY             resend.com › API Keys (« Sending access », domain kompaly.com)
@@ -51,7 +51,7 @@ const TEXTS = {
         ['Les agendas partagés', 'invite ta promo, ta coloc ou ta famille sur un calendrier commun.'],
       ],
       button: 'Reprendre où j’en étais',
-      why: 'C’est le seul e-mail de ce genre. Pour ne plus en recevoir : Profil › Notifications.',
+      why: 'C’est le seul e-mail de ce genre. Pour ne plus en recevoir : Réglages › Notifications.',
     },
   },
   en: {
@@ -80,7 +80,7 @@ const TEXTS = {
         ['Shared calendars', 'invite your classmates, flatmates or family to a common calendar.'],
       ],
       button: 'Pick up where I left off',
-      why: 'This is the only e-mail of this kind. To stop them: Profile › Notifications.',
+      why: 'This is the only e-mail of this kind. To stop them: Settings › Notifications.',
     },
   },
   es: {
@@ -109,7 +109,7 @@ const TEXTS = {
         ['Calendarios compartidos', 'invita a tu clase, tus compañeros de piso o tu familia a un calendario común.'],
       ],
       button: 'Seguir donde lo dejé',
-      why: 'Es el único correo de este tipo. Para no recibir más: Perfil › Notificaciones.',
+      why: 'Es el único correo de este tipo. Para no recibir más: Ajustes › Notificaciones.',
     },
   },
   de: {
@@ -138,7 +138,7 @@ const TEXTS = {
         ['Geteilte Kalender', 'lade deinen Kurs, deine WG oder deine Familie in einen gemeinsamen Kalender ein.'],
       ],
       button: 'Weitermachen',
-      why: 'Das ist die einzige E-Mail dieser Art. Um keine mehr zu bekommen: Profil › Benachrichtigungen.',
+      why: 'Das ist die einzige E-Mail dieser Art. Um keine mehr zu bekommen: Einstellungen › Benachrichtigungen.',
     },
   },
   it: {
@@ -167,7 +167,7 @@ const TEXTS = {
         ['Calendari condivisi', 'invita la tua classe, i coinquilini o la famiglia in un calendario comune.'],
       ],
       button: 'Riprendi da dove eri',
-      why: 'È l’unica e-mail di questo tipo. Per non riceverne più: Profilo › Notifiche.',
+      why: 'È l’unica e-mail di questo tipo. Per non riceverne più: Impostazioni › Notifiche.',
     },
   },
 };

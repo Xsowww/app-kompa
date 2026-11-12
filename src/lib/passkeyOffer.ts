@@ -21,7 +21,7 @@ const OFFER = () => t('La prochaine fois, connecte-toi avec Face ID ou ton empre
 /**
  * After a sign-in with the password (and the phone's code, with two-factor on), on a phone or tablet that has Face ID or
  * a fingerprint reader: offered once per account (its settings, on every device) once the questionnaire is done, when no
- * menu or window is open. Closed (✕) or accepted, it never comes back; Profile › Account says how to do it later.
+ * menu or window is open. Closed (✕) or accepted, it never comes back; Settings › Account says how to do it later.
  */
 export async function offerPasskey(userId: string) {
   if (!remembered() || !touchDevice()) return; // a shared device, or a computer

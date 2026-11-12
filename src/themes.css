@@ -1,4 +1,4 @@
-/* ── Styles: Profil › Apparence › Style ─────────────────────────────
+/* ── Styles: Réglages › Apparence › Style ─────────────────────────────
    data-style on <html> (store/settings applyAppearance; public/theme.js before the first paint).
    « Classique » has none. A style only changes how the bento parts look (page, cards, side bar, tab bar,
    menus, dialogs, buttons, fields), never where they are; light and dark each have their own values.
@@ -363,7 +363,7 @@
   border-color: var(--color-stone-500);
 }
 
-/* ===== Affichage Pro (Profil › Apparence): a dark world on a wallpaper, over the glass of Verre ===== */
+/* ===== Affichage Pro (Réglages › Apparence): a dark world on a wallpaper, over the glass of Verre ===== */
 /* data-pro on <html> holds the wallpaper (store/settings applyAppearance; public/theme.js before the first paint); with it
    data-style='verre' and data-theme='dark', so every card, menu and field of Verre sombre is there, and the rules below
    only add what the Pro look changes (written with [data-style][data-theme] to outweigh Verre sombre's own values). --wp-ratio: a picture's width / height (the page-head draws it « cover » too). */

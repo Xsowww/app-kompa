@@ -9,7 +9,7 @@ import { relativeWhen } from '../../lib/utils';
 import { Section, Row } from './controls';
 import { t } from '../../i18n';
 
-/** Profile › Account: sign in with Face ID, a fingerprint or the device's code (passkeys). Hidden until switched on in Supabase. */
+/** Settings › Account: sign in with Face ID, a fingerprint or the device's code (passkeys). Hidden until switched on in Supabase. */
 export default function PasskeySection() {
   const [on, setOn] = useState(false);
   const [list, setList] = useState<PasskeyListItem[] | null>(null);
@@ -86,7 +86,7 @@ export default function PasskeySection() {
           </button>
         </Row>
       ))}
-      <Row label={list?.length ? t('Un autre appareil ?') : t('Pas encore activé')} hint={hasHere ? t('Ouvre Kompaly dessus, puis Profil › Compte › Ajouter cet appareil.') : list?.length ? t('Ouvre Kompaly dessus et ajoute-le ici.') : undefined}>
+      <Row label={list?.length ? t('Un autre appareil ?') : t('Pas encore activé')} hint={hasHere ? t('Ouvre Kompaly dessus, puis Réglages › Compte › Ajouter cet appareil.') : list?.length ? t('Ouvre Kompaly dessus et ajoute-le ici.') : undefined}>
         {!hasHere && (
           <button className="btn-primary h-8" disabled={busy || !list} onClick={() => void add()}>
             {busy ? <Loader2 size={14} className="animate-spin" /> : <Fingerprint size={14} />} {t('Ajouter cet appareil')}

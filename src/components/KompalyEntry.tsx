@@ -8,7 +8,7 @@ import { t } from '../i18n';
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
 
 /**
- * « Kompaly » in the menu: the conversation from anywhere, even with the character hidden (Profil › Kompaly).
+ * « Kompaly » in the menu: the conversation from anywhere, even with the character hidden (Réglages › Kompaly).
  * `phone`: phones and tablets, his head and his name in the top bar (the way to open him there; the dot when he said
  * something while closed).
  */

@@ -145,7 +145,7 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
   const [important, setImportant] = useState(!!base?.important);
   // Shared calendar: who it is for (none: everyone).
   const [people, setPeople] = useState<string[]>(base?.people ?? []);
-  // undefined = not chosen: the usual reminder (Profil › Notifications) for an event with a time.
+  // undefined = not chosen: the usual reminder (Réglages › Notifications) for an event with a time.
   const [chosen, setChosen] = useState<number[] | undefined>(base?.reminders ?? (said ? remindMinutes(said.remind, said.date ?? date, said.start) : undefined));
   // A duplicate's title is read as a sentence only once changed (« Cours 8h » duplicated stays « Cours 8h »).
   const [retyped, setRetyped] = useState(false);

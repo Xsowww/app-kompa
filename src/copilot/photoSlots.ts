@@ -35,7 +35,7 @@ export function slotLine(s: PlanningSlot): string {
 /** Why it didn't work, in the person's words (the same as « Fiche depuis une photo »). */
 export function photoFailure(e: unknown): string {
   const code = e instanceof CoursError ? e.code : '';
-  if (code === 'simple_only') return t('Le mode simple uniquement est activé (Profil › Kompaly) : la photo n’est envoyée à aucune IA.');
+  if (code === 'simple_only') return t('Le mode simple uniquement est activé (Réglages › Kompaly) : la photo n’est envoyée à aucune IA.');
   if (code === 'disabled' || code === 'http_404') return t('La lecture des photos n’est pas encore activée sur Kompaly.');
   if (code === 'daily_limit' || code === 'site_limit') return t('Limite du jour atteinte : réessaie demain.');
   if (code === 'rate_limited') return t('Beaucoup de demandes en ce moment : réessaie dans une minute.');

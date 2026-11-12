@@ -105,7 +105,7 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
         way === 'push'
           ? t('Rappel test envoyé : il arrive sur {device} comme le vrai, même Kompaly fermé.', { device: where })
           : way === 'system'
-            ? t('Rappel test affiché. Pour le recevoir Kompaly fermé, active les rappels dans Profil › Notifications.')
+            ? t('Rappel test affiché. Pour le recevoir Kompaly fermé, active les rappels dans Réglages › Notifications.')
             : t('Rappel test affiché dans Kompaly. Sans notifications activées sur {device}, le vrai ne s’affichera que si Kompaly est ouvert.', { device: where }),
         way === 'app' ? 'info' : 'success',
       );
@@ -120,7 +120,7 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
     if (next === 'on') {
       void devicePushChanged();
       toast(t('Notifications activées sur cet appareil'), 'success');
-    } else if (next === 'denied') toast(t('Notifications refusées : les étapes pour les autoriser sont dans Profil › Notifications.'), 'error');
+    } else if (next === 'denied') toast(t('Notifications refusées : les étapes pour les autoriser sont dans Réglages › Notifications.'), 'error');
   };
 
   return (
@@ -279,7 +279,7 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
         </div>
       )}
       {!disabled && value.length > 0 && state !== 'on' && (
-        // Said for this device (the full steps: Profil › Notifications, and the window after the first reminder).
+        // Said for this device (the full steps: Réglages › Notifications, and the window after the first reminder).
         <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-stone-50 px-2.5 py-2 text-[12px] text-stone-600">
           {device === 'ios-browser' ? (
             <span>{t('Pour qu’il sonne sur ton iPhone : ajoute Kompaly à l’écran d’accueil (Partager › Sur l’écran d’accueil), puis ouvre-le depuis son icône.')}</span>
@@ -294,7 +294,7 @@ export default function ReminderPicker({ value, onChange, timed, date, time, dis
               </button>
             </>
           ) : state === 'denied' ? (
-            <span>{t('Notifications bloquées sur {device} : les étapes pour les autoriser sont dans Profil › Notifications.', { device: where })}</span>
+            <span>{t('Notifications bloquées sur {device} : les étapes pour les autoriser sont dans Réglages › Notifications.', { device: where })}</span>
           ) : (
             <span>{t('Ce navigateur n’affiche pas de notifications\u00a0: le rappel s’affichera seulement dans Kompaly.')}</span>
           )}

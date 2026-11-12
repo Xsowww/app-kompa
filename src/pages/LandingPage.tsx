@@ -477,7 +477,7 @@ function InstallSteps() {
           </li>
         ))}
       </ol>
-      <p className="mt-4 border-t border-stone-200 pt-3 text-[13px] leading-snug text-stone-500">{t('Sur ordinateur, rien à installer : autorise les notifications dans Profil › Notifications.')}</p>
+      <p className="mt-4 border-t border-stone-200 pt-3 text-[13px] leading-snug text-stone-500">{t('Sur ordinateur, rien à installer : autorise les notifications dans Réglages › Notifications.')}</p>
     </div>
   );
 }
@@ -736,7 +736,7 @@ const FAQ = [
   { q: t('Je peux répéter un événement ou une tâche ?'), a: t('Oui : chaque jour, chaque semaine, chaque mois ou chaque année.') },
   {
     q: t('Comment je suis prévenu ?'),
-    a: t('Par une notification sur ton téléphone et ton ordinateur, sans passer par l’App Store. Sur iPhone : dans Safari, Partager › « Sur l’écran d’accueil », ouvre Kompaly depuis sa nouvelle icône, puis autorise les notifications. Sur Android et sur ordinateur : autorise simplement les notifications dans Profil › Notifications (sur Android, tu peux aussi ajouter son icône : Chrome › ⋮ › « Installer l’application »). Tu choisis quand : 1 h avant, la veille…'),
+    a: t('Par une notification sur ton téléphone et ton ordinateur, sans passer par l’App Store. Sur iPhone : dans Safari, Partager › « Sur l’écran d’accueil », ouvre Kompaly depuis sa nouvelle icône, puis autorise les notifications. Sur Android et sur ordinateur : autorise simplement les notifications dans Réglages › Notifications (sur Android, tu peux aussi ajouter son icône : Chrome › ⋮ › « Installer l’application »). Tu choisis quand : 1 h avant, la veille…'),
   },
   { q: t('Qui peut voir mes notes et mes fichiers ?'), a: t('Toi seul. Dans un groupe ou un agenda partagé, les membres voient seulement ce que tu y partages.') },
   {
@@ -748,7 +748,7 @@ const FAQ = [
   { q: t('J’ai un compte perso et un compte travail.'), a: t('Ajoute les deux sur ton appareil et passe de l’un à l’autre en un clic.') },
   {
     q: t('Moins de 15 ans, usage scolaire : comment ça marche ?'),
-    a: t('Kompaly est ouvert dès 15 ans. Avant, il faut l’accord d’un parent : créez le compte ensemble, c’est le parent qui coche « J’ai 15 ans ou plus, ou l’accord d’un parent ». Pas de publicité, pas de revente de données ; un groupe ou un agenda partagé ne se rejoint qu’avec son lien ou son code. Pour une classe, chaque élève a son compte et l’enseignant partage le code d’un groupe. Pour supprimer le compte : Profil › Compte › « Supprimer définitivement mon compte » (tout est effacé aussitôt), ou un e-mail à {email}.', { email: CONTACT }),
+    a: t('Kompaly est ouvert dès 15 ans. Avant, il faut l’accord d’un parent : créez le compte ensemble, c’est le parent qui coche « J’ai 15 ans ou plus, ou l’accord d’un parent ». Pas de publicité, pas de revente de données ; un groupe ou un agenda partagé ne se rejoint qu’avec son lien ou son code. Pour une classe, chaque élève a son compte et l’enseignant partage le code d’un groupe. Pour supprimer le compte : Réglages › Compte › « Supprimer définitivement mon compte » (tout est effacé aussitôt), ou un e-mail à {email}.', { email: CONTACT }),
   },
 ];
 

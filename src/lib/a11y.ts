@@ -1,6 +1,6 @@
 // Small keyboard / screen-reader helpers shared by dialogs, menus and lists.
 
-/** Smooth scrolling, unless less motion is asked (the system's setting, or Kompaly's own in Profil › Apparence). */
+/** Smooth scrolling, unless less motion is asked (the system's setting, or Kompaly's own in Réglages › Apparence). */
 export const scrollMotion = (): ScrollBehavior =>
   matchMedia('(prefers-reduced-motion: reduce)').matches || document.documentElement.classList.contains('reduce-motion') ? 'auto' : 'smooth';
 

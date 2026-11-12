@@ -175,7 +175,7 @@ body,
 html {
   background: var(--color-paper);
 }
-/* « Taille du texte » (Profil › Apparence, public/theme.js before the first paint): every text, in rem, follows. */
+/* « Taille du texte » (Réglages › Apparence, public/theme.js before the first paint): every text, in rem, follows. */
 html[data-text='grand'] {
   font-size: 112.5%;
 }

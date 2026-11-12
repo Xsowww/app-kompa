@@ -273,7 +273,7 @@ export function FirstReminderOffer() {
           {state === 'on' ? t('Terminé') : t('Plus tard')}
         </button>
       </div>
-      <p className="mt-3 text-[12.5px] text-stone-500">{t('Tu retrouves ce réglage dans Profil › Notifications.')}</p>
+      <p className="mt-3 text-[12.5px] text-stone-500">{t('Tu retrouves ce réglage dans Réglages › Notifications.')}</p>
     </Modal>
   );
 }

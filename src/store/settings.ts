@@ -16,7 +16,7 @@ export type ThemeMode = 'clair' | 'sombre' | 'auto';
 export type UiStyle = 'classique' | 'verre' | 'liquide' | 'relief';
 export const UI_STYLES: UiStyle[] = ['classique', 'verre', 'liquide', 'relief'];
 /** The wallpapers of the « Affichage Pro » (themes.css › data-pro): two painted landscapes, three colour fields. */
-/** « Taille du texte » (Profil › Apparence): the font size of <html>, every text in rem follows (index.css). */
+/** « Taille du texte » (Réglages › Apparence): the font size of <html>, every text in rem follows (index.css). */
 export type TextSize = 'normal' | 'grand' | 'tresgrand';
 export const TEXT_SIZES: TextSize[] = ['normal', 'grand', 'tresgrand'];
 export type ProWall = 'montagne' | 'nuit' | 'aurore' | 'maree' | 'braise';
@@ -59,12 +59,14 @@ export interface Settings {
   textSize: TextSize;
   theme: ThemeMode;
   style: UiStyle;
-  /** « Affichage Pro » (Profil › Apparence): a dark world on a wallpaper, the floating icon bar, the dashboard of
+  /** « Affichage Pro » (Réglages › Apparence): a dark world on a wallpaper, the floating icon bar, the dashboard of
    *  coloured tiles, the focus timer in the notch. Over the theme and style, which come back when it is turned off. */
   pro: boolean;
+  /** The account has been moved to the Affichage Pro once (the default look since November 2026): after that, the choice in Réglages stays. */
+  proDefault: boolean;
   proWall: ProWall;
   language: Language;
-  /** The spaces of the navigation in the order chosen (Profil › Apparence) or given by the questionnaire (lib/navOrder);
+  /** The spaces of the navigation in the order chosen (Réglages › Apparence) or given by the questionnaire (lib/navOrder);
    *  null: derived from `usage` and `needs`. */
   navOrder?: SpaceKey[] | null;
   // Kompaly
@@ -79,7 +81,7 @@ export interface Settings {
   personaNotes: string; // free instructions written by the student (max 600 chars)
   morningBrief: boolean; // « ta journée en 3 lignes »
   weeklyReview: boolean; // Sunday evening review
-  /** « Mode simple uniquement » (Profil › Kompaly): nothing goes to an AI, Kompaly answers on the device only. */
+  /** « Mode simple uniquement » (Réglages › Kompaly): nothing goes to an AI, Kompaly answers on the device only. */
   simpleOnly: boolean;
   // studies
   focusMinutes: number;
@@ -138,7 +140,8 @@ export const DEFAULT_SETTINGS: Settings = {
   textSize: 'normal',
   theme: 'auto', // follows the device until the student picks one
   style: 'classique',
-  pro: false,
+  pro: true,
+  proDefault: false,
   proWall: 'montagne',
   language: 'fr',
   navOrder: null,

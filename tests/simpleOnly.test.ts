@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 // @ts-expect-error -- server module in plain JavaScript
 import { handleCopilot } from '../server/copilot.mjs';
 
-// « Mode simple uniquement » (Profil › Kompaly): the server sends nothing to the AI, even if an old tab still asks.
+// « Mode simple uniquement » (Réglages › Kompaly): the server sends nothing to the AI, even if an old tab still asks.
 const env = { AI_PROVIDER: 'anthropic', AI_API_KEY: 'cle-de-test' };
 
 function post(url: string, body: unknown) {

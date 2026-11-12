@@ -346,7 +346,7 @@ export function startReminders(id: string): () => void {
   };
 }
 
-/** After notifications were turned on or off on this device (Profil › Notifications). */
+/** After notifications were turned on or off on this device (Réglages › Notifications). */
 export async function devicePushChanged() {
   push = await pushActive().catch(() => false);
   plan();

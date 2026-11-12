@@ -1,4 +1,4 @@
-// The app's global keyboard shortcuts (layout/AppShell), as listed in Profil › Raccourcis:
+// The app's global keyboard shortcuts (layout/AppShell), as listed in Réglages › Raccourcis:
 //   ?  the shortcuts · /  the search (like Ctrl+K) · N  the page's « + » · G then A C T N D E P  a space
 //   Ctrl+J (⌘J)  opens or closes Kompaly, even when his character is hidden.
 // Single keys never fire while typing (field, text area, list, editable text), with another modifier, or under a

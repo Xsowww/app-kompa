@@ -215,7 +215,7 @@ export function guessCategory(title: string, timed = false, custom?: CustomCateg
 }
 
 /**
- * A new event. Made here (not imported): the usual reminder (Profil › Notifications) if it has a time, and the early
+ * A new event. Made here (not imported): the usual reminder (Réglages › Notifications) if it has a time, and the early
  * ones of a big day, unless it says otherwise. (« Aucun » as the usual one: [] kept, so changing the usual reminder
  * later doesn't add one to it.)
  */

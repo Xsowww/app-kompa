@@ -111,7 +111,7 @@ describe('focus session', () => {
   });
 });
 
-describe('Profil › Raccourcis', () => {
+describe('Réglages › Raccourcis', () => {
   it('writes the keys for Windows and Linux, and with the Mac’s symbols', () => {
     expect(keyChips('Ctrl+K · /', false)).toEqual([['Ctrl + K'], ['/']]);
     expect(keyChips('G, A', false)).toEqual([['G', 'A']]);

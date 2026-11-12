@@ -3,9 +3,8 @@ import { SelectField, TimeField } from '../../components/Pickers';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   User, Palette, Sparkles, GraduationCap, Bell, Database, ShieldCheck, Camera, Check, Download, Upload, CalendarArrowUp, LogOut, Trash2, ChevronRight,
-  HardDrive, Smartphone, Keyboard, Briefcase, House, UserPlus, MessageSquareText, FolderDown, Compass, Mail, Megaphone, Settings2, ChevronLeft,
+  HardDrive, Smartphone, Keyboard, Briefcase, House, UserPlus, MessageSquareText, FolderDown, Mail, Megaphone, Settings2, ChevronLeft,
 } from 'lucide-react';
-import { startTour } from '../../store/tour';
 import { GESTURES, IS_MAC, MARKDOWN, SHORTCUTS, keyChips } from './shortcuts';
 import { openFeedback } from '../../lib/feedback';
 import { openNews } from '../../lib/news';
@@ -1476,8 +1475,6 @@ export default function ProfilePage() {
                 {pro && <HeadIcon icon={Trash2} label={trash ? tn(trash, 'Corbeille, {n} élément', 'Corbeille, {n} éléments') : t('Corbeille')} onClick={() => navigate('/corbeille')} />}
               </span>
               <HeadIcon icon={MessageSquareText} label={t('Donner mon avis ou signaler un bug')} onClick={() => openFeedback()} />
-              {/* Also asked to Kompaly (« fais-moi visiter »). It starts on the home page. */}
-              <HeadIcon icon={Compass} label={t('Revoir la visite guidée')} onClick={startTour} />
               <HeadIcon icon={Settings2} label={t('Réglages')} onClick={() => go('apparence')} />
             </div>
           )}

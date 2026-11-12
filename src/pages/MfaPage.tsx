@@ -12,7 +12,7 @@ import { toast } from '../store/ui';
 import { t } from '../i18n';
 
 /**
- * Second factor, optional: turned on from Profile › Account, where the student scans a QR code with
+ * Second factor, optional: turned on from Settings › Account, where the student scans a QR code with
  * their phone camera (or an authenticator app); the phone then shows a 6-digit code that changes
  * every 30 s, asked here at each new sign-in.
  */

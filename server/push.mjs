@@ -111,7 +111,7 @@ export async function pushToUser(userId, payload, except = '') {
 export const pushStatus = { active: false, lastRun: null, lastError: null, lastCode: null, lastHint: null, sent: 0 };
 
 /**
- * The group news nobody wants (Profil › Notifications): that of all groups, or of all shared calendars, for those
+ * The group news nobody wants (Réglages › Notifications): that of all groups, or of all shared calendars, for those
  * who turned it off, and that of each group or calendar muted by its bell. Returns a test: true when the row must stay quiet.
  */
 async function newsOff(rows) {

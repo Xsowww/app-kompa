@@ -63,7 +63,7 @@ interface CopilotState {
   pose: CopilotPose;
   bubble: Bubble | null;
   thinking: boolean;
-  /** The AI can be asked: the server has one and « Mode simple uniquement » is off (Profil › Kompaly). */
+  /** The AI can be asked: the server has one and « Mode simple uniquement » is off (Réglages › Kompaly). */
   aiEnabled: boolean;
   /** The server has an AI (/api/copilot/status), whatever the person chose. */
   aiServer: boolean;

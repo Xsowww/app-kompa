@@ -361,7 +361,7 @@ function AccountSwitch({ currentId, avatar, pro, news = 0 }: { currentId: string
       if (r === 'credentials') void useAuth.getState().addAccount(a.email);
     });
   };
-  // As in Profile › Account › Session.
+  // As in Settings › Account › Session.
   const logout = async () => {
     if (!(await confirmLogout())) return;
     await useAuth.getState().logout();
@@ -411,7 +411,7 @@ function AccountSwitch({ currentId, avatar, pro, news = 0 }: { currentId: string
 
 export default function AppShell() {
   const usage = useSettings(st => st.usage);
-  // Affichage Pro (Profil › Apparence): the floating pill of icons instead of the side bar, the top right cluster.
+  // Affichage Pro (Réglages › Apparence): the floating pill of icons instead of the side bar, the top right cluster.
   const pro = useSettings(st => st.pro);
   // The pill exists on computers only (themes.css › pro-rail, 64rem): not built, nor kept up to date, on phones.
   const wide = useMedia('(min-width: 64rem)');
@@ -529,7 +529,10 @@ export default function AppShell() {
   // Affichage Pro: no window opening by itself; a red number on « Nouveautés » (and a dot on the avatar of phones) says
   // there is something to read until it is opened.
   useEffect(() => {
-    if (useSettings.getState().pro || !newsToShow(useSettings.getState().newsSeen, user.createdAt)) return;
+    if (!newsToShow(useSettings.getState().newsSeen, user.createdAt)) return;
+    // …except the presentation of the new look, once, on the home page, to an account from before it.
+    const newLook = latestRelease.look === 'island' && user.createdAt.slice(0, 10) < latestRelease.id && window.location.pathname === '/';
+    if (useSettings.getState().pro && !newLook) return;
     const id = setTimeout(openNews, 1500);
     return () => clearTimeout(id);
   }, [user.id, user.createdAt]);

@@ -83,7 +83,7 @@ function Setup() {
   const error = useRecLive(st => st.startError);
   const setError = (startError: string) => useRecLive.setState({ startError });
   const [server, setServer] = useState<{ transcription: boolean; audioLeft?: number; audioMax?: number } | null>(null);
-  // « Mode simple uniquement » (Profil › Kompaly): the sound would go to an AI, so no recording.
+  // « Mode simple uniquement » (Réglages › Kompaly): the sound would go to an AI, so no recording.
   const simpleOnly = useSettings(s => s.simpleOnly);
   useEffect(() => {
     // No answer at all (no server, network): said like a server without transcription.
@@ -196,7 +196,7 @@ function Setup() {
       {simpleOnly ? (
         <p className="rounded-xl bg-stone-100 px-3 py-2.5 text-[13px] text-stone-700">
           {t('Le mode simple uniquement est activé : l’enregistrement écrit passe par une IA, il est donc coupé. Pour enregistrer, désactive-le dans')}{' '}
-          <Link to="/profil?onglet=copilot" className="font-semibold underline underline-offset-2">{t('Profil › Kompaly')}</Link>.
+          <Link to="/profil?onglet=copilot" className="font-semibold underline underline-offset-2">{t('Réglages › Kompaly')}</Link>.
         </p>
       ) : server && !server.transcription ? (
         <p className="text-[13px] text-amber-800">{t('La transcription est indisponible pour le moment.')}</p>

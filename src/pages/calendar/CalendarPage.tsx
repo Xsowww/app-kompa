@@ -932,7 +932,7 @@ export default function CalendarPage() {
                 forWho={forWho}
                 onForWho={setForWho}
               />
-              {/* Mine: not on phones, where the row has no room for it (Profil › Données exports too). A shared calendar
+              {/* Mine: not on phones, where the row has no room for it (Réglages › Données exports too). A shared calendar
                   has no title on this row: its export fits there, and is the only one. Importing: the « + » button. */}
               <button
                 className={cx('icon-btn h-8 w-8 disabled:opacity-40', shared ? 'inline-flex pointer-coarse:h-9 pointer-coarse:w-9' : 'hidden sm:inline-flex')}

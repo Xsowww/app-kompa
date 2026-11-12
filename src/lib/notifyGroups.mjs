@@ -7,7 +7,7 @@
 export const groupOfUrl = url => /[?&]g=([0-9a-f-]{36})/i.exec(String(url ?? ''))?.[1] ?? null;
 
 /**
- * Group news that must stay quiet for this person (Profil › Notifications, the bell of each group):
+ * Group news that must stay quiet for this person (Réglages › Notifications, the bell of each group):
  * `prefs` as read from their settings ({ news: groupNews, cal: calendarNews, muted: mutedGroups }), strings
  * 'true'/'false' or null. calendarNews never set: shared calendars follow groupNews (one switch for both until 2026-11).
  */
@@ -28,7 +28,7 @@ export const familyOf = key => {
   return prefix === 'event' || prefix === 'task' || prefix === 'rappel-agenda' ? 'rappel' : prefix;
 };
 
-/** The news of groups and shared calendars (Profil › Notifications can turn them off). */
+/** The news of groups and shared calendars (Réglages › Notifications can turn them off). */
 export const isGroupNews = key => ['agenda', 'agenda-membre', 'periode', 'fichiers', 'note', 'revision', 'membre'].includes(String(key).split(':')[0]);
 
 /** Due within `windowMs` of the first of their group (list sorted by `fireAt`), and of the same kind. */

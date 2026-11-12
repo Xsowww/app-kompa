@@ -2,7 +2,7 @@ import { deviceState, serviceWorker } from './push';
 import { notificationButtons } from './reminders';
 import { locale } from '../i18n';
 
-/** True when this device may show system notifications (allowed by the browser and in Profil › Notifications). */
+/** True when this device may show system notifications (allowed by the browser and in Réglages › Notifications). */
 export const canNotify = () => typeof window !== 'undefined' && deviceState() === 'on';
 
 /**
