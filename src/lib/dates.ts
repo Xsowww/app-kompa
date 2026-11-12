@@ -85,8 +85,14 @@ export interface ParsedQuickAdd {
   rule?: RepeatRule;
 }
 
-// The verb before « à la … » / « au … » that speaks of a thing or a person, not of a place.
-const NOT_PLACE = /^(?:penser|pense|repenser|reflechir|repondre|reponse|dire|parler|ecrire|telephoner|demander|jouer|participer|inscrire|inscription|renoncer|merci|grace|suite|attention|rappeler|rappel)$/;
+// The word before « à la … » / « au … » / « aux … » that speaks of a thing or a person, not of a place: a verb
+// (« penser à la lessive »), a noun that goes with « à » (« mise aux normes », « formation aux premiers secours »,
+// « aide aux devoirs ») or a dish (« tarte aux pommes »).
+const NOT_PLACE =
+  /^(?:penser|pense|repenser|reflechir|repondre|reponse|dire|parler|ecrire|telephoner|demander|jouer|participer|inscrire|inscription|renoncer|merci|grace|suite|attention|rappeler|rappel|(?:re)?mises?|formations?|initiation|introduction|preparation|preparer|sensibilisation|aide|aider|soutien|acces|passage|passer|adaptation|raccordement|branchement|conformite|conforme|droit|face|rapport|relatif|relative|liee?s?|due?s?|retour|reprise|candidature|candidater|postuler|adhesion|abonnement|tartes?|gateaux?|pates|soupe|poulet|crepes|pains?|sauce|glace|cafe|the|pizza|salade|riz|gratin|quiche|mousse|moules|tarif|prix|ventes?|cadeaux?|lettre|mail|message)$/;
+// « Chantier Dupuis - mise aux normes tableau »: what follows a dash or a colon describes the event; a place is
+// only read there when it comes first (« Réunion - à la mairie »).
+const AFTER_DASH = /\s[-–—:]\s+\S/;
 
 const hm = (h: string | number, m?: string) => (Number(h) < 24 && Number(m ?? 0) < 60 ? `${String(h).padStart(2, '0')}:${m ?? '00'}` : null);
 
@@ -483,7 +489,7 @@ function readQuickAdd(input: string, base: Date, language: Lang, extras: boolean
     const value = word === 'chez' || word.endsWith('salle') ? text.slice(where.index! + 1, where.index! + where[0].length).trim() : raw;
     // « Penser à la lessive », « Répondre à la prof », « Jouer au foot »: what is to do, not where. Nor a phone number.
     const before = n().slice(0, where.index).trim().split(' ').pop() ?? '';
-    const about = word !== 'chez' && !word.endsWith('salle') && NOT_PLACE.test(before);
+    const about = word !== 'chez' && !word.endsWith('salle') && (NOT_PLACE.test(before) || AFTER_DASH.test(text.slice(0, where.index)));
     if (value && !about && !/^[\d\s.+-]+$/.test(value) && text.slice(0, where.index).trim()) {
       place = value.charAt(0).toUpperCase() + value.slice(1);
       remove(where);
