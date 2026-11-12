@@ -908,6 +908,35 @@
 @media (max-width: 359px) {
   .pro-tab { width: 46px; height: 46px; }
 }
+/* A word under each icon (visitors' test: icons alone, one has to tap to know), where the six fit: from 360 px wide,
+   not sideways. Its size does not follow « Taille du texte » (the bar has no room to grow). [data-icons]: the words
+   would not fit (AppShell › PhoneTabBar measures): icons only, never a word cut. */
+.pro-tab-word { display: none; }
+@media (min-width: 360px) and (min-height: 501px) {
+  .pro-tabbar:not([data-icons]) .pro-tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    width: auto;
+    min-width: 50px;
+    height: 52px;
+    padding: 0 7px;
+  }
+  .pro-tabbar:not([data-icons]) .pro-tab-word {
+    display: block;
+    white-space: nowrap;
+    font-size: 10.5px;
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+  }
+  .pro-tabbar:not([data-icons]) .pro-tab svg { width: 20px; height: 20px; }
+}
+@media (min-width: 390px) and (min-height: 501px) {
+  .pro-tabbar:not([data-icons]) .pro-tab { min-width: 54px; }
+}
 @media (max-height: 500px) and (width < 64rem) {
   .pro-tab { width: 58px; height: 40px; }
   .pro-tabbar { padding: 4px; }
@@ -1045,6 +1074,34 @@
   background-color: rgb(255 255 255 / 0.94);
   color: #14161f;
   box-shadow: var(--pro-shadow-sm);
+}
+/* Welcome questionnaire (pages/WelcomePage): what is chosen is white, as every chosen pill; what is not keeps an
+   outline plain to see on the wallpaper, its box to tick too. */
+:root[data-pro][data-style][data-theme] .welcome-chip[aria-pressed='false'] {
+  border-color: rgb(255 255 255 / 0.3);
+}
+:root[data-pro][data-style][data-theme] .welcome-chip[aria-pressed='true'] {
+  border-color: transparent;
+  background-color: rgb(255 255 255 / 0.94);
+  color: #14161f;
+  box-shadow: var(--pro-shadow-sm);
+  --tw-ring-color: transparent;
+}
+:root[data-pro][data-style][data-theme] .welcome-choice[aria-pressed='false'] {
+  border-color: rgb(255 255 255 / 0.22);
+}
+:root[data-pro][data-style][data-theme] .welcome-choice[aria-pressed='true'] {
+  border-color: rgb(255 255 255 / 0.9);
+  background-color: rgb(255 255 255 / 0.13);
+  --tw-ring-color: rgb(255 255 255 / 0.9);
+}
+:root[data-pro][data-style][data-theme] .welcome-box {
+  border-color: rgb(255 255 255 / 0.62);
+}
+:root[data-pro][data-style][data-theme] .welcome-box[data-on] {
+  border-color: #fff;
+  background-color: #fff;
+  color: #14161f;
 }
 /* Switches turned on: green, as on an iPhone. */
 :root[data-pro][data-style][data-theme] [role='switch'][aria-checked='true'] {

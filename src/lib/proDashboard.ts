@@ -28,6 +28,21 @@ export function dayTasks(todos: Todo[], today: string) {
   return { late, due, done, next, total: late.length + due.length + done.length };
 }
 
+/**
+ * A brand-new account gets a lighter home (the greeting, what comes next, today's tasks and « ajoute ta première
+ * chose »): the numbers, the rings, the week chart, « Concentration » and the rewards meant nothing to someone who has
+ * done nothing yet. The whole home comes as soon as ONE of these is true:
+ *  · a task has been ticked (`todos`: without the guided tour's own task),
+ *  · a concentration session has been logged,
+ *  · the account is `STARTER_DAYS` days old or more (or its age is unknown).
+ */
+export const STARTER_DAYS = 3;
+export function starterHome(a: { createdAt?: string; todos: Pick<Todo, 'done'>[]; sessions: unknown[] }, now: Date): boolean {
+  if (a.todos.some(x => x.done) || a.sessions.length > 0) return false;
+  const born = a.createdAt ? new Date(a.createdAt).getTime() : NaN;
+  return Number.isFinite(born) && now.getTime() - born < STARTER_DAYS * 864e5;
+}
+
 /** Minutes of concentration logged on a local day. */
 export const focusOn = (sessions: FocusSession[], day: string) =>
   sessions.reduce((n, s) => (toKey(new Date(s.startedAt)) === day ? n + s.minutes : n), 0);

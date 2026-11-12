@@ -1,4 +1,4 @@
-import { Fragment, lazy, Suspense, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { Fragment, lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { LayoutGrid, NotebookText, Search, FileText, Folder, CalendarClock, Settings2, ChartNoAxesColumn, ListChecks, Trash2, ArrowLeftRight, UserRound, UserPlus, LogOut,  Sparkles, CornerDownLeft, X } from 'lucide-react';
 import { EmptyState } from '../components/EmptyState';
@@ -898,7 +898,8 @@ function PhoneTabBar({ order, news, label, extra, pro }: { order: SpaceKey[]; ne
   }, [open]);
 
   // Sideways (short): the icon beside its name, on one line, a lower bar.
-  // Affichage Pro: icons only, round, the white bubble sliding under the chosen one (index.css › pro-tab).
+  // Affichage Pro: round, the white bubble sliding under the chosen one (themes.css › pro-tab), a word under each icon
+  // where the bar has room for all of them (not at 320 px, nor sideways: icons only there, never a word cut).
   const tab = (active: boolean) =>
     pro
       ? cx('pro-tab', active ? 'text-[#14161f]' : 'text-white/65 hover:text-white')
@@ -906,6 +907,20 @@ function PhoneTabBar({ order, news, label, extra, pro }: { order: SpaceKey[]; ne
       // as its name, the room left shared out, so « Calendrier » or « Enregistrer » fit whole down to 320 px.
       : cx('flex min-w-0 flex-auto flex-col items-center gap-0.5 rounded-[17px] px-0.5 py-1.5 text-fix-12 font-semibold tracking-[-0.03em] transition-colors min-[400px]:text-[min(0.75rem,14px)] min-[400px]:tracking-[-0.01em] short:flex-row short:justify-center short:gap-1.5 short:py-2 short:text-[12px] [&_svg]:shrink-0', active ? 'bg-white text-[#14161f]' : 'text-white/60 hover:text-white');
   const Shown = current?.icon ?? LayoutGrid;
+  // The words under the icons would make the bar wider than the screen (a long name, another language): icons only.
+  const shownWord = current ? (current as { short?: string }).short || label(current) : '';
+  const tabs = order.join();
+  useLayoutEffect(() => {
+    const el = bar.current;
+    if (!pro || !el) return;
+    const fit = () => {
+      el.removeAttribute('data-icons');
+      if (el.getBoundingClientRect().width > window.innerWidth - 16) el.setAttribute('data-icons', '');
+    };
+    fit();
+    window.addEventListener('resize', fit);
+    return () => window.removeEventListener('resize', fit);
+  }, [pro, open, shownWord, tabs]);
   const bubble = useBubble(bar, '[aria-current="page"], [data-here]', [pathname, open, pro, order.join()]);
 
   return (
@@ -946,11 +961,11 @@ function PhoneTabBar({ order, news, label, extra, pro }: { order: SpaceKey[]; ne
       >
         {pro && <Bubble at={bubble} />}
         {main.map(n => (
-          <NavLink key={n.to} to={n.to} end={n.end} data-tab={n.to} draggable={false} className={({ isActive }) => tab(isActive)} aria-label={pro && news(n.to) ? `${label(n)}, ${tn(news(n.to), '{n} nouveauté', '{n} nouveautés')}` : undefined}>
+          <NavLink key={n.to} to={n.to} end={n.end} data-tab={n.to} draggable={false} className={({ isActive }) => tab(isActive)} aria-label={pro ? (news(n.to) ? `${label(n)}, ${tn(news(n.to), '{n} nouveauté', '{n} nouveautés')}` : label(n)) : undefined}>
             {({ isActive }) => (
               <>
                 <n.icon size={pro ? 21 : 19} strokeWidth={isActive ? 2.2 : 1.9} style={{ color: isActive ? n.color : undefined }} />
-                <span className={pro ? 'sr-only' : 'max-w-full truncate'}>{(n as { short?: string }).short || label(n)}</span>
+                <span className={pro ? 'pro-tab-word' : 'max-w-full truncate'} aria-hidden={pro || undefined}>{(n as { short?: string }).short || label(n)}</span>
                 {pro && news(n.to) > 0 && (
                   <span aria-hidden className="pro-count tabular">
                     {news(n.to) > 9 ? '9+' : news(n.to)}
@@ -978,7 +993,7 @@ function PhoneTabBar({ order, news, label, extra, pro }: { order: SpaceKey[]; ne
             {open ? <X size={pro ? 21 : 19} strokeWidth={2.2} /> : <Shown size={pro ? 21 : 19} strokeWidth={current ? 2.2 : 1.9} style={{ color: current ? current.color : undefined }} />}
             {!open && moreNews && <span className={cx('absolute -right-1 -top-0.5 h-2 w-2 rounded-full bg-red-500 ring-2', current ? 'ring-white' : 'ring-tile-dark')} aria-hidden />}
           </span>
-          <span className={pro ? 'sr-only' : 'max-w-full truncate'}>{open ? t('Fermer') : current ? ((current as { short?: string }).short || label(current)) : t('Plus')}</span>
+          <span className={pro ? 'pro-tab-word' : 'max-w-full truncate'} aria-hidden={pro || undefined}>{open ? t('Fermer') : current ? ((current as { short?: string }).short || label(current)) : t('Plus')}</span>
         </button>
       </nav>
     </>

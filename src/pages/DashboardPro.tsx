@@ -15,10 +15,10 @@ import { isTourTodo, startTour } from '../store/tour';
 import { toast } from '../store/ui';
 import { fmt, fmtDay, toKey, fromKey, weekStart, daysUntil, hasStarted, isOver, countdownLabel, toMinutes } from '../lib/dates';
 import { relativeTime, cx } from '../lib/utils';
-import { WORDS } from '../lib/usage';
+import { WORDS, bigDayWords } from '../lib/usage';
 import { periodColor, periodText, periodTint, periodUntil, periodsOn } from '../lib/periods';
 import { weekItems } from '../lib/weekProgress';
-import { axisMarks, dayTasks, focusOn, ringRatio, subjectsOf, taskBigDay, taskSubject, weekDays, weekDelta, type Subject } from '../lib/proDashboard';
+import { axisMarks, dayTasks, focusOn, ringRatio, starterHome, subjectsOf, taskBigDay, taskSubject, weekDays, weekDelta, type Subject } from '../lib/proDashboard';
 import { hasRevisionPlan, revisionNote, revisionSessions, linkToDay, linkToNote } from '../copilot/actions';
 import { runOffer } from '../copilot/offers';
 import { formatMinutes } from './tasks/focusStats';
@@ -146,6 +146,8 @@ function TaskRow({ x, today, subject, bigDay }: { x: Todo; today: string; subjec
 export default function DashboardPro() {
   const words = WORDS[useSettings(st => st.usage)] ?? WORDS.etudes;
   const usage = useSettings(st => st.usage);
+  // « Prochain examen » or, for a doctoral student, « Prochain grand jour ».
+  const big = bigDayWords(usage, useSettings(st => st.year));
   const revisionTime = useSettings(st => st.revisionTime) || '18:00';
   const periods = useSettings(st => st.periods);
   const focusMinutes = useSettings(st => st.focusMinutes);
@@ -178,6 +180,14 @@ export default function DashboardPro() {
   const after = queue.slice(1, 4);
 
   const tasks = dayTasks(todos, today);
+  // The numbers (chips, rings, week) all count the same tasks: not the guided tour's own task, which sat in the week's
+  // sentence (« 0 tâche sur 1 ») and not in the day's (« 0 / 0 »). The lists still show it.
+  const counted = todos.filter(x => !isTourTodo(x.title));
+  const count = dayTasks(counted, today);
+  // A brand-new account: a lighter home (lib/proDashboard › starterHome says until when). Decided when the page opens:
+  // nothing changes place under the finger that ticks the first task.
+  const [starter] = useState(() => starterHome({ createdAt: user.createdAt, todos: counted, sessions }, new Date()));
+  const nothingYet = starter && !events.length && !counted.length;
   const runningMinutes = running ? Math.max(0, Math.floor(((running.minutes || focusMinutes) * 60_000 - focusLeft(running)) / 60_000)) : 0;
   const focusToday = focusOn(sessions, today) + runningMinutes;
   const goal = GOAL_BLOCKS * focusMinutes;
@@ -197,7 +207,7 @@ export default function DashboardPro() {
 
   // ── The week ──
   const monday = toKey(weekStart(now));
-  const week = weekDays(todos, sessions, monday, today);
+  const week = weekDays(counted, sessions, monday, today);
   week.find(d => d.when === 'today')!.focus += runningMinutes;
   const kind = metric ?? (week.some(d => d.focus) ? 'focus' : 'tasks');
   const values = week.map(d => d[kind]);
@@ -206,8 +216,8 @@ export default function DashboardPro() {
   const marks = axisMarks(Math.max(...(tasksChart ? week.map(d => d.planned) : values)), kind);
   const top = marks[0];
   const weekTotal = values.reduce((a, b) => a + b, 0);
-  const delta = weekDelta(todos, sessions, monday, today, kind);
-  const { total: weekPlanned, done: weekDone, left: weekLeft } = weekItems(todos, monday, toKey(addDays(fromKey(monday), 6)));
+  const delta = weekDelta(counted, sessions, monday, today, kind);
+  const { total: weekPlanned, done: weekDone, left: weekLeft } = weekItems(counted, monday, toKey(addDays(fromKey(monday), 6)));
   // The first one to do (a late one first, as in « À faire »).
   const nextWeek = weekLeft[0];
   const nextWeekLate = !!nextWeek?.due && nextWeek.due < today;
@@ -295,13 +305,13 @@ export default function DashboardPro() {
           )}
         </div>
 
-        {/* ── The day in three numbers ── */}
-        <div className="dpro-stats">
+        {/* ── The day in three numbers (not on a brand-new account's home) ── */}
+        {!starter && <div className="dpro-stats">
           <Link to="/taches" className="dpro-stat" style={{ '--c': 'var(--pro-tasks)' } as CSSProperties}>
             <span>{t('Faites aujourd’hui')}</span>
             <b className="tabular">
-              {tasks.done.length}
-              <small> / {tasks.total}</small>
+              {count.done.length}
+              <small> / {count.total}</small>
             </b>
           </Link>
           {/* The timer lives in the island: its « Concentration » view opens, the page stays. */}
@@ -335,12 +345,28 @@ export default function DashboardPro() {
               {periodUntil(p, today) && <span>· {periodUntil(p, today)}</span>}
             </Link>
           ))}
-        </div>
+        </div>}
 
         <div className="dpro-wrap">
-          <div className="dpro-grid">
-            {/* ── The next big day ── */}
-            <Panel i={n++} title={notExam ? t('Prochain grand jour') : words.nextBig} className={cx('dpro-big', nextExam && 'is-set')}>
+          <div className={cx('dpro-grid', starter && 'is-starter')}>
+            {/* ── A brand-new account with nothing in it: one clear way in ── */}
+            {nothingYet && (
+              <Panel i={n++} title={t('Ajoute ta première chose')} className="dpro-start">
+                <p className="dpro-start-text">{t('Un rendez-vous, un cours, une chose à faire : écris-le comme tu le dirais, Kompaly le range et te le rappelle.')}</p>
+                <p className="dpro-start-example">{t('Par exemple : « {example} »', { example: words.quickExample })}</p>
+                <div className="dpro-start-actions">
+                  <Link to="/calendrier?ajout=1" className="dpro-btn is-white">
+                    <Plus size={15} aria-hidden /> {t('Nouvel événement')}
+                  </Link>
+                  <Link to="/taches?ajout=1" className="dpro-btn">
+                    <Plus size={15} aria-hidden /> {t('Nouvelle tâche')}
+                  </Link>
+                </div>
+              </Panel>
+            )}
+
+            {/* ── The next big day (a brand-new account: only when there is one) ── */}
+            {(!starter || nextExam) && <Panel i={n++} title={notExam ? t('Prochain grand jour') : big.nextBig} className={cx('dpro-big', nextExam && 'is-set')}>
               {nextExam ? (
                 <div className="flex flex-1 flex-col">
                   <Link to={linkToDay(nextExam.date, nextExam.id)} className="dpro-big-main">
@@ -414,13 +440,13 @@ export default function DashboardPro() {
                 </div>
               ) : (
                 <div className="dpro-empty is-left">
-                  <p>{words.noBig}</p>
+                  <p>{big.noBig}</p>
                   <p className="dpro-hint">
                     <Flag size={12} aria-hidden /> {t('Marque un événement important pour le voir ici.')}
                   </p>
                 </div>
               )}
-            </Panel>
+            </Panel>}
 
             {/* ── Tasks of the day ── */}
             <Panel
@@ -458,7 +484,7 @@ export default function DashboardPro() {
             </Panel>
 
             {/* ── Up next: the next event lit up, then the following ones ── */}
-            <Panel i={n++} title={t('À suivre')} to="/calendrier" link={t('Calendrier')} linkLabel={t('Ouvrir le calendrier')} className="dpro-next">
+            {(!starter || next) && <Panel i={n++} title={t('À suivre')} to="/calendrier" link={t('Calendrier')} linkLabel={t('Ouvrir le calendrier')} className="dpro-next">
               {next ? (
                 <>
                   <Link to={eventLink(next)} className="dpro-up" style={{ '--c': catOf(next.category).color } as CSSProperties}>
@@ -509,18 +535,18 @@ export default function DashboardPro() {
                   </Link>
                 </div>
               )}
-            </Panel>
+            </Panel>}
 
-            {/* ── Today: three rings to close ── */}
-            <Panel i={n++} title={t('Aujourd’hui')} sub={t('Ferme tes anneaux')} className="dpro-today">
+            {/* ── Today: three rings to close (once the account has some activity) ── */}
+            {!starter && <Panel i={n++} title={t('Aujourd’hui')} sub={t('Ta journée en trois cercles')} className="dpro-today">
               <div className="dpro-rings-row">
-                <Rings values={[ringRatio(tasks.done.length, tasks.total), ringRatio(focusToday, goal), ringRatio(meetDone, todayEvents.length)]} />
+                <Rings values={[ringRatio(count.done.length, count.total), ringRatio(focusToday, goal), ringRatio(meetDone, todayEvents.length)]} />
                 <ul className="dpro-legend">
                   <li style={{ '--c': 'var(--pro-tasks)' } as CSSProperties}>
                     <span>{t('Tâches')}</span>
                     <b className="tabular">
-                      {tasks.done.length}
-                      <small> / {tasks.total}</small>
+                      {count.done.length}
+                      <small> / {count.total}</small>
                     </b>
                   </li>
                   <li style={{ '--c': 'var(--pro-focus)' } as CSSProperties} title={t('Objectif : {n} blocs de {m} min', { n: GOAL_BLOCKS, m: focusMinutes })}>
@@ -539,10 +565,10 @@ export default function DashboardPro() {
                   </li>
                 </ul>
               </div>
-            </Panel>
+            </Panel>}
 
             {/* ── The week: bars per day, today lit up, the days to come ghosted ── */}
-            <Panel
+            {!starter && <Panel
               i={n++}
               title={t('Ma semaine')}
               sub={
@@ -611,7 +637,7 @@ export default function DashboardPro() {
               <div className="dpro-cheer">
                 <p>
                   {/* Only the count (asked: the words after it repeated it). */}
-                  <span className="tabular">{tn(weekDone, '{n} tâche sur {total} faite cette semaine.', '{n} tâches sur {total} faites cette semaine.', { total: weekPlanned })}</span>
+                  <span className="tabular">{!weekPlanned ? t('Rien à faire d’ici dimanche.') : tn(weekDone, '{n} tâche sur {total} faite cette semaine.', '{n} tâches sur {total} faites cette semaine.', { total: weekPlanned })}</span>
                 </p>
                 {/* The next one to tick, the most urgent first (a late one, as in « À faire »), on its own line: cut with « … ». */}
                 {nextWeek && (
@@ -622,10 +648,10 @@ export default function DashboardPro() {
                   </Link>
                 )}
               </div>
-            </Panel>
+            </Panel>}
 
             {/* ── Notes ── */}
-            <Panel i={n++} title={t('Notes récentes')} to="/notes" link={t('Notes')} linkLabel={t('Ouvrir les notes')} className="dpro-notes">
+            {(!starter || recentNotes.length > 0) && <Panel i={n++} title={t('Notes récentes')} to="/notes" link={t('Notes')} linkLabel={t('Ouvrir les notes')} className="dpro-notes">
               {recentNotes.length ? (
                 <ul className="dpro-note-list">
                   {recentNotes.map(x => (
@@ -646,13 +672,13 @@ export default function DashboardPro() {
                   </Link>
                 </div>
               )}
-            </Panel>
+            </Panel>}
           </div>
         </div>
 
         {/* The shortcuts after the cards: the big day, the tasks and what comes next are the first things seen. */}
         <div className="dpro-shortcuts">
-          <HomeShortcuts />
+          <HomeShortcuts starter={starter} />
         </div>
       </div>
     </div>

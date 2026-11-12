@@ -20,10 +20,12 @@ export interface StatusGroup {
   title: string;
   options: string[];
 }
+const COLLEGE = t('Collège');
 const LYCEE = [t('Seconde'), t('Première'), t('Terminale')];
 const FAC = [t('L1'), t('L2'), t('L3'), t('M1'), t('M2'), t('Doctorat')];
 export const STATUS_GROUPS: StatusGroup[] = [
-  { usage: 'etudes', title: t('Au lycée'), options: LYCEE },
+  // Collège too: Kompaly is open before 15 with a parent's agreement.
+  { usage: 'etudes', title: t('Au collège ou au lycée'), options: [COLLEGE, ...LYCEE] },
   { usage: 'etudes', title: t('À la fac'), options: FAC },
   { usage: 'etudes', title: t('Autres études'), options: [t('BTS / BUT'), t('Prépa'), t('Alternance'), t('École')] },
   { usage: 'travail', title: t('Au travail'), options: [t('Salarié·e'), t('Indépendant·e / freelance'), t('Enseignant·e'), t('Alternance'), t('Association')] },
@@ -42,8 +44,8 @@ export function statusGroups(usages: readonly Usage[]): StatusGroup[] {
   );
 }
 
-/** A high-school pupil: no « partiels », no « fac » in the examples. */
-export const isLycee = (year: string) => LYCEE.includes(year) || year === t('Lycée');
+/** A secondary-school pupil (collège or lycée): no « partiels », no « fac » in the examples. */
+export const isLycee = (year: string) => year === COLLEGE || LYCEE.includes(year) || year === t('Lycée');
 
 /**
  * « Ce que tu veux faire » (settings › needs, read by the AI and by lib/navOrder): its keys are part of the shared
@@ -55,7 +57,7 @@ export function needOptions(a: Pick<WelcomeAnswers, 'usage' | 'usages' | 'year'>
   const work = usages.includes('travail');
   const list = [
     { key: 'agenda', label: t('Ne rien oublier (agenda, rappels)') },
-    studies && { key: 'reviser', label: isLycee(a.year) ? t('Réviser mes contrôles et le bac') : t('Réviser mes examens') },
+    studies && { key: 'reviser', label: a.year === COLLEGE ? t('Réviser mes contrôles et le brevet') : isLycee(a.year) ? t('Réviser mes contrôles et le bac') : t('Réviser mes examens') },
     {
       key: 'enregistrer',
       label: a.usage === 'travail' ? t('Enregistrer mes réunions (compte rendu)') : a.usage === 'perso' ? t('Enregistrer et résumer (conférence, vidéo…)') : t('Enregistrer mes cours (texte et fiche)'),

@@ -73,6 +73,8 @@ export interface Settings {
   copilotVisible: boolean;
   /** Kompaly said who he is and where to find him, on the first opening of the app (copilot/proactive). */
   kompalyIntroduced?: boolean;
+  /** The island said once that it is a button (« Touche ici… », components/Island › HintFace). */
+  islandHintSeen?: boolean;
   proactive: boolean;
   chattiness: Chattiness;
   revisionSessions: number;

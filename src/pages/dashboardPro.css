@@ -246,6 +246,16 @@
   /* The notes across the page: two columns of rows. */
   .dpro-grid .dpro-notes .dpro-note-list { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 16px; }
 }
+/* A brand-new account's lighter home: its few cards share the width (1 to 3 of them). */
+@container (min-width: 660px) {
+  .dpro-grid.is-starter { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .dpro-grid.is-starter .dpro-tasks { grid-row: auto; }
+}
+.dpro-start-text { color: var(--ink-2); font-size: 13.5px; line-height: 1.45; }
+.dpro-start-example { margin-top: 6px; color: var(--ink-3); font-size: 12.5px; }
+.dpro-start-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.dpro-start-actions .dpro-btn { flex: 1 1 150px; width: auto; }
+
 /* Lists of rows: one column that never grows past its card (a long title is cut with « … » inside it; an `auto`
    column took the title's whole width and pushed the date, then the page, past the screen). */
 .dpro :is(.dpro-note-list, .dpro-agenda, .dpro-task-list, .dpro-big-later) { grid-template-columns: minmax(0, 1fr); }

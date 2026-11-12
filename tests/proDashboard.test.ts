@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { axisMarks, dayTasks, focusOn, ringRatio, spaceOf, subjectName, subjectsOf, taskBigDay, taskSubject, weekDays, weekDelta } from '../src/lib/proDashboard';
+import { axisMarks, dayTasks, focusOn, ringRatio, spaceOf, starterHome, STARTER_DAYS, subjectName, subjectsOf, taskBigDay, taskSubject, weekDays, weekDelta } from '../src/lib/proDashboard';
 import type { Todo } from '../src/store/todos';
+import { weekItems } from '../src/lib/weekProgress';
 import type { FocusSession } from '../src/store/focusLog';
 import type { CalendarEvent } from '../src/store/calendar';
 
@@ -113,5 +114,37 @@ describe('Pro home page: what a task is about', () => {
     expect(taskBigDay('Fiche d’histoire : la Révolution', big, TODAY)?.title).toBe('Partiel d’histoire');
     expect(taskBigDay('Fiche d’histoire', big, '2026-10-20')).toBeUndefined();
     expect(taskBigDay('Rendre le dossier', big, TODAY)).toBeUndefined();
+  });
+});
+
+describe('Pro home page: a brand-new account', () => {
+  const now = new Date('2026-11-12T19:00:00');
+  const born = (daysAgo: number) => new Date(now.getTime() - daysAgo * 864e5).toISOString();
+
+  it('gets the lighter home until a task is ticked, a session is logged, or it is a few days old', () => {
+    expect(starterHome({ createdAt: born(0), todos: [], sessions: [] }, now)).toBe(true);
+    expect(starterHome({ createdAt: born(1), todos: [todo('a')], sessions: [] }, now)).toBe(true);
+    expect(starterHome({ createdAt: born(0), todos: [todo('a', { done: true })], sessions: [] }, now)).toBe(false);
+    expect(starterHome({ createdAt: born(0), todos: [], sessions: [session('2026-11-12', 25)] }, now)).toBe(false);
+    expect(starterHome({ createdAt: born(STARTER_DAYS), todos: [], sessions: [] }, now)).toBe(false);
+    expect(starterHome({ createdAt: born(400), todos: [], sessions: [] }, now)).toBe(false);
+  });
+
+  it('an account whose age is unknown keeps the whole home', () => {
+    expect(starterHome({ todos: [], sessions: [] }, now)).toBe(false);
+    expect(starterHome({ createdAt: 'pas une date', todos: [], sessions: [] }, now)).toBe(false);
+  });
+
+  // Visitors' test: « 0 / 0 » in the chips and « 0 tâche sur 1 faite cette semaine » under the chart, right after sign-up.
+  it('the day and the week count the same tasks once the guided tour’s own task is left out', () => {
+    const isTour = (x: Todo) => x.title === 'tour';
+    const all = [todo('tour')];
+    const counted = all.filter(x => !isTour(x));
+    expect(dayTasks(counted, TODAY).total).toBe(0);
+    expect(weekItems(counted, MONDAY, '2026-11-08').total).toBe(0);
+    expect(weekDays(counted, [], MONDAY, TODAY).every(d => d.planned === 0)).toBe(true);
+    // The tour done: neither says « 1 ».
+    const done = [todo('tour', { done: true, doneAt: at(TODAY) })].filter(x => !isTour(x));
+    expect(dayTasks(done, TODAY).total).toBe(weekItems(done, MONDAY, '2026-11-08').total);
   });
 });

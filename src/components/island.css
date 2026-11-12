@@ -320,7 +320,8 @@
   letter-spacing: -0.01em;
 }
 .isl-msg {
-  -webkit-line-clamp: 3;
+  /* Four lines: Kompaly's hello is read whole on a narrow phone (it was cut at « retrouver un fichie… »). */
+  -webkit-line-clamp: 4;
   font-size: 14.5px;
   font-weight: 500;
   line-height: 1.38;
@@ -426,7 +427,8 @@ button.isl-text {
   gap: 11px;
   width: max-content;
   min-width: min(220px, var(--isl-toast-w));
-  max-width: var(--isl-toast-w);
+  /* --isl-room: on computers, the room left of the search field (Island.tsx). */
+  max-width: min(var(--isl-toast-w), var(--isl-room, 100vw));
   min-height: 54px;
   padding: 9px 18px 9px 11px;
 }
@@ -464,6 +466,18 @@ button.isl-text {
   line-height: 1.3;
   letter-spacing: -0.005em;
   text-wrap: pretty;
+}
+/* The first-visit hint: the whole face is the button. */
+.isl-hint {
+  /* A little lower than a toast: its foot stays above the home page's greeting on a phone. */
+  min-height: 50px;
+  cursor: pointer;
+  text-align: left;
+  border-radius: inherit;
+}
+.isl-hint .isl-ticon {
+  background: rgb(120 150 255 / 0.22);
+  color: #a9bcff;
 }
 .isl-toast .isl-btn {
   flex: none;
