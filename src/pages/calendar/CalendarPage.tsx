@@ -277,7 +277,7 @@ function CalendarFilter({ categories, shown, importantOnly, tasksOnly, onToggle,
           id="filtre-calendrier"
           role="group"
           aria-label={t('Filtrer les événements')}
-          className="pop absolute right-0 top-full z-[60] mt-2 max-h-[min(70dvh,560px)] w-64 overflow-y-auto overscroll-contain rounded-xl border border-stone-200 bg-surface p-2 shadow-pop short:fixed short:inset-x-4 short:top-3 short:z-[90] short:mx-auto short:mt-0 short:max-h-[calc(100dvh-24px)] short:w-auto short:max-w-2xl"
+          className="pop absolute right-0 top-full z-[60] mt-2 max-h-[min(70dvh,560px)] max-sm:max-h-[min(70dvh,calc(100dvh-360px))] w-64 overflow-y-auto overscroll-contain rounded-xl border border-stone-200 bg-surface p-2 shadow-pop short:fixed short:inset-x-4 short:top-3 short:z-[90] short:mx-auto short:mt-0 short:max-h-[calc(100dvh-24px)] short:w-auto short:max-w-2xl"
         >
           <p className="px-2 pb-1 pt-0.5 text-[12px] text-stone-500">{t('Afficher seulement :')}</p>
           <div className="short:grid short:grid-cols-3 short:gap-x-1">

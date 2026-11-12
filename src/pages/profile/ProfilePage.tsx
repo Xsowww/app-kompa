@@ -365,9 +365,9 @@ const PRO_WALL_LABELS: Record<ProWall, string> = { montagne: t('Montagne'), nuit
 const PRO_WALL_PREVIEW: Record<ProWall, string> = {
   montagne: "url('/pro/montagne.webp') center / cover",
   nuit: "url('/pro/nuit.webp') center / cover",
-  aurore: 'radial-gradient(60% 55% at 18% 22%, #1f7a6a, transparent 70%), radial-gradient(55% 60% at 85% 30%, #5b3fa8, transparent 70%), radial-gradient(70% 60% at 50% 95%, #2a5fa8, transparent 70%), #0d1020',
-  maree: 'radial-gradient(60% 55% at 18% 22%, #1f5fd1, transparent 70%), radial-gradient(55% 60% at 85% 30%, #2bb3d9, transparent 70%), radial-gradient(70% 60% at 50% 95%, #1b3a8a, transparent 70%), #0a1022',
-  braise: 'radial-gradient(60% 55% at 18% 22%, #d9542b, transparent 70%), radial-gradient(55% 60% at 85% 30%, #b8452a, transparent 70%), radial-gradient(70% 60% at 50% 95%, #a8243a, transparent 70%), #1a0c0a',
+  aurore: 'linear-gradient(180deg, rgb(8 9 14 / 0.24), rgb(8 9 14 / 0.5)), radial-gradient(60% 55% at 18% 22%, #1f7a6a, transparent 70%), radial-gradient(55% 60% at 85% 30%, #5b3fa8, transparent 70%), radial-gradient(70% 60% at 50% 95%, #2a5fa8, transparent 70%), #0d1020',
+  maree: 'linear-gradient(180deg, rgb(8 9 14 / 0.24), rgb(8 9 14 / 0.5)), radial-gradient(60% 55% at 18% 22%, #1f5fd1, transparent 70%), radial-gradient(55% 60% at 85% 30%, #2bb3d9, transparent 70%), radial-gradient(70% 60% at 50% 95%, #1b3a8a, transparent 70%), #0a1022',
+  braise: 'linear-gradient(180deg, rgb(8 9 14 / 0.24), rgb(8 9 14 / 0.5)), radial-gradient(60% 55% at 18% 22%, #d9542b, transparent 70%), radial-gradient(55% 60% at 85% 30%, #b8452a, transparent 70%), radial-gradient(70% 60% at 50% 95%, #a8243a, transparent 70%), #1a0c0a',
 };
 
 /** « Affichage Pro »: one switch, then its wallpaper. Over the theme and the style (kept, they come back when it is off). */

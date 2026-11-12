@@ -107,7 +107,7 @@ export default function TaskDialog({ todo, onClose, remind, onDelete }: { todo?:
           />
         </Field>
         {/* One under the other below 390 px, where « Lun. 19 oct. » and « Dans la journée » were cut. */}
-        <div className="mt-4 grid grid-cols-1 gap-x-2 gap-y-4 min-[390px]:grid-cols-2">
+        <div className="mt-4 grid grid-cols-1 gap-x-2 gap-y-4 min-[390px]:grid-cols-2 big-text:max-sm:grid-cols-1">
           <div data-due-field>
             <span className="mb-1.5 block text-[12px] font-medium text-stone-600">{t('Échéance')}</span>
             <DateField
