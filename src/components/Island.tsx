@@ -13,6 +13,7 @@ import { frenchSpacing, stripMarkdown } from '../copilot/markdown';
 import KompalyMark from './KompalyMark';
 import { sober } from '../lib/sober';
 import { focusables } from '../lib/a11y';
+import { useBackClose } from '../lib/backClose';
 import { useMinute, useToday } from '../lib/useToday';
 import { useCalendar } from '../store/calendar';
 import { useTodos } from '../store/todos';
@@ -530,6 +531,7 @@ export default function Island() {
   // already there when the app opens comes as the small pill.
   // The hub (a tap on the small pill): its view while it is open.
   const [hub, setHub] = useState<HubView | null>(null);
+  useBackClose(!!hub, () => setHub(null));
   const [expanded, setExpanded] = useState<Kind | null>(null);
   const [poke, setPoke] = useState(0);
   const [wake, setWake] = useState(0);

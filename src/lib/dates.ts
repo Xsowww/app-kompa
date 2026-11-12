@@ -104,13 +104,42 @@ function realDate(y: number, month: number, day: number) {
 export function parseQuickAdd(input: string, base = new Date(), language = lang, extras = false): ParsedQuickAdd {
   // Punctuation glued to a word hid the day or the hour (« Rdv demain, 14h », « Dentiste demain 14h. »): commas and
   // « ! » are set apart (and put back in the title), a last « . » or « ? » is dropped when the sentence then says more.
-  const read = (s: string) => tidyTitle(readQuickAdd(s.replace(/([,;!])(?=\s|$)/g, ' $1'), base, language, extras));
+  const read = (s: string) => tidyTitle(spentTime(s.replace(/([,;!])(?=\s|$)/g, ' $1'), t => readQuickAdd(t, base, language, extras)));
   const typed = read(input);
   const bare = input.replace(/([^\s.?])[.?](?=\s*$)/, '$1');
   if (bare === input) return typed;
   const other = read(bare);
   const score = (r: ParsedQuickAdd) => Number(!!r.date) + Number(!!r.start) + Number(!!r.endDate) + Number(!!r.place);
   return score(other) > score(typed) ? other : typed;
+}
+
+// Something one does for a while (the five languages, accents stripped).
+const ACTIVITY =
+  'reviser|revisions?|travailler|bosser|etudier|apprendre|lire|ecrire|rediger|coder|courir|marcher|nager|pratiquer|repeter|jouer|dessiner|mediter|ranger|nettoyer|cuisiner|bricoler|jardiner|' +
+  'study|revise|review|work|read|write|code|run|walk|swim|practi[cs]e|play|draw|meditate|clean|cook|' +
+  'estudiar|repasar|trabajar|leer|escribir|correr|entrenar|practicar|lernen|arbeiten|lesen|schreiben|laufen|trainieren|uben|studiare|ripassare|lavorare|leggere|scrivere|correre';
+const SPENT = new RegExp(
+  String.raw`^((?:.*?[\s'])??(?:${ACTIVITY})(?:\s[^\d]*?)?)\s(?:for\s)?([1-6])\s?(?:heures?|hours?|hrs?|horas?|ore|ora|stunden?|std|h)\s?(\d{2})?(?=\s|$)(?!\s?[-–—]\s?[\dm])(?!\s(?:a|to|bis|alle|et|and)\s(?:\d|midi|minuit|noon|midnight))(?!\s(?:du\smatin|am|pm|a\.m|p\.m)\b)`,
+);
+// The word before the hour that makes it a time of the day (or a length the sentence already says its own way).
+const AT_WORD = /\s(?:a|vers|de|des|at|by|from|until|till|um|gegen|ab|alle|las|pendant|durant|avant|apres|before|after|dans|in)$/;
+
+/**
+ * « Réviser 2h », « Travailler 1h30 », « Study 2 hours »: after what one does for a while, a small bare hour is how long
+ * it lasts, not 2 in the morning. With a start elsewhere in the sentence (« Réviser 2h demain 14h »), it gives the end;
+ * without, it stays in the title and the item has no time.
+ */
+function spentTime(input: string, read: (s: string) => ParsedQuickAdd): ParsedQuickAdd {
+  // Same length as `input` (accents stripped), so the match maps back.
+  const m = input.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[’‘]/g, "'").match(SPENT);
+  if (!m || AT_WORD.test(m[1]) || Number(m[3] ?? 0) > 59) return read(input);
+  // Hidden from the reading (a mark between the number and its « h »), where it is.
+  const digit = m[1].length + m[0].slice(m[1].length).search(/\d/) + 1;
+  const r = read(`${input.slice(0, digit)}⁠${input.slice(digit)}`);
+  if (!r.start) return { ...r, title: r.title.replace('⁠', '') };
+  const until = toMinutes(r.start) + Number(m[2]) * 60 + Number(m[3] ?? 0);
+  const title = r.title.replace(/(?:\bfor\s)?\d⁠\s?[^\s,;]*/, '').replace(/\s+/g, ' ').trim();
+  return { ...r, title, ...(!r.end && until < 24 * 60 && { end: fromMinutes(until) }) };
 }
 
 /** The title without the punctuation left alone once the day and hour are out (« Rdv , » → « Rdv », « : appeler » → « Appeler »). */

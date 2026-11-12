@@ -18,7 +18,8 @@ export const isTaskRepeat = (v: unknown): v is TaskRepeat => TASK_REPEATS.some(r
 
 const step = (due: string, every: TaskRepeat, k: number) => {
   const d = fromKey(due);
-  // Counted from the ticked one's day each time: « le 31 » stays the 31st after a short month (Feb. 28, then Mar. 31).
+  // Counted from the ticked one's day each time: after a short month, « le 31 » stays on that month's last day
+  // (Jan. 31, Feb. 28, then Mar. 28). The task's dialog says so (pages/tasks/TaskDialog).
   return toKey(every === 'day' ? addDays(d, k) : every === 'week' ? addDays(d, 7 * k) : every === 'month' ? addMonths(d, k) : addYears(d, k));
 };
 

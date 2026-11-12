@@ -23,6 +23,7 @@ import { aiPausedUntil, aiPauseReason, quotaFullUntil, resumeAfterError } from '
 import { useDictation } from './voice';
 import { homeVisited } from './proactive';
 import { scrollMotion, trapTab } from '../lib/a11y';
+import { useBackClose } from '../lib/backClose';
 import { fmt, toKey, todayKey } from '../lib/dates';
 import { dayLabel, leastCovering, type Box } from './panel';
 import { t } from '../i18n';
@@ -484,6 +485,8 @@ export default function Copilot() {
   const open = () => setPose('open');
   // However it opens (the character, the menu's « Kompaly », Ctrl+J): the remark goes, the greeting comes.
   const isOpen = pose === 'open';
+  // Phones and tablets, where it covers the page: Back closes it.
+  useBackClose(isOpen && narrow, () => setPose('hidden'));
   useEffect(() => {
     if (!isOpen) return;
     clearBubble();

@@ -9,6 +9,7 @@ import { useRecorder } from '../store/recorder';
 import { useAuth } from '../store/auth';
 import { newsName, openNews } from '../lib/news';
 import { cx } from '../lib/utils';
+import { useBackClose } from '../lib/backClose';
 import { t } from '../i18n';
 import type { SpaceKey } from '../lib/navOrder';
 import { HOME, SPACES, type Space } from './spaces';
@@ -71,6 +72,7 @@ export function ProRail({ order, news, newsLabel, label, extra }: Props) {
   const unread = useCopilot(s => s.unread);
   const recording = useRecording();
   const [open, setOpen] = useState(false);
+  useBackClose(open, () => setOpen(false));
   const rail = useRef<HTMLElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   const more = useRef<HTMLButtonElement>(null);

@@ -80,6 +80,29 @@ const SearchHits = Extension.create({
   },
 });
 
+/**
+ * The note's own titles come under the page's « Notes » for screen readers: « Titre 1 » is read as a level 2, and so
+ * on (one main title per page). Only said to them: nothing changes on screen nor in the saved note.
+ */
+const HeadingLevels = Extension.create({
+  name: 'headingLevels',
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        props: {
+          decorations: state => {
+            const marks: Decoration[] = [];
+            state.doc.descendants((node, pos) => {
+              if (node.type.name === 'heading') marks.push(Decoration.node(pos, pos + node.nodeSize, { 'aria-level': String(node.attrs.level + 1) }));
+            });
+            return DecorationSet.create(state.doc, marks);
+          },
+        },
+      }),
+    ];
+  },
+});
+
 interface Tool {
   key: string;
   label: string;
@@ -404,6 +427,7 @@ export default function NoteEditor({ note, readOnly = false, inset = 'px-4 pb-ro
       }),
       TiptapImage.configure({ allowBase64: true }),
       SearchHits,
+      HeadingLevels,
     ],
     content: note.content,
     editorProps: {

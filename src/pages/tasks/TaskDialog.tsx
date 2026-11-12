@@ -152,6 +152,12 @@ export default function TaskDialog({ todo, onClose, remind, onDelete }: { todo?:
             options={[{ value: '', label: t('Ne se répète pas') }, ...TASK_REPEATS.map(r => ({ value: r.key, label: r.label }))]}
             onChange={setRepeat}
           />
+          {/* lib/taskRepeat: each next day is counted from the one ticked, so the 31st becomes the 28th after February and stays there. */}
+          {due && repeat === 'month' && Number(due.slice(8)) > 28 && (
+            <p className="mt-1.5 text-[12px] text-stone-500" aria-live="polite">
+              {t('Certains mois n’ont pas de {n} : la tâche passera alors au dernier jour du mois, puis restera sur ce jour-là.', { n: Number(due.slice(8)) })}
+            </p>
+          )}
         </div>
         <ReminderPicker value={reminders} onChange={setReminders} timed={!!time} date={due || undefined} time={time || undefined} disabled={due ? undefined : t('Choisis d’abord une échéance.')} item={{ kind: 'task', id: todo?.id, title }} />
         <div className="modal-foot max-[359px]:gap-1.5">

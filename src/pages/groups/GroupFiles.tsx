@@ -15,6 +15,7 @@ import PreviewModal from '../drive/PreviewModal';
 import { downloadItem } from '../drive/download';
 import { deleteFile, downloadFile, groupError, renameFile, type Group, type GroupFile } from '../../lib/groups';
 import { cx, formatBytes, relativeWhen } from '../../lib/utils';
+import { useBackClose } from '../../lib/backClose';
 import { shareFiles, useFinitions, useMemberName, useRememberedSort, useRights } from './util';
 import { useCreateActions } from '../../store/create';
 import { PlusHint } from '../../components/CreateButton';
@@ -35,6 +36,7 @@ export default function GroupFiles({ group }: { group: Group }) {
   const nameOf = useMemberName(group.id);
   const { canEdit } = useRights(group);
   const [preview, setPreview] = useState<GroupFile | null>(null);
+  useBackClose(!!preview, () => setPreview(null)); // the phone's Back closes the preview (Drive's and the trash's are in the address)
   const [reporting, setReporting] = useState<GroupFile | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
   const me = useAuth(s => s.user?.id);

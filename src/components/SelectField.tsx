@@ -5,6 +5,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 're
 import { createPortal } from 'react-dom';
 import { Check, ChevronDown } from 'lucide-react';
 import { cx } from '../lib/utils';
+import { useBackClose } from '../lib/backClose';
 import { t } from '../i18n';
 
 // ── The panel ───────────────────────────────────────────────────────────────
@@ -19,6 +20,7 @@ export function Popover({ anchor, onClose, label, children, className }: { ancho
   useEffect(() => {
     closeRef.current = onClose;
   });
+  useBackClose(true, onClose);
 
   useLayoutEffect(() => {
     const place = () => {
