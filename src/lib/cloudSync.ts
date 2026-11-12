@@ -196,9 +196,10 @@ const withoutAbsent = (table: Table, rows: Row[]) => {
 
 // Parents must exist before their children: folders first, Drive items by depth.
 const ORDER: Table[] = ['note_folders', 'notes', 'drive_items', 'events', 'todos', 'focus_sessions'];
-const pending = Object.fromEntries(ORDER.map(t => [t, { upserts: new Map<string, Row>(), deletes: new Set<string>() }])) as Record<
+/** `edits`: the upserts that change a thing this device already had (not created here): see dropPurged(). */
+const pending = Object.fromEntries(ORDER.map(t => [t, { upserts: new Map<string, Row>(), deletes: new Set<string>(), edits: new Set<string>() }])) as Record<
   Table,
-  { upserts: Map<string, Row>; deletes: Set<string> }
+  { upserts: Map<string, Row>; deletes: Set<string>; edits: Set<string> }
 >;
 /** Settings changed here and not sent yet ('*': all of them, queue saved by an older version). */
 const profileKeys = new Set<string>();
@@ -254,7 +255,7 @@ function writeQueue() {
       adopted = [];
       return;
     }
-    const data = Object.fromEntries(ORDER.map(t => [t, { upserts: [...pending[t].upserts.values()], deletes: [...pending[t].deletes], ...(refused[t].size && { refused: [...refused[t].values()] }) }]));
+    const data = Object.fromEntries(ORDER.map(t => [t, { upserts: [...pending[t].upserts.values()], deletes: [...pending[t].deletes], edits: [...pending[t].edits], ...(refused[t].size && { refused: [...refused[t].values()] }) }]));
     localStorage.setItem(queueKey(currentUser), JSON.stringify({ tables: data, profileKeys: [...profileKeys] }));
     // Their content is in this tab's queue now: left behind, they would be sent again on a later visit.
     adopted.filter(k => k !== queueKey(currentUser!)).forEach(k => localStorage.removeItem(k));
@@ -270,7 +271,7 @@ function loadQueue(userId: string) {
     adopted.push(key);
     try {
       const saved = JSON.parse(localStorage.getItem(key) ?? '') as {
-        tables: Record<Table, { upserts: Row[]; deletes: string[]; refused?: { row: Row; why: string }[] }>;
+        tables: Record<Table, { upserts: Row[]; deletes: string[]; edits?: string[]; refused?: { row: Row; why: string }[] }>;
         profileKeys?: string[];
         profileDirty?: boolean;
       };
@@ -282,6 +283,7 @@ function loadQueue(userId: string) {
           if (!had || !(String(had.updated_at ?? '') > String(r.updated_at ?? ''))) pending[t].upserts.set(r.id as string, r);
         }
         for (const id of saved.tables[t]?.deletes ?? []) pending[t].deletes.add(id);
+        for (const id of saved.tables[t]?.edits ?? []) pending[t].edits.add(id);
         for (const x of saved.tables[t]?.refused ?? []) if (x?.row?.id) refused[t].set(x.row.id as string, x);
       }
       for (const k of saved.profileKeys ?? (saved.profileDirty ? ['*'] : [])) profileKeys.add(k);
@@ -443,6 +445,53 @@ function requeueRefused() {
   return any;
 }
 
+/**
+ * A thing deleted for good on another device, then changed here before this device knew (offline, or between two
+ * refreshes): sending the change created it again, everywhere. The server keeps the id of every deleted row for 30 days
+ * (sync_deletions): a change to a thing this device already had, whose row was deleted and is no longer on the server,
+ * is not sent, and the thing leaves this device too. What was created or restored here (not in `edits`) is sent as
+ * before. A server without sync_deletions (migration 2026-10-29): nothing is checked, as before.
+ */
+async function dropPurged() {
+  const ids = ORDER.flatMap(t => [...pending[t].edits].filter(id => pending[t].upserts.has(id)));
+  const gone: Row[] = [];
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data, error } = await supabase!.from('sync_deletions').select('tbl,row_id,deleted_at').in('row_id', ids.slice(i, i + 200));
+    if (error && !permanent(error)) throw error;
+    if (error) return;
+    gone.push(...(data as Row[]));
+  }
+  const purged: Row[] = [];
+  const names: string[] = [];
+  for (const table of ORDER) {
+    const p = pending[table];
+    const deleted = gone.filter(g => g.tbl === table && p.edits.has(g.row_id as string) && p.upserts.has(g.row_id as string));
+    if (!deleted.length) continue;
+    // Created again since (a backup restored on another device): it is there, the change goes.
+    const { data, error } = await supabase!.from(table).select('id').in('id', deleted.map(g => g.row_id as string));
+    if (error && !permanent(error)) throw error;
+    if (error) continue;
+    const there = new Set((data as Row[]).map(r => r.id as string));
+    for (const g of deleted) {
+      const id = g.row_id as string;
+      if (there.has(id)) continue;
+      names.push(rowName(p.upserts.get(id)!));
+      p.upserts.delete(id);
+      p.edits.delete(id);
+      purged.push(g);
+    }
+  }
+  if (!purged.length) return;
+  mergeChanges(purged, Object.fromEntries(DELTA_TABLES.map(t => [t, []])) as unknown as Record<Table, Row[]>);
+  saveQueue();
+  useUi.getState().toast(
+    names.length === 1
+      ? t('« {name} » a été supprimé sur un autre appareil : la modification faite ici n’est pas gardée.', { name: names[0] })
+      : tn(names.length, '{n} élément a été supprimé sur un autre appareil : la modification faite ici n’est pas gardée.', '{n} éléments ont été supprimés sur un autre appareil : les modifications faites ici ne sont pas gardées.'),
+    'info',
+  );
+}
+
 /** One send at a time; a caller arriving during a send waits for it instead of returning at once. */
 let running: Promise<void> | null = null;
 function flush() {
@@ -464,6 +513,7 @@ async function send() {
       }
       return;
     }
+    await dropPurged();
     for (const table of ORDER) {
       const p = pending[table];
       if (p.upserts.size) {
@@ -477,7 +527,11 @@ async function send() {
           rows = rows.sort((a, b) => folderDepth(folders, a.id as string) - folderDepth(folders, b.id as string));
         }
         await upsertRows(table, rows);
-        for (const r of rows) if (p.upserts.get(r.id as string) === r) p.upserts.delete(r.id as string);
+        for (const r of rows) {
+          if (p.upserts.get(r.id as string) !== r) continue;
+          p.upserts.delete(r.id as string);
+          p.edits.delete(r.id as string);
+        }
       }
       // By 200: emptying a big trash in one request made an address too long for the server.
       while (p.deletes.size) {
@@ -553,6 +607,9 @@ function diff<T extends { id: string }>(table: Table, cur: T[], prev: T[], toRow
     if (old && sameRow(toRow(old), row)) return;
     found = true;
     if (STAMPED.has(table)) row.updated_at = stamp;
+    // A change to a thing the server may know (not one created here and not sent yet, nor one it refused).
+    if (old && !pending[table].upserts.has(x.id) && !refused[table].has(x.id)) pending[table].edits.add(x.id);
+    else if (!old) pending[table].edits.delete(x.id);
     pending[table].upserts.set(x.id, row);
     pending[table].deletes.delete(x.id);
   };
@@ -572,6 +629,7 @@ function diff<T extends { id: string }>(table: Table, cur: T[], prev: T[], toRow
       if (!now.has(id)) {
         found = true;
         pending[table].upserts.delete(id);
+        pending[table].edits.delete(id);
         pending[table].deletes.add(id);
         refused[table].delete(id); // deleted for good here: not brought back by the next download, nor sent again
       }
@@ -755,6 +813,11 @@ async function fetchEach(userId: string, since: string) {
 type Changes = Awaited<ReturnType<typeof fetchEach>>;
 
 function applyChanges({ profile, gone, rows }: Changes) {
+  mergeChanges(gone, rows);
+  quietly(() => applySettings(profile));
+}
+
+function mergeChanges(gone: Row[], rows: Record<Table, Row[]>) {
   const deleted = Object.fromEntries(DELTA_TABLES.map(t => [t, new Map<string, number>()])) as Record<Table, Map<string, number>>;
   for (const g of gone) deleted[g.tbl as Table]?.set(g.row_id as string, Date.parse(String(g.deleted_at)) || 0);
   const touched = (t: Table) => rows[t].length > 0 || deleted[t].size > 0;
@@ -787,7 +850,6 @@ function applyChanges({ profile, gone, rows }: Changes) {
     }
     if (touched('focus_sessions'))
       useFocusLog.setState({ sessions: mergeRows([useFocusLog.getState().sessions], rows.focus_sessions, deleted.focus_sessions, rowToFocus, () => false)[0] });
-    applySettings(profile);
   } finally {
     pulling = false;
   }
@@ -934,6 +996,7 @@ export function stopSync() {
   for (const t of ORDER) {
     pending[t].upserts.clear();
     pending[t].deletes.clear();
+    pending[t].edits.clear();
     refused[t].clear();
   }
   profileKeys.clear();

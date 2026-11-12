@@ -20,7 +20,7 @@ Object.assign(globalThis, {
 const sent: Record<string, unknown>[] = [];
 const fake = {
   auth: { getSession: async () => ({ data: { session: { user: { id: 'u1' } } } }) },
-  from: () => ({ upsert: async (rows: Record<string, unknown>[]) => (sent.push(...rows), { error: null }), delete: () => ({ in: async () => ({ error: null }) }) }),
+  from: () => ({ upsert: async (rows: Record<string, unknown>[]) => (sent.push(...rows), { error: null }), delete: () => ({ in: async () => ({ error: null }) }), select: () => ({ in: async () => ({ data: [], error: null }) }) }),
   rpc: async () => ({ error: null }),
 };
 vi.mock('../src/lib/supabase', () => ({ supabase: fake, cloudEnabled: true }));
