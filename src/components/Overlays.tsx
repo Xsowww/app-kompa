@@ -8,6 +8,7 @@ import { useUi, type ReminderAlert, type Toast } from '../store/ui';
 import { cx } from '../lib/utils';
 import { retryNow, useService } from '../lib/serviceStatus';
 import { arrowNav, focusBeforeOverlay, focusables, trapTab } from '../lib/a11y';
+import { useBackClose } from '../lib/backClose';
 import { useSettings } from '../store/settings';
 import { useAuth } from '../store/auth';
 import { locale, t } from '../i18n';
@@ -162,6 +163,7 @@ export function Modal({ open, onClose, children, width = 420, label, className }
   useEffect(() => {
     closeRef.current = onClose;
   });
+  useBackClose(open, onClose);
   useEffect(() => {
     if (!open) return;
     const el = ref.current!;
@@ -322,6 +324,7 @@ export function ContextMenu({ x, y, items, onClose, label, large, above }: { x: 
   useEffect(() => {
     closeRef.current = onClose;
   });
+  useBackClose(true, onClose);
 
   useEffect(() => {
     const el = ref.current;

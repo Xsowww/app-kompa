@@ -17,6 +17,7 @@ import { useFocus } from '../store/focus';
 import Avatar from '../components/Avatar';
 import FocusTimer, { FocusPill } from '../components/FocusTimer';
 import { cx } from '../lib/utils';
+import { useBackClose } from '../lib/backClose';
 import { adminPendingCount, checkIsAdmin, cloudEnabled } from '../lib/supabase';
 import { prefetchGroups, useGroups } from '../store/groups';
 import { startReminders } from '../lib/reminderScheduler';
@@ -425,6 +426,7 @@ export default function AppShell() {
   const focusing = useFocus(s => !!s.phase);
   const tight = focusing && !pro;
   const [searchOpen, setSearchOpen] = useState(false);
+  useBackClose(searchOpen, () => setSearchOpen(false));
   const searchBtn = useRef<HTMLButtonElement>(null);
   // Another page: the search field opened on a phone closes.
   const { pathname } = useLocation();
@@ -803,6 +805,7 @@ const SLIDE_REST = 120;
 function PhoneTabBar({ order, news, label, extra, pro }: { order: SpaceKey[]; news: (to: string) => number; label: (n: { to: string; label: string }) => string; extra: Extra[]; pro: boolean }) {
   const { pathname } = useLocation();
   const [open, setOpen] = useState(false);
+  useBackClose(open, () => setOpen(false));
   const panel = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
   const bar = useRef<HTMLElement>(null);
