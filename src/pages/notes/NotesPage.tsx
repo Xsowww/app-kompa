@@ -770,8 +770,8 @@ export default function NotesPage() {
 
   return (
     <div className="mx-auto w-full max-w-[1244px] flex h-full gap-4 px-4 pb-4 md:px-8">
-      {/* A note open on a phone hides the list and its title: the page keeps one for screen readers. */}
-      {mainOpen && <h1 className="sr-only [@media(min-width:768px)_and_(min-height:501px),(min-width:1024px)]:hidden">{t('Notes')}</h1>}
+      {/* A note open on a phone hides the list and its title: the page keeps one for screen readers (not a second <h1> in the page). */}
+      {mainOpen && <div role="heading" aria-level={1} className="sr-only [@media(min-width:768px)_and_(min-height:501px),(min-width:1024px)]:hidden">{t('Notes')}</div>}
       {/* Sidebar */}
       {/* Fingers (tablets): a little wider, the search's 16 px text (no zoom on iPhone) whole in its field. */}
       <aside className={cx('w-full shrink-0 flex-col [@media(min-width:768px)_and_(min-height:501px),(min-width:1024px)]:flex [@media(min-width:768px)_and_(min-height:501px),(min-width:1024px)]:w-[268px] [@media(min-width:768px)_and_(min-height:501px),(min-width:1024px)]:pointer-coarse:w-[300px]', mainOpen ? 'hidden' : 'flex')} onKeyDown={listKeys} onPointerDownCapture={e => (pointer.current = e.pointerType)}>
