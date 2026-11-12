@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useBackClose } from '../lib/backClose';
 import { useNavigate } from 'react-router-dom';
 import { useSettings } from '../store/settings';
 import { useCopilot } from '../store/copilot';
@@ -122,6 +123,8 @@ export default function Tour() {
   const [rect, setRect] = useState<DOMRect | null>(null);
   const nextBtn = useRef<HTMLButtonElement>(null);
   const current = step === null ? null : STEPS[step];
+  // The phone's Back button ends the tour, it doesn't leave the page.
+  useBackClose(step !== null, endTour);
 
   // The tour starts on the home page, where every target is on screen.
   useEffect(() => {

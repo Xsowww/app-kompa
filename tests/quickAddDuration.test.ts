@@ -80,3 +80,14 @@ describe('une durée après une activité n’est pas une heure du matin', () =>
     expect(en('Dentist tomorrow 2pm')).toMatchObject({ title: 'Dentist', date: '2026-11-13', start: '14:00' });
   });
 });
+
+describe('« 2h à 14h » : une durée puis une heure', () => {
+  it.each([
+    ['Réviser 2h à 14h', '14:00', '16:00'],
+    ['Réviser 2h à midi', '12:00', '14:00'],
+    ['Réviser 2h à 4h', '02:00', '04:00'],
+  ])('%s', (text, start, end) => {
+    const r = fr(text);
+    expect([r.start, r.end]).toEqual([start, end]);
+  });
+});

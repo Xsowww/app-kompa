@@ -119,7 +119,7 @@ const ACTIVITY =
   'study|revise|review|work|read|write|code|run|walk|swim|practi[cs]e|play|draw|meditate|clean|cook|' +
   'estudiar|repasar|trabajar|leer|escribir|correr|entrenar|practicar|lernen|arbeiten|lesen|schreiben|laufen|trainieren|uben|studiare|ripassare|lavorare|leggere|scrivere|correre';
 const SPENT = new RegExp(
-  String.raw`^((?:.*?[\s'])??(?:${ACTIVITY})(?:\s[^\d]*?)?)\s(?:for\s)?([1-6])\s?(?:heures?|hours?|hrs?|horas?|ore|ora|stunden?|std|h)\s?(\d{2})?(?=\s|$)(?!\s?[-–—]\s?[\dm])(?!\s(?:a|to|bis|alle|et|and)\s(?:\d|midi|minuit|noon|midnight))(?!\s(?:du\smatin|am|pm|a\.m|p\.m)\b)`,
+  String.raw`^((?:.*?[\s'])??(?:${ACTIVITY})(?:\s[^\d]*?)?)\s(?:for\s)?([1-6])\s?(?:heures?|hours?|hrs?|horas?|ore|ora|stunden?|std|h)\s?(\d{2})?(?=\s|$)(?!\s?[-–—]\s?[\dm])(?!\s(?:et|and)\s(?:\d|midi|minuit|noon|midnight))(?!\s(?:du\smatin|am|pm|a\.m|p\.m)\b)`,
 );
 // The word before the hour that makes it a time of the day (or a length the sentence already says its own way).
 const AT_WORD = /\s(?:a|vers|de|des|at|by|from|until|till|um|gegen|ab|alle|las|pendant|durant|avant|apres|before|after|dans|in)$/;
@@ -133,6 +133,9 @@ function spentTime(input: string, read: (s: string) => ParsedQuickAdd): ParsedQu
   // Same length as `input` (accents stripped), so the match maps back.
   const m = input.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[’‘]/g, "'").match(SPENT);
   if (!m || AT_WORD.test(m[1]) || Number(m[3] ?? 0) > 59) return read(input);
+  // « 2h à 4h » is from 2 to 4; « 2h à 14h » (more than 6 hours apart, or at noon) is 2 hours, at 14:00.
+  const to = input.slice(m[0].length).toLowerCase().match(/^\s(?:[aà]|to|bis|alle)\s(?:(\d{1,2})|midi|noon)/);
+  if (to && Number(to[1] ?? 12) - Number(m[2]) <= 6) return read(input);
   // Hidden from the reading (a mark between the number and its « h »), where it is.
   const digit = m[1].length + m[0].slice(m[1].length).search(/\d/) + 1;
   const r = read(`${input.slice(0, digit)}⁠${input.slice(digit)}`);

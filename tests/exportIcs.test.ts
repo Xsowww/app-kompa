@@ -44,13 +44,17 @@ describe('export .ics', () => {
     // Each alarm is whole and inside its event (RFC 5545 §3.6.6: ACTION, DESCRIPTION and TRIGGER for a DISPLAY alarm).
     expect(blocks[0].match(/BEGIN:VALARM\r\nACTION:DISPLAY\r\nDESCRIPTION:Examen\\, « maths »\r\nTRIGGER:[^\r]+\r\nEND:VALARM\r\n/g)).toHaveLength(5);
     expect(blocks[0].trimEnd().endsWith('END:VALARM\r\nEND:VEVENT')).toBe(true);
-    // The usual reminders (Profil › Notifications) of an event never given any: the caller's choice.
+    // The usual reminders (Réglages › Notifications) of an event never given any: the caller's choice.
     expect(triggers(calendarIcs([ev('Jamais choisi')], new Date(), () => [30]))).toEqual(['-PT30M']);
     // The app's own import: the same four events, their notes not replaced by an alarm's text.
     const back = parseIcs(text, { now: new Date(2026, 10, 6) });
     expect(back.map(e => e.title)).toEqual(['Toute la journée', 'Examen, « maths »', 'Sans rappel', 'Jamais choisi']);
     expect(back[1]).toMatchObject({ date: '2026-11-09', start: '09:30', details: 'Salle B12' });
     expect(back[0].start).toBeUndefined();
+    // …and their reminders come back as they were (most distant first).
+    expect(back[1].reminders).toEqual([1530, 1440, 60, 15, 0]);
+    expect(back[0].reminders).toEqual([900, 540, 0]);
+    expect(back[2].reminders).toBeUndefined();
   });
   it('the backups saved under the old name still open', () => {
     expect(BACKUP_APPS).toEqual(['kompaly', 'cop-pilot']);

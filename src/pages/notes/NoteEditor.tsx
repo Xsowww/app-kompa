@@ -84,7 +84,7 @@ const SearchHits = Extension.create({
  * The note's own titles come under the page's « Notes » for screen readers: « Titre 1 » is read as a level 2, and so
  * on (one main title per page). Only said to them: nothing changes on screen nor in the saved note.
  */
-const HeadingLevels = Extension.create({
+export const HeadingLevels = Extension.create({
   name: 'headingLevels',
   addProseMirrorPlugins() {
     return [

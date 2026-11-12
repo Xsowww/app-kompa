@@ -10,6 +10,7 @@ import Highlight from '@tiptap/extension-highlight';
 import TiptapImage from '@tiptap/extension-image';
 import { TaskList } from '@tiptap/extension-list';
 import { QuietTaskItem } from '../notes/taskItem';
+import { HeadingLevels } from '../notes/NoteEditor';
 import {
   AlertTriangle, ArrowLeft, Bold, Italic, Underline, Strikethrough, Highlighter, Heading1, Heading2, List, ListOrdered, ListChecks, Quote, Code2, Link2, Link2Off, ExternalLink, Minus, ImagePlus,
   Trash2, Undo2, Redo2, Flag, MoreHorizontal, Printer, FileDown, NotebookPen,
@@ -339,6 +340,7 @@ function LoadedEditor({ initial, onClose, readOnly, typed }: { initial: GroupNot
       TiptapImage.configure({ allowBase64: true }), // notes partagées depuis ses notes perso
       TaskList,
       QuietTaskItem.configure({ nested: true }),
+      HeadingLevels,
     ],
     content: initial.content,
     editable: !readOnly,

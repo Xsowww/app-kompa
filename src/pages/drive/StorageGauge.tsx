@@ -1,6 +1,7 @@
+import { useEffect, useState } from 'react';
 import { useDrive, driveUsed } from '../../store/drive';
 import { QUOTA, SPACE } from '../../lib/blobStore';
-import { cloudEnabled } from '../../lib/supabase';
+import { cloudEnabled, supabase } from '../../lib/supabase';
 import { formatBytes, cx } from '../../lib/utils';
 import { t, tn } from '../../i18n';
 
@@ -12,7 +13,17 @@ export default function StorageGauge({ inline = false }: { inline?: boolean }) {
   const items = useDrive(s => s.items);
   const trash = useDrive(s => s.trash);
   const inTrash = driveUsed([], trash);
-  const used = driveUsed(items, trash);
+  const mine = driveUsed(items, trash);
+  // Online, the files sent to groups count too (storage_used: what the limit itself counts).
+  const [online, setOnline] = useState(0);
+  useEffect(() => {
+    let live = true;
+    void supabase?.rpc('storage_used').then(r => live && !r.error && setOnline(Number(r.data) || 0), () => {});
+    return () => {
+      live = false;
+    };
+  }, [mine]);
+  const used = Math.max(mine, online);
   const share = Math.min(1, used / SPACE);
   const left = Math.max(0, SPACE - used);
   const tone = share >= 0.95 ? 'bg-red-500' : share >= 0.8 ? 'bg-amber-500' : 'bg-brand-500';

@@ -8,6 +8,7 @@
 
 import { t } from '../i18n';
 import { fitSeries } from './seriesId';
+import { cleanReminders } from './reminders';
 
 export interface IcsEvent {
   /** UID of the event, or `${UID}_${YYYYMMDD}` for one occurrence of a recurring (or multi-day) event. */
@@ -21,6 +22,8 @@ export interface IcsEvent {
   place?: string;
   /** The days of one event over several days are linked: « span-<UID>_<first day> » (see lib/repeat isSpan). */
   series?: string;
+  /** The file's alarms, in minutes before (lib/reminders). */
+  reminders?: number[];
 }
 
 export interface ParseOptions {
@@ -58,6 +61,8 @@ interface RawEvent {
   rrule?: Record<string, string>;
   exdates: Set<string>;
   recurrenceId?: string; // YYYYMMDD
+  /** VALARM triggers relative to the start, in ms (negative: before). */
+  alarms: number[];
 }
 
 const DAY_MS = 86_400_000;
@@ -157,7 +162,7 @@ function parseRule(v: string): Record<string, string> {
   return rule;
 }
 
-/** Reads the VEVENT blocks of an .ics file (sub-components such as VALARM are ignored). */
+/** Reads the VEVENT blocks of an .ics file (of a VALARM, only when it rings). */
 function readEvents(text: string): RawEvent[] {
   const lines = text
     .replace(/^\uFEFF/, '')
@@ -173,7 +178,7 @@ function readEvents(text: string): RawEvent[] {
     if (!p) continue;
     if (p.name === 'BEGIN') {
       if (cur) depth++;
-      else if (p.value.toUpperCase() === 'VEVENT') cur = { uid: '', summary: '', location: '', description: '', status: '', exdates: new Set() };
+      else if (p.value.toUpperCase() === 'VEVENT') cur = { uid: '', summary: '', location: '', description: '', status: '', exdates: new Set(), alarms: [] };
       continue;
     }
     if (p.name === 'END') {
@@ -183,6 +188,11 @@ function readEvents(text: string): RawEvent[] {
         cur = null;
       }
       continue;
+    }
+    // An alarm of the event: its moment, when given from the start (not a fixed date, not from the end).
+    if (cur && depth > 0 && p.name === 'TRIGGER' && p.params.VALUE?.toUpperCase() !== 'DATE-TIME' && p.params.RELATED?.toUpperCase() !== 'END') {
+      const ms = parseDuration(p.value);
+      if (ms !== undefined) cur.alarms.push(ms);
     }
     if (!cur || depth > 0) continue;
     switch (p.name) {
@@ -407,7 +417,9 @@ export function parseIcs(text: string, opts: ParseOptions = {}): IcsEvent[] {
     const start = e.start!;
     const allDay = start.allDay;
     const durationMs = e.end ? e.end.date.getTime() - start.date.getTime() : (e.durationMs ?? (allDay ? DAY_MS : 0));
-    const base = { title: titleOf(e.summary, e.description) || t('Sans titre'), ...detailsOf(e) };
+    // Minutes before the event's time; a day without a time is reminded from 9:00 (lib/reminders), its start here being midnight.
+    const reminders = cleanReminders(e.alarms.map(ms => Math.round((allDay ? 9 * 60 : 0) - ms / 60000)));
+    const base = { title: titleOf(e.summary, e.description) || t('Sans titre'), ...detailsOf(e), ...(reminders?.length && { reminders }) };
 
     if (e.recurrenceId) {
       out.push(...toEvents(e, start.date, durationMs, allDay, () => `${e.uid}_${e.recurrenceId}`, base));
