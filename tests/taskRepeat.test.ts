@@ -23,6 +23,8 @@ describe('tâches qui se répètent', () => {
     // Le 31 : fin février, puis de nouveau le 31.
     expect(nextDue('2027-01-31', 'month', '2027-01-31')).toBe('2027-02-28');
     expect(nextDue('2027-01-31', 'month', '2027-03-01')).toBe('2027-03-31');
+    // Cochée chaque mois à temps : après février elle reste le 28 (la fenêtre de la tâche le dit, pages/tasks/TaskDialog).
+    expect(nextDue('2027-02-28', 'month', '2027-02-28')).toBe('2027-03-28');
     expect(nextDue('2028-02-29', 'year', '2028-02-29')).toBe('2029-02-28');
   });
 
