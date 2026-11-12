@@ -31,9 +31,10 @@ import {
 import { useNotes } from '../store/notes';
 import { useCopilot } from '../store/copilot';
 import { runOffer } from './offers';
-import { alreadyPlanned, eventNamed, examLabel, findExam, hasRevisionPlan, planRevisions, openNoteLabel } from './actions';
-import { subjectStart } from './revisionPlan';
-import { askedDay, askedPeriod } from './dayQuestion';
+import { remindOfferLabel, alreadyPlanned, eventNamed, examLabel, findExam, hasRevisionPlan, planRevisions, openNoteLabel } from './actions';
+import { examSaid, subjectStart } from './revisionPlan';
+import { outOfScope } from './outOfScope';
+import { askedDay, askedPeriod, periodIn } from './dayQuestion';
 import { getSettings } from '../store/settings';
 import { WORDS, groupWords, type Usage } from '../lib/usage';
 import { lang, t, tn } from '../i18n';
@@ -171,6 +172,22 @@ function moreCommands(input: string, q: string): BotReply | null {
     return { text: when ? t('Ajouté à ta liste : « {title} » (pour {day}).', { title: todo.title, day: when }) : t('Ajouté à ta liste : « {title} ».', { title: todo.title }) };
   }
   if (/(mes taches|ma liste|ma to-?do|liste (de|des) taches|qu'est-ce que j'ai a faire|qu'est-ce qu'il me reste a faire|il me reste quoi)/.test(q)) {
+    // « … cette semaine », « … demain », « … ce week-end »: only what is due then (it listed everything), with the
+    // events of those days after it.
+    const span = periodIn(input);
+    const due = span ? null : parseQuickAdd(input.replace(/[’‘]/g, "'")).date;
+    if (span || due) {
+      const from = span?.from ?? due!;
+      const to = span?.to ?? due!;
+      const when = !span ? describeDue(due!) : span.kind === 'week' ? t('cette semaine') : span.kind === 'next-week' ? t('la semaine prochaine') : /prochain/.test(q) ? t('le week-end prochain') : t('ce week-end');
+      const todos = todosBetween(from, to);
+      const events = eventsBetween(from, to);
+      const lines = todos.length
+        ? [t('À faire {when} ({n}) :', { when, n: todos.length }), ...todos.slice(0, 12).map(x => `- ${x.title} · ${dueLabel(x)}`)]
+        : [t('Rien à faire {when} pour le moment.', { when })];
+      if (events.length) lines.push(t('Au calendrier :'), ...events.slice(0, 8).map(e => `- ${describeEvent(e)}`));
+      return { text: lines.join('\n'), links: [{ label: t('Tâches'), to: '/taches' }, ...(events.length ? [{ label: t('Voir le calendrier'), to: linkToDay(from) }] : [])] };
+    }
     const list = listTodos();
     if (!list.length) return { text: t('Ta liste est vide.') };
     return { text: `${t('À faire ({n}) :', { n: list.length })}\n${list.slice(0, 12).map(x => `- ${x.title}${x.due ? ` · ${describeDue(x.due)}${x.late ? ` ${t('(en retard)')}` : ''}` : ''}`).join('\n')}` };
@@ -392,6 +409,17 @@ const describeDue = (key: string) => {
   return d === 0 ? t('aujourd’hui') : d === 1 ? t('demain') : d === -1 ? t('hier') : fmt(fromKey(key), 'EEEE d MMM');
 };
 
+/** The tasks not done that are due from `from` to `to` (the late ones too when today is in those days), by due moment. */
+function todosBetween(from: string, to: string) {
+  const today = todayKey();
+  return listTodos()
+    .filter(x => x.due && ((x.due >= from && x.due <= to) || (x.late && from <= today && today <= to)))
+    .sort((a, b) => `${a.due} ${a.time ?? '99'}`.localeCompare(`${b.due} ${b.time ?? '99'}`));
+}
+/** « demain à 18h », « lundi 16 nov. (en retard) ». */
+const dueLabel = (x: { due?: string; time?: string; late?: boolean }) =>
+  `${x.time ? t('{when} à {time}', { when: describeDue(x.due!), time: hourLabel(x.time) }) : describeDue(x.due!)}${x.late ? ` ${t('(en retard)')}` : ''}`;
+
 /** The suggestions under the chat, sent as they are shown: in another language, back to the French this brain reads. */
 const SUGGESTED: [string, string][] = [
   ['Analyse ma semaine', t('Analyse ma semaine')],
@@ -496,7 +524,7 @@ function eventAdded(parsed: ParsedQuickAdd): BotReply {
   // The hour before, when there is still time for it and it isn't already set.
   const offers: CopilotOffer[] =
     ev.start && !(ev.reminders ?? []).includes(60) && reminderMoment(ev.date, ev.start, 60) > new Date()
-      ? [{ label: t('Me prévenir 1 h avant'), kind: 'add_reminder', payload: { eventId: ev.id, minutes: '60' } }]
+      ? [{ label: remindOfferLabel(ev, 60), kind: 'add_reminder', payload: { eventId: ev.id, minutes: '60' } }]
       : [];
   return {
     text: `${t('Ajouté au calendrier : {event}', { event: described })}${more ? `\n${more}` : ''}${parsed.date ? '' : `\n${t('(Pas de date trouvée : je l’ai mis aujourd’hui.)')}`}`,
@@ -542,6 +570,14 @@ export function localReply(raw: string): BotReply {
     return { text: pick([t('OK, je n’insiste pas. Je reste dans le coin.'), t('Pas de souci, on verra plus tard.')]) };
   }
 
+  // ── Not Kompaly's job: invoices and quotes, a team's planning, accounting ──
+  const out = outOfScope(input);
+  if (out) {
+    const instead = t('Je peux te mettre un rappel, ajouter une tâche ou garder une note : par exemple « Rappelle-moi d’envoyer la facture demain 9h ».');
+    const what = out === 'facture' ? t('Kompaly ne fait pas de factures ni de devis.') : out === 'equipe' ? t('Kompaly ne fait pas le planning d’une équipe ni la gestion du personnel : c’est ton agenda à toi, que tu peux partager.') : t('Kompaly ne fait pas de comptabilité.');
+    return { text: `${what} ${instead}` };
+  }
+
   // ── Recording (page « Enregistrer ») and sheets made from a Drive document ──
   // Not « rappelle-moi d'enregistrer… » nor « ajoute Enregistrement du podcast mardi » (a reminder, an event).
   if (/(enregistr|transcri)/.test(q) && !/\b(note|tache|evenement|rdv|rendez-vous|fichier|dossier|document|reglages?|mot de passe)\b|rappel|penser|^(ajoute|planifie|programme|mets?)\b/.test(q)) {
@@ -556,9 +592,15 @@ export function localReply(raw: string): BotReply {
     const w = words();
     // « … pour le contrôle de maths du 10 novembre », « … pour préparer lancement »: the words after the request.
     const subject = unquote(input.slice(subjectStart(q)).replace(/[\s?!.]+$/, ''));
-    const exam = findExam(subject);
+    let exam = findExam(subject);
     // Named, in the calendar, but not something Kompaly prepares for (not an exam, not marked important).
     const named = !exam && subject ? eventNamed(subject) : undefined;
+    // « … pour mon partiel d'anatomie du 15 décembre » and no such exam in the calendar: the sentence gives its name
+    // and its day, so it is added (not « ajoute-le d'abord »). Not when an exam of that name is there on another day.
+    const said = !exam && !named && subject ? examSaid(subject) : null;
+    const added = said && !findExam(said.title) ? addEvent({ ...said, ...(getSettings().usage === 'etudes' ? { category: 'examen' } : { important: true }) }) : undefined;
+    if (added) exam = added;
+    const intro = added ? `${t('J’ai ajouté {exam} à ton calendrier, le {date}.', { exam: examLabel(added), date: fmt(fromKey(added.date), 'EEEE d MMMM') })} ` : '';
     if (named) {
       return {
         text: getSettings().usage === 'etudes'
@@ -575,17 +617,18 @@ export function localReply(raw: string): BotReply {
     const res = planRevisions(exam.id)!;
     if (!res.created.length) {
       return {
-        text: getSettings().usage === 'etudes'
+        text: intro + (getSettings().usage === 'etudes'
           ? t('Plus le temps de caler une séance avant {exam} : voici une fiche pour une dernière relecture.', { exam: examLabel(exam) })
-          : t('Plus le temps de bloquer un créneau avant {exam} : voici une note pour ne rien oublier.', { exam: examLabel(exam) }),
+          : t('Plus le temps de bloquer un créneau avant {exam} : voici une note pour ne rien oublier.', { exam: examLabel(exam) })),
         links: res.note ? [{ label: openNoteLabel(), to: linkToNote(res.note.id) }] : [],
       };
     }
     return {
       text:
-        getSettings().usage === 'etudes'
+        intro +
+        (getSettings().usage === 'etudes'
           ? tn(res.created.length, 'Pour {exam}, je t’ai calé {n} séance de révision et une fiche pour t’organiser.', 'Pour {exam}, je t’ai calé {n} séances de révision et une fiche pour t’organiser.', { exam: examLabel(exam) })
-          : tn(res.created.length, 'Pour {exam}, je t’ai bloqué {n} créneau pour préparer et une note pour ne rien oublier.', 'Pour {exam}, je t’ai bloqué {n} créneaux pour préparer et une note pour ne rien oublier.', { exam: examLabel(exam) }),
+          : tn(res.created.length, 'Pour {exam}, je t’ai bloqué {n} créneau pour préparer et une note pour ne rien oublier.', 'Pour {exam}, je t’ai bloqué {n} créneaux pour préparer et une note pour ne rien oublier.', { exam: examLabel(exam) })),
       links: [
         { label: t('Voir le planning'), to: linkToDay(res.created[0].date) },
         ...(res.note ? [{ label: openNoteLabel(), to: linkToNote(res.note.id) }] : []),
@@ -736,7 +779,14 @@ export function localReply(raw: string): BotReply {
 
   // ── What's on a weekend or a week: « qu'est-ce qui est prévu ce week-end ? », « mon planning de la semaine » ──
   const period = askedPeriod(input);
-  if (period?.kind === 'week') return calendarReport();
+  // The tasks due in those days too (« qu'est-ce que j'ai la semaine prochaine ? » left out the one due on Monday).
+  const periodTodos = period ? todosBetween(period.from, period.to) : [];
+  const todoLine = periodTodos.length ? `\n${t('À faire : {list}.', { list: periodTodos.map(x => `${x.title} (${dueLabel(x)})`).join(', ') })}` : '';
+  const todoLink = periodTodos.length ? [{ label: t('Tâches'), to: '/taches' }] : [];
+  if (period?.kind === 'week') {
+    const report = calendarReport();
+    return { text: report.text + todoLine, links: [...report.links, ...todoLink] };
+  }
   if (period) {
     const list = eventsBetween(period.from, period.to);
     const span = { from: fmt(fromKey(period.from), 'EEEE d'), to: fmt(fromKey(period.to), 'EEEE d MMMM') };
@@ -745,8 +795,8 @@ export function localReply(raw: string): BotReply {
     const heading = { 'next-weekend': t('Le week-end prochain (du {from} au {to}) :', span), weekend: t('Ce week-end (du {from} au {to}) :', span), 'next-week': t('La semaine prochaine (du {from} au {to}) :', span) }[kind];
     const empty = { 'next-weekend': t('Rien de prévu le week-end prochain (du {from} au {to}) pour le moment.', span), weekend: t('Rien de prévu ce week-end (du {from} au {to}) pour le moment.', span), 'next-week': t('Rien de prévu la semaine prochaine (du {from} au {to}) pour le moment.', span) }[kind];
     return {
-      text: list.length ? `${heading}\n${list.slice(0, 12).map(e => `- ${describeEvent(e)}`).join('\n')}${more}` : empty,
-      links: [{ label: t('Voir le calendrier'), to: linkToDay(period.from) }],
+      text: list.length ? `${heading}\n${list.slice(0, 12).map(e => `- ${describeEvent(e)}`).join('\n')}${more}${todoLine}` : todoLine ? `${heading}${todoLine}` : empty,
+      links: [{ label: t('Voir le calendrier'), to: linkToDay(period.from) }, ...todoLink],
     };
   }
 
