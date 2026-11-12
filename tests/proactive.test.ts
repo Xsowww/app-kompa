@@ -78,11 +78,11 @@ describe('pause of the AI', () => {
     const { describeApiError, CopilotApiError } = await import('../src/copilot/claudeBrain');
     const { pauseAi } = await import('../src/copilot/aiPause');
     pauseAi(120);
-    expect(describeApiError(new CopilotApiError('rate_limited'))).toContain('mode simple deux minutes');
+    expect(describeApiError(new CopilotApiError('rate_limited'))).toContain('phrases simples pendant deux minutes');
     pauseAi(45);
-    expect(describeApiError(new CopilotApiError('rate_limited'))).toContain('mode simple une minute');
+    expect(describeApiError(new CopilotApiError('rate_limited'))).toContain('phrases simples pendant une minute');
     pauseAi(300);
-    expect(describeApiError(new CopilotApiError('rate_limited'))).toContain('mode simple 5 minutes');
+    expect(describeApiError(new CopilotApiError('rate_limited'))).toContain('phrases simples pendant 5 minutes');
   });
 });
 

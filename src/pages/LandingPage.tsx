@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Bell, Briefcase, CalendarDays, CornerDownLeft, Download, EllipsisVertical, FileSearch, FileText, Flame, GraduationCap, HeartPulse, House, Lock, Menu, Mic, Plus, Server, Share, ShieldCheck, Sparkles, Square, SquarePlus, Sunrise, Timer, UserRound, Users, X } from 'lucide-react';
+import { ArrowRight, Bell, Briefcase, CalendarDays, CornerDownLeft, Download, EllipsisVertical, FileSearch, FileText, Flame, GraduationCap, HeartPulse, House, Lock, Menu, Mic, Minus, Plus, Server, Share, ShieldCheck, Sparkles, Square, SquarePlus, Sunrise, Timer, UserRound, Users, X } from 'lucide-react';
 import { DAILY_QUESTIONS, DAILY_RECORDING_HOURS } from '../lib/limits';
 import Logo from '../components/Logo';
 import LanguagePicker from '../components/LanguagePicker';
@@ -23,6 +23,9 @@ const CONTACT = 'contact@kompaly.com';
 // The public home page (kompaly.com/ for someone not signed in): what Kompaly is, for search engines and newcomers.
 // The pictures in public/landing/ are real captures of the app (light Classique look, a local test account).
 
+/** French spacing kept on one line: « and » with their word, « : », « ? », « ; » with the one before (never alone at a line's start or end). */
+const keep = (s: string) => s.replace(/« /g, '«\u00a0').replace(/ (»|[:;?!])/g, '\u00a0$1');
+
 const reducedMotion = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /** The demo week (landingDemo › demoMonday): the one source of the dates drawn on this page (the hero, Kompaly's answers). */
@@ -34,24 +37,66 @@ const WEEK = { day: (i: number) => dateOf(DEMO_DAYS[i]).getDate() };
 let datesModule: Promise<typeof import('../lib/dates')> | undefined;
 const loadDates = () => (datesModule ??= import('../lib/dates'));
 
-/** One example per life, under the title: a tap writes it in the demo and adds it. */
-const TRIES: { key: string; audience: Usage; icon: typeof Mic; label: string; text: string; color: string }[] = [
-  { key: 'etudes', audience: 'etudes', icon: GraduationCap, label: t('Lycée, fac'), text: t('Réviser le partiel jeudi 18h'), color: '#3d6fd8' },
-  { key: 'travail', audience: 'travail', icon: Briefcase, label: t('Travail'), text: t('Relancer M. Dupont vendredi 10h'), color: '#d48a17' },
-  { key: 'famille', audience: 'perso', icon: House, label: t('Famille'), text: t('Judo de Léo mercredi 14h'), color: '#7a5ad6' },
-  { key: 'sante', audience: 'perso', icon: HeartPulse, label: t('Santé'), text: t('Cardiologue jeudi 9h30'), color: '#d6457a' },
-];
-type Try = (typeof TRIES)[number];
+const BLUE = '#3d6fd8';
+const AMBER = '#d48a17';
+const VIOLET = '#7a5ad6';
+const PINK = '#d6457a';
+const TEAL = '#1f8a8a';
+
+/** An example to tap, by the demo's field: a tap writes it there and adds it to the week. */
+interface Try {
+  key: string;
+  audience: Usage;
+  icon: typeof Mic;
+  /** Whose example it is, read out with it (the icon says it to the eye). */
+  who: string;
+  text: string;
+  color: string;
+}
+const TRY = {
+  exam: { key: 'exam', audience: 'etudes', icon: GraduationCap, who: t('Études'), text: t('Examen jeudi 9h'), color: BLUE },
+  talk: { key: 'talk', audience: 'etudes', icon: GraduationCap, who: t('Études'), text: t('Exposé vendredi 14h'), color: TEAL },
+  revise: { key: 'revise', audience: 'etudes', icon: GraduationCap, who: t('Études'), text: t('Révisions mercredi 18h'), color: VIOLET },
+  meeting: { key: 'meeting', audience: 'travail', icon: Briefcase, who: t('Travail'), text: t('Réunion vendredi 10h'), color: AMBER },
+  call: { key: 'call', audience: 'travail', icon: Briefcase, who: t('Travail'), text: t('Appeler M. Dupont jeudi 9h'), color: TEAL },
+  training: { key: 'training', audience: 'travail', icon: Briefcase, who: t('Travail'), text: t('Formation mercredi 14h'), color: BLUE },
+  doctor: { key: 'doctor', audience: 'perso', icon: HeartPulse, who: t('Famille'), text: t('Cardiologue mercredi 9h30'), color: PINK },
+  judo: { key: 'judo', audience: 'perso', icon: House, who: t('Famille'), text: t('Judo de Léo mercredi 14h'), color: VIOLET },
+  dinner: { key: 'dinner', audience: 'perso', icon: House, who: t('Famille'), text: t('Dîner chez Paul vendredi 20h'), color: AMBER },
+} satisfies Record<string, Try>;
 const TYPED_COLOR = '#2f9e6b';
 
+const example = (id: number, title: string, day: number, start: string, color: string): DemoItem => ({ id, kind: 'event', title, date: DEMO_DAYS[day], start, color, example: true });
+
 /**
- * The demo week's own examples, one per life (none of them a chip's, so a tap never doubles one). A night of work
- * on the ground, not only office hours: it shows on both days.
+ * What the top of the page shows for each life, and for nobody in particular (« tous »: one example of each, so nobody
+ * reads the page as « for someone else »): the three examples to tap, and the demo week's own events (none of them a
+ * tapped example, so a tap never doubles one).
  */
-const EXAMPLES: DemoItem[] = [
-  { id: 1, kind: 'event', title: t('Garde de nuit'), date: DEMO_DAYS[0], start: '21:00', end: '07:00', nextDay: true, color: '#1f8a8a', example: true },
-  { id: 2, kind: 'event', title: t('Cours d’anglais'), date: DEMO_DAYS[3], start: '08:30', color: '#3d6fd8', example: true },
-  { id: 3, kind: 'event', title: t('Repas chez mamie'), date: DEMO_DAYS[6], start: '12:30', color: '#7a5ad6', example: true },
+const HERO: Record<Usage | 'tous', { tries: Try[]; week: DemoItem[] }> = {
+  tous: {
+    tries: [TRY.exam, TRY.meeting, TRY.doctor],
+    week: [example(1, t('Cours d’anglais'), 0, '08:30', BLUE), example(2, t('Point d’équipe'), 1, '09:30', AMBER), example(3, t('Repas de famille'), 6, '12:30', VIOLET)],
+  },
+  etudes: {
+    tries: [TRY.exam, TRY.talk, TRY.revise],
+    week: [example(1, t('Cours d’anglais'), 0, '08:30', BLUE), example(2, t('TD de maths'), 1, '14:00', AMBER), example(3, t('Révisions en groupe'), 5, '10:00', VIOLET)],
+  },
+  travail: {
+    tries: [TRY.meeting, TRY.call, TRY.training],
+    week: [example(1, t('Point d’équipe'), 0, '09:30', AMBER), example(2, t('Rendez-vous client'), 1, '14:00', BLUE), example(3, t('Déjeuner d’équipe'), 4, '12:30', VIOLET)],
+  },
+  perso: {
+    tries: [TRY.doctor, TRY.judo, TRY.dinner],
+    week: [example(1, t('Réunion parents-profs'), 1, '18:00', BLUE), example(2, t('Marché'), 5, '10:00', AMBER), example(3, t('Repas chez mamie'), 6, '12:30', VIOLET)],
+  },
+};
+
+/** The three lives of the choice at the top (short words; the « Usages » section below has the app's own). */
+const AUDIENCES: { key: Usage; label: string }[] = [
+  { key: 'etudes', label: t('Études') },
+  { key: 'travail', label: t('Travail') },
+  { key: 'perso', label: t('Famille') },
 ];
 
 /** The big day of the dark tile: always the same (it never changes by itself while the visitor tries). */
@@ -75,11 +120,18 @@ interface Said {
 /** The demo's state, shared by the examples under the title and the demo itself. */
 function useDemo() {
   const [text, setText] = useState('');
-  const [items, setItems] = useState<DemoItem[]>(EXAMPLES);
+  const [items, setItems] = useState<DemoItem[]>(HERO.tous.week);
   const [monday, setMonday] = useState(DEMO_MONDAY);
   const [weekName, setWeekName] = useState<string | null>(null);
   const [said, setSaid] = useState<Said | null>(null);
+  // The life picked at the top (null: one example of each), and the one of the last example tapped.
   const [audience, setAudience] = useState<Usage | null>(null);
+  const [tried, setTried] = useState<Usage | null>(null);
+  /** « Études · Travail · Famille »: its examples in the week, what the visitor added stays. */
+  const pick = (a: Usage | null) => {
+    setAudience(a);
+    setItems(list => [...HERO[a ?? 'tous'].week, ...list.filter(i => !i.example)]);
+  };
   const next = useRef(10);
 
   const add = async (sentence: string, tried?: Try) => {
@@ -111,7 +163,7 @@ function useDemo() {
     const added: DemoItem[] = ok.map(x => ({ ...x, id: next.current++, color: tried?.color ?? TYPED_COLOR }));
     setItems(list => [...list, ...added]);
     setText('');
-    if (tried) setAudience(tried.audience);
+    if (tried) setTried(tried.audience);
     // Only what the visitor wrote themself goes to their account (not an example tapped).
     else keepForAccount(sentence);
     const first = added[0];
@@ -140,41 +192,81 @@ function useDemo() {
 
   const ahead = weeksAhead(monday, new Date());
   const weekLabel = weekName ?? (ahead <= 0 ? t('Cette semaine') : t('Semaine prochaine'));
-  return { text, setText, items, monday, weekLabel, said, audience, add };
+  return { text, setText, items, monday, weekLabel, said, audience, pick, usage: audience ?? tried, add };
 }
 type Demo = ReturnType<typeof useDemo>;
 
-/** Under the title: the three lives, one example each; a tap tries it in the demo (brought into view on phones). */
-function TryChips({ demo }: { demo: Demo }) {
+/** Brings the demo's week into view when it is under the fold (phones: it comes after the buttons). */
+function showWeek() {
+  const box = document.getElementById('essai');
+  const r = box?.getBoundingClientRect();
+  if (!box || !r || (r.top >= 64 && r.bottom <= innerHeight)) return;
+  // The keyboard would hide it.
+  if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+  box.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: r.height > innerHeight - 80 ? 'start' : 'center' });
+}
+
+/**
+ * Right under the promise, before the buttons: the app's quick add for real, three examples to tap, and whose examples
+ * to show (« Études · Travail · Famille »; nothing picked: one of each). What is added lands in the week (HeroDemo).
+ */
+function HeroTry({ demo }: { demo: Demo }) {
   const [busy, setBusy] = useState(false);
+  const field = useRef<HTMLInputElement>(null);
   const tryIt = (tried: Try) => {
     demo.setText(tried.text);
     setBusy(true);
-    const box = document.getElementById('essai');
-    const r = box?.getBoundingClientRect();
-    if (box && r && (r.top < 64 || r.bottom > innerHeight)) box.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: r.height > innerHeight - 80 ? 'start' : 'center' });
+    showWeek();
     // The sentence is seen in the field a moment, then it lands in the week.
     setTimeout(() => void demo.add(tried.text, tried).finally(() => setBusy(false)), reducedMotion() ? 0 : 450);
   };
   return (
-    <div className="mt-6" onPointerEnter={() => void loadDates()} onFocus={() => void loadDates()} onTouchStart={() => void loadDates()}>
-      <p className="text-[14px] font-medium text-stone-600">{t('Essaie avec un exemple :')}</p>
-      <ul className="mt-2 flex flex-wrap gap-2">
-        {TRIES.map(x => (
+    <div className="card mt-5 p-3 max-sm:p-2.5" onPointerEnter={() => void loadDates()} onFocus={() => void loadDates()} onTouchStart={() => void loadDates()}>
+      <div className="seg flex text-[13.5px]" role="group" aria-label={t('Montrer des exemples pour')}>
+        {AUDIENCES.map(a => (
+          <button key={a.key} type="button" aria-pressed={demo.audience === a.key} onClick={() => demo.pick(demo.audience === a.key ? null : a.key)} className="seg-item h-9 min-w-0 flex-1 px-2 font-semibold pointer-coarse:h-10">
+            {a.label}
+          </button>
+        ))}
+      </div>
+      {/* The app's quick add, for real */}
+      <form
+        className="mt-2.5 flex items-center gap-2 max-[359px]:gap-1.5"
+        onSubmit={e => {
+          e.preventDefault();
+          // Nothing written: the field again (the answer is by the week, further down on phones).
+          if (!demo.text.trim()) field.current?.focus();
+          else showWeek();
+          void demo.add(demo.text);
+        }}
+      >
+        <input
+          ref={field}
+          value={demo.text}
+          onChange={e => demo.setText(e.target.value)}
+          enterKeyHint="done"
+          autoComplete="off"
+          maxLength={120}
+          aria-label={t('Écris une phrase pour essayer, par exemple « Dentiste mardi 17h30 »')}
+          placeholder={t('Essaie : Dentiste mardi 17h30')}
+          className="h-11 min-w-0 flex-1 rounded-xl border border-stone-300 bg-surface px-3 text-[16px] max-[359px]:px-2.5 placeholder:text-stone-400 focus-visible:border-brand-500 focus-visible:outline-offset-0"
+        />
+        <button type="submit" className={cx('h-11 shrink-0 px-3.5 text-[14px] max-[359px]:px-3', demo.text.trim() ? 'btn-primary' : 'btn-secondary')}>
+          {t('Ajouter')} <CornerDownLeft size={14} className="max-sm:hidden" aria-hidden />
+        </button>
+      </form>
+      <ul className="mt-2.5 flex flex-wrap gap-2 max-sm:gap-1.5" aria-label={t('Ou touche un exemple')}>
+        {HERO[demo.audience ?? 'tous'].tries.map(x => (
           <li key={x.key} className="max-w-full">
             <button
               type="button"
               aria-disabled={busy}
               onClick={() => !busy && tryIt(x)}
-              aria-label={t('Essayer : « {text} » ({who})', { text: x.text, who: x.label })}
-              className="flex min-h-11 max-w-full items-center gap-2 rounded-[14px] border border-stone-200 bg-surface py-1.5 pl-1.5 pr-3 text-left text-[14px] leading-snug shadow-card transition-colors hover:border-stone-300 hover:bg-stone-50"
+              aria-label={t('Essayer : « {text} » ({who})', { text: x.text, who: x.who })}
+              className="flex min-h-9 max-w-full items-center gap-1.5 rounded-full border border-stone-200 bg-surface py-1 pl-2.5 pr-3 text-left text-[13.5px] max-sm:gap-1 max-sm:pl-2 max-sm:pr-2.5 max-sm:text-[13px] font-medium leading-snug transition-colors hover:border-stone-300 hover:bg-stone-50 pointer-coarse:min-h-11"
             >
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] text-white" style={{ background: x.color }} aria-hidden>
-                <x.icon size={16} strokeWidth={2} />
-              </span>
-              <span className="min-w-0">
-                <span className="font-semibold">{x.label}</span> <span className="text-stone-600">{x.text}</span>
-              </span>
+              <x.icon size={15} strokeWidth={2} className="shrink-0" style={{ color: x.color }} aria-hidden />
+              <span className="min-w-0">{x.text}</span>
             </button>
           </li>
         ))}
@@ -184,8 +276,8 @@ function TryChips({ demo }: { demo: Demo }) {
 }
 
 /**
- * The hero's demo, for real: a sentence typed (or an example tapped) is read by the app's quick add and lands in a
- * little week, as an event (it has an hour) or a task; then Kompaly invites to keep it. Nothing is saved nor sent.
+ * The hero's demo, for real: a sentence typed (or an example tapped) in HeroTry is read by the app's quick add and lands
+ * in a little week, as an event (it has an hour) or a task; then Kompaly invites to keep it. Nothing is saved nor sent.
  * Its week mixes work, family and studies: nobody should read it as « not for me ».
  */
 function HeroDemo({ demo }: { demo: Demo }) {
@@ -199,31 +291,6 @@ function HeroDemo({ demo }: { demo: Demo }) {
   return (
     <div id="essai" className="relative min-w-0 scroll-mt-20">
       <div className="card overflow-hidden p-0 shadow-pop">
-        {/* The app's quick add, for real */}
-        <form
-          className="flex items-center gap-2 border-b border-stone-200 p-3 max-[359px]:gap-1.5 max-[359px]:p-2.5"
-          onSubmit={e => {
-            e.preventDefault();
-            void demo.add(demo.text);
-          }}
-        >
-          <input
-            value={demo.text}
-            onChange={e => demo.setText(e.target.value)}
-            onFocus={() => void loadDates()}
-            onPointerEnter={() => void loadDates()}
-            enterKeyHint="done"
-            autoComplete="off"
-            maxLength={120}
-            aria-label={t('Écris une phrase pour essayer, par exemple « Dentiste mardi 17h30 »')}
-            placeholder={t('Dentiste mardi 17h30')}
-            className="h-11 min-w-0 flex-1 rounded-xl border border-stone-300 bg-surface px-3 text-[16px] max-[359px]:px-2.5 placeholder:text-stone-400 focus-visible:border-brand-500 focus-visible:outline-offset-0"
-          />
-          <button type="submit" className={cx('h-11 shrink-0 px-3.5 text-[14px] max-[359px]:px-3', demo.text.trim() ? 'btn-primary' : 'btn-secondary')}>
-            {t('Ajouter')} <CornerDownLeft size={14} className="max-[359px]:hidden" aria-hidden />
-          </button>
-        </form>
-
         <div className="grid gap-4 p-4 sm:grid-cols-[minmax(0,1fr)_150px]">
           <div className="min-w-0">
             <p className="mb-2 text-[12.5px] font-semibold text-stone-500" aria-hidden>
@@ -322,6 +389,28 @@ function HeroDemo({ demo }: { demo: Demo }) {
   );
 }
 
+/** At the end of a title that opens (FAQ, folded parts): « + » closed, « − » open. */
+function OpenMark({ className }: { className?: string }) {
+  return (
+    <span className={cx('shrink-0 text-stone-400', className)} aria-hidden>
+      <Plus size={18} strokeWidth={2} className="group-open:hidden" />
+      <Minus size={18} strokeWidth={2} className="hidden group-open:block" />
+    </span>
+  );
+}
+
+/** A phone's width: the long parts are folded behind their title there (Feature, the privacy points). */
+function usePhone() {
+  const [phone, setPhone] = useState(() => typeof matchMedia !== 'undefined' && matchMedia('(max-width: 639px)').matches);
+  useEffect(() => {
+    const m = matchMedia('(max-width: 639px)');
+    const on = () => setPhone(m.matches);
+    m.addEventListener('change', on);
+    return () => m.removeEventListener('change', on);
+  }, []);
+  return phone;
+}
+
 /** A real capture of the app, in a frame; `mobile`: a phone capture shown instead on narrow screens (else unreadable). */
 function Shot({ src, width, height, alt, phone, mobile, className }: { src: string; width: number; height: number; alt: string; phone?: boolean; mobile?: [string, number, number]; className?: string }) {
   return (
@@ -340,8 +429,29 @@ function Shot({ src, width, height, alt, phone, mobile, className }: { src: stri
   );
 }
 
-/** One thing Kompaly does: a title, two lines, and what it looks like in the app. */
-function Feature({ icon: Icon, title, text, children, flip, extra }: { icon: typeof Mic; title: string; text: string; children: ReactNode; flip?: boolean; extra?: ReactNode }) {
+/**
+ * One thing Kompaly does: a title, two lines, and what it looks like in the app. Phones: behind its title, as a
+ * question of the FAQ (the five of them made the page 14 screens long); `open`: shown from the start.
+ */
+function Feature({ icon: Icon, title, text, children, flip, extra, open }: { icon: typeof Mic; title: string; text: string; children: ReactNode; flip?: boolean; extra?: ReactNode; open?: boolean }) {
+  const phone = usePhone();
+  if (phone)
+    return (
+      <li>
+        <details className="group" open={open || undefined}>
+          <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 py-3 [&::-webkit-details-marker]:hidden">
+            <Icon size={20} strokeWidth={1.8} className="shrink-0 text-brand-600" aria-hidden />
+            <h3 className="min-w-0 flex-1 text-[17px] font-bold leading-snug tracking-[-0.01em]">{title}</h3>
+            <OpenMark />
+          </summary>
+          <div className="pb-7">
+            <p className="text-[15px] leading-relaxed text-stone-600">{text}</p>
+            {extra}
+            <div className="mt-6 min-w-0">{children}</div>
+          </div>
+        </details>
+      </li>
+    );
   return (
     <li className="grid items-center gap-8 lg:grid-cols-2 lg:gap-14">
       <div className={cx('min-w-0', flip && 'lg:order-2')}>
@@ -497,25 +607,25 @@ function Assistant() {
           <p className="mt-4 max-w-[52ch] text-[15px] leading-relaxed text-stone-600">
             {t('Écris-lui comme à quelqu’un : il ajoute tes rendez-vous, planifie tes révisions, retrouve un fichier et te prévient avant les grands jours.')}
           </p>
-          {/* The two modes, said plainly. Nothing to choose: Kompaly goes simple by itself (copilot/claudeBrain). */}
+          {/* One plain idea (« mode intelligent / mode simple » wasn't understood): so many questions to the AI a day, then simple sentences. */}
           <ul className="mt-6 space-y-3 text-[14.5px] leading-relaxed">
             <li className="flex gap-3">
               <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-brand-500" aria-hidden />
               <span>
-                <strong className="font-semibold">{t('Mode intelligent :')}</strong>{' '}
-                {t('il comprend tout ce que tu écris, par exemple « résume mon cours de droit en 5 points », et lit tes documents quand tu le lui demandes. Il passe par une IA (détails dans Vie privée) : {n} questions par jour.', { n: DAILY_QUESTIONS })}
+                <strong className="font-semibold">{t('{n} questions à l’IA par jour, gratuites.', { n: DAILY_QUESTIONS })}</strong>{' '}
+                {keep(t('Avec l’IA, il comprend tout ce que tu écris, par exemple « résume mon cours de droit en 5 points », et lit tes documents quand tu le lui demandes (détails dans Vie privée).'))}
               </span>
             </li>
             <li className="flex gap-3">
               <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-stone-400" aria-hidden />
               <span>
-                <strong className="font-semibold">{t('Mode simple :')}</strong>{' '}
-                {t('sans IA, rien ne sort de Kompaly. Il comprend les phrases courantes : « dentiste mardi 17h30 », « qu’est-ce que j’ai demain ? ».')}
+                <strong className="font-semibold">{t('Au-delà, Kompaly continue à comprendre tes phrases simples :')}</strong>{' '}
+                {keep(t('« dentiste mardi 17h30 », « qu’est-ce que j’ai demain ? ». Sans IA : rien ne sort alors de Kompaly.'))}
               </span>
             </li>
           </ul>
           <p className="mt-4 max-w-[60ch] rounded-2xl bg-stone-100 px-4 py-3 text-[14px] leading-relaxed text-stone-600">
-            {t('Tu n’as rien à choisir : Kompaly est en mode intelligent tant que l’IA répond et qu’il te reste des questions du jour, sinon il passe tout seul en mode simple. L’enregistrement de cours est à part : son texte est toujours écrit par une IA, avec une limite de {hours} h par jour.', { hours: DAILY_RECORDING_HOURS })}
+            {t('Tu n’as rien à choisir ni à régler. L’enregistrement de cours est à part : son texte est toujours écrit par une IA, avec une limite de {hours} h par jour.', { hours: DAILY_RECORDING_HOURS })}
           </p>
         </div>
 
@@ -706,28 +816,60 @@ function Usages({ chosen }: { chosen: Usage | null }) {
 }
 
 const TRUST = [
-  { icon: Server, text: t('Tes données sont hébergées dans l’Union européenne (Irlande, Allemagne). Seul ce que tu demandes à une IA en sort, vers les États-Unis : ta question en mode intelligent (jamais utilisée pour entraîner l’IA), le son d’un enregistrement pour l’écrire en texte, puis effacé, et la photo d’une fiche pour la lire. Le nom de chaque service est dans la politique de confidentialité.') },
-  { icon: Lock, text: t('Tes fichiers sont protégés : transferts chiffrés (HTTPS), disques chiffrés sur les serveurs. Ils ne sont ouverts que par ton compte, et par les membres d’un groupe pour ce que tu y partages. Kompaly ne lit un fichier que pour répondre à une de tes demandes.') },
-  { icon: ShieldCheck, text: t('Une sécurité en plus, si tu veux : à la connexion, un code affiché par ton téléphone en plus du mot de passe (la « double authentification »).') },
-  { icon: Download, text: t('Ni publicité, ni revente de données. Exporte tout ou supprime ton compte en un clic.') },
+  { icon: Server, title: t('Hébergé en Europe'), text: t('Tes données sont hébergées dans l’Union européenne (Irlande, Allemagne). Seul ce que tu demandes à une IA en sort, vers les États-Unis : la question que tu poses à l’IA (jamais utilisée pour l’entraîner), le son d’un enregistrement pour l’écrire en texte, puis effacé, et la photo d’une fiche pour la lire. Le nom de chaque service est dans la politique de confidentialité.') },
+  { icon: Lock, title: t('Tes fichiers sont protégés'), text: t('Tes fichiers sont protégés : transferts chiffrés (HTTPS), disques chiffrés sur les serveurs. Ils ne sont ouverts que par ton compte, et par les membres d’un groupe pour ce que tu y partages. Kompaly ne lit un fichier que pour répondre à une de tes demandes.') },
+  { icon: ShieldCheck, title: t('Un code en plus du mot de passe, si tu veux'), text: t('Une sécurité en plus, si tu veux : à la connexion, un code affiché par ton téléphone en plus du mot de passe (la « double authentification »).') },
+  { icon: Download, title: t('Ni publicité, ni revente de données'), text: t('Ni publicité, ni revente de données. Exporte tout ou supprime ton compte en un clic.') },
 ] as const;
+
+/** The privacy points; phones: each behind a short title (four long paragraphs in a row otherwise). */
+function TrustPoints() {
+  const phone = usePhone();
+  if (phone)
+    return (
+      <ul className="divide-y divide-paper/15 border-y border-paper/15">
+        {TRUST.map(item => (
+          <li key={item.text}>
+            <details className="group">
+              <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 py-3 text-[15.5px] font-medium [&::-webkit-details-marker]:hidden">
+                <item.icon size={19} strokeWidth={1.8} className="shrink-0 text-paper/70" aria-hidden />
+                <span className="min-w-0 flex-1">{item.title}</span>
+                <OpenMark className="text-paper/60" />
+              </summary>
+              <p className="pb-5 text-[14.5px] leading-relaxed">{item.text}</p>
+            </details>
+          </li>
+        ))}
+      </ul>
+    );
+  return (
+    <ul className="grid content-start gap-6 sm:grid-cols-2">
+      {TRUST.map(item => (
+        <li key={item.text} className="flex gap-3">
+          <item.icon size={19} strokeWidth={1.8} className="mt-0.5 shrink-0 text-paper/70" aria-hidden />
+          <p className="text-[14.5px] leading-relaxed">{item.text}</p>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 // One wording for the age everywhere (sign-up box, Google button, here): « 15 ans ou plus, ou l’accord d’un parent ».
 const FAQ = [
-  { q: t('C’est pour qui ?'), a: t('Pour tes études, ton travail ou ta famille : lycée, fac, salariés, indépendants, parents, assos. Groupes et équipes inclus, gratuitement. Kompaly ne fait pas de devis ni de factures, ni de prise de rendez-vous par des clients.') },
+  { q: t('C’est pour qui ?'), a: t('Pour tes études, ton travail ou ta famille : lycée, fac, salariés, indépendants, parents, assos. Seul ou à plusieurs, gratuitement. Ce n’est pas un outil de planning d’employés ni de facturation, et tes clients ne peuvent pas y prendre rendez-vous. Dès 15 ans (avant, avec l’accord d’un parent).') },
   {
     q: t('Faut-il télécharger une appli ?'),
     a: t('Non, rien à télécharger sur l’App Store ou le Play Store : Kompaly marche dans le navigateur, sur ordinateur et sur téléphone. Pour l’avoir comme une appli, ajoute-le à ton écran d’accueil. Sur iPhone : dans Safari, Partager › « Sur l’écran d’accueil ». Sur Android : dans Chrome, ⋮ › « Installer l’application » (ça ajoute seulement une icône). Il s’ouvre alors en plein écran, et l’essentiel marche hors connexion.'),
   },
   { q: t('Combien d’espace j’ai ?'), a: t('500 Mo pour tes fichiers, et jusqu’à 50 Mo par fichier. La jauge est en haut de tes fichiers.') },
-  { q: t('C’est gratuit ?'), a: t('Oui, sans publicité ni carte bancaire. Limites par jour : {questions} questions à Kompaly en mode intelligent et {hours} h d’enregistrement de cours ; 500 Mo pour tes fichiers. Tout est sur la page Tarifs.', { questions: DAILY_QUESTIONS, hours: DAILY_RECORDING_HOURS }) },
+  { q: t('C’est gratuit ?'), a: t('Oui, sans publicité ni carte bancaire. Chaque jour : {questions} questions à l’IA (au-delà, Kompaly continue à comprendre tes phrases simples) et {hours} h d’enregistrement de cours ; 500 Mo pour tes fichiers. Tout est sur la page Tarifs.', { questions: DAILY_QUESTIONS, hours: DAILY_RECORDING_HOURS }) },
   {
     q: t('Ça marche avec Google Agenda ou mon emploi du temps ?'),
-    a: t('Oui, dans un sens. Colle le lien d’abonnement de ton agenda (Google Agenda, Outlook, ton ENT, Pronote… c’est un lien en .ics) : ses événements s’affichent dans Kompaly et se mettent à jour tout seuls, toutes les 3 heures environ. Change-les dans l’agenda d’origine ; dans Kompaly, tu peux y ajouter tes rappels. Dans l’autre sens, Kompaly exporte ton calendrier dans un fichier, à importer dans Google Agenda ou Outlook : c’est une copie, elle ne se met pas à jour.'),
+    a: t('Oui, dans un sens. Colle le lien de ton agenda (Google Agenda, Outlook, ton ENT, Pronote…) : ses événements s’affichent dans Kompaly et se mettent à jour tout seuls, toutes les 3 heures environ. Ce lien se trouve souvent derrière un bouton « iCal » ou « S’abonner ». Change-les dans l’agenda d’origine ; dans Kompaly, tu peux y ajouter tes rappels. Dans l’autre sens, Kompaly exporte ton calendrier dans un fichier, à importer dans Google Agenda ou Outlook : c’est une copie, elle ne se met pas à jour.'),
   },
   {
     q: t('Je viens de Notion ou d’une autre appli : je peux importer ?'),
-    a: t('Oui, en partie. Ton agenda : importe un fichier .ics ou colle son lien d’abonnement (Google Agenda, Outlook, Pronote, ton ENT…). Tes notes : exporte-les en Markdown (.md, comme le fait Notion), Word (.docx) ou texte (.txt), dépose-les dans Fichiers puis « Ouvrir comme note » ; ou colle simplement leur texte dans une note. Tes fichiers : glisse-les dans Fichiers. Pas encore d’import direct depuis un compte Notion.'),
+    a: t('Oui, en partie. Ton agenda : colle son lien, ou choisis le fichier que ton ancienne appli exporte (un fichier .ics), depuis Google Agenda, Outlook, Pronote, ton ENT… Tes notes : exporte-les en Markdown (.md, comme le fait Notion), Word (.docx) ou texte (.txt), dépose-les dans Fichiers puis « Ouvrir comme note » ; ou colle simplement leur texte dans une note. Tes fichiers : glisse-les dans Fichiers. Pas encore d’import direct depuis un compte Notion.'),
   },
   {
     q: t('Les PDF scannés sont-ils lus ?'),
@@ -743,7 +885,7 @@ const FAQ = [
     q: t('Je peux y ranger mes papiers d’identité ?'),
     a: t('Oui, tu peux ranger tes documents dans Fichiers : ils sont chiffrés pendant l’envoi et sur les serveurs, et toi seul y as accès. La fonction « fiche depuis une photo » n’est pas faite pour eux : elle sert à tes cours et à tes notes, et envoie la photo à une IA pour la lire.'),
   },
-  { q: t('Que devient ce que je demande à Kompaly ?'), a: t('En mode intelligent, ta question est envoyée à une IA, qui ne s’en sert pas pour entraîner ses modèles. Le son d’un enregistrement est envoyé à une IA pour être écrit en texte, puis effacé ; la photo d’une fiche, pour être lue. Le mode simple fonctionne sans rien envoyer. Le nom de chaque service est dans la politique de confidentialité.') },
+  { q: t('Que devient ce que je demande à Kompaly ?'), a: t('Quand Kompaly répond avec l’IA, ta question lui est envoyée ; elle ne s’en sert pas pour entraîner ses modèles. Le son d’un enregistrement est envoyé à une IA pour être écrit en texte, puis effacé ; la photo d’une fiche, pour être lue. Tes phrases simples (« dentiste mardi 17h30 ») sont comprises sans rien envoyer. Le nom de chaque service est dans la politique de confidentialité.') },
   { q: t('Le son de mes enregistrements est-il gardé ?'), a: t('Non. Le son est envoyé par petits morceaux pour être écrit en texte, puis effacé : seuls le texte et les documents restent. Demande l’accord des personnes que tu enregistres.') },
   { q: t('J’ai un compte perso et un compte travail.'), a: t('Ajoute les deux sur ton appareil et passe de l’un à l’autre en un clic.') },
   {
@@ -851,21 +993,9 @@ export default function LandingPage() {
       <main>
         {/* Hero */}
         <section className="mx-auto grid max-w-[1120px] grid-cols-[minmax(0,1fr)] items-center gap-10 px-5 pb-12 pt-6 md:px-8 md:pb-16 md:pt-14 short:pt-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,480px)] lg:gap-14">
-          {/* The buttons right under the promise, the examples after them: « Créer mon compte gratuit » is whole in the first screen (iPhone 13, laptop). */}
           <div className="min-w-0">
-            {/* The three lives first: nobody should think « this isn't for me ». */}
-            <p className="mb-3 flex items-center gap-2 text-[13px] font-semibold text-brand-600 max-[359px]:text-[12.5px]">
-              <span className="flex shrink-0 max-[359px]:hidden" aria-hidden>
-                {[GraduationCap, Briefcase, House].map((Icon, i) => (
-                  <span key={i} className="-ml-1 flex h-6 w-6 items-center justify-center rounded-full bg-brand-50 ring-2 ring-paper first:ml-0">
-                    <Icon size={13} strokeWidth={2} />
-                  </span>
-                ))}
-              </span>
-              {t('Pour tes études, ton travail ou ta famille')}
-            </p>
-            <h1 className="max-w-[20ch] text-balance text-[27px] font-extrabold leading-[1.06] tracking-[-0.03em] min-[375px]:text-[29px] sm:text-[44px] short:text-[32px] lg:text-[42px] xl:text-[50px]">
-              {t('Ton agenda, tes notes et tes fichiers au même endroit, avec une IA qui range pour toi.')}
+            <h1 className="max-w-[20ch] text-balance text-[27px] font-extrabold leading-[1.06] tracking-[-0.03em] min-[375px]:text-[29px] sm:text-[44px] short:text-[32px] lg:text-[42px] xl:text-[46px]">
+              {t('Ton agenda, tes tâches, tes notes et tes fichiers au même endroit.')}
             </h1>
             <div className="mt-4 flex items-start gap-3 sm:mt-5">
               {/* Phones: Kompaly in the first screen (his demo comes lower there); wider screens have him beside, in the demo. */}
@@ -873,12 +1003,12 @@ export default function LandingPage() {
                 <Character pose="open" look={{ x: 0.8, y: 0.2 }} mood="happy" size={56} />
               </div>
               <p className="min-w-0 max-w-[50ch] text-[16px] leading-relaxed text-stone-600 max-sm:text-[15px] max-sm:leading-snug sm:text-[16.5px]">
-                {t('Écris-le en une phrase ou enregistre un cours, une réunion : Kompaly le range et te prévient sur ton téléphone.')}
-                {/* Test n°3: a retiree, a night nurse, a school head didn't see themselves in « études ». */}
-                <span className="mt-1.5 block text-stone-700">{t('Pour les cours, les gardes de nuit, les rendez-vous médicaux ou l’agenda des enfants.')}</span>
+                {t('Écris une phrase : Kompaly la range et te la rappelle. Gratuit, pour tes études, ton travail ou ta famille.')}
               </p>
             </div>
-            <div className="mt-6 flex flex-wrap items-center gap-3 sm:mt-7">
+            {/* The demo before the buttons: trying comes first, and it is in the first screen of a phone. */}
+            <HeroTry demo={demo} />
+            <div className="mt-5 flex flex-wrap items-center gap-3 sm:mt-6">
               <Link to="/inscription" className="btn-primary h-12 px-5 text-[16px]">
                 {t('Créer mon compte gratuit')}
               </Link>
@@ -886,15 +1016,14 @@ export default function LandingPage() {
                 {t('J’ai déjà un compte')}
               </Link>
             </div>
-            {/* What reassures, readable by everyone (15 px, dark enough): free for good, what it is for, what it is not. */}
-            <p className="mt-4 text-[15px] leading-snug text-stone-700">{t('1 minute · sans appli à installer · sans pub')}</p>
-            <p className="mt-1.5 text-[15px] leading-snug text-stone-700">
-              {t('Gratuit, rien ne te sera facturé · usage perso, groupes et équipes inclus · pas de devis ni de factures, ni prise de rendez-vous par des clients, ni gestion RH.')}{' '}
+            {/* What reassures, readable by everyone (15 px, dark enough): free for good, then who it is for and what it is not. */}
+            <p className="mt-4 text-[15px] leading-snug text-stone-700">{t('Sans carte bancaire, rien ne te sera facturé · 1\u00a0minute · sans appli à installer · sans pub')}</p>
+            <p className="mt-2.5 text-[15px] leading-snug text-stone-700">
+              {t('Pour s’organiser seul ou à plusieurs. Pas un outil de planning d’employés ni de facturation.')} {t('Dès 15 ans (avant, avec l’accord d’un parent).')}{' '}
               <Link to="/tarifs" className="whitespace-nowrap font-semibold text-ink underline decoration-stone-400 underline-offset-2 hover:decoration-ink pointer-coarse:py-3">
                 {t('Voir les limites')}
               </Link>
             </p>
-            <TryChips demo={demo} />
           </div>
           <HeroDemo demo={demo} />
         </section>
@@ -929,8 +1058,8 @@ export default function LandingPage() {
             {t('Ce que Kompaly fait pour toi.')}
           </h2>
           <p className="mt-4 max-w-[60ch] text-[15px] leading-relaxed text-stone-600">{t('Un rendez-vous ajouté apparaît sur ton accueil, chez Kompaly et dans ton groupe si tu le partages.')}</p>
-          <ul className="mt-14 space-y-20">
-            <Feature icon={Mic} title={t('Enregistre un cours ou une réunion, il devient une fiche')} text={t('Le texte s’écrit pendant que tu écoutes. À la fin : le cours rédigé, une fiche de révision et un examen d’entraînement ; pour une réunion, son compte rendu.')}>
+          <ul className="mt-14 space-y-20 max-sm:mt-8 max-sm:space-y-0 max-sm:divide-y max-sm:divide-stone-200 max-sm:border-y max-sm:border-stone-200">
+            <Feature open icon={Mic} title={t('Enregistre un cours ou une réunion, il devient une fiche')} text={t('Le texte s’écrit pendant que tu écoutes. À la fin : le cours rédigé, une fiche de révision et un examen d’entraînement ; pour une réunion, son compte rendu.')}>
               <Shot src="/landing/enregistrer.webp" width={1200} height={909} mobile={['/landing/enregistrer-telephone.webp', 600, 1185]} alt={t('L’enregistrement d’un cours de droit civil dans Kompaly : le texte écrit en direct, les mots-clés surlignés et les moments importants à droite.')} />
             </Feature>
             <Feature
@@ -974,7 +1103,7 @@ export default function LandingPage() {
         </section>
 
         <div className="border-t border-stone-200">
-          <Usages key={demo.audience ?? 'auto'} chosen={demo.audience} />
+          <Usages key={demo.usage ?? 'auto'} chosen={demo.usage} />
         </div>
 
         {/* Privacy */}
@@ -998,14 +1127,7 @@ export default function LandingPage() {
                 </Link>
               </div>
             </div>
-            <ul className="grid content-start gap-6 sm:grid-cols-2">
-              {TRUST.map(item => (
-                <li key={item.text} className="flex gap-3">
-                  <item.icon size={19} strokeWidth={1.8} className="mt-0.5 shrink-0 text-paper/70" aria-hidden />
-                  <p className="text-[14.5px] leading-relaxed">{item.text}</p>
-                </li>
-              ))}
-            </ul>
+            <TrustPoints />
           </div>
         </section>
 
@@ -1019,11 +1141,9 @@ export default function LandingPage() {
               <details key={f.q} className="group py-1">
                 <summary className="flex cursor-pointer list-none items-center gap-4 py-4 text-[15.5px] font-medium [&::-webkit-details-marker]:hidden">
                   <span className="flex-1">{f.q}</span>
-                  <span className="text-[20px] leading-none text-stone-400 transition-transform group-open:rotate-45" aria-hidden>
-                    +
-                  </span>
+                  <OpenMark />
                 </summary>
-                <p className="pb-5 pr-8 text-[14.5px] leading-relaxed text-stone-600">{f.a}</p>
+                <p className="pb-5 pr-8 text-[14.5px] leading-relaxed text-stone-600">{keep(f.a)}</p>
               </details>
             ))}
           </div>
@@ -1053,7 +1173,7 @@ export default function LandingPage() {
               </Link>
             ))}
             <a href={`mailto:${CONTACT}`} className="hover:text-ink pointer-coarse:py-2">
-              {CONTACT}
+              <span className="font-semibold text-stone-700">{t('Nous écrire')}</span> {CONTACT}
             </a>
             {SOCIAL_LINKS.map(l => (
               <a key={l.href} href={l.href} target="_blank" rel="me noopener noreferrer" className="hover:text-ink pointer-coarse:py-2">

@@ -44,7 +44,7 @@ function Feeds({ onAdded }: { onAdded: (firstDate: string) => void }) {
     try {
       const { feed, plan } = await subscribe(url, pastToo);
       setUrl('');
-      toast(tn(plan.add.length, 'Abonné à « {name} » : {n} événement ajouté, mis à jour tout seul.', 'Abonné à « {name} » : {n} événements ajoutés, mis à jour tout seul.', { name: feedLabel(feed.name) }), 'success');
+      toast(tn(plan.add.length, '« {name} » est ajouté : {n} événement, mis à jour tout seul.', '« {name} » est ajouté : {n} événements, mis à jour tout seuls.', { name: feedLabel(feed.name) }), 'success');
       if (plan.add[0]) onAdded(plan.add.reduce((a, b) => (b.date < a.date ? b : a)).date);
     } catch (err) {
       setError(err instanceof FeedError ? feedErrorText(err.code, err.last) : feedErrorText('unreachable'));
@@ -73,7 +73,7 @@ function Feeds({ onAdded }: { onAdded: (firstDate: string) => void }) {
   return (
     <div className="mt-4">
       <p className="mb-1.5 flex items-center gap-1.5 text-[13px] font-medium">
-        <Link2 size={14} /> {t('S’abonner avec un lien')}
+        <Link2 size={14} className="shrink-0" /> {study ? t('Colle le lien de ton emploi du temps') : t('Colle le lien de ton agenda')}
       </p>
       <form onSubmit={add} className="flex gap-2">
         <input
@@ -83,15 +83,15 @@ function Feeds({ onAdded }: { onAdded: (firstDate: string) => void }) {
           autoCapitalize="off"
           autoCorrect="off"
           spellCheck={false}
-          placeholder="https://… .ics"
-          aria-label={t('Lien du calendrier (.ics)')}
+          placeholder="https://…"
+          aria-label={study ? t('Colle le lien de ton emploi du temps') : t('Colle le lien de ton agenda')}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? 'feed-error' : undefined}
           disabled={feeds.length >= MAX_FEEDS}
           className="field h-10 min-w-0 flex-1"
         />
         <button type="submit" className="btn-primary h-10 shrink-0" disabled={!url.trim() || !!busy || feeds.length >= MAX_FEEDS}>
-          {busy === 'new' ? <Loader2 size={15} className="animate-spin" /> : null} {t('S’abonner')}
+          {busy === 'new' ? <Loader2 size={15} className="animate-spin" /> : null} {t('Ajouter')}
         </button>
       </form>
       {error && <p id="feed-error" role="alert" className="mt-1.5 text-[12.5px] font-medium text-red-600 dark:text-red-400">{error}</p>}
@@ -100,7 +100,14 @@ function Feeds({ onAdded }: { onAdded: (firstDate: string) => void }) {
           {study ? t('Ajouter quand même ses cours passés') : t('Ajouter quand même ses événements passés')}
         </button>
       )}
-      <p className="mt-1.5 text-[12px] text-stone-500">{study ? keep(t('Le lien « iCal » de ton ENT ou de Google Agenda. Mis à jour toutes les 3 h.')) : keep(t('Le lien « iCal » de ton agenda (Google Agenda, Outlook…). Mis à jour toutes les 3 h.'))}</p>
+      <p className="mt-1.5 text-[12px] text-stone-500">{study ? t('Tes cours arrivent dans ton calendrier et se mettent à jour tout seuls, toutes les 3 h.') : t('Ses événements arrivent dans ton calendrier et se mettent à jour tout seuls, toutes les 3 h.')}</p>
+      {/* Where the link is: the first thing asked by those who never did it. The tools' own words (« iCal », « S’abonner ») only here, small. */}
+      <p className="mt-3 text-[12.5px] font-medium text-stone-600">{t('Où trouver ce lien ?')}</p>
+      <ul className="mt-1 list-disc space-y-1 rounded-xl bg-stone-50 py-2.5 pl-7 pr-3 text-[12.5px] leading-snug text-stone-600">
+        <li>{keep(t('Pronote ou ton ENT : dans l’emploi du temps, le bouton « iCal » ou « S’abonner », puis copie le lien.'))}</li>
+        <li>{keep(t('Google Agenda (sur ordinateur) : Paramètres › ton agenda › « Adresse secrète au format iCal ».'))}</li>
+        <li>{t('Outlook : Paramètres › Calendrier › Calendriers partagés › Publier, puis copie le lien.')}</li>
+      </ul>
 
       {feeds.length > 0 && (
         <div className="mt-3 rounded-xl border border-stone-200">
@@ -131,7 +138,7 @@ function Feeds({ onAdded }: { onAdded: (firstDate: string) => void }) {
         </div>
       )}
 
-      <p className="eyebrow mt-5">{t('Ou importer un fichier, une fois')}</p>
+      <p className="eyebrow mt-5">{t('Ou choisis un fichier, une seule fois')}</p>
     </div>
   );
 }
@@ -205,7 +212,7 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
   const read = async (file: File | undefined) => {
     if (!file) return;
     if (!isIcsFile(file)) {
-      toast(t('Choisis un fichier .ics'), 'error');
+      toast(t('Ce fichier n’est pas un agenda : choisis un fichier .ics.'), 'error');
       return;
     }
     setSource({ name: file.name, text: await file.text() });
@@ -235,16 +242,10 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
 
   return (
     <Modal open onClose={onClose} width={500}>
-      <h3 className="text-[15px] font-semibold">{t('Importer un {timetable}', { timetable: words.timetable })}</h3>
+      <h3 className="text-[15px] font-semibold">{t('Mets ton {timetable}', { timetable: words.timetable })}</h3>
 
       {!source ? (
         <>
-          {/* Where the link is: the first thing asked by those who never did it. */}
-          <ol className="mt-2 list-decimal space-y-1 rounded-xl bg-stone-50 py-2.5 pl-8 pr-3 text-[12.5px] leading-snug text-stone-600" aria-label={t('Où trouver le lien')}>
-            <li>{keep(t('Google Agenda (sur ordinateur) : Paramètres › ton agenda › « Adresse secrète au format iCal ».'))}</li>
-            <li>{keep(t('Pronote ou ton ENT : Emploi du temps › bouton iCal ou « S’abonner », puis copie le lien.'))}</li>
-            <li>{t('Outlook : Paramètres › Calendrier › Calendriers partagés › Publier. Colle le lien ici, ou choisis un fichier .ics.')}</li>
-          </ol>
           <Feeds
             onAdded={d => {
               onImported(d);
@@ -268,8 +269,8 @@ export default function ImportIcsDialog({ initial, onClose, onImported }: Props)
             className={cx('mt-2 flex w-full flex-col items-center rounded-xl border-[1.5px] border-dashed px-4 py-6 text-center transition-colors', over ? 'border-brand-500 bg-brand-50' : 'border-stone-200 hover:border-stone-300 hover:bg-stone-50')}
           >
             <FileUp size={22} className="text-stone-400" />
-            <span className="mt-2 text-[14px] font-medium">{t('Choisir un fichier .ics')}</span>
-            <span className="mt-0.5 text-[12px] text-stone-500">{t('ou glisse-le ici')}</span>
+            <span className="mt-2 text-[14px] font-medium">{t('Choisir un fichier')}</span>
+            <span className="mt-0.5 text-[12px] text-stone-500">{t('Un fichier .ics, exporté de ton agenda. Tu peux aussi le glisser ici.')}</span>
           </button>
           <input ref={inputRef} type="file" accept=".ics,text/calendar" className="hidden" onChange={e => void read(e.target.files?.[0])} />
 

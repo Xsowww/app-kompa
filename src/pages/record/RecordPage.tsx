@@ -195,7 +195,7 @@ function Setup() {
 
       {simpleOnly ? (
         <p className="rounded-xl bg-stone-100 px-3 py-2.5 text-[13px] text-stone-700">
-          {t('Le mode simple uniquement est activé : l’enregistrement écrit passe par une IA, il est donc coupé. Pour enregistrer, désactive-le dans')}{' '}
+          {t('« Ne jamais utiliser l’IA » est activé : l’enregistrement écrit passe par une IA, il est donc coupé. Pour enregistrer, désactive-le dans')}{' '}
           <Link to="/profil?onglet=copilot" className="font-semibold underline underline-offset-2">{t('Réglages › Kompaly')}</Link>.
         </p>
       ) : server && !server.transcription ? (
