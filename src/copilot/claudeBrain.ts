@@ -765,20 +765,20 @@ export function describeApiError(e: unknown): string {
     const minutes = Math.max(1, Math.ceil((until - Date.now()) / 60_000));
     const pause = minutes === 1 ? t('une minute') : minutes === 2 ? t('deux minutes') : minutes === 3 ? t('trois minutes') : t('{n} minutes', { n: minutes });
     return until - Date.now() > 10 * 60_000
-      ? t('L’IA gratuite a atteint sa limite : je passe en mode simple jusqu’à {time}.', { time: fmt(new Date(until), t("HH'h'mm")) })
-      : t('L’IA gratuite est très demandée : je passe en mode simple {pause}.', { pause: until ? pause : t('un instant') });
+      ? t('L’IA gratuite a atteint sa limite : jusqu’à {time}, je comprends seulement tes phrases simples.', { time: fmt(new Date(until), t("HH'h'mm")) })
+      : t('L’IA gratuite est très demandée : je comprends seulement tes phrases simples pendant {pause}.', { pause: until ? pause : t('un instant') });
   }
-  if (code === 'daily_limit') return t('Tu as utilisé tes questions à l’IA du jour : je passe en mode simple jusqu’à minuit.');
-  if (code === 'site_limit') return t('L’IA gratuite a atteint sa limite du jour : je passe en mode simple jusqu’à minuit.');
-  if (code === 'simple_only') return t('Le mode simple uniquement est activé (Réglages › Kompaly) : je réponds sans IA.');
+  if (code === 'daily_limit') return t('Tu as utilisé tes questions à l’IA du jour : jusqu’à minuit, je comprends seulement tes phrases simples.');
+  if (code === 'site_limit') return t('L’IA gratuite a atteint sa limite du jour : jusqu’à minuit, je comprends seulement tes phrases simples.');
+  if (code === 'simple_only') return t('« Ne jamais utiliser l’IA » est activé (Réglages › Kompaly) : je réponds sans IA.');
   if (code === 'too_large') return t('C’est trop long pour l’IA d’un coup : demande une partie précise ou ouvre une nouvelle conversation.');
   // The AI doesn't answer: simple mode for a while instead of the same apology at every message.
   if (code === 'bad_key') {
     pauseAi(30 * 60, 'error');
-    return t('L’IA n’est pas disponible pour le moment : je passe en mode simple.');
+    return t('L’IA n’est pas disponible pour le moment : je comprends seulement tes phrases simples.');
   }
   pauseAi(2 * 60, 'error');
-  if (code === 'timeout') return t('L’IA met trop de temps à répondre : je passe en mode simple deux minutes.');
-  if (code === 'network') return t('J’ai perdu la connexion à l’IA : je passe en mode simple deux minutes.');
-  return t('L’IA a un souci technique : je passe en mode simple deux minutes.');
+  if (code === 'timeout') return t('L’IA met trop de temps à répondre : je comprends seulement tes phrases simples pendant deux minutes.');
+  if (code === 'network') return t('J’ai perdu la connexion à l’IA : je comprends seulement tes phrases simples pendant deux minutes.');
+  return t('L’IA a un souci technique : je comprends seulement tes phrases simples pendant deux minutes.');
 }

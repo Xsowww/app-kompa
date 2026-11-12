@@ -308,7 +308,7 @@ export default function Copilot() {
       .then(m => m.checkAiStatus())
       .then(st => {
         useCopilot.getState().setAiEnabled(st.enabled);
-        setProviderInfo(st.enabled ? t('IA : {provider} · {model}', { provider: st.label ?? st.provider ?? '', model: st.model ?? '' }) : t('Mode simple, sans IA'));
+        setProviderInfo(st.enabled ? t('IA : {provider} · {model}', { provider: st.label ?? st.provider ?? '', model: st.model ?? '' }) : t('Phrases simples, sans IA'));
         setProviderLabel(st.label ?? st.provider ?? '');
       });
   }, []);
@@ -631,7 +631,7 @@ export default function Copilot() {
     if (viaAi && quotaFullUntil() && !useCopilot.getState().memory[key]) {
       useCopilot.getState().remember(key);
       const max = claudeBrain.useAiQuota.getState().quota?.max ?? 30;
-      push('bot', t('C’était ta {n}e question à l’IA aujourd’hui : je passe en mode simple jusqu’à minuit. Les demandes courantes (ajouter un rendez-vous, « qu’est-ce que j’ai demain ? ») marchent toujours.', { n: max }));
+      push('bot', t('C’était ta {n}e question à l’IA aujourd’hui. Jusqu’à minuit, je continue à comprendre tes phrases simples (ajouter un rendez-vous, « qu’est-ce que j’ai demain ? »).', { n: max }));
     }
     speak(reply.text);
     // Affichage Pro: his panel was closed meanwhile, the answer comes in the island.
@@ -1125,12 +1125,12 @@ function QuotaBar() {
   );
 }
 
-/** « Mode intelligent · Groq » or « Mode simple · IA de retour dans 0:42 ». */
+/** « Avec l’IA · Groq » or « Phrases simples · IA dans 0:42 » (« mode intelligent / simple » wasn't understood). */
 function ModeLine({ ai, label, until, now }: { ai: boolean; label: string; until: number; now: number }) {
   const left = Math.max(0, Math.ceil((until - now) / 1000));
   const paused = ai && left > 0;
   const clock = left >= 3600 ? t('{h} h {min}', { h: Math.floor(left / 3600), min: String(Math.floor((left % 3600) / 60)).padStart(2, '0') }) : `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
-  const text = !ai ? t('Mode simple, sans IA') : paused ? t('Mode simple · IA dans {clock}', { clock }) : label ? t('Mode intelligent · {label}', { label }) : t('Mode intelligent');
+  const text = !ai ? t('Phrases simples, sans IA') : paused ? t('Phrases simples · IA dans {clock}', { clock }) : label ? t('Avec l’IA · {label}', { label }) : t('Avec l’IA');
   // The pause follows a quota (« limite ») or a technical problem: say which.
   const reason = paused ? aiPauseReason() : 'limit';
   const why = reason === 'error' ? t('L’IA ne répond pas pour le moment : elle revient dans {clock}.', { clock }) : reason === 'mine' ? t('Tu as utilisé tes questions du jour : l’IA revient dans {clock}.', { clock }) : t('L’IA gratuite a atteint sa limite : elle revient dans {clock}.', { clock });

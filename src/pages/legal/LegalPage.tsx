@@ -11,7 +11,7 @@ import { lang, locale, t } from '../../i18n';
 
 export type LegalDoc = 'mentions' | 'confidentialite' | 'conditions' | 'tarifs' | 'apropos';
 
-const UPDATED = new Date(2026, 10, 6).toLocaleDateString(locale(), { day: 'numeric', month: 'long', year: 'numeric' });
+const UPDATED = new Date(2026, 10, 12).toLocaleDateString(locale(), { day: 'numeric', month: 'long', year: 'numeric' });
 const CONTACT = 'contact@kompaly.com';
 
 /** `box`: a framed block (the press's), read first. */
@@ -50,6 +50,15 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
           t('Kompaly réunit ton agenda, tes notes, tes tâches et tes fichiers au même endroit, avec une IA qui range pour toi : pour les études, le travail ou la famille.'),
         ],
       },
+      // What comes next, in three plain lines; only what the conditions and this page already commit to.
+      {
+        title: t('Et demain\u00a0?'),
+        body: [
+          t('Aujourd’hui : Kompaly est gratuit, sans publicité ni investisseurs. Son créateur en paie lui-même les frais.'),
+          t('Si une offre payante arrive un jour : tu en seras informé dans l’appli, et rien ne te sera facturé sans que tu l’aies choisi (Kompaly n’a pas ton moyen de paiement). Ce qui resterait gratuit n’est pas encore décidé.'),
+          t('Si Kompaly s’arrête un jour : tes données restent les tiennes. Tu peux déjà tout exporter à tout moment (Réglages › Données › Exporter).'),
+        ],
+      },
       {
         title: t('Tes données'),
         body: [
@@ -74,18 +83,28 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
         ],
       },
       {
+        title: t('C’est pour qui\u00a0?'),
+        body: [
+          t('Pour tes études, ton travail ou ta famille, seul ou à plusieurs : groupes et agendas partagés compris, gratuitement. Ce n’est pas un outil de planning d’employés ni de facturation, et tes clients ne peuvent pas y prendre rendez-vous.'),
+          t('Dès 15 ans (avant, avec l’accord d’un parent).') + ' ' + t('Au collège, crée donc ton compte avec un parent.'),
+        ],
+      },
+      {
         title: t('Les limites du gratuit'),
         body: [
-          t('Kompaly en mode intelligent : {n} questions par jour. Le mode simple (les commandes courantes, sans IA) n’a pas de limite.', { n: DAILY_QUESTIONS }),
+          t('Assistant Kompaly : {n} questions à l’IA par jour, gratuites ; au-delà, Kompaly continue à comprendre tes phrases simples.', { n: DAILY_QUESTIONS }),
           t('Enregistrer un cours ou une réunion : {n} h d’enregistrement écrites en texte par jour.', { n: DAILY_RECORDING_HOURS }),
           t('Fichiers : 500 Mo d’espace par compte, et jusqu’à 50 Mo par fichier.'),
           t('Les compteurs repartent à zéro chaque jour.'),
         ],
       },
+      // What comes next, in three plain lines; only what the conditions and this page already commit to.
       {
-        title: t('C’est pour qui\u00a0?'),
+        title: t('Et demain\u00a0?'),
         body: [
-          t('Pour tes études, ton travail ou ta famille, seul ou à plusieurs : groupes, agendas partagés et équipes inclus, gratuitement. Kompaly ne fait pas de devis ni de factures, ni de prise de rendez-vous par des clients.'),
+          t('Aujourd’hui : Kompaly est gratuit, sans publicité ni investisseurs. Son créateur en paie lui-même les frais.'),
+          t('Si une offre payante arrive un jour : tu en seras informé dans l’appli, et rien ne te sera facturé sans que tu l’aies choisi (Kompaly n’a pas ton moyen de paiement). Ce qui resterait gratuit n’est pas encore décidé.'),
+          t('Si Kompaly s’arrête un jour : tes données restent les tiennes. Tu peux déjà tout exporter à tout moment (Réglages › Données › Exporter).'),
         ],
       },
     ],
@@ -154,8 +173,8 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
       {
         title: t('Kompaly et l’intelligence artificielle'),
         body: [
-          t('Quand tu poses une question à Kompaly en mode intelligent, ton message et les éléments nécessaires pour y répondre (par exemple le texte d’un fichier que tu lui demandes de lire) sont envoyés au fournisseur d’IA : Anthropic, PBC (États-Unis), avec son modèle Claude. Anthropic ne se sert pas de ces échanges pour entraîner ses modèles et les efface automatiquement au bout de 30 jours au plus.'),
-          t('Ce transfert hors de l’Union européenne est encadré par les clauses contractuelles types de la Commission européenne, prévues dans le contrat de traitement des données d’Anthropic. Le mode simple de Kompaly fonctionne sans rien envoyer à une IA.'),
+          t('Quand tu poses une question à Kompaly et qu’il y répond avec l’IA, ton message et les éléments nécessaires pour y répondre (par exemple le texte d’un fichier que tu lui demandes de lire) sont envoyés au fournisseur d’IA : Anthropic, PBC (États-Unis), avec son modèle Claude. Anthropic ne se sert pas de ces échanges pour entraîner ses modèles et les efface automatiquement au bout de 30 jours au plus.'),
+          t('Ce transfert hors de l’Union européenne est encadré par les clauses contractuelles types de la Commission européenne, prévues dans le contrat de traitement des données d’Anthropic. Tes phrases simples (« dentiste mardi 17h30 ») sont comprises par Kompaly sans rien envoyer à une IA.'),
           t('N’envoie pas à Kompaly d’informations sensibles (santé, données d’autres personnes…).'),
         ],
       },
@@ -225,7 +244,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
           t('Une vérification anti-robot peut être demandée à l’inscription et à la connexion.'),
           t('Tu es responsable de ton mot de passe et, si tu l’actives, de ton téléphone de double authentification. Garde ta clé de secours en lieu sûr : sans elle, un téléphone perdu peut bloquer l’accès au compte.'),
           t('Si tu te connectes avec Google, Apple, Face ID ou ton empreinte, la sécurité de ton compte Kompaly dépend aussi de ce compte ou de cet appareil : protège-les comme ton mot de passe.'),
-          t('Limites actuelles : 50 Mo par fichier, 500 Mo d’espace par compte, {questions} questions par jour à Kompaly en mode intelligent et {hours} h d’enregistrement écrites par jour (page Tarifs).', { questions: DAILY_QUESTIONS, hours: DAILY_RECORDING_HOURS }),
+          t('Limites actuelles : 50 Mo par fichier, 500 Mo d’espace par compte, {questions} questions à l’IA par jour (au-delà, Kompaly continue à comprendre tes phrases simples) et {hours} h d’enregistrement écrites par jour (page Tarifs).', { questions: DAILY_QUESTIONS, hours: DAILY_RECORDING_HOURS }),
         ],
       },
       {
@@ -329,6 +348,9 @@ export default function LegalPage({ doc }: { doc: LegalDoc }) {
               {l.label}
             </NavLink>
           ))}
+          <a href={`mailto:${CONTACT}`} className="inline-block py-2 underline decoration-stone-300 underline-offset-4 hover:text-ink">
+            {t('Nous écrire')}
+          </a>
         </nav>
       </article>
       </main>

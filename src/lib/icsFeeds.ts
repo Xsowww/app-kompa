@@ -51,16 +51,16 @@ export function feedErrorText(code: string, last?: string): string {
         ? t('Aucun cours à venir dans ce lien.')
         : t('Aucun événement à venir dans ce lien.');
   if (code === 'already') return t('Tu es déjà abonné à ce lien.');
-  if (code === 'bad_url') return t('Ce lien n’est pas valide : copie le lien d’abonnement complet (il commence par https:// ou webcal://).');
-  if (code === 'not_ics') return t('Ce lien ne donne pas un agenda : copie le lien d’abonnement (il finit souvent par .ics, ou commence par webcal://).');
-  if (code === 'web_page') return t('Ce lien ne donne pas un agenda : il ouvre une page web. Copie le lien d’abonnement (souvent « .ics » ou « webcal:// »), pas l’adresse de la page.');
+  if (code === 'bad_url') return t('Ce lien n’est pas valide : copie le lien complet de ton agenda (il commence par https:// ou webcal://).');
+  if (code === 'not_ics') return t('Ce lien ne donne pas un agenda : copie celui du bouton « iCal » ou « S’abonner » (il finit souvent par .ics, ou commence par webcal://).');
+  if (code === 'web_page') return t('Ce lien ne donne pas un agenda : il ouvre une page web. Copie celui du bouton « iCal » ou « S’abonner » (souvent « .ics » ou « webcal:// »), pas l’adresse de la page.');
   if (code === 'empty') return t('Aucun événement dans ce calendrier.');
-  if (code === 'http_401' || code === 'http_403') return t('Le site refuse l’accès : vérifie que c’est bien le lien d’abonnement (privé) et qu’il est encore valable.');
+  if (code === 'http_401' || code === 'http_403') return t('Le site refuse l’accès : vérifie que c’est bien le lien privé de ton agenda et qu’il est encore valable.');
   if (code === 'http_404' || code === 'not_found') return t('Ce lien n’existe pas ou plus : récupère-en un nouveau.');
   if (code === 'too_large') return t('Calendrier trop gros (plus de 5 Mo).');
   if (code === 'rate_limited') return t('Trop de mises à jour d’un coup : réessaie dans une minute.');
   // Any other refusal of the site (400, 405, 410…): the link isn't a calendar one can follow.
-  if (/^http_4\d\d$/.test(code)) return t('Ce lien ne donne pas un agenda : vérifie que c’est bien le lien d’abonnement.');
+  if (/^http_4\d\d$/.test(code)) return t('Ce lien ne donne pas un agenda : vérifie que c’est bien le lien de ton agenda.');
   if (code === 'network') return t('Pas de connexion : réessaie quand tu es en ligne.');
   return t('Le site de ce calendrier ne répond pas pour l’instant : vérifie le lien, ou réessaie plus tard.');
 }
