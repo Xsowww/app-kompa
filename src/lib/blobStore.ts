@@ -3,6 +3,7 @@
 
 import { supabase } from './supabase';
 import { abandonUpload, storageUpload } from './storageUpload';
+import { formatBytes } from './utils';
 import { t } from '../i18n';
 
 const DB_NAME = 'cop-pilot';
@@ -56,18 +57,25 @@ export function localSaveError(e: unknown): StorageError {
 
 /** Limits also enforced by Supabase (bucket size limit and storage policy, see supabase/schema.sql). */
 export const MAX_FILE = 50 * 1000 * 1000; // « 50 Mo » as shown (decimal, formatBytes); Supabase allows a little more
-/** Space per account (Drive + group files), or null for no limit. Keep in step with storage_quota() in SQL. */
-export const QUOTA: number | null = null; // personal use for now: to set before opening to the public (e.g. 50 Mo)
+/**
+ * Space per account (Drive and its trash + files sent to groups), or null for no limit: 500 Mo, half of the 1 GB the
+ * owner counts per user. Keep in step with storage_quota() in SQL (supabase/migrations/2026-11-12_stockage_500_mo.sql).
+ */
+export const QUOTA: number | null = 500 * 1000 * 1000;
 /**
  * Space shown in the Drive gauge: the per-account quota when there is one, otherwise the 1 GB of files that
- * Supabase's free plan gives the whole project (with one account today, that is the real ceiling). Decimal, like
- * every size shown (formatBytes): « 25 Mo utilisés sur 1 Go · 975 Mo libres ».
+ * Supabase's free plan gives the whole project. Decimal, like every size shown (formatBytes):
+ * « 25 Mo utilisés sur 500 Mo · 475 Mo libres ».
  */
 export const SPACE = QUOTA ?? 1000 * 1000 * 1000;
 export const quotaLabel = () => (QUOTA ? t('{size} Mo', { size: Math.round(QUOTA / 1e6) }) : '');
 
 /** A failure the student can act on: its message is meant to be shown as is. */
 export class StorageError extends Error {}
+
+/** What would not fit in the account's space: how much is used, the limit, and what frees room (the trash counts). */
+export const quotaError = (used: number) =>
+  Object.assign(new StorageError(t('Plus assez de place : tu utilises {used} sur {total}. Supprime des fichiers puis vide la corbeille.', { used: formatBytes(used), total: formatBytes(QUOTA ?? 0) })), { reason: t('Plus de place') });
 
 /** Turns Supabase Storage's technical errors into something the student understands (`reason`: in a few words, for the upload card). */
 export function storageError(e: { message?: string; statusCode?: string | number } | null): StorageError {

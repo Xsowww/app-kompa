@@ -979,7 +979,7 @@ grant execute on function public.merge_settings(jsonb) to authenticated;
 update storage.buckets set file_size_limit = 52428800 where id in ('drive', 'groups');
 
 create or replace function public.storage_quota() returns bigint
-language sql immutable as $$ select 1024::bigint * 1024 * 1024 * 1024 $$; -- 1 To = pas de limite (usage perso) ; 50 Mo : 50::bigint * 1024 * 1024
+language sql immutable as $$ select 500::bigint * 1000 * 1000 $$; -- 500 Mo par compte (2026-11-12_stockage_500_mo.sql), comme QUOTA dans src/lib/blobStore.ts
 
 -- Place utilisée par le compte connecté, d'après la taille enregistrée de chaque fichier.
 create or replace function public.storage_used() returns bigint

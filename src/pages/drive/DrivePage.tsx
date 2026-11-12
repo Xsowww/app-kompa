@@ -445,7 +445,10 @@ export default function DrivePage() {
       const clip = useDrive.getState().clipboard;
       if (!clip?.ids.length) return;
       const before = useDrive.getState().items.length;
-      if (!(await useDrive.getState().paste(target))) {
+      // Refused for lack of room (a copy would pass the account's space): said, the clipboard stays.
+      const pasted = await useDrive.getState().paste(target).catch((e: unknown) => (toast(e instanceof StorageError ? e.message : t('L’envoi a échoué. Vérifie ta connexion et réessaie.'), 'error'), null));
+      if (pasted === null) return;
+      if (!pasted) {
         return toast(clip.mode === 'cut' ? t('Impossible de déplacer un dossier dans lui-même') : CANT_COPY_INTO_ITSELF, 'error');
       }
       // A cut that moved nothing (already in this folder) stays in the clipboard.
@@ -459,7 +462,11 @@ export default function DrivePage() {
 
   const duplicate = useCallback(async (ids: string[]) => {
     if (!ids.length) return;
-    await useDrive.getState().duplicate(ids);
+    try {
+      await useDrive.getState().duplicate(ids);
+    } catch (e) {
+      return toast(e instanceof StorageError ? e.message : t('L’envoi a échoué. Vérifie ta connexion et réessaie.'), 'error');
+    }
     toast(ids.length > 1 ? tn(ids.length, '{n} copie créée', '{n} copies créées') : t('Copie créée'), 'success');
   }, []);
 
@@ -778,6 +785,8 @@ export default function DrivePage() {
         useDrive.getState().copy(ids);
         try {
           await useDrive.getState().paste(target);
+        } catch (e) {
+          return toast(e instanceof StorageError ? e.message : t('L’envoi a échoué. Vérifie ta connexion et réessaie.'), 'error');
         } finally {
           useDrive.setState({ clipboard: kept });
         }

@@ -10,7 +10,7 @@ let space: GroupKind = 'groupe';
 /** The screens in use (/groupes or /agendas): messages speak of « ce groupe » or « cet agenda ». */
 export const setGroupSpace = (kind: GroupKind) => void (space = kind);
 const words = () => (space === 'agenda' ? AGENDA_WORDS : groupWords(getSettings().usage));
-import { QUOTA, StorageError, quotaLabel } from './blobStore';
+import { QUOTA, quotaError, StorageError } from './blobStore';
 import { abandonUpload, storageUpload } from './storageUpload';
 import { useInvite } from '../store/invite';
 import { t } from '../i18n';
@@ -632,7 +632,7 @@ export async function uploadFile(groupId: string, blob: Blob, name: string, onPr
   // asking first gives a clear message instead of a « not allowed »).
   if (QUOTA) {
     const used = await db().rpc('storage_used');
-    if (!used.error && Number(used.data) + blob.size > QUOTA) throw new StorageError(t('Plus de place : ton espace en ligne ({quota}) est plein. Vide la corbeille ou supprime des fichiers.', { quota: quotaLabel() }));
+    if (!used.error && Number(used.data) + blob.size > QUOTA) throw quotaError(Number(used.data));
   }
   const path = filePath({ groupId, id });
   const mime = blob.type || 'application/octet-stream';

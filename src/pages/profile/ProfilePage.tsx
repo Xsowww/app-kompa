@@ -916,6 +916,7 @@ function DataTab() {
         r.events ? tn(r.events, '{n} événement', '{n} événements') : '',
         r.todos ? tn(r.todos, '{n} tâche', '{n} tâches') : '',
         r.folders ? tn(r.folders, '{n} dossier', '{n} dossiers') : '',
+        r.sessions ? tn(r.sessions, '{n} séance de concentration', '{n} séances de concentration') : '',
       ].filter(Boolean);
       const list = parts.length > 1 ? t('{list} et {last}', { list: parts.slice(0, -1).join(', '), last: parts.at(-1)! }) : parts[0];
       const trash = r.inTrash ? ` ${r.inTrash > 1 ? tn(r.inTrash, '{n} élément est dans la corbeille.', '{n} éléments sont dans la corbeille.') : t('Un élément est dans la corbeille.')}` : '';

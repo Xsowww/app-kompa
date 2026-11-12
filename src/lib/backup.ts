@@ -16,12 +16,12 @@ import { cleanFeeds, flushNow } from './cloudSync';
 import { cleanKeywords } from './keywords';
 import { purgeSoleGroups } from './groups';
 import { useTodos, type Todo } from '../store/todos';
-import { cleanReminders } from './reminders';
+import { cleanReminders, eventReminders } from './reminders';
 import { isTaskRepeat } from './taskRepeat';
 import { fitSeries } from './seriesId';
 import { nowIso } from './utils';
 import { isTourTodo } from '../store/tour';
-import { useFocusLog } from '../store/focusLog';
+import { useFocusLog, type FocusSession } from '../store/focusLog';
 import { useCopilot } from '../store/copilot';
 import { useRecorder } from '../store/recorder';
 import { LANGS, t } from '../i18n';
@@ -55,8 +55,8 @@ export function exportBackup() {
     todos: useTodos.getState().todos,
     notes: { folders: useNotes.getState().folders, notes: useNotes.getState().notes },
     driveFolders: useDrive.getState().items.filter(i => i.kind === 'folder'),
-    // Also what the privacy policy lists (Réglages › Données › Exporter): not restored by importBackup.
     focusSessions: useFocusLog.getState().sessions,
+    // Also what the privacy policy lists (Réglages › Données › Exporter): not restored by importBackup.
     kompaly: { conversation: messages, memory },
     recordings: useRecorder.getState().history, // titles, key points and parts; the documents made are in the Drive
   };
@@ -156,6 +156,9 @@ const cleanDriveFolder = (x: Item): DriveItem => ({
   ...(str(x.color) && { color: str(x.color) }),
   ...(Array.isArray(x.tags) && x.tags.some(text) && { tags: x.tags.filter(text) as string[] }),
 });
+const okFocus = (x: Item) => text(x.subject) && typeof x.minutes === 'number' && Number.isFinite(x.minutes) && x.minutes > 0 && text(x.startedAt) && !Number.isNaN(Date.parse(x.startedAt as string));
+const cleanFocus = (x: Item): FocusSession => ({ id: x.id as string, subject: x.subject as string, minutes: x.minutes as number, startedAt: x.startedAt as string });
+
 /** A setting of the file, only when it has the type of the app's own (« defaultReminders »: "abc" is dropped). */
 function sameType(value: unknown, model: unknown) {
   if (Array.isArray(model)) return Array.isArray(value) && (!model.length || value.every(v => typeof v === typeof model[0]));
@@ -188,11 +191,11 @@ const okSetting = (k: keyof Settings, v: unknown) => (NULLABLE[k] ? NULLABLE[k](
 const KEEP_CURRENT = new Set<keyof Settings>(['focusSessions', 'focusTotalMinutes', 'badgesSeen', 'groupsSeen', 'renamedToKompa', 'customCategories', 'periods']);
 
 /**
- * Brings back from an exported file the notes, events, tasks and Drive folders that are no longer
+ * Brings back from an exported file the notes, events, tasks, focus sessions and Drive folders that are no longer
  * here (deleted for good, or another device). Current items are kept as they are, so restoring an
  * old file never erases recent work. Settings are replaced.
  */
-export async function importBackup(file: File): Promise<{ notes: number; events: number; todos: number; folders: number; inTrash: number }> {
+export async function importBackup(file: File): Promise<{ notes: number; events: number; todos: number; folders: number; sessions: number; inTrash: number }> {
   let data;
   try {
     data = JSON.parse(await file.text());
@@ -221,6 +224,8 @@ export async function importBackup(file: File): Promise<{ notes: number; events:
   const todos = valid(missing<Entry>(data.todos, tasks.todos, tasks.trash), okTodo)
     .map(cleanTodo)
     .filter(t => !(isTourTodo(t.title) && tasks.todos.some(x => isTourTodo(x.title))));
+  // Focus sessions (the time per subject, the badges): exported since long, never brought back before.
+  const sessions = valid(missing<Entry>(data.focusSessions, useFocusLog.getState().sessions), okFocus).map(cleanFocus);
 
   useCalendar.setState(s => ({ events: [...s.events, ...events] }));
   // Into a folder that is in the trash, they would be invisible: root instead.
@@ -247,7 +252,8 @@ export async function importBackup(file: File): Promise<{ notes: number; events:
   const liveDrive = new Set([...drive.items, ...driveFolders].map(i => i.id));
   if (driveFolders.length) useDrive.setState(s => ({ items: [...s.items, ...driveFolders.map(f => (f.parentId && !liveDrive.has(f.parentId) ? { ...f, parentId: null } : f))] }));
   if (todos.length) useTodos.setState(s => ({ todos: [...s.todos, ...todos] }));
-  return { notes: notes.length, events: events.length, todos: todos.length, folders: folders.length + driveFolders.length, inTrash };
+  if (sessions.length) useFocusLog.setState(s => ({ sessions: [...s.sessions, ...sessions].sort((a, b) => a.startedAt.localeCompare(b.startedAt)) }));
+  return { notes: notes.length, events: events.length, todos: todos.length, folders: folders.length + driveFolders.length, sessions: sessions.length, inTrash };
 }
 
 const icsDate = (date: string) => date.replace(/-/g, '');
@@ -256,12 +262,20 @@ const icsText = (t: string) => t.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').re
 // Local calendar arithmetic (toISOString gave the same day back east of UTC+12).
 const nextDay = (date: string) => toKey(addDays(fromKey(date), 1));
 
+/** A reminder's moment, as a duration from the event's start (RFC 5545 §3.3.6): « -PT15M », « -P1D », « PT9H ». */
+function icsTrigger(minutes: number) {
+  const m = Math.abs(minutes);
+  const [d, h, min] = [Math.floor(m / 1440), Math.floor((m % 1440) / 60), m % 60];
+  return `${minutes < 0 ? '-' : ''}P${d ? `${d}D` : ''}${h || min || !d ? `T${h ? `${h}H` : ''}${min || !h ? `${min}M` : ''}` : ''}`;
+}
+
 /** .ics file that Google Agenda, Apple Calendrier or Outlook can import (`name`: a shared calendar's, in the file name). */
 /**
  * My calendar as an .ics file (text). Not the events of the calendars I follow by link (Réglages › agendas suivis, lib/icsFeeds):
  * they are someone else's, and imported again elsewhere (Google) they would come twice.
+ * `reminders`: the ones of each event, in minutes before (lib/reminders), written as alarms (VALARM).
  */
-export function calendarIcs(events: CalendarEvent[], at = new Date()): string {
+export function calendarIcs(events: CalendarEvent[], at = new Date(), reminders: (e: CalendarEvent) => number[] = e => e.reminders ?? []): string {
   const now = at.toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
   const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Kompaly//FR', 'CALSCALE:GREGORIAN'];
   for (const e of events) {
@@ -278,6 +292,9 @@ export function calendarIcs(events: CalendarEvent[], at = new Date()): string {
     lines.push(`SUMMARY:${icsText(e.title)}`, `CATEGORIES:${icsText(catOf(e.category).label)}`);
     if (e.place) lines.push(`LOCATION:${icsText(e.place)}`);
     if (e.details) lines.push(`DESCRIPTION:${icsText(e.details)}`);
+    // Before the event's time; a day without a time is reminded from 9:00 (lib/reminders), its start here being midnight.
+    for (const min of [...new Set(reminders(e))].sort((a, b) => a - b))
+      lines.push('BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${icsText(e.title)}`, `TRIGGER:${icsTrigger(e.start ? -min : 9 * 60 - min)}`, 'END:VALARM');
     lines.push('END:VEVENT');
   }
   lines.push('END:VCALENDAR');
@@ -287,7 +304,7 @@ export function calendarIcs(events: CalendarEvent[], at = new Date()): string {
 export function exportIcs(events: CalendarEvent[] = useCalendar.getState().events, name?: string) {
   // « Famille » → « kompaly-famille-2026-11-03.ics » (letters and digits only: a file name every system takes).
   const slug = name?.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
-  download(slug ? `kompaly-${slug}-${stamp()}.ics` : t('kompaly-calendrier-{day}.ics', { day: stamp() }), calendarIcs(events), 'text/calendar');
+  download(slug ? `kompaly-${slug}-${stamp()}.ics` : t('kompaly-calendrier-{day}.ics', { day: stamp() }), calendarIcs(events, new Date(), name ? undefined : e => eventReminders(e, useSettings.getState().defaultReminders)), 'text/calendar');
 }
 
 /** The account's own tables (group content lives in separate tables and is left alone). */

@@ -94,7 +94,7 @@ export function aiName(provider) {
 /**
  * What Kompaly is, does and doesn't do, so the AI never contradicts the site (FAQ, privacy page). The numbers are the
  * ones the server applies (AI_DAILY_QUESTIONS, TRANSCRIBE_DAILY_MINUTES: server/copilot.mjs, server/cours.mjs) and the
- * storage of src/lib/blobStore.ts (1 Go per account, 50 Mo per file). Scanned PDFs: no OCR (src/lib/textIndex.ts, src/copilot/fileText.ts).
+ * storage of src/lib/blobStore.ts (500 Mo per account, 50 Mo per file). Scanned PDFs: no OCR (src/lib/textIndex.ts, src/copilot/fileText.ts).
  */
 export function productSheet({ provider, env = {} } = {}) {
   const questions = Number(env.AI_DAILY_QUESTIONS) || 30;
@@ -110,7 +110,7 @@ export function productSheet({ provider, env = {} } = {}) {
 - Applis : rien à télécharger sur les stores ; elle marche dans le navigateur et s'installe depuis lui (iPhone : Partager › Sur l'écran d'accueil ; Android : Installer l'application).
 - Ton IA : en mode intelligent, tu fonctionnes avec ${aiName(provider)} ; tu peux le dire si on te le demande (la version exacte est affichée en haut de ton panneau). Sans IA (indisponible ou quota atteint), un mode simple répond aux demandes courantes, sur son appareil. Les phrases simples (« dentiste mardi 17h30 », « qu'est-ce que j'ai demain ? ») sont toujours traitées par le mode simple, sans IA. Réglages › Kompaly › « Mode simple uniquement » coupe l'IA pour de bon : plus rien n'est envoyé à une IA (ni ses questions, ni le son d'un enregistrement, ni une photo). Kompaly n'envoie jamais rien à une IA de lui-même (ses remarques sont écrites par l'appli).
 - Données : comptes, données et fichiers hébergés dans l'Union européenne (Irlande ; le site à Francfort), chiffrés pendant le transfert et sur les disques. ${training} Le son des enregistrements est écrit en texte par Groq, puis effacé. Détails : page Confidentialité.
-- Limites : 1 Go d'espace pour ses fichiers, 50 Mo au plus par fichier, ${questions} questions à l'IA par jour (remises à zéro à minuit), ${duration(recording)} d'enregistrement écrit par jour.
+- Limites : 500 Mo d'espace pour ses fichiers, 50 Mo au plus par fichier, ${questions} questions à l'IA par jour (remises à zéro à minuit), ${duration(recording)} d'enregistrement écrit par jour.
 - PDF scannés : non. La recherche et ta lecture des fichiers ne voient que le texte sélectionnable ; un PDF scanné (des images de pages, sans texte) n'est pas lu, il n'y a pas de reconnaissance de caractères (OCR). Pour une page imprimée ou manuscrite, « Fiche depuis une photo » (dans Fichiers) la lit et en fait une fiche.
 - Venir de Notion ou d'une autre appli : l'agenda s'importe en .ics ; les notes se rangent en .docx, .md ou .txt dans Fichiers puis s'ouvrent en note, ou se collent dans une note.
 - Âge : 15 ans ou plus, ou avant avec l'accord d'un parent (qui crée le compte avec l'enfant).

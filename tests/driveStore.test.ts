@@ -5,6 +5,7 @@ Object.assign(globalThis, {
   location: new URL('http://localhost/'),
   localStorage: { getItem: (k: string) => memory.get(k) ?? null, setItem: (k: string, v: string) => memory.set(k, v), removeItem: (k: string) => memory.delete(k) },
 });
+const { QUOTA } = await import('../src/lib/blobStore');
 const { useDrive, isPlainText, pasteForbidden, FOLDER_COLORS, folderColorKey, keepExtension } = await import('../src/store/drive');
 
 beforeEach(() => {
@@ -52,6 +53,39 @@ describe('drive paste', () => {
     expect(pasteForbidden(items, [cours.id], maths.id)).toBe(true);
     expect(pasteForbidden(items, [maths.id], cours.id)).toBe(false);
     expect(pasteForbidden(items, [cours.id], null)).toBe(false);
+  });
+});
+
+describe('espace par compte : 500 Mo', () => {
+  const stored = (id: string, size: number, extra = {}) => ({ id, name: `${id}.pdf`, kind: 'file' as const, parentId: null, size, createdAt: '', updatedAt: '', ...extra });
+  const upload = (size: number) => useDrive.getState().uploadFiles([{ name: 'cours.pdf', size, type: 'application/pdf' } as File], null);
+
+  it('un envoi qui ferait dépasser 500 Mo est refusé, avec ce qui est utilisé, la limite et comment libérer de la place', async () => {
+    expect(QUOTA).toBe(500_000_000);
+    // 460 Mo in the Drive, 30 Mo in its trash (they still count): 10 Mo left.
+    useDrive.setState({ items: [stored('a', 460_000_000)], trash: [stored('b', 30_000_000, { deletedAt: '2026-10-14' })] });
+    const refusal = await upload(10_000_001).catch((e: Error & { reason?: string }) => e);
+    expect(refusal).toBeInstanceOf(Error);
+    expect((refusal as Error).message).toBe('Plus assez de place : tu utilises 490 Mo sur 500 Mo. Supprime des fichiers puis vide la corbeille.');
+    expect((refusal as { reason?: string }).reason).toBe('Plus de place');
+    expect(useDrive.getState().items).toHaveLength(1); // nothing created
+  });
+
+  it('une copie (dupliquer, coller) qui ferait dépasser est refusée aussi, et rien n’est créé', async () => {
+    useDrive.setState({ items: [stored('a', 260_000_000)], trash: [] });
+    await expect(useDrive.getState().duplicate(['a'])).rejects.toThrow('tu utilises 260 Mo sur 500 Mo');
+    useDrive.getState().copy(['a']);
+    await expect(useDrive.getState().paste(null)).rejects.toThrow('500 Mo');
+    expect(useDrive.getState().items).toHaveLength(1);
+    expect(useDrive.getState().clipboard?.ids).toEqual(['a']);
+  });
+
+  it('la corbeille vidée, la place revient : le même envoi n’est plus refusé pour sa taille', async () => {
+    useDrive.setState({ items: [stored('a', 460_000_000)], trash: [stored('b', 30_000_000, { deletedAt: '2026-10-14' })] });
+    await expect(upload(20_000_000)).rejects.toThrow('Plus assez de place');
+    useDrive.setState({ trash: [] });
+    // Past the check now: what fails here is this test's missing browser storage, not the room.
+    await expect(upload(20_000_000)).rejects.not.toThrow('Plus assez de place');
   });
 });
 
