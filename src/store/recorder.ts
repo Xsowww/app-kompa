@@ -21,7 +21,7 @@ import { encodeFlacAsync } from '../lib/recorder/flac';
 import { startCapture, CaptureError, type Capture, type Piece, type SourceKind } from '../lib/recorder/capture';
 import { startLive, type LiveLane } from '../lib/recorder/live';
 import { CoursError, alertOtherDevices, isFinal, listPoints, transcribe, withRetry, writeDoc, writePart } from '../lib/recorder/api';
-import { baseName, chunkText, clock, courseMarkdown, essentialsOf, excerpt, makeSegment, momentLines, nextPart, rawPart, recordedSeconds, type Alert, type Part, type Segment } from '../lib/recorder/course';
+import { baseName, chunkText, clock, courseMarkdown, essentialsOf, excerpt, makeSegment, momentLines, nextPart, nothingWritten, rawPart, recordedSeconds, type Alert, type Part, type Segment } from '../lib/recorder/course';
 import { t, lang, locale } from '../i18n';
 
 export type Make = 'fiche' | 'examen';
@@ -55,6 +55,8 @@ export interface Session {
   transcriptionOff?: string;
   aiOff?: string;
   files: Partial<Record<'cours' | Make, string>>;
+  /** Finished with nothing written down: no document was made (the page says so). */
+  empty?: boolean;
   /** Documents that couldn't be made at the end (to make later from the list). */
   failed?: Make[];
   /** Seconds of sound heard but not yet written (kept in memory only): a reload marks them as a gap. */
@@ -692,6 +694,13 @@ export async function finishRecording() {
 /** The course rewritten to the end, then the documents in the Drive (again after a reload in the middle). */
 export async function completeDocuments() {
   if (session()?.phase !== 'finishing') return;
+  // Nothing could be written down: no empty document in the Drive, and it is said plainly.
+  if (nothingWritten(session()!.segments) && !session()!.files.cours) {
+    patch(() => ({ phase: 'done', empty: true }));
+    live({ step: null, progress: null });
+    toast(t('Rien n’a pu être transcrit : aucun document n’a été créé.'), 'error');
+    return;
+  }
   try {
     live({ step: t('Rédaction {ofDoc}…', { ofDoc: words().ofDoc }), progress: [session()!.parts.length, session()!.parts.length + 1] });
     await writeParts(true);
