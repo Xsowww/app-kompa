@@ -719,8 +719,8 @@ const FAQ = [
     q: t('Faut-il télécharger une appli ?'),
     a: t('Non, rien à télécharger sur l’App Store ou le Play Store : Kompaly marche dans le navigateur, sur ordinateur et sur téléphone. Pour l’avoir comme une appli, ajoute-le à ton écran d’accueil. Sur iPhone : dans Safari, Partager › « Sur l’écran d’accueil ». Sur Android : dans Chrome, ⋮ › « Installer l’application » (ça ajoute seulement une icône). Il s’ouvre alors en plein écran, et l’essentiel marche hors connexion.'),
   },
-  { q: t('Combien d’espace j’ai ?'), a: t('1 Go pour tes fichiers, et jusqu’à 50 Mo par fichier. La jauge est en haut de tes fichiers.') },
-  { q: t('C’est gratuit ?'), a: t('Oui, sans publicité ni carte bancaire. Limites par jour : {questions} questions à Kompaly en mode intelligent et {hours} h d’enregistrement de cours ; 1 Go pour tes fichiers. Tout est sur la page Tarifs.', { questions: DAILY_QUESTIONS, hours: DAILY_RECORDING_HOURS }) },
+  { q: t('Combien d’espace j’ai ?'), a: t('500 Mo pour tes fichiers, et jusqu’à 50 Mo par fichier. La jauge est en haut de tes fichiers.') },
+  { q: t('C’est gratuit ?'), a: t('Oui, sans publicité ni carte bancaire. Limites par jour : {questions} questions à Kompaly en mode intelligent et {hours} h d’enregistrement de cours ; 500 Mo pour tes fichiers. Tout est sur la page Tarifs.', { questions: DAILY_QUESTIONS, hours: DAILY_RECORDING_HOURS }) },
   {
     q: t('Ça marche avec Google Agenda ou mon emploi du temps ?'),
     a: t('Oui, dans un sens. Colle le lien d’abonnement de ton agenda (Google Agenda, Outlook, ton ENT, Pronote… c’est un lien en .ics) : ses événements s’affichent dans Kompaly et se mettent à jour tout seuls, toutes les 3 heures environ. Change-les dans l’agenda d’origine ; dans Kompaly, tu peux y ajouter tes rappels. Dans l’autre sens, Kompaly exporte ton calendrier dans un fichier, à importer dans Google Agenda ou Outlook : c’est une copie, elle ne se met pas à jour.'),

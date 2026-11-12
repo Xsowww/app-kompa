@@ -44,8 +44,8 @@ describe('Kompaly knows Kompaly: the product sheet in its prompt', () => {
   });
 
   it('gives the real limits: the Drive’s, and the server’s daily quotas (from its settings)', () => {
-    expect(SPACE).toBe(1000 ** 3); // decimal, as shown (formatBytes)
-    expect(prompt).toContain("1 Go d'espace pour ses fichiers");
+    expect(SPACE).toBe(500 * 1000 ** 2); // decimal, as shown (formatBytes)
+    expect(prompt).toContain("500 Mo d'espace pour ses fichiers");
     expect(prompt).toContain(`${MAX_FILE / 1000 / 1000} Mo au plus par fichier`);
     expect(prompt).toContain(`${quotaOf('x', {}).max} questions à l'IA par jour`);
     expect(audioUsage({}).perAccount).toBe(240);

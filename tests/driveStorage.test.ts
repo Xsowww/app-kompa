@@ -7,17 +7,18 @@ Object.assign(globalThis, {
 });
 const { driveUsed } = await import('../src/store/drive');
 const { formatBytes } = await import('../src/lib/utils');
-const { SPACE, MAX_FILE } = await import('../src/lib/blobStore');
+const { SPACE, MAX_FILE, QUOTA } = await import('../src/lib/blobStore');
 const { dropTargetAt, edgeSpeed } = await import('../src/pages/drive/touchGestures');
 
 const file = (size: number, extra = {}) => ({ id: String(Math.random()), name: 'f', kind: 'file' as const, parentId: null, size, createdAt: '', updatedAt: '', ...extra });
 
 describe('Drive storage display (decimal units, as the owner reads them)', () => {
-  it('25 Mo used out of 1 Go leaves 975 Mo, not 999', () => {
+  it('25 Mo used out of the 500 Mo of an account leaves 475 Mo', () => {
     const used = 25 * 1000 * 1000;
-    expect(formatBytes(SPACE)).toBe('1 Go');
+    expect(QUOTA).toBe(500 * 1000 * 1000);
+    expect(formatBytes(SPACE)).toBe('500 Mo');
     expect(formatBytes(used)).toBe('25 Mo');
-    expect(formatBytes(SPACE - used)).toBe('975 Mo');
+    expect(formatBytes(SPACE - used)).toBe('475 Mo');
   });
 
   it('one unit system everywhere: 1000, never 1024', () => {

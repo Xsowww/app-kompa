@@ -78,7 +78,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
         body: [
           t('Kompaly en mode intelligent : {n} questions par jour. Le mode simple (les commandes courantes, sans IA) n’a pas de limite.', { n: DAILY_QUESTIONS }),
           t('Enregistrer un cours ou une réunion : {n} h d’enregistrement écrites en texte par jour.', { n: DAILY_RECORDING_HOURS }),
-          t('Fichiers : 1 Go d’espace par compte, et jusqu’à 50 Mo par fichier.'),
+          t('Fichiers : 500 Mo d’espace par compte, et jusqu’à 50 Mo par fichier.'),
           t('Les compteurs repartent à zéro chaque jour.'),
         ],
       },
@@ -225,7 +225,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
           t('Une vérification anti-robot peut être demandée à l’inscription et à la connexion.'),
           t('Tu es responsable de ton mot de passe et, si tu l’actives, de ton téléphone de double authentification. Garde ta clé de secours en lieu sûr : sans elle, un téléphone perdu peut bloquer l’accès au compte.'),
           t('Si tu te connectes avec Google, Apple, Face ID ou ton empreinte, la sécurité de ton compte Kompaly dépend aussi de ce compte ou de cet appareil : protège-les comme ton mot de passe.'),
-          t('Limites actuelles : 50 Mo par fichier, 1 Go d’espace par compte, {questions} questions par jour à Kompaly en mode intelligent et {hours} h d’enregistrement écrites par jour (page Tarifs).', { questions: DAILY_QUESTIONS, hours: DAILY_RECORDING_HOURS }),
+          t('Limites actuelles : 50 Mo par fichier, 500 Mo d’espace par compte, {questions} questions par jour à Kompaly en mode intelligent et {hours} h d’enregistrement écrites par jour (page Tarifs).', { questions: DAILY_QUESTIONS, hours: DAILY_RECORDING_HOURS }),
         ],
       },
       {

@@ -2,8 +2,8 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { uid, nowIso, uniqueName } from '../lib/utils';
 import { userStorage, blobKey, trashBlobKey } from '../lib/userStorage';
-import { blobStore, MAX_FILE, QUOTA, StorageError } from '../lib/blobStore';
-import { cloudEnabled } from '../lib/supabase';
+import { blobStore, MAX_FILE, QUOTA, quotaError, StorageError } from '../lib/blobStore';
+import { supabase } from '../lib/supabase';
 import { driveWhere, sendUpload, trackUpload, type UploadHandle } from './uploads';
 import { t, locale } from '../i18n';
 
@@ -197,12 +197,7 @@ export const useDrive = create<DriveState>()(
         try {
           const big = files.find(f => f.size > MAX_FILE);
           if (big) throw Object.assign(new StorageError(t('« {name} » est trop lourd : 50 Mo maximum par fichier.', { name: big.name })), { reason: t('Plus de 50 Mo') });
-          if (cloudEnabled && QUOTA) {
-            const used = driveUsed(get().items, get().trash);
-            const adding = files.reduce((s, f) => s + f.size, 0);
-            if (used + adding > QUOTA)
-              throw Object.assign(new StorageError(t('Plus assez de place : {free} Mo libres sur {total} Mo. Vide la corbeille ou supprime des fichiers.', { free: Math.max(0, Math.floor((QUOTA - used) / 1e6)), total: Math.round(QUOTA / 1e6) })), { reason: t('Plus de place') });
-          }
+          await checkRoom(files.reduce((s, f) => s + f.size, 0));
           const created: (DriveItem | null)[] = [];
           for (const [n, file] of files.entries()) {
             const h = handles[n];
@@ -352,6 +347,7 @@ export const useDrive = create<DriveState>()(
         let all: DriveItem[] = [];
         for (const [parent, group] of groups) {
           const { created, blobCopies } = cloneTree([...items, ...all], group, parent, false);
+          await checkRoom(driveUsed([...all, ...created], []));
           await Promise.all(blobCopies.map(([a, b]) => blobStore.copy(blobKey(a), blobKey(b))));
           all = [...all, ...created];
         }
@@ -371,6 +367,7 @@ export const useDrive = create<DriveState>()(
           return true;
         }
         const { created, blobCopies } = cloneTree(get().items, clip.ids, targetId, true);
+        await checkRoom(driveUsed(created, []));
         await Promise.all(blobCopies.map(([a, b]) => blobStore.copy(blobKey(a), blobKey(b))));
         set(s => ({ items: [...s.items, ...created] }));
         return true;
@@ -388,6 +385,19 @@ export const useDrive = create<DriveState>()(
  */
 export const driveUsed = (items: DriveItem[], trash: DriveItem[]) =>
   [...items, ...trash].reduce((s, i) => s + (i.kind === 'file' ? Math.max(0, i.size ?? 0) : 0), 0);
+
+/**
+ * Refuses what would take the account over its space (QUOTA), before anything is stored: `adding` bytes on top of the
+ * Drive and its trash — and online of the files sent to groups too (storage_used: what the server's own rule counts).
+ */
+async function checkRoom(adding: number) {
+  if (!QUOTA) return;
+  const { items, trash } = useDrive.getState();
+  let used = driveUsed(items, trash);
+  const online = await supabase?.rpc('storage_used').then(r => r, () => null);
+  if (online && !online.error && Number(online.data) > used) used = Number(online.data);
+  if (used + adding > QUOTA) throw quotaError(used);
+}
 
 /** Trashed items shown at the top level of the trash (their folder wasn't deleted together with them). */
 export const trashRoots = (trash: DriveItem[]) =>
