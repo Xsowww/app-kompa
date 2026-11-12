@@ -13,6 +13,7 @@ const { useTodos } = await import('../src/store/todos');
 const { useNotes } = await import('../src/store/notes');
 const { useDrive } = await import('../src/store/drive');
 const { useSettings, DEFAULT_SETTINGS } = await import('../src/store/settings');
+const { useFocusLog } = await import('../src/store/focusLog');
 
 const file = (data: unknown) => new File([typeof data === 'string' ? data : JSON.stringify(data)], 'sauvegarde.json');
 const base = { app: 'kompaly', version: 1, calendar: [], notes: { notes: [], folders: [] } };
@@ -23,6 +24,7 @@ beforeEach(() => {
   useNotes.setState({ notes: [], folders: [], trashNotes: [], trashFolders: [] });
   useDrive.setState({ items: [], trash: [] });
   useSettings.setState(DEFAULT_SETTINGS);
+  useFocusLog.setState({ sessions: [] });
 });
 
 describe('restaurer une sauvegarde', () => {
@@ -48,13 +50,13 @@ describe('restaurer une sauvegarde', () => {
     useCalendar.setState({ events: [] });
     useTodos.setState({ todos: [] });
     useNotes.setState({ notes: [], folders: [] });
-    expect(await importBackup(file(saved))).toEqual({ notes: 1, events: 1, todos: 1, folders: 1, inTrash: 0 });
+    expect(await importBackup(file(saved))).toEqual({ notes: 1, events: 1, todos: 1, folders: 1, sessions: 0, inTrash: 0 });
     expect(useCalendar.getState().events).toEqual(before.ev);
     expect(useTodos.getState().todos).toEqual(before.todos);
     expect(useNotes.getState().notes).toEqual(before.notes);
     expect(useNotes.getState().folders).toEqual(before.folders);
     // A second time: nothing more.
-    expect(await importBackup(file(saved))).toEqual({ notes: 0, events: 0, todos: 0, folders: 0, inTrash: 0 });
+    expect(await importBackup(file(saved))).toEqual({ notes: 0, events: 0, todos: 0, folders: 0, sessions: 0, inTrash: 0 });
     expect([ev.id, todo.id, note.id].length).toBe(3);
   });
 
@@ -68,7 +70,7 @@ describe('restaurer une sauvegarde', () => {
         driveFolders: [{ id: 'd1', name: 'Un fichier', kind: 'file' }, { id: 'd2', name: 'Dossier', kind: 'folder', parentId: 'inconnu', tags: 'x' }],
       }),
     );
-    expect(r).toEqual({ notes: 1, events: 2, todos: 1, folders: 1, inTrash: 0 });
+    expect(r).toEqual({ notes: 1, events: 2, todos: 1, folders: 1, sessions: 0, inTrash: 0 });
     const [e1, e3] = useCalendar.getState().events;
     expect(e1).toMatchObject({ id: 'x1', title: 'Heure fausse', date: '2026-11-12', category: 'perso', done: false });
     expect(e1.start).toBeUndefined();
@@ -83,6 +85,19 @@ describe('restaurer une sauvegarde', () => {
     expect(useNotes.getState().notes).toMatchObject([{ id: 'n1', folderId: null, links: [{ kind: 'file', id: 'f1' }] }]);
     expect(useNotes.getState().notes[0].pinned).toBeUndefined();
     expect(useDrive.getState().items).toMatchObject([{ id: 'd2', kind: 'folder', parentId: null }]);
+  });
+
+  it('séances de concentration : celles qui manquent reviennent, une seule fois, les fausses sont laissées', async () => {
+    const kept = useFocusLog.getState().log('Maths', 25, '2026-11-10T09:00:00.000Z');
+    const lost = useFocusLog.getState().log('', 50, '2026-11-09T18:00:00.000Z');
+    const saved = { ...base, focusSessions: [...useFocusLog.getState().sessions, { id: 'f3', subject: 'Durée fausse', minutes: 'x', startedAt: '2026-11-08T10:00:00.000Z' }, { id: 'f4', subject: 'Jour faux', minutes: 25, startedAt: 'hier' }, null] };
+    useFocusLog.setState({ sessions: [kept] }); // « Tout effacer », another device…
+    expect((await importBackup(file(saved))).sessions).toBe(1);
+    expect(useFocusLog.getState().sessions).toEqual([lost, kept]); // in the order they were done
+    expect((await importBackup(file(saved))).sessions).toBe(0);
+    expect(useFocusLog.getState().sessions).toHaveLength(2);
+    // A file from before, without them: nothing breaks.
+    expect((await importBackup(file(base))).sessions).toBe(0);
   });
 
   it('pas une sauvegarde : refusée avec un message clair, rien n’est touché', async () => {
