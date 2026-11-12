@@ -77,6 +77,49 @@ export function isPublicHoliday(key: string): boolean {
  */
 export const restDay = (key: string) => isPublicHoliday(key) || /-12-(?:24|31)$/.test(key);
 
+const dayMs = 86_400_000;
+const shift = (key: string, days: number) => {
+  const [y, m, d] = key.split('-').map(Number);
+  const x = new Date(y, m - 1, d + days);
+  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+};
+
+/**
+ * The days of the sessions before an exam (YYYY-MM-DD, earliest first). The rule, kept simple:
+ * - how many: `base` (3) for an exam within a week; with more time, about two a week (33 days → 9), never more
+ *   than 10. A number asked for (`asked`) is kept as it is (1 to 10);
+ * - which days: within a week, the eve then every other day back (J-1, J-3, J-5, then the days between); with more
+ *   time, spread evenly from tomorrow to the eve of the exam (3 sessions in the last 5 days of a month was too thin);
+ * - never in the past, never on a rest day (the nearest free day is taken instead), nothing for a past exam;
+ * - no day left before the exam: today.
+ */
+export function revisionDays(examDate: string, today: string, base = 3, asked?: number): string[] {
+  const [ey, em, ed] = examDate.split('-').map(Number);
+  const [ty, tm, td] = today.split('-').map(Number);
+  const until = Math.round((Date.UTC(ey, em - 1, ed) - Date.UTC(ty, tm - 1, td)) / dayMs);
+  if (until < 0) return [];
+  const clamp = (v: number, max: number) => Math.min(max, Math.max(1, Math.round(v)));
+  const n = asked ? clamp(asked, 10) : until <= 7 ? clamp(base, 6) : Math.min(10, Math.max(clamp(base, 6), Math.round((until * 2) / 7)));
+  const free = (d: number) => {
+    const key = shift(examDate, -d);
+    return (d < until || (d === until && until === 0)) && key >= today && !restDay(key);
+  };
+  let offsets: number[];
+  if (until <= 7 || n === 1) {
+    offsets = [1, 3, 5, 2, 4, 6, 7, 9, 11, 13, 8, 10, 12, 14].filter(free);
+  } else {
+    offsets = [];
+    for (let i = 0; i < n; i++) {
+      const d = 1 + Math.floor((i * (until - 2)) / (n - 1));
+      const near = [d, d + 1, d - 1, d + 2, d - 2].find(x => x >= 1 && free(x) && !offsets.includes(x));
+      if (near) offsets.push(near);
+    }
+  }
+  const days = offsets.slice(0, n).map(d => shift(examDate, -d));
+  if (!days.length && !restDay(today)) days.push(today);
+  return [...new Set(days)].sort();
+}
+
 /** Another exam has the same title (« Contrôle de maths » twice): the day tells them apart. */
 export const hasTwin = (exam: CalendarEvent, events: CalendarEvent[]) => twinsOf(exam, events).length > 1;
 
@@ -127,4 +170,17 @@ export function pickExam(subject: string, events: CalendarEvent[], today: string
   if (date) hits = hits.filter(e => e.date === date);
   // « le partiel » with no other word: the next partiel if there is one, else the next exam.
   return hits.find(e => kinds.some(k => normalize(e.title).includes(k))) ?? hits[0];
+}
+
+/**
+ * The exam a request describes when the calendar has none like it: a name and a day to come (« partiel d'anatomie du
+ * 15 décembre » → « Partiel d'anatomie », 2026-12-15). Null without a day or without a name: nothing is made up.
+ */
+export function examSaid(subject: string, now = new Date()): { title: string; date: string; start?: string; end?: string } | null {
+  const p = parseQuickAdd(subject, now);
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  if (!p.date || p.date < today || p.impossible || p.every || p.endDate) return null;
+  const title = p.title.replace(/\s+(?:du|le|pour le|de|d['’])\s*$/i, '').trim();
+  if (!normalize(title).split(/[^a-z0-9]+/).some(w => w.length > 1 && !STOP.test(w))) return null;
+  return { title: title.charAt(0).toUpperCase() + title.slice(1), date: p.date, ...(p.start && { start: p.start }), ...(p.end && { end: p.end }) };
 }

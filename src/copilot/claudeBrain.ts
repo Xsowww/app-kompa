@@ -525,7 +525,7 @@ async function runTool(name: string, input: Record<string, unknown>, links: Copi
         links.push(...done.links);
         return { exam: describeEvent(exam), already_planned: true, sessions: revisionSessions(exam).map(describeEvent) };
       }
-      const res = planRevisions(exam.id, typeof input.sessions === 'number' ? input.sessions : 3)!;
+      const res = planRevisions(exam.id, typeof input.sessions === 'number' ? input.sessions : undefined)!;
       if (res.created.length) links.push({ label: t('Voir le planning'), to: linkToDay(res.created[0].date) });
       if (res.note) links.push({ label: openNoteLabel(), to: linkToNote(res.note.id) });
       if (res.note) wrote('notes', [res.note.id]);
