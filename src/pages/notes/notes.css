@@ -62,7 +62,7 @@
   letter-spacing: -0.01em;
 }
 :root[data-pro][data-style][data-theme] .note-row-date {
-  color: rgb(255 255 255 / 0.5);
+  color: var(--pro-ink-3);
   font-size: 11.5px;
   font-weight: 550;
 }

@@ -143,3 +143,9 @@
   background-color: #fff;
   color: #111218;
 }
+
+/* Affichage Pro: the names, sizes and the storage line sit on the wallpaper itself, sometimes on its lightest place (the
+   sun of the mountain): a soft shadow under the words keeps them readable there. */
+:root[data-pro] .drive-page :is([role='option'] p, .tabular) {
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.55);
+}
