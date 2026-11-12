@@ -5,7 +5,7 @@ Object.assign(globalThis, {
   location: new URL('http://localhost/'),
   localStorage: { getItem: (k: string) => memory.get(k) ?? null, setItem: (k: string, v: string) => memory.set(k, v), removeItem: (k: string) => memory.delete(k) },
 });
-const { spanBars, spanEdge, upcomingList, sweptRange, isFor, tasksOn, layout, openingDay, nightPieces, byStartTime } = await import('../src/pages/calendar/layout');
+const { spanBars, spanEdge, upcomingList, sweptRange, isFor, tasksOn, layout, openingDay, newEventDay, scrollToShow, nightPieces, byStartTime } = await import('../src/pages/calendar/layout');
 const { agendaEvents, fromAgenda, agendaLink } = await import('../src/pages/calendar/agendas');
 const { catOf, sortEvents } = await import('../src/store/calendar');
 
@@ -106,6 +106,54 @@ describe('agendas partagés par-dessus le mien', () => {
     const [e] = agendaEvents([team], { t1: [{ ...gev('m1', 't1'), title: 'Conseil des maîtres' }] }, []);
     expect(e).toMatchObject({ title: 'Conseil des maîtres', start: '17:00' });
     expect(agendaLink(e)).toBe('/groupes?g=t1&onglet=revisions');
+  });
+});
+
+describe('le jour proposé pour un nouvel événement', () => {
+  // Test visiteurs (Bernard, Julien) : le 12, « + » proposait le 17, le jour où le calendrier s'était ouvert tout seul.
+  it('today while the calendar shows the day it jumped to by itself', () => {
+    const opened = openingDay('2026-11-12', '2026-11-15', [{ date: '2026-11-17' }], '2027-01-11');
+    expect(opened).toEqual({ day: '2026-11-17', jumped: true });
+    expect(newEventDay(opened.day, '2026-11-12', !opened.jumped)).toBe('2026-11-12');
+  });
+  it('the day shown once the user chose it (a tap, a link), even a past one', () => {
+    expect(newEventDay('2026-11-17', '2026-11-12', true)).toBe('2026-11-17');
+    expect(newEventDay('2026-11-03', '2026-11-12', true)).toBe('2026-11-03');
+    expect(newEventDay('2026-11-12', '2026-11-12', true)).toBe('2026-11-12');
+  });
+});
+
+describe('la grille des heures après un ajout', () => {
+  // 52 px par heure, grille de 7 h à 23 h, 6 heures visibles (312 px), calée sur 16 h (9 × 52 = 468).
+  const H = 52;
+  const y = (h: number) => (h - 7) * H;
+  it('un événement ajouté à 10 h hors de vue : la grille remonte sur la ligne de 9 h', () => {
+    expect(scrollToShow(468, 312, y(10), y(11), H)).toBe(y(9));
+  });
+  it('un événement ajouté à 23 h hors de vue : la grille descend', () => {
+    expect(scrollToShow(0, 312, y(22), y(23), H)).toBe(y(21));
+  });
+  it('déjà entier à l’écran : la grille ne bouge pas', () => {
+    expect(scrollToShow(468, 312, y(17), y(18), H)).toBeNull();
+    expect(scrollToShow(468, 312, y(16), y(22), H)).toBeNull();
+  });
+  it('à moitié caché en bas, ou tout en haut de la journée : montré, jamais avant le début de la grille', () => {
+    expect(scrollToShow(468, 312, y(21.5), y(22.5), H)).toBe(y(21));
+    expect(scrollToShow(468, 312, y(7), y(8), H)).toBe(0);
+  });
+});
+
+describe('la place laissée au panneau de Kompaly à côté de la semaine', () => {
+  it('1366 px : le panneau commence à 962, la semaine finit à 1315 → 365 px laissés, les 7 jours dans le reste', async () => {
+    const { panelInset } = await import('../src/pages/calendar/usePanelInset');
+    expect(panelInset(1315, 1180, 962)).toBe(365);
+    // Panneau élargi (600 px) : encore assez pour sept jours.
+    expect(panelInset(1315, 1180, 742)).toBe(585);
+  });
+  it('rien quand le panneau ne touche pas la semaine, ni quand il resterait trop peu', async () => {
+    const { panelInset } = await import('../src/pages/calendar/usePanelInset');
+    expect(panelInset(1315, 1180, 1400)).toBe(0);
+    expect(panelInset(992, 860, 620)).toBe(0);
   });
 });
 

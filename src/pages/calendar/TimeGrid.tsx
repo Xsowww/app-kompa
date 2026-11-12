@@ -10,7 +10,7 @@ import { periodsFill, periodsOn, type Period } from '../../lib/periods';
 import { eventTitle, useCalendarSource } from './source';
 import SeriesIcon from './SeriesIcon';
 import type { DragMode, DragState } from './useEventDrag';
-import { DEFAULT_LENGTH, layout, nightPieces, spanBars, spanEdge, sweptRange, tasksOn } from './layout';
+import { DEFAULT_LENGTH, dayMark, layout, nightPieces, scrollToShow, spanBars, spanEdge, sweptRange, tasksOn } from './layout';
 import { TaskChip } from './TaskItem';
 import { t, tn } from '../../i18n';
 
@@ -97,6 +97,21 @@ export default function TimeGrid({ days, today, selected, events, todos, periods
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [days[0], days.length]);
 
+  // An event just added (the form, the bar, Kompaly) on the days shown: its hours come into sight.
+  const known = useRef<{ first: string; ids: Set<string> } | null>(null);
+  useEffect(() => {
+    const before = known.current;
+    known.current = { first: days[0], ids: new Set(placed.map(p => p.ev.id)) };
+    const el = scrollRef.current;
+    // Another day or week on screen: everything is « new » there, the effect above places the grid.
+    if (!el || !before || before.first !== days[0]) return;
+    const added = placed.filter(p => !before.ids.has(p.ev.id));
+    if (!added.length) return;
+    const first = added.reduce((a, b) => (b.start < a.start ? b : a));
+    const to = scrollToShow(el.scrollTop, el.clientHeight, y(first.start), y(first.end), HOUR_PX);
+    if (to !== null) el.scrollTop = to;
+  });
+
   const slotAt = (clientY: number, el: HTMLElement, step = 30) => {
     const min = firstHour * 60 + ((clientY - el.getBoundingClientRect().top) / HOUR_PX) * 60;
     return Math.max(firstHour * 60, Math.min(lastHour * 60 - step, Math.floor(min / step) * step));
@@ -154,7 +169,7 @@ export default function TimeGrid({ days, today, selected, events, todos, periods
             style={tint.length ? { backgroundImage: periodsFill(tint, isSel ? 26 : 13) } : undefined}
           >
             <span className="text-[11px] font-medium capitalize text-stone-500">{fmt(fromKey(d), 'EEE')}</span>
-            <span className={cx('tabular mt-0.5 flex h-7 w-7 short:mt-0 items-center justify-center rounded-full text-[14px] font-semibold', isSel ? 'bg-tile-blue text-white' : d === today && 'text-brand-600')}>{fmt(fromKey(d), 'd')}</span>
+            <span className={cx('tabular mt-0.5 flex h-7 w-7 short:mt-0 items-center justify-center rounded-full text-[14px] font-semibold', dayMark(d === today, isSel))}>{fmt(fromKey(d), 'd')}</span>
           </button>
         );
       })}
