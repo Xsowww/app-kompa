@@ -33,8 +33,8 @@ export const WORDS: Record<Usage, {
 }> = {
   etudes: {
     nextBig: t('Prochain examen'), noBig: t('Aucun examen à venir.'), plan: t('Planifier les révisions'), planned: t('Révisions planifiées'),
-    school: t('Établissement'), schoolHint: t('Lycée, université, école…'), program: t('Filière'), programHint: t('Droit, info, médecine…'),
-    level: t('Année'), levels: ['', t('Seconde'), t('Première'), t('Terminale'), t('L1'), t('L2'), t('L3'), t('M1'), t('M2'), t('Doctorat'), t('BTS / BUT'), t('Prépa'), t('Alternance'), t('École'), t('Autre')],
+    school: t('Établissement'), schoolHint: t('Collège, lycée, université, école…'), program: t('Filière'), programHint: t('Droit, info, médecine…'),
+    level: t('Année'), levels: ['', t('Collège'), t('Seconde'), t('Première'), t('Terminale'), t('L1'), t('L2'), t('L3'), t('M1'), t('M2'), t('Doctorat'), t('BTS / BUT'), t('Prépa'), t('Alternance'), t('École'), t('Autre')],
     groups: t('Groupes'), profileTab: t('Études'),
     quickExample: t('Partiel de maths vendredi 14h'), markDone: t('rendu'), slot: t('cours'), slots: t('cours||pluriel'),
     timetable: t('emploi du temps'), titleExample: t('Partiel de maths'), notesExample: t('salle, chapitres à réviser…'),
@@ -77,6 +77,12 @@ export const WORDS: Record<Usage, {
 
 /** The words of an account's usage (studies when unknown). */
 export const usageWords = (usage: Usage | undefined) => WORDS[usage ?? 'etudes'] ?? WORDS.etudes;
+
+/**
+ * The words of the home's big day (« Prochain examen », « Aucun examen à venir. »). A doctoral student has no exams
+ * (a defence, a conference, a deadline): the neutral words, « Prochain grand jour ».
+ */
+export const bigDayWords = (usage: Usage | undefined, year: string) => (usage === 'etudes' && year === t('Doctorat') ? WORDS.perso : usageWords(usage));
 
 /** Shared spaces (« Groupes »): what the space and its meetings are called, with French agreement baked in. */
 export interface GroupWords {

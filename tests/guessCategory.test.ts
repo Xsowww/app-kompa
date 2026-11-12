@@ -8,7 +8,7 @@ Object.assign(globalThis, {
 const { guessCategory } = await import('../src/store/calendar');
 const { useSettings } = await import('../src/store/settings');
 
-afterEach(() => useSettings.setState({ usage: 'etudes', customCategories: [] }));
+afterEach(() => useSettings.setState({ usage: 'etudes', usages: [], customCategories: [] }));
 
 describe('guessed category', () => {
   it('a revision session typed by hand is never the exam itself', () => {
@@ -132,5 +132,42 @@ describe('guessed category: whole words', () => {
       expect(guessCategory(x), x).toBe('examen');
     expect(guessCategory('Abgabetermin Bericht')).toBe('examen');
     expect(guessCategory('Soutenance de doctorat')).toBe('examen');
+  });
+
+  // Visitors' test (12 nov.): « Mon travail » alone in the questionnaire, and every event was filed under « Perso ».
+  it('work only (the questionnaire): nothing said goes with the work, private life stays Perso', () => {
+    useSettings.setState({ usage: 'travail', usages: ['travail'] });
+    expect(guessCategory('Chantier Dupont', true)).toBe('cours');
+    expect(guessCategory('Dupont', true)).toBe('cours');
+    expect(guessCategory('Relancer le client Dupont')).toBe('cours');
+    // What a word already says is kept.
+    expect(guessCategory('Livrable maquette')).toBe('devoir');
+    expect(guessCategory('Livraison site client')).toBe('examen');
+    expect(guessCategory('Foot', true)).toBe('sport');
+    expect(guessCategory('Dentiste', true)).toBe('perso');
+    expect(guessCategory('Cardiologue', true)).toBe('perso');
+    expect(guessCategory('Dîner avec Julie', true)).toBe('perso');
+    expect(guessCategory('Anniversaire de Léa')).toBe('perso');
+    // One's own category named in the title still wins.
+    useSettings.setState({ customCategories: [{ id: 'c-1', label: 'Chantier', color: '#3b6fd8' }] });
+    expect(guessCategory('Chantier Dupont', true)).toBe('c-1');
+  });
+
+  it('work and something else, or answers unknown: the neutral Perso, as before', () => {
+    useSettings.setState({ usage: 'travail', usages: ['travail', 'perso'] });
+    expect(guessCategory('Chantier Dupont', true)).toBe('perso');
+    useSettings.setState({ usage: 'travail', usages: [] });
+    expect(guessCategory('Chantier Dupont', true)).toBe('perso');
+  });
+
+  it('a health appointment by the practitioner’s name is a « Rendez-vous » in personal life', () => {
+    useSettings.setState({ usage: 'perso', usages: ['perso'] });
+    expect(guessCategory('Cardiologue', true)).toBe('cours');
+    expect(guessCategory('Cardiologue pour Monique', true)).toBe('cours');
+    expect(guessCategory('Ophtalmo', true)).toBe('cours');
+    expect(guessCategory('Cardio training', true)).not.toBe('cours');
+    // Studies have no « Rendez-vous »: Perso, as the dentist.
+    useSettings.setState({ usage: 'etudes', usages: ['etudes'] });
+    expect(guessCategory('Cardiologue', true)).toBe('perso');
   });
 });

@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
-import { BellRing, Check, CloudAlert, Coffee, FastForward, Info, Pause, Play, Square, Timer, WifiOff, X } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { BellRing, Check, CloudAlert, Coffee, FastForward, Info, Pause, Play, Pointer, Square, Timer, WifiOff, X } from 'lucide-react';
 import { useFocus, focusLeft, mmss, type FocusPhase } from '../store/focus';
 import { useSettings } from '../store/settings';
 import { toast, useUi, type ReminderAlert, type Toast } from '../store/ui';
@@ -17,6 +17,7 @@ import { useBackClose } from '../lib/backClose';
 import { useMinute, useToday } from '../lib/useToday';
 import { useCalendar } from '../store/calendar';
 import { useTodos } from '../store/todos';
+import { useTour } from '../store/tour';
 import { dayTasks } from '../lib/proDashboard';
 import { share, upcoming, useIslandLog } from './islandHub';
 import { HUB_VIEWS, Lights, type HubView } from './IslandHub';
@@ -210,6 +211,26 @@ function TimerFull({ phase, onUsed }: { phase: FocusPhase; onUsed: () => void })
         </button>
       </div>
     </div>
+  );
+}
+
+/** How long the island's first-visit hint stays (ms), and how long after the home page is up it comes (Kompaly's hello first). */
+const HINT_MS = 7000;
+const HINT_AFTER = 3000;
+
+/**
+ * « Touche ici » : once per account, on the home page, the island says it is a button (visitors' test: 13 of 20 did
+ * not know). In the island itself, so it covers nothing of the page; a tap opens the hub.
+ */
+function HintFace({ onOpen }: { onOpen: (keyboard: boolean) => void }) {
+  const mouse = typeof matchMedia !== 'undefined' && matchMedia('(hover: hover) and (pointer: fine)').matches;
+  return (
+    <button type="button" className="isl-toast isl-hint" data-isl-main onClick={e => onOpen(e.detail === 0)}>
+      <span className="isl-ticon" aria-hidden>
+        <Pointer size={16} strokeWidth={2.4} />
+      </span>
+      <span className="isl-ttext">{mouse ? t('Clique ici : rappels, Kompaly et raccourcis') : t('Touche ici : rappels, Kompaly et raccourcis')}</span>
+    </button>
   );
 }
 
@@ -562,6 +583,30 @@ export default function Island() {
   const open = expanded && present.includes(expanded) ? expanded : null;
 
   const [lastView, setLastView] = useState<HubView>('accueil');
+
+  // The first-visit hint (HintFace): on the home page, once the island is calm (after a toast, after Kompaly's hello),
+  // for a few seconds; said once per account (a setting), whatever cuts it short.
+  const { pathname } = useLocation();
+  const hintSeen = useSettings(s => s.islandHintSeen);
+  const touring = useTour(s => s.step !== null);
+  const [hint, setHint] = useState(false);
+  const calm = pathname === '/' && !hub && !passing && !open && wake === woke && !touring;
+  const hintDue = calm && !hintSeen && !hint;
+  useEffect(() => {
+    if (!hintDue) return;
+    const timer = setTimeout(() => {
+      // Not over a window (Nouveautés, a form): another time.
+      if (document.querySelector('[aria-modal="true"]:not(.isl-face)')) return;
+      setHint(true);
+      useSettings.getState().set({ islandHintSeen: true });
+    }, HINT_AFTER);
+    return () => clearTimeout(timer);
+  }, [hintDue]);
+  useEffect(() => {
+    if (!hint) return;
+    const timer = setTimeout(() => setHint(false), HINT_MS);
+    return () => clearTimeout(timer);
+  }, [hint]);
   // Said politely while the hub is open (what would have opened the island meanwhile).
   const [announce, setAnnounce] = useState('');
 
@@ -756,6 +801,8 @@ export default function Island() {
         ? { key: 'wake', mode: 'mini', el: <WakeFace /> }
         : open
         ? full(open)
+        : hint && calm
+          ? { key: 'hint', mode: 'toast', el: <HintFace onOpen={() => (setHint(false), openHub('accueil'))} />, say: t('Touche ici : rappels, Kompaly et raccourcis') }
         : present[0]
           ? mini(present[0])
           : { key: 'idle', mode: 'idle', el: <IdleFace onOpen={() => openHub(lastView === 'minuteur' && !phase ? 'accueil' : lastView)} /> };
@@ -858,6 +905,27 @@ export default function Island() {
     put();
     return () => cancelAnimationFrame(raf);
   }, [hub]);
+
+  // Computers: a toast never grows over the search field at its right (« Ton premier événement est prêt » hid the
+  // start of « Rechercher »): as wide as the room between the island's centre and the field, both sides.
+  const toastKey = face?.mode === 'toast' ? face.key : null;
+  useLayoutEffect(() => {
+    if (!toastKey) return;
+    const fit = () => {
+      const r = document.querySelector<HTMLElement>('.pro-search')?.getBoundingClientRect();
+      if (!r?.width) wrap.current?.style.removeProperty('--isl-room');
+      else wrap.current?.style.setProperty('--isl-room', `${Math.max(232, 2 * (r.left - 12 - window.innerWidth / 2))}px`);
+    };
+    fit();
+    // The very first toast can come before the top bar is drawn (the app just opened): once more, a moment later.
+    const again = [setTimeout(fit, 120), setTimeout(fit, 600)];
+    window.addEventListener('resize', fit);
+    return () => {
+      again.forEach(clearTimeout);
+      window.removeEventListener('resize', fit);
+    };
+    // (`stage`: the island itself is not on the page before its first face.)
+  }, [toastKey, stage]);
 
   const live = (
     // What comes is read out, politely: the focus stays where it is.

@@ -17,8 +17,9 @@ const chip =
 /**
  * Home page: one row of shortcuts to what the questionnaire says the person came for (Enregistrer un cours, Concentration,
  * Agenda partagé, Importer mon emploi du temps…), and their rewards (« récompenses »).
+ * `starter`: a brand-new account's home (Affichage Pro): no « Concentration », no rewards yet (0/18 said nothing).
  */
-export default function HomeShortcuts() {
+export default function HomeShortcuts({ starter }: { starter?: boolean } = {}) {
   const usage = useSettings(s => s.usage);
   const needs = useSettings(s => s.needs);
   const focusing = useFocus(s => !!s.phase);
@@ -35,7 +36,7 @@ export default function HomeShortcuts() {
       case 'record':
         return [{ key: k, to: '/enregistrer', label: usage === 'perso' ? t('Enregistrer et résumer') : t('Enregistrer {a}', { a: words.recording.a }), node: <Mic {...icon} className="text-[#e5484d]" /> }];
       case 'focus':
-        return focusing
+        return focusing || starter
           ? []
           : [
               {
@@ -77,7 +78,7 @@ export default function HomeShortcuts() {
             )}
           </li>
         ))}
-        <li className="min-w-0 max-w-full">
+        {!starter && <li className="min-w-0 max-w-full">
           <Link to="/profil#badges" className={chip} aria-label={t('Mes récompenses : {n} sur {total}', { n: earned, total: badges.length })}>
             <Award {...icon} className="text-[#d48a17]" />
             {/* Phones: the count under the name (beside it, it went past the tile at 320 px). */}
@@ -89,7 +90,7 @@ export default function HomeShortcuts() {
               </span>
             </span>
           </Link>
-        </li>
+        </li>}
       </ul>
     </nav>
   );

@@ -17,7 +17,7 @@ import { runOffer } from '../copilot/offers';
 import { toast } from '../store/ui';
 import TodoList from './tasks/TodoList';
 import { useSettings } from '../store/settings';
-import { WORDS } from '../lib/usage';
+import { WORDS, bigDayWords } from '../lib/usage';
 import { periodColor, periodText, periodTint, periodUntil, periodsOn } from '../lib/periods';
 import WeekProgress from './WeekProgress';
 import HomeShortcuts from './HomeShortcuts';
@@ -102,6 +102,8 @@ export default function Dashboard() {
 
 function DashboardClassic() {
   const words = WORDS[useSettings(st => st.usage)] ?? WORDS.etudes;
+  // « Prochain examen » or, for a doctoral student, « Prochain grand jour ».
+  const big = bigDayWords(useSettings(st => st.usage), useSettings(st => st.year));
   const revisionTime = useSettings(st => st.revisionTime) || '18:00';
   const periods = useSettings(st => st.periods);
   const navigate = useNavigate();
@@ -315,7 +317,7 @@ function DashboardClassic() {
           <div className="contents md:flex md:min-w-0 md:flex-col md:gap-4">
             {/* Next exam */}
             {/* Nothing coming: a small light card, not a tall dark one with two lines in it (the column moves up). */}
-            <Widget dark={!!nextExam} title={notExam ? t('Prochain grand jour') : words.nextBig} className="order-2">
+            <Widget dark={!!nextExam} title={notExam ? t('Prochain grand jour') : big.nextBig} className="order-2">
               {nextExam ? (
                 <div className="flex flex-1 flex-col">
                   <Link to={linkToDay(nextExam.date, nextExam.id)} className="group flex flex-col gap-3">
@@ -403,7 +405,7 @@ function DashboardClassic() {
                 </div>
               ) : (
                 <div className="text-[13px] text-stone-500">
-                  <p>{words.noBig}</p>
+                  <p>{big.noBig}</p>
                   <p className="mt-1 flex items-center gap-1 text-[12px]">
                     <Flag size={12} className="shrink-0" /> {t('Marque un événement important pour le voir ici.')}
                   </p>

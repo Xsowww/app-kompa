@@ -668,10 +668,11 @@ function greet() {
     useCopilot.getState().say({
       // Affichage Pro: no left bar; he speaks in the island at the top, which opens him.
       text: computer && settings.pro
-        ? t('{hello} {name} ! Je suis Kompaly, ton assistant. Demande-moi d’ajouter un rendez-vous, de retrouver un fichier ou de t’organiser : clique sur ce message (ou Ctrl+J).', { hello, name })
+        ? t('{hello} {name} ! Je suis Kompaly, ton assistant. Écris-moi ce que tu as à faire, je le range : clique sur ce message (ou Ctrl+J).', { hello, name })
         : computer
         ? t('{hello} {name} ! Je suis Kompaly, ton assistant. Demande-moi d’ajouter un rendez-vous, de retrouver un fichier ou de t’organiser : clique sur « Demander à Kompaly » dans la barre de gauche (Ctrl+J).', { hello, name })
-        : t('{hello} {name} ! Je suis Kompaly, ton assistant. Demande-moi d’ajouter un rendez-vous, de retrouver un fichier ou de t’organiser : touche « Kompaly » en haut de l’écran.', { hello, name }),
+        : // Phones: short enough to be read whole in the island (it was cut); where to find him: the island says it next.
+          t('{hello} {name} ! Je suis Kompaly, ton assistant. Écris-moi ce que tu as à faire, je le range.', { hello, name }),
       mood: 'happy',
       brief: true,
     });

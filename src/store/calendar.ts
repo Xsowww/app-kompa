@@ -155,7 +155,12 @@ const OTHER_DOCTOR = 'dentist|doctors?$|\\p{L}*arzt|dentista|m[ée]dicos?$';
 const OTHER_BIRTHDAY = 'birthdays?$|\\p{L}*geburtstag|compleanno|cumplea[ñn]os';
 const OTHER_MEETING = "reuni[oó]n|riunione|\\p{L}*besprechung|cita$|appuntamento|appointment|\\p{L}*(?<!abgabe|liefer)termin$";
 const OTHER_HANDIN = '\\p{L}*abgabe|entregas?$|consegna';
-const WORK_PERSO = wordRe(`m[ée]decin|dentiste|kin[ée]|ost[ée]o|docteur|pharmacie|anniversaire|mariage|bapt[eê]me|vacances|cong[ée]s?$|${OTHER_DOCTOR}|${OTHER_BIRTHDAY}`);
+// Health appointments said by the practitioner's name (« Cardiologue jeudi 9h30 » is an appointment, as « Dentiste »).
+const HEALTH = 'cardiologue|ophtalmo(?:logue|logiste)?$|dermato(?:logue)?$|gyn[ée]co(?:logue)?$|p[ée]diatre|g[ée]n[ée]raliste|ost[ée]o(?:pathe)?$|orthodontiste|orthophoniste|podologue|psy(?:chologue|chiatre)?$|radiologue|v[ée]t[ée]rinaire|v[ée]to$|docteur|dr$|prise de sang|vaccin|h[ôo]pital|clinique|infirmi[eè]re?$|sage-femme|opticien|chirurgien|allergologue|rhumatologue|urologue|neurologue|orl$|irm$|[ée]chographie';
+// Private life seen from a work calendar, when nothing else says what it is (« Dîner avec Julie », « Courses »).
+const PRIVATE = 'd[îi]ner|soir[ée]e|ap[ée]ro|cin[ée](?:ma)?$|resto$|concert|th[ée][âa]tre|week-?end|famille|maman|papa|mamie|papi|enfants?$|[ée]cole|cr[èe]che|nounou|courses$|m[ée]nage|coiffeur|garage|no[ëe]l|f[êe]te';
+const WORK_PERSO = wordRe(`m[ée]decin|dentiste|kin[ée]|ost[ée]o|docteur|pharmacie|anniversaire|mariage|bapt[eê]me|vacances|cong[ée]s?$|${HEALTH}|${OTHER_DOCTOR}|${OTHER_BIRTHDAY}`);
+const WORK_PRIVATE = wordRe(PRIVATE);
 // « Point avec Marc », « Appel client », « Visio » (not « Point relais », « Appel d'offres »).
 // « Appeler M. Durand », « Rappeler le client », « Conseil de classe »: a call or a meeting too.
 // A call planned (« Appel client ») is one; a thing to do (« Appeler le plombier ») is not: no « Réunion » forced (test n°3).
@@ -163,7 +168,7 @@ const WORK_MEETING = wordRe(`r[ée]union|meeting|call$|visio(?!n)|point$(?! rela
 // Something to hand in at work: a deliverable said as such (a quote or a follow-up is not a « Livrable »).
 const WORK_HANDIN = wordRe('livrables?$');
 const WORK_DEADLINE = wordRe(`deadline|[ée]ch[ée]ance|date limite|livraison|lancement|audits?$|${SALON}|d[ée]m[ée]nagement|rendre|rendu|remise|soutenance|pr[ée]sentation|d[ée]mo$|bouclage|cl[ôo]ture|${OTHER_HANDIN}`);
-const HOME_MEETING = wordRe(`r[ée]union|meeting|call$|visio(?!n)|point (?:d['’][ée]quipe|client|hebdo)|entretien|rendez-vous|rdv$|conseils? de classe|m[ée]decin|dentiste|kin[ée]|${OTHER_MEETING}|${OTHER_DOCTOR}`);
+const HOME_MEETING = wordRe(`r[ée]union|meeting|call$|visio(?!n)|point (?:d['’][ée]quipe|client|hebdo)|entretien|rendez-vous|rdv$|conseils? de classe|m[ée]decin|dentiste|kin[ée]|${HEALTH}|${OTHER_MEETING}|${OTHER_DOCTOR}`);
 const HOME_TODO = wordRe('devis|facture|relance|proposition|contrat|payer|imp[oô]ts?$|d[ée]claration');
 const HOME_BIG = wordRe(`deadline|[ée]ch[ée]ance|livraison|lancement|audits?$|${SALON}|anniversaire|mariage|d[ée]m[ée]nagement|${OTHER_BIRTHDAY}`);
 const STUDY_EXAM = wordRe('exam|partiel|contr[oô]le|ds$|qcm$|interro|oral(?:e|es|s)?$|soutenance|concours|\\p{L}*pr[üu]fung|\\p{L}*klausur|esam[ei]$|verifica|parcial(?:es)?$|tests?$|quiz|midterms?$|finals$');
@@ -197,7 +202,12 @@ export function guessCategory(title: string, timed = false, custom?: CustomCateg
   if (usage === 'travail') {
     const work = workCategory(t);
     if (work) return work;
-    return SPORT.test(t) ? 'sport' : 'perso';
+    if (SPORT.test(t)) return 'sport';
+    // No word says what it is. An account opened for work only (the questionnaire's one answer): it goes with the
+    // work, under its main category (« Réunion »), not « Perso » — unless the title is plainly private life. An account
+    // for work AND something else (or an older one, its answers unknown) keeps the neutral « Perso ».
+    const only = getSettings().usages ?? [];
+    return only.length === 1 && only[0] === 'travail' && !WORK_PRIVATE.test(t) ? 'cours' : 'perso';
   }
   if (usage === 'perso') {
     if (HOME_MEETING.test(t)) return 'cours';

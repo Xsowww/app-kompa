@@ -55,16 +55,17 @@ export default function WelcomePage() {
 
   const choice = (selected: boolean) =>
     cx(
-      'flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors',
+      'welcome-choice flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors',
       selected ? 'border-brand-500 bg-brand-50/60 ring-1 ring-brand-500' : 'border-stone-200 hover:border-stone-300 hover:bg-stone-50',
     );
   const box = (on: boolean) => (
-    <span className={cx('flex h-4 w-4 shrink-0 items-center justify-center rounded border', on ? 'border-brand-600 bg-brand-600 text-white' : 'border-stone-300')} aria-hidden>
-      {on && <Check size={12} />}
+    // Empty, its outline is plain to see (it was nearly invisible, on the wallpaper above all): a box to tick.
+    <span className={cx('welcome-box flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px] border-[1.5px]', on ? 'border-brand-600 bg-brand-600 text-white' : 'border-stone-400')} data-on={on || undefined} aria-hidden>
+      {on && <Check size={13} strokeWidth={3} />}
     </span>
   );
   const chip = (on: boolean) =>
-    cx('hit inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-[13px] transition-colors', on ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-stone-200 hover:bg-stone-50');
+    cx('welcome-chip hit inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-[13px] transition-colors', on ? 'border-brand-500 bg-brand-50 font-medium text-brand-700 ring-1 ring-brand-500' : 'border-stone-300 hover:bg-stone-50');
 
   // The two buttons under each question: go on, or skip it (the last one ends the questionnaire either way).
   const actions = (primary: string) => (

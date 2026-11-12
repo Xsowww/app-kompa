@@ -92,6 +92,10 @@ describe('the questions', () => {
 
   it('no fac words for a high-school pupil', () => {
     expect(isLycee('Terminale')).toBe(true);
+    // Collège (open before 15 with a parent's agreement): offered with the lycée, its own words.
+    expect(statusGroups(['etudes'])[0].options[0]).toBe('Collège');
+    expect(isLycee('Collège')).toBe(true);
+    expect(needOptions({ usage: 'etudes', usages: ['etudes'], year: 'Collège' }).find(n => n.key === 'reviser')?.label).toBe('Réviser mes contrôles et le brevet');
     expect(isLycee('L2')).toBe(false);
     const lycee = needOptions({ usage: 'etudes', usages: ['etudes'], year: 'Terminale' }).find(n => n.key === 'reviser')!;
     expect(lycee.label).toMatch(/bac/);

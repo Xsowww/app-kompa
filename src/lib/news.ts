@@ -35,7 +35,7 @@ export const RELEASES: Release[] = [
     items: [
       { icon: 'pro', img: '/news/pro-look.jpg', title: t('Kompaly change de look'), text: t('Voici l’Affichage Pro : un fond d’écran, des cartes en verre et des couleurs qui disent d’un coup d’œil ce qui compte. C’est maintenant l’affichage de Kompaly.') },
       { icon: 'island', img: '/news/pro-ile.jpg', title: t('Tout passe par l’île, en haut'), text: t('Rappels, messages, Kompaly et ta séance de concentration s’affichent dans une petite pastille en haut de l’écran. Touche-la : tes prochains événements, tes tâches et des raccourcis s’ouvrent.') },
-      { icon: 'dash', img: '/news/pro-accueil.jpg', title: t('Un accueil qui montre l’essentiel'), text: t('Ton prochain grand jour, tes tâches (en retard en premier), ce qui arrive, et les anneaux de ta journée, dans cet ordre.') },
+      { icon: 'dash', img: '/news/pro-accueil.jpg', title: t('Un accueil qui montre l’essentiel'), text: t('Ton prochain grand jour, tes tâches (en retard en premier), ce qui arrive, et les trois cercles de ta journée, dans cet ordre.') },
       { icon: 'pro', img: '/news/pro-reglages.jpg', title: t('Tu préfères l’ancien look ?'), text: t('Tes thèmes d’avant sont toujours là : ouvre ton profil, puis Réglages › Apparence, et coupe « Affichage Pro ». Tu peux le remettre quand tu veux.') },
     ],
   },
