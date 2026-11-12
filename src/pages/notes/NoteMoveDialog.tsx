@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { FolderOpen, NotebookPen } from 'lucide-react';
+import { FolderOpen, FolderPlus, NotebookPen } from 'lucide-react';
 import { Modal } from '../../components/Overlays';
 import { useNotes, folderDescendants } from '../../store/notes';
+import { askText } from '../../store/ui';
 import { cx } from '../../lib/utils';
 import { folderIconStyle } from '../../store/drive';
 import { t, locale } from '../../i18n';
@@ -32,6 +33,14 @@ export default function NoteMoveDialog({ target, onClose }: { target: NoteMoveTa
         </div>
       ));
 
+  // A folder made from here (with only « Sans dossier », there was nowhere to move to): inside the one chosen, as the
+  // page's own « Nouveau dossier » does, and chosen at once.
+  const newFolder = async () => {
+    const name = await askText(dest ? t('Nouveau sous-dossier') : t('Nouveau dossier'), t('Nouveau dossier'), t('Créer'), { maxLength: 200 });
+    if (name === null) return;
+    setDest(useNotes.getState().createFolder(name, dest).id);
+  };
+
   const move = () => {
     const store = useNotes.getState();
     if (target.kind === 'note') store.updateNote(target.id, { folderId: dest });
@@ -53,6 +62,9 @@ export default function NoteMoveDialog({ target, onClose }: { target: NoteMoveTa
         </Choice>
         {level(null, 1)}
       </div>
+      <button type="button" className="btn-ghost mt-2 h-9 text-[13px] pointer-coarse:h-11" onClick={() => void newFolder()}>
+        <FolderPlus size={15} /> {t('Nouveau dossier')}
+      </button>
       <div className="modal-foot mt-5">
         <button className="btn-secondary" onClick={onClose}>
           {t('Annuler')}
