@@ -158,6 +158,54 @@ const COPY: Record<Mode, { title: string; subtitle?: string; submit: string }> =
 /** Seconds before « Renvoyer le mail » works again (Supabase refuses more than one e-mail a minute anyway). */
 const RESEND_WAIT = 60;
 
+/** How long after a press ends its click has been delivered (a finger's click comes right after its release). */
+const PRESS_SETTLE = 80;
+
+/**
+ * Runs a layout change once the press under way is over, so that nothing moves between a press and its release
+ * (the click then lands where it was aimed). No press (Tab key): a moment later, a finger's tap moves the focus
+ * after its release, just before its click.
+ */
+function useAfterPress() {
+  const down = useRef(false);
+  const waiting = useRef<(() => void)[]>([]);
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => {
+    const flush = () => {
+      clearTimeout(timer.current);
+      timer.current = setTimeout(() => {
+        if (down.current) return;
+        for (const run of waiting.current.splice(0)) run();
+      }, PRESS_SETTLE);
+    };
+    const press = () => {
+      down.current = true;
+    };
+    const release = () => {
+      down.current = false;
+      flush();
+    };
+    document.addEventListener('pointerdown', press, true);
+    document.addEventListener('pointerup', release, true);
+    document.addEventListener('pointercancel', release, true);
+    return () => {
+      clearTimeout(timer.current);
+      document.removeEventListener('pointerdown', press, true);
+      document.removeEventListener('pointerup', release, true);
+      document.removeEventListener('pointercancel', release, true);
+    };
+  }, []);
+  return (run: () => void) => {
+    waiting.current.push(run);
+    if (down.current) return;
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      if (down.current) return; // a press began meanwhile: its release runs them
+      for (const r of waiting.current.splice(0)) r();
+    }, PRESS_SETTLE);
+  };
+}
+
 export default function AuthPage({ mode }: { mode: Mode }) {
   const navigate = useNavigate();
   const confirmedElsewhere = useAuth(s => s.confirmedElsewhere);
@@ -209,6 +257,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
   // Errors about a field go right under it (and the focus into it); the others in the banner (`error`).
   const [errs, setErrs] = useState<Partial<Record<Field, string>>>({});
   const refs = useRef<Partial<Record<Field, HTMLInputElement | null>>>({});
+  const afterPress = useAfterPress();
   const fail = (field: Field | null, message: string) => {
     if (!field) return setError(message);
     setErrs(e => ({ ...e, [field]: message }));
@@ -255,9 +304,12 @@ export default function AuthPage({ mode }: { mode: Mode }) {
     return isRegister && !v ? t('Kompaly est ouvert dès 15 ans, ou avant avec l’accord d’un parent.') : '';
   };
   // Leaving a filled-in field checks it; an empty one waits for the submit.
+  // The message waits for the end of the press that took the focus away: shown at once, it pushed what is under the
+  // field down between the press and its release, and the tap on « J’accepte les conditions » was lost (box not ticked).
   const blurCheck = (field: Field) => () => {
     const v = values[field];
-    if (typeof v === 'string' && v && check(field)) setErrs(e => ({ ...e, [field]: check(field) }));
+    const message = typeof v === 'string' && v ? check(field) : '';
+    if (message) afterPress(() => setErrs(e => ({ ...e, [field]: message })));
   };
   // Typing (or ticking) clears the field's error as soon as it is right.
   const edit = (field: Field, v: string | boolean) => {
@@ -568,7 +620,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
             </div>
 
             {mode === 'login' && cloudEnabled && (
-              <label className="hit mt-4 flex cursor-pointer items-center gap-2.5 text-[12.5px] text-stone-600">
+              <label className="check-row mt-4 flex cursor-pointer items-center gap-2.5 text-[12.5px] text-stone-600">
                 <input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} className="relative z-[1] h-4 w-4 shrink-0 accent-[var(--color-ink)]" />
                 <span>
                   {t('Rester connecté')}
@@ -578,20 +630,20 @@ export default function AuthPage({ mode }: { mode: Mode }) {
             )}
 
             {isRegister && (
-              // .hit: the label takes taps up to 44 px high; its box and links stay above that margin (z-[1]).
+              // .check-row: the label takes presses at least 40 px high (44 under a finger) and a little left of its box; the box stays above that margin (z-[1]).
               <>
-              <label className="hit mt-4 flex cursor-pointer items-start gap-2.5 text-[12.5px] leading-snug text-stone-600">
+              <label className="check-row mt-4 flex cursor-pointer items-start gap-2.5 text-[12.5px] leading-snug text-stone-600">
                 <input ref={el => { refs.current.agreed = el; }} {...invalid('agreed')} type="checkbox" checked={agreed} onChange={e => (setAgreed(e.target.checked), edit('agreed', e.target.checked))} className="relative z-[1] mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-ink)]" />
                 <span>{t('J’accepte les conditions d’utilisation et la politique de confidentialité.')}</span>
               </label>
               {/* Out of the label: a tap on them opens the page, a tap on the sentence ticks the box. */}
               <p className="mt-1 pl-[26px] text-[12px] text-stone-500">
                 {t('À lire :')}{' '}
-                <Link to="/conditions" target="_blank" className="hit-sm font-medium text-ink underline decoration-stone-300 underline-offset-2">
+                <Link to="/conditions" target="_blank" className="hit-sm relative font-medium text-ink underline decoration-stone-300 underline-offset-2">
                   {t('conditions d’utilisation')}
                 </Link>
                 {' · '}
-                <Link to="/confidentialite" target="_blank" className="hit-sm font-medium text-ink underline decoration-stone-300 underline-offset-2">
+                <Link to="/confidentialite" target="_blank" className="hit-sm relative font-medium text-ink underline decoration-stone-300 underline-offset-2">
                   {t('politique de confidentialité')}
                 </Link>
               </p>
@@ -601,7 +653,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
             {isRegister && (
               // Touch: 20 px apart, so the two 44 px tap zones don't overlap.
               <>
-              <label className="hit mt-2.5 flex cursor-pointer items-start gap-2.5 text-[12.5px] leading-snug text-stone-600 pointer-coarse:mt-5">
+              <label className="check-row mt-2.5 flex cursor-pointer items-start gap-2.5 text-[12.5px] leading-snug text-stone-600 pointer-coarse:mt-5">
                 <input ref={el => { refs.current.age = el; }} {...invalid('age')} type="checkbox" checked={oldEnough} onChange={e => (setOldEnough(e.target.checked), edit('age', e.target.checked))} className="relative z-[1] mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-ink)]" />
                 <span>{t('J’ai 15\u00a0ans ou plus, ou l’accord d’un parent.')}</span>
               </label>

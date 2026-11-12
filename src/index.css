@@ -466,6 +466,10 @@ body:has(#nav-more-panel) #create-button {
    (a control 36 px high grows 4 px above and below, one already 44 px or more doesn't grow);
    .hit-sm adds 8 px around controls set close together, like colour dots.
    In the base layer, so a position class the button already has (absolute…) still wins. */
+/* A checkbox and its sentence (sign-up, « Rester connecté »): presses count at least 40 px high and 12 px left of the
+   box, with a mouse too. Nothing moves, nothing shows. */
+.check-row { position: relative; }
+.check-row::after { content: ''; position: absolute; inset: min(0px, calc(50% - 20px)) 0 min(0px, calc(50% - 20px)) -12px; }
 @layer base {
   @media (pointer: coarse) {
     .icon-btn, .hit, .hit-sm, .btn, .btn-primary, .btn-secondary, .btn-ghost, .btn-danger, .seg-item, button.field { position: relative; }
@@ -482,6 +486,7 @@ body:has(#nav-more-panel) #create-button {
   input.field, select.field { min-height: 44px; }
   /* iPhone zooms into a field written smaller than 16 px when it gets the focus (the page jumps). */
   input:not([type=checkbox]):not([type=radio]):not([type=range]), textarea, select { font-size: max(16px, 1em); }
+  .check-row::after { inset-block: min(0px, calc(50% - 22px)); }
   /* A checkbox has no ::after: the label around it gets the margin instead, without moving anything. */
   .check-hit { margin: -11px; padding: 11px; }
 }
