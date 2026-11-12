@@ -469,6 +469,8 @@ button.isl-text {
 }
 /* The first-visit hint: the whole face is the button. */
 .isl-hint {
+  /* A little lower than a toast: its foot stays above the home page's greeting on a phone. */
+  min-height: 50px;
   cursor: pointer;
   text-align: left;
   border-radius: inherit;

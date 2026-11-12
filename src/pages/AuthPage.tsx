@@ -170,20 +170,20 @@ function useAfterPress() {
   const down = useRef(false);
   const waiting = useRef<(() => void)[]>([]);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // Once the press is over and its click delivered; a press that began meanwhile: its own release runs them.
+  const soon = () => {
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      if (!down.current) for (const run of waiting.current.splice(0)) run();
+    }, PRESS_SETTLE);
+  };
   useEffect(() => {
-    const flush = () => {
-      clearTimeout(timer.current);
-      timer.current = setTimeout(() => {
-        if (down.current) return;
-        for (const run of waiting.current.splice(0)) run();
-      }, PRESS_SETTLE);
-    };
     const press = () => {
       down.current = true;
     };
     const release = () => {
       down.current = false;
-      flush();
+      soon();
     };
     document.addEventListener('pointerdown', press, true);
     document.addEventListener('pointerup', release, true);
@@ -197,12 +197,7 @@ function useAfterPress() {
   }, []);
   return (run: () => void) => {
     waiting.current.push(run);
-    if (down.current) return;
-    clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
-      if (down.current) return; // a press began meanwhile: its release runs them
-      for (const r of waiting.current.splice(0)) r();
-    }, PRESS_SETTLE);
+    if (!down.current) soon();
   };
 }
 

@@ -922,7 +922,7 @@
     width: auto;
     min-width: 50px;
     height: 52px;
-    padding: 0 5px;
+    padding: 0 7px;
   }
   .pro-tabbar:not([data-icons]) .pro-tab-word {
     display: block;
