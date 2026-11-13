@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, Bell, BookOpenCheck, Check, ClipboardList, Clock, FileText, FolderOpen, Loader2, Mic, MonitorSpeaker, Pause, Play, RotateCcw, Square, Star, Trash2 } from 'lucide-react';
+import { AlertTriangle, Bell, BookOpenCheck, Check, ClipboardList, Clock, FileText, FolderOpen, Loader2, Mic, MonitorSpeaker, Pause, Play, RotateCcw, ShieldCheck, Square, Star, Trash2 } from 'lucide-react';
 import { Modal } from '../../components/Overlays';
 import { EmptyState } from '../../components/EmptyState';
 import { useSettings } from '../../store/settings';
@@ -63,6 +63,9 @@ export default function RecordPage() {
     </div>
   );
 }
+
+/** The keywords listened for, with their name: « 12 mots-clés ». */
+const keywordCount = (n: number) => tn(n, '{n} mot-clé', '{n} mots-clés');
 
 // ── Before ──────────────────────────────────────────────────────────────────
 
@@ -214,12 +217,26 @@ function Setup() {
         </p>
       )}
 
+      {/* Said where one decides (visitors' test: nothing reassured at « Démarrer »); only what the privacy page says. */}
+      {!simpleOnly && (
+        <p className="flex gap-2 text-[13px] leading-snug text-stone-600">
+          <ShieldCheck size={16} className="mt-px shrink-0 text-stone-500" aria-hidden />
+          <span>
+            {t('Le son n’est jamais gardé : seul le texte reste, visible par toi seul.')} {w.consent}{' '}
+            <Link to="/confidentialite#enregistrer" className="font-semibold text-ink underline decoration-stone-300 underline-offset-2 hover:decoration-ink">
+              {t('En savoir plus')}
+            </Link>
+          </span>
+        </p>
+      )}
+
       <div className="flex items-center gap-3">
         <button type="button" className="btn-primary h-12 flex-1 text-[15px]" disabled={busy || simpleOnly} onClick={() => void start()}>
           {busy ? <Loader2 size={16} className="animate-spin" /> : <span className="h-2.5 w-2.5 rounded-full bg-red-500" aria-hidden />} {t('Démarrer')}
         </button>
-        <button type="button" className="btn-secondary h-12 px-3.5" onClick={() => setSettings(true)} title={t('Mots-clés et alertes')} aria-label={t('Mots-clés et alertes')}>
-          <Bell size={16} /> <span className="tabular text-[13px]">{keywords.length}</span>
+        {/* « 12 mots-clés », not a bare 12 by a bell (read as 12 notifications). */}
+        <button type="button" className="btn-secondary h-12 px-3.5" onClick={() => setSettings(true)} title={t('Mots-clés et alertes')}>
+          <Bell size={16} aria-hidden /> <span className="text-[13px]">{keywordCount(keywords.length)}</span>
         </button>
       </div>
       {settings && <AlertSettings onClose={() => setSettings(false)} />}
@@ -329,8 +346,8 @@ function Running({ s }: { s: Session }) {
           {/* Recorded in another tab: the buttons are there, not here (a « Terminer » here filed a second copy). */}
           {!finishing && !elsewhere && (
             <span className="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto">
-              <button type="button" className="btn-secondary h-9 px-2.5" onClick={() => setSettings(true)} title={t('Mots-clés')} aria-label={t('Mots-clés')}>
-                <Bell size={15} /> <span className="tabular text-[12.5px]">{s.keywords.length}</span>
+              <button type="button" className="btn-secondary h-9 px-2.5" onClick={() => setSettings(true)} title={t('Mots-clés')}>
+                <Bell size={15} aria-hidden /> <span className="text-[12.5px]">{keywordCount(s.keywords.length)}</span>
               </button>
               {live.hearing && (
                 <button type="button" className="btn-secondary h-9 px-3" disabled={busy} onClick={paused ? () => void resume() : pauseRecording} title={paused ? t('Reprendre') : t('Pause||l’enregistrement')}>
