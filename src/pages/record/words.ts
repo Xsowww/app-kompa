@@ -10,6 +10,8 @@ export interface RecWords {
   /** The written document: « Le cours », « Le compte rendu »… and « du cours » in « 2 parties du cours déjà rédigées ». */
   doc: string; ofDoc: string; docDone: string; where: string; finish: string;
   history: string; keywordHint: string;
+  /** Above « Démarrer »: whose agreement to ask before recording. */
+  consent: string;
   /** The two extra documents: short (chips, compact buttons), long (Done view), and the « Créer… » buttons. */
   short: Record<Make, string>; long: Record<Make, string>;
   /** The long names inside a sentence (« Kompaly prépare : fiche de révision… »). */
@@ -31,7 +33,7 @@ export const REC_WORDS: Record<Usage, RecWords> = {
   etudes: {
     name: t('Nom du cours'), fallback: t('Cours'),
     doc: t('Le cours'), ofDoc: t('du cours'), docDone: t('Le cours rédigé'), where: t('Où ranger le cours ?'), finish: t('Le cours sera rédigé et rangé dans tes fichiers.'),
-    history: t('Cours enregistrés'), keywordHint: t('Ex. ton prénom, « exposé »'),
+    history: t('Cours enregistrés'), keywordHint: t('Ex. ton prénom, « exposé »'), consent: t('Pense à demander l’accord de ton prof.'),
     short: { fiche: t('Fiche de révision'), examen: t('Examen') },
     long: { fiche: t('Fiche de révision'), examen: t('Examen d’entraînement') },
     inText: { fiche: t('fiche de révision'), examen: t('examen d’entraînement') },
@@ -43,13 +45,13 @@ export const REC_WORDS: Record<Usage, RecWords> = {
     name: t('Nom de la réunion'), fallback: t('Réunion'),
     doc: t('Le compte rendu'), ofDoc: t('du compte rendu'), docDone: t('Le compte rendu rédigé'), where: t('Où ranger le compte rendu ?'),
     finish: t('Le compte rendu sera rédigé et rangé dans tes fichiers.'),
-    history: t('Réunions enregistrées'), keywordHint: t('Ex. ton prénom, « budget »'),
+    history: t('Réunions enregistrées'), keywordHint: t('Ex. ton prénom, « budget »'), consent: t('Pense à demander l’accord des personnes présentes.'),
     ...PRO,
   },
   perso: {
     name: t('Titre de l’enregistrement'), fallback: t('Enregistrement'),
     doc: t('Le document'), ofDoc: t('du document'), docDone: t('Le document rédigé'), where: t('Où ranger le document ?'), finish: t('Le document sera rédigé et rangé dans tes fichiers.'),
-    history: t('Enregistrements passés'), keywordHint: t('Ex. ton prénom, « billet »'),
+    history: t('Enregistrements passés'), keywordHint: t('Ex. ton prénom, « billet »'), consent: t('Pense à demander l’accord des personnes présentes.'),
     ...PRO,
   },
 };

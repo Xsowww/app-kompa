@@ -1,4 +1,5 @@
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { DAILY_QUESTIONS, DAILY_RECORDING_HOURS } from '../../lib/limits';
 import Logo from '../../components/Logo';
@@ -11,11 +12,12 @@ import { lang, locale, t } from '../../i18n';
 
 export type LegalDoc = 'mentions' | 'confidentialite' | 'conditions' | 'tarifs' | 'apropos';
 
-const UPDATED = new Date(2026, 10, 12).toLocaleDateString(locale(), { day: 'numeric', month: 'long', year: 'numeric' });
+const UPDATED = new Date(2026, 10, 13).toLocaleDateString(locale(), { day: 'numeric', month: 'long', year: 'numeric' });
 const CONTACT = 'contact@kompaly.com';
 
 /** `box`: a framed block (the press's), read first. */
-type Section = { title: string; body: string[]; sign?: string; box?: boolean };
+/** `id`: the section's address (`/confidentialite#enregistrer`), for the links that point to it (landing, recorder). */
+type Section = { title: string; body: string[]; sign?: string; box?: boolean; id?: string };
 
 const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
   // Who is behind it, and how to write (visitors looked for /a-propos, /contact, /presse).
@@ -62,7 +64,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
       {
         title: t('Tes données'),
         body: [
-          t('Elles sont hébergées dans l’Union européenne (Irlande, Allemagne), ne sont ni vendues ni utilisées pour de la publicité, et tu peux tout exporter ou tout supprimer à tout moment. Tous les détails sont dans la politique de confidentialité.'),
+          t('Elles sont hébergées dans l’Union européenne (Irlande, Allemagne) ; l’IA et la transcription des enregistrements passent par les États-Unis. Elles ne sont ni vendues ni utilisées pour de la publicité, et tu peux tout exporter ou tout supprimer à tout moment. Tous les détails sont dans la politique de confidentialité.'),
         ],
       },
       {
@@ -171,6 +173,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
         ],
       },
       {
+        id: 'ia',
         title: t('Kompaly et l’intelligence artificielle'),
         body: [
           t('Quand tu poses une question à Kompaly et qu’il y répond avec l’IA, ton message et les éléments nécessaires pour y répondre (par exemple le texte d’un fichier que tu lui demandes de lire) sont envoyés au fournisseur d’IA : Anthropic, PBC (États-Unis), avec son modèle Claude. Anthropic ne se sert pas de ces échanges pour entraîner ses modèles et les efface automatiquement au bout de 30 jours au plus.'),
@@ -179,9 +182,10 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
         ],
       },
       {
+        id: 'enregistrer',
         title: t('Enregistrer un cours ou une réunion'),
         body: [
-          t('Quand tu enregistres un cours, une réunion ou autre chose, le son (de ton micro, ou de l’ordinateur quand tu partages un onglet ou ton écran) est découpé en morceaux d’une vingtaine de secondes, envoyés un par un à Groq pour être écrits en texte (avec le titre, tes mots-clés et la fin du passage précédent, pour mieux reconnaître les mots), puis effacés : ni Kompaly ni Groq ne gardent le son. Les moments où personne ne parle ne sont pas envoyés.'),
+          t('Quand tu enregistres un cours, une réunion ou autre chose, le son (de ton micro, ou de l’ordinateur quand tu partages un onglet ou ton écran) est découpé en morceaux d’une vingtaine de secondes, envoyés un par un à Groq (États-Unis) pour être écrits en texte (avec le titre, tes mots-clés et la fin du passage précédent, pour mieux reconnaître les mots), puis effacés : ni Kompaly ni Groq ne gardent le son. Les moments où personne ne parle ne sont pas envoyés.'),
           t('Avec le micro, le navigateur peut aussi écrire les mots en direct avec sa propre reconnaissance vocale (celle de Google dans Chrome, d’Apple dans Safari), selon les règles de ce navigateur.'),
           t('Le texte est ensuite rédigé (cours, compte rendu, fiche de révision, résumé, examen ou questions) par le fournisseur d’IA indiqué plus haut, et les documents sont rangés dans tes Fichiers. C’est le même fournisseur qui fait une fiche ou un examen à partir d’un document de tes Fichiers quand tu le demandes (clic droit sur le fichier) : le texte du document lui est alors envoyé. Pendant l’enregistrement, la transcription est gardée sur ton appareil pour ne rien perdre si la page se ferme.'),
           t('Quand tu fais une fiche depuis une photo, les photos (réduites) sont envoyées à Google (API Gemini, États-Unis) pour être lues ; Kompaly ne les garde pas, seule la fiche en PDF est rangée dans tes Fichiers. Cette fonction sert à tes cours et à tes notes : inutile d’y photographier des papiers d’identité ou des documents médicaux.'),
@@ -190,6 +194,7 @@ const DOCS: Record<LegalDoc, { title: string; sections: Section[] }> = {
         ],
       },
       {
+        id: 'qui-y-a-acces',
         title: t('Qui y a accès'),
         body: [
           t('Personne d’autre que toi pour ton espace personnel. Les membres d’un groupe voient ce qui est partagé dans ce groupe.'),
@@ -292,6 +297,11 @@ export default function LegalPage({ doc }: { doc: LegalDoc }) {
   const { title, sections } = DOCS[doc];
   const navigate = useNavigate();
   const signedIn = useAuth(s => !!s.user);
+  // `#enregistrer`: straight to that section (the page scrolls in its own box, the browser doesn't find it alone).
+  const { hash } = useLocation();
+  useEffect(() => {
+    if (hash) document.getElementById(decodeURIComponent(hash.slice(1)))?.scrollIntoView();
+  }, [hash, doc]);
   // Straight back to the page left for the legal pages (the app, the sign-up, the home page), however many legal pages
   // were read meanwhile (it stepped back through each one); the home page when opened directly.
   const back = () => {
@@ -316,7 +326,7 @@ export default function LegalPage({ doc }: { doc: LegalDoc }) {
         <p className="mt-1 text-[12px] text-stone-500">{t('Mise à jour\u00a0: {date}', { date: UPDATED })}</p>
         {lang !== 'fr' && <p className="mt-3 rounded-lg bg-stone-100 px-3 py-2 text-[12.5px] text-stone-600">{t('Traduction pour information : seule la version française fait foi.')}</p>}
         {sections.map(s => (
-          <section key={s.title} className={s.box ? 'mt-6 rounded-2xl border border-stone-200 bg-surface p-5' : 'mt-8'}>
+          <section key={s.title} id={s.id} className={s.box ? 'mt-6 scroll-mt-6 rounded-2xl border border-stone-200 bg-surface p-5' : 'mt-8 scroll-mt-6'}>
             <h2 className="text-[15px] font-semibold">{s.title}</h2>
             {s.body.map(p => (
               <p key={p} className="mt-2 text-[14px] leading-relaxed text-stone-700">

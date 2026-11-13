@@ -50,3 +50,26 @@ export function shareLinks(message: string, subject: string): { key: 'sms' | 'wh
     { key: 'email', href: `mailto:?subject=${encodeURIComponent(subject)}&body=${text}` },
   ];
 }
+
+/** « Inviter par e-mail »: at most this many addresses at once (the server's limit too, server/invite.mjs). */
+export const MAX_INVITE_EMAILS = 10;
+
+/** A well-formed address (the server's own rule, server/invite.mjs › validEmail). */
+export function validEmail(s: string): boolean {
+  if (s.length > 254) return false;
+  const m = /^([A-Za-z0-9!#$%&'*+/=?^_`{|}~.-]{1,64})@((?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63})$/.exec(s);
+  return !!m && !m[1].startsWith('.') && !m[1].endsWith('.') && !m[1].includes('..');
+}
+
+/**
+ * What was typed in « Inviter par e-mail »: addresses separated by commas, semicolons, spaces or lines (or pasted as
+ * « Lina <lina@exemple.fr> »), in lower case, each once; `bad`: what isn't an address, said before anything is sent.
+ */
+export function parseEmails(text: string): { emails: string[]; bad: string[] } {
+  const parts = text
+    .replace(/[^<>,;\n]*<([^<>]*)>/g, ' $1 ')
+    .split(/[\s,;]+/)
+    .map(s => s.trim().toLowerCase())
+    .filter(Boolean);
+  return { emails: [...new Set(parts.filter(validEmail))], bad: parts.filter(s => !validEmail(s)) };
+}

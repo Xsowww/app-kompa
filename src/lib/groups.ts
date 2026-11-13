@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { supabase } from './supabase';
+import { accessToken, supabase } from './supabase';
 import { toast } from '../store/ui';
 import { getSettings } from '../store/settings';
 import { AGENDA_WORDS, groupWords } from './usage';
@@ -13,7 +13,8 @@ const words = () => (space === 'agenda' ? AGENDA_WORDS : groupWords(getSettings(
 import { QUOTA, quotaError, StorageError } from './blobStore';
 import { abandonUpload, storageUpload } from './storageUpload';
 import { useInvite } from '../store/invite';
-import { t } from '../i18n';
+import { MAX_INVITE_EMAILS } from './groupInvite';
+import { lang, t } from '../i18n';
 
 // Groupes de travail : uniquement en ligne. Appels directs à Supabase (tables group_* et
 // fonctions de supabase/migrations/2026-10-13_groupes.sql), indépendants de cloudSync.
@@ -262,8 +263,42 @@ export async function createGroup(name: string, color: string | null, kind: Grou
  * refused, the ready-to-send message is copied.
  */
 /** « Inviter »: the window with the link to copy or send (pages/groups/InviteDialog), not a toast cut short. */
-export async function shareInvite(g: Pick<Group, 'kind' | 'name'>, secret: string) {
-  useInvite.setState({ invite: { kind: g.kind, name: g.name, secret } });
+export async function shareInvite(g: Pick<Group, 'id' | 'kind' | 'name'>, secret: string) {
+  useInvite.setState({ invite: { id: g.id, kind: g.kind, name: g.name, secret } });
+}
+
+/**
+ * « Inviter par e-mail »: Kompaly's server sends the invitation itself (server/invite.mjs), with this group's link, in
+ * my language. It checks my right to invite with my own session; it never says whether an address has an account.
+ * Resolves to the number sent; throws an Error whose message is said to the person.
+ */
+export async function sendInviteEmails(g: { id: string; kind: GroupKind }, emails: string[]): Promise<number> {
+  const token = await accessToken();
+  let res: Response;
+  try {
+    res = await fetch('/api/invitation/email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token && { Authorization: `Bearer ${token}` }) },
+      body: JSON.stringify({ group: g.id, kind: g.kind, emails, lang }),
+    });
+  } catch {
+    throw new Error(t('Pas de connexion : l’invitation n’est pas partie. Réessaie, ou envoie le lien.'));
+  }
+  const data = (await res.json().catch(() => ({}))) as { sent?: number; error?: string; invalid?: string[] };
+  if (res.ok) return data.sent ?? emails.length;
+  throw new Error(
+    data.error === 'bad_email'
+      ? t('Adresse à vérifier : {list}', { list: (data.invalid ?? []).join(', ') })
+      : data.error === 'too_many'
+        ? t('{n} adresses au plus à la fois.', { n: MAX_INVITE_EMAILS })
+        : data.error === 'forbidden'
+          ? t('Seuls le créateur et les membres autorisés peuvent inviter.')
+          : data.error === 'rate_limited' || data.error === 'daily_limit'
+            ? t('Beaucoup d’invitations d’un coup : réessaie plus tard, ou envoie le lien.')
+            : data.error === 'disabled'
+              ? t('L’envoi par e-mail n’est pas disponible pour le moment : envoie le lien.')
+              : t('L’invitation n’est pas partie. Réessaie, ou envoie le lien.'),
+  );
 }
 
 /** A shared calendar's link token (null: not allowed to invite). Never in the groups table's readable columns. */

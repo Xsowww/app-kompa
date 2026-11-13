@@ -475,9 +475,18 @@
 .pro-more {
   display: none;
 }
+/* The pill's width: 60 px of icons, 80 px with a word under each (below, where it is tall enough). */
+:root {
+  --pro-rail-w: 60px;
+}
+@media (min-height: 621px) {
+  :root {
+    --pro-rail-w: 80px;
+  }
+}
 @media (width >= 64rem) {
   .pro-column {
-    padding-left: calc(max(20px, env(safe-area-inset-left)) + 64px);
+    padding-left: calc(max(20px, env(safe-area-inset-left)) + var(--pro-rail-w) + 4px);
   }
   /* The top centre is the island's (components/FocusIsland: the timer, messages): the search keeps right of it, starting
      at least 116 px right of the middle of the screen (184 px at its right: Nouveautés, Corbeille, the avatar, the margin). */
@@ -506,7 +515,7 @@
   .pro-more {
     position: fixed;
     z-index: 41;
-    left: calc(max(20px, env(safe-area-inset-left)) + 72px);
+    left: calc(max(20px, env(safe-area-inset-left)) + var(--pro-rail-w) + 12px);
     display: flex;
     flex-direction: column;
     gap: 2px;
@@ -609,6 +618,39 @@
 }
 .pro-rail-btn:focus-visible .pro-tip { opacity: 1; translate: 4px -50%; }
 .pro-rail-btn[aria-expanded='true'] .pro-tip { opacity: 0; }
+/* A word under each icon (visitors' test: icons alone, one had to hover to know), the same names as the phone's bar,
+   where the screen is tall enough for them (--pro-rail-w); then no bubble beside it. It grows a little with « Taille du
+   texte », never past what the pill holds. */
+.pro-rail-word { display: none; }
+@media (min-height: 621px) {
+  .pro-rail-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    width: 68px;
+    height: 54px;
+    border-radius: 22px;
+  }
+  .pro-rail-btn svg { width: 20px; height: 20px; flex: none; }
+  .pro-rail-btn svg.pro-kmark { width: 24px; height: 24px; margin: -2px 0; }
+  .pro-rail-word {
+    display: block;
+    max-width: 64px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: min(0.6875rem, 12px);
+    font-weight: 600;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+  }
+  .pro-rail .pro-tip { display: none; }
+  /* The marks at the icon's corner, not the wider button's. */
+  .pro-rail .pro-count { top: 1px; right: 13px; }
+  .pro-rail .pro-dot { top: 6px; right: 19px; }
+}
 /* The white bubble under the chosen icon (computers and phones), sliding with a spring. */
 .pro-bubble {
   position: absolute;
@@ -691,6 +733,21 @@
 .pro-hbtn .pro-count {
   top: -4px;
   right: -5px;
+}
+/* Profil's head: « Réglages » written beside its cog, a capsule (pages/profile › HeadIcon `named`), both looks. */
+.head-named,
+.pro-hbtn.head-named {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: auto;
+  padding: 0 14px 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+@media (max-width: 359px) {
+  .head-named,
+  .pro-hbtn.head-named { padding: 0 11px 0 9px; font-size: 13px; }
 }
 /* The bin's count: how many things, not news (grey, not red). */
 .pro-count-muted {
@@ -946,13 +1003,13 @@
   border-radius: 28px;
 }
 /* Each space's icon on a tile of its own colour, as in the computer's « Plus ». */
-:root[data-pro] #nav-more-panel a > svg {
+:root[data-pro] #nav-more-panel :is(a, button) > svg {
   box-sizing: content-box;
   padding: 7px;
   border-radius: 12px;
   background: color-mix(in srgb, currentColor 20%, transparent);
 }
-:root[data-pro] #nav-more-panel a {
+:root[data-pro] #nav-more-panel :is(a, button) {
   border-radius: 20px;
   /* The icons on one line, whether a name takes one line or two (« Agendas partagés »). */
   justify-content: flex-start;

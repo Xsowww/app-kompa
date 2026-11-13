@@ -384,6 +384,24 @@ function recordingHelp(): BotReply {
   };
 }
 
+const RECORDING_WORDS = /(enregistr|transcri|\bson\b|\baudio\b)/;
+const PRIVACY_WORDS = /(prive|confidenti|\bgard|stock|conserv|efface|securi|surete|vie privee|donnees|qui (peut|va|pourra|d'autre) (le |les )?(voir|ecouter|entendre|lire)|qui y a acces)/;
+
+/**
+ * « Mes enregistrements sont-ils privés ? »: the facts of the privacy page (Confidentialité › Enregistrer un cours ou
+ * une réunion), in plain words, without doubt where there is none and without naming the providers (the page does).
+ */
+export function recordingPrivacy(): BotReply {
+  return {
+    text: [
+      t('Oui, c’est privé. Le son n’est jamais gardé : il est envoyé par petits morceaux à un service de transcription aux États-Unis, écrit en texte, puis effacé. Ni Kompaly ni ce service ne le gardent.'),
+      t('- Seuls le texte et les documents restent, rangés dans tes fichiers : toi seul les vois, sauf si tu les partages dans un groupe.'),
+      t('- Pense à demander l’accord des personnes que tu enregistres (ton prof, tes collègues).'),
+    ].join('\n'),
+    links: [{ label: t('Confidentialité'), to: '/confidentialite#enregistrer' }],
+  };
+}
+
 /** « Fais-moi une fiche de révision de ce document »: the Drive's right-click menu makes it, next to the file. */
 function sheetFromDocument(input: string, q: string): BotReply {
   const exam = /(examen|quiz|questions)/.test(q) && !/fiche/.test(q);
@@ -580,6 +598,8 @@ export function localReply(raw: string): BotReply {
   }
 
   // ── Recording (page « Enregistrer ») and sheets made from a Drive document ──
+  // « Mes enregistrements sont privés ? », « le son est gardé ? »: what the privacy page says, plainly.
+  if (RECORDING_WORDS.test(q) && PRIVACY_WORDS.test(q)) return recordingPrivacy();
   // Not « rappelle-moi d'enregistrer… » nor « ajoute Enregistrement du podcast mardi » (a reminder, an event).
   if (/(enregistr|transcri)/.test(q) && !/\b(note|tache|evenement|rdv|rendez-vous|fichier|dossier|document|reglages?|mot de passe)\b|rappel|penser|^(ajoute|planifie|programme|mets?)\b/.test(q)) {
     return recordingHelp();

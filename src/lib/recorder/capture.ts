@@ -25,8 +25,21 @@ export interface Capture {
 export class CaptureError extends Error {}
 
 
-/** A phone or a tablet: the computer's sound can't be shared from there at all. */
-export const onPhone = () => typeof navigator !== 'undefined' && /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+/**
+ * A phone or a tablet: the computer's sound can't be shared from there at all. Its name says so (« iPhone », « Android »,
+ * « Mobile »), or the browser does (Chrome's `userAgentData.mobile`), or it hides it: an iPad says « Macintosh » but has
+ * a touch screen, and a phone asking for the « computer version » of sites says nothing, but has a finger as its only
+ * pointer on a small screen (a touch laptop keeps its mouse or touchpad, a big tablet its screen).
+ */
+export const onPhone = () => {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent;
+  if (/Android|iPhone|iPad|Mobile/i.test(ua)) return true;
+  if ((navigator as Navigator & { userAgentData?: { mobile?: boolean } }).userAgentData?.mobile) return true;
+  if (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) return true;
+  const fingerOnly = typeof matchMedia === 'function' && matchMedia('(hover: none) and (pointer: coarse)').matches;
+  return fingerOnly && typeof screen !== 'undefined' && Math.min(screen.width, screen.height) < 768;
+};
 /** The computer's sound: only Chrome and Edge (and the Kompaly app installed from them) share it, on a computer. */
 export const canShareComputer = () =>
   typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getDisplayMedia && /Chrome|Chromium|Edg\//.test(navigator.userAgent) && !onPhone();

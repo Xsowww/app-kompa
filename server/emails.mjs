@@ -224,14 +224,98 @@ async function rpc(fn, body = {}) {
   return res.status === 204 ? null : res.json();
 }
 
-async function send(to, mail) {
+/** One e-mail through Resend. `key`, `from`: the server's settings (server/invite.mjs passes its own env). */
+export async function sendEmail(to, mail, { key = RESEND_KEY, from = FROM } = {}) {
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: FROM, to: [to], subject: mail.subject, html: mail.html, text: mail.text, ...(mail.unsubscribe && { headers: { 'List-Unsubscribe': `<${mail.unsubscribe}>` } }) }),
+    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from, to: [to], subject: mail.subject, html: mail.html, text: mail.text, ...(mail.unsubscribe && { headers: { 'List-Unsubscribe': `<${mail.unsubscribe}>` } }) }),
     signal: AbortSignal.timeout(15_000),
   });
   if (!res.ok) throw Object.assign(new Error(`resend ${res.status} ${(await res.text()).slice(0, 160)}`), { status: res.status });
+}
+const send = (to, mail) => sendEmail(to, mail);
+
+// ── Invitations (server/invite.mjs): someone invites an address to a group or a shared calendar ─────────────
+const INVITE = {
+  fr: {
+    subject: (f, n, agenda) => (agenda ? `${f} t’invite dans l’agenda partagé « ${n} »` : `${f} t’invite dans « ${n} » sur Kompaly`),
+    title: agenda => (agenda ? 'Une invitation dans un agenda partagé' : 'Une invitation sur Kompaly'),
+    intro: (f, n, agenda) => (agenda ? `${f} t’invite à rejoindre l’agenda partagé « ${n} » sur Kompaly.` : `${f} t’invite à rejoindre « ${n} » sur Kompaly.`),
+    how: 'Ouvre le lien, connecte-toi ou crée ton compte gratuit : tu y es tout de suite.',
+    code: c => `Ou tape le code ${c} dans « Rejoindre ».`,
+    button: 'Rejoindre',
+    why: f => `Tu reçois cet e-mail parce que ${f} a écrit ton adresse sur Kompaly. Si tu ne connais pas cette personne, ignore-le : rien ne se passe sans ton clic.`,
+  },
+  en: {
+    subject: (f, n, agenda) => (agenda ? `${f} invites you to the shared calendar “${n}”` : `${f} invites you to “${n}” on Kompaly`),
+    title: agenda => (agenda ? 'An invitation to a shared calendar' : 'An invitation on Kompaly'),
+    intro: (f, n, agenda) => (agenda ? `${f} invites you to join the shared calendar “${n}” on Kompaly.` : `${f} invites you to join “${n}” on Kompaly.`),
+    how: 'Open the link, sign in or create your free account: you’re in right away.',
+    code: c => `Or type the code ${c} in “Join”.`,
+    button: 'Join',
+    why: f => `You’re getting this e-mail because ${f} entered your address on Kompaly. If you don’t know this person, ignore it: nothing happens unless you click.`,
+  },
+  es: {
+    subject: (f, n, agenda) => (agenda ? `${f} te invita a la agenda compartida «${n}»` : `${f} te invita a «${n}» en Kompaly`),
+    title: agenda => (agenda ? 'Una invitación a una agenda compartida' : 'Una invitación en Kompaly'),
+    intro: (f, n, agenda) => (agenda ? `${f} te invita a unirte a la agenda compartida «${n}» en Kompaly.` : `${f} te invita a unirte a «${n}» en Kompaly.`),
+    how: 'Abre el enlace, inicia sesión o crea tu cuenta gratis: entras enseguida.',
+    code: c => `O escribe el código ${c} en «Unirse».`,
+    button: 'Unirme',
+    why: f => `Recibes este correo porque ${f} escribió tu dirección en Kompaly. Si no conoces a esta persona, ignóralo: no pasa nada sin tu clic.`,
+  },
+  de: {
+    subject: (f, n, agenda) => (agenda ? `${f} lädt dich in den geteilten Kalender „${n}“ ein` : `${f} lädt dich zu „${n}“ auf Kompaly ein`),
+    title: agenda => (agenda ? 'Eine Einladung in einen geteilten Kalender' : 'Eine Einladung auf Kompaly'),
+    intro: (f, n, agenda) => (agenda ? `${f} lädt dich ein, dem geteilten Kalender „${n}“ auf Kompaly beizutreten.` : `${f} lädt dich ein, „${n}“ auf Kompaly beizutreten.`),
+    how: 'Öffne den Link, melde dich an oder erstelle dein kostenloses Konto: Du bist sofort dabei.',
+    code: c => `Oder gib den Code ${c} unter „Beitreten“ ein.`,
+    button: 'Beitreten',
+    why: f => `Du bekommst diese E-Mail, weil ${f} deine Adresse auf Kompaly eingegeben hat. Wenn du diese Person nicht kennst, ignoriere sie: Ohne deinen Klick passiert nichts.`,
+  },
+  it: {
+    subject: (f, n, agenda) => (agenda ? `${f} ti invita nel calendario condiviso «${n}»` : `${f} ti invita in «${n}» su Kompaly`),
+    title: agenda => (agenda ? 'Un invito in un calendario condiviso' : 'Un invito su Kompaly'),
+    intro: (f, n, agenda) => (agenda ? `${f} ti invita a unirti al calendario condiviso «${n}» su Kompaly.` : `${f} ti invita a unirti a «${n}» su Kompaly.`),
+    how: 'Apri il link, accedi o crea il tuo account gratuito: entri subito.',
+    code: c => `Oppure scrivi il codice ${c} in «Unisciti».`,
+    button: 'Unisciti',
+    why: f => `Ricevi questa e-mail perché ${f} ha scritto il tuo indirizzo su Kompaly. Se non conosci questa persona, ignorala: non succede nulla senza il tuo clic.`,
+  },
+};
+
+/**
+ * The invitation e-mail, in the inviter's language: { subject, html, text }. Pure (tests/inviteEmail.test.ts). `from`
+ * and `name` are typed by people (a first name, a group's name): cut short, escaped, never a link of their own.
+ */
+export function buildInviteEmail({ kind, from, name, link, code, lang }) {
+  const L = INVITE[lang] ?? INVITE.fr;
+  const agenda = kind === 'agenda';
+  const plain = s => String(s ?? '').replace(/[\u0000-\u001f\u007f<>]/g, ' ').replace(/\s+/g, ' ').trim();
+  const f = plain(from).split(' ')[0].slice(0, 40) || 'Kompaly';
+  const n = plain(name).slice(0, 60);
+  const nb = lang === 'fr' || !(lang in INVITE) ? nbsp : String;
+  const lines = [L.intro(f, n, agenda), L.how, ...(!agenda && code ? [L.code(code)] : [])];
+  const subject = L.subject(f, n, agenda);
+  const text = [...lines, '', `${L.button} : ${link}`, '', '—', L.why(f)].join('\n');
+  const F = "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;";
+  const html = `<!doctype html><html lang="${esc(lang in INVITE ? lang : 'fr')}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light"><title>${esc(nb(L.title(agenda)))}</title></head>
+<body style="margin:0;padding:0;background:#f7f7f5;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f7f7f5;"><tr><td align="center" style="padding:40px 16px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;">
+<tr><td style="padding:0 4px 20px 4px;"><table role="presentation" cellpadding="0" cellspacing="0"><tr>
+<td style="vertical-align:middle;"><img src="${SITE}/icon-192.png" width="36" height="36" alt="" style="display:block;border:0;border-radius:9px;"></td>
+<td style="vertical-align:middle;padding-left:10px;${F}font-size:22px;font-weight:600;letter-spacing:-0.5px;color:#16181d;">kompaly</td>
+</tr></table></td></tr>
+<tr><td style="background:#ffffff;border:1px solid #e4e4e0;border-radius:16px;${F}color:#16181d;"><div style="padding:28px 28px 32px 28px;">
+<h1 style="margin:0 0 12px 0;font-size:22px;line-height:1.3;font-weight:600;letter-spacing:-0.3px;color:#16181d;">${esc(nb(L.title(agenda)))}</h1>
+${lines.map((l, i) => `<p style="margin:0 0 10px 0;font-size:15px;line-height:1.6;color:${i ? '#3d424c' : '#16181d'};">${esc(nb(l))}</p>`).join('\n')}
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin:20px 0 0 0;"><tr><td style="border-radius:10px;background:#3d63dd;"><a href="${esc(link)}" style="display:inline-block;padding:13px 24px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;">${esc(nb(L.button))}</a></td></tr></table>
+</div></td></tr>
+<tr><td style="padding:20px 4px 0 4px;${F}font-size:12px;line-height:1.5;color:#8a8f98;">${esc(nb(L.why(f)))}</td></tr>
+</table></td></tr></table></body></html>`;
+  return { subject, html, text };
 }
 
 async function deliver() {

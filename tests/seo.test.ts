@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 // @ts-expect-error plain JavaScript module of the server
-const { withHead, sitemapXml, publicPage, langOf } = await import('../server/seo.mjs');
+const { withHead, withPreloads, sitemapXml, publicPage, langOf } = await import('../server/seo.mjs');
 
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 
@@ -44,5 +44,17 @@ describe('what search engines read', () => {
     expect(publicPage('/drive')).toBeNull();
     expect(langOf('?lang=it')).toBe('it');
     expect(langOf('?lang=xx')).toBeNull();
+  });
+});
+
+// Sign-up and sign-in opened by a link: their code is asked for with the page, not after preload.js.
+describe('the sign-in pages’ code named in their HTML', () => {
+  it('adds a modulepreload per built file, and nothing else', () => {
+    const out = withPreloads(html, ['/assets/boot-Ab1.js', '/assets/AuthPage-x_Y.js', 'https://evil.example/x.js', '/assets/a.js"><script>', 42]);
+    expect(out.match(/rel="modulepreload"/g)).toHaveLength(2);
+    expect(out).toContain('<link rel="modulepreload" crossorigin href="/assets/AuthPage-x_Y.js">');
+    expect(out).not.toContain('evil');
+    expect(out).not.toContain('"><script>');
+    expect(withPreloads(html, null)).toBe(html);
   });
 });
