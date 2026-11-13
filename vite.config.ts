@@ -90,6 +90,9 @@ ${hasSession}${guestHome}var s=hasSession();
 p(guestHome()?m.landing:m.boot.concat(s?m.app.js:location.pathname==='/'?m.home:/^\\/(connexion|inscription|mot-de-passe-oublie|reinitialisation)\\/?$/.test(location.pathname)?m.auth:[]));
 var o=s?[m.app]:[];try{if(s&&localStorage.getItem('cop-pro')){o.push(m.island);if(/^\\/(accueil)?\\/?$/.test(location.pathname))o.push(m.dpro)}}catch(e){}for(var j=0;j<o.length;j++){p(o[j].css,1);if(j)p(o[j].js)}})();`;
       const file = this.getFileName(this.emitFile({ type: 'asset', name: 'preload.js', source: code }));
+      // The sign-in and sign-up pages' code, for the server to name in their HTML (server/seo.mjs › withPreloads):
+      // asked for with the page itself, not once preload.js has arrived (a round trip less on a phone network).
+      this.emitFile({ type: 'asset', fileName: 'preload-auth.json', source: JSON.stringify([...new Set([...map.boot, ...map.auth])]) });
       const tags = [
         `<script src="/${file}"></script>`,
         ...(font ? [`<link rel="preload" as="font" type="font/woff2" crossorigin href="/${font}">`] : []),

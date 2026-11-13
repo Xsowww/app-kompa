@@ -12,7 +12,7 @@ import { handleCours } from './cours.mjs';
 import { handleIcs } from './icsFeed.mjs';
 import { photoStatus, resolveVision } from './photo.mjs';
 import { loadPublicEnv } from './publicEnv.mjs';
-import { langOf, publicPage, robotsTxt, sitemapXml, withHead } from './seo.mjs';
+import { AUTH_PAGES, langOf, publicPage, robotsTxt, sitemapXml, withHead, withPreloads } from './seo.mjs';
 
 try {
   process.loadEnvFile();
@@ -85,6 +85,8 @@ const files = new Map();
  */
 const CF_TOKEN = /^[a-f0-9]{32}$/i.test(process.env.CF_ANALYTICS_TOKEN ?? '') ? process.env.CF_ANALYTICS_TOKEN : '';
 const BEACON = CF_TOKEN ? `<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token":"${CF_TOKEN}","spa":true}'></script>` : '';
+/** The sign-in and sign-up pages' code (vite.config › preloadPlugin), named in their HTML; none in an older build. */
+const authCode = () => readFile(join(DIST, 'preload-auth.json'), 'utf8').then(s => JSON.parse(s)).catch(() => []);
 /** The app's pages (src/App.tsx): any other address gets the page with a 404 status. */
 const APP_ROUTES = new Set(['/', '/connexion', '/inscription', '/mot-de-passe-oublie', '/reinitialisation', '/confirmer', '/securite', '/bienvenue', '/mentions-legales', '/confidentialite', '/conditions', '/tarifs', '/prix', '/fichiers', '/a-propos', '/contact', '/presse', '/qui-sommes-nous', '/drive', '/calendrier', '/notes', '/taches', '/progression', '/groupes', '/agendas', '/corbeille', '/profil', '/admin', '/enregistrer', '/partage', '/accueil']);
 
@@ -133,6 +135,7 @@ async function serveStatic(req, res) {
     if (file.endsWith('index.html')) {
       let html = raw.toString('utf8');
       if (page) html = withHead(html, page, lang);
+      if (AUTH_PAGES.includes(page)) html = withPreloads(html, await authCode());
       if (BEACON) html = html.replace('</body>', `${BEACON}\n  </body>`);
       raw = Buffer.from(html);
     }

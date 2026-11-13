@@ -28,6 +28,19 @@ const HEADS = Object.fromEntries(
 export const siteUrl = () => (process.env.SITE_URL || 'https://kompaly.com').replace(/\/+$/, '');
 
 /** « /Connexion/ » → « /connexion » when it is a public page, else null. */
+/** The pages whose code the server names in their HTML (the sign-in and sign-up pages: opened by a link, cold). */
+export const AUTH_PAGES = ['/inscription', '/connexion'];
+
+/**
+ * The page's code asked for with the page (dist/preload-auth.json, written by vite.config › preloadPlugin): the same
+ * files preload.js asks for, a round trip earlier. Only built file names (/assets/…): anything else is left out.
+ */
+export function withPreloads(html, urls) {
+  const ok = (Array.isArray(urls) ? urls : []).filter(u => typeof u === 'string' && /^\/assets\/[\w.-]+\.js$/.test(u));
+  if (!ok.length) return html;
+  return html.replace('</head>', `  ${ok.map(u => `<link rel="modulepreload" crossorigin href="${u}">`).join('\n    ')}\n  </head>`);
+}
+
 export const publicPage = path => {
   const p = path.replace(/(.)\/+$/, '$1').toLowerCase();
   return PUBLIC_PAGES.includes(p) ? p : null;
