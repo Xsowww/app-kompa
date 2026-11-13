@@ -891,7 +891,8 @@ export default function CalendarPage() {
                 <ChevronRight size={17} />
               </button>
             </div>
-            <button className="btn-secondary h-8 pointer-coarse:h-9" onClick={() => selectDay(today)}>
+            {/* Only of use away from today: greyed while today is the day shown. */}
+            <button className="btn-secondary h-8 pointer-coarse:h-9 disabled:pointer-events-none disabled:opacity-40" onClick={() => selectDay(today)} disabled={selected === today}>
               {t('Aujourd’hui')}
             </button>
           </div>
