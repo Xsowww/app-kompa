@@ -21,6 +21,9 @@ export type Extra = { to: string; label: string; aria: string; icon: LucideIcon;
 /** Affichage Pro, computers: the spaces in the floating pill after « Accueil »; the others are under « Plus ». */
 export const PRO_RAIL = 5;
 
+/** Réglages: Profil's settings view (pages/profile), its first section. */
+export const SETTINGS_PATH = '/profil?onglet=apparence';
+
 const isIn = (pathname: string, to: string) => pathname === to || pathname.startsWith(`${to}/`);
 
 /** The white bubble under the chosen icon (layout/proMotion › useBubble says where). */
@@ -89,6 +92,8 @@ export function ProRail({ order, news, newsLabel, label, extra }: Props) {
       : null;
   const moreNews = others.some(n => news(n.to) > 0) || extra.some(n => n.urgent && n.count > 0);
   const MoreIcon = open ? X : (inMore?.icon ?? LayoutGrid);
+  // Under « Plus », as on the phone's bar: the space you are on in it, else « Plus ».
+  const moreWord = here ? ('short' in here && here.short) || label(here) : isIn(pathname, '/profil') ? t('Profil') : t('Plus');
 
   const bubble = useBubble(rail, '[aria-current="page"], [data-here]', [pathname, order.join(), open]);
 
@@ -161,6 +166,9 @@ export function ProRail({ order, news, newsLabel, label, extra }: Props) {
             <NavLink key={n.to} to={n.to} end={n.end} className="pro-rail-btn" aria-label={count ? newsLabel(n.to) : name} style={{ '--c': n.color } as CSSProperties}>
               <n.icon size={21} strokeWidth={1.9} aria-hidden />
               {n.to === '/enregistrer' && recording ? <Mark tone="rec" /> : <Mark count={count} />}
+              <span className="pro-rail-word" aria-hidden>
+                {n.short || name}
+              </span>
               <span className="pro-tip" aria-hidden>
                 {name}
               </span>
@@ -176,7 +184,10 @@ export function ProRail({ order, news, newsLabel, label, extra }: Props) {
           aria-controls="copilot-panel"
           aria-label={unread ? t('Demander à Kompaly (nouveau message)') : t('Demander à Kompaly')}
         >
-          <KompalyMark size={26} alert={unread} />
+          <KompalyMark size={26} alert={unread} className="pro-kmark" />
+          <span className="pro-rail-word" aria-hidden>
+            {t('Kompaly')}
+          </span>
           <span className="pro-tip" aria-hidden>
             {t('Kompaly')}
           </span>
@@ -194,6 +205,9 @@ export function ProRail({ order, news, newsLabel, label, extra }: Props) {
         >
           <MoreIcon size={21} strokeWidth={1.9} aria-hidden />
           {!open && moreNews && <Mark tone="dot" />}
+          <span className="pro-rail-word" aria-hidden>
+            {open ? t('Fermer') : moreWord}
+          </span>
           <span className="pro-tip" aria-hidden>
             {open ? t('Fermer') : t('Plus')}
           </span>
@@ -221,6 +235,8 @@ export function ProRail({ order, news, newsLabel, label, extra }: Props) {
             <Settings2 size={16} className="text-stone-500" aria-hidden />
           </NavLink>
         )}
+        {/* Réglages by their name (visitors' test: they were looked for), straight to their view of Profil. */}
+        {user && row('reglages', Settings2, '#686d7e', t('Réglages'), { to: SETTINGS_PATH })}
         {(others.length > 0 || extra.length > 0) && <span className="pro-more-sep" aria-hidden />}
         {others.map(n => {
           const count = news(n.to);

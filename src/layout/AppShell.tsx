@@ -48,7 +48,9 @@ import ErrorBoundary from '../components/ErrorBoundary';
 import { watchAppBadge } from '../lib/appBadge';
 import { startBadgeWatcher } from '../lib/badges';
 import { watchBackOnline } from '../lib/backOnline';
-import { Bubble, ProKompalyButton, ProRail, ProTopActions, type Extra } from './ProNav';
+import { Bubble, ProKompalyButton, ProRail, ProTopActions, SETTINGS_PATH, type Extra } from './ProNav';
+import KompalyMark from '../components/KompalyMark';
+import { toggleKompaly, useCopilot } from '../store/copilot';
 import { useBubble, useMedia, useProEntrance } from './proMotion';
 
 // Kompaly's conversation (the panel, the character at the edge, his simple mode): about 40 KB of code the page
@@ -801,12 +803,17 @@ export default function AppShell() {
 /** A finger sliding on the tab bar opens a tab once it rests on it this long (ms), not every tab it crosses. */
 const SLIDE_REST = 120;
 
+/** A tile of the phone's « Plus » panel. */
+const MORE_ITEM = 'relative flex min-h-[72px] flex-col items-center justify-center gap-1.5 rounded-[16px] px-1 text-center text-[12px] font-semibold leading-tight transition-colors';
+
 /**
  * Phones: Accueil and the first spaces of the person's order (lib/navOrder), and « Plus » for the others (then Corbeille,
- * Administration), shown in a panel just above the bar: every space is reached from the bar.
+ * Administration), shown in a panel just above the bar: every space is reached from the bar. The panel also has
+ * Kompaly (his chat) and Réglages.
  */
 function PhoneTabBar({ order, news, label, extra, pro }: { order: SpaceKey[]; news: (to: string) => number; label: (n: { to: string; label: string }) => string; extra: Extra[]; pro: boolean }) {
   const { pathname } = useLocation();
+  const kompalyUnread = useCopilot(s => s.unread);
   const [open, setOpen] = useState(false);
   useBackClose(open, () => setOpen(false));
   const panel = useRef<HTMLDivElement>(null);
@@ -933,14 +940,28 @@ function PhoneTabBar({ order, news, label, extra, pro }: { order: SpaceKey[]; ne
           // (landscape, tablet) a compact panel at the right, above « Plus », not a wide sheet of white.
           className="enter fixed bottom-[calc(max(12px,env(safe-area-inset-bottom))+4.5rem)] short:bottom-[calc(max(12px,env(safe-area-inset-bottom))+3.75rem)] left-[max(12px,env(safe-area-inset-left))] right-[max(12px,env(safe-area-inset-right))] z-[45] grid grid-cols-[repeat(auto-fit,minmax(76px,1fr))] gap-1.5 rounded-[22px] border border-stone-200 bg-surface p-2 shadow-pop sm:left-auto sm:w-[440px] lg:hidden"
         >
-          {more.map(n => (
+          {/* Kompaly first (visitors' test: on a phone he was only found through the island at the top). */}
+          <button
+            type="button"
+            aria-label={kompalyUnread ? t('Demander à Kompaly (nouveau message)') : t('Demander à Kompaly')}
+            aria-controls="copilot-panel"
+            onClick={() => {
+              setOpen(false);
+              toggleKompaly();
+            }}
+            className={cx(MORE_ITEM, 'text-stone-600 hover:bg-stone-50')}
+          >
+            <KompalyMark size={22} alert={kompalyUnread} style={{ color: 'var(--color-ink)' }} />
+            <span>{t('Kompaly')}</span>
+          </button>
+          {[...more, { to: SETTINGS_PATH, label: t('Réglages'), aria: undefined, icon: Settings2, color: '#686d7e', count: 0, urgent: false }].map(n => (
             <NavLink
               key={n.to}
               to={n.to}
               aria-label={n.aria}
               data-tab={`p:${n.to}`}
               onClick={() => setOpen(false)}
-              className={({ isActive }) => cx('relative flex min-h-[72px] flex-col items-center justify-center gap-1.5 rounded-[16px] px-1 text-center text-[12px] font-semibold leading-tight transition-colors', hover === n.to ? 'bg-stone-200 text-ink' : isActive ? 'bg-stone-100 text-ink' : 'text-stone-600 hover:bg-stone-50')}
+              className={({ isActive }) => cx(MORE_ITEM, hover === n.to ? 'bg-stone-200 text-ink' : isActive && n.to !== SETTINGS_PATH ? 'bg-stone-100 text-ink' : 'text-stone-600 hover:bg-stone-50')}
             >
               <n.icon size={22} strokeWidth={1.9} style={{ color: n.color }} aria-hidden />
               <span>{label(n)}</span>

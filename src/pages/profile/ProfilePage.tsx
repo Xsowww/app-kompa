@@ -1412,21 +1412,24 @@ function AccountTab() {
 // ── Page ────────────────────────────────────────────────────────────────────
 
 /** A round icon of the profile's head (Réglages, avis, visite…), its name said and shown on hover; `count`: a red number. */
-function HeadIcon({ icon, label, onClick, count = 0 }: { icon: typeof User; label: string; onClick: () => void; count?: number }) {
+function HeadIcon({ icon, label, onClick, count = 0, named }: { icon: typeof User; label: string; onClick: () => void; count?: number; named?: boolean }) {
   const pro = useSettings(s => s.pro);
   return (
     <button
       type="button"
       onClick={onClick}
-      title={label}
-      aria-label={label}
+      title={named ? undefined : label}
+      aria-label={named ? undefined : label}
       // Plain to see (asked: they were missed): a round button with its own surface, as the top bar's (Pro: .pro-hbtn).
+      // `named`: its name written beside the icon, a capsule (visitors' test: « Réglages » behind a bare cog was missed).
       className={cx(
-        'relative grid h-10 w-10 shrink-0 place-items-center rounded-full transition-colors max-[359px]:h-9 max-[359px]:w-9',
+        'relative h-10 shrink-0 rounded-full transition-colors max-[359px]:h-9',
+        named ? 'head-named' : 'grid w-10 place-items-center max-[359px]:w-9',
         pro ? 'pro-hbtn' : 'bg-surface text-stone-700 shadow-card ring-1 ring-stone-200 hover:bg-stone-50 hover:text-ink',
       )}
     >
       {createElement(icon, { size: 18, strokeWidth: 1.9, 'aria-hidden': true })}
+      {named && <span className="whitespace-nowrap">{label}</span>}
       {count > 0 && (
         <span aria-hidden className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-bold leading-none text-white">
           {count}
@@ -1476,7 +1479,7 @@ export default function ProfilePage() {
                 {pro && <HeadIcon icon={Trash2} label={trash ? tn(trash, 'Corbeille, {n} élément', 'Corbeille, {n} éléments') : t('Corbeille')} onClick={() => navigate('/corbeille')} />}
               </span>
               <HeadIcon icon={MessageSquareText} label={t('Donner mon avis ou signaler un bug')} onClick={() => openFeedback()} />
-              <HeadIcon icon={Settings2} label={t('Réglages')} onClick={() => go('apparence')} />
+              <HeadIcon icon={Settings2} label={t('Réglages')} onClick={() => go('apparence')} named />
             </div>
           )}
         </div>
