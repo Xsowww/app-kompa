@@ -23,6 +23,7 @@ loadPublicEnv();
 // After the environment is read: push.mjs and emails.mjs take their settings when loaded.
 const { handlePush, startPushLoop, pushStatus, keyKind } = await import('./push.mjs');
 const { mailStatus, startMailLoop } = await import('./emails.mjs');
+const { handleInvite } = await import('./invite.mjs'); // imports emails.mjs: after the environment too
 
 const DIST = fileURLToPath(new URL('../dist/', import.meta.url));
 const PORT = Number(process.env.PORT) || 3000;
@@ -267,6 +268,7 @@ const server = createServer(async (req, res) => {
     if (await handleCopilot(req, res)) return;
     if (await handleCours(req, res)) return;
     if (await handleIcs(req, res)) return;
+    if (await handleInvite(req, res)) return;
     await serveStatic(req, res);
   } catch (e) {
     console.error('[serveur]', req.method, req.url, e);

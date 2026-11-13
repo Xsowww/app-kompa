@@ -1,13 +1,73 @@
-import { useState } from 'react';
-import { Check, Copy, Mail, MessageCircle, MessageSquareText, Share2 } from 'lucide-react';
+import { useState, type FormEvent } from 'react';
+import { Check, Copy, Loader2, Mail, MessageCircle, MessageSquareText, Send, Share2 } from 'lucide-react';
 import { Modal } from '../../components/Overlays';
 import { useInvite } from '../../store/invite';
 import { useSettings } from '../../store/settings';
 import { useAuth } from '../../store/auth';
-import { inviteLink, inviteText, shareLinks } from '../../lib/groupInvite';
+import { inviteLink, inviteText, MAX_INVITE_EMAILS, parseEmails, shareLinks } from '../../lib/groupInvite';
+import { sendInviteEmails } from '../../lib/groups';
+import { cx } from '../../lib/utils';
 import { AGENDA_WORDS, groupWords } from '../../lib/usage';
 import { toast } from '../../store/ui';
-import { t } from '../../i18n';
+import { t, tn } from '../../i18n';
+
+/**
+ * « Inviter par e-mail » (visitors' test: no box for the classmates' addresses): Kompaly sends the invitation itself,
+ * with the same link. Up to 10 addresses, checked before sending; said plainly when it went, or why not.
+ */
+function ByEmail({ group }: { group: { id: string; kind: 'groupe' | 'agenda' } }) {
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [said, setSaid] = useState<{ ok: boolean; text: string } | null>(null);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    const { emails, bad } = parseEmails(text);
+    if (bad.length) return setSaid({ ok: false, text: t('Adresse à vérifier : {list}', { list: bad.join(', ') }) });
+    if (!emails.length) return setSaid({ ok: false, text: t('Écris au moins une adresse e-mail.') });
+    if (emails.length > MAX_INVITE_EMAILS) return setSaid({ ok: false, text: t('{n} adresses au plus à la fois.', { n: MAX_INVITE_EMAILS }) });
+    setBusy(true);
+    setSaid(null);
+    try {
+      const n = await sendInviteEmails(group, emails);
+      setText('');
+      setSaid({ ok: true, text: tn(n, 'Invitation envoyée à {n} adresse.', 'Invitation envoyée à {n} adresses.') });
+    } catch (err) {
+      setSaid({ ok: false, text: err instanceof Error ? err.message : t('L’invitation n’est pas partie. Réessaie, ou envoie le lien.') });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <form className="mt-4" onSubmit={e => void submit(e)} noValidate>
+      <label htmlFor="invite-emails" className="block text-[12.5px] font-medium text-stone-600">
+        {t('Inviter par e-mail')}
+      </label>
+      <div className="mt-1.5 flex gap-2">
+        <input
+          id="invite-emails"
+          type="email"
+          multiple
+          inputMode="email"
+          autoComplete="off"
+          autoCapitalize="none"
+          spellCheck={false}
+          value={text}
+          onChange={e => (setText(e.target.value), setSaid(null))}
+          placeholder={t('adresse@exemple.fr')}
+          aria-describedby="invite-emails-said"
+          className="field h-10 min-w-0 flex-1 px-3 text-[13.5px]"
+        />
+        <button type="submit" className="btn-secondary h-10 shrink-0" disabled={busy || !text.trim()}>
+          {busy ? <Loader2 size={15} className="animate-spin" aria-hidden /> : <Send size={15} aria-hidden />}
+          {t('Envoyer')}
+        </button>
+      </div>
+      <p id="invite-emails-said" role="status" className={cx('mt-1.5 text-[12.5px] leading-snug', said ? (said.ok ? 'text-emerald-700' : 'text-red-600') : 'text-stone-500')}>
+        {said ? said.text : t('Kompaly envoie l’invitation pour toi, jusqu’à {n} adresses.', { n: MAX_INVITE_EMAILS })}
+      </p>
+    </form>
+  );
+}
 
 /**
  * « Inviter » (a shared calendar or a group): the phone's own sharing (« Partager ») where there is one, else SMS,
@@ -86,6 +146,8 @@ export function InviteDialog() {
           );
         })}
       </ul>
+
+      {invite.id && <ByEmail group={{ id: invite.id, kind: invite.kind }} />}
 
       <label htmlFor="invite-link" className="mt-4 block text-[12.5px] font-medium text-stone-600">
         {t('Lien d’invitation')}
