@@ -139,11 +139,70 @@ function grouped(rows) {
   });
 }
 
+// « {n} tâches à faire aujourd’hui » in the account's language (src/i18n), [one, several].
+const DIGEST_TITLES = {
+  fr: ['{n} tâche à faire aujourd’hui', '{n} tâches à faire aujourd’hui'],
+  en: ['{n} task to do today', '{n} tasks to do today'],
+  es: ['{n} tarea para hoy', '{n} tareas para hoy'],
+  de: ['{n} Aufgabe für heute', '{n} Aufgaben für heute'],
+  it: ['{n} attività da fare oggi', '{n} attività da fare oggi'],
+};
+const TASK_KEY = /^task:([0-9a-f-]{36}):/i;
+const DIGEST_KEY = /^task:matin:(\d{4}-\d{2}-\d{2})$/;
+
+/**
+ * The tasks' reminders as they are now, not as the app last sent them (ticked since on another device, or the app
+ * closed before it sent its new list): a ticked or deleted task's reminder is dropped, and the 8:00 summary
+ * (src/lib/reminders taskDigests) is written again from the tasks still to do, or dropped when none is left.
+ * `todos`: the rows of the people concerned (id, user_id, title, done, due, deleted_at, created_at); `langs`: user → language.
+ * Pure: tested in tests/pushFreshTasks.test.ts.
+ */
+export function freshTaskRows(rows, todos, langs = new Map()) {
+  const byId = new Map(todos.map(x => [x.id, x]));
+  return rows.flatMap(r => {
+    const day = DIGEST_KEY.exec(r.key)?.[1];
+    if (day) {
+      const open = todos
+        .filter(x => x.user_id === r.user_id && !x.done && !x.deleted_at && x.due && x.due <= day)
+        .sort((a, b) => (a.due === b.due ? String(a.created_at ?? '').localeCompare(String(b.created_at ?? '')) : a.due < b.due ? -1 : 1));
+      if (!open.length) return [];
+      const [one, many] = DIGEST_TITLES[langs.get(r.user_id)] ?? DIGEST_TITLES.fr;
+      const title = (open.length === 1 ? one : many).replace('{n}', String(open.length));
+      const body = open.slice(0, 3).map(x => x.title).join(', ') + (open.length > 3 ? '…' : '');
+      return [{ ...r, title, body }];
+    }
+    const task = byId.get(TASK_KEY.exec(r.key)?.[1]);
+    // Not found: not synced yet (created offline), the reminder stays.
+    return task && (task.done || task.deleted_at) ? [] : [r];
+  });
+}
+
+/** freshTaskRows with what the database holds now; on any error (older database…), the rows as they were. */
+async function freshTasks(rows) {
+  const tasks = rows.filter(r => r.key.startsWith('task:'));
+  if (!tasks.length) return rows;
+  try {
+    const users = [...new Set(tasks.filter(r => DIGEST_KEY.test(r.key)).map(r => r.user_id))];
+    const ids = [...new Set(tasks.map(r => TASK_KEY.exec(r.key)?.[1]).filter(Boolean))];
+    const cols = 'select=id,user_id,title,done,due,deleted_at,created_at';
+    const [open, single, profiles] = await Promise.all([
+      users.length ? rest(`/rest/v1/todos?${cols}&user_id=in.(${users.join(',')})&done=is.false&deleted_at=is.null&due=not.is.null`) : [],
+      ids.length ? rest(`/rest/v1/todos?${cols}&id=in.(${ids.join(',')})`) : [],
+      users.length ? rest(`/rest/v1/profiles?select=id,lang:settings->>language&id=in.(${users.join(',')})`).catch(() => []) : [],
+    ]);
+    const todos = [...(open ?? []), ...(single ?? [])];
+    return freshTaskRows(rows, todos, new Map((profiles ?? []).map(p => [p.id, p.lang])));
+  } catch (e) {
+    console.error('[push] tâches', e instanceof Error ? e.message : e);
+    return rows;
+  }
+}
+
 async function deliverDue() {
   const claimed = await rest('/rest/v1/rpc/claim_due_reminders', { method: 'POST', body: '{}' });
   if (!Array.isArray(claimed) || !claimed.length) return;
   const off = await newsOff(claimed);
-  const due = grouped(claimed.filter(r => !off(r)));
+  const due = grouped(await freshTasks(claimed.filter(r => !off(r))));
   if (!due.length) return;
   // The people who made the changes too: their own phone (another account on it) isn't told of what they just did.
   const users = [...new Set(due.flatMap(r => [r.user_id, r.actor].filter(Boolean)))];

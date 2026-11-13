@@ -157,7 +157,10 @@ function plan() {
 let planTimer: ReturnType<typeof setTimeout> | undefined;
 const planSoon = () => {
   clearTimeout(planTimer);
-  planTimer = setTimeout(plan, 1500);
+  planTimer = setTimeout(() => {
+    planTimer = undefined;
+    plan();
+  }, 1500);
 };
 
 // ── Messages from the service worker (public/sw.js) ─────────────────────────
@@ -320,7 +323,15 @@ export function startReminders(id: string): () => void {
     useSettings.subscribe((s, p) => (s.defaultReminders !== p.defaultReminders || s.morningBrief !== p.morningBrief || s.reminderSnoozes !== p.reminderSnoozes) && planSoon()),
   ];
   const hourly = setInterval(loadSharedSoon, 3_600_000); // then plan()
-  const onVisible = () => document.visibilityState === 'visible' && loadSharedSoon();
+  const onVisible = () => {
+    if (document.visibilityState === 'visible') return loadSharedSoon();
+    // Leaving the app right after ticking a task: the server's copy (the 8:00 summary…) is updated now, not never.
+    if (planTimer !== undefined) {
+      clearTimeout(planTimer);
+      planTimer = undefined;
+      plan();
+    }
+  };
   document.addEventListener('visibilitychange', onVisible);
   navigator.serviceWorker?.addEventListener('message', onWorkerMessage);
   if (!followNotificationAccount()) followNotificationAction();
