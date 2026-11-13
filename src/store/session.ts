@@ -1,5 +1,5 @@
 import { useDrive } from './drive';
-import { applyUsage, guessCategory, useCalendar } from './calendar';
+import { applyUsage, demoCategory, useCalendar } from './calendar';
 import { DEMO_KEY, demoPlan, readDemo } from '../lib/demoFirst';
 import { spanDays } from '../lib/repeat';
 import { newSeries } from '../lib/seriesId';
@@ -249,14 +249,15 @@ export function addDemoItem() {
     return;
   }
   const demo = readDemo(raw);
-  const plan = demo && demoPlan(demo.text, demo.at);
+  const plan = demo && demoPlan(demo.text, demo.from ?? demo.at);
   if (!plan) return;
   if (plan.kind === 'task') {
     const todo = useTodos.getState().add(plan.title, plan.date);
     toast(t('Ta première tâche est prête : {title}', { title: plan.title }), 'success', { label: t('Voir'), run: () => goTo(`/taches?tache=${encodeURIComponent(todo.id)}`) });
     return;
   }
-  const category = guessCategory(plan.title, true);
+  // In the life chosen on the home page (« Travail »: a work event, whatever the account was opened for).
+  const category = demoCategory(plan.title, demo.usage);
   const base = { title: plan.title, category, ...(plan.important && { important: true }) };
   let first;
   if (plan.endDate) {

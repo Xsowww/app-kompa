@@ -3,21 +3,28 @@
 // (lib/dates › parseQuickAdd). Pure parts tested in tests/demoFirst.test.ts; addDemoItem() does the rest.
 
 import { parseQuickAdd, toKey } from './dates';
+import type { Usage } from './usage';
 
 export const DEMO_KEY = 'kompaly-demo';
 /** Older than a day: the visitor came back another time, the sentence is no longer theirs to find. */
 const MAX_AGE = 24 * 3600e3;
 
-/** The sentence kept by the demo, or null (nothing, damaged, too old, or written « in the future »). */
-export function readDemo(raw: string | null, now = new Date()): { text: string; at: Date } | null {
+const USAGES: readonly Usage[] = ['etudes', 'travail', 'perso'];
+
+/** The sentence kept by the demo and the life it was tried in, or null (nothing, damaged, too old, or written « in the future »). */
+export function readDemo(raw: string | null, now = new Date()): { text: string; at: Date; usage?: Usage; from?: Date } | null {
   if (!raw) return null;
   try {
-    const d = JSON.parse(raw) as { text?: unknown; at?: unknown };
+    const d = JSON.parse(raw) as { text?: unknown; at?: unknown; usage?: unknown; from?: unknown };
     const text = typeof d.text === 'string' ? d.text.trim().slice(0, 160) : '';
     const at = typeof d.at === 'string' ? new Date(d.at) : null;
     if (!text || !at || Number.isNaN(at.getTime())) return null;
     const age = now.getTime() - at.getTime();
-    return age <= MAX_AGE && age >= -5 * 60e3 ? { text, at } : null;
+    const usage = USAGES.find(u => u === d.usage);
+    // An example's days read from its week (the next one, from its Monday): never more than a week and a day ahead.
+    const from = typeof d.from === 'string' ? new Date(d.from) : null;
+    const ahead = from && !Number.isNaN(from.getTime()) && from > at && from.getTime() - at.getTime() <= 8 * 864e5 ? from : null;
+    return age <= MAX_AGE && age >= -5 * 60e3 ? { text, at, ...(usage && { usage }), ...(ahead && { from: ahead }) } : null;
   } catch {
     return null;
   }

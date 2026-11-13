@@ -4,6 +4,7 @@
 // Pure: tested in tests/landingDemo.test.ts.
 
 import type { ParsedQuickAdd } from '../lib/dates';
+import type { Usage } from '../lib/usage';
 
 export interface DemoItem {
   id: number;
@@ -129,9 +130,14 @@ export function demoPlace(
   return { kind: 'task', title: p.title, date: p.date, start: null };
 }
 
-/** The visitor's last sentence, recreated in their new account (store/welcome): `{ text, at }` (ISO), kept 24 h. */
+/**
+ * The visitor's last sentence, recreated in their new account (store/session › addDemoItem): `{ text, at, usage, typed }`
+ * (`at` ISO; `usage`: the life chosen at the top, « Travail » makes it a work event; `typed`: written by the visitor,
+ * not an example tapped; `from`: what its days were read from, an example's week when it is the next one), kept 24 h.
+ */
 export const DEMO_KEY = 'kompaly-demo';
-export const demoKept = (text: string, now: Date) => JSON.stringify({ text: text.trim().slice(0, 120), at: now.toISOString() });
+export const demoKept = (text: string, now: Date, usage?: Usage | null, typed = true, from?: Date) =>
+  JSON.stringify({ text: text.trim().slice(0, 120), at: now.toISOString(), ...(usage && { usage }), typed, ...(from && from > now && { from: from.toISOString() }) });
 
 /**
  * The rows under the week: its items and the tasks without a day, at most `max`. The visitor's newest first, the
