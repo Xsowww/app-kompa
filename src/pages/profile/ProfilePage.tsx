@@ -850,6 +850,13 @@ function NotificationsTab() {
             <Toggle label={t('Notifications sur cet appareil')} checked onChange={v => !v && !busy && void turnOff()} />
           </Row>
         )}
+        {/* Apart from the notifications themselves: silent ones are possible, a sound without them is not. */}
+        <Row
+          label={t('Son des notifications')}
+          hint={state === 'on' ? t('Un petit son avec chaque rappel. Coupé : les notifications arrivent sans bruit.') : t('Active d’abord les notifications sur cet appareil.')}
+        >
+          <Toggle label={t('Son des notifications')} checked={state === 'on' && s.reminderSound} disabled={state !== 'on'} onChange={v => s.set({ reminderSound: v })} />
+        </Row>
         {!installed() && (canInstall || macSafari()) && (
           <Row
             label={t('Installer Kompaly')}
@@ -893,9 +900,6 @@ function NotificationsTab() {
         </Row>
       </Section>
       <Section title={t('Autres notifications')}>
-        <Row label={t('Son des rappels')} hint={t('Un petit son avec chaque rappel, quand Kompaly est ouvert.')}>
-          <Toggle label={t('Son des rappels')} checked={s.reminderSound} onChange={v => s.set({ reminderSound: v })} />
-        </Row>
         {/* All of them at once; one by one, it's the bell in each group and shared calendar. Local mode: nothing is shared. */}
         {cloudEnabled && (
           <Row label={groupWords(s.usage).Groups} hint={t('Ce que les autres ajoutent ou changent dans tes {groups}.', { groups: groupWords(s.usage).groups })}>

@@ -89,7 +89,8 @@ function sources(): ReminderSource[] {
 // ── Showing one ─────────────────────────────────────────────────────────────
 function showInApp(r: { key: string; title: string; body: string; url: string; keys?: string[] }) {
   useUi.getState().showAlert({ key: r.key, title: r.title, body: r.body, url: r.url, keys: r.keys, at: Date.now() });
-  if (getSettings().reminderSound) chime();
+  // The sound goes with the notifications: never without them (Réglages › Notifications).
+  if (getSettings().reminderSound && canNotify()) chime();
 }
 
 function fire(group: DueReminder[]) {
@@ -253,6 +254,8 @@ async function shareAccounts() {
     accounts: Object.entries(labels).map(([id, label]) => ({ id, label, line: t('Compte {account}', { account: label }) })),
     lang: locale(),
     buttons: { voir: t('Voir'), ok: t('OK'), later: t('Plus tard'), done: t('Fait||coché') },
+    // « Son des notifications » off: the server's notifications are shown without a sound too.
+    silent: !getSettings().reminderSound,
   });
 }
 
@@ -321,6 +324,7 @@ export function startReminders(id: string): () => void {
     useCalendar.subscribe((s, p) => s.events !== p.events && planSoon()),
     useTodos.subscribe((s, p) => s.todos !== p.todos && planSoon()),
     useSettings.subscribe((s, p) => (s.defaultReminders !== p.defaultReminders || s.morningBrief !== p.morningBrief || s.reminderSnoozes !== p.reminderSnoozes) && planSoon()),
+    useSettings.subscribe((s, p) => s.reminderSound !== p.reminderSound && void shareAccounts().catch(() => undefined)),
   ];
   const hourly = setInterval(loadSharedSoon, 3_600_000); // then plan()
   const onVisible = () => {

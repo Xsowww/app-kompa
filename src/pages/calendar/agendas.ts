@@ -57,6 +57,31 @@ export function agendaEvents(agendas: Group[], events: Record<string, GroupEvent
     });
 }
 
+/** Two copies made together (one event added to my calendar and to a shared one at once): this close in time. */
+const TOGETHER_MS = 5 * 60_000;
+const same = (a?: string, b?: string) => (a ?? '').trim().toLowerCase() === (b ?? '').trim().toLowerCase();
+
+/**
+ * The shared calendars' events without those that are mine too: the same event added at once to my calendar and to
+ * a shared one (EventForm › « Agenda », several ticked) was shown twice in mine. Same title, day and times, made
+ * within a few minutes of each other: only my own copy shows. Anything else, even alike, stays.
+ */
+export function withoutCopies<E extends AgendaEvent>(shared: E[], mine: Pick<CalendarEvent, 'title' | 'date' | 'start' | 'end' | 'createdAt'>[]): E[] {
+  if (!shared.length || !mine.length) return shared;
+  const byDay = new Map<string, typeof mine>();
+  for (const e of mine) byDay.set(e.date, [...(byDay.get(e.date) ?? []), e]);
+  return shared.filter(
+    s =>
+      !byDay.get(s.date)?.some(
+        m =>
+          same(m.title, s.title) &&
+          (m.start ?? '') === (s.start ?? '') &&
+          (m.end ?? '') === (s.end ?? '') &&
+          Math.abs(Date.parse(m.createdAt) - Date.parse(s.createdAt)) <= TOGETHER_MS,
+      ),
+  );
+}
+
 /**
  * « Copier dans mon agenda »: a shared calendar's event becomes one of mine (my usual reminders; its own category
  * when it is a built-in one, else the one its title suggests). « Annuler » takes the copy back.
@@ -111,6 +136,7 @@ export function useAgendaOverlay(enabled = true): { agendas: Group[]; events: Ag
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [wanted]);
 
-  const events = useMemo(() => agendaEvents(agendas, raw, hidden), [agendas, raw, hidden]);
+  const mine = useCalendar(s => s.events);
+  const events = useMemo(() => withoutCopies(agendaEvents(agendas, raw, hidden), mine), [agendas, raw, hidden, mine]);
   return { agendas, events };
 }

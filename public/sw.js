@@ -193,7 +193,7 @@ self.addEventListener('message', e => {
   const list = e.data.accounts.filter(a => a && typeof a.id === 'string' && typeof a.label === 'string').slice(0, 20);
   const b = e.data.buttons && typeof e.data.buttons === 'object' ? e.data.buttons : {};
   const text = v => (typeof v === 'string' ? v.slice(0, 40) : undefined);
-  const words = { lang: text(e.data.lang), voir: text(b.voir), ok: text(b.ok), later: text(b.later), done: text(b.done) };
+  const words = { lang: text(e.data.lang), voir: text(b.voir), ok: text(b.ok), later: text(b.later), done: text(b.done), silent: e.data.silent === true };
   e.waitUntil(caches.open(META).then(c => Promise.all([c.put(ACCOUNTS, metaJson(list)), c.put(WORDS, metaJson(words))])));
 });
 async function deviceWords() {
@@ -238,6 +238,7 @@ function notificationOptions(data, words = {}) {
     badge: '/notification-badge.png', // Android status bar: one colour, the logo's two circles
     data: { url: data.url || '/', user: data.user || null, keys },
     timestamp: Date.now(),
+    silent: words.silent === true, // « Son des notifications » off in the app (src/lib/reminderScheduler › shareAccounts)
     // Computers and Android (Chrome, Edge): two buttons under the notification; elsewhere a tap opens it.
     // A reminder of mine: « Plus tard » (10 min) and « Fait » (« Voir » for several); the others: « Voir » and « OK ».
     actions: mine

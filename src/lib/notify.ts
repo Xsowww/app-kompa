@@ -1,6 +1,7 @@
 import { deviceState, serviceWorker } from './push';
 import { notificationButtons } from './reminders';
 import { locale } from '../i18n';
+import { getSettings } from '../store/settings';
 
 /** True when this device may show system notifications (allowed by the browser and in Réglages › Notifications). */
 export const canNotify = () => typeof window !== 'undefined' && deviceState() === 'on';
@@ -15,7 +16,8 @@ export async function showSystemNotification(title: string, body: string, tag?: 
   try {
     const reg = await serviceWorker();
     // Same look as the service worker's (public/sw.js › notificationOptions): logo, badge, the two buttons.
-    const options = { body, tag, lang: locale(), icon: '/icon-192.png', badge: '/notification-badge.png', data: { url, keys }, timestamp: Date.now() };
+    // « Son des notifications » off (Réglages › Notifications): shown, without a sound.
+    const options = { body, tag, lang: locale(), icon: '/icon-192.png', badge: '/notification-badge.png', data: { url, keys }, timestamp: Date.now(), silent: !getSettings().reminderSound };
     if (reg) await reg.showNotification(title, { ...options, actions: notificationButtons(keys) } as NotificationOptions);
     else new Notification(title, options);
     return true;
