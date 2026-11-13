@@ -1106,7 +1106,7 @@ export default function CalendarPage() {
                       onDoubleClick={() => setForm({ date: key })}
                       className={cx(
                         'flex flex-col items-center rounded-lg py-2.5 transition-colors',
-                        dropDay === key ? 'bg-brand-50 ring-2 ring-brand-500/40' : isSel ? 'bg-stone-100' : tint ? 'hover:brightness-95' : 'hover:bg-stone-50',
+                        dropDay === key ? 'bg-brand-50 ring-2 ring-brand-500/40' : isSel ? 'day-picked bg-stone-100' : tint ? 'hover:brightness-95' : 'hover:bg-stone-50',
                         drag && dropDay !== key && 'ring-1 ring-stone-200 ring-inset',
                       )}
                       style={tint && dropDay !== key ? { backgroundImage: fillOf(key, isSel ? 26 : 13) } : undefined}
@@ -1163,7 +1163,7 @@ export default function CalendarPage() {
                             onDoubleClick={() => setForm({ date: key })}
                             className={cx(
                               'relative flex min-h-16 min-w-0 flex-col items-stretch p-1 text-left transition-colors @md:min-h-[84px]',
-                              dropDay === key ? 'bg-brand-50 shadow-[inset_0_0_0_2px_var(--color-brand-200)]' : isSel ? 'bg-stone-50' : 'bg-surface hover:bg-stone-50',
+                              dropDay === key ? 'bg-brand-50 shadow-[inset_0_0_0_2px_var(--color-brand-200)]' : isSel ? 'day-picked bg-stone-50' : 'bg-surface hover:bg-stone-50',
                               !isSameMonth(d, selDate) && 'text-stone-500',
                             )}
                             // Tint over the cell's own background (white or grey), so the grid lines stay.

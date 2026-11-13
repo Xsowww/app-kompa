@@ -202,11 +202,12 @@ export function scrollToShow(scrollTop: number, viewHeight: number, top: number,
 }
 
 /**
- * The round mark of a day's number (week strip, week grid, month): today is the filled one, always; another day
- * selected gets a ring. The selected day was the filled one and today only a coloured number: one looked for today.
+ * The mark of a day's number (week strip, week grid, month): today is the filled one, always; another day selected
+ * has its number bold, underlined in blue, and its cell lit (themes.css › .day-picked). Only the number's own colour and line: nothing
+ * drawn around it, so nothing to cross the periods' bands or the events above (a ring did).
  */
 export const dayMark = (isToday: boolean, isSelected: boolean) =>
-  isToday ? 'bg-tile-blue text-white' : isSelected ? 'ring-2 ring-inset ring-tile-blue' : '';
+  isToday ? 'bg-tile-blue text-white' : isSelected ? 'font-bold underline decoration-tile-blue decoration-2 underline-offset-[3px]' : '';
 
 /** A day's events and dated tasks in one list, in the order of the day: what has no time first, then by time. */
 export function byStartTime<E extends Pick<CalendarEvent, 'start'>>(events: E[], todos: Todo[]): ({ ev: E } | { todo: Todo })[] {

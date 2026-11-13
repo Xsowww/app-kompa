@@ -1250,6 +1250,14 @@
 :root[data-pro][data-style][data-theme] [data-fab-ignore] [data-drop-day].bg-stone-50 {
   background-color: rgb(255 255 255 / 0.1);
 }
+/* The selected day (not today, calendar layout.ts › dayMark): its cell lit, over a period's tint too (an inset light,
+   inside the cell: nothing drawn across the periods' bands), the grid line kept. */
+:root[data-pro][data-style][data-theme] [data-fab-ignore] [data-drop-day].day-picked {
+  background-color: rgb(255 255 255 / 0.12);
+  box-shadow:
+    0 0 0 0.5px rgb(255 255 255 / 0.1),
+    inset 0 0 0 100vmax rgb(255 255 255 / 0.07);
+}
 /* The week's days above the hours (sticky): frosted, of the panel's tint, instead of the page's dark colour. */
 :root[data-pro][data-style][data-theme] .sticky.z-10.grid[style*='--cal-head'] {
   background: rgb(26 28 42 / 0.72) !important;
