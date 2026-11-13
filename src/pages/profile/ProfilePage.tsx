@@ -882,7 +882,7 @@ function NotificationsTab() {
           />
         </Row>
         {/* With « Point du matin », the 8:00 summary takes the place of the 9:00 reminder (lib/reminders › upcomingReminders). */}
-        <Row label={t('Rappel par défaut des tâches')} hint={s.morningBrief ? t('Pour les tâches qui ont une date : le matin même, c’est à 8 h, avec le point du matin (un seul message pour toutes les tâches du jour) ; une tâche avec une heure, 1 h avant.') : t('Pour les tâches qui ont une date : le matin même, c’est à 9 h ; une tâche avec une heure, 1 h avant.')}>
+        <Row label={t('Rappel par défaut des tâches')} hint={s.morningBrief ? t('Pour les tâches qui ont une date : le matin même, c’est à 8\u00a0h, avec le point du matin (un seul message pour toutes les tâches du jour) ; une tâche avec une heure, 1\u00a0h avant.') : t('Pour les tâches qui ont une date : le matin même, c’est à 9\u00a0h ; une tâche avec une heure, 1\u00a0h avant.')}>
           <SelectField<string>
             value={TASK_DEFAULTS.find(o => o.minutes.join() === [...s.defaultTaskReminders].sort((a, b) => b - a).join())?.value ?? 'les-deux'}
             onChange={v => s.set({ defaultTaskReminders: TASK_DEFAULTS.find(o => o.value === v)?.minutes ?? [900, 0] })}
