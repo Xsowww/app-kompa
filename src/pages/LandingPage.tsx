@@ -384,7 +384,7 @@ function HeroDemo({ demo }: { demo: Demo }) {
               </Link>
             </span>
           )}
-          <span className="mt-2 block text-[15px] text-stone-600">{t('Démo : rien n’est enregistré ni envoyé.')}</span>
+          <span className="mt-2 block text-[15px] text-stone-600">{t('Démo : rien n’est envoyé avant que tu crées ton compte.')}</span>
         </div>
         <div className="shrink-0" aria-hidden>
           <Character pose="open" look={{ x: -0.9, y: -0.3 }} mood={demo.said?.added ? 'happy' : 'idle'} size={76} />
