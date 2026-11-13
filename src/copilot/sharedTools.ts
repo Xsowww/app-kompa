@@ -102,7 +102,7 @@ export async function addShared(g: Group, input: SharedAdd) {
   if (!canWrite(g)) throw new Error(`il est seulement lecteur dans ${where(g)} : il ne peut rien y ajouter`);
   const overnight = !input.endDate && !input.repeat && !!input.start && !!input.end && input.end < input.start;
   const endDate = overnight ? shiftKey(input.date, 1) : validKey(input.endDate);
-  const category = input.category && (input.category in CATEGORIES || g.categories.some(c => c.id === input.category)) ? input.category : guessCategory(input.title, !!input.start, g.categories);
+  const category = input.category && (input.category in CATEGORIES || g.categories.some(c => c.id === input.category)) ? input.category : guessCategory(input.title, !!input.start, g.categories, g.kind === 'agenda' ? 'shared' : 'mine');
   const base = { title: input.title, place: input.place || null, category: g.kind === 'agenda' ? category : null, details: null, people: [], reminders: [] };
   let rows: NewGroupEvent[];
   if (endDate && endDate > input.date) {

@@ -213,7 +213,8 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
     if (!was.place) setPlace(ok?.place ?? '');
     if (!was.reminders) setChosen(ok ? remindMinutes(ok.remind, ok.date ?? date, ok.start) : undefined);
   };
-  const effective = category ?? guessCategory(cleanTitle || title, !!start, custom);
+  // In a shared calendar (or going to one), nothing said: the calendar's own category, never my « Rendez-vous ».
+  const effective = category ?? guessCategory(cleanTitle || title, !!start, custom, shared || into ? 'shared' : 'mine');
   // My usual reminder and, for a big day, a week before and the day before when still to come (lib/reminders); a shared calendar: the chosen ones.
   const reminders = shared || into ? (chosen ?? NONE) : eventReminders({ reminders: chosen, date: day, start, externalId: event?.externalId, category: effective, important }, defaults, new Date());
   // Becoming a big day with reminders already chosen: the early ones are added (removable).
