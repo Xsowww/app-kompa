@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
-import { CalendarRange, Users } from 'lucide-react';
+import { Users } from 'lucide-react';
+import CalendarUsers from '../../components/CalendarUsers';
 import { Modal } from '../../components/Overlays';
 import { AGENDA_WORDS, groupWords } from '../../lib/usage';
 import { useSettings } from '../../store/settings';
@@ -15,7 +16,7 @@ export function JoinedDialog() {
   if (!joined) return null;
   const w = joined.kind === 'agenda' ? AGENDA_WORDS : groupWords(usage);
   const name = joined.name ? t('« {name} »', { name: joined.name }) : w.the;
-  const Icon = joined.kind === 'agenda' ? CalendarRange : Users;
+  const Icon = joined.kind === 'agenda' ? CalendarUsers : Users;
   return (
     <Modal open onClose={close}>
       <div className="flex flex-col items-center text-center">

@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import { Award, CalendarArrowDown, CalendarRange, FolderClosed, Mic, Timer, Users } from 'lucide-react';
+import { Award, CalendarArrowDown, FolderClosed, Mic, Timer, Users } from 'lucide-react';
+import CalendarUsers from '../components/CalendarUsers';
 import { useSettings } from '../store/settings';
 import { useFocus } from '../store/focus';
 import { useBadges } from '../lib/badges';
@@ -50,7 +51,7 @@ export default function HomeShortcuts({ starter }: { starter?: boolean } = {}) {
               },
             ];
       case 'agenda':
-        return [{ key: k, to: '/agendas', label: t('Agenda partagé'), node: <CalendarRange {...icon} className="text-[#7a5ad6]" /> }];
+        return [{ key: k, to: '/agendas', label: t('Agenda partagé'), node: <CalendarUsers {...icon} className="text-[#7a5ad6]" /> }];
       case 'group':
         return [{ key: k, to: '/groupes', label: groupWords(usage).Groups, node: <Users {...icon} className="text-[#1f8a8a]" /> }];
       case 'files':

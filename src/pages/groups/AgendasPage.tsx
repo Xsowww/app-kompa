@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { CalendarRange, ChevronDown, CloudOff, Link2, LogIn, Settings2, Users } from 'lucide-react';
+import { ChevronDown, CloudOff, Link2, LogIn, Settings2, Users } from 'lucide-react';
+import CalendarUsers from '../../components/CalendarUsers';
 import GroupMuteButton from '../../components/GroupMuteButton';
 import { useAuth } from '../../store/auth';
 import { prefetchGroup, useGroups, watchFocus } from '../../store/groups';
@@ -107,7 +108,7 @@ function Agendas() {
   // after « Nouvel événement » of the one open (when I may write in it).
   useCreateActions(
     [
-      { label: t('Nouvel agenda partagé'), icon: <CalendarRange />, onClick: () => setDialog('create') },
+      { label: t('Nouvel agenda partagé'), icon: <CalendarUsers />, onClick: () => setDialog('create') },
       { label: t('Rejoindre avec un lien'), icon: <LogIn />, onClick: () => setDialog('join') },
     ],
     1,
@@ -175,7 +176,7 @@ function Agendas() {
         <div className="px-4 md:px-8">
           <EmptyState
             className="card mx-auto mt-4 max-w-[520px]"
-            icon={CalendarRange}
+            icon={CalendarUsers}
             title={t('{none} pour l’instant.', { none: t('Aucun agenda partagé') })}
             text={
               <>

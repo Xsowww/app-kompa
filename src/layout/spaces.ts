@@ -1,4 +1,5 @@
-import { CalendarDays, CalendarRange, FolderClosed, House, ListChecks, Mic, NotebookText, Users } from 'lucide-react';
+import { CalendarDays, FolderClosed, House, ListChecks, Mic, NotebookText, Users } from 'lucide-react';
+import CalendarUsers from '../components/CalendarUsers';
 import { useSettings } from '../store/settings';
 import { resolveNavOrder, type SpaceKey } from '../lib/navOrder';
 import { WORDS } from '../lib/usage';
@@ -18,7 +19,7 @@ export const SPACES: Record<SpaceKey, Space> = {
   drive: { to: '/drive', label: t('Fichiers'), icon: FolderClosed, color: SPACE_COLORS.drive },
   enregistrer: { to: '/enregistrer', label: t('Enregistrer'), icon: Mic, color: '#e5484d' },
   groupes: { to: '/groupes', label: t('Groupes'), icon: Users, color: '#1f8a8a' },
-  agendas: { to: '/agendas', label: t('Agendas partagés'), short: t('Agendas||court'), icon: CalendarRange, color: '#7a5ad6' },
+  agendas: { to: '/agendas', label: t('Agendas partagés'), short: t('Agendas||court'), icon: CalendarUsers, color: '#7a5ad6' },
 };
 
 /** A space's name for this account (« Équipes » for a work account). */
