@@ -282,7 +282,7 @@ export const TOOLS = [
         end: { type: 'string', description: 'HH:mm, optionnel' },
         place: { type: 'string', description: 'lieu (« chez le kiné », « salle B12 »), optionnel' },
         agenda: AGENDA,
-        category: { type: 'string', enum: ['cours', 'examen', 'devoir', 'perso', 'sport'] },
+        category: { type: 'string', enum: ['cours', 'examen', 'devoir', 'travail', 'perso', 'sport'] },
         important: { type: 'boolean', description: 'true si l’utilisateur dit que c’est important ou urgent' },
         end_date: { type: 'string', description: 'YYYY-MM-DD, dernier jour d’un événement sur plusieurs jours (« du 22 au 26 décembre »), 31 jours au plus' },
         repeat: { type: 'string', enum: ['week', '2weeks', 'day', 'month', 'year'], description: 'répétition (« tous les mardis » = week à partir du prochain mardi)' },

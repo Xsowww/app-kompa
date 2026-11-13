@@ -5,7 +5,7 @@
 import { cleanReminders } from './reminders';
 import { supabase } from './supabase';
 import { troubled } from './serviceStatus';
-import { useCalendar, type CalendarEvent } from '../store/calendar';
+import { LEGACY_WORK, fromDbCategory, useCalendar, workRefused, type CalendarEvent } from '../store/calendar';
 import { useNotes, type Note, type NoteFolder } from '../store/notes';
 import { cleanPeriods } from './periods';
 import { cleanKeywords } from './keywords';
@@ -48,7 +48,7 @@ const rowToEvent = (r: Row): CalendarEvent => ({
   date: r.date as string,
   start: (r.start_time as string) ?? undefined,
   end: (r.end_time as string) ?? undefined,
-  category: r.category as CalendarEvent['category'],
+  category: fromDbCategory(r.category as CalendarEvent['category']),
   done: r.done as boolean,
   details: (r.details as string) ?? undefined,
   place: (r.place as string) || undefined,
@@ -376,6 +376,8 @@ async function upsertRows(table: Table, rows: Row[]) {
     let { error: e } = await supabase!.from(table).upsert(r);
     const parent = PARENT[table];
     if (e?.code === '23503' && parent && r[parent]) ({ error: e } = await supabase!.from(table).upsert({ ...r, [parent]: null }));
+    // Server not yet updated for « Travail » (migration 2026-11-13): kept online under the id every server takes, read back as Travail.
+    if (table === 'events' && workRefused(e, r.category)) ({ error: e } = await supabase!.from(table).upsert({ ...r, category: LEGACY_WORK }));
     // Server not yet updated for the student's own categories (migration 2026-10-15): keep the event, as Perso online.
     if (e?.code === '23514' && table === 'events' && String(r.category).startsWith('c-')) {
       ({ error: e } = await supabase!.from(table).upsert({ ...r, category: 'perso' }));

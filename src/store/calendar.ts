@@ -10,7 +10,7 @@ import { dayShift, shiftKey } from '../lib/repeat';
 import { fitSeries } from '../lib/seriesId';
 import { t } from '../i18n';
 
-export type BuiltinCategory = 'cours' | 'examen' | 'devoir' | 'perso' | 'sport';
+export type BuiltinCategory = 'cours' | 'examen' | 'devoir' | 'travail' | 'perso' | 'sport';
 /** A built-in category, or one the student created (`c-…`, its name and colour live in the settings). */
 export type EventCategory = BuiltinCategory | `c-${string}`;
 
@@ -35,15 +35,17 @@ export const CATEGORIES: Record<BuiltinCategory, CategoryInfo> = {
   cours: { label: t('Cours'), color: '#3b6fd8', soft: 'var(--cat-cours-soft)', text: 'var(--cat-cours-text)' },
   examen: { label: t('Examen'), color: '#d9483b', soft: 'var(--cat-examen-soft)', text: 'var(--cat-examen-text)' },
   devoir: { label: t('Devoir'), color: '#d48a17', soft: 'var(--cat-devoir-soft)', text: 'var(--cat-devoir-text)' },
+  // Work (a client, a site, a file): its own raspberry, apart from the meetings, the deadlines and private life (green).
+  travail: { label: t('Travail'), color: '#c43d7a', soft: 'var(--cat-travail-soft)', text: 'var(--cat-travail-text)' },
   perso: { label: t('Perso'), color: '#2f9e6b', soft: 'var(--cat-perso-soft)', text: 'var(--cat-perso-text)' },
   sport: { label: t('Sport'), color: '#7a5ad6', soft: 'var(--cat-sport-soft)', text: 'var(--cat-sport-text)' },
 };
 
-/** Names of the five built-in categories for each usage of the account (applied by applyUsage below). */
+/** Names of the built-in categories for each usage of the account (applied by applyUsage below). */
 export const CATEGORY_LABELS: Record<Usage, Record<BuiltinCategory, string>> = {
-  etudes: { cours: t('Cours'), examen: t('Examen'), devoir: t('Devoir'), perso: t('Perso'), sport: t('Sport') },
-  travail: { cours: t('Réunion'), examen: t('Échéance'), devoir: t('À rendre'), perso: t('Perso'), sport: t('Sport') },
-  perso: { cours: t('Rendez-vous'), examen: t('Grand jour'), devoir: t('À faire'), perso: t('Perso'), sport: t('Sport') },
+  etudes: { cours: t('Cours'), examen: t('Examen'), devoir: t('Devoir'), travail: t('Travail'), perso: t('Perso'), sport: t('Sport') },
+  travail: { cours: t('Réunion'), examen: t('Échéance'), devoir: t('À rendre'), travail: t('Travail'), perso: t('Perso'), sport: t('Sport') },
+  perso: { cours: t('Rendez-vous'), examen: t('Grand jour'), devoir: t('À faire'), travail: t('Travail'), perso: t('Perso'), sport: t('Sport') },
 };
 
 /**
@@ -81,6 +83,15 @@ export interface CalendarEvent {
 }
 
 export type NewEvent = Omit<CalendarEvent, 'id' | 'done' | 'createdAt'>;
+
+/**
+ * « Travail » on a server not updated yet (migration 2026-11-13_categorie_travail: its check knows the five first ones
+ * only): saved as the own-category id `c-travail`, which every server takes, and read back as « Travail ».
+ */
+export const LEGACY_WORK = 'c-travail';
+export const fromDbCategory = <T extends string | null>(c: T): T => (c === LEGACY_WORK ? ('travail' as T) : c);
+export const workRefused = (e: { code?: string; message?: string } | null | undefined, category: unknown) =>
+  category === 'travail' && e?.code === '23514' && /category/.test(e.message ?? '');
 
 /** A big day: an exam (deadline, « grand jour » outside studies) or an event marked important. */
 export const isBigEvent = (e: Pick<CalendarEvent, 'category' | 'important'>) => e.category === 'examen' || !!e.important;
@@ -157,8 +168,8 @@ const OTHER_MEETING = "reuni[oó]n|riunione|\\p{L}*besprechung|cita$|appuntament
 const OTHER_HANDIN = '\\p{L}*abgabe|entregas?$|consegna';
 // Health appointments said by the practitioner's name (« Cardiologue jeudi 9h30 » is an appointment, as « Dentiste »).
 const HEALTH = 'cardiologue|ophtalmo(?:logue|logiste)?$|dermato(?:logue)?$|gyn[ée]co(?:logue)?$|p[ée]diatre|g[ée]n[ée]raliste|ost[ée]o(?:pathe)?$|orthodontiste|orthophoniste|podologue|psy(?:chologue|chiatre)?$|radiologue|v[ée]t[ée]rinaire|v[ée]to$|docteur|dr$|prise de sang|vaccin|h[ôo]pital|clinique|infirmi[eè]re?$|sage-femme|opticien|chirurgien|allergologue|rhumatologue|urologue|neurologue|orl$|irm$|[ée]chographie';
-// Private life seen from a work calendar, when nothing else says what it is (« Dîner avec Julie », « Courses »).
-const PRIVATE = 'd[îi]ner|soir[ée]e|ap[ée]ro|cin[ée](?:ma)?$|resto$|concert|th[ée][âa]tre|week-?end|famille|maman|papa|mamie|papi|enfants?$|[ée]cole|cr[èe]che|nounou|courses$|m[ée]nage|coiffeur|garage|no[ëe]l|f[êe]te';
+// Private life seen from a work calendar, when nothing else says what it is (« Dîner avec Julie », « Courses », « Dossier CAF »).
+const PRIVATE = 'd[îi]ner|soir[ée]e|ap[ée]ro|cin[ée](?:ma)?$|resto$|concert|th[ée][âa]tre|week-?end|famille|maman|papa|mamie|papi|enfants?$|[ée]cole|cr[èe]che|nounou|courses$|m[ée]nage|coiffeur|garage|no[ëe]l|f[êe]te|caf$|crous$|apl$|imp[ôo]ts?$|banque|mutuelle|pr[ée]fecture|mairie';
 const WORK_PERSO = wordRe(`m[ée]decin|dentiste|kin[ée]|ost[ée]o|docteur|pharmacie|anniversaire|mariage|bapt[eê]me|vacances|cong[ée]s?$|${HEALTH}|${OTHER_DOCTOR}|${OTHER_BIRTHDAY}`);
 const WORK_PRIVATE = wordRe(PRIVATE);
 // « Point avec Marc », « Appel client », « Visio » (not « Point relais », « Appel d'offres »).
@@ -171,12 +182,19 @@ const WORK_DEADLINE = wordRe(`deadline|[ée]ch[ée]ance|date limite|livraison|la
 const HOME_MEETING = wordRe(`r[ée]union|meeting|call$|visio(?!n)|point (?:d['’][ée]quipe|client|hebdo)|entretien|rendez-vous|rdv$|conseils? de classe|m[ée]decin|dentiste|kin[ée]|${HEALTH}|${OTHER_MEETING}|${OTHER_DOCTOR}`);
 const HOME_TODO = wordRe('devis|facture|relance|proposition|contrat|payer|imp[oô]ts?$|d[ée]claration');
 const HOME_BIG = wordRe(`deadline|[ée]ch[ée]ance|livraison|lancement|audits?$|${SALON}|anniversaire|mariage|d[ée]m[ée]nagement|${OTHER_BIRTHDAY}`);
-const STUDY_EXAM = wordRe('exam|partiel|contr[oô]le|ds$|qcm$|interro|oral(?:e|es|s)?$|soutenance|concours|\\p{L}*pr[üu]fung|\\p{L}*klausur|esam[ei]$|verifica|parcial(?:es)?$|tests?$|quiz|midterms?$|finals$');
+// « Bac blanc », « Brevet blanc », « DS », « DST », « Devoir surveillé », « Devoir sur table », « Partiel blanc », « Oral »:
+// an exam, never a class (« Bac blanc de philo » is not a philosophy class) nor homework.
+const STUDY_EXAM = wordRe('exam|partiel|contr[oô]le|ds$|dst$|bac$|brevet$|devoirs? (?:surveill[ée]s?$|sur table)|qcm$|interro|oral(?:e|es|s)?$|soutenance|concours|\\p{L}*pr[üu]fung|\\p{L}*klausur|esam[ei]$|verifica|parcial(?:es)?$|tests?$|quiz|midterms?$|finals$');
 // « Dossier CAF » is not homework (test n°3: things forced into « Devoir »).
 const STUDY_HOMEWORK = wordRe(`devoir|tp$|td$|rendre|rendu|dm$|projet|exos?$|exercice|r[ée]vis|homework|assignments?$|\\p{L}*hausaufgaben?$|deberes$|compiti$|${OTHER_HANDIN}`);
 const SPORT = wordRe('sport|foot|basket|gym|muscu|course$|piscine|natation|yoga|tennis|danse|gimnasio|palestra|fitness|training|entrenamiento|allenamento');
 // « Courses » (faire les courses) n'est ni du sport ni un cours.
 const STUDY_CLASS = wordRe('cours(?!es$)|amphi|cm$|lecture|classes?$|class$|lessons?$|\\p{L}*vorlesung|\\p{L}*kurs(?:e)?$|seminar$|lezion[ei]$|cors[oi]$|clases?$|profs?$|professeur|maths?$|math[ée]matiques|physique|chimie|histoire|anglais|fran[cç]ais|info$|informatique|bio$|biologie|[ée]co$|[ée]conomie|philo$|philosophie');
+
+// Work for an account that is also for something else (« Mes études » + « Mon travail »): the words that say it plainly
+// (a client, a site, a brief), checked first, then those that are work mostly (a file, a quote), when nothing else fits.
+const WORK_SURE = wordRe('clients?$|chantiers?$|brief|fournisseurs?$|prospects?$|coll[eè]gues?$|boulot$|taf$|patron(?:ne)?$|manager$|entreprise$|alternance$|tuteur$|tutrice$');
+const WORK_LIKELY = wordRe('dossiers?$|devis$|factures?$|commandes?$|rapports?$|projets?$|inventaire|planning|compta|r[ée]union|meeting|visio(?!n)|call$');
 
 /** A work title: Réunion (cours), Livrable (devoir), Échéance (examen) when the title says so, the private life (perso); else nothing (neutral). */
 function workCategory(t: string): EventCategory | undefined {
@@ -191,24 +209,34 @@ function workCategory(t: string): EventCategory | undefined {
 
 /**
  * Guess a category from the title so the student never has to think about it. `timed`: a TD or TP
- * with an hour is a class, not homework. Work and personal accounts use the same five categories under
- * other names (see lib/usage): Réunion / Échéance / Livrable at work, Rendez-vous / Grand jour / À faire at home.
+ * with an hour is a class, not homework. Work and personal accounts use the same categories under
+ * other names (see lib/usage): Réunion / Échéance / Livrable at work, Rendez-vous / Grand jour / À faire at home;
+ * « Travail » is the same everywhere. `scope`: the account's own calendar ('mine'); a shared calendar ('shared': coloc,
+ * famille, équipe), named with the everyday words whatever the account is for, where nothing said is the calendar's
+ * own category (« Perso », named after it); or one usage alone (the home page's demo, its tab « Travail »…).
  */
-export function guessCategory(title: string, timed = false, custom?: CustomCategory[]): EventCategory {
+export function guessCategory(title: string, timed = false, custom?: CustomCategory[], scope: 'mine' | 'shared' | Usage = 'mine'): EventCategory {
   const own = customCategoryIn(title, custom);
   if (own) return own;
   const t = title.toLowerCase();
-  const usage = getSettings().usage ?? 'etudes';
+  const s = getSettings();
+  const alone: Usage | null = scope === 'shared' ? 'perso' : scope === 'mine' ? null : scope;
+  const usage: Usage = alone ?? s.usage ?? 'etudes';
+  const usages: Usage[] = alone ? [alone] : (s.usages ?? []);
   if (usage === 'travail') {
     const work = workCategory(t);
     if (work) return work;
     if (SPORT.test(t)) return 'sport';
     // No word says what it is. An account opened for work only (the questionnaire's one answer): it goes with the
-    // work, under its main category (« Réunion »), not « Perso » — unless the title is plainly private life. An account
-    // for work AND something else (or an older one, its answers unknown) keeps the neutral « Perso ».
-    const only = getSettings().usages ?? [];
-    return only.length === 1 && only[0] === 'travail' && !WORK_PRIVATE.test(t) ? 'cours' : 'perso';
+    // work (« Travail »), unless the title is plainly private life. An account for work AND something else (or an
+    // older one, its answers unknown): « Travail » when a word says so (a client, a quote…), else the neutral « Perso ».
+    if (WORK_PRIVATE.test(t)) return 'perso';
+    if (usages.length === 1 && usages[0] === 'travail') return 'travail';
+    return WORK_SURE.test(t) || WORK_LIKELY.test(t) ? 'travail' : 'perso';
   }
+  // Studies or personal life first, and work too (« Mes études » + « Mon travail »: a BTS in alternance).
+  const alsoWork = usages.includes('travail');
+  if (alsoWork && WORK_SURE.test(t) && !STUDY_EXAM.test(t)) return 'travail';
   if (usage === 'perso') {
     if (HOME_MEETING.test(t)) return 'cours';
     if (HOME_TODO.test(t)) return 'devoir';
@@ -221,7 +249,22 @@ export function guessCategory(title: string, timed = false, custom?: CustomCateg
   if (STUDY_HOMEWORK.test(t)) return 'devoir';
   if (SPORT.test(t)) return 'sport';
   if (STUDY_CLASS.test(t)) return 'cours';
-  return 'perso';
+  return alsoWork && WORK_LIKELY.test(t) && !WORK_PRIVATE.test(t) ? 'travail' : 'perso';
+}
+
+/**
+ * The sentence tried in the home page's demo, in the life chosen there (« Études · Travail · Famille »), as it arrives in
+ * the new account: « Chantier Mme Durand » tried under « Travail » is Travail, « Judo de Léo » under « Famille » is
+ * Perso, whatever the account was opened for. The account's own guess when the demo said nothing or the same life.
+ */
+export function demoCategory(title: string, world?: Usage | null): EventCategory {
+  const usage = getSettings().usage ?? 'etudes';
+  if (!world || world === usage) return guessCategory(title, true);
+  const there = guessCategory(title, true, undefined, world);
+  // Under « Travail »: work, unless it is private life or sport. Under « Famille »: private life, a big day kept.
+  if (world === 'travail') return there === 'perso' || there === 'sport' ? there : 'travail';
+  if (world === 'perso') return there === 'examen' || there === 'sport' ? there : 'perso';
+  return there;
 }
 
 /**

@@ -22,7 +22,7 @@ create table if not exists public.events (
   start_time text,
   end_time text,
   -- « c-… » : une catégorie créée par l'étudiant (nom et couleur dans ses réglages).
-  category text not null constraint events_category_check check (category in ('cours', 'examen', 'devoir', 'perso', 'sport') or category ~ '^c-[a-z0-9-]{1,40}$'),
+  category text not null constraint events_category_check check (category in ('cours', 'examen', 'devoir', 'travail', 'perso', 'sport') or category ~ '^c-[a-z0-9-]{1,40}$'),
   done boolean not null default false,
   details text,
   created_at timestamptz not null default now()
@@ -1407,7 +1407,7 @@ grant execute on function public.replace_my_reminders(jsonb) to authenticated;
 -- ── Agendas partagés : lien d'invitation, notifications, droits (2026-10-18b) ─
 
 alter table public.groups add column if not exists invite_token text unique check (invite_token is null or invite_token ~ '^[0-9a-f]{64}$');
-alter table public.group_events add column if not exists category text check (category is null or category in ('cours', 'examen', 'devoir', 'perso', 'sport'));
+alter table public.group_events add column if not exists category text check (category is null or category in ('cours', 'examen', 'devoir', 'travail', 'perso', 'sport'));
 alter table public.group_events add column if not exists details text check (details is null or char_length(details) <= 2000);
 
 -- Jeton de lien : 2 × 122 bits tirés au hasard (impossible à deviner, contrairement à un code court).
@@ -2615,10 +2615,14 @@ alter table public.groups add column if not exists categories jsonb not null def
   check (jsonb_typeof(categories) = 'array' and jsonb_array_length(categories) <= 30);
 grant select (categories) on public.groups to authenticated;
 
--- Un événement d'agenda peut avoir une de ces catégories (« c-… ») en plus des cinq de base.
+-- Un événement d'agenda peut avoir une de ces catégories (« c-… ») en plus des six de base.
 alter table public.group_events drop constraint if exists group_events_category_check;
 alter table public.group_events add constraint group_events_category_check
-  check (category is null or category in ('cours', 'examen', 'devoir', 'perso', 'sport') or category ~ '^c-[a-z0-9-]{1,20}$');
+  check (category is null or category in ('cours', 'examen', 'devoir', 'travail', 'perso', 'sport') or category ~ '^c-[a-z0-9-]{1,20}$');
+-- « Travail » (migration 2026-11-13_categorie_travail), aussi dans l'agenda de chacun.
+alter table public.events drop constraint if exists events_category_check;
+alter table public.events add constraint events_category_check
+  check (category in ('cours', 'examen', 'devoir', 'travail', 'perso', 'sport') or category ~ '^c-[a-z0-9-]{1,40}$');
 
 create or replace function public.set_agenda_categories(p_group uuid, p_list jsonb) returns jsonb
 language plpgsql security definer set search_path = '' as $$

@@ -4,7 +4,7 @@ import { toast } from '../store/ui';
 import { getSettings } from '../store/settings';
 import { AGENDA_WORDS, groupWords } from './usage';
 import { cleanPeriod, type Period } from './periods';
-import { knowSharedCategories, type CustomCategory } from '../store/calendar';
+import { LEGACY_WORK, fromDbCategory, knowSharedCategories, workRefused, type CustomCategory } from '../store/calendar';
 
 let space: GroupKind = 'groupe';
 /** The screens in use (/groupes or /agendas): messages speak of « ce groupe » or « cet agenda ». */
@@ -154,7 +154,7 @@ export const toEvent = (r: Row): GroupEvent => ({
   start: s(r.start_time),
   end: s(r.end_time),
   place: s(r.place),
-  category: s(r.category),
+  category: fromDbCategory(s(r.category)),
   details: s(r.details),
   createdBy: s(r.created_by),
   createdAt: String(r.created_at),
@@ -489,12 +489,15 @@ export async function setAgendaCategories(groupId: string, list: CustomCategory[
 }
 
 export async function createEvent(groupId: string, e: NewGroupEvent): Promise<GroupEvent> {
-  const res = await db()
-    .from('group_events')
-    // « people » and « reminders » only when chosen: a server without the columns still takes the others.
-    .insert({ group_id: groupId, title: e.title, date: e.date, start_time: e.start, end_time: e.end, place: e.place, ...(e.category !== undefined && { category: e.category }), ...(e.details !== undefined && { details: e.details }), ...(e.people?.length && { people: e.people }), ...(e.reminders?.length && { reminders: e.reminders }) })
-    .select('*')
-    .single();
+  const send = (category: string | null | undefined) =>
+    db()
+      .from('group_events')
+      // « people » and « reminders » only when chosen: a server without the columns still takes the others.
+      .insert({ group_id: groupId, title: e.title, date: e.date, start_time: e.start, end_time: e.end, place: e.place, ...(category !== undefined && { category }), ...(e.details !== undefined && { details: e.details }), ...(e.people?.length && { people: e.people }), ...(e.reminders?.length && { reminders: e.reminders }) })
+      .select('*')
+      .single();
+  let res = await send(e.category);
+  if (workRefused(res.error, e.category)) res = await send(LEGACY_WORK);
   if (noPeopleColumn(res.error)) throw new Refused(PEOPLE_MISSING);
   if (noRemindersColumn(res.error)) throw new Refused(AGENDA_MISSING);
   return toEvent(check(res) as Row);
@@ -507,7 +510,8 @@ const noSeriesColumn = (e: { code?: string; message?: string } | null) => e?.cod
 /** Several events at once (a repeat, the days of an event): one request, one « Ajouté » for the others. Returns them as saved. */
 export async function createEvents(groupId: string, list: NewGroupEvent[]): Promise<GroupEvent[]> {
   const rows = list.map(e => ({ group_id: groupId, title: e.title, date: e.date, start_time: e.start, end_time: e.end, place: e.place, category: e.category ?? null, details: e.details ?? null, ...(e.people?.length && { people: e.people }), ...(e.reminders?.length && { reminders: e.reminders }), series: e.series ?? null }));
-  const res = await db().from('group_events').insert(rows).select('*');
+  let res = await db().from('group_events').insert(rows).select('*');
+  if (rows.some(r => workRefused(res.error, r.category))) res = await db().from('group_events').insert(rows.map(r => (r.category === 'travail' ? { ...r, category: LEGACY_WORK } : r))).select('*');
   if (noSeriesColumn(res.error)) throw new Refused(SERIES_MISSING);
   if (noPeopleColumn(res.error)) throw new Refused(PEOPLE_MISSING);
   if (noRemindersColumn(res.error)) throw new Refused(AGENDA_MISSING);
@@ -570,6 +574,10 @@ export async function updateEvents(ids: string[], patch: Partial<NewGroupEvent>)
   if (patch.reminders !== undefined) row.reminders = patch.reminders;
   const send = () => db().from('group_events').update(row).in('id', ids).select('id');
   let res = await send();
+  if (workRefused(res.error, row.category)) {
+    row.category = LEGACY_WORK;
+    res = await send();
+  }
   // A server without the newer columns: saved without them when they are empty, else said clearly.
   for (const [col, missing, msg] of [['people', noPeopleColumn, PEOPLE_MISSING], ['reminders', noRemindersColumn, AGENDA_MISSING]] as const) {
     if (!missing(res.error)) continue;
