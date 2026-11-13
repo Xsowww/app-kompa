@@ -89,7 +89,7 @@ describe('phrases à plusieurs heures', () => {
 describe('la phrase gardée pour le compte', () => {
   it('{ text, at } en ISO, coupé à 120 signes', () => {
     const kept = JSON.parse(demoKept('  Dentiste mardi 17h30 ', friday));
-    expect(kept).toEqual({ text: 'Dentiste mardi 17h30', at: friday.toISOString() });
+    expect(kept).toEqual({ text: 'Dentiste mardi 17h30', at: friday.toISOString(), typed: true });
     expect(JSON.parse(demoKept('x'.repeat(200), friday)).text).toHaveLength(120);
   });
 });

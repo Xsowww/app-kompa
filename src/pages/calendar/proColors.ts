@@ -6,7 +6,7 @@ import './calPro.css';
 /**
  * Affichage Pro: the colour of each built-in category, from the Pro tokens (themes.css › data-pro), so one colour means
  * one thing everywhere: courses blue (études), meetings cyan (rendez-vous, the « Réunion » of a work account), exams
- * and big days red, homework amber (travail), personal pink, sport violet.
+ * and big days red, homework amber (travail), the « Travail » category mint green, personal pink, sport violet.
  */
 export function proColor(key: EventCategory, usage: Usage): string | null {
   switch (key) {
@@ -16,6 +16,8 @@ export function proColor(key: EventCategory, usage: Usage): string | null {
       return 'var(--pro-urgent)';
     case 'devoir':
       return 'var(--pro-travail)';
+    case 'travail':
+      return 'var(--pro-work-cat, #3ddc97)';
     case 'perso':
       return 'var(--pro-perso)';
     case 'sport':

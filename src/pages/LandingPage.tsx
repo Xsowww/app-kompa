@@ -102,10 +102,14 @@ const AUDIENCES: { key: Usage; label: string }[] = [
 /** The big day of the dark tile: always the same (it never changes by itself while the visitor tries). */
 const BIG_DAY = { title: t('Anniversaire de maman'), days: 12 };
 
-/** Kept for the visitor's new account (store/welcome recreates it as their first event); nothing if storage is off. */
-function keepForAccount(sentence: string) {
+/**
+ * Kept for the visitor's new account (store/session › addDemoItem makes it their first event or task), with the life
+ * chosen at the top; nothing if storage is off. A sentence they wrote themself wins over an example tapped after it.
+ */
+function keepForAccount(sentence: string, usage: Usage | null, typed: boolean, from: Date) {
   try {
-    localStorage.setItem(DEMO_KEY, demoKept(sentence, new Date()));
+    if (!typed && (JSON.parse(localStorage.getItem(DEMO_KEY) ?? 'null') as { typed?: boolean } | null)?.typed) return;
+    localStorage.setItem(DEMO_KEY, demoKept(sentence, new Date(), usage, typed, from));
   } catch {
     /* private mode: nothing kept */
   }
@@ -164,8 +168,9 @@ function useDemo() {
     setItems(list => [...list, ...added]);
     setText('');
     if (tried) setTried(tried.audience);
-    // Only what the visitor wrote themself goes to their account (not an example tapped).
-    else keepForAccount(sentence);
+    // « Crée ton compte pour le garder »: what was added goes to the account, in the life it was tried in (an example
+    // tapped: its own; a sentence written: the tab chosen at the top).
+    keepForAccount(sentence, tried?.audience ?? audience, !tried, base);
     const first = added[0];
     if (first.date) {
       const m = mondayOf(first.date);

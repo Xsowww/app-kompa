@@ -40,10 +40,10 @@ describe('guessed category', () => {
     expect(guessCategory('Dentiste', true)).toBe('perso');
     expect(guessCategory('Anniversaire de Léa')).toBe('perso');
     expect(guessCategory('Rendre le rapport')).toBe('examen');
-    // Test n°3: without a word that says it, nothing forced (« Réunion », « Livrable »): neutral.
-    expect(guessCategory('Projet Dupont', true)).toBe('perso');
-    expect(guessCategory('Projet Dupont')).toBe('perso');
-    expect(guessCategory('Envoyer le devis')).toBe('perso');
+    // Test n°3: never forced into « Réunion » or « Livrable »; a project or a quote is « Travail » (visitors' test, 13 nov.).
+    expect(guessCategory('Projet Dupont', true)).toBe('travail');
+    expect(guessCategory('Projet Dupont')).toBe('travail');
+    expect(guessCategory('Envoyer le devis')).toBe('travail');
     expect(guessCategory('Appeler le plombier', true)).toBe('perso');
     expect(guessCategory('Livrable maquette')).toBe('devoir');
     expect(guessCategory('Réunion client', true)).toBe('cours');
@@ -135,11 +135,15 @@ describe('guessed category: whole words', () => {
   });
 
   // Visitors' test (12 nov.): « Mon travail » alone in the questionnaire, and every event was filed under « Perso ».
+  // Visitors' test (13 nov.): then filed under « Réunion », still wrong: the « Travail » category.
   it('work only (the questionnaire): nothing said goes with the work, private life stays Perso', () => {
     useSettings.setState({ usage: 'travail', usages: ['travail'] });
-    expect(guessCategory('Chantier Dupont', true)).toBe('cours');
-    expect(guessCategory('Dupont', true)).toBe('cours');
-    expect(guessCategory('Relancer le client Dupont')).toBe('cours');
+    expect(guessCategory('Chantier Dupont', true)).toBe('travail');
+    expect(guessCategory('Dupont', true)).toBe('travail');
+    expect(guessCategory('Relancer le client Dupont')).toBe('travail');
+    expect(guessCategory('Brief client Martin', true)).toBe('travail');
+    // Real meetings stay « Réunion ».
+    for (const x of ['Réunion d’équipe', 'Meeting fournisseur', 'Point avec Marc', 'Call client', 'Visio avec Sophie']) expect(guessCategory(x, true), x).toBe('cours');
     // What a word already says is kept.
     expect(guessCategory('Livrable maquette')).toBe('devoir');
     expect(guessCategory('Livraison site client')).toBe('examen');
@@ -153,11 +157,51 @@ describe('guessed category: whole words', () => {
     expect(guessCategory('Chantier Dupont', true)).toBe('c-1');
   });
 
-  it('work and something else, or answers unknown: the neutral Perso, as before', () => {
-    useSettings.setState({ usage: 'travail', usages: ['travail', 'perso'] });
-    expect(guessCategory('Chantier Dupont', true)).toBe('perso');
-    useSettings.setState({ usage: 'travail', usages: [] });
-    expect(guessCategory('Chantier Dupont', true)).toBe('perso');
+  it('work and something else, or answers unknown: Travail when a word says it, else the neutral Perso', () => {
+    for (const usages of [['travail', 'perso'], []] as const) {
+      useSettings.setState({ usage: 'travail', usages: [...usages] });
+      for (const x of ['Chantier Dupont', 'Brief client', 'Dossier Martin', 'Devis cuisine Durand', 'Relancer le fournisseur']) expect(guessCategory(x, true), x).toBe('travail');
+      for (const x of ['Dupont', 'Appeler Julie', 'Dîner avec Julie', 'Dentiste']) expect(guessCategory(x, true), x).toBe('perso');
+      expect(guessCategory('Réunion d’équipe', true)).toBe('cours');
+    }
+  });
+
+  it('studies and work (a BTS in alternance): work words are Travail, school stays school', () => {
+    useSettings.setState({ usage: 'etudes', usages: ['etudes', 'travail'] });
+    for (const x of ['Chantier Mme Durand', 'Brief client', 'Rendez-vous client', 'Réunion d’équipe', 'Dossier Martin', 'Voir ma tutrice']) expect(guessCategory(x, true), x).toBe('travail');
+    expect(guessCategory('Partiel de négo', true)).toBe('examen');
+    expect(guessCategory('Cours de compta', true)).toBe('cours');
+    expect(guessCategory('Rendre le DM')).toBe('devoir');
+    expect(guessCategory('Dossier CAF')).toBe('perso');
+    expect(guessCategory('Dîner chez Paul', true)).toBe('perso');
+    // Studies alone: nothing becomes « Travail ».
+    useSettings.setState({ usage: 'etudes', usages: ['etudes'] });
+    expect(guessCategory('Chantier Mme Durand', true)).toBe('perso');
+    // Personal life and work: an appointment stays a « Rendez-vous », the client's one is work, the taxes a thing to do.
+    useSettings.setState({ usage: 'perso', usages: ['perso', 'travail'] });
+    expect(guessCategory('Dentiste', true)).toBe('cours');
+    expect(guessCategory('Rendez-vous client', true)).toBe('travail');
+    expect(guessCategory('Payer les impôts')).toBe('devoir');
+  });
+
+  it('a shared calendar: the everyday words, nothing said is the calendar’s own (never my « Rendez-vous » or « Travail »)', () => {
+    useSettings.setState({ usage: 'travail', usages: ['travail'] });
+    expect(guessCategory('Service du soir', true, [], 'shared')).toBe('perso');
+    expect(guessCategory('Planning Sofiane', true, [], 'shared')).toBe('perso');
+    expect(guessCategory('', false, [], 'shared')).toBe('perso');
+    expect(guessCategory('Dentiste', true, [], 'shared')).toBe('cours');
+    // My own calendar keeps my words.
+    expect(guessCategory('Service du soir', true)).toBe('travail');
+  });
+
+  it('exams said every way: bac blanc, DS, devoir surveillé, contrôle, partiel blanc, oral (not a class, not homework)', () => {
+    for (const usage of ['etudes', 'perso'] as const) {
+      useSettings.setState({ usage, usages: [usage] });
+      for (const x of ['Bac blanc de philo', 'Bac blanc', 'Brevet blanc', 'DS de maths', 'DST d’histoire', 'Devoir surveillé de physique', 'Devoir sur table', 'Contrôle d’anglais', 'Partiel blanc de droit', 'Oral d’espagnol', 'Examen blanc'])
+        expect(guessCategory(x, true), `${usage} ${x}`).toBe('examen');
+      expect(guessCategory('Réviser le bac blanc')).toBe('devoir');
+      expect(guessCategory('Devoir de maths')).toBe('devoir');
+    }
   });
 
   it('a health appointment by the practitioner’s name is a « Rendez-vous » in personal life', () => {

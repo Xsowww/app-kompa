@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { BellRing, CheckCircle2, CloudAlert, Info, WifiOff, X, XCircle } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { reminderItems, SNOOZE_MINUTES } from '../lib/reminders';
 import { create } from 'zustand';
 import { useUi, type ReminderAlert, type Toast } from '../store/ui';
@@ -9,6 +9,7 @@ import { cx } from '../lib/utils';
 import { retryNow, useService } from '../lib/serviceStatus';
 import { arrowNav, focusBeforeOverlay, focusables, trapTab } from '../lib/a11y';
 import { useBackClose } from '../lib/backClose';
+import { useModals } from '../lib/modals';
 import { useSettings } from '../store/settings';
 import { useAuth } from '../store/auth';
 import { locale, t } from '../i18n';
@@ -104,7 +105,10 @@ export function ServiceBanner({ inline }: { inline?: boolean }) {
 
 export function Toasts() {
   const toasts = useUi(s => s.toasts).slice(-3);
-  const island = useIsland();
+  // Not on the welcome questions: without the app's bar the island stood alone there (its clock « 12:03 » at the foot
+  // of the screen); what is said there comes as the usual message.
+  const welcome = useLocation().pathname === '/bienvenue';
+  const island = useIsland() && !welcome;
   // Ctrl+Z (⌘Z) undoes what the last toast offers to undo: from the keyboard, its button is far down the Tab order.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -167,6 +171,7 @@ export function Modal({ open, onClose, children, width = 420, label, className }
   useEffect(() => {
     if (!open) return;
     const el = ref.current!;
+    useModals.setState(s => ({ open: s.open + 1 }));
     const previous = focusBeforeOverlay(el);
     const heading = el.querySelector('h1, h2, h3');
     if (heading && !label) {
@@ -196,6 +201,7 @@ export function Modal({ open, onClose, children, width = 420, label, className }
     };
     document.addEventListener('keydown', onKey, true);
     return () => {
+      useModals.setState(s => ({ open: Math.max(0, s.open - 1) }));
       document.removeEventListener('keydown', onKey, true);
       const now = document.activeElement;
       if (previous?.isConnected && (!now || now === document.body || el.contains(now))) previous.focus();

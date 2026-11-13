@@ -22,7 +22,7 @@ describe('usage', () => {
   it('understands work words for a work account', () => {
     useSettings.setState({ usage: 'travail' });
     expect(guessCategory('Réunion client jeudi')).toBe('cours');
-    expect(guessCategory('Envoyer le devis Dupont')).toBe('perso'); // neutral: a quote is not a « Livrable »
+    expect(guessCategory('Envoyer le devis Dupont')).toBe('travail'); // a quote is work, never a « Livrable » (test n°3)
     expect(guessCategory('Deadline site web')).toBe('examen');
   });
   it('renames the categories', () => {

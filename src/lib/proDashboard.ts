@@ -106,8 +106,8 @@ export function axisMarks(max: number, kind: 'tasks' | 'focus'): number[] {
 /** Ratio 0–1 of a ring (nothing asked: an empty ring, not a full one). */
 export const ringRatio = (done: number, total: number) => (total > 0 ? Math.min(1, Math.max(0, done / total)) : 0);
 
-/** The space a calendar category belongs to: Perso and Sport are personal life, the others the account's own use. */
-export const spaceOf = (category: string, usage: Usage): Usage => (category === 'perso' || category === 'sport' ? 'perso' : usage);
+/** The space a calendar category belongs to: Perso and Sport are personal life, Travail work, the others the account's own use. */
+export const spaceOf = (category: string, usage: Usage): Usage => (category === 'perso' || category === 'sport' ? 'perso' : category === 'travail' ? 'travail' : usage);
 
 // Words that say what kind of thing it is, not what it is about (« Partiel de maths » is about maths).
 const KIND_WORDS = /^\s*(?:cours|amphi|cm|td|tp|partiel|partiels|examen|exam|controle|contrôle|ds|dm|devoir|interro|exposé|expose|oral|révisions?|revisions?|réviser|reviser|fiche)(?:\s+|$)(?:de la |de l'|de l’|de |d'|d’|du |des )?/i;

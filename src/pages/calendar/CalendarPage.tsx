@@ -38,6 +38,7 @@ import { TaskRow } from './TaskItem';
 import { byStartTime, dayMark, isFor, jumpSaid, markJumpSaid, openingDay, newEventDay, spanBars, spanEdge, sweptRange, tasksOn, upcomingList } from './layout';
 import { agendaLink, copyToMyCalendar, fromAgenda, useAgendaOverlay } from './agendas';
 import { ContextMenu, type MenuItem } from '../../components/Overlays';
+import { useModals } from '../../lib/modals';
 import { isMenuKey, menuPoint } from '../../lib/a11y';
 import { GROUP_COLORS, type Group } from '../../lib/groups';
 import { t, tn } from '../../i18n';
@@ -571,8 +572,10 @@ export default function CalendarPage() {
   const fillOf = (key: string, strength: number) => periodsFill(periodsOn(periods, key), strength);
   const label = (p: Period) => periodLabel(p, shared?.nameOf);
 
+  // A window open over the page (the event's form…): the bar behind takes nothing typed, the keyboard stays in the window.
+  const behind = useModals(s => s.open > 0);
   const parsed = quick.trim() ? parseQuickAdd(quick, undefined, undefined, true) : null;
-  const parsedCat = parsed ? guessCategory(parsed.title || quick, !!parsed.start, custom) : null;
+  const parsedCat = parsed ? guessCategory(parsed.title || quick, !!parsed.start, custom, shared ? 'shared' : 'mine') : null;
   // No day in the sentence: the day shown, unless it is past (an event typed while looking back lands today).
   const quickDate = parsed?.date ?? (newDay < today ? today : newDay);
 
@@ -785,7 +788,7 @@ export default function CalendarPage() {
     readOnly ? (
           <p className="cal-notice card px-4 py-3 text-[13px] text-stone-500">{t('Agenda en lecture seule.')}</p>
         ) : (
-        <form onSubmit={submitQuick} className="card flex flex-col px-3 transition-shadow focus-within:border-stone-300 focus-within:shadow-pop has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-focus">
+        <form onSubmit={submitQuick} inert={behind} className="card flex flex-col px-3 transition-shadow focus-within:border-stone-300 focus-within:shadow-pop has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-focus">
           <div className="flex h-12 items-center gap-2.5">
             <Plus size={17} className="shrink-0 text-stone-400" />
             <input

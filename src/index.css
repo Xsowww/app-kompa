@@ -79,6 +79,8 @@
   --cat-examen-text: #b13428;
   --cat-devoir-soft: #fcf4e6;
   --cat-devoir-text: #9a620c;
+  --cat-travail-soft: #fbeef4;
+  --cat-travail-text: #a32d63;
   --cat-perso-soft: #ebf7f1;
   --cat-perso-text: #217a51;
   --cat-sport-soft: #f3effc;
@@ -155,6 +157,8 @@
   --cat-examen-text: #f59a8f;
   --cat-devoir-soft: color-mix(in oklab, #d48a17 22%, #171922);
   --cat-devoir-text: #ebbd6e;
+  --cat-travail-soft: color-mix(in oklab, #c43d7a 24%, #171922);
+  --cat-travail-text: #f29cc4;
   --cat-perso-soft: color-mix(in oklab, #2f9e6b 22%, #171922);
   --cat-perso-text: #7fd5aa;
   --cat-sport-soft: color-mix(in oklab, #7a5ad6 24%, #171922);
