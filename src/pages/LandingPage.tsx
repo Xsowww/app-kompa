@@ -816,11 +816,27 @@ function Usages({ chosen }: { chosen: Usage | null }) {
 }
 
 const TRUST = [
-  { icon: Server, title: t('Hébergé en Europe'), text: t('Tes données sont hébergées dans l’Union européenne (Irlande, Allemagne). Seul ce que tu demandes à une IA en sort, vers les États-Unis : la question que tu poses à l’IA (jamais utilisée pour l’entraîner), le son d’un enregistrement pour l’écrire en texte, puis effacé, et la photo d’une fiche pour la lire. Le nom de chaque service est dans la politique de confidentialité.') },
+  // Where the servers are (legal notices: the site's host is a company in San Francisco, its servers in Frankfurt), and
+  // what leaves Europe, said in the title too (visitors' test: « Hébergé en Europe » alone read as « nothing leaves »).
+  {
+    icon: Server,
+    title: t('Données en Europe, IA aux États-Unis'),
+    text: t('Tes données sont hébergées en Europe (Irlande, Allemagne) ; l’IA et la transcription passent par les États-Unis : la question que tu poses à l’IA (jamais utilisée pour l’entraîner), le son d’un enregistrement pour l’écrire en texte, puis effacé, et la photo d’une fiche pour la lire.'),
+    more: { to: '/confidentialite#qui-y-a-acces', label: t('Le détail dans la politique de confidentialité') },
+  },
   { icon: Lock, title: t('Tes fichiers sont protégés'), text: t('Tes fichiers sont protégés : transferts chiffrés (HTTPS), disques chiffrés sur les serveurs. Ils ne sont ouverts que par ton compte, et par les membres d’un groupe pour ce que tu y partages. Kompaly ne lit un fichier que pour répondre à une de tes demandes.') },
   { icon: ShieldCheck, title: t('Un code en plus du mot de passe, si tu veux'), text: t('Une sécurité en plus, si tu veux : à la connexion, un code affiché par ton téléphone en plus du mot de passe (la « double authentification »).') },
   { icon: Download, title: t('Ni publicité, ni revente de données'), text: t('Ni publicité, ni revente de données. Exporte tout ou supprime ton compte en un clic.') },
 ] as const;
+
+/** A privacy point's « where to read more », the privacy page's own section. */
+function TrustMore({ more }: { more: { to: string; label: string } }) {
+  return (
+    <Link to={more.to} className="font-semibold text-paper underline decoration-paper/40 underline-offset-4 hover:decoration-paper">
+      {more.label}
+    </Link>
+  );
+}
 
 /** The privacy points; phones: each behind a short title (four long paragraphs in a row otherwise). */
 function TrustPoints() {
@@ -836,7 +852,7 @@ function TrustPoints() {
                 <span className="min-w-0 flex-1">{item.title}</span>
                 <OpenMark className="text-paper/60" />
               </summary>
-              <p className="pb-5 text-[14.5px] leading-relaxed">{item.text}</p>
+              <p className="pb-5 text-[14.5px] leading-relaxed">{item.text}{'more' in item && <> <TrustMore more={item.more} /></>}</p>
             </details>
           </li>
         ))}
@@ -847,7 +863,7 @@ function TrustPoints() {
       {TRUST.map(item => (
         <li key={item.text} className="flex gap-3">
           <item.icon size={19} strokeWidth={1.8} className="mt-0.5 shrink-0 text-paper/70" aria-hidden />
-          <p className="text-[14.5px] leading-relaxed">{item.text}</p>
+          <p className="text-[14.5px] leading-relaxed">{item.text}{'more' in item && <> <TrustMore more={item.more} /></>}</p>
         </li>
       ))}
     </ul>
