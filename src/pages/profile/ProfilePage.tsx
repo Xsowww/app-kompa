@@ -164,10 +164,18 @@ function ProfileTab() {
 
   // The three fields below change meaning with the use (« Établissement » → « Entreprise »): emptied, but
   // « Annuler » brings the use and what they held back.
-  const changeUsage = (usage: Usage) => {
-    if (usage === settings.usage) return;
-    const before = { usage: settings.usage, year: settings.year, school: settings.school, program: settings.program };
-    settings.set({ usage, year: '', school: '', program: '' });
+  // Every use chosen at welcome (« Mes études » and « Mon travail »), changed here the same way; the first one gives the
+  // app its words. At least one stays.
+  const usages = settings.usages.length ? settings.usages : [settings.usage];
+  const toggleUsage = (u: Usage) => {
+    const next = usages.includes(u) ? usages.filter(x => x !== u) : [...usages, u];
+    if (!next.length) return;
+    if (next[0] === settings.usage) settings.set({ usages: next });
+    else changeUsage(next[0], next);
+  };
+  const changeUsage = (usage: Usage, next: Usage[]) => {
+    const before = { usage: settings.usage, usages: settings.usages, year: settings.year, school: settings.school, program: settings.program };
+    settings.set({ usage, usages: next, year: '', school: '', program: '' });
     applyUsage(usage);
     if (before.year || before.school || before.program)
       toast(t('{fields} vidés pour « {usage} »', { fields: [words.school, words.program, words.level].join(', '), usage: USAGES.find(u => u.key === usage)?.label ?? '' }), 'info', {
@@ -266,8 +274,25 @@ function ProfileTab() {
           <FieldError id="profile-name-err">{nameError}</FieldError>
           </div>
         </Row>
-        <Row label={t('Kompaly sert pour')}>
-          <SelectField<Usage> className="w-56" label={t('Kompaly sert pour')} value={settings.usage} options={USAGES.map(u => ({ value: u.key, label: u.label }))} onChange={changeUsage} />
+        <Row label={t('Kompaly sert pour')} hint={t('Plusieurs réponses possibles.')}>
+          {/* The welcome question's own pills (several can be chosen; they wrap with a big text). */}
+          <div className="flex flex-wrap gap-2" role="group" aria-label={t('Kompaly sert pour')}>
+            {USAGES.map(u => {
+              const on = usages.includes(u.key);
+              return (
+                <button
+                  key={u.key}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => toggleUsage(u.key)}
+                  className={cx('welcome-chip hit inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-[13px] transition-colors', on ? 'border-brand-500 bg-brand-50 font-medium text-brand-700 ring-1 ring-brand-500' : 'border-stone-300 hover:bg-stone-50')}
+                >
+                  {on && <Check size={13} aria-hidden />}
+                  {u.label}
+                </button>
+              );
+            })}
+          </div>
         </Row>
         <Row label={words.school}>
           <input className="field w-56" aria-label={words.school} value={settings.school} placeholder={words.schoolHint} onChange={e => settings.set({ school: e.target.value })} />
@@ -857,7 +882,7 @@ function NotificationsTab() {
           />
         </Row>
         {/* With « Point du matin », the 8:00 summary takes the place of the 9:00 reminder (lib/reminders › upcomingReminders). */}
-        <Row label={t('Rappel par défaut des tâches')} hint={s.morningBrief ? t('Pour les tâches qui ont une date. Le jour même, c’est le point du matin, à 8 h, qui te les rappelle : pas de second rappel à 9 h.') : t('Pour les tâches datées (1 h avant celles qui ont une heure).')}>
+        <Row label={t('Rappel par défaut des tâches')} hint={s.morningBrief ? t('Pour les tâches qui ont une date : le matin même, c’est à 8 h, avec le point du matin (un seul message pour toutes les tâches du jour) ; une tâche avec une heure, 1 h avant.') : t('Pour les tâches qui ont une date : le matin même, c’est à 9 h ; une tâche avec une heure, 1 h avant.')}>
           <SelectField<string>
             value={TASK_DEFAULTS.find(o => o.minutes.join() === [...s.defaultTaskReminders].sort((a, b) => b - a).join())?.value ?? 'les-deux'}
             onChange={v => s.set({ defaultTaskReminders: TASK_DEFAULTS.find(o => o.value === v)?.minutes ?? [900, 0] })}

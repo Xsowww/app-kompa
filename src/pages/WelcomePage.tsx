@@ -6,7 +6,7 @@ import { useAuth } from '../store/auth';
 import { afterSignIn, finishWelcome, loadWelcomeDraft, saveWelcomeDraft } from '../store/session';
 import { PERSONAS, personaLabel } from '../lib/personas';
 import { USAGES } from '../lib/usage';
-import { DEFAULT_ANSWERS, OTHER_STATUS, WELCOME_STEPS, needOptions, statusGroups, type WelcomeAnswers } from '../lib/welcome';
+import { DEFAULT_ANSWERS, OTHER_STATUS, WELCOME_STEPS, keepStatus, needOptions, pickStatus, statusChosen, statusGroups, type WelcomeAnswers } from '../lib/welcome';
 import { cx } from '../lib/utils';
 import { t } from '../i18n';
 import { firstName } from '../lib/firstName';
@@ -135,7 +135,7 @@ export default function WelcomePage() {
                       if (moving.current) return;
                       const usages = on ? a.usages.filter(x => x !== u.key) : [...a.usages, u.key];
                       // The first one chosen is the main one (the words of the app); « Tu es… » keeps only what still fits.
-                      set({ usages, usage: usages[0] ?? DEFAULT_ANSWERS.usage, year: statusGroups(usages).some(g => g.options.includes(a.year)) ? a.year : '' });
+                      set({ usages, usage: usages[0] ?? DEFAULT_ANSWERS.usage, year: keepStatus(a.year, usages) });
                     }}
                   >
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
@@ -160,9 +160,10 @@ export default function WelcomePage() {
                   <div key={g.title} role="group" aria-label={g.title}>
                     <p className="eyebrow mb-2">{g.title}</p>
                     <div className="flex flex-wrap gap-2">
+                      {/* Alternance goes with a level (« BTS / BUT » and « Alternance »), the other answers replace each other. */}
                       {g.options.map(o => (
-                        <button key={o} type="button" aria-pressed={a.year === o} className={chip(a.year === o)} onClick={() => !moving.current && set({ year: o })}>
-                          {a.year === o && <Check size={13} aria-hidden />}
+                        <button key={o} type="button" aria-pressed={statusChosen(a.year, o)} className={chip(statusChosen(a.year, o))} onClick={() => !moving.current && set({ year: pickStatus(a.year, o) })}>
+                          {statusChosen(a.year, o) && <Check size={13} aria-hidden />}
                           {o}
                         </button>
                       ))}
@@ -170,8 +171,8 @@ export default function WelcomePage() {
                   </div>
                 ))}
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" aria-pressed={a.year === OTHER_STATUS} className={chip(a.year === OTHER_STATUS)} onClick={() => !moving.current && set({ year: OTHER_STATUS })}>
-                    {a.year === OTHER_STATUS && <Check size={13} aria-hidden />}
+                  <button type="button" aria-pressed={statusChosen(a.year, OTHER_STATUS)} className={chip(statusChosen(a.year, OTHER_STATUS))} onClick={() => !moving.current && set({ year: pickStatus(a.year, OTHER_STATUS) })}>
+                    {statusChosen(a.year, OTHER_STATUS) && <Check size={13} aria-hidden />}
                     {OTHER_STATUS}
                   </button>
                 </div>

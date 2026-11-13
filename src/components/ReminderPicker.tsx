@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { Bell, BellOff, BellRing, Plus, SlidersHorizontal, X } from 'lucide-react';
 import { DateField, Popover, SelectField, TimeField } from './Pickers';
-import { anchorOf, MAX_MINUTES, minutesBefore, reminderLabel, reminderMoment } from '../lib/reminders';
+import { anchorOf, MAX_MINUTES, minutesBefore, reminderLabel as baseLabel, reminderMoment, TASK_MORNING } from '../lib/reminders';
 import { deviceState, enableDevice } from '../lib/push';
 import { deviceInfo, deviceWord, reminderDevice } from '../lib/phoneReminders';
 import { devicePushChanged } from '../lib/reminderScheduler';
@@ -56,6 +56,8 @@ function customMinutes(c: Custom, date: string | undefined, time: string | undef
 
 /** « Rappels » : one or several moments before an event or a task (lib/reminders). */
 export default function ReminderPicker({ value, onChange, timed, date, time, disabled, item }: Props) {
+  // A task's reminder that very morning: as Réglages › Notifications says it (9:00, or the 8:00 summary that replaces it).
+  const reminderLabel = (m: number, isTimed: boolean, d?: string, h?: string) => (item?.kind === 'task' && !isTimed && m === 0 ? TASK_MORNING : baseLabel(m, isTimed, d, h));
   const [state, setState] = useState(deviceState);
   // An iPhone in a browser tab: only Kompaly on the home screen can ring (whatever the browser says).
   const [info] = useState(deviceInfo);

@@ -102,12 +102,18 @@ export function taskReminders(due: string, time?: string, now = new Date(), chos
   return all.filter(min => reminderMoment(due, time, min) > now);
 }
 
+/**
+ * A task without a time, reminded that very day: at 9:00, or, with « Point du matin » on, in the 8:00 summary of the
+ * day's tasks, which takes its place (upcomingReminders). Said « le matin même » wherever it is listed: true either way.
+ */
+export const TASK_MORNING = t('Le matin même');
+
 /** « Rappel par défaut des tâches » (Réglages › Notifications): its four choices. */
 export const TASK_DEFAULTS: { value: string; minutes: number[]; label: string }[] = [
   { value: 'aucun', minutes: [], label: t('Aucun') },
   { value: 'veille', minutes: [900], label: t('La veille à 18:00') },
-  { value: 'jour', minutes: [0], label: t('Le jour même à 09:00') },
-  { value: 'les-deux', minutes: [900, 0], label: t('La veille à 18:00 et le jour même à 09:00') },
+  { value: 'jour', minutes: [0], label: TASK_MORNING },
+  { value: 'les-deux', minutes: [900, 0], label: t('La veille à 18:00 et le matin même') },
 ];
 
 /** « 45 min avant », « 3 h 30 avant », « 2 j 4 h avant ». */
@@ -138,7 +144,9 @@ export const minutesBefore = (date: string, time: string | undefined, day: strin
  * (« La veille à 20h30 », « Le jour même à 7h », « Lun. 13 oct. à 18h »), else the time before it.
  */
 export function reminderLabel(minutes: number, timed: boolean, date?: string, time?: string): string {
-  const o = reminderOptions(timed).find(x => x.minutes === minutes);
+  // A day before an hour that is known: « La veille à 09:00 », as the reminder's menu offers it (it was chosen so, then
+  // listed as « 1 jour avant »). « 1 jour avant » stays for the usual reminder, said without an event.
+  const o = timed && date && time && minutes === 1440 ? undefined : reminderOptions(timed).find(x => x.minutes === minutes);
   if (o) return o.label;
   if (!date) return offsetLabel(minutes);
   const at = reminderMoment(date, time, minutes);
