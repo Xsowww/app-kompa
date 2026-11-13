@@ -31,6 +31,7 @@ import { newSeries } from '../../lib/seriesId';
 import { copyToMyCalendar } from './agendas';
 import AgendaChoice from '../groups/AgendaChoice';
 import { addToAgenda, useAgendaTargets } from '../groups/agendaAdd';
+import { agendaCopies } from '../groups/agendaTarget';
 import { t, tn } from '../../i18n';
 
 const NONE: number[] = [];
@@ -124,8 +125,21 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
   const { add, addMany, update, updateSeries, shared, categories: custom, periods, events: allEvents } = source;
   // A new event of my calendar can go straight to one of my shared calendars (« Agenda : Perso · Famille »).
   const targets = useAgendaTargets(!event && !shared);
-  const [agendaId, setAgendaId] = useState('');
-  const into = targets.find(g => g.id === agendaId) ?? null;
+  // Several at once: « Perso » and/or shared calendars ('' is mine), never none.
+  const [agendaIds, setAgendaIds] = useState<string[]>(['']);
+  const intos = targets.filter(g => agendaIds.includes(g.id));
+  const mineToo = !intos.length || agendaIds.includes('');
+  // Going only to shared calendars: their rules (no « important », no reminder imposed, no endless rule kept here).
+  const into = mineToo ? null : intos[0];
+  /**
+   * A new event's days, to each calendar ticked: mine, and each shared one (its own series id, so the copies stay
+   * apart; only the reminders chosen by hand, my usual ones aren't imposed on its members).
+   */
+  const put = (list: NewEvent[]) => {
+    if (mineToo && list.length === 1) add(list[0]);
+    else if (mineToo) addMany(list);
+    for (const g of intos) addToAgenda(g, mineToo ? agendaCopies(list, chosen ?? []) : list);
+  };
   // An event over several days, whichever of its days was opened: edited as one, from its first day to its last.
   const [span] = useState(() => (event && isSpan(event.series) ? allEvents.filter(e => e.series === event.series).sort((a, b) => a.date.localeCompare(b.date)) : null));
   const spanFirst = span?.[0];
@@ -280,15 +294,14 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
     } else if (event) update(event.id, changes);
     else if (series) {
       const id = newSeries();
-      (into ? (l: NewEvent[]) => addToAgenda(into, l) : addMany)(series.days.map(d => ({ ...data, date: d, series: id })));
+      put(series.days.map(d => ({ ...data, date: d, series: id })));
       // My calendar: the rule is kept, a series without end goes on by itself (lib/repeatSeries).
-      if (!into && !shared && repeat) rememberRule(id, repeat, day);
+      if (mineToo && !shared && repeat) rememberRule(id, repeat, day);
     } else if (spanning) {
       const id = newSeries(true);
       // The first day keeps the reminders; the others none (« 15 min avant » 0:00 would ring at midnight).
-      (into ? (l: NewEvent[]) => addToAgenda(into, l) : addMany)(spanDays(day, night ? shiftKey(day, 1) : endDay!, start || undefined, end || undefined).map((p, i) => ({ ...data, ...p, start: p.start, end: p.end, series: id, reminders: i ? [] : data.reminders })));
-    } else if (into) addToAgenda(into, [data]);
-    else add(data);
+      put(spanDays(day, night ? shiftKey(day, 1) : endDay!, start || undefined, end || undefined).map((p, i) => ({ ...data, ...p, start: p.start, end: p.end, series: id, reminders: i ? [] : data.reminders })));
+    } else put([data]);
     // A new end for the series (« Sans fin », a later or earlier « Jusqu’au »): the days after it go, the missing ones are made.
     if (event?.series && inSeries && newEnd !== undefined && newEnd !== seriesEnd) {
       const now = shared ? inSeries : useCalendar.getState().events.filter(e => e.series === event.series);
@@ -388,7 +401,7 @@ function EventEditor({ event, date, start: initialStart, end: initialEnd, title:
           </p>
         )}
         {impossible && !titleError && <p className="mt-1.5 text-[12px] font-medium text-red-600 dark:text-red-400" role="alert">{t('Cette date n’existe pas : corrige-la pour ajouter.')}</p>}
-        <AgendaChoice targets={targets} value={agendaId} onChange={setAgendaId} />
+        <AgendaChoice targets={targets} value={agendaIds} onChange={setAgendaIds} />
 
         <p className="mb-1.5 mt-4 text-[12px] font-medium text-stone-600">{t('Catégorie')}</p>
         <div className="flex flex-wrap gap-2">
