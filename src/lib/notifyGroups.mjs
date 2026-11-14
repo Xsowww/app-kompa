@@ -45,10 +45,18 @@ export function groupByMoment(list, windowMs = 60_000) {
 const lines = n => String(n.body || '').split('\n');
 const cut = (s, max) => (s.length > max ? `${s.slice(0, max - 1)}…` : s);
 
-/** One notification for the group (`keys`: all those it stands for, each never shown again). */
-export function mergeNotifications(list) {
+const sameName = (a, b) => String(a.title).trim().toLowerCase() === String(b.title).trim().toLowerCase();
+
+/**
+ * One notification for the group (`keys`: all those it stands for, each never shown again). The same event put in my
+ * calendar and in a shared one at once rings once, as mine (« Coiffeur ×2 » was the one event twice): a shared
+ * calendar's reminder due with one of mine of the same name is left out, its key kept (never shown afterwards).
+ */
+export function mergeNotifications(all) {
+  const copy = n => String(n.key).startsWith('rappel-agenda:') && all.some(m => String(m.key).startsWith('event:') && sameName(m, n));
+  const list = all.filter(n => !copy(n));
   const [first, ...rest] = list;
-  if (!rest.length) return { ...first, keys: [first.key] };
+  if (!rest.length) return { ...first, keys: all.map(n => n.key) };
   const sameTitle = rest.every(n => n.title === first.title);
   const firstLines = list.map(n => lines(n)[0]).filter(Boolean);
   const sameWhen = firstLines.length === list.length && firstLines.every(l => l === firstLines[0]);
@@ -58,6 +66,6 @@ export function mergeNotifications(list) {
     ...first,
     title: cut(sameTitle ? `${first.title} ×${list.length}` : `${first.title} +${rest.length}`, 200),
     body: [cut(what, 160), where.length === 1 ? where[0] : ''].filter(Boolean).join('\n'),
-    keys: list.map(n => n.key),
+    keys: all.map(n => n.key),
   };
 }

@@ -83,3 +83,22 @@ describe('quietNews', () => {
     expect(quietNews(agenda, { ...on, muted: ['autre'] })).toBe(false);
   });
 });
+
+describe('le même événement dans Perso et dans un agenda partagé', () => {
+  it('une seule notification, la mienne, qui compte pour les deux', () => {
+    const m = mergeNotifications([
+      { key: 'rappel-agenda:abc:15', title: 'Coiffeur Léo', body: '14/11 · 10:00 · ❤️ Agenda', url: '/agendas?g=x' },
+      { key: 'event:def:15', title: 'Coiffeur Léo', body: 'Aujourd’hui · 10:00', url: '/calendrier' },
+    ]);
+    expect(m.title).toBe('Coiffeur Léo');
+    expect(m.body).toBe('Aujourd’hui · 10:00');
+    expect(m.keys).toEqual(['rappel-agenda:abc:15', 'event:def:15']);
+  });
+  it('deux événements partagés différents restent deux', () => {
+    const m = mergeNotifications([
+      { key: 'rappel-agenda:a:15', title: 'Coiffeur', body: '10:00', url: '/agendas' },
+      { key: 'event:b:15', title: 'Dentiste', body: '10:00', url: '/calendrier' },
+    ]);
+    expect(m.title).toBe('Coiffeur +1');
+  });
+});
