@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { BellRing, Check, CloudAlert, Coffee, FastForward, Info, Pause, Play, Pointer, Square, Timer, WifiOff, X } from 'lucide-react';
+import { BellRing, CalendarDays, Check, CloudAlert, Coffee, FastForward, Flag, Info, ListChecks, Pause, Play, Pointer, Square, Timer, WifiOff, X } from 'lucide-react';
 import { useFocus, focusLeft, mmss, type FocusPhase } from '../store/focus';
 import { useSettings } from '../store/settings';
 import { toast, useUi, type ReminderAlert, type Toast } from '../store/ui';
@@ -10,6 +10,7 @@ import { retryNow, useService, type Health } from '../lib/serviceStatus';
 import { reminderItems, SNOOZE_MINUTES } from '../lib/reminders';
 import { acceptOffer } from '../copilot/offers';
 import { frenchSpacing, stripMarkdown } from '../copilot/markdown';
+import { messageRows } from '../lib/messageRows';
 import KompalyMark from './KompalyMark';
 import { sober } from '../lib/sober';
 import { focusables } from '../lib/a11y';
@@ -387,6 +388,8 @@ function ServiceFace({ state }: { state: Health }) {
   );
 }
 
+const ROW_ICONS = [CalendarDays, ListChecks, Flag];
+
 /** What Kompaly says (copilot/proactive, an answer while his panel was closed): his words, his buttons, « Ouvrir ». */
 function KompalyFace({ said, onDone }: { said: KompalySaid; onDone: () => void }) {
   const navigate = useNavigate();
@@ -409,7 +412,26 @@ function KompalyFace({ said, onDone }: { said: KompalySaid; onDone: () => void }
           <small>
             <span>Kompaly</span>
           </small>
-          <span className="isl-msg">{sober(stripMarkdown(said.text))}</span>
+          {(m =>
+            m ? (
+              <>
+                <span className="isl-msg isl-msg-head">{m.head}</span>
+                <span className="isl-rows">
+                  {m.rows.map((r, i) => {
+                    const Icon = m.rows.length === 3 ? ROW_ICONS[i] : null;
+                    return (
+                      <span key={r.label} className="isl-row">
+                        {Icon && <Icon size={15} strokeWidth={2.2} aria-hidden />}
+                        <span className="isl-row-l">{r.label}</span>
+                        <span className="isl-row-v">{r.value}</span>
+                      </span>
+                    );
+                  })}
+                </span>
+              </>
+            ) : (
+              <span className="isl-msg">{sober(stripMarkdown(said.text))}</span>
+            ))(messageRows(sober(stripMarkdown(said.text))))}
         </button>
         <button type="button" className="isl-x" onClick={close} title={t('Fermer')} aria-label={t('Fermer le message')}>
           <X size={15} strokeWidth={2.6} aria-hidden />

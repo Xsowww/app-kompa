@@ -845,3 +845,46 @@ body:has([aria-modal='true']:not(.isl-face):not([data-modal])) .isl[data-mode='i
     clip-path: inset(0 0 0 0);
   }
 }
+
+/* Kompaly's morning brief: a heading, then one line per subject (icon, label, what), read at a glance. */
+.isl-msg-head {
+  -webkit-line-clamp: 2;
+  font-weight: 650;
+}
+.isl-rows {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+.isl-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 8px;
+  align-items: start;
+  text-align: left;
+}
+.isl-row svg {
+  grid-row: span 2;
+  margin-top: 1px;
+  color: rgb(255 255 255 / 0.6);
+}
+.isl-row:not(:has(svg)) {
+  grid-template-columns: minmax(0, 1fr);
+}
+.isl-row-l {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: rgb(255 255 255 / 0.56);
+}
+.isl-row-v {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  font-weight: 550;
+  line-height: 1.3;
+  color: rgb(255 255 255 / 0.94);
+}

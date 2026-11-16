@@ -293,8 +293,10 @@ function HomeView({ today, now, go, setView }: { today: string; now: Date; go: (
   const done = tasks.done.length;
   const timer = useTimerNow();
   const tomorrow = tomorrowOf(today);
-  // Its time today; else its day (« Aujourd’hui » for the whole day, « Demain », « lun. 9 »).
-  const bigNext = next ? (next.date === today && next.start ? next.start : next.date === today ? t('Aujourd’hui') : next.date === tomorrow ? t('Demain') : fmtDay(fromKey(next.date), 'EEE d')) : t('Libre');
+  // Its name in big, then when: « Aujourd’hui · 14:00 · dans 45 min », « Demain · 9:00 », « Mercredi 18 novembre ».
+  const nextDay = next && (next.date === today ? t('Aujourd’hui') : next.date === tomorrow ? t('Demain') : fmtDay(fromKey(next.date), 'EEEE d MMMM'));
+  const nextWhen = next ? [nextDay && nextDay.charAt(0).toUpperCase() + nextDay.slice(1), next.start, until !== null && until <= 120 ? inMinutes(until) : null].filter(Boolean).join(' · ') : t('Rien de prévu');
+  const nextTitle = next ? sober(next.title) : t('Libre');
   const toggle = () => {
     const f = useFocus.getState();
     if (!f.phase) f.start();
@@ -312,11 +314,9 @@ function HomeView({ today, now, go, setView }: { today: string; now: Date; go: (
             <CalendarDays size={13} strokeWidth={2.4} />
           </Ring>
         </span>
-        <span className="hub-tile-foot">
-          <strong className="tabular" data-long={(bigNext.length > 6) || undefined}>
-            {bigNext}
-          </strong>
-          <span>{next ? (until !== null && until <= 120 ? `${inMinutes(until)} · ${sober(next.title)}` : sober(next.title)) : t('Rien de prévu')}</span>
+        <span className="hub-tile-foot hub-next">
+          <strong data-long={nextTitle.length > 10 || undefined}>{nextTitle}</strong>
+          <span>{nextWhen}</span>
         </span>
       </button>
       <button type="button" className="hub-tile" style={{ '--c': 'var(--pro-tasks, #ff375f)' } as CSSProperties} onClick={() => setView('taches')}>

@@ -1008,3 +1008,47 @@ button.hub-tile:active {
 .isl-lights[data-still] > i {
   animation: none;
 }
+
+/* « Prochain »: the event's name is what is read first (2 lines at most), when it is under it; no empty middle. */
+.hub-next strong {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+@container (max-width: 400px) {
+  /* Across the island: « Prochain », the name and when on the left, the ring beside them (no empty band). */
+  .hub-tile:first-child {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 12px;
+    row-gap: 4px;
+    min-height: 0;
+  }
+  .hub-tile:first-child .hub-tile-head {
+    display: contents;
+  }
+  .hub-tile:first-child .hub-tile-head small {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .hub-tile:first-child .hub-tile-head > :last-child {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+  .hub-tile:first-child .hub-tile-foot {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .hub-next strong {
+    font-size: 24px;
+  }
+  .hub-next strong[data-long] {
+    font-size: 20px;
+  }
+  .hub-next > span {
+    font-size: 13px;
+  }
+}

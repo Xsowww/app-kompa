@@ -576,7 +576,7 @@ function morningBrief(): boolean {
       taches_restantes: todos.length,
       prochain_examen: nextExam ? `${nextExam.title} dans ${daysUntil(nextExam.date)} jours` : null,
     },
-    fallback: `${name ? t('Salut {name} ! Ta journée en 3 lignes :', { name }) : t('Salut ! Ta journée en 3 lignes :')}\n${lines.join('\n')}`,
+    fallback: `${name ? t('Salut {name} ! Voici ta journée :', { name }) : t('Salut ! Voici ta journée :')}\n${lines.join('\n')}`,
     offers,
     mood: 'happy',
   });
