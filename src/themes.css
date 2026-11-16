@@ -481,7 +481,7 @@
 }
 @media (min-height: 621px) {
   :root {
-    --pro-rail-w: 80px;
+    --pro-rail-w: 72px;
   }
 }
 @media (width >= 64rem) {
@@ -629,27 +629,28 @@
     align-items: center;
     justify-content: center;
     gap: 3px;
-    width: 68px;
-    height: 54px;
-    border-radius: 22px;
+    /* Round, as the phone's bar and the island: the white bubble under the chosen one is a circle, inside the pill. */
+    width: 60px;
+    height: 58px;
+    border-radius: 999px;
   }
   .pro-rail-btn svg { width: 20px; height: 20px; flex: none; }
   .pro-rail-btn svg.pro-kmark { width: 24px; height: 24px; margin: -2px 0; }
   .pro-rail-word {
     display: block;
-    max-width: 64px;
+    max-width: 54px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: min(0.6875rem, 12px);
+    font-size: 10px;
     font-weight: 600;
     line-height: 1.15;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.02em;
   }
   .pro-rail .pro-tip { display: none; }
   /* The marks at the icon's corner, not the wider button's. */
-  .pro-rail .pro-count { top: 1px; right: 13px; }
-  .pro-rail .pro-dot { top: 6px; right: 19px; }
+  .pro-rail .pro-count { top: 2px; right: 9px; }
+  .pro-rail .pro-dot { top: 7px; right: 15px; }
 }
 /* The white bubble under the chosen icon (computers and phones), sliding with a spring. */
 .pro-bubble {
