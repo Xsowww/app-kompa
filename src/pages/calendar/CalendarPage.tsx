@@ -434,7 +434,8 @@ export default function CalendarPage() {
   const panelRoom = usePanelInset(gridRef, mode === 'week' && weekGrid);
   const [allUpcoming, setAllUpcoming] = useState(false);
   const [managing, setManaging] = useState(false);
-  const [periodsOpen, setPeriodsOpen] = useState(false);
+  // « Périodes » open: its list, or (`'new'`) straight on a new one (the « + » menu, ?periodes=1).
+  const [periodsOpen, setPeriodsOpen] = useState<boolean | 'new'>(false);
   // fromQuick: opened from the quick add (« demain 14h » without a title), whose text is cleared once saved.
   // template: « Dupliquer », a new event filled in as that one.
   const [form, setFormState] = useState<{ event?: CalendarEvent; template?: CalendarEvent; date: string; start?: string; end?: string; title?: string; fromQuick?: boolean } | null>(null);
@@ -450,6 +451,8 @@ export default function CalendarPage() {
       ? []
       : [
           { label: t('Nouvel événement'), icon: <CalendarPlus />, onClick: () => setForm({ date: newDay }) },
+          // Vacances, stage, partiels… (the toolbar's « Périodes » is only an icon on phones: it wasn't found).
+          { label: t('Nouvelle période ({ideas}…)', { ideas: periodIdeas(usage) }), icon: <CalendarRange />, onClick: () => setPeriodsOpen('new') },
           ...(shared ? [] : [{ label: t('Ajouter un {timetable} (lien ou fichier .ics)', { timetable: words.timetable }), icon: <CalendarArrowDown />, onClick: () => setImporting({}) }]),
         ],
   );
@@ -486,6 +489,11 @@ export default function CalendarPage() {
     if (params.get('ajout')) {
       if (!readOnly) setFormState({ date: newDay });
       setParams(p => (p.delete('ajout'), p), { replace: true });
+    }
+    // ?periodes=1 (Kompaly, the help): the window of the periods, on a new one.
+    if (params.get('periodes')) {
+      if (!readOnly) setPeriodsOpen('new');
+      setParams(p => (p.delete('periodes'), p), { replace: true });
     }
     // ?importer=1 (« Essayer » in Nouveautés): the window to follow a timetable by its link or a .ics file.
     if (params.get('importer')) {
@@ -1440,7 +1448,7 @@ export default function CalendarPage() {
       )}
       {importing && <ImportIcsDialog initial={importing.initial} onClose={() => setImporting(null)} onImported={selectDay} />}
       {managing && <CategoriesDialog onClose={() => setManaging(false)} />}
-      {periodsOpen && <PeriodsDialog day={selected} onClose={() => setPeriodsOpen(false)} />}
+      {periodsOpen && <PeriodsDialog day={selected} startNew={periodsOpen === 'new'} onClose={() => setPeriodsOpen(false)} />}
       {task && <TaskDialog todo={task} onClose={() => setTask(null)} />}
       {menu && <ContextMenu x={menu.x} y={menu.y} items={menuItems(menu.ev)} label={menu.ev.title} onClose={() => setMenu(null)} />}
 

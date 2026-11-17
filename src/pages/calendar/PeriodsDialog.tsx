@@ -377,14 +377,14 @@ function PeriodForm({ draft, around, onDone }: { draft: Draft; around: string; o
 }
 
 /** « Périodes » : weeks that mean something (en cours / en entreprise, vacances…), tinted on the calendar. */
-export default function PeriodsDialog({ day, onClose }: { day: string; onClose: () => void }) {
+export default function PeriodsDialog({ day, onClose, startNew }: { day: string; onClose: () => void; startNew?: boolean }) {
   const source = useCalendarSource();
   const usage = useSettings(s => s.usage);
   const canEdit = !source.shared || source.shared.canEdit;
   const list = sortPeriods(source.periods);
   // A new period starts with no day ticked: the days are picked on the month.
   const fresh = (): Draft => ({ title: '', start: '', end: '', color: 'bleu' });
-  const [draft, setDraft] = useState<Draft | null>(() => (list.length === 0 && canEdit ? fresh() : null));
+  const [draft, setDraft] = useState<Draft | null>(() => ((list.length === 0 || startNew) && canEdit ? fresh() : null));
   const [importing, setImporting] = useState(false);
   const sources = useImportSources();
   // From my own calendar, the shared ones to import from (the list may not be read yet).
