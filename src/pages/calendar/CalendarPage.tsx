@@ -451,9 +451,10 @@ export default function CalendarPage() {
       ? []
       : [
           { label: t('Nouvel événement'), icon: <CalendarPlus />, onClick: () => setForm({ date: newDay }) },
-          // Vacances, stage, partiels… (the toolbar's « Périodes » is only an icon on phones: it wasn't found).
-          { label: t('Nouvelle période ({ideas}…)', { ideas: periodIdeas(usage) }), icon: <CalendarRange />, onClick: () => setPeriodsOpen('new') },
-          ...(shared ? [] : [{ label: t('Ajouter un {timetable} (lien ou fichier .ics)', { timetable: words.timetable }), icon: <CalendarArrowDown />, onClick: () => setImporting({}) }]),
+          // Vacances, stage, partiels… (the toolbar's « Périodes » is only an icon on phones: it wasn't found). Short: the
+          // details are on the next screen.
+          { label: t('Nouvelle période'), icon: <CalendarRange />, onClick: () => setPeriodsOpen('new') },
+          ...(shared ? [] : [{ label: t('Ajouter un {timetable}', { timetable: words.timetable }), icon: <CalendarArrowDown />, onClick: () => setImporting({}) }]),
         ],
   );
   const [fileOver, setFileOver] = useState(false);
