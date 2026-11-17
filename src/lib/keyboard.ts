@@ -102,3 +102,40 @@ export function watchKeyboard() {
  * reminder… (the keyboard covered half the screen at once and moved the page).
  */
 export const softKeyboard = () => typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches;
+
+/** A field one types in (a screen keyboard comes with it); not a box, a button, a day or a colour. */
+const TYPED = new Set(['text', 'search', 'email', 'password', 'tel', 'url', 'number']);
+export const typingField = (el: Element | null): el is HTMLElement =>
+  !!el && ((el instanceof HTMLInputElement && TYPED.has(el.type)) || el instanceof HTMLTextAreaElement || (el instanceof HTMLElement && el.isContentEditable));
+
+/**
+ * Whether the app may put the cursor in `field` by itself: with a screen keyboard, only right after the person touched
+ * that field (or what opens it for typing, `data-opens-typing`: the search buttons).
+ * Opening a window, creating an event, a task, a note… never opens the keyboard by itself (the owner: « le clavier
+ * s'ouvre seulement si l'utilisateur clique sur un endroit pour écrire »). Pure: tested in tests/noAutoKeyboard.test.ts.
+ */
+export function mayFocus(field: Element, touched: Element | null, touchedAgoMs: number): boolean {
+  if (!touched || touchedAgoMs > 1500) return false;
+  return field === touched || field.contains(touched) || touched.closest('label')?.contains(field) === true || !!touched.closest('[data-opens-typing]');
+}
+
+/** Once, at start-up: every focus the app gives a field (autoFocus, `.focus()`, the note editor) goes through mayFocus. */
+export function noAutoKeyboard() {
+  if (typeof HTMLElement === 'undefined' || !softKeyboard()) return;
+  let touched: Element | null = null;
+  let at = 0;
+  document.addEventListener('pointerdown', e => ((touched = e.target as Element), (at = Date.now())), true);
+  const focus = HTMLElement.prototype.focus;
+  HTMLElement.prototype.focus = function (this: HTMLElement, options?: FocusOptions) {
+    if (typingField(this) && !mayFocus(this, touched, Date.now() - at)) return;
+    focus.call(this, options);
+  };
+  // select() puts the cursor in the field too (a new note's title): the same rule.
+  for (const proto of [HTMLInputElement.prototype, HTMLTextAreaElement.prototype]) {
+    const select = proto.select;
+    proto.select = function (this: HTMLInputElement | HTMLTextAreaElement) {
+      if (typingField(this) && !mayFocus(this, touched, Date.now() - at)) return;
+      select.call(this);
+    };
+  }
+}

@@ -735,6 +735,7 @@ export default function AppShell() {
             aria-label={t('Rechercher')}
             aria-expanded={searchOpen}
             aria-controls={searchOpen ? 'recherche-mobile' : undefined}
+            data-opens-typing
             onClick={() => setSearchOpen(o => !o)}
           >
             <Search size={18} strokeWidth={1.9} />

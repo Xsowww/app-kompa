@@ -198,6 +198,7 @@ export default function IslandHub({ view, setView, onClose, passing }: HubProps)
             }}
             aria-label={t('Rechercher')}
             title={t('Rechercher')}
+            data-opens-typing
           >
             <Search size={15} strokeWidth={2.4} aria-hidden />
           </button>

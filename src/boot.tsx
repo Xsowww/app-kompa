@@ -7,7 +7,7 @@ import { useAuth } from './store/auth';
 import { toast } from './store/ui';
 import { t } from './i18n';
 import { watchNewVersion } from './lib/freshness';
-import { watchKeyboard } from './lib/keyboard';
+import { watchKeyboard, noAutoKeyboard } from './lib/keyboard';
 import { keepAppOffline } from './lib/offline';
 
 /** Starts the app: right away (main.tsx), or when the visitor leaves the home page drawn alone (landing.tsx). */
@@ -23,6 +23,7 @@ export function start() {
     () => toast(t('Nouvelle version disponible'), 'info', { label: t('Recharger'), run: () => location.reload() }, { duration: 0 }),
   );
   watchKeyboard();
+  noAutoKeyboard();
   // Not in development: the files there are the sources, served one by one (nothing to keep for offline).
   if (import.meta.env.PROD) keepAppOffline();
 
